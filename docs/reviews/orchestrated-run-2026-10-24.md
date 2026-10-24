@@ -2,7 +2,9 @@
 
 ## Status
 
-Open - 2026-10-24. This record is advisory. It states no rule. Each rule stays in its ADR or its packet.
+Closed - 2026-10-24. Each packet of the run is implemented and committed, and the operator walked the final walk. The operator closed the run on 2026-10-24. Each check that stays open is in section 7 of [pending human checks](../pending-human-checks.md). The fix packets of the walk come next in the [remaining order](../plans/design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23).
+
+This record is advisory. It states no rule. Each rule stays in its ADR or its packet.
 
 ## Operator Decisions - 2026-10-24
 

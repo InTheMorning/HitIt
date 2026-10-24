@@ -166,6 +166,31 @@ The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [
 
 ### Phase 4A: Close
 
+1. The operator closed the run of 2026-10-23 and the [run of 2026-10-24](../reviews/orchestrated-run-2026-10-24.md) on 2026-10-24. The run of 2026-10-24 implemented ADR 0084 packets 035 to 037, ADR 0087 packets 007 and 008 and ADR 0059 packet 019. The operator passed packets 036, 037 and 008. Each check that did not pass stays open in [pending human checks](../pending-human-checks.md).
+2. Fix packets for the behavior defects of the walk of 2026-10-24. Each packet is Ready, and the operator answered its questions:
+   - [ADR 0084 packet 038](../tasks/adr-0084-task-038-downloaded-single-joins-its-group.md), for packet 035 V1: two Library feeds with one artist text and one title join into one Album node, so a downloaded single leaves its group. Then walk packet 035 V1 to V3 again.
+   - [ADR 0084 packet 039](../tasks/adr-0084-task-039-download-queue-host-limit.md): the download queue sends feed requests to one host with no limit and does not wait after HTTP 429. It also moves the feed request out of the database lock (responsiveness item 32). It amends ADR 0084 Decision 10 first.
+   - [ADR 0087 packet 009](../tasks/adr-0087-task-009-one-error-for-the-latest-text.md), for packet 007 V4: a live run that fails retains a failed action, so two errors show.
+   - [ADR 0087 packet 010](../tasks/adr-0087-task-010-field-list-row-height.md), for the walk of packet 008 and for packet 004 V1 and packet 005 V7: the field list rows shrink and overlap. The max height stays, and step 4 decides it.
+
+### Ready Defects
+
+3. [The live value URI plan](archive/livevalue-uri-is-a-url.md). [ADR 0059 packet 019](../tasks/adr-0059-task-019-livevalue-uri-is-a-url.md) implemented it on 2026-10-24. The operator passed V1. V2 to V4 are open. V4 must pass before the relay adoption of row 3 of the delivery order.
+
+### Phase 7: Visual Overhaul
+
+The operator asked for it on 2026-10-23. The use of screen space and the size and color of the interface do not satisfy the operator. The operator writes the design rules in `../musicindex`. A v4vmm ADR adopts them. The [remaining order](#remaining-order---2026-10-23) puts this phase before each new screen.
+
+## Remaining Order - 2026-10-23
+
+The orchestrator wrote this order on 2026-10-23, from the operator answers on ADR 0086 of the same day. The operator revised it on 2026-10-24: the behavior fixes come first, then the visual overhaul, then each new screen. It replaces the phase numbers as the order of work. Each step is one session or more. A step starts only after the visual check of the step before it.
+
+The publisher show-log trigger of the [delivery order](broadcast-chain-delivery-order.md#current-delivery-order) stays first: when a real show is scheduled, publisher show-log task 001 comes before each step below.
+
+The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [ADR 0086](adr-0086-new-releases-window-groups-phase-plan.md) packets 001 to 005 and [ADR 0087](adr-0087-search-fields-phase-plan.md) packets 001 to 005. ADR 0087 packet 006 waits for the Stophammer release of open request 10.
+
+### Phase 4A: Close
+
 1. The operator closed the run of 2026-10-23 on 2026-10-24. Each check that the operator did not walk stays open in [pending human checks](../pending-human-checks.md). The operator answered the three questions of the run record.
 2. Fix packets for the behavior defects of the final walk. The visual overhaul does not change these defects:
    - [ADR 0084 packet 035](../tasks/adr-0084-task-035-download-stores-feed-links.md), for packet 026 V6 and packet 034: a download from a singles group stores no feed links (question 2 of the run record).
@@ -184,7 +209,7 @@ The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [
    - First, a v4vmm ADR adopts the rules. It amends or supersedes [ADR 0083](../adr/0083-design-language.md) and the Phase 3 tokens. It names the `../musicindex` document as its source. A rule binds v4vmm only through this ADR.
    - Then the new tokens in `src/ui/tokens.rs`.
    - Then one packet for each surface.
-   - The visual defects of the final walk go into this step, with no separate fix: ADR 0084 packet 026 V10 (clipped titles), ADR 0087 packet 004 V1 (9 of 11 field rows show) and ADR 0087 packet 005 V7 (a long name overlaps the next row).
+   - The visual defects of the final walk go into this step, with no separate fix: ADR 0084 packet 026 V10 (clipped titles), the max height of the field list (ADR 0087 packet 010, operator answer of 2026-10-24).
    - The ADR replaces or keeps each open visual criterion of size and color, and each [visual requirement moved from pending checks](#visual-requirements-moved-from-pending-checks---2026-10-07). The behavior criteria stay.
 
 ### Phase 5: Settings
