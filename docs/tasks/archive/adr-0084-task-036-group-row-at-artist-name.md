@@ -1,6 +1,6 @@
 # ADR 0084 Task 036: A Singles Group Row At Its Artist Name In "Everything"
 
-Status: Implemented - 2026-10-24. V1 to V3 are open, in the final walk of the run of 2026-10-24.
+Status: Complete - 2026-10-24. The operator passed V1 to V3 on 2026-10-24.
 
 ## Goal
 
@@ -10,13 +10,13 @@ The packet also states how this rule agrees with packet 016 decision D7: a row d
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 6: the singles groups. Decision 8: the two scopes.
-- [Packet 026](adr-0084-task-026-index-singles-groups.md) decision D5 and its "Operator Answers - 2026-10-24": option B. A group row in "Everything" takes the place of its artist name. A fix packet decides how this agrees with packet 016 decision D7.
-- The [run record](../reviews/orchestrated-run-2026-10-23.md#operator-answers---2026-10-24) of 2026-10-23, "Operator Answers - 2026-10-24", answer 1.
-- [Packet 016](adr-0084-task-016-library-and-everything-scopes.md) decisions D6 (the order) and D7 (the paging and the watermark).
+- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 6: the singles groups. Decision 8: the two scopes.
+- [Packet 026](../adr-0084-task-026-index-singles-groups.md) decision D5 and its "Operator Answers - 2026-10-24": option B. A group row in "Everything" takes the place of its artist name. A fix packet decides how this agrees with packet 016 decision D7.
+- The [run record](../../reviews/orchestrated-run-2026-10-23.md#operator-answers---2026-10-24) of 2026-10-23, "Operator Answers - 2026-10-24", answer 1.
+- [Packet 016](../adr-0084-task-016-library-and-everything-scopes.md) decisions D6 (the order) and D7 (the paging and the watermark).
 - Packet 026 decisions D4 (when the app reads the singles of a feed), D10 (the rows of a page show after each of its requests has an answer) and D14 (a single page reads the singles of its feed).
-- [Packet 032](adr-0084-task-032-singles-group-rows.md) decision D3: the matched singles do not move the row.
-- [AGENTS.md](../../AGENTS.md): "Every fix gets a guard", "Delete dead code" and "Current-view state must update in place".
+- [Packet 032](../adr-0084-task-032-singles-group-rows.md) decision D3: the matched singles do not move the row.
+- [AGENTS.md](../../../AGENTS.md): "Every fix gets a guard", "Delete dead code" and "Current-view state must update in place".
 
 ## Recorded Facts - 2026-10-24
 
@@ -103,7 +103,7 @@ These facts come from the code above and from the counts of packet 026. Nobody o
 5. Documents, in the same change (AGENTS.md "Changing Direction Is One Change"):
    - Packet 016 decision D7: add the exception of the answer to Q1, with a link to this packet.
    - Packet 026: the Design line "The order position of a group row is the sort key of its first single in title order" and case R26-15 name this packet and the label order.
-   - [Pending human checks](../pending-human-checks.md): add V1 to V3 of this packet. Packet 026 V1 stays open until the walk of this packet passes.
+   - [Pending human checks](../../pending-human-checks.md): add V1 to V3 of this packet. Packet 026 V1 stays open until the walk of this packet passes.
 
 ## Mechanical Acceptance Criteria
 
@@ -140,7 +140,7 @@ Each criterion here is visual. Only a person can examine it. No test proves it.
 
 ## Files To Inspect
 
-- [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
+- [AGENTS.md](../../../AGENTS.md) and the [source map](../../architecture/source-map.md).
 - `src/view_models/library.rs` (`releases_list`, `fruit_page`, `index_singles_vm`, `haleen_fills`, the R26 tests).
 - `src/view_models/releases_everything.rs` (`ReleaseOrderKey`, `everything_entries`).
 - `src/view_models/singles_group.rs` (`SinglesGroup`, `first_title_sort_key`, `position_members`, `singles_groups_everything`).
@@ -209,4 +209,4 @@ Cleanup: this check changes no stored data. The app starts with the scope "Libra
   - `adr_0084_singles_group_rows_matched_only_group_keeps_its_place` is now `adr_0084_singles_group_rows_matched_only_group_keeps_its_art`. It asserts the art of the group.
   - `adr_0084_index_singles_r26_18_group_selection_and_download_plan` uses `fruit_page(false)`. With the label order, the group row "Haleen" shows only on the complete page. The packet did not name this test.
 - Packet 016 decision D7 has the exception of option A. Packet 026 marks its Design line and case R26-15 as replaced by this packet.
-- The orchestrator adds V1 to V3 to [pending human checks](../pending-human-checks.md). This packet did not change that file.
+- The orchestrator adds V1 to V3 to [pending human checks](../../pending-human-checks.md). This packet did not change that file.

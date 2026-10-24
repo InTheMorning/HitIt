@@ -1,6 +1,6 @@
 # ADR 0084 Task 035: A Download Stores The Feed Links Of Its Release
 
-Status: Implemented - 2026-10-24. V1 to V3 are open, in the final walk of the run of 2026-10-24.
+Status: Implemented - 2026-10-24. Failed: V1 on 2026-10-24. The link write of the packet works, but the group rows keep their state. Packet 038 owns the V1 defect. V2 and V3 are open, and the V1 defect blocks them.
 
 ## Goal
 

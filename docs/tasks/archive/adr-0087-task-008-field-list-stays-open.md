@@ -1,6 +1,6 @@
 # ADR 0087 Task 008: The Field List Stays Open For The Next Term
 
-Status: Implemented - 2026-10-24. V1 to V5 are open, in the final walk of the run of 2026-10-24.
+Status: Complete - 2026-10-24. The operator passed V1 to V5 on 2026-10-24. The walk found a new defect, which ADR 0087 packet 010 owns.
 
 ## Goal
 
@@ -20,17 +20,17 @@ still close the list.
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 3: "While the curator types a
+- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decision 3: "While the curator types a
   field name, the list shows the fields that start with that text." An empty field name is a
   prefix of each field. The list is the help for the next term.
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 1: the terms of one query all
+- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decision 1: the terms of one query all
   apply together. A query of more than one term is the normal case.
-- [Packet 004](adr-0087-task-004-field-list.md): this packet replaces three items of packet 004.
+- [Packet 004](../adr-0087-task-004-field-list.md): this packet replaces three items of packet 004.
   They are its decision D8, its case R87-4-14 and one part of its decision D9. That part closes
   the list after a row goes into the text. D8 says "In `Typing`, an empty name prefix in a text that is
   not empty gives no row".
-- [Packet 003](adr-0087-task-003-live-results.md) V6 and packet 004 V6: the failed checks.
-- [AGENTS.md](../../AGENTS.md): "Every fix gets a guard", "A guard names its class and its ADR",
+- [Packet 003](../adr-0087-task-003-live-results.md) V6 and packet 004 V6: the failed checks.
+- [AGENTS.md](../../../AGENTS.md): "Every fix gets a guard", "A guard names its class and its ADR",
   "Delete dead code" and "An acceptance criterion states how it is checked".
 
 ## Recorded Facts - 2026-10-24
@@ -187,13 +187,13 @@ packet follows each recommendation.
 
 The orchestrator then makes these document changes in the same commit:
 
-- [Packet 004](adr-0087-task-004-field-list.md): mark D8, the "after a row goes into the text"
+- [Packet 004](../adr-0087-task-004-field-list.md): mark D8, the "after a row goes into the text"
   part of D9, the sentence "After `single `, it shows no row and closes", R87-4-14 and the words
   "the list closes" of V4 as replaced by this packet.
-- [Pending human checks](../pending-human-checks.md): retire packet 003 V6 and packet 004 V6 into
+- [Pending human checks](../../pending-human-checks.md): retire packet 003 V6 and packet 004 V6 into
   V1 and V2 of this packet. Add V1 to V5 of this packet.
-- The [run record](../reviews/orchestrated-run-2026-10-23.md) and the
-  [ADR 0087 phase plan](../plans/adr-0087-search-fields-phase-plan.md): name this packet.
+- The [run record](../../reviews/orchestrated-run-2026-10-23.md) and the
+  [ADR 0087 phase plan](../../plans/adr-0087-search-fields-phase-plan.md): name this packet.
 
 ## Mechanical Acceptance Criteria
 
@@ -260,10 +260,10 @@ Each criterion is visual. Only a person can examine it in the running app. No te
 
 ## Files To Inspect
 
-- [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decisions 1 and 3.
-- [Packet 004](adr-0087-task-004-field-list.md) and
-  [packet 005](adr-0087-task-005-field-list-values.md).
+- [AGENTS.md](../../../AGENTS.md) and the [source map](../../architecture/source-map.md).
+- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decisions 1 and 3.
+- [Packet 004](../adr-0087-task-004-field-list.md) and
+  [packet 005](../adr-0087-task-005-field-list-values.md).
 - `src/view_models/search_field_list.rs`: `FieldListOpening`, `FieldListState::apply`,
   `FieldListVm::build` and the tests R87-4-01 to R87-4-16 and R87-5-03 to R87-5-15.
 - `src/app/search_field_list.rs`: `SearchFieldListView::new`, `apply_edit` and the tests R87-4-17,

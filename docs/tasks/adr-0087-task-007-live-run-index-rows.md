@@ -1,6 +1,6 @@
 # ADR 0087 Task 007: A Live Run Shows The Index Rows
 
-Status: Implemented - 2026-10-24. V1 to V4 are open, in the final walk of the run of 2026-10-24.
+Status: Implemented - 2026-10-24. Passed: V1 to V3 on 2026-10-24. The screenshots did not capture the loading rows. Failed: V4 on 2026-10-24. Packet 009 owns the V4 defect. V4 is open.
 
 The cause of the missing Index rows is not proved. "Candidates" lists the facts. Part A corrects a proved defect. Part B removes the candidate sites and adds tests for them. The walk of V1 and V3 decides the result.
 

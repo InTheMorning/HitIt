@@ -209,13 +209,10 @@ Open - the run closed on 2026-10-24 before the end of its walk. Each check below
 
 ## 7. Final Walk Of The Run Of 2026-10-24
 
-Open - each packet of the run is committed. The run record gives the setup and the order of the walk.
+Walked - 2026-10-24. The operator passed ADR 0084 packets 036 and 037 and ADR 0087 packet 008. Those packets are Complete and archived. The items below stay open.
 
 - Owner: the [run record](reviews/orchestrated-run-2026-10-24.md#final-walk).
-- The packets of the run. Each item names its packet and its open checks:
-  - [ADR 0084 packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V1 to V3. V1 walks packet 026 V6 again
-  - [ADR 0087 packet 008](tasks/adr-0087-task-008-field-list-stays-open.md) V1 to V5. V1 and V2 walk packet 003 V6 and packet 004 V6 again
-  - [ADR 0087 packet 007](tasks/adr-0087-task-007-live-run-index-rows.md) V1 to V4. V1 and V3 walk packet 003 V3 again. The cause is not proved: if V1 fails, write down the text of the note under the rows
-  - [ADR 0084 packet 036](tasks/adr-0084-task-036-group-row-at-artist-name.md) V1 to V3. V1 walks packet 026 V1 again
-  - [ADR 0084 packet 037](tasks/adr-0084-task-037-releases-everything-frame-time.md) V1 to V7, with `./target/release/v4vmm`. V7 is the Artists list. A row that does not change after a download or a removal is a defect of the cache
-  - [ADR 0059 packet 019](tasks/adr-0059-task-019-livevalue-uri-is-a-url.md) V1 to V4. Its step 9 replaces the tag in each feed that holds the old form, outside the app
+- The open checks. Each item names its packet:
+  - [ADR 0084 packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V2 and V3. The V1 defect blocks them. Packet 038 owns the V1 defect. V1 walks packet 026 V6 again
+  - [ADR 0087 packet 007](tasks/adr-0087-task-007-live-run-index-rows.md) V4. Packet 009 owns the defect. With MusicIndex not reachable, a live run gave two errors, and they show as retained actions in the top bar
+  - [ADR 0059 packet 019](tasks/adr-0059-task-019-livevalue-uri-is-a-url.md) V2 to V4. The operator removed the fixture before the steps of V2 and V3. V4 needs a real show feed. Its step 9 replaces the tag in each feed that holds the old form, outside the app

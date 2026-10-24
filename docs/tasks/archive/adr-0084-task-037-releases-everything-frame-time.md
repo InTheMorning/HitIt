@@ -1,6 +1,6 @@
 # ADR 0084 Task 037: The Frame Time Of The Releases List In "Everything"
 
-Status: Implemented - 2026-10-24. V1 to V6 are open, in the final walk of the run of 2026-10-24.
+Status: Complete - 2026-10-24. The operator passed V1 to V7 on 2026-10-24.
 
 ## Goal
 
@@ -10,16 +10,16 @@ The operator measured about 500 ms for each frame in the Releases list with the 
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md):
+- [ADR 0084](../../adr/0084-music-column-browser.md):
   - Decision 1: each Music column that scrolls shows a scrollbar with the shared gutter.
   - Decision 6: the singles groups. Decision 8: the two scopes.
   - Decision 10: the selection model, the checkboxes, the keyboard focus and the action bar.
-- [Packet 016](adr-0084-task-016-library-and-everything-scopes.md), Design "The sort key and the merge": "The merge is a pure function. It runs at each render." This packet keeps the pure function and changes when it runs. Decision D7: the paging, "Load more" and the watermark. Decision D8: the status rows.
+- [Packet 016](../adr-0084-task-016-library-and-everything-scopes.md), Design "The sort key and the merge": "The merge is a pure function. It runs at each render." This packet keeps the pure function and changes when it runs. Decision D7: the paging, "Load more" and the watermark. Decision D8: the status rows.
 - [Packet 036](adr-0084-task-036-group-row-at-artist-name.md): the order of a group row, and the operator answer to its question Q1.
-- [ADR 0063](../adr/0063-show-dashboard-layout.md): the shared scrollbar gutter.
-- [ADR 0040](../adr/README.md): background work runs on the async command runner. No screen calls `cx.spawn`.
-- The [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md), "Throughout: Responsiveness And Background Feedback", items 16 and 31.
-- [AGENTS.md](../../AGENTS.md): renderer portability, "Current-view state must update in place", "Every fix gets a guard" and "Delete dead code".
+- [ADR 0063](../../adr/0063-show-dashboard-layout.md): the shared scrollbar gutter.
+- [ADR 0040](../../adr/README.md): background work runs on the async command runner. No screen calls `cx.spawn`.
+- The [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md), "Throughout: Responsiveness And Background Feedback", items 16 and 31.
+- [AGENTS.md](../../../AGENTS.md): renderer portability, "Current-view state must update in place", "Every fix gets a guard" and "Delete dead code".
 
 ## Recorded Facts - 2026-10-24
 
@@ -171,7 +171,7 @@ Other callers of `releases_entries` run on an event, not on each frame:
 10. Documents, in the same change:
     - Packet 016, Design "The sort key and the merge": the merge runs when one of its inputs changes. Name this packet.
     - The overhaul plan, items 16 and 31: name this packet as their fix. The items stay until the operator walks V1.
-    - [Pending human checks](../pending-human-checks.md): add V1 to V6 of this packet.
+    - [Pending human checks](../../pending-human-checks.md): add V1 to V6 of this packet.
 
 ## Mechanical Acceptance Criteria
 
@@ -223,7 +223,7 @@ Each criterion here is visual. Only a person can examine it. No test proves it.
 
 ## Files To Inspect
 
-- [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
+- [AGENTS.md](../../../AGENTS.md) and the [source map](../../architecture/source-map.md).
 - `src/app.rs` (`TopApp::render`, the header action at line 1781).
 - `src/library.rs` (the `LibraryApp` fields) and `src/library/column_view.rs`.
 - `src/library/app_impl.rs` (`render_list_column`, `header_action_for_list_column`, `releases_visible_rows`, `releases_visible_members`, `move_selection_focus`, `disclose_focused_group`, `thumbnail_for_url`, `set_hovered_thumb`).

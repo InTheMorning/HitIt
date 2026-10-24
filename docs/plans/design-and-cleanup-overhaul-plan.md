@@ -169,10 +169,10 @@ The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [
 1. The operator closed the run of 2026-10-23 on 2026-10-24. Each check that the operator did not walk stays open in [pending human checks](../pending-human-checks.md). The operator answered the three questions of the run record.
 2. Fix packets for the behavior defects of the final walk. The visual overhaul does not change these defects:
    - [ADR 0084 packet 035](../tasks/adr-0084-task-035-download-stores-feed-links.md), for packet 026 V6 and packet 034: a download from a singles group stores no feed links (question 2 of the run record).
-   - [ADR 0087 packet 008](../tasks/adr-0087-task-008-field-list-stays-open.md), for packet 003 V6 and packet 004 V6: the field list closes after a value goes into the text, and after a trailing space.
+   - [ADR 0087 packet 008](../tasks/archive/adr-0087-task-008-field-list-stays-open.md), for packet 003 V6 and packet 004 V6: the field list closes after a value goes into the text, and after a trailing space.
    - [ADR 0087 packet 007](../tasks/adr-0087-task-007-live-run-index-rows.md), for packet 003 V3: a live run shows no Index rows. Enter shows them.
-   - [ADR 0084 packet 036](../tasks/adr-0084-task-036-group-row-at-artist-name.md), for packet 026 D5: a group row in "Everything" takes the place of its artist name (operator answer of 2026-10-24).
-   - [ADR 0084 packet 037](../tasks/adr-0084-task-037-releases-everything-frame-time.md), responsiveness item 31: about 500 ms for each frame in "Everything". It needs a virtual list and one merge for each frame. It comes before the responsiveness phase, because the list is not usable at that speed.
+   - [ADR 0084 packet 036](../tasks/archive/adr-0084-task-036-group-row-at-artist-name.md), for packet 026 D5: a group row in "Everything" takes the place of its artist name (operator answer of 2026-10-24).
+   - [ADR 0084 packet 037](../tasks/archive/adr-0084-task-037-releases-everything-frame-time.md), responsiveness item 31: about 500 ms for each frame in "Everything". It needs a virtual list and one merge for each frame. It comes before the responsiveness phase, because the list is not usable at that speed.
 
 ### Ready Defects
 
@@ -265,7 +265,8 @@ The operator asked on 2026-10-08 for a later phase that tunes how fast the app r
 29. 2026-10-23: `FieldListVm::build` matches the field values at each draw of the field list (`src/view_models/search_field_list.rs`, ADR 0087 packet 005). No measurement confirms a delay.
 30. 2026-10-23: the loading row of the MusicIndex artist names shows no progress on a slow MusicIndex node (`src/app/search_field_list.rs`, ADR 0087 packet 005).
 31. 2026-10-23: the operator measured about 500 ms for each frame in the Releases list with the scope "Everything", after several "Load more" clicks. The list is not a virtual list. It draws one element for each loaded row in each frame, also for each row that is not visible (`render_destination_list` in `src/ui/shells/library/destination_lists.rs`). Each frame also builds the merged list two times, for the header action and for the rows (`header_action_for_list_column` and the Releases list in `src/library/app_impl.rs`). Item 16 records the second cause.
-    [ADR 0084 packet 037](../tasks/adr-0084-task-037-releases-everything-frame-time.md) owns items 16 and 31 from 2026-10-24: one cached merge and one virtual list for the Releases list and the Artists list. It is implemented on 2026-10-24. No measurement confirms the new frame time.
+    [ADR 0084 packet 037](../tasks/archive/adr-0084-task-037-releases-everything-frame-time.md) owns items 16 and 31 from 2026-10-24: one cached merge and one virtual list for the Releases list and the Artists list. It is implemented on 2026-10-24. No measurement confirms the new frame time.
+32. 2026-10-24: the app lags while a download runs. The operator saw it in the final walk of the run of 2026-10-24, while the download of the "Haleen · 38 singles" group ran. No measurement confirms the cause (`src/library/download_queue.rs`, `src/library/app_impl.rs`).
 
 ## Visual Requirements Moved From Pending Checks - 2026-10-07
 

@@ -14,10 +14,10 @@ Open - 2026-10-24. This record is advisory. It states no rule. Each rule stays i
 ## Order
 
 1. [ADR 0084 packet 035](../tasks/adr-0084-task-035-download-stores-feed-links.md): a download stores the feed links of its release.
-2. [ADR 0087 packet 008](../tasks/adr-0087-task-008-field-list-stays-open.md): the field list stays open for the next term.
+2. [ADR 0087 packet 008](../tasks/archive/adr-0087-task-008-field-list-stays-open.md): the field list stays open for the next term.
 3. [ADR 0087 packet 007](../tasks/adr-0087-task-007-live-run-index-rows.md): a live run shows the Index rows.
-4. [ADR 0084 packet 036](../tasks/adr-0084-task-036-group-row-at-artist-name.md): a group row at its artist name.
-5. [ADR 0084 packet 037](../tasks/adr-0084-task-037-releases-everything-frame-time.md): one cached merge and one virtual list.
+4. [ADR 0084 packet 036](../tasks/archive/adr-0084-task-036-group-row-at-artist-name.md): a group row at its artist name.
+5. [ADR 0084 packet 037](../tasks/archive/adr-0084-task-037-releases-everything-frame-time.md): one cached merge and one virtual list.
 6. [ADR 0059 packet 019](../tasks/adr-0059-task-019-livevalue-uri-is-a-url.md): the liveValue URI is a URL, from the [live value URI plan](../plans/archive/livevalue-uri-is-a-url.md).
 
 Each packet starts after the commit of the packet before it. Packets 008 and 007 both change the toolbar search, and packets 036 and 037 both change `src/view_models/releases_everything.rs`.
@@ -49,7 +49,7 @@ Each entry names the packet, the result and the commit.
 
 ## Final Walk
 
-Open - 2026-10-24. Each packet of the run is committed. Section 7 of [pending human checks](../pending-human-checks.md) lists each open check. The "Operator Visual Check" section of each packet gives the steps.
+Walked - 2026-10-24. The operator walked the packets in the release binary and the debug binary. The checks listed under "Open After The Walk" stay open. Section 7 of [pending human checks](../pending-human-checks.md) lists each open check. The "Operator Visual Check" section of each packet gives the steps.
 
 ### Setup
 
@@ -81,7 +81,37 @@ For each check, the operator says pass, fail or skip. The orchestrator records e
 
 ### Walk Log
 
-No check is walked yet.
+The screenshots are in `~/.claude/v4vmm-shots/20261024-182128`, `20261024-182354` and `20261024-182646`.
+
+| Date | Check | Result | Note |
+|---|---|---|---|
+| 2026-10-24 | ADR 0084 packet 037 V1 to V7 | Pass | Release binary. The status line of the packet said "V1 to V6", but the packet has V1 to V7 |
+| 2026-10-24 | ADR 0084 packet 036 V1 to V3 | Pass | Packet 026 V1 is walked again |
+| 2026-10-24 | ADR 0084 packet 035 V1 | Fail | The link write works, but the group rows keep their state. "Findings Of The Walk" gives the facts. Packet 038 owns the defect |
+| 2026-10-24 | ADR 0084 packet 035 V2 and V3 | Open | The V1 defect blocks them |
+| 2026-10-24 | ADR 0087 packet 008 V1 to V5 | Pass | Script scenario `fieldlist3`. Packets 003 V6 and 004 V6 are walked again |
+| 2026-10-24 | ADR 0087 packet 008, new finding | Fail | When the full field list opens after a term and a space, the rows are too short. Each field name overlaps the hint line of the row above. The last rows (`playlist:` and `has:`) are cut off. ADR 0087 packet 010 owns the defect |
+| 2026-10-24 | ADR 0087 packet 007 V1 to V3 | Pass | Script scenario `live3`. The screenshots did not capture the loading rows, because MusicIndex answered in less than 0.6 s |
+| 2026-10-24 | ADR 0087 packet 007 V4 | Fail | With MusicIndex not reachable, the operator typed `haleen`, waited, and typed ` d`. The app gave two errors, one for `haleen` and one for `haleen d`. They show as retained actions in the top bar, not after the Library rows. ADR 0087 packet 009 owns the defect |
+| 2026-10-24 | ADR 0059 packet 019 V1 | Pass | The tag is exact |
+| 2026-10-24 | ADR 0059 packet 019 V2 and V3 | Open | The orchestrator gave the cleanup in the same step list as the checks, and the operator removed the fixture first |
+| 2026-10-24 | ADR 0059 packet 019 V4 | Skipped, open | The check needs a real show feed |
+
+### Findings Of The Walk
+
+- Packet 035 V1. The operator downloaded the "Haleen · 38 singles" group, artist feed `fe80a515-2826-4a46-aa37-b27f38d3c30f`. 20 of 38 downloads finished. 18 failed with HTTP 429 Too Many Requests from wavlake.com.
+- Each of the 20 new Library releases (feed ids 109 to 128) has a `music_to_publisher` link to `fe80a515`. The link write of the packet thus works.
+- The group rows keep the not-downloaded icon, and the group count stays 38. A search shows the new releases as "Album · Haleen · 1 track", so they do not join the singles group.
+- The other Haleen group (artist feed `64569161-a8f7-52e5-8aae-9e0385043149`) changed from 56 to 36 singles.
+- The app lags while a download runs. The orchestrator added it to "Throughout: Responsiveness And Background Feedback" in the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md).
+- The download of the Haleen group gave HTTP 429 Too Many Requests from wavlake.com for 18 of 38 releases. [Packet 039](../tasks/adr-0084-task-039-download-queue-host-limit.md) owns it.
+
+### Open After The Walk
+
+- ADR 0084 packet 035 V2 and V3. Packet 038 owns the V1 defect.
+- ADR 0087 packet 007 V4. Packet 009 owns the defect.
+- ADR 0059 packet 019 V2 to V4.
+- The defect of the field list rows. [ADR 0087 packet 010](../tasks/adr-0087-task-010-field-list-row-height.md) owns it and gives its checks.
 
 ### Cleanup
 
