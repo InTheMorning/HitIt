@@ -209,7 +209,7 @@ Open - the run closed on 2026-10-24 before the end of its walk. Each check below
 
 ## 7. Final Walk Of The Run Of 2026-10-24
 
-Walked - 2026-10-24. The operator passed ADR 0084 packets 036 and 037 and ADR 0087 packet 008. Those packets are Complete and archived. The items below stay open.
+Open - the run closed on 2026-10-24 after its walk. The operator passed ADR 0084 packets 036 and 037 and ADR 0087 packet 008. Those packets are Complete and archived. The items below stay open. Walk a check of a changed screen after its fix packet.
 
 - Owner: the [run record](reviews/orchestrated-run-2026-10-24.md#final-walk).
 - The open checks. Each item names its packet:
