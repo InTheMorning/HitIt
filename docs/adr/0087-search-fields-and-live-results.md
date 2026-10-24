@@ -8,6 +8,8 @@ The [ADR 0087 phase plan](../plans/adr-0087-search-fields-phase-plan.md) holds i
 It amends [ADR 0084](0084-music-column-browser.md) Decision 2. The toolbar search field shows a field list and reads fields in the query text. It shows results while the curator types. Search stays a toolbar command, never a section (ADR 0060).
 It amends [ADR 0084](0084-music-column-browser.md) Decision 3: a saved search runs its fields against the Library and the Index.
 
+Amended 2026-10-24: the operator decided that a live run retains no failed action. Decision 4 now states it. [ADR 0087 task 009](../tasks/adr-0087-task-009-one-error-for-the-latest-text.md) builds it.
+
 ## Context
 
 On 2026-10-23 the operator asked for a powerful search. The search field must show the field headers when the curator clicks it, as Discord does. The curator must be able to type fields in the query, as in the library search of Mixxx.
@@ -82,6 +84,7 @@ After the curator stops typing for a pause, the search runs against the Library 
 - A text with no word, phrase or correct field runs nothing, as today.
 - The mounted search page updates in place. A run does not add a new page to the navigation stack. Enter, or a click on a result, keeps the page in the stack (ADR 0084 Decision 9).
 - Each run sends at most three Index requests, the same as one search today.
+- A live run retains no failed action of ADR 0066. Enter retains it.
 
 ### 5. The Index Receives Filters, Never Syntax
 

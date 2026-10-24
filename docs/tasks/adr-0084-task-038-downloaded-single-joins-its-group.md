@@ -1,6 +1,6 @@
 # ADR 0084 Task 038: A Downloaded Single Joins The Group Of Its Feed
 
-Status: Ready - 2026-10-24.
+Status: Ready - 2026-10-24. The operator answered Q1 on 2026-10-24.
 
 Depends on: [packet 035](adr-0084-task-035-download-stores-feed-links.md). This packet fixes the defect of packet 035 V1. The walk of this packet walks packet 035 V1 to V3 again.
 
@@ -65,7 +65,7 @@ These facts follow from the code facts. The order of the two tracks in a node is
 ## Design
 
 1. In `build_tree` (`src/application/queries/library.rs:372-383`), the album key of each artist is the pair of `display_album` and the Library feed id of the track. Two feeds never share a node. The map keeps the order of the album text, and the feed id gives the order of two feeds with the same text.
-2. With option A of Q1, one feed with two album texts still gives two nodes, as before this packet.
+2. The key is the album text and the feed id (Q1, answer A). One feed with two album texts still gives two nodes, as before this packet.
 3. No other production code changes. With one node for each feed, the code facts above give the correct result:
    - Each new feed is its own node with one track, so it is a single.
    - Its `named_feeds` name `fe80a515`, so it joins the group `fe80a515` as a Library single.
@@ -97,6 +97,10 @@ These are correct results of the present rules. They are not defects of this pac
   - Option B: the key is the feed id only. One feed always gives one node. Its name is the album text of its first track. This also changes a feed that holds the tracks of more than one album.
 
   **Recommendation: Option A.** It fixes the defect and changes no other case. Option B agrees better with ADR 0084 Decision 4. But it changes a case that no observation and no test describes. A later packet can do it after an observation.
+
+## Operator Answers - 2026-10-24
+
+- Q1: A. Key each album by the album text plus the feed id. Two feeds never share a node. One feed with two album texts still gives two nodes.
 
 ## Required Changes
 
@@ -151,7 +155,7 @@ Each criterion here is visual. Only a person can examine it. No test proves it.
 - No change to the HTTP 429 failures. [Packet 039, the host limit](adr-0084-task-039-download-queue-host-limit.md), owns them.
 - No change to `named_feeds`, the hydration or the feed links. Packet 035 owns them.
 - No change to the artist key of `build_tree`. One feed whose tracks state two artist texts still gives one node for each artist text.
-- No change to the case of Q1 option B.
+- No change to the case of one feed with two album texts. It still gives two nodes (Q1, answer A).
 - No change to the singles group view models, the Releases list or the search rows (decision D3).
 - No schema change and no migration.
 

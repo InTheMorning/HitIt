@@ -1,6 +1,6 @@
 # ADR 0087 Task 010: Each Field List Row Keeps Its Height
 
-Status: Ready - 2026-10-24.
+Status: Ready - 2026-10-24. The operator answered Q1 and Q2 on 2026-10-24. Q1 is deferred to the visual overhaul.
 
 Depends on: [packet 008](archive/adr-0087-task-008-field-list-stays-open.md).
 
@@ -137,8 +137,7 @@ raw literal. Each size comes from a `Size` token.
 
 ## Questions
 
-These questions need an operator answer. ADR 0087 does not decide them. The design of this
-packet follows each recommendation.
+ADR 0087 does not decide these questions. The operator answered them (see "Operator Answers - 2026-10-24").
 
 - **Q1. Which token gives the maximum height of the row list?** With the fix, a field row is
   about 52 px high, as in `09-fieldlist3-v3-kind-values.png`. The 11 fields are about 572 px high.
@@ -161,14 +160,18 @@ packet follows each recommendation.
     Q1 A or B, rows are below the visible area. The Apple HIG asks for a clear state, and a
     scroll bar tells the curator that more rows are below.
 
+## Operator Answers - 2026-10-24
+
+- Q1: deferred by the operator: "defer, ui overhaul incoming". The maximum height of the row list does not change in this packet. It stays `Size::ColumnRegular` (320 px). The visual overhaul (Phase 7 of the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md)) decides the height.
+- Q2: A. The `gpui_component` scroll bar shows on the row list.
+
 ## Required Changes
 
 1. `src/ui/composites/search_field_list.rs` `render_row`: add `.flex_shrink_0()` to the row
    element. Keep `.min_h(Size::RowMd.scaled(cx))`.
-2. `src/ui/composites/search_field_list.rs` row list: set `.max_h(..)` to the token of the
-   answer to Q1. When the answer is C, add `Size::FieldListMaxHeight` to `src/ui/tokens.rs`
-   with a doc comment and to the token list of `src/ui/tokens.rs:1613-1616`.
-3. When the answer to Q2 is A: put the row list in a parent with `.relative()` and call
+2. `src/ui/composites/search_field_list.rs` row list: do not change `.max_h(..)`. It stays
+   `Size::ColumnRegular` (320 px). Add no token. The visual overhaul (Phase 7) decides the height.
+3. Put the row list in a parent with `.relative()` and call
    `.vertical_scrollbar(&scroll)` on that parent. Keep `.overflow_y_scroll()` and
    `.track_scroll(&scroll)` on the row list. Keep `FieldListVm::LIST_ID` on the row list.
 4. Add `.debug_selector(..)` with the `element_id` to each row, and with `FieldListVm::LIST_ID`
@@ -203,7 +206,7 @@ Each criterion is mechanical. A `gpui::TestAppContext` test proves it. Use the p
 | Case | Owner | Required proof |
 |---|---|---|
 | R87-10-01 | `src/ui/composites/search_field_list.rs` | The composite draws the `FieldListVm` that `FieldListVm::build` gives for an empty text, Open (11 `Field` rows). For each row `i` from 0 to 9, the top of row `i + 1` is not above the bottom of row `i`. The height of the row `artist:` is equal to its height in a `FieldListVm` that holds only that row |
-| R87-10-02 | `src/app/search_field_list.rs` | With the setup of R87-4-17, focus the empty field and press `down` 11 times. The row `has:` is selected. Its bounds are inside the bounds of `FieldListVm::LIST_ID`. The height of the row list is not more than the token of Q1, scaled |
+| R87-10-02 | `src/app/search_field_list.rs` | With the setup of R87-4-17, focus the empty field and press `down` 11 times. The row `has:` is selected. Its bounds are inside the bounds of `FieldListVm::LIST_ID`. The height of the row list is not more than `Size::ColumnRegular`, scaled |
 | R87-10-03 | `src/ui/composites/search_field_list.rs` | The composite draws a `FieldListVm` of 30 `Value` rows with fixed labels, as for `artist:`. Each row height is equal to the height of the same row in a `FieldListVm` of one row. No two rows overlap |
 
 R87-10-01 is the regression test of ADR 0087 Decision 3. Its name is
@@ -228,11 +231,12 @@ Each criterion is visual. Only a person can examine it in the running app. No te
   and its row grows to hold each line and its mark.
 - V4: with the full list open, press Down 11 times. The selection moves to `has:`, and the list
   scrolls so that `has:` shows.
-- V5: Light and Dark themes, a normal width and a narrow width. The list stays in the window. When
-  the answer to Q2 is A, the scroll bar shows at the right edge of the rows and covers no text.
+- V5: Light and Dark themes, a normal width and a narrow width. The list stays in the window. The
+  scroll bar shows at the right edge of the rows and covers no text.
 
 ## Exclusions
 
+- No change to the maximum height of the row list. It stays `Size::ColumnRegular`. The visual overhaul (Phase 7) decides it (Q1).
 - No change to the fonts, the colors, the spacing, the two lines of a row, the mark or the width.
   The visual overhaul (Phase 7) owns the style.
 - No change to `src/view_models/search_field_list.rs` or to `src/view_models/search_query.rs`.
@@ -317,7 +321,6 @@ At the end, report: files changed, tests run, behavior changed, deviations, unre
 and the document changes that the orchestrator must make.
 
 Stop and report the problem, and do not guess, when:
-- The operator did not answer Q1 or Q2.
 - A recorded fact of this packet is not true in the working tree.
 - `debug_bounds` gives no bounds for a row in the `deferred` overlay.
 - An architecture guard rejects `.vertical_scrollbar(..)` outside the Music scroll helper.
@@ -348,7 +351,7 @@ needs an artist with a long name, or MusicIndex for more names.
    - Wrong: the selected row is out of view.
 8. V5: in Settings, change the theme to Light, then to Dark. Make the window narrow, then wide.
    Do step 4 again each time.
-   - Look at: the list stays in the window. When a scroll bar shows, it covers no text.
+   - Look at: the list stays in the window. The scroll bar covers no text.
    - Wrong: a row is cut at the right edge, or the scroll bar covers text.
 
 Cleanup:
