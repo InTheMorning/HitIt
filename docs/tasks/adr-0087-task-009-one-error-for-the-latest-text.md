@@ -1,9 +1,9 @@
 # ADR 0087 Task 009: One Error For The Latest Text
 
-Status: Ready - 2026-10-24.
+Status: Ready - 2026-10-24. The operator answered Q1 on 2026-10-24. The operator did not answer Q2. The orchestrator applied the recommendation A.
 
 The packet depends on [packet 007](adr-0087-task-007-live-run-index-rows.md). It replaces packet 007 check V4.
-Question Q1 and question Q2 are open. The design uses the recommended option of each question.
+The design follows the answer to Q1 and the recommendation A of Q2.
 
 ## Problem
 
@@ -208,7 +208,7 @@ error and retains no action (packet 003 decision D14).
 - **D1. A live run retains no failed action.** ADR 0087 Decision 4 runs a live run with no command
   from the curator, and the page note is its report. ADR 0066 retains "the original operation's identity and
   inputs". A live run of a text that the curator then changes is not an operation of the curator.
-  Question Q1 holds this decision.
+  Question Q1 holds this decision. The operator chose it.
 - **D2. Enter keeps the retained action.** Enter is the explicit command. The retained action of Enter
   gives the route to "Edit endpoint", so ADR 0066 invariant 9 keeps its path. Settings also keeps
   "Check endpoint".
@@ -219,7 +219,7 @@ error and retains no action (packet 003 decision D14).
 - **D5. The failure of an older run is `Cancelled`.** The token of the run is the source of that fact.
   The function reads it after the three requests.
 - **D6. The note keeps its place.** ADR 0087 lists "a change to the search page layout" as a non-goal.
-  Question Q2 holds this decision.
+  Question Q2 holds this decision. The orchestrator applied the recommendation A.
 - **D7. The guard is situational.** It cites ADR 0087 Decision 4 and is deleted when that decision is
   replaced.
 
@@ -232,7 +232,7 @@ a setup check. ADR 0087 Decision 4 adds runs that start with no command. Today e
 different text adds one retained item.
 
 - A. A live run retains no action. The page note is its only report. Enter retains the action, as today.
-  The orchestrator adds this sentence to ADR 0087 Decision 4: "A live run retains no failed action of
+  The sentence for ADR 0087 Decision 4 is: "A live run retains no failed action of
   ADR 0066. Enter retains it."
 - B. A live run retains one action. The failure of a newer live run replaces the item of the older live
   run. This changes `RecoveryIntents::retain`, which ADR 0066 owns, and its test of two queries.
@@ -255,6 +255,11 @@ puts the note below the visible part of the list. This can be the cause of C3.
 Recommendation: A for this packet. V1 can show the note only after a scroll. If the operator does not
 accept that, a later packet with an ADR decision owns option B.
 
+## Operator Answers - 2026-10-24
+
+- Q1: A. A live run retains no failed action. Enter retains it, as today. The sentence "A live run retains no failed action of ADR 0066. Enter retains it." is now in ADR 0087 Decision 4.
+- Q2: The operator did not answer Q2. The orchestrator applied the recommendation A. The note stays after the rows. Check V1 scrolls to the end of the list.
+
 ## Required Changes
 
 1. `src/view_models/search_results/search_run.rs`: add `SearchRunTrigger`, `with_trigger` and `trigger`.
@@ -270,6 +275,8 @@ accept that, a later packet with an ADR decision owns option B.
 6. `tests/architecture_tests.rs`: add the guard of case R87-9-07.
 7. `docs/architecture/source-map.md`: add the run trigger and the retain function to the row of the
    Index result step.
+
+The sentence of the answer to Q1 is already in ADR 0087 Decision 4. Do not change that ADR.
 
 ## Mechanical Acceptance Criteria
 
@@ -318,7 +325,7 @@ These are for the operator. No test proves them. Examine V1 and V2 in Dark, at n
 ## Exclusions
 
 - No change to `RecoveryIntents`, to the retained action text or to the notice (ADR 0066 and ADR 0083).
-- No change to the page note, its text or its place (question Q2).
+- No change to the page note, its text or its place (Q2, recommendation A).
 - No change to the pause, the run generation or `index_result_step`.
 - No change to the success path of `dispatch_index_search`.
 - No schema change, no migration and no configuration key.
@@ -430,7 +437,7 @@ makes MusicIndex not reachable.
      the Library rows. Its report names `haleen d`.
    - Wrong: an item for `haleen` or for `haleen d` shows in the retained actions. Two notes show. The
      note names `haleen`. No note shows at the end of the list.
-   - Write down if the note shows only after a scroll. Question Q2 uses this fact.
+   - Write down if the note shows only after a scroll. A later packet can use this fact.
 8. V2: click in the search field and press Enter.
    - Look at: one retained item shows, for `haleen d`, with "Edit endpoint" and "Dismiss". The page shows
      one note.

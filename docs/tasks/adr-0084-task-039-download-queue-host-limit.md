@@ -1,6 +1,6 @@
 # ADR 0084 Task 039: The Download Queue Waits For A Host That Sends HTTP 429
 
-Status: Ready - 2026-10-24. The operator answers Q1 to Q4 first. The ADR 0084 Decision 10 amendment of step 1 lands before the code or in the same commit.
+Status: Ready - 2026-10-24. The operator answered Q1 to Q3 on 2026-10-24. The orchestrator applied the recommendation for Q4. The ADR 0084 Decision 10 amendment of step 1 lands before the code or in the same commit.
 
 ## Goal
 
@@ -14,7 +14,7 @@ did.
 
 - [ADR 0084](../adr/0084-music-column-browser.md) Decision 10, amended 2026-10-20: one
   download queue, at most three downloads at the same time, one progress item. This packet
-  amends Decision 10. The operator decides the amendment (Q1 to Q4).
+  amends Decision 10. The operator decided the amendment (Q1 to Q4).
 - [ADR 0058](../adr/0058-outbound-http-client-policy.md): all blocking HTTP clients are built in
   `src/http_client.rs`. Its "Consequences" section says: "Retry, backoff, and per-host policy
   remain unowned." No ADR owns a host policy for the download queue today.
@@ -110,7 +110,7 @@ did.
 
 ## Design
 
-The recommended design is option A of Q1. The Decisions below describe it.
+The design is option A of Q1. The Decisions below describe it.
 
 ### The typed throttle failure
 
@@ -218,6 +218,19 @@ The times come from the queue records. The renderer adds no time.
   Recommendation: no, not in this packet. The typed failure helps these callers, but they keep
   their behavior. ADR 0058 "Follow-Up Work" keeps a general retry policy as a separate decision.
 
+## Operator Answers - 2026-10-24
+
+- Q1: A. The host wait lives in the download queue. The progress item shows the wait, and "Stop queued" removes a waiting job.
+- Q2: the values of ADR 0076:
+  - The minimum interval between two RSS requests to one host is 2 seconds.
+  - The queue sends 1 RSS request at a time to one host.
+  - After HTTP 429 with a `Retry-After` value of 60 seconds or less, the queue waits for that value.
+  - After HTTP 429 with no `Retry-After` value, the queue waits 60 seconds.
+  - After HTTP 429 with a `Retry-After` value of more than 60 seconds, the queue stops the host for the batch.
+  - One job has 3 tries.
+- Q3: yes. This packet moves the HTTP GET of `rss::subscribe_feed` out of the database lock.
+- Q4: the operator was not asked. The orchestrator applied the recommendation. The host rule applies to the download queue only. The other callers of `rss::subscribe_feed` keep their behavior.
+
 ## Required Changes
 
 1. `docs/adr/0084-music-column-browser.md`: amend Decision 10 with the answers to Q1 to Q4. Add
@@ -227,8 +240,8 @@ The times come from the queue records. The renderer adds no time.
    `src/runtime/playlist_rss_check.rs` to one shared owner, for example `src/rss/host.rs`. The
    RSS check and the download queue use the same functions. The RSS check keeps its behavior.
 3. `src/rss/subscribe.rs`: add the typed error `HostThrottled { host, retry_after }`. Return it
-   for HTTP 429. If the answer to Q3 is option A, fetch the document before the caller locks the
-   database. Change `src/subscribe_service.rs:139-141` and `:384-386` to match.
+   for HTTP 429. Fetch the document before the caller locks the
+   database (Q3). Change `src/subscribe_service.rs:139-141` and `:384-386` to match.
 4. `src/application/ports/download_manager.rs`: add `DownloadError::HostThrottled`. Keep the
    typed error in `subscribe_feed` and `subscribe_track`.
 5. `src/application/errors/command.rs` and `src/application/commands/feed.rs`: add
@@ -252,7 +265,7 @@ The times come from the queue records. The renderer adds no time.
 
 Each criterion here is mechanical. A unit test beside its owning code has the prefix
 `adr_0084_task_039_`. A guard is in `tests/architecture_tests.rs` and has the case number in its
-name. No test sends a network request. The values in the cases are the recommended values of Q2.
+name. No test sends a network request. The values in the cases are the values of Q2.
 
 | Case | Required proof |
 |---|---|
@@ -268,7 +281,7 @@ name. No test sends a network request. The values in the cases are the recommend
 | R39-10 | Mechanical, unit test in `src/view_models/download_progress.rs`. A batch with one job in `WaitingForHost` gives the title "Downloading 21 of 38. Waiting for wavlake.com until 18:14:05" and a detail that names HTTP 429, the recorded time and the try count |
 | R39-11 | Mechanical, unit test in `src/application/ports/download_manager.rs`. A typed `HostThrottled` error from the recovery owner stays `DownloadError::HostThrottled`. It does not become `Failed` |
 | R39-12 | Mechanical, unit test in the shared host owner of step 2. The parse of `Retry-After` reads `30` and an HTTP date. `feed_host` gives `wavlake.com` for `https://WavLake.com/feed/music/x`. The tests of the RSS check pass with no change |
-| R39-13 | Mechanical, only if Q3 is option A. Unit test in `src/subscribe_service.rs`. The fixture server holds its response until the test locks the database mutex from a second thread. The lock succeeds while the GET waits |
+| R39-13 | Mechanical, unit test in `src/subscribe_service.rs`. The fixture server holds its response until the test locks the database mutex from a second thread. The lock succeeds while the GET waits |
 
 The failure message of R39-09 has this form:
 
