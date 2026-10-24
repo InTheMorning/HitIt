@@ -1,6 +1,6 @@
 # ADR 0059 Task 019: The liveValue URI Is A URL
 
-Status: Implemented - 2026-10-24. V1 to V4 are open, in the final walk of the run of 2026-10-24.
+Status: Implemented - 2026-10-24. Mechanical checks are Green. Passed: V1 on 2026-10-24. V2 and V3 are open, because the operator removed the fixture before the steps. V4 is open and needs a real show feed.
 
 ## Goal
 
