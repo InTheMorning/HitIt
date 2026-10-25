@@ -12,6 +12,7 @@ use rusqlite::Connection;
 use std::io::Cursor;
 
 use super::helpers::*;
+use super::host::HostThrottled;
 use crate::api::Client as MusicIndexClient;
 use crate::db;
 
@@ -323,23 +324,59 @@ fn publisher_from_extensions(exts: &ExtensionMap) -> Option<ParsedPublisher> {
     (parsed.feed_guid.is_some() || parsed.feed_url.is_some()).then_some(parsed)
 }
 
+/// Reads the RSS document of `feed_url` over HTTP. It takes no database
+/// lock, so the caller fetches before it locks the database (ADR 0084
+/// Decision 10 as amended 2026-10-24, task 039, Q3).
+///
+/// HTTP 429 gives [`HostThrottled`] in the `anyhow` chain, with the host
+/// and the parsed `Retry-After` value. Each other error status keeps its
+/// error.
+///
+/// # Errors
+///
+/// Returns [`HostThrottled`] for HTTP 429, and an error for any other
+/// failed request or status.
+pub fn fetch_feed_document(feed_url: &str) -> Result<Vec<u8>> {
+    let response = crate::http_client::document()
+        .get(feed_url)
+        .send()
+        .with_context(|| format!("GET {feed_url}"))?;
+    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        let retry_after = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(super::host::parse_retry_after);
+        let host = super::host::feed_host(feed_url).unwrap_or_else(|| feed_url.to_owned());
+        return Err(HostThrottled { host, retry_after }.into());
+    }
+    let body = response
+        .error_for_status()
+        .with_context(|| format!("HTTP error for {feed_url}"))?
+        .bytes()
+        .with_context(|| format!("read body {feed_url}"))?;
+    Ok(body.to_vec())
+}
+
 pub fn subscribe_feed(
     conn: &mut Connection,
     feed_url: &str,
     musicindex_endpoint: &crate::config::MusicIndexEndpoint,
 ) -> Result<()> {
-    // --- fetch ---
-    let body = crate::http_client::document()
-        .get(feed_url)
-        .send()
-        .with_context(|| format!("GET {feed_url}"))?
-        .error_for_status()
-        .with_context(|| format!("HTTP error for {feed_url}"))?
-        .bytes()
-        .with_context(|| format!("read body {feed_url}"))?;
+    let body = fetch_feed_document(feed_url)?;
+    subscribe_feed_body(conn, feed_url, &body, musicindex_endpoint)
+}
 
+/// Stores a fetched RSS document of `feed_url` (the step after
+/// [`fetch_feed_document`]). The caller holds the database lock.
+pub fn subscribe_feed_body(
+    conn: &mut Connection,
+    feed_url: &str,
+    body: &[u8],
+    musicindex_endpoint: &crate::config::MusicIndexEndpoint,
+) -> Result<()> {
     // --- parse ---
-    let document = parse_feed_document(&body)?;
+    let document = parse_feed_document(body)?;
 
     // --- persist the channel (always mark subscribed), the items, and the
     // RSS values of the compared slots ---
@@ -1066,5 +1103,55 @@ mod tests {
         }));
 
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod adr_0084_task_039_tests {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::time::Duration;
+
+        use super::{fetch_feed_document, HostThrottled};
+
+        /// A local server that sends one response to the next request.
+        fn serve_once(status_line: &'static str, headers: &'static str) -> String {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+            let address = listener.local_addr().expect("the local address");
+            std::thread::spawn(move || {
+                if let Ok((mut stream, _)) = listener.accept() {
+                    let mut buffer = [0_u8; 4096];
+                    let _ = stream.read(&mut buffer);
+                    let _ = write!(
+                        stream,
+                        "{status_line}\r\n{headers}Content-Length: 0\r\nConnection: close\r\n\r\n"
+                    );
+                }
+            });
+            format!("http://{address}/feed.xml")
+        }
+
+        /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-08). HTTP
+        /// 429 with `Retry-After: 30` gives `HostThrottled` with the host and 30
+        /// seconds. Failure: the RSS fetch must keep the typed HTTP 429 for the
+        /// download queue (ADR 0084 Decision 10 as amended 2026-10-24).
+        #[test]
+        fn adr_0084_task_039_r39_08_http_429_gives_typed_throttle() {
+            let url = serve_once("HTTP/1.1 429 Too Many Requests", "Retry-After: 30\r\n");
+            let error = fetch_feed_document(&url).expect_err("HTTP 429 is an error");
+            let throttled = error
+                .downcast_ref::<HostThrottled>()
+                .expect("HTTP 429 gives the typed error");
+            assert_eq!(throttled.host, "127.0.0.1");
+            assert_eq!(throttled.retry_after, Some(Duration::from_secs(30)));
+        }
+
+        /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-08). HTTP 404
+        /// keeps its error and gives no `HostThrottled`.
+        #[test]
+        fn adr_0084_task_039_r39_08_http_404_gives_no_throttle() {
+            let url = serve_once("HTTP/1.1 404 Not Found", "");
+            let error = fetch_feed_document(&url).expect_err("HTTP 404 is an error");
+            assert!(error.downcast_ref::<HostThrottled>().is_none());
+        }
     }
 }

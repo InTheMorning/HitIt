@@ -478,11 +478,7 @@ fn fetch_index_search_result_rows(
         let rejected = [feed_error, track_error, publisher_error]
             .into_iter()
             .all(is_bad_request);
-        return Err(if rejected {
-            CommandError::QueryRejected(message)
-        } else {
-            query_error(&anyhow!(message))
-        });
+        return Err(index_search_failure(message, rejected, cancel));
     }
     // ADR 0086 packet 005 decision D3: a later feed page, or a failed
     // feed request, can change a window group of a saved search.
@@ -504,6 +500,27 @@ fn fetch_index_search_result_rows(
         rows.artists.extend(feed_page_rows);
     }
     Ok(rows)
+}
+
+/// The error of a failed Index search of all three requests (ADR 0087
+/// Decision 4, packet 009 decision D5). A canceled `cancel` gives
+/// [`CommandError::Cancelled`], because a newer run stopped this run. A
+/// request that the server did not accept gives
+/// [`CommandError::QueryRejected`] when `rejected` is `true`. Each other
+/// failure gives [`CommandError::Query`].
+fn index_search_failure(
+    message: String,
+    rejected: bool,
+    cancel: &CancellationToken,
+) -> CommandError {
+    if cancel.is_cancelled() {
+        return CommandError::Cancelled;
+    }
+    if rejected {
+        CommandError::QueryRejected(message)
+    } else {
+        query_error(&anyhow!(message))
+    }
 }
 
 /// Gives [`CommandError::Cancelled`] when `cancel` is canceled (ADR 0087
@@ -1150,6 +1167,30 @@ fn non_empty_string(value: Option<String>) -> Option<String> {
 mod tests {
     use super::*;
     use crate::view_models::search_results::{SearchResultTarget, SearchResultsTab};
+
+    /// R87-9-04: a canceled run gives `Cancelled`, for each kind of
+    /// failure. A run that is not canceled gives `QueryRejected` or `Query`,
+    /// and each error holds the message.
+    #[test]
+    fn adr_0087_one_index_error_r87_9_04_older_run_failure_is_cancelled() {
+        let canceled = CancellationToken::new();
+        canceled.cancel();
+        let live = CancellationToken::new();
+        for rejected in [true, false] {
+            assert!(matches!(
+                index_search_failure("feed search failed".into(), rejected, &canceled),
+                CommandError::Cancelled
+            ));
+        }
+        assert!(matches!(
+            index_search_failure("feed search failed".into(), true, &live),
+            CommandError::QueryRejected(message) if message == "feed search failed"
+        ));
+        assert!(matches!(
+            index_search_failure("feed search failed".into(), false, &live),
+            CommandError::Query(message) if message.contains("feed search failed")
+        ));
+    }
 
     /// MusicIndex gave one track twice on 2026-10-07. The rows keep the
     /// first hit of each entity, in rank order. Two tracks with one GUID in

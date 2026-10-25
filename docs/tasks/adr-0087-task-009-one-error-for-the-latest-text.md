@@ -1,6 +1,6 @@
 # ADR 0087 Task 009: One Error For The Latest Text
 
-Status: Ready - 2026-10-24. The operator answered Q1 on 2026-10-24. The operator did not answer Q2. The orchestrator applied the recommendation A.
+Status: Implemented - 2026-10-25. The visual checks V1 and V2 are open in [pending human checks](../pending-human-checks.md). The operator answered Q1 on 2026-10-24. The operator did not answer Q2. The orchestrator applied the recommendation A.
 
 The packet depends on [packet 007](adr-0087-task-007-live-run-index-rows.md). It replaces packet 007 check V4.
 The design follows the answer to Q1 and the recommendation A of Q2.
@@ -452,3 +452,31 @@ Cleanup:
 4. Start the app and delete the text in the search field.
 
 The check changes no stored data. Step 4 changes the configuration file. Step 3 of the cleanup restores it.
+
+## Implementation Result - 2026-10-25
+
+Status: Implemented. Visual checks V1 and V2 are open in [pending human checks](../pending-human-checks.md).
+
+Changed files and reasons:
+
+- `src/view_models/search_results/search_run.rs`: adds `SearchRunTrigger`, `with_trigger` and `trigger`.
+  `live_run_step` gives its run the trigger `Pause`. Test R87-9-01.
+- `src/view_models/search_results/mod.rs`: exports `SearchRunTrigger`.
+- `src/application/queries/search.rs`: adds `index_search_failure` and uses it in
+  `fetch_index_search_result_rows`. A canceled run gives `Cancelled`. Test R87-9-04.
+- `src/app/search_dispatch.rs`: adds `index_failure_retains_action`. The failure closure of
+  `dispatch_index_search` computes the result step before the retain. `dispatch_index_search` takes
+  `run: &SearchRun`. The unavailable path of `start_index_search_for_run` uses the same rule. Tests R87-9-02,
+  R87-9-03 and R87-9-06.
+- `src/view_models/search_results/tests.rs`: test R87-9-05.
+- `tests/architecture_tests.rs`: guard R87-9-07, with a copy that retains before the result step and must fail.
+- `docs/architecture/source-map.md`: names the trigger and the retain rule.
+
+Deviations:
+
+- `src/app/search_live.rs` is not changed. `live_run_step` sets the trigger, and `with_generation` keeps it.
+- Test R87-9-05 passed before this change. The view model drops the error of an older run. The test
+  is a guard for that behavior.
+
+Gate: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test` are Green.
+The run had 2568 library tests and 397 architecture guards, and all passed.

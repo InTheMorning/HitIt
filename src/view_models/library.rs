@@ -2249,7 +2249,9 @@ fn library_release_row(
         .filter(|track| track.is_in_library)
         .count();
     row.download_state = Some(match phase {
-        Some(DownloadPhase::Queued) => ReleaseDownloadStateVm::queued(),
+        Some(DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. }) => {
+            ReleaseDownloadStateVm::queued()
+        }
         Some(DownloadPhase::InFlight) => ReleaseDownloadStateVm::downloading(),
         None => ReleaseDownloadStateVm::of_tracks(downloaded, album.tracks.len()),
     });
@@ -5902,7 +5904,7 @@ impl TrackRowWork {
     pub(crate) const fn from_phase(phase: Option<DownloadPhase>) -> Self {
         match phase {
             None => Self::Idle,
-            Some(DownloadPhase::Queued) => Self::Queued,
+            Some(DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. }) => Self::Queued,
             Some(DownloadPhase::InFlight) => Self::Downloading,
         }
     }
@@ -5951,7 +5953,9 @@ impl<'a> LibraryAlbumDetailVm<'a> {
             ReleaseMembershipState::Removing
         } else if let Some(phase) = download {
             match phase {
-                DownloadPhase::Queued => ReleaseMembershipState::Queued,
+                DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. } => {
+                    ReleaseMembershipState::Queued
+                }
                 DownloadPhase::InFlight => ReleaseMembershipState::Downloading,
             }
         } else if self.has_library_tracks {
@@ -6032,7 +6036,9 @@ impl SearchLibraryLookup for LibrarySearchLookup<'_> {
         let album = self.vm.album_for_release_key(key)?;
         let facts = self.vm.library_release_facts(key)?;
         let download_state = match self.vm.busy.release_download_phase(album) {
-            Some(DownloadPhase::Queued) => ReleaseDownloadStateVm::queued(),
+            Some(DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. }) => {
+                ReleaseDownloadStateVm::queued()
+            }
             Some(DownloadPhase::InFlight) => ReleaseDownloadStateVm::downloading(),
             None => {
                 let downloaded = album

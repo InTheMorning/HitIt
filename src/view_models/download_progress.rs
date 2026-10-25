@@ -8,7 +8,7 @@
 
 #![warn(clippy::pedantic)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use chrono::{DateTime, Local};
@@ -52,6 +52,10 @@ pub(crate) enum DownloadPhase {
     Queued,
     /// The job runs.
     InFlight,
+    /// The job holds its slot and waits for its RSS host (ADR 0084
+    /// Decision 10 as amended 2026-10-24, task 039). `until` is the time of
+    /// the next try, or `None` while another request to the host runs.
+    WaitingForHost { until: Option<DateTime<Local>> },
 }
 
 impl DownloadPhase {
@@ -80,6 +84,9 @@ pub(crate) struct DownloadActivity {
     pub(crate) release_keys: BTreeSet<FeedKey>,
     /// The Library track ids of each running track job.
     pub(crate) in_flight_tracks: BTreeSet<i64>,
+    /// The Library track ids of each running job that waits for its RSS
+    /// host, with the time of its next try (task 039).
+    pub(crate) waiting_tracks: BTreeMap<i64, Option<DateTime<Local>>>,
     /// The key of each running job.
     pub(crate) in_flight_keys: BTreeSet<FeedKey>,
     /// The key of each running release job.
@@ -130,10 +137,49 @@ impl DownloadActivity {
     /// The phase of the job of the Library track `track_id`.
     #[must_use]
     pub(crate) fn track_phase(&self, track_id: i64) -> Option<DownloadPhase> {
+        if let Some(until) = self.waiting_tracks.get(&track_id) {
+            return Some(DownloadPhase::WaitingForHost { until: *until });
+        }
         DownloadPhase::of(
             self.tracks.contains(&track_id),
             self.in_flight_tracks.contains(&track_id),
         )
+    }
+}
+
+/// The title and the item line of a running batch (task 039). A job that
+/// waits for its RSS host shows the host, the time of the next try and the
+/// detail of the wait.
+fn running_title_and_item(batch: &DownloadBatch, position: usize) -> (String, Option<String>) {
+    match &batch.waiting {
+        Some(wait) => (
+            format!(
+                "Downloading {position} of {}. Waiting for {} until {}",
+                batch.total,
+                wait.host,
+                wait.until.format("%H:%M:%S")
+            ),
+            Some(waiting_detail(wait)),
+        ),
+        None => (
+            format!("Downloading {position} of {}", batch.total),
+            batch.current_label.clone(),
+        ),
+    }
+}
+
+/// The detail line of a wait for an RSS host (task 039). It names the
+/// host, the HTTP status, the recorded times and the try count.
+fn waiting_detail(wait: &DownloadBatchWait) -> String {
+    let until = wait.until.format("%H:%M:%S");
+    let tries = format!("Try {} of {}.", wait.try_number, wait.max_tries);
+    match wait.throttled_at {
+        Some(at) => format!(
+            "{} sent HTTP 429 (Too Many Requests) at {}. The app tries again at {until}. {tries}",
+            wait.host,
+            at.format("%H:%M:%S")
+        ),
+        None => format!("The app waits for {} until {until}. {tries}", wait.host),
     }
 }
 
@@ -161,9 +207,29 @@ pub(crate) struct DownloadBatch {
     pub(crate) queued: usize,
     /// The name of the oldest job in flight.
     pub(crate) current_label: Option<String>,
+    /// The first job that waits for its RSS host until a known time (task
+    /// 039). `None` when no job waits with a known time.
+    pub(crate) waiting: Option<DownloadBatchWait>,
     /// The time that the last completion handler recorded. `None` while
     /// the batch runs.
     pub(crate) finished_at: Option<DateTime<Local>>,
+}
+
+/// A job of the batch that waits for its RSS host until a known time (ADR
+/// 0084 Decision 10 as amended 2026-10-24, task 039). The queue makes it
+/// from its own records, and the projection makes the text.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct DownloadBatchWait {
+    /// The lowercase host of the RSS URL.
+    pub(crate) host: String,
+    /// The time of the next try.
+    pub(crate) until: DateTime<Local>,
+    /// The time of the HTTP 429 that starts the wait, if the wait has one.
+    pub(crate) throttled_at: Option<DateTime<Local>>,
+    /// The number of the next try, from 1.
+    pub(crate) try_number: u32,
+    /// The tries of one job.
+    pub(crate) max_tries: u32,
 }
 
 /// The state of the progress item.
@@ -286,12 +352,13 @@ impl DownloadProgressDisplay {
                     label: STOP_QUEUED_ACTION_LABEL,
                     a11y_label: stop_queued_a11y_label(batch.queued),
                 });
+                let (title, item_name) = running_title_and_item(batch, position);
                 Self {
                     id: "download-progress-item",
                     state: DownloadProgressState::Running,
                     icon_role: icon_role(false),
-                    title: format!("Downloading {position} of {}", batch.total),
-                    item_name: batch.current_label.clone(),
+                    title,
+                    item_name,
                     failure_text: (failed > 0).then(|| format!("{failed} failed")),
                     failure_lines,
                     a11y_label,
@@ -416,6 +483,7 @@ mod tests {
             queued: 0,
             current_label: Some("Face Pale".to_owned()),
             finished_at: None,
+            waiting: None,
         };
         let display = DownloadProgressDisplay::project(&batch).expect("a display");
         assert_eq!(display.state, DownloadProgressState::Running);
@@ -444,6 +512,7 @@ mod tests {
             queued: 0,
             current_label: None,
             finished_at: None,
+            waiting: None,
         };
         let display = DownloadProgressDisplay::project(&batch).expect("a display");
         assert_eq!(display.title, "Downloading 2 of 2");
@@ -464,6 +533,7 @@ mod tests {
             queued: 0,
             current_label: None,
             finished_at: Some(recorded_time()),
+            waiting: None,
         };
         let display = DownloadProgressDisplay::project(&batch).expect("a display");
         assert_eq!(display.state, DownloadProgressState::Finished);
@@ -497,6 +567,7 @@ mod tests {
             queued: 0,
             current_label: Some("Face Pale".to_owned()),
             finished_at: None,
+            waiting: None,
         };
         assert_eq!(
             DownloadProgressDisplay::project(&running)
@@ -508,6 +579,7 @@ mod tests {
             done: 1,
             current_label: None,
             finished_at: Some(recorded_time()),
+            waiting: None,
             ..running
         };
         let dismiss = DownloadProgressDisplay::project(&finished)
@@ -528,6 +600,7 @@ mod tests {
             queued: 0,
             current_label: None,
             finished_at: None,
+            waiting: None,
         };
         assert_eq!(DownloadProgressDisplay::project(&batch), None);
     }
@@ -544,6 +617,7 @@ mod tests {
             queued: 6,
             current_label: Some("Face Pale".to_owned()),
             finished_at: None,
+            waiting: None,
         };
         let stop_queued = DownloadProgressDisplay::project(&running_with_queue)
             .expect("a display")
@@ -566,6 +640,7 @@ mod tests {
 
         let finished = DownloadBatch {
             finished_at: Some(recorded_time()),
+            waiting: None,
             ..running_with_queue
         };
         assert_eq!(
@@ -589,6 +664,7 @@ mod tests {
             queued: 1,
             current_label: Some("Face Pale".to_owned()),
             finished_at: None,
+            waiting: None,
         };
         let stop_queued = DownloadProgressDisplay::project(&batch)
             .expect("a display")
@@ -609,6 +685,7 @@ mod tests {
             queued: 0,
             current_label: None,
             finished_at: Some(recorded_time()),
+            waiting: None,
         };
         let display = DownloadProgressDisplay::project(&batch).expect("a display");
         assert_eq!(
@@ -627,5 +704,47 @@ mod tests {
             display.title,
             "Downloaded 2 of 9, 1 failed, 6 stopped. Finished 14:02"
         );
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-10). A batch
+    /// with one job that waits for its host gives the title with the host
+    /// and the time of the next try. The item names the HTTP 429, the
+    /// recorded times and the try count.
+    /// Failure: the progress item names the host and the time of the next
+    /// try, while the job waits (ADR 0084 Decision 10 as amended 2026-10-24).
+    #[test]
+    fn adr_0084_task_039_r39_10_waiting_host_title_and_detail() {
+        let at = |hour, minute, second| {
+            chrono::TimeZone::with_ymd_and_hms(&Local, 2026, 10, 24, hour, minute, second)
+                .single()
+                .expect("the recorded time is not ambiguous")
+        };
+        let batch = DownloadBatch {
+            total: 38,
+            done: 20,
+            failures: Vec::new(),
+            stopped: 0,
+            queued: 17,
+            current_label: Some("Rise Up".to_owned()),
+            finished_at: None,
+            waiting: Some(DownloadBatchWait {
+                host: "wavlake.com".to_owned(),
+                until: at(18, 14, 5),
+                throttled_at: Some(at(18, 13, 5)),
+                try_number: 2,
+                max_tries: 3,
+            }),
+        };
+        let display = DownloadProgressDisplay::project(&batch).expect("a batch with jobs");
+        assert_eq!(
+            display.title,
+            "Downloading 21 of 38. Waiting for wavlake.com until 18:14:05"
+        );
+        let detail = display.item_name.expect("the detail names the wait");
+        assert_eq!(
+            detail,
+            "wavlake.com sent HTTP 429 (Too Many Requests) at 18:13:05. The app tries again at 18:14:05. Try 2 of 3."
+        );
+        assert!(display.a11y_label.contains("Downloading item 21 of 38"));
     }
 }

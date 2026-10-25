@@ -1,6 +1,6 @@
 # ADR 0084 Task 039: The Download Queue Waits For A Host That Sends HTTP 429
 
-Status: Ready - 2026-10-24. The operator answered Q1 to Q3 on 2026-10-24. The orchestrator applied the recommendation for Q4. The ADR 0084 Decision 10 amendment of step 1 lands before the code or in the same commit.
+Status: Implemented - 2026-10-25. The visual checks V1 to V4 stay open in [pending human checks](../pending-human-checks.md#8-packets-038-and-039---implemented-2026-10-25). The operator answered Q1 to Q3 on 2026-10-24. The orchestrator applied the recommendation for Q4. The step 1 change of ADR 0084 Decision 10 landed before the code.
 
 ## Goal
 
@@ -384,3 +384,28 @@ in the Library. An example is the group of the walk of 2026-10-24 at 18:13.
 
 Cleanup: steps 2 and 6 add singles to the Library. If the Library must stay as before the
 check, select those singles in Releases with the scope "Library" and remove them.
+
+## Implementation Notes - 2026-10-25
+
+The deviations below keep the decided rules. The operator confirms deviations 1 and 3 at the next walk.
+
+1. A busy host (R39-01). The packet names `WaitUntil` while a second RSS request to the host runs. The queue gives `HostTurn::Busy`. A busy host has no end time. The download keeps its slot and asks again after `HOST_BUSY_RECHECK` (1 second). A `WaitUntil` with an invented time would show an incorrect time in the progress item.
+2. No `DownloadOutcome::Throttled` (step 6). `DownloadQueue::host_throttled` takes the download and returns it to the queue. `DownloadOutcome` derives `Eq` and `PartialEq`, and `DownloadJob` holds an `api::Feed`, which cannot derive them.
+3. The Library downloads also wait for their host. Step 7 names `src/library/downloads.rs` only. `run_library_feed_job` and `run_library_track_job` in `src/library/app_impl.rs` also send `SubscribeFeed` or `SubscribeTrack`. The two runners belong to the download queue, so the host rule applies to them. Without the gate, the rule would not hold for Library releases. Guard R39-09 covers the two files.
+4. A stopped host fails each queued download when that download starts. The host gate answers `Stopped` at the start. The text and the count match the packet.
+5. A waiting download shows as queued in release and row states. `DownloadPhase::WaitingForHost` maps to the queued state in `src/view_models/library.rs` and `src/view_models/releases_everything.rs`. The packet names no release state for a wait. The progress item shows the wait.
+6. A retry keeps the feed. A retried Index release download keeps its `api::Feed`, so the next try reads no MusicIndex again.
+7. Shared host functions (R39-12). `feed_host` and the `Retry-After` parse moved to `src/rss/host.rs`. The playlist RSS check keeps its tests and its behavior.
+8. The feed GET runs before the database lock (Q3). `rss::fetch_feed_document` runs before the lock at each of the two calls in `src/subscribe_service.rs`. `rss::subscribe_feed` keeps its signature for `src/feed_service.rs`.
+
+Tests in this packet:
+
+- `src/library/download_queue.rs`: R39-01 to R39-07 (`adr_0084_task_039_r39_01_*` to `adr_0084_task_039_r39_07_*`).
+- `src/rss/host.rs`: R39-12 and the typed error. `src/rss/subscribe.rs`: R39-08, with a local server, one test for HTTP 429 and one for HTTP 404.
+- `src/subscribe_service.rs`: R39-13, the database lock is free during the GET.
+- `src/view_models/download_progress.rs`: R39-10. `src/application/ports/download_manager.rs`: R39-11.
+- `tests/architecture_tests.rs`: R39-09, `adr_0084_task_039_r39_09_download_jobs_ask_the_queue_for_the_host`. It fails when a copy drops the gate.
+
+Gate on 2026-10-25: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test` are Green. The suite ran 2576 library tests and 397 architecture tests.
+
+Responsiveness item 32 stays open. No measurement exists. Step 4 of the operator check gives the first observation.

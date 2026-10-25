@@ -1,6 +1,6 @@
 # ADR 0087 Task 010: Each Field List Row Keeps Its Height
 
-Status: Ready - 2026-10-24. The operator answered Q1 and Q2 on 2026-10-24. Q1 is deferred to the visual overhaul.
+Status: Implemented - 2026-10-25. The visual checks V1 to V5 are open in [pending human checks](../pending-human-checks.md). The operator answered Q1 and Q2 on 2026-10-24. Q1 is deferred to the visual overhaul.
 
 Depends on: [packet 008](archive/adr-0087-task-008-field-list-stays-open.md).
 
@@ -361,3 +361,27 @@ Cleanup:
 3. Close the app.
 
 The check changes no file and no stored data.
+
+## Implementation Result - 2026-10-25
+
+Status: Implemented. Visual checks V1 to V5 are open in [pending human checks](../pending-human-checks.md).
+
+Changed files and reasons:
+
+- `src/ui/composites/search_field_list.rs`: each row carries `flex_shrink_0()`.
+- The same file: the row list keeps `Size::ColumnRegular` as its maximum height. It sits in a relative parent
+  with a scroll bar.
+- The same file: debug selectors name the rows and the list. The module doc comment has a new paragraph.
+  Tests R87-10-01 and R87-10-03 are in this file.
+- `src/app/search_field_list.rs`: test R87-10-02, with the Down key selecting `has:`.
+
+Mutation check: with `flex_shrink_0()` removed, R87-10-01 failed. The `artist:` row was 36 px high in the
+list and 52.5 px high alone. The call is restored, and the test passes.
+
+Deviations:
+
+- None in the decisions. Q1 stays `Size::ColumnRegular`, as the operator answer says.
+- The orchestrator owns two document changes. It retires packet 004 V1 and packet 005 V7 in
+  [pending human checks](../pending-human-checks.md). It updates the overhaul plan.
+
+Gate: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test` are Green.

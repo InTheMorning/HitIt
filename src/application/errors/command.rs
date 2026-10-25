@@ -169,6 +169,12 @@ pub enum CommandError {
     ObservationWriteFailure(std::sync::Arc<crate::provider_observation::ObservationCommandFailure>),
     /// Command was cancelled before completion.
     Cancelled,
+    /// The feed host sent HTTP 429 (ADR 0084 Decision 10 as amended
+    /// 2026-10-24, task 039). The text names the host and the requested wait.
+    HostThrottled {
+        host: String,
+        retry_after: Option<std::time::Duration>,
+    },
     /// Command failed outside a narrower family.
     Other(String),
 }
@@ -189,6 +195,14 @@ impl fmt::Display for CommandError {
             Self::ObservedCommandFailure(failure) => failure.cause().fmt(f),
             Self::ObservationWriteFailure(failure) => failure.fmt(f),
             Self::Cancelled => f.write_str("command cancelled"),
+            Self::HostThrottled { host, retry_after } => match retry_after {
+                Some(wait) => write!(
+                    f,
+                    "{host} sent HTTP 429 (Too Many Requests) and asked for a wait of {} seconds.",
+                    wait.as_secs()
+                ),
+                None => write!(f, "{host} sent HTTP 429 (Too Many Requests) with no wait time."),
+            },
             Self::Other(message) => write!(f, "command failed: {message}"),
         }
     }
