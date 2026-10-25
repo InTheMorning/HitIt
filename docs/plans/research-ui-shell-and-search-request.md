@@ -15,8 +15,8 @@ Then a musicindex ADR codifies the shared rules. Read the request now. Do not dr
 an ADR yet.
 
 The research examined v4vmm at HEAD `58ce1ab`. The mockups are research
-commits `6bacd1c`, `4fedc27`, `8d02b00` and `10fd7eb`. Commit `10fd7eb` gives
-the corrections of sections 2, 3 and 4.
+commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
+`10fd7eb` and `e2cd3a3` give the corrections of sections 2 to 4.
 
 ## The Data
 
@@ -60,8 +60,11 @@ Decision 2 (the destinations), Decision 3 (Music opens on Discover) and
 Decision 8 (two scopes).
 
 - The sidebar is one list with no group labels: **Search, Releases, Artists,
-  My Playlists, Public Playlists, Live, Needs attention**. Then Show, Inbox
-  and Settings.
+  My Playlists, Public Playlists, Live**. Then Show, Inbox and Settings
+  below the line.
+- **Needs attention is not a destination.** It showed the same tracks as the
+  Inbox section for the show playlist. The Inbox keeps them. The operator
+  decided this on 2026-10-24.
 - **Discover is not a destination.** Its "New releases" view was the same as
   Releases with All and Newest. Releases is the start page.
 - **Search** opens the saved searches, and puts the focus in the toolbar
@@ -102,10 +105,21 @@ Decision 8 (two scopes).
 | Public Playlists | Newest | Tiles | None |
 | The results and a saved search | Newest | Rows | In the query, section 4 |
 
+- **Each row shows the entity dot and the type word**, for example "Album",
+  "Track" or "Artist" (musicindex ADR 0012 item 8). A numbered track row on a
+  release page does not, because the section heading gives the type.
+- **The library icon is muted.** A warning or a danger keeps its status
+  color. The icon and the time each have one column, so they align in a
+  list of releases and tracks.
+
 ## 4. The Search
 
-- **One wide field in the toolbar of the content area, on each page**, as
-  ADR 0060 and ADR 0087 state. It is 360 px, and 520 px while it has focus.
+- **One wide field in the center of the toolbar, on each page**, as ADR 0060
+  and ADR 0087 state. It is at most 640 px wide. Its width does not change
+  when it gets the focus. The operator does not want the animation.
+- **The toolbar** has the `‹ ›` icons and the page title at the left, as
+  musicindex ADR 0020 R-NAV-1 gives for v4vmm. The website uses the same
+  form.
   The field list of ADR 0087 Decision 3 opens under it. ⌘K and ⌘F focus it.
 - The website uses the same field and the same query text, with the Index
   fields only.
@@ -146,7 +160,7 @@ The operator has not decided these:
 
 1. The verbs: ADR 0083 says "Download". The journeys study says "Get" and
    "Drop".
-2. One Inbox, or the Inbox and the Needs attention destination.
+2. Answered on 2026-10-24: one Inbox. Needs attention is not a destination.
 3. Does Live also list upcoming items, as the website does?
 4. The actions of a public playlist, for example "Copy to My Playlists…".
 5. "All | In Library" on the results page maps to no `in:` field and to
