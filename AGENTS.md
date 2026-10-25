@@ -23,7 +23,7 @@ Phase 4A builds ADR 0084 in the packets of the
 [ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). Music has one navigation stack, one page
 for each item, three columns, the six destinations and Discover.
 Stophammer release 0.13.0 delivered request 9 on 2026-10-21, so packets 026 and 029 wait for nothing outside this repository.
-Stophammer release 0.14.0 of 2026-10-24 is deployed. It delivers item 1 of request 10 (Stophammer ADR 0078).
+Stophammer release 0.15.0 of 2026-10-25 is deployed. It delivers items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080).
 
 Packets 001 to 009, 013 to 015, 018, 019, 036 and 037 are complete. Packets 010 to 012, 016, 017, 020 to 035 are implemented,
 and so are ADR 0083 tasks 006 to 008. The run of 2026-10-20 closed on 2026-10-23. Its unwalked visual checks stay open in
@@ -32,7 +32,9 @@ and so are ADR 0083 tasks 006 to 008. The run of 2026-10-20 closed on 2026-10-23
 [ADR 0086](docs/adr/0086-new-releases-singles-window.md), Accepted on 2026-10-23, groups the singles of one artist in New releases by a window.
 [ADR 0087](docs/adr/0087-search-fields-and-live-results.md), Accepted on 2026-10-23, gives search its fields, a field list and live results.
 The [remaining order](docs/plans/design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23)
-of the overhaul plan is the order of the next work. Its next step is the fix packets of the walk of 2026-10-24: ADR 0084 packets 038 and 039 and ADR 0087 packets 009 and 010. The visual overhaul comes before each new screen.
+of the overhaul plan is the order of the next work. The visual overhaul comes before each new screen.
+
+The fix packets of the walk of 2026-10-24 are implemented on 2026-10-25. They are ADR 0084 packets 038 and 039 and ADR 0087 packets 009 and 010. Their visual checks are open in sections 8 and 9 of [pending human checks](docs/pending-human-checks.md). The next step starts after those checks.
 
 Phase 4 and 5 packets carry the
 [visual requirements moved from pending checks](docs/plans/design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07).

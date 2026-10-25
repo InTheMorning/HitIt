@@ -967,6 +967,54 @@ fn local_library_tracks_populate_ready_rows() {
     assert_eq!(track_rows[0].secondary_text, "HeyCitizen");
 }
 
+/// R87-9-05 (ADR 0087 Decision 4, packet 009): the error of an older run
+/// does not reach the page of a newer run. The error of the newer run
+/// shows after the Library rows, and the rows stay.
+#[test]
+fn adr_0087_one_index_error_r87_9_05_older_run_error_does_not_reach_newer_page() {
+    use crate::application::CommandError;
+    let mut gate = crate::view_models::live_run::LiveRunGate::default();
+    let older_generation = gate.next_run();
+    let newer_generation = gate.next_run();
+    assert_ne!(older_generation, newer_generation);
+
+    let rows_in = [
+        local_guid_track(10, 7, "g-haleen", "i1", "One"),
+        local_guid_track(11, 8, "g-haleen-two", "i2", "Two"),
+    ];
+    let facts = super::ArtistSearchFacts::default();
+    let mut newer =
+        SearchResultsInspectorPageVm::from_local_library_tracks("haleen d", &rows_in, &facts)
+            .with_run_generation(newer_generation);
+    assert!(newer.begin_index_run(newer_generation));
+
+    let error = CommandError::Query("connection refused".into());
+    assert!(
+        !newer.set_index_error_for_run(
+            older_generation,
+            "haleen",
+            &error,
+            "http://127.0.0.1:9",
+            std::time::SystemTime::UNIX_EPOCH,
+        ),
+        "R87-9-05: the error of an older run changes no page"
+    );
+    assert!(newer.index_notice().is_none());
+
+    assert!(newer.set_index_error_for_run(
+        newer_generation,
+        "haleen d",
+        &error,
+        "http://127.0.0.1:9",
+        std::time::SystemTime::UNIX_EPOCH,
+    ));
+    let notice = newer.index_notice().expect("the newer run shows its note");
+    assert_eq!(notice.title, "MusicIndex search unavailable");
+    assert!(newer.empty_state().is_none());
+    let lookup = RecordedLibrary::default();
+    assert_eq!(rows(&newer, &lookup).len(), 2, "the Library rows stay");
+}
+
 #[test]
 fn index_error_surfaces_when_the_tab_has_no_rows() {
     let mut vm = SearchResultsInspectorPageVm::new("field recordings");

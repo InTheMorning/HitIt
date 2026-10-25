@@ -67,6 +67,12 @@ impl DownloadOutcome {
 pub enum DownloadError {
     /// Download was cancelled.
     Cancelled,
+    /// The feed host sent HTTP 429 (ADR 0084 Decision 10 as amended
+    /// 2026-10-24, task 039). The download queue keeps this typed form.
+    HostThrottled {
+        host: String,
+        retry_after: Option<std::time::Duration>,
+    },
     /// Download failed with implementation-specific detail.
     Failed(String),
 }
@@ -75,6 +81,9 @@ impl fmt::Display for DownloadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Cancelled => f.write_str("download cancelled"),
+            Self::HostThrottled { host, .. } => {
+                write!(f, "{host} sent HTTP 429 (Too Many Requests)")
+            }
             Self::Failed(message) => write!(f, "download failed: {message}"),
         }
     }
@@ -273,7 +282,15 @@ impl DownloadManager for UnavailableDownloadManager {
     }
 }
 
+/// Keeps a typed HTTP 429 of the feed host (ADR 0084 Decision 10 as amended
+/// 2026-10-24, task 039). Each other error becomes text.
 fn download_failed(error: &anyhow::Error) -> DownloadError {
+    if let Some(throttled) = error.downcast_ref::<crate::rss::HostThrottled>() {
+        return DownloadError::HostThrottled {
+            host: throttled.host.clone(),
+            retry_after: throttled.retry_after,
+        };
+    }
     DownloadError::Failed(format!("{error:#}"))
 }
 
@@ -324,5 +341,27 @@ mod tests {
             manager.subscribe_then_append_to_playlist(test_connection(), 1, vec![1], &context),
             Err(DownloadError::Cancelled)
         ));
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-11). A typed
+    /// HTTP 429 from the recovery owner stays `HostThrottled` and does not
+    /// become text. Failure: the download queue needs the typed wait of the
+    /// host, so the port must not change the error to a string.
+    #[test]
+    fn adr_0084_task_039_r39_11_host_throttled_stays_typed() {
+        let error = anyhow::Error::from(crate::rss::HostThrottled {
+            host: "wavlake.com".to_owned(),
+            retry_after: Some(std::time::Duration::from_secs(30)),
+        })
+        .context("GET https://wavlake.com/feed/music/x");
+        assert_eq!(
+            download_failed(&error),
+            DownloadError::HostThrottled {
+                host: "wavlake.com".to_owned(),
+                retry_after: Some(std::time::Duration::from_secs(30)),
+            }
+        );
+        let other = anyhow::anyhow!("HTTP error for https://example.test/feed.xml");
+        assert!(matches!(download_failed(&other), DownloadError::Failed(_)));
     }
 }

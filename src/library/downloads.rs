@@ -14,19 +14,24 @@
 #![warn(clippy::pedantic)]
 
 use std::sync::Arc;
+use std::time::Duration;
 
+use chrono::{DateTime, Local};
 use gpui::{AnyElement, Context, IntoElement};
 
 use super::download_queue::{
-    DownloadJob, DownloadOutcome, DownloadRefusal, JobIdentity, QueuedJob,
+    DownloadJob, DownloadOutcome, DownloadRefusal, HostTurn, JobIdentity, QueuedJob,
+    HOST_BUSY_RECHECK,
 };
 use super::{LibraryApp, LibraryAppEvent};
 use crate::application::commands::download::SubscribeTrack;
 use crate::application::commands::feed::SubscribeFeed;
+use crate::application::errors::command::CommandError;
 use crate::application::queries::search::FetchIndexFeedDetail;
 use crate::application::CommandContext;
 use crate::db;
 use crate::metadata::TrackContext;
+use crate::presentation::delayed_presenter::present_after;
 use crate::presentation::present_command;
 use crate::subscribe_service::{SubscribeFeedRequest, SubscribeTrackRequest};
 use crate::ui::composites::download_status_item;
@@ -119,6 +124,79 @@ impl LibraryApp {
         self.vm
             .set_download_activity(self.download_queue.activity());
         cx.notify();
+    }
+
+    /// Asks the queue for the RSS host of the job `identity` before the job
+    /// sends its RSS request (ADR 0084 Decision 10 as amended 2026-10-24,
+    /// task 039). Gives `true` when the job sends now. Otherwise the job
+    /// keeps its slot, and `resume` runs again at its next ask. A stopped
+    /// host fails the job.
+    pub(super) fn await_host_turn(
+        &mut self,
+        identity: &JobIdentity,
+        feed_url: Option<&str>,
+        resume: impl FnOnce(&mut Self, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let host = feed_url.and_then(crate::rss::host::feed_host);
+        match self
+            .download_queue
+            .host_turn(identity, host.as_deref(), Local::now())
+        {
+            HostTurn::Go => true,
+            HostTurn::Stopped(reason) => {
+                self.finish_download(identity, DownloadOutcome::Failed { error: reason }, cx);
+                false
+            }
+            HostTurn::Busy => {
+                self.ask_host_again(identity.clone(), None, resume, cx);
+                false
+            }
+            HostTurn::WaitUntil(until) => {
+                self.ask_host_again(identity.clone(), Some(until), resume, cx);
+                false
+            }
+        }
+    }
+
+    /// Shows the wait of the queue and asks the host again at `until`. A
+    /// busy host (`until` is `None`) is asked after [`HOST_BUSY_RECHECK`].
+    /// A job that "Stop queued" removed does not resume.
+    fn ask_host_again(
+        &mut self,
+        identity: JobIdentity,
+        until: Option<DateTime<Local>>,
+        resume: impl FnOnce(&mut Self, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.vm
+            .set_download_activity(self.download_queue.activity());
+        cx.notify();
+        let delay = match until {
+            Some(until) => (until - Local::now()).to_std().unwrap_or_default(),
+            None => HOST_BUSY_RECHECK,
+        };
+        present_after(delay, cx, move |this, cx| {
+            if this.download_queue.is_waiting_for(&identity, until) {
+                resume(this, cx);
+            }
+        });
+    }
+
+    /// Records an HTTP 429 of the job `identity` from `host`, then starts the
+    /// next jobs. The queue keeps the job for its next try, or it fails the
+    /// job (ADR 0084 Decision 10 as amended 2026-10-24, task 039).
+    pub(super) fn finish_host_throttled(
+        &mut self,
+        identity: &JobIdentity,
+        job: DownloadJob,
+        host: &str,
+        retry_after: Option<Duration>,
+        cx: &mut Context<Self>,
+    ) {
+        self.download_queue
+            .host_throttled(identity, job, host, retry_after, Local::now());
+        self.pump_downloads(cx);
     }
 
     /// Records the result of the job `identity` with the time of this
@@ -300,6 +378,27 @@ impl LibraryApp {
         context: Box<TrackContext>,
         cx: &mut Context<Self>,
     ) {
+        let feed_url = context.feed_url().map(str::to_owned);
+        let resume_identity = identity.clone();
+        let resume_guid = feed_guid.clone();
+        let resume_track_guid = track_guid.clone();
+        let resume_context = context.clone();
+        if !self.await_host_turn(
+            &identity,
+            feed_url.as_deref(),
+            move |this, cx| {
+                this.run_index_track_job(
+                    resume_identity,
+                    resume_guid,
+                    resume_track_guid,
+                    resume_context,
+                    cx,
+                );
+            },
+            cx,
+        ) {
+            return;
+        }
         // ADR 0084 task 034, decision D1: hydrate this track's feed after
         // the download succeeds, so it joins its feed group with no page
         // view.
@@ -310,6 +409,7 @@ impl LibraryApp {
             context: Some(context.clone()),
         };
         let failed_job = finished_job.clone();
+        let retry_job = finished_job.clone();
         let failed_identity = identity.clone();
         let command = SubscribeTrack::new(
             Arc::clone(&self.conn),
@@ -332,6 +432,10 @@ impl LibraryApp {
                 this.finish_index_download(&identity, finished_job, DownloadOutcome::Succeeded, cx);
             },
             move |this, error, cx| {
+                if let CommandError::HostThrottled { host, retry_after } = &error {
+                    this.finish_host_throttled(&failed_identity, retry_job, host, *retry_after, cx);
+                    return;
+                }
                 let outcome = DownloadOutcome::Failed {
                     error: error.to_string(),
                 };
@@ -349,6 +453,32 @@ impl LibraryApp {
         cx: &mut Context<Self>,
     ) {
         let feed_url = feed_url.or_else(|| feed.feed_url.clone());
+        let resume_identity = identity.clone();
+        let resume_guid = feed_guid.clone();
+        let resume_url = feed_url.clone();
+        let resume_feed = feed.clone();
+        if !self.await_host_turn(
+            &identity,
+            feed_url.as_deref(),
+            move |this, cx| {
+                this.run_index_release_job(
+                    resume_identity,
+                    resume_guid,
+                    resume_url,
+                    resume_feed,
+                    cx,
+                );
+            },
+            cx,
+        ) {
+            return;
+        }
+        // The retry keeps the feed, so the next try reads no MusicIndex again.
+        let retry_job = DownloadJob::IndexRelease {
+            feed_guid: feed_guid.clone(),
+            feed_url: feed_url.clone(),
+            feed: Some(Box::new(feed.clone())),
+        };
         // ADR 0084 task 034, decision D1: hydrate this release's feed
         // after the download succeeds, so it joins its feed group with
         // no page view. This is the path that downloads a `MusicIndex`
@@ -379,6 +509,10 @@ impl LibraryApp {
                 this.finish_index_download(&identity, finished_job, DownloadOutcome::Succeeded, cx);
             },
             move |this, error, cx| {
+                if let CommandError::HostThrottled { host, retry_after } = &error {
+                    this.finish_host_throttled(&failed_identity, retry_job, host, *retry_after, cx);
+                    return;
+                }
                 let outcome = DownloadOutcome::Failed {
                     error: error.to_string(),
                 };

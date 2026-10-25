@@ -203,9 +203,9 @@ Open - the run closed on 2026-10-24 before the end of its walk. Each check below
   - [ADR 0086 packet 004](tasks/adr-0086-task-004-window-group-page.md) V4, V6, V9 and V10
   - [ADR 0086 packet 005](tasks/adr-0086-task-005-saved-search-window-groups.md) V1 to V7
   - [ADR 0087 packet 002](tasks/adr-0087-task-002-library-fields-and-index-words.md) V8 and V9
-  - [ADR 0087 packet 004](tasks/adr-0087-task-004-field-list.md) V1 and V9. V1 failed, and the visual overhaul takes it. Packet 008 V2 replaces V6 (section 7)
+  - [ADR 0087 packet 004](tasks/adr-0087-task-004-field-list.md) V9. Packet 010 V1 replaces V1 (section 9). Packet 008 V2 replaces V6 (section 7)
   - [ADR 0087 packet 003](tasks/adr-0087-task-003-live-results.md) V2, V8 and V9. Packet 007 V1 and V3 replace V3, and packet 008 V1 replaces V6 (section 7)
-  - [ADR 0087 packet 005](tasks/adr-0087-task-005-field-list-values.md) V3, V6 and V7. V7 failed
+  - [ADR 0087 packet 005](tasks/adr-0087-task-005-field-list-values.md) V3 and V6. Packet 010 V3 replaces V7 (section 9)
 
 ## 7. Final Walk Of The Run Of 2026-10-24
 
@@ -213,6 +213,24 @@ Open - the run closed on 2026-10-24 after its walk. The operator passed ADR 0084
 
 - Owner: the [run record](reviews/orchestrated-run-2026-10-24.md#final-walk).
 - The open checks. Each item names its packet:
-  - [ADR 0084 packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V2 and V3. The V1 defect blocks them. Packet 038 owns the V1 defect. V1 walks packet 026 V6 again
-  - [ADR 0087 packet 007](tasks/adr-0087-task-007-live-run-index-rows.md) V4. Packet 009 owns the defect. With MusicIndex not reachable, a live run gave two errors, and they show as retained actions in the top bar
+  - [ADR 0084 packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V2 and V3. Packet 038 implements the fix of the V1 defect. Its checks V2 to V4 walk packet 035 V1 to V3 again (section 8). V1 walks packet 026 V6 again
+  - [ADR 0087 packet 007](tasks/adr-0087-task-007-live-run-index-rows.md) V4. Packet 009 replaces this check (section 9). With MusicIndex not reachable, a live run gave two errors, and they show as retained actions in the top bar
   - [ADR 0059 packet 019](tasks/adr-0059-task-019-livevalue-uri-is-a-url.md) V2 to V4. The operator removed the fixture before the steps of V2 and V3. V4 needs a real show feed. Its step 9 replaces the tag in each feed that holds the old form, outside the app
+
+## 8. Packets 038 And 039 - Implemented 2026-10-25
+
+Open - the packets are implemented. The mechanical suite is Green. No person checked these packets. Walk each check at a terminal in a desktop session. Each packet gives the commands.
+
+- Owner: the packet files [038](tasks/adr-0084-task-038-downloaded-single-joins-its-group.md#operator-visual-check) and [039](tasks/adr-0084-task-039-download-queue-host-limit.md#operator-visual-check). Each file holds its steps and its cleanup.
+- [ADR 0084 packet 038](tasks/adr-0084-task-038-downloaded-single-joins-its-group.md): V1 to V5. V2, V3 and V4 walk [packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V1, V2 and V3 again. V1 is the group rows of "Everything", and V5 is the search "haleen d".
+- [ADR 0084 packet 039](tasks/adr-0084-task-039-download-queue-host-limit.md): V1 to V4, and the step 4 observation of the lag (responsiveness item 32). V1 needs one group of 30 or more Wavlake singles that are not in the Library.
+
+## 9. ADR 0087 Packets 009 And 010 - 2026-10-25
+
+Open - both packets are implemented on 2026-10-25. The visual checks are not walked. A gate that no person walks is not met.
+
+- Owner: the packet files of [packet 009](tasks/adr-0087-task-009-one-error-for-the-latest-text.md) and
+  [packet 010](tasks/adr-0087-task-010-field-list-row-height.md). Each packet has its steps in "Operator Visual Check".
+- The open checks:
+  - [ADR 0087 packet 009](tasks/adr-0087-task-009-one-error-for-the-latest-text.md) V1 and V2. V1 replaces packet 007 V4. With MusicIndex not reachable, a live run of `haleen` then `haleen d` shows one note for `haleen d` and no retained action for a live run. V2 checks that Enter keeps one retained action with "Edit endpoint".
+  - [ADR 0087 packet 010](tasks/adr-0087-task-010-field-list-row-height.md) V1 to V5. V1 walks packet 004 V1 again. V3 walks packet 005 V7 again. Each row keeps its height, the list scrolls to its end, and the scroll bar covers no text.

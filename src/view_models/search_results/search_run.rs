@@ -32,6 +32,16 @@ pub(crate) const SCOPE_CONFLICT_TITLE: &str = "No results";
 pub(crate) const SCOPE_CONFLICT_TEXT: &str =
     "The search asks for the Library only and for MusicIndex only. Remove one of the fields.";
 
+/// What started a search run (ADR 0087 Decision 4, packet 009).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum SearchRunTrigger {
+    /// The pause after a change of the field text ended.
+    Pause,
+    /// Enter, Back, Forward, a page open, a saved search or a retry.
+    #[default]
+    Command,
+}
+
 /// The run of one query text: the trimmed text, the typed query and the
 /// Index plan.
 #[derive(Clone, Debug)]
@@ -41,6 +51,8 @@ pub(crate) struct SearchRun {
     index_plan: IndexSearchPlan,
     /// The generation of the run (ADR 0087 Decision 4, packet 003).
     generation: RunGeneration,
+    /// What started the run (ADR 0087 Decision 4, packet 009).
+    trigger: SearchRunTrigger,
 }
 
 impl SearchRun {
@@ -55,7 +67,23 @@ impl SearchRun {
             query,
             index_plan,
             generation: RunGeneration::default(),
+            trigger: SearchRunTrigger::Command,
         }
+    }
+
+    /// Gives this run with the trigger `trigger`. The text, the query, the
+    /// plan and the generation do not change.
+    #[must_use]
+    pub(crate) fn with_trigger(mut self, trigger: SearchRunTrigger) -> SearchRun {
+        self.trigger = trigger;
+        self
+    }
+
+    /// The trigger of the run. [`SearchRun::new`] gives
+    /// `SearchRunTrigger::Command`.
+    #[must_use]
+    pub(crate) fn trigger(&self) -> SearchRunTrigger {
+        self.trigger
     }
 
     /// Gives this run with the generation `generation` (packet 003). The
@@ -141,7 +169,7 @@ pub(crate) fn live_run_step(
     if mounted_query == Some(run.text()) {
         return LiveRunStep::SameQuery;
     }
-    LiveRunStep::Run(run)
+    LiveRunStep::Run(run.with_trigger(SearchRunTrigger::Pause))
 }
 
 /// `true` when the Library part of `query` runs: the query is runnable, and
@@ -436,6 +464,23 @@ mod tests {
 
     /// R87-2-28: a saved search keeps its text, and each run parses it
     /// again (ADR 0087 Decision 6).
+    /// R87-9-01: a new run has the trigger `Command`. A live run of the
+    /// pause has the trigger `Pause`, and `with_generation` keeps it.
+    #[test]
+    fn adr_0087_one_index_error_r87_9_01_live_run_has_the_pause_trigger() {
+        assert_eq!(
+            SearchRun::new("haleen d").trigger(),
+            SearchRunTrigger::Command
+        );
+        let LiveRunStep::Run(run) = live_run_step("haleen d", Some("haleen"), true) else {
+            panic!("R87-9-01: the text of a new run runs");
+        };
+        assert_eq!(run.trigger(), SearchRunTrigger::Pause);
+        let mut gate = crate::view_models::live_run::LiveRunGate::default();
+        let kept = run.with_generation(gate.next_run());
+        assert_eq!(kept.trigger(), SearchRunTrigger::Pause);
+    }
+
     #[test]
     fn adr_0087_library_fields_r87_2_28_saved_text_parses_at_each_run() -> anyhow::Result<()> {
         use crate::db::saved_searches::{insert_saved_search, saved_searches, StoredStartTab};

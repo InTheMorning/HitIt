@@ -162,7 +162,7 @@ The orchestrator wrote this order on 2026-10-23, from the operator answers on AD
 
 The publisher show-log trigger of the [delivery order](broadcast-chain-delivery-order.md#current-delivery-order) stays first: when a real show is scheduled, publisher show-log task 001 comes before each step below.
 
-The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [ADR 0086](adr-0086-new-releases-window-groups-phase-plan.md) packets 001 to 005 and [ADR 0087](adr-0087-search-fields-phase-plan.md) packets 001 to 005. ADR 0087 packet 006 waits for the Stophammer release of open request 10.
+The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [ADR 0086](adr-0086-new-releases-window-groups-phase-plan.md) packets 001 to 005 and [ADR 0087](adr-0087-search-fields-phase-plan.md) packets 001 to 005. Stophammer release 0.15.0 delivered open request 10 on 2026-10-25. ADR 0087 packet 006 waits for nothing outside this repository, but its packet is not written.
 
 ### Phase 4A: Close
 
@@ -179,33 +179,8 @@ The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [
 
 ### Phase 7: Visual Overhaul
 
-The operator asked for it on 2026-10-23. The use of screen space and the size and color of the interface do not satisfy the operator. The operator writes the design rules in `../musicindex`. A v4vmm ADR adopts them. The [remaining order](#remaining-order---2026-10-23) puts this phase before each new screen.
-
-## Remaining Order - 2026-10-23
-
-The orchestrator wrote this order on 2026-10-23, from the operator answers on ADR 0086 of the same day. The operator revised it on 2026-10-24: the behavior fixes come first, then the visual overhaul, then each new screen. It replaces the phase numbers as the order of work. Each step is one session or more. A step starts only after the visual check of the step before it.
-
-The publisher show-log trigger of the [delivery order](broadcast-chain-delivery-order.md#current-delivery-order) stays first: when a real show is scheduled, publisher show-log task 001 comes before each step below.
-
-The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [ADR 0086](adr-0086-new-releases-window-groups-phase-plan.md) packets 001 to 005 and [ADR 0087](adr-0087-search-fields-phase-plan.md) packets 001 to 005. ADR 0087 packet 006 waits for the Stophammer release of open request 10.
-
-### Phase 4A: Close
-
-1. The operator closed the run of 2026-10-23 on 2026-10-24. Each check that the operator did not walk stays open in [pending human checks](../pending-human-checks.md). The operator answered the three questions of the run record.
-2. Fix packets for the behavior defects of the final walk. The visual overhaul does not change these defects:
-   - [ADR 0084 packet 035](../tasks/adr-0084-task-035-download-stores-feed-links.md), for packet 026 V6 and packet 034: a download from a singles group stores no feed links (question 2 of the run record).
-   - [ADR 0087 packet 008](../tasks/archive/adr-0087-task-008-field-list-stays-open.md), for packet 003 V6 and packet 004 V6: the field list closes after a value goes into the text, and after a trailing space.
-   - [ADR 0087 packet 007](../tasks/adr-0087-task-007-live-run-index-rows.md), for packet 003 V3: a live run shows no Index rows. Enter shows them.
-   - [ADR 0084 packet 036](../tasks/archive/adr-0084-task-036-group-row-at-artist-name.md), for packet 026 D5: a group row in "Everything" takes the place of its artist name (operator answer of 2026-10-24).
-   - [ADR 0084 packet 037](../tasks/archive/adr-0084-task-037-releases-everything-frame-time.md), responsiveness item 31: about 500 ms for each frame in "Everything". It needs a virtual list and one merge for each frame. It comes before the responsiveness phase, because the list is not usable at that speed.
-
-### Ready Defects
-
-3. [The live value URI plan](archive/livevalue-uri-is-a-url.md). [ADR 0059 packet 019](../tasks/adr-0059-task-019-livevalue-uri-is-a-url.md) implemented it on 2026-10-24. Its visual check is open. It must pass before the relay adoption of row 3 of the delivery order.
-
-### Phase 7: Visual Overhaul
-
 4. The operator plans a new visual design, because of the use of screen space and the size and color of the interface (question 3 of the run record). The operator writes the design rules in `../musicindex`. This step starts when the operator says that those rules are stable.
+   - The shell ADR does not wait for the stable rules. The operator lifted the hold on the [research request](research-ui-shell-and-search-request.md) on 2026-10-25. A v4vmm ADR records the destinations, the start page and the scopes of sections 1 to 4 of that request. It cites musicindex ADRs 0027 and 0028 and does not restate them. musicindex ADR 0027 R-SHELL-1 replaces ADR 0084 Decision 1 with a stack. This ADR comes before the new tokens, because the stack changes the layout of each surface.
    - First, a v4vmm ADR adopts the rules. It amends or supersedes [ADR 0083](../adr/0083-design-language.md) and the Phase 3 tokens. It names the `../musicindex` document as its source. A rule binds v4vmm only through this ADR.
    - Then the new tokens in `src/ui/tokens.rs`.
    - Then one packet for each surface.
@@ -292,6 +267,7 @@ The operator asked on 2026-10-08 for a later phase that tunes how fast the app r
 31. 2026-10-23: the operator measured about 500 ms for each frame in the Releases list with the scope "Everything", after several "Load more" clicks. The list is not a virtual list. It draws one element for each loaded row in each frame, also for each row that is not visible (`render_destination_list` in `src/ui/shells/library/destination_lists.rs`). Each frame also builds the merged list two times, for the header action and for the rows (`header_action_for_list_column` and the Releases list in `src/library/app_impl.rs`). Item 16 records the second cause.
     [ADR 0084 packet 037](../tasks/archive/adr-0084-task-037-releases-everything-frame-time.md) owns items 16 and 31 from 2026-10-24: one cached merge and one virtual list for the Releases list and the Artists list. It is implemented on 2026-10-24. No measurement confirms the new frame time.
 32. 2026-10-24: the app lags while a download runs. The operator saw it in the final walk of the run of 2026-10-24, while the download of the "Haleen · 38 singles" group ran. No measurement confirms the cause (`src/library/download_queue.rs`, `src/library/app_impl.rs`). Owner: [ADR 0084 packet 039](../tasks/adr-0084-task-039-download-queue-host-limit.md), which moves the HTTP GET out of the database lock.
+   Result of packet 039, 2026-10-25: the GET of `rss::fetch_feed_document` now runs before the database lock in `src/subscribe_service.rs` (guard R39-13). The download queue also waits for each RSS host (ADR 0084 Decision 10 as amended 2026-10-24). No measurement yet confirms the lag is gone. The item stays open until step 4 of the operator check of packet 039 records a result.
 
 ## Visual Requirements Moved From Pending Checks - 2026-10-07
 

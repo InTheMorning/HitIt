@@ -159,7 +159,9 @@ pub(crate) fn index_release_row(
         // app has not read this feed's track list here, so a downloaded
         // row never shows a count.
         download_state: Some(match phase {
-            Some(DownloadPhase::Queued) => ReleaseDownloadStateVm::queued(),
+            Some(DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. }) => {
+                ReleaseDownloadStateVm::queued()
+            }
             Some(DownloadPhase::InFlight) => ReleaseDownloadStateVm::downloading(),
             None => ReleaseDownloadStateVm::in_library(false),
         }),

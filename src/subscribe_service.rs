@@ -136,9 +136,12 @@ pub(crate) fn subscribe_feed_retaining(
         .filter(|url| !source_text_missing(Some(url.as_str())))
         .ok_or_else(|| anyhow!("feed has no RSS URL"))?;
 
+    // ADR 0084 Decision 10 as amended 2026-10-24, task 039 (Q3): the GET
+    // runs before the database lock, so the main thread does not wait for it.
+    let body = rss::fetch_feed_document(&feed_url)?;
     {
         let mut db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
-        rss::subscribe_feed(&mut db, &feed_url, &musicindex_endpoint)?;
+        rss::subscribe_feed_body(&mut db, &feed_url, &body, &musicindex_endpoint)?;
         identity_ingest::persist_musicindex_context_by_feed_url(
             &mut db,
             &feed_url,
@@ -376,6 +379,9 @@ fn subscribe_track_from_search_internal(
             api_client.fetch_track(track_guid, Some(MUSICINDEX_TRACK_PERSISTENCE_INCLUDE))
         });
 
+    // ADR 0084 Decision 10 as amended 2026-10-24, task 039 (Q3): the GET
+    // runs before the database lock, so the main thread does not wait for it.
+    let body = rss::fetch_feed_document(&feed_url)?;
     let prior_subscribed = {
         let db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
         db::feed_is_subscribed_by_url(&db, &feed_url).unwrap_or(false)
@@ -383,7 +389,7 @@ fn subscribe_track_from_search_internal(
 
     {
         let mut db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
-        rss::subscribe_feed(&mut db, &feed_url, &musicindex_endpoint)?;
+        rss::subscribe_feed_body(&mut db, &feed_url, &body, &musicindex_endpoint)?;
         identity_ingest::persist_musicindex_context_by_feed_url(
             &mut db,
             &feed_url,
@@ -1193,5 +1199,69 @@ mod tests {
 
         let spec = rss_request_spec(&context).expect("a context with a feed address requests RSS");
         assert_eq!(spec.request_uri, "https://example.test/feed.xml");
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-13). The RSS
+    /// GET of a feed holds no database lock. The fixture server holds its
+    /// response until this test locks the database from a second thread.
+    /// Failure: the main thread waits for a Wavlake response when the GET
+    /// runs inside the database lock (ADR 0084 Decision 10 as amended
+    /// 2026-10-24, task 039, Q3).
+    #[test]
+    fn adr_0084_task_039_r39_13_database_lock_is_free_during_the_feed_get() {
+        use std::io::{Read, Write};
+        use std::sync::mpsc;
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+        let address = listener.local_addr().expect("the local address");
+        let (requested_tx, requested_rx) = mpsc::channel::<()>();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("one request");
+            let mut buffer = [0_u8; 4096];
+            let _ = stream.read(&mut buffer);
+            requested_tx
+                .send(())
+                .expect("the test waits for the request");
+            release_rx.recv().expect("the test releases the response");
+            let _ = stream.write_all(
+                b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            );
+        });
+
+        let temp = tempfile::tempdir().unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        db::init_schema(&conn).unwrap();
+        db::migrate_schema(&conn).unwrap();
+        let conn = Arc::new(Mutex::new(conn));
+        let download_cfg = cfg(temp.path());
+        let feed = Feed {
+            feed_url: Some(format!("http://{address}/feed.xml")),
+            ..Feed::default()
+        };
+        let worker_conn = Arc::clone(&conn);
+        let worker = std::thread::spawn(move || {
+            subscribe_feed_retaining(
+                worker_conn,
+                &download_cfg,
+                SubscribeFeedRequest {
+                    feed,
+                    musicindex_endpoint: "http://127.0.0.1:9".into(),
+                },
+                |_, _, _| Ok(()),
+            )
+        });
+
+        requested_rx.recv().expect("the GET reached the server");
+        let lock = conn.try_lock();
+        assert!(
+            lock.is_ok(),
+            "the database lock is held during the feed GET (ADR 0084 Decision 10 as amended 2026-10-24, task 039)"
+        );
+        drop(lock);
+        release_tx.send(()).unwrap();
+        let outcome = worker.join().expect("the worker ends");
+        assert!(outcome.is_err(), "HTTP 404 keeps its error");
+        server.join().expect("the server ends");
     }
 }

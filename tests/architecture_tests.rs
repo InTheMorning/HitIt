@@ -24662,3 +24662,131 @@ fn adr_0087_live_index_rows_r87_7_08_one_generation_for_each_run() {
         .iter()
         .any(|violation| violation.contains("next_search_run(")));
 }
+
+/// Situational ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-09).
+/// Each download function that sends `SubscribeFeed` or `SubscribeTrack`
+/// asks the queue for the RSS host first. Delete this guard when that
+/// decision is superseded.
+fn task_039_host_gate_violations(files: &BTreeMap<String, String>) -> Vec<String> {
+    let mut violations = Vec::new();
+    for (path, source) in files {
+        for call in ["SubscribeFeed::new(", "SubscribeTrack::new("] {
+            for (position, _) in source.match_indices(call) {
+                let function_start = source[..position].rfind("fn ").unwrap_or(0);
+                if !source[function_start..position].contains("await_host_turn(") {
+                    violations.push(format!(
+                        "{path}: {call} has no host gate. ADR 0084 Decision 10 as amended 2026-10-24, task 039: a download must ask the queue for the RSS host before it sends SubscribeFeed or SubscribeTrack. Call await_host_turn in this function."
+                    ));
+                }
+            }
+        }
+    }
+    violations
+}
+
+/// The failure message of R87-9-07 (ADR 0087 Decision 4, packet 009).
+fn one_index_error_message(file: &str, violation: &str) -> String {
+    format!(
+        "ADR 0087 Decision 4 (results show while the curator types): {file} {}. A live run retains no failed action, and a stopped result retains no action. Call index_result_step first, then retain the action only when index_failure_retains_action gives true.",
+        violation.trim_end_matches('.')
+    )
+}
+
+/// Checks the retain of a failed toolbar Index search (ADR 0087 Decision 4,
+/// packet 009). Each result step is read before the action is retained, and
+/// each retain asks `index_failure_retains_action`.
+fn one_index_error_violations(source: &str) -> Vec<String> {
+    let file = "src/app/search_dispatch.rs";
+    let code = code_only(source);
+    let production = production_source(&code);
+    let mut violations = Vec::new();
+    let dispatch = source_between(
+        production,
+        "fn dispatch_index_search<C>",
+        "pub(super) fn handle_search_failure_action",
+    );
+    let step_calls: Vec<usize> = dispatch
+        .match_indices("index_result_step(")
+        .map(|(index, _)| index)
+        .collect();
+    match (step_calls.get(1), dispatch.find("retain_failed_action(")) {
+        (Some(step), Some(retain)) if *step > retain => violations.push(one_index_error_message(file, "calls retain_failed_action( before index_result_step(. A live run retains no failed action, and a stopped result retains no action. Call index_result_step first, then retain the action only when index_failure_retains_action gives true."
+        )),
+        (Some(_), Some(_)) => {}
+        _ => violations.push(one_index_error_message(file, "must hold the failure closure of dispatch_index_search with index_result_step( and retain_failed_action(. Keep the result step in that closure."
+        )),
+    }
+    if !dispatch.contains("index_failure_retains_action(") {
+        violations.push(one_index_error_message(
+            file,
+            "dispatch_index_search does not call index_failure_retains_action(",
+        ));
+    }
+    let start = source_between(
+        production,
+        "pub(super) fn start_index_search_for_run",
+        "fn index_search_context(",
+    );
+    if !start.contains("index_failure_retains_action(") {
+        violations.push(one_index_error_message(file, "start_index_search_for_run does not call index_failure_retains_action(. The unavailable path gives the same retain rule."));
+    }
+    let body = source_between(
+        production,
+        "fn index_failure_retains_action(",
+        "fn index_search_error_shows(",
+    );
+    let outside = production
+        .replace(body, "")
+        .replace("fn index_search_error_retains_action(", "");
+    if outside.contains("index_search_error_retains_action(") {
+        violations.push(one_index_error_message(file, "calls index_search_error_retains_action( outside index_failure_retains_action. Ask index_failure_retains_action instead, so the step decides the retain."));
+    }
+    violations
+}
+
+/// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-09): the Library
+/// and Index download functions ask the queue for the RSS host before each
+/// RSS request. The guard fails when a copy drops the gate.
+#[test]
+fn adr_0084_task_039_r39_09_download_jobs_ask_the_queue_for_the_host() {
+    let files: BTreeMap<String, String> = ["src/library/downloads.rs", "src/library/app_impl.rs"]
+        .into_iter()
+        .map(|file| (file.to_owned(), read_source(&manifest_path(file))))
+        .collect();
+    let violations = task_039_host_gate_violations(&files);
+    assert!(violations.is_empty(), "{}", violations.join("\n"));
+
+    // A copy of `src/library/downloads.rs` without its gate fails.
+    let mut copy = files.clone();
+    let downloads = &files["src/library/downloads.rs"];
+    copy.insert(
+        "src/library/downloads.rs".to_owned(),
+        downloads.replace("await_host_turn(", "await_host_turn_removed("),
+    );
+    assert!(task_039_host_gate_violations(&copy)
+        .iter()
+        .any(|violation| violation.contains("SubscribeFeed::new(")));
+}
+
+/// R87-9-07, situational ADR 0087 Decision 4 (packet 009). A failed toolbar
+/// Index search retains an action only after its result step. Delete this
+/// guard when ADR 0087 Decision 4 is superseded.
+#[test]
+fn adr_0087_one_index_error_r87_9_07_retain_follows_the_step() {
+    let source = read_source(&manifest_path("src/app/search_dispatch.rs"));
+    let violations = one_index_error_violations(&source);
+    assert!(violations.is_empty(), "{}", violations.join("\n"));
+
+    // A copy whose failure closure retains an action before the result
+    // step fails.
+    let marker = "                // ADR 0087 Decision 4, packet 009: the step of the result";
+    assert!(source.contains(marker));
+    let early_retain = "                this.retain_failed_action(\n                    RecoveryAction::IndexSearch {\n                        query: error_query.clone(),\n                    },\n                    Dependency::MusicIndex,\n                    cx,\n                );\n";
+    let copy = source.replacen(marker, &format!("{early_retain}{marker}"), 1);
+    assert!(
+        one_index_error_violations(&copy)
+            .iter()
+            .any(|violation| violation.contains("before index_result_step(")),
+        "a retain before the result step must fail"
+    );
+}

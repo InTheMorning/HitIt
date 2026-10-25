@@ -743,6 +743,9 @@ fn feed_command_error(error: &anyhow::Error) -> CommandError {
 fn feed_download_error(error: DownloadError) -> CommandError {
     match error {
         DownloadError::Cancelled => CommandError::Cancelled,
+        DownloadError::HostThrottled { host, retry_after } => {
+            CommandError::HostThrottled { host, retry_after }
+        }
         DownloadError::Failed(message) => CommandError::Feed(message),
     }
 }

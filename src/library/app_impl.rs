@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use super::download_queue::{DownloadOutcome, JobIdentity};
+use super::download_queue::{DownloadJob, DownloadOutcome, JobIdentity};
 use super::PlaylistActorState;
 use super::{InspectorFrame, LazyPanel, LibraryApp, LibraryDetail, PlaylistDetail, ThumbnailState};
 use crate::app::keyboard::primary_modifier_held;
@@ -181,7 +181,9 @@ pub(super) fn command_error_detail(error: CommandError) -> String {
         CommandError::ObservedCommandFailure(failure) => {
             command_error_detail(failure.cause().clone())
         }
-        error @ CommandError::SessionDraining(_) => error.to_string(),
+        error @ (CommandError::SessionDraining(_) | CommandError::HostThrottled { .. }) => {
+            error.to_string()
+        }
         CommandError::Playlist(message)
         | CommandError::Feed(message)
         | CommandError::Download(message)
@@ -3066,6 +3068,17 @@ impl LibraryApp {
             self.finish_download(&identity, outcome, cx);
             return;
         };
+        // ADR 0084 Decision 10 as amended 2026-10-24, task 039: the RSS
+        // request waits for its host.
+        let resume_identity = identity.clone();
+        if !self.await_host_turn(
+            &identity,
+            feed.feed_url.as_deref(),
+            move |this, cx| this.run_library_feed_job(resume_identity, feed_id, cx),
+            cx,
+        ) {
+            return;
+        }
         // ADR 0084 task 034, decision D1: hydrate this feed's identity
         // after the download succeeds, so it joins its feed group with
         // no page view.
@@ -3098,6 +3111,11 @@ impl LibraryApp {
                 this.finish_download(&identity, DownloadOutcome::Succeeded, cx);
             },
             move |this, error, cx| {
+                if let CommandError::HostThrottled { host, retry_after } = &error {
+                    let job = DownloadJob::LibraryFeed { feed_id };
+                    this.finish_host_throttled(&failed_identity, job, host, *retry_after, cx);
+                    return;
+                }
                 let outcome = DownloadOutcome::Failed {
                     error: error.to_string(),
                 };
@@ -3263,6 +3281,21 @@ impl LibraryApp {
                 return;
             }
         };
+        // ADR 0084 Decision 10 as amended 2026-10-24, task 039: the RSS
+        // request waits for its host.
+        let feed_url = match self.conn.lock() {
+            Ok(conn) => db::feed_url_by_id(&conn, track.feed_id).ok().flatten(),
+            Err(_) => None,
+        };
+        let resume_identity = identity.clone();
+        if !self.await_host_turn(
+            &identity,
+            feed_url.as_deref(),
+            move |this, cx| this.run_library_track_job(resume_identity, track_id, cx),
+            cx,
+        ) {
+            return;
+        }
         // ADR 0084 task 034, decision D1: hydrate this track's feed after
         // the download succeeds, the same reasoning as the Library feed
         // job. This task's own reading of D1 extends the hook to the
@@ -3329,6 +3362,11 @@ impl LibraryApp {
                 this.finish_download(&identity, DownloadOutcome::Succeeded, cx);
             },
             move |this, error, cx| {
+                if let CommandError::HostThrottled { host, retry_after } = &error {
+                    let job = DownloadJob::LibraryTrack { track_id };
+                    this.finish_host_throttled(&failed_identity, job, host, *retry_after, cx);
+                    return;
+                }
                 this.fail_library_track_job(&failed_identity, track_id, error.to_string(), cx);
             },
         );

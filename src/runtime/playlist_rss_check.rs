@@ -47,6 +47,7 @@ use crate::provider_observation::{
     contracts, http, ObservationOutcome, ProviderObservation, ProviderObservationRecorder,
     RequestValidators,
 };
+use crate::rss::host::{feed_host, parse_retry_after};
 
 /// ADR 0076 accepted value: the minimum interval between two requests to
 /// one host.
@@ -1119,24 +1120,7 @@ fn retry_after(occurrence: &Value) -> Option<Duration> {
         .decode(encoded)
         .ok()?;
     let text = String::from_utf8(bytes).ok()?;
-    let text = text.trim();
-    if let Ok(seconds) = text.parse::<u64>() {
-        return Some(Duration::from_secs(seconds));
-    }
-    let at = chrono::DateTime::parse_from_rfc2822(text).ok()?;
-    let wait = at.with_timezone(&chrono::Utc) - chrono::Utc::now();
-    Some(wait.to_std().unwrap_or_default())
-}
-
-/// The lowercase host of an HTTP or HTTPS feed URL.
-pub(crate) fn feed_host(feed_url: &str) -> Option<String> {
-    let url = reqwest::Url::parse(feed_url.trim()).ok()?;
-    if !matches!(url.scheme(), "http" | "https") {
-        return None;
-    }
-    url.host_str()
-        .filter(|host| !host.is_empty())
-        .map(str::to_ascii_lowercase)
+    parse_retry_after(&text)
 }
 
 #[cfg(test)]

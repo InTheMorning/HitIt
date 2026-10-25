@@ -46,6 +46,7 @@ use crate::view_models::release_page::{
 use crate::view_models::search_results::{
     IndexDetailDisplay, IndexDetailKind, IndexSearchPlan, LibrarySearchRows, SavedSearchId,
     SearchResultTarget, SearchResultsInspectorPageVm, SearchResultsTab, SearchRun,
+    SearchRunTrigger,
 };
 use crate::view_models::track_detail::{TrackNameLinkTarget, TrackPageAction};
 use crate::view_models::track_page::{
@@ -227,6 +228,25 @@ fn index_search_error_retains_action(error: &crate::application::CommandError) -
     )
 }
 
+/// Tells if a failed `MusicIndex` search retains its action for a retry
+/// (ADR 0087 Decision 4, packet 009 decision D1 and D4). A live run retains
+/// no action. A result that the page did not apply retains no action. Each
+/// other failure retains the action when `index_search_error_retains_action`
+/// gives `true`.
+fn index_failure_retains_action(
+    trigger: SearchRunTrigger,
+    step: IndexResultStep,
+    error: &crate::application::CommandError,
+) -> bool {
+    if trigger == SearchRunTrigger::Pause {
+        return false;
+    }
+    if !matches!(step, IndexResultStep::Apply | IndexResultStep::MountPage) {
+        return false;
+    }
+    index_search_error_retains_action(error)
+}
+
 /// Tells if a failed `MusicIndex` search shows its error on the search
 /// page. A newer run canceled the request, so a canceled request shows no
 /// error (ADR 0087 packet 003 decision D14).
@@ -343,7 +363,13 @@ impl TopApp {
                     );
                 }
             }
-            if slot == SearchPageSlot::ToolbarSearch {
+            if slot == SearchPageSlot::ToolbarSearch
+                && index_failure_retains_action(
+                    run.trigger(),
+                    IndexResultStep::Apply,
+                    &crate::application::CommandError::Unavailable(reason),
+                )
+            {
                 self.retain_failed_action(
                     RecoveryAction::IndexSearch {
                         query: query.into(),
@@ -371,7 +397,7 @@ impl TopApp {
             self.library.read(cx).name_feed_matches(),
         );
         let context = self.index_search_context(slot);
-        self.dispatch_index_search(slot, query, generation, command, context, None, cx);
+        self.dispatch_index_search(slot, run, command, context, None, cx);
     }
 
     /// The command context of a new Index request of the search page
@@ -430,8 +456,7 @@ impl TopApp {
         let context = self.index_search_context(SearchPageSlot::ToolbarSearch);
         self.dispatch_index_search(
             SearchPageSlot::ToolbarSearch,
-            query,
-            generation,
+            &run,
             command,
             context,
             Some(id),
@@ -499,19 +524,14 @@ impl TopApp {
         }
     }
 
-    /// Dispatches the Index request of the run `generation` (ADR 0087
-    /// Decision 4). Each result goes through `index_result_step`, so a
-    /// result of a run that is not the current run of the slot changes
-    /// no rows. A canceled request shows no error.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "each argument is one fact of the run; ADR 0087 packet 003 adds the generation and the context"
-    )]
+    /// Dispatches the Index request of `run` (ADR 0087 Decision 4). Each
+    /// result goes through `index_result_step`, so a result of a run that
+    /// is not the current run of the slot changes no rows. A canceled
+    /// request shows no error.
     fn dispatch_index_search<C>(
         &self,
         slot: SearchPageSlot,
-        query: &str,
-        generation: RunGeneration,
+        run: &SearchRun,
         command: C,
         context: CommandContext,
         retry_id: Option<u64>,
@@ -519,6 +539,9 @@ impl TopApp {
     ) where
         C: ApplicationCommand<Output = crate::view_models::search_results::IndexSearchResultRows>,
     {
+        let query = run.text();
+        let generation = run.generation();
+        let trigger = run.trigger();
         let saved_id = self.saved_search_page.as_ref().map(|page| page.id);
         let success_query = query.to_owned();
         let error_query = query.to_owned();
@@ -572,6 +595,15 @@ impl TopApp {
                     }
                     return;
                 }
+                // ADR 0087 Decision 4, packet 009: the step of the result
+                // decides the retain, so it comes first.
+                let step = index_result_step(
+                    this.search_runs_mut(slot).is_current_run(generation),
+                    this.index_result_entry_matches(slot, saved_id, &error_query),
+                    this.search_page(slot),
+                    generation,
+                    &error_query,
+                );
                 if let Some(id) = retry_id {
                     this.capability_vm.pending.finish(
                         id,
@@ -580,7 +612,7 @@ impl TopApp {
                         )),
                     );
                 } else if slot == SearchPageSlot::ToolbarSearch
-                    && index_search_error_retains_action(&error)
+                    && index_failure_retains_action(trigger, step, &error)
                 {
                     let dependency = match error {
                         crate::application::CommandError::Unavailable(reason) => reason.dependency,
@@ -594,13 +626,6 @@ impl TopApp {
                         cx,
                     );
                 }
-                let step = index_result_step(
-                    this.search_runs_mut(slot).is_current_run(generation),
-                    this.index_result_entry_matches(slot, saved_id, &error_query),
-                    this.search_page(slot),
-                    generation,
-                    &error_query,
-                );
                 if !this.prepare_index_result_page(slot, step, generation, &error_query, cx) {
                     return;
                 }
@@ -2301,8 +2326,101 @@ mod remote_detail_thumbnail_tests {
 
 #[cfg(test)]
 mod tests {
-    use super::{index_search_error_retains_action, index_search_error_shows};
+    use super::{
+        index_failure_retains_action, index_result_step, index_search_error_retains_action,
+        index_search_error_shows, IndexResultStep, SearchRunTrigger,
+    };
+    use crate::app::search_live::SearchSlotRuns;
+    use crate::application::capability::{Dependency, ExecutionUnavailable};
     use crate::application::CommandError;
+
+    const ALL_STEPS: [IndexResultStep; 5] = [
+        IndexResultStep::Apply,
+        IndexResultStep::MountPage,
+        IndexResultStep::DropOlderRun,
+        IndexResultStep::DropOtherQuery,
+        IndexResultStep::DropPageGeneration,
+    ];
+
+    fn each_error() -> [CommandError; 3] {
+        [
+            CommandError::Query("GET failed with HTTP 503".into()),
+            CommandError::Unavailable(ExecutionUnavailable::configured(Dependency::MusicIndex)),
+            CommandError::QueryRejected("GET failed with HTTP 400".into()),
+        ]
+    }
+
+    /// R87-9-02: a live run retains no action, for each step and each error.
+    #[test]
+    fn adr_0087_one_index_error_r87_9_02_live_run_retains_no_action() {
+        for step in ALL_STEPS {
+            for error in each_error() {
+                assert!(
+                    !index_failure_retains_action(SearchRunTrigger::Pause, step, &error),
+                    "R87-9-02: {step:?} {error:?}"
+                );
+            }
+        }
+    }
+
+    /// R87-9-03: a command run retains an action only for a result that
+    /// the page applies, and only for an error that retains an action.
+    #[test]
+    fn adr_0087_one_index_error_r87_9_03_command_retains_for_applied_result() {
+        let trigger = SearchRunTrigger::Command;
+        let query_error = CommandError::Query("GET failed with HTTP 503".into());
+        for step in [IndexResultStep::Apply, IndexResultStep::MountPage] {
+            assert!(index_failure_retains_action(trigger, step, &query_error));
+        }
+        for step in [
+            IndexResultStep::DropOlderRun,
+            IndexResultStep::DropOtherQuery,
+            IndexResultStep::DropPageGeneration,
+        ] {
+            assert!(!index_failure_retains_action(trigger, step, &query_error));
+        }
+        assert!(!index_failure_retains_action(
+            trigger,
+            IndexResultStep::Apply,
+            &CommandError::QueryRejected("HTTP 400".into())
+        ));
+        assert!(!index_failure_retains_action(
+            trigger,
+            IndexResultStep::Apply,
+            &CommandError::Cancelled
+        ));
+    }
+
+    /// R87-9-06: two live runs, "haleen" and "haleen d", both failing,
+    /// retain no action. An Enter run of "haleen d" retains its action.
+    #[test]
+    fn adr_0087_one_index_error_r87_9_06_two_live_runs_retain_nothing() {
+        let mut runs = SearchSlotRuns::default();
+        let older = runs.next_run();
+        let newer = runs.next_run();
+        assert_ne!(older, newer);
+        let older_step = index_result_step(runs.is_current_run(older), true, None, older, "haleen");
+        let newer_step =
+            index_result_step(runs.is_current_run(newer), true, None, newer, "haleen d");
+        assert_eq!(older_step, IndexResultStep::DropOlderRun);
+        assert_eq!(newer_step, IndexResultStep::MountPage);
+        let error = CommandError::Query("GET failed with HTTP 503".into());
+        for step in [older_step, newer_step] {
+            assert!(
+                !index_failure_retains_action(SearchRunTrigger::Pause, step, &error),
+                "R87-9-06: live {step:?}"
+            );
+        }
+
+        let enter = runs.next_run();
+        let enter_step =
+            index_result_step(runs.is_current_run(enter), true, None, enter, "haleen d");
+        assert!(index_failure_retains_action(
+            SearchRunTrigger::Command,
+            enter_step,
+            &error
+        ));
+    }
 
     /// Walk of 2026-10-21: an HTTP `400` reply to the search retains no
     /// action. Each other failure keeps the retained action of ADR 0066.

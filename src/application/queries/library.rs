@@ -369,8 +369,13 @@ impl ApplicationQueryService {
     }
 }
 
+/// Builds the Library tree. Each node holds the tracks of one Library feed.
+///
+/// ADR 0084 Decision 4, task 038: the album key is the album text and the
+/// feed id. Two feeds with one title stay two nodes, so each node has one
+/// release identity. One feed with two album texts still gives two nodes.
 pub(crate) fn build_tree(tracks: &[TrackRow], conn: &Connection) -> LibraryTree {
-    let mut artist_map: BTreeMap<String, BTreeMap<String, Vec<TrackRow>>> = BTreeMap::new();
+    let mut artist_map: BTreeMap<String, BTreeMap<(String, i64), Vec<TrackRow>>> = BTreeMap::new();
     for track in tracks {
         let row_vm = LibraryTrackRowVm::new(track, None);
         let artist = row_vm.display_artist();
@@ -378,7 +383,7 @@ pub(crate) fn build_tree(tracks: &[TrackRow], conn: &Connection) -> LibraryTree 
         artist_map
             .entry(artist)
             .or_default()
-            .entry(album)
+            .entry((album, track.feed_id))
             .or_default()
             .push(track.clone());
     }
@@ -395,7 +400,7 @@ pub(crate) fn build_tree(tracks: &[TrackRow], conn: &Connection) -> LibraryTree 
         .map(|(artist_name, album_map)| {
             let albums = album_map
                 .into_iter()
-                .map(|(album_name, mut tracks)| {
+                .map(|((album_name, _feed_id), mut tracks)| {
                     tracks.sort_by_key(|track| track.track_number);
                     let feed_id = tracks.first().map(|t| t.feed_id);
                     let feed_guid = tracks.first().and_then(|t| t.feed_guid.clone());
@@ -3895,5 +3900,226 @@ mod tests {
             rusqlite::params![feed_id, "item-guid", "Track Title"],
         )?;
         Ok(conn.last_insert_rowid())
+    }
+
+    use crate::view_models::release_kind::ReleaseKind;
+    use crate::view_models::workspace::ReleaseKey;
+
+    /// ADR 0084 Decision 4, task 038: a Library feed row for the tree tests.
+    fn task_038_feed(conn: &Connection, id: i64, guid: &str, title: &str) -> anyhow::Result<()> {
+        conn.execute(
+            "INSERT INTO feeds (id, feed_url, feed_guid, title, is_subscribed)
+             VALUES (?1, ?2, ?3, ?4, 0)",
+            rusqlite::params![id, format!("https://example.test/{guid}.xml"), guid, title],
+        )?;
+        Ok(())
+    }
+
+    /// ADR 0084 Decision 4, task 038: a Library track of `feed_id`.
+    fn task_038_track(
+        id: i64,
+        feed_id: i64,
+        feed_guid: &str,
+        album: &str,
+        artist: &str,
+        number: i64,
+    ) -> TrackRow {
+        TrackRow {
+            id,
+            feed_id,
+            feed_guid: Some(feed_guid.to_owned()),
+            item_guid: format!("item-{id}"),
+            track_title: Some(format!("Track {id}")),
+            artist_name: Some(artist.to_owned()),
+            album_title: Some(album.to_owned()),
+            track_number: Some(number),
+            is_in_library: true,
+            ..TrackRow::default()
+        }
+    }
+
+    /// ADR 0084 Decision 4, task 038 (R38-01). Two feeds with one title and
+    /// one artist text stay two releases, each a single with its own key.
+    /// Failure: a Library tree node must hold the tracks of one Library
+    /// feed. Key the album map of build_tree by the album text and the feed
+    /// id (ADR 0084 Decision 4, task 038).
+    #[test]
+    fn adr_0084_task_038_two_feeds_with_one_title_stay_two_releases() -> anyhow::Result<()> {
+        let conn = Connection::open_in_memory()?;
+        db::init_schema(&conn)?;
+        task_038_feed(&conn, 1, "g1", "Sense Of Awe")?;
+        task_038_feed(&conn, 2, "g2", "Sense Of Awe")?;
+        let tracks = [
+            task_038_track(1, 1, "g1", "Sense Of Awe", "Haleen", 1),
+            task_038_track(2, 2, "g2", "Sense Of Awe", "Haleen", 1),
+        ];
+
+        let tree = build_tree(&tracks, &conn);
+
+        let albums = &tree.artists[0].albums;
+        assert_eq!(albums.len(), 2, "two feeds give two releases");
+        assert_eq!(albums[0].tracks.len(), 1);
+        assert_eq!(albums[1].tracks.len(), 1);
+        assert_eq!(
+            albums[0].release_key(),
+            Some(ReleaseKey::FeedGuid("g1".to_owned()))
+        );
+        assert_eq!(
+            albums[1].release_key(),
+            Some(ReleaseKey::FeedGuid("g2".to_owned()))
+        );
+        assert_eq!(albums[0].release_kind(), ReleaseKind::Single);
+        assert_eq!(albums[1].release_kind(), ReleaseKind::Single);
+        Ok(())
+    }
+
+    /// ADR 0084 Decision 4, task 038 (R38-02). Each track of a node has the
+    /// feed id of its node, and no two nodes of one artist share a feed id
+    /// and a name. The fixture has four shapes: two feeds with one title and
+    /// one artist, two feeds with one title and two artists, and one feed
+    /// with two tracks of one album. Failure: a Library tree node must hold
+    /// the tracks of one Library feed (ADR 0084 Decision 4, task 038).
+    #[test]
+    fn adr_0084_task_038_each_tree_node_holds_one_feed() -> anyhow::Result<()> {
+        let conn = Connection::open_in_memory()?;
+        db::init_schema(&conn)?;
+        task_038_feed(&conn, 1, "g1", "Breathing")?;
+        task_038_feed(&conn, 2, "g2", "Breathing")?;
+        task_038_feed(&conn, 3, "g3", "Shanti")?;
+        task_038_feed(&conn, 4, "g4", "Shanti")?;
+        task_038_feed(&conn, 5, "g5", "Five")?;
+        let tracks = [
+            task_038_track(1, 1, "g1", "Breathing", "Haleen", 1),
+            task_038_track(2, 2, "g2", "Breathing", "Haleen", 1),
+            task_038_track(3, 3, "g3", "Shanti", "Haleen", 1),
+            task_038_track(4, 3, "g3", "Shanti", "Other", 1),
+            task_038_track(5, 4, "g4", "Shanti", "Haleen", 1),
+            task_038_track(6, 4, "g4", "Shanti", "Other", 1),
+            task_038_track(7, 5, "g5", "Five", "Haleen", 1),
+            task_038_track(8, 5, "g5", "Five", "Haleen", 2),
+        ];
+
+        let tree = build_tree(&tracks, &conn);
+
+        for artist in &tree.artists {
+            let mut seen = BTreeSet::new();
+            for album in &artist.albums {
+                let feed_id = album.feed_id.expect("a node has a feed id");
+                assert!(
+                    album.tracks.iter().all(|track| track.feed_id == feed_id),
+                    "a node holds the tracks of one feed: {}",
+                    album.name
+                );
+                assert!(
+                    seen.insert((feed_id, album.name.clone())),
+                    "two nodes share the feed {feed_id} and the name {}",
+                    album.name
+                );
+            }
+        }
+        let haleen = tree
+            .artists
+            .iter()
+            .find(|artist| artist.name == "Haleen")
+            .expect("the artist Haleen");
+        let five = haleen
+            .albums
+            .iter()
+            .find(|album| album.name == "Five")
+            .expect("the album Five");
+        assert_eq!(five.tracks.len(), 2, "one feed with two tracks is one node");
+        Ok(())
+    }
+
+    /// ADR 0084 Decisions 4 and 6, packet 026 decision D8, task 038 (R38-03
+    /// and R38-04). A downloaded `MusicIndex` single joins the group of its
+    /// feed. The Library single of feed 2 is in the group of P2, and the
+    /// `MusicIndex` row of the same release is not a member of that group.
+    /// Failure: a Library tree node must hold the tracks of one Library
+    /// feed. Key the album map of build_tree by the album text and the feed
+    /// id (ADR 0084 Decision 4, task 038).
+    #[test]
+    fn adr_0084_task_038_downloaded_single_joins_its_feed_group() -> anyhow::Result<()> {
+        use crate::view_models::artist_identity::ArtistIdentity;
+        use crate::view_models::index_feed_singles::{
+            tests::single_naming, FeedReleaseList, IndexFeedSingles,
+        };
+        use crate::view_models::singles_group::singles_groups_everything;
+
+        let conn = Connection::open_in_memory()?;
+        db::init_schema(&conn)?;
+        db::migrate_schema(&conn)?;
+        // Feeds 1 and 3 name P1, feed 2 names P2. Feeds 1 and 2 share a title.
+        task_038_feed(&conn, 1, "g1", "Sense Of Awe")?;
+        task_038_feed(&conn, 2, "g2", "Sense Of Awe")?;
+        task_038_feed(&conn, 3, "g3", "Breathing")?;
+        for (feed_id, publisher) in [(1, "P1"), (2, "P2"), (3, "P1")] {
+            conn.execute(
+                "INSERT INTO feed_publisher_relationships (
+                    feed_id, direction, publisher_feed_guid, remote_feed_guid,
+                    music_names_publisher, two_way_validated, publisher_feed_title, observed_at
+                 ) VALUES (?1, 'music_to_publisher', ?2, ?2, 1, 1, 'Haleen', 10)",
+                rusqlite::params![feed_id, publisher],
+            )?;
+        }
+        let tracks = [
+            task_038_track(1, 1, "g1", "Sense Of Awe", "Haleen", 1),
+            task_038_track(2, 2, "g2", "Sense Of Awe", "Haleen", 1),
+            task_038_track(3, 3, "g3", "Breathing", "Haleen", 1),
+        ];
+        let tree = build_tree(&tracks, &conn);
+
+        // The MusicIndex singles of P2: g2 is the Library single of feed 2,
+        // and g4 is not in the Library.
+        let mut fills = IndexFeedSingles::default();
+        let generation = fills.begin_request();
+        assert!(fills.record(
+            "P2",
+            FeedReleaseList::complete(vec![
+                single_naming("g2", "Sense Of Awe", "P2", 200),
+                single_naming("g4", "Other Single", "P2", 100),
+            ]),
+            generation,
+        ));
+
+        let groups = singles_groups_everything(&tree, &fills);
+        let p2 = groups
+            .iter()
+            .find(|group| group.identity == ArtistIdentity::Publisher("P2".to_owned()))
+            .expect("the group of P2");
+        assert_eq!(
+            p2.count(),
+            2,
+            "the Library single and the MusicIndex single g4"
+        );
+        assert_eq!(p2.in_library_count(), 1);
+        assert_eq!(
+            p2.singles
+                .iter()
+                .map(|single| single.key.clone())
+                .collect::<Vec<_>>(),
+            vec![ReleaseKey::FeedGuid("g2".to_owned())]
+        );
+        // R38-04: no MusicIndex member of P2 has the key of the Library feed.
+        assert!(
+            p2.index_singles
+                .iter()
+                .all(|single| single.key != ReleaseKey::FeedGuid("g2".to_owned())),
+            "packet 026 decision D8: the Library release is not a MusicIndex member"
+        );
+        let p1 = groups
+            .iter()
+            .find(|group| group.identity == ArtistIdentity::Publisher("P1".to_owned()))
+            .expect("the group of P1");
+        let mut p1_keys: Vec<ReleaseKey> = p1.singles.iter().map(|s| s.key.clone()).collect();
+        p1_keys.sort();
+        assert_eq!(
+            p1_keys,
+            vec![
+                ReleaseKey::FeedGuid("g1".to_owned()),
+                ReleaseKey::FeedGuid("g3".to_owned()),
+            ]
+        );
+        Ok(())
     }
 }

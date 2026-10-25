@@ -1,6 +1,6 @@
 # ADR 0084 Task 038: A Downloaded Single Joins The Group Of Its Feed
 
-Status: Ready - 2026-10-24. The operator answered Q1 on 2026-10-24.
+Status: Implemented - 2026-10-25. The visual checks V1 to V5 stay open in [pending human checks](../pending-human-checks.md#8-packets-038-and-039---implemented-2026-10-25). The operator answered Q1 on 2026-10-24.
 
 Depends on: [packet 035](adr-0084-task-035-download-stores-feed-links.md). This packet fixes the defect of packet 035 V1. The walk of this packet walks packet 035 V1 to V3 again.
 
@@ -233,3 +233,12 @@ This check needs a Linux desktop session and a connection to `https://api.musici
 A "By name" group "Haleen" can show after the fix. That is correct. The name "Haleen" then matches two artist feeds (ADR 0084 Decision 6).
 
 Cleanup: steps 5 and 7 add singles to the Library. If the Library must stay as before the check, select those singles in Releases with the scope "Library" and remove them. The queries are read-only and change nothing.
+
+## Implementation Notes - 2026-10-25
+
+- Change: `build_tree` in `src/application/queries/library.rs` keys each album by the album text and the Library feed id (Design steps 1 and 4). Its doc comment states the rule and names this packet.
+- Tests in `src/application/queries/library.rs`: `adr_0084_task_038_two_feeds_with_one_title_stay_two_releases` (R38-01), `adr_0084_task_038_each_tree_node_holds_one_feed` (R38-02), and `adr_0084_task_038_downloaded_single_joins_its_feed_group` (R38-03 and R38-04).
+- Old-key run: with the album text as the only key, the three tests fail (`cargo test --lib adr_0084_task_038`: 3 of 3 tests did not pass). The new key is restored after that run.
+- All existing tests are Green.
+- Gate on 2026-10-25: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test` are Green. The suite ran 2576 library tests and 397 architecture tests.
+- Visual checks V1 to V5 stay open in [pending human checks](../pending-human-checks.md#8-packets-038-and-039---implemented-2026-10-25).

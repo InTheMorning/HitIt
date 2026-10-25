@@ -2,6 +2,7 @@ pub(crate) mod check_apply;
 pub(crate) mod compare;
 mod enrich;
 mod helpers;
+pub(crate) mod host;
 mod identity;
 mod subscribe;
 pub(crate) mod value_routes;
@@ -18,6 +19,7 @@ pub(crate) use enrich::invalidate_feed_document;
 #[cfg(test)]
 pub(crate) use enrich::retained_document_for_test;
 pub(crate) use enrich::{check_rss_document, retain_checked_document};
+pub use host::HostThrottled;
 pub(crate) use identity::validate_nostr_identity;
 pub use identity::{IdentityValidation, NostrIdentity, NostrTlv};
-pub use subscribe::subscribe_feed;
+pub use subscribe::{fetch_feed_document, subscribe_feed, subscribe_feed_body};

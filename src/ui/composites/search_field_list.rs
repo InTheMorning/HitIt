@@ -6,6 +6,11 @@
 //! the surface, the notices and the rows of [`FieldListVm`]. Each id, text
 //! and label comes from the view model. No text calls `truncate()` (ADR
 //! 0063). Long text wraps.
+//!
+//! Each row carries `flex_shrink_0()`, so it keeps the height of its two
+//! lines. The row list has a maximum height and scrolls, with a scroll bar
+//! (ADR 0087 Decision 3, ADR 0076 Decision 8). A row that shrank would paint
+//! its second line over the next row.
 
 #![warn(clippy::pedantic)]
 
@@ -15,6 +20,7 @@ use gpui::{
     anchored, deferred, div, prelude::*, AnyElement, App, MouseButton, ScrollHandle, SharedString,
     Window,
 };
+use gpui_component::scroll::ScrollableElement;
 
 use crate::ui::primitives::status_badge::render_row_badge;
 use crate::ui::primitives::surface::{Surface, SurfaceElevation};
@@ -71,12 +77,20 @@ impl RenderOnce for SearchFieldList {
             .collect();
         let row_list = div()
             .id(FieldListVm::LIST_ID)
+            .debug_selector(|| FieldListVm::LIST_ID.to_owned())
             .flex()
             .flex_col()
             .max_h(Size::ColumnRegular.scaled(cx))
             .overflow_y_scroll()
             .track_scroll(&scroll)
             .children(rows);
+        // The scroll bar sits on the parent of the scrolling row list, as
+        // `music_column_tracked_scrollbar` does for a Music column.
+        let row_scroll = div()
+            .relative()
+            .min_w_0()
+            .child(row_list)
+            .vertical_scrollbar(&scroll);
         let surface = div()
             .flex()
             .flex_col()
@@ -92,7 +106,7 @@ impl RenderOnce for SearchFieldList {
                             .flex_col()
                             .min_w_0()
                             .children(notices)
-                            .child(row_list),
+                            .child(row_scroll),
                     ),
             );
         div()
@@ -175,10 +189,13 @@ fn render_row(
         .when_some(row.note, |line, text| {
             line.child(caption(text, SemanticColor::SecondaryLabel, cx))
         });
+    let element_id = row.element_id;
     div()
-        .id(SharedString::from(row.element_id))
+        .id(SharedString::from(element_id.clone()))
+        .debug_selector(move || element_id)
         .flex()
         .flex_col()
+        .flex_shrink_0()
         .justify_center()
         .gap(Spacing::XXS.scaled(cx))
         .min_w_0()
@@ -211,4 +228,161 @@ fn caption(text: String, text_color: SemanticColor, cx: &App) -> AnyElement {
         .text_color(color(cx, text_color))
         .child(SharedString::from(text))
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{px, Bounds, Context, Pixels, Render, TestAppContext, VisualTestContext, Window};
+
+    use super::*;
+    use crate::view_models::search_field_list::{FieldListOpening, FieldListState};
+    use crate::view_models::search_field_values::FieldValueRows;
+
+    /// Shows one field list, so that a test can draw it again.
+    struct FieldListTest {
+        vm: FieldListVm,
+    }
+
+    impl Render for FieldListTest {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .child(SearchFieldList::new(self.vm.clone(), ScrollHandle::new()))
+        }
+    }
+
+    /// Leaks a selector name so a name built at test time satisfies
+    /// `VisualTestContext::debug_bounds`'s `'static` key. The test process
+    /// ends after the test, so the leak carries no lasting cost.
+    fn leaked(name: &str) -> &'static str {
+        Box::leak(name.to_owned().into_boxed_str())
+    }
+
+    /// The field list of the empty text, open with the focus.
+    fn open_list(text: &str) -> FieldListVm {
+        let state = FieldListState {
+            opening: FieldListOpening::Open,
+            focused: true,
+            selected: None,
+        };
+        FieldListVm::build(text, text.len()..text.len(), &state, &FieldValueRows::EMPTY)
+            .expect("the list shows")
+    }
+
+    fn draw(cx: &mut VisualTestContext) {
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+    }
+
+    fn row_bounds(cx: &mut VisualTestContext, element_id: &str) -> Bounds<Pixels> {
+        cx.debug_bounds(leaked(element_id))
+            .unwrap_or_else(|| panic!("row {element_id} did not render"))
+    }
+
+    /// Each row starts at or below the bottom of the row above it. A row
+    /// that shrank paints its second line over the next row, so the check
+    /// fails for that row.
+    fn assert_rows_do_not_overlap(cx: &mut VisualTestContext, rows: &[FieldListRowVm]) {
+        let bounds: Vec<Bounds<Pixels>> = rows
+            .iter()
+            .map(|row| row_bounds(cx, &row.element_id))
+            .collect();
+        for (index, pair) in bounds.windows(2).enumerate() {
+            let (above, below) = (pair[0], pair[1]);
+            assert!(
+                below.origin.y + px(0.5) >= above.bottom(),
+                "ADR 0087 Decision 3 (each row gives one field, its values and one example): row \"{}\" is {:?} high and overlaps the next row. A row in the scrolling field list must keep its content height. Keep `.flex_shrink_0()` on the row element in render_row of src/ui/composites/search_field_list.rs.",
+                rows[index].label,
+                above.size.height,
+            );
+        }
+    }
+
+    /// R87-10-01 (ADR 0087 Decision 3, ADR 0076 Decision 8): each row of the
+    /// 11 fields keeps the height of its own content. The rows do not
+    /// overlap, and `artist:` has the same height as in a list of one row.
+    #[gpui::test]
+    fn adr_0087_field_list_r87_10_01_rows_keep_their_height(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let full = open_list("");
+        assert_eq!(full.rows.len(), 11, "the empty text shows the 11 fields");
+        let artist = full
+            .rows
+            .iter()
+            .find(|row| row.label == "artist:")
+            .expect("the field artist: shows")
+            .clone();
+        let one_row = FieldListVm {
+            rows: vec![artist.clone()],
+            notices: Vec::new(),
+            selected: None,
+            a11y_label: String::new(),
+        };
+        let (view, cx) = cx.add_window_view(|_, _| FieldListTest { vm: one_row });
+        draw(cx);
+        let one_height = row_bounds(cx, &artist.element_id).size.height;
+
+        view.update(cx, |view, cx| {
+            view.vm = full.clone();
+            cx.notify();
+        });
+        draw(cx);
+        let height = row_bounds(cx, &artist.element_id).size.height;
+        assert_eq!(
+            height, one_height,
+            "ADR 0087 Decision 3 (each row gives one field, its values and one example): row \"artist:\" is {height:?} high in the list and {one_height:?} high alone. Keep `.flex_shrink_0()` on the row element in render_row of src/ui/composites/search_field_list.rs.",
+        );
+        assert_rows_do_not_overlap(cx, &full.rows);
+    }
+
+    /// R87-10-03 (ADR 0087 Decision 3): 30 value rows keep the height of one
+    /// row, and no two rows overlap.
+    #[gpui::test]
+    fn adr_0087_field_list_r87_10_03_many_value_rows_keep_their_height(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let template = open_list("")
+            .rows
+            .into_iter()
+            .next()
+            .expect("the field list has a row");
+        let rows: Vec<FieldListRowVm> = (0..30)
+            .map(|index| FieldListRowVm {
+                element_id: format!("search-field-list-value-test-{index}"),
+                label: format!("value{index}"),
+                ..template.clone()
+            })
+            .collect();
+        let one_row = FieldListVm {
+            rows: vec![rows[0].clone()],
+            notices: Vec::new(),
+            selected: None,
+            a11y_label: String::new(),
+        };
+        let (view, cx) = cx.add_window_view(|_, _| FieldListTest { vm: one_row });
+        draw(cx);
+        let one_height = row_bounds(cx, &rows[0].element_id).size.height;
+
+        view.update(cx, |view, cx| {
+            view.vm = FieldListVm {
+                rows: rows.clone(),
+                notices: Vec::new(),
+                selected: None,
+                a11y_label: String::new(),
+            };
+            cx.notify();
+        });
+        draw(cx);
+        for row in &rows {
+            let height = row_bounds(cx, &row.element_id).size.height;
+            assert_eq!(
+                height, one_height,
+                "ADR 0087 Decision 3 (each row gives one field, its values and one example): row \"{}\" is {:?} high in a list of 30 and {:?} high alone. Keep `.flex_shrink_0()` on the row element in render_row of src/ui/composites/search_field_list.rs.",
+                row.label,
+                height,
+                one_height
+            );
+        }
+        assert_rows_do_not_overlap(cx, &rows);
+    }
 }

@@ -545,6 +545,45 @@ mod tests {
         assert!(input_focused(&input, cx));
     }
 
+    /// R87-10-02 (ADR 0087 Decision 3, packet 010 decision D3): the Down key
+    /// selects the last field, `has:`, and the row list scrolls it into view.
+    /// The row keeps its height, and the list holds its maximum height.
+    #[gpui::test]
+    fn adr_0087_field_list_r87_10_02_down_keeps_the_selected_row_in_view(cx: &mut TestAppContext) {
+        let (_input, list, _, cx) = setup(cx);
+        assert!(list_shows(&list, cx), "the empty field shows the list");
+        cx.simulate_keystrokes("down down down down down down down down down down down");
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+
+        let vm = cx
+            .update(|_, cx| list.read(cx).view_model(cx))
+            .expect("the list shows");
+        assert_eq!(vm.selected, Some(10));
+        let row = &vm.rows[10];
+        assert!(row.label.starts_with("has"), "row 10 is has:");
+        let row_id: &'static str = Box::leak(row.element_id.clone().into_boxed_str());
+        let row_bounds = cx.debug_bounds(row_id).expect("the selected row renders");
+        let list_bounds = cx
+            .debug_bounds(FieldListVm::LIST_ID)
+            .expect("the row list renders");
+        let slack = gpui::px(0.5);
+        assert!(
+            row_bounds.origin.y + slack >= list_bounds.origin.y
+                && row_bounds.bottom() <= list_bounds.bottom() + slack,
+            "R87-10-02: the selected row {row_bounds:?} is outside the row list {list_bounds:?}"
+        );
+        let max_height = cx.update(|_, cx| crate::ui::tokens::Size::ColumnRegular.scaled(cx));
+        assert!(
+            list_bounds.size.height <= max_height,
+            "R87-10-02: the row list is {:?} high, above its maximum {max_height:?}",
+            list_bounds.size.height
+        );
+    }
+
     #[gpui::test]
     fn adr_0087_field_list_r87_4_18_click_row_puts_the_row_into_the_text(cx: &mut TestAppContext) {
         let (input, list, _, cx) = setup(cx);

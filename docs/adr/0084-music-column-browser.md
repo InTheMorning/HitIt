@@ -34,6 +34,8 @@ Amended 2026-10-20: the operator decided the download rules of the action bar. D
 
 Amended 2026-10-22 by operator decision: in Decision 6, a name that matches exactly one artist feed has no group. Its singles join the group of that feed. [Task 032](../tasks/adr-0084-task-032-singles-group-rows.md) builds it.
 
+Amended 2026-10-24 by operator decision: Decision 10 owns the host rule of the download queue. It spaces the RSS requests to one host and waits after HTTP 429. ADR 0058 leaves this host policy unowned. [Task 039](../tasks/adr-0084-task-039-download-queue-host-limit.md) builds it.
+
 Amended 2026-10-21 by operator decision: in Decision 9, Back and Forward show a page at its scroll position of that history entry. A new open shows a page at the top. [Task 030](../tasks/adr-0084-task-030-music-open-defects.md) builds it.
 
 Amended 2026-10-17 by operator decision: Decision 1 adds a visible scrollbar to each Music column that scrolls. [Task 014](../tasks/archive/adr-0084-task-014-music-column-scrollbars.md) builds it.
@@ -189,6 +191,13 @@ Each download goes through one queue, from the action bar or from a page. The op
 - The queue starts the jobs in their order. A job of a busy release waits, and the jobs after it can start.
 - One failure does not stop the queue. A removal of a release waits until no download of that release is queued or running.
 - One progress item shows the batch on each page, for example "Downloading 3 of 9". It names the item and the failure count. A finished batch shows its recorded finish time until the operator dismisses it.
+
+The operator decided these host rules of the download queue on 2026-10-24. They apply to the RSS request of a download only. They do not apply to the MusicIndex reads or the enclosure downloads.
+
+- The queue sends one RSS request at a time to each host. The minimum interval between two RSS requests to one host is 2 seconds.
+- Each download has 3 tries. After HTTP 429 with a `Retry-After` value of 60 seconds or less, the queue waits for that value. After HTTP 429 with no `Retry-After` value, the queue waits 60 seconds.
+- After HTTP 429 with a `Retry-After` value of more than 60 seconds, the queue stops the host for the batch. Each queued download of that host fails with a text that names the host and the requested wait. The downloads of other hosts continue.
+- A waiting download keeps its slot. "Stop queued" removes each waiting download.
 
 ### 11. Each Track Row Keeps A Place For Audition
 

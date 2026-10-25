@@ -14,22 +14,52 @@
 //!   continues.
 //! - [`DownloadQueue::stop_queued`] removes each waiting job and leaves
 //!   each running job to finish (ADR 0084 Decision 10, packet 027).
+//! - The RSS request of a job waits for its host (ADR 0084 Decision 10 as
+//!   amended 2026-10-24, task 039). One RSS request runs at a time to each
+//!   host, [`HOST_MIN_INTERVAL`] apart. After HTTP 429 the queue waits for
+//!   the `Retry-After` value, or [`HOST_WAIT_WITHOUT_RETRY_AFTER`]. A job
+//!   has [`MAX_TRIES`] tries. A longer `Retry-After` stops the host for the
+//!   batch. A waiting job keeps its slot. The host state is pure: the
+//!   caller passes the time and asks the queue for each answer.
 
 #![warn(clippy::pedantic)]
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use std::collections::BTreeMap;
+use std::time::Duration;
+
 use chrono::{DateTime, Local};
 
 use crate::api;
 use crate::metadata::TrackContext;
 use crate::view_models::download_progress::{
-    DownloadActivity, DownloadBatch, DownloadFailure, FeedKey,
+    DownloadActivity, DownloadBatch, DownloadBatchWait, DownloadFailure, FeedKey,
 };
 
 /// The maximum number of downloads that run at the same time.
 pub(crate) const MAX_IN_FLIGHT: usize = 3;
+
+/// ADR 0084 Decision 10 as amended 2026-10-24 (Q2): the minimum interval
+/// between two RSS requests to one host.
+pub(crate) const HOST_MIN_INTERVAL: Duration = Duration::from_secs(2);
+
+/// ADR 0084 Decision 10 as amended 2026-10-24 (Q2): the wait after HTTP 429
+/// with no `Retry-After` value, and the longest `Retry-After` value that
+/// the queue obeys. A longer value stops the host for the batch.
+pub(crate) const HOST_WAIT_WITHOUT_RETRY_AFTER: Duration = Duration::from_mins(1);
+
+/// See [`HOST_WAIT_WITHOUT_RETRY_AFTER`].
+pub(crate) const HOST_MAX_RETRY_AFTER: Duration = Duration::from_mins(1);
+
+/// ADR 0084 Decision 10 as amended 2026-10-24 (Q2): the tries of one job,
+/// the first request and two more.
+pub(crate) const MAX_TRIES: u32 = 3;
+
+/// How often a job asks again while another RSS request to its host runs.
+/// The job waits in its slot (ADR 0084 Decision 10 as amended 2026-10-24).
+pub(crate) const HOST_BUSY_RECHECK: Duration = Duration::from_secs(1);
 
 /// One download job.
 #[derive(Clone, Debug)]
@@ -122,6 +152,8 @@ pub(crate) struct QueuedJob {
     pub(crate) feed_key: FeedKey,
     pub(crate) label: String,
     pub(crate) job: DownloadJob,
+    /// The number of the current try, from 1 (task 039).
+    pub(crate) tries: u32,
 }
 
 /// A job that the queue refused, with the report for the operator.
@@ -139,6 +171,7 @@ impl QueuedJob {
             feed_key,
             label,
             job: DownloadJob::LibraryFeed { feed_id },
+            tries: 1,
         }
     }
 
@@ -149,6 +182,7 @@ impl QueuedJob {
             feed_key,
             label,
             job: DownloadJob::LibraryTrack { track_id },
+            tries: 1,
         }
     }
 
@@ -185,6 +219,7 @@ impl QueuedJob {
                 track_guid,
                 context: Some(Box::new(context)),
             },
+            tries: 1,
         })
     }
 
@@ -227,6 +262,7 @@ impl QueuedJob {
                 track_guid,
                 context: None,
             },
+            tries: 1,
         })
     }
 
@@ -268,6 +304,7 @@ impl QueuedJob {
                 feed_url,
                 feed: feed.map(Box::new),
             },
+            tries: 1,
         })
     }
 }
@@ -287,6 +324,50 @@ pub(crate) enum EnqueueResult {
     Dropped,
 }
 
+/// The wait of a job for its RSS host (ADR 0084 Decision 10 as amended
+/// 2026-10-24, task 039). The progress item reads it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct HostWait {
+    /// The lowercase host of the RSS URL.
+    pub(crate) host: String,
+    /// The time of the next ask. `None` while another RSS request to the
+    /// host runs.
+    pub(crate) until: Option<DateTime<Local>>,
+    /// The time of the HTTP 429 that starts this wait, if any.
+    pub(crate) throttled_at: Option<DateTime<Local>>,
+    /// The number of the current try.
+    pub(crate) try_number: u32,
+}
+
+/// The answer of the queue to a job that asks to send its RSS request.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum HostTurn {
+    /// The job sends its RSS request now. The queue marks the host busy.
+    Go,
+    /// Another RSS request to the host runs. The job keeps its slot and
+    /// asks again after [`HOST_BUSY_RECHECK`].
+    Busy,
+    /// The job keeps its slot and asks again at this time.
+    WaitUntil(DateTime<Local>),
+    /// The queue sends no RSS request to the host in this batch. The text
+    /// names the host and the reason.
+    Stopped(String),
+}
+
+/// The state of one RSS host in the open batch (task 039). Each host gets
+/// one map entry, and the batch clears the map when it opens.
+#[derive(Clone, Debug, Default)]
+struct HostState {
+    /// One RSS request to this host runs now.
+    busy: bool,
+    /// The earliest time of the next RSS request to this host.
+    not_before: Option<DateTime<Local>>,
+    /// The time of the last HTTP 429 from this host in this batch.
+    throttled_at: Option<DateTime<Local>>,
+    /// The reason when the queue sends no more RSS requests to this host.
+    stopped: Option<String>,
+}
+
 /// A job that runs. The runner holds the job data.
 #[derive(Clone, Debug)]
 struct InFlight {
@@ -295,6 +376,12 @@ struct InFlight {
     label: String,
     release: bool,
     library_track_id: Option<i64>,
+    /// The try of this job, from 1.
+    tries: u32,
+    /// The RSS host that this job holds busy, once it sent a request.
+    host: Option<String>,
+    /// The wait of this job for its host, while it waits.
+    wait: Option<HostWait>,
 }
 
 /// The counts of the open batch.
@@ -322,6 +409,8 @@ pub(crate) struct DownloadQueue {
     /// The jobs that run, oldest first.
     in_flight: Vec<InFlight>,
     batch: Option<BatchState>,
+    /// The RSS host state of the open batch (task 039), by lowercase host.
+    hosts: BTreeMap<String, HostState>,
 }
 
 impl DownloadQueue {
@@ -368,6 +457,9 @@ impl DownloadQueue {
             label: job.label.clone(),
             release: job.job.is_release(),
             library_track_id: job.job.library_track_id(),
+            tries: job.tries,
+            host: None,
+            wait: None,
         });
         Some(job)
     }
@@ -388,6 +480,7 @@ impl DownloadQueue {
             return;
         };
         let job = self.in_flight.remove(position);
+        self.end_host_request(job.host.as_deref(), now + host_interval());
         if let Some(batch) = self.batch.as_mut() {
             match outcome {
                 DownloadOutcome::Succeeded => batch.done += 1,
@@ -453,6 +546,11 @@ impl DownloadQueue {
                 true,
             )
         });
+        for job in &self.in_flight {
+            if let (Some(track_id), Some(wait)) = (job.library_track_id, job.wait.as_ref()) {
+                activity.waiting_tracks.insert(track_id, wait.until);
+            }
+        }
         for (identity, key, release, track_id, running) in queued.chain(in_flight) {
             activity.keys.insert(key.clone());
             if running {
@@ -500,6 +598,7 @@ impl DownloadQueue {
             queued: self.queued.len(),
             current_label: self.in_flight.first().map(|job| job.label.clone()),
             finished_at: batch.finished_at,
+            waiting: self.timed_host_wait(),
         })
     }
 
@@ -519,16 +618,185 @@ impl DownloadQueue {
     /// stays in flight, the batch is finished at `now`. Returns the count
     /// of the jobs this call removes.
     pub(crate) fn stop_queued(&mut self, now: DateTime<Local>) -> usize {
-        let stopped = self.queued.len();
+        // ADR 0084 Decision 10 as amended 2026-10-24, task 039 (D5): a job
+        // that waits for its host is a waiting job too.
+        let waiting_running = self
+            .in_flight
+            .iter()
+            .filter(|job| job.wait.is_some())
+            .count();
+        let stopped = self.queued.len() + waiting_running;
         if stopped == 0 {
             return 0;
         }
         self.queued.clear();
+        self.in_flight.retain(|job| job.wait.is_none());
         if let Some(batch) = self.batch.as_mut() {
             batch.stopped += stopped;
         }
         self.close_batch_when_idle(now);
         stopped
+    }
+
+    /// Asks the queue for the RSS host of the job `identity` before the
+    /// job sends its RSS request (ADR 0084 Decision 10 as amended
+    /// 2026-10-24, task 039). `host: None` means that the job has no RSS
+    /// request to wait for, so the answer is [`HostTurn::Go`].
+    pub(crate) fn host_turn(
+        &mut self,
+        identity: &JobIdentity,
+        host: Option<&str>,
+        now: DateTime<Local>,
+    ) -> HostTurn {
+        let Some(host) = host else {
+            return HostTurn::Go;
+        };
+        let state = self.hosts.entry(host.to_owned()).or_default();
+        let turn = if let Some(reason) = &state.stopped {
+            HostTurn::Stopped(reason.clone())
+        } else if state.busy {
+            HostTurn::Busy
+        } else {
+            match state.not_before {
+                Some(not_before) if now < not_before => HostTurn::WaitUntil(not_before),
+                _ => HostTurn::Go,
+            }
+        };
+        let throttled_at = state.throttled_at;
+        let Some(job) = self
+            .in_flight
+            .iter_mut()
+            .find(|job| &job.identity == identity)
+        else {
+            return turn;
+        };
+        match &turn {
+            HostTurn::Go => {
+                state.busy = true;
+                job.host = Some(host.to_owned());
+                job.wait = None;
+            }
+            HostTurn::Busy => {
+                job.wait = Some(HostWait {
+                    host: host.to_owned(),
+                    until: None,
+                    throttled_at,
+                    try_number: job.tries,
+                });
+            }
+            HostTurn::WaitUntil(until) => {
+                job.wait = Some(HostWait {
+                    host: host.to_owned(),
+                    until: Some(*until),
+                    throttled_at,
+                    try_number: job.tries,
+                });
+            }
+            HostTurn::Stopped(_) => job.wait = None,
+        }
+        turn
+    }
+
+    /// `true` while the job `identity` waits for its host until `until`.
+    /// A timer checks this before it asks again, so a job that "Stop
+    /// queued" removed does not run.
+    #[must_use]
+    pub(crate) fn is_waiting_for(
+        &self,
+        identity: &JobIdentity,
+        until: Option<DateTime<Local>>,
+    ) -> bool {
+        self.in_flight.iter().any(|job| {
+            &job.identity == identity && job.wait.as_ref().is_some_and(|wait| wait.until == until)
+        })
+    }
+
+    /// Records the HTTP 429 of the job `identity` from `host` at `now`
+    /// (ADR 0084 Decision 10 as amended 2026-10-24, task 039). The job
+    /// goes back to the front of the queue for its next try, or it fails
+    /// when it has no try left or when the host asked for a longer wait
+    /// than [`HOST_MAX_RETRY_AFTER`]. The queue sends no more RSS requests
+    /// to a host that asked for a longer wait, in this batch.
+    pub(crate) fn host_throttled(
+        &mut self,
+        identity: &JobIdentity,
+        job: DownloadJob,
+        host: &str,
+        retry_after: Option<Duration>,
+        now: DateTime<Local>,
+    ) {
+        let Some(position) = self
+            .in_flight
+            .iter()
+            .position(|running| &running.identity == identity)
+        else {
+            return;
+        };
+        let running = self.in_flight.remove(position);
+        let too_long = retry_after.is_some_and(|wait| wait > HOST_MAX_RETRY_AFTER);
+        let stop_reason = too_long.then(|| {
+            let seconds = retry_after.map_or(0, |wait| wait.as_secs());
+            format!(
+                "{host} sent HTTP 429 (Too Many Requests) and asked for a wait of {seconds} seconds. The app stopped the downloads from {host} for this batch."
+            )
+        });
+        let state = self.hosts.entry(host.to_owned()).or_default();
+        state.busy = false;
+        state.throttled_at = Some(now);
+        if let Some(reason) = &stop_reason {
+            state.stopped = Some(reason.clone());
+        } else if running.tries < MAX_TRIES {
+            let wait = retry_after.unwrap_or(HOST_WAIT_WITHOUT_RETRY_AFTER);
+            state.not_before = Some(now + host_duration(wait));
+        }
+        if let Some(reason) = stop_reason {
+            self.fail_running(running.label, reason, now);
+        } else if running.tries >= MAX_TRIES {
+            let error = format!(
+                "{host} sent HTTP 429 (Too Many Requests) {MAX_TRIES} times. The app stopped the download of this release."
+            );
+            self.fail_running(running.label, error, now);
+        } else {
+            self.queued.push_front(QueuedJob {
+                identity: running.identity,
+                feed_key: running.feed_key,
+                label: running.label,
+                job,
+                tries: running.tries + 1,
+            });
+        }
+    }
+
+    /// The first timed host wait of a running job, for the progress item.
+    fn timed_host_wait(&self) -> Option<DownloadBatchWait> {
+        self.in_flight.iter().find_map(|job| {
+            let wait = job.wait.as_ref()?;
+            Some(DownloadBatchWait {
+                host: wait.host.clone(),
+                until: wait.until?,
+                throttled_at: wait.throttled_at,
+                try_number: wait.try_number,
+                max_tries: MAX_TRIES,
+            })
+        })
+    }
+
+    /// Ends the RSS request of a host: the host is free from `not_before`.
+    fn end_host_request(&mut self, host: Option<&str>, not_before: DateTime<Local>) {
+        let Some(host) = host else {
+            return;
+        };
+        if let Some(state) = self.hosts.get_mut(host) {
+            state.busy = false;
+            state.not_before = Some(not_before);
+        }
+    }
+
+    /// Records a failed job of the batch, without a completion of the job.
+    fn fail_running(&mut self, label: String, error: String, now: DateTime<Local>) {
+        let batch = self.open_batch_slot();
+        batch.failures.push(DownloadFailure { label, error });
+        self.close_batch_when_idle(now);
     }
 
     fn next_startable_index(&self) -> Option<usize> {
@@ -562,6 +830,7 @@ impl DownloadQueue {
     fn open_batch_slot(&mut self) -> &mut BatchState {
         if self.batch.as_ref().is_none_or(BatchState::is_finished) {
             self.batch = Some(BatchState::default());
+            self.hosts.clear();
         }
         self.batch.get_or_insert_with(BatchState::default)
     }
@@ -574,6 +843,18 @@ impl DownloadQueue {
             batch.finished_at.get_or_insert(now);
         }
     }
+}
+
+/// The minimum interval between two RSS requests to one host, as a
+/// `chrono` duration.
+fn host_interval() -> chrono::Duration {
+    host_duration(HOST_MIN_INTERVAL)
+}
+
+/// Converts a host wait to a `chrono` duration. A value that does not fit
+/// gives a zero wait.
+fn host_duration(wait: Duration) -> chrono::Duration {
+    chrono::Duration::from_std(wait).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -1074,5 +1355,244 @@ mod tests {
         let activity = queue.activity();
         assert_eq!(activity.key_phase(&guid_key("g4")), None);
         assert_eq!(activity.release_phase(&guid_key("g4")), None);
+    }
+
+    /// The RSS host of the test jobs.
+    const WAVLAKE: &str = "wavlake.com";
+
+    /// A time `seconds` after the recorded time of the tests.
+    fn at(seconds: i64) -> DateTime<Local> {
+        recorded_time() + chrono::Duration::seconds(seconds)
+    }
+
+    /// Starts the next job and gives it.
+    fn start_one(queue: &mut DownloadQueue) -> QueuedJob {
+        queue.start_next().expect("a job starts")
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-01). With
+    /// two jobs of one host, the first job gets the RSS request and the
+    /// second job waits for the busy host.
+    /// Failure: the download queue sends one RSS request at a time to each
+    /// host (ADR 0084 Decision 10 as amended 2026-10-24, task 039).
+    #[test]
+    fn adr_0084_task_039_r39_01_one_rss_request_at_a_time_per_host() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(feed_job(1, "g1"));
+        queue.enqueue(feed_job(2, "g2"));
+        let first = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&first.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Go
+        );
+        let second = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&second.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Busy,
+            "a busy host gives no end time, so the job waits without one"
+        );
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-02). After
+    /// the first RSS request ends at `t`, the next request to the host waits
+    /// until `t + 2 s`.
+    #[test]
+    fn adr_0084_task_039_r39_02_minimum_interval_between_two_requests() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(feed_job(1, "g1"));
+        queue.enqueue(feed_job(2, "g2"));
+        let first = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&first.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Go
+        );
+        queue.finish(&first.identity, DownloadOutcome::Succeeded, at(10));
+        let second = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&second.identity, Some(WAVLAKE), at(10)),
+            HostTurn::WaitUntil(at(12))
+        );
+        assert_eq!(
+            queue.host_turn(&second.identity, Some(WAVLAKE), at(12)),
+            HostTurn::Go
+        );
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-03). A job
+    /// of a second host gets its RSS request while a job of the first host
+    /// runs.
+    #[test]
+    fn adr_0084_task_039_r39_03_other_host_is_not_held() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(feed_job(1, "g1"));
+        queue.enqueue(feed_job(2, "g2"));
+        let first = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&first.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Go
+        );
+        let second = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&second.identity, Some("example.test"), at(0)),
+            HostTurn::Go
+        );
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-04). A job
+    /// with HTTP 429 and `Retry-After` 30 seconds goes back to the front
+    /// with its second try. Each job of the host waits until `t + 30 s`.
+    /// With no `Retry-After` the wait is 60 seconds.
+    #[test]
+    fn adr_0084_task_039_r39_04_throttle_wait_and_second_try() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(feed_job(1, "g1"));
+        queue.enqueue(feed_job(2, "g2"));
+        let first = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&first.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Go
+        );
+        queue.host_throttled(
+            &first.identity,
+            first.job.clone(),
+            WAVLAKE,
+            Some(Duration::from_secs(30)),
+            at(0),
+        );
+        let retry = queue.next_startable().expect("the retry is first").clone();
+        assert_eq!(retry.identity, first.identity);
+        assert_eq!(retry.tries, 2);
+        let retry = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&retry.identity, Some(WAVLAKE), at(0)),
+            HostTurn::WaitUntil(at(30))
+        );
+        queue.finish(
+            &retry.identity,
+            DownloadOutcome::Failed { error: "x".into() },
+            at(0),
+        );
+
+        let mut no_header = DownloadQueue::default();
+        no_header.enqueue(feed_job(1, "g1"));
+        let job = start_one(&mut no_header);
+        assert_eq!(
+            no_header.host_turn(&job.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Go
+        );
+        no_header.host_throttled(&job.identity, job.job.clone(), WAVLAKE, None, at(0));
+        let retry = start_one(&mut no_header);
+        assert_eq!(
+            no_header.host_turn(&retry.identity, Some(WAVLAKE), at(0)),
+            HostTurn::WaitUntil(at(60))
+        );
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-05). The
+    /// third HTTP 429 of one job records one failure. The text names the
+    /// host, HTTP 429 and the try count.
+    #[test]
+    fn adr_0084_task_039_r39_05_third_throttle_records_one_failure() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(feed_job(1, "g1"));
+        for try_number in 1..=MAX_TRIES {
+            let job = start_one(&mut queue);
+            assert_eq!(job.tries, try_number);
+            let now = at(i64::from(try_number) * 100);
+            assert_eq!(
+                queue.host_turn(&job.identity, Some(WAVLAKE), now),
+                HostTurn::Go
+            );
+            queue.host_throttled(
+                &job.identity,
+                job.job.clone(),
+                WAVLAKE,
+                Some(Duration::from_secs(1)),
+                now,
+            );
+        }
+        assert!(queue.next_startable().is_none(), "no try is left");
+        let batch = queue.batch().expect("the batch is open");
+        assert_eq!(batch.failures.len(), 1, "one failure for the job");
+        let error = &batch.failures[0].error;
+        assert!(error.contains("wavlake.com"), "{error}");
+        assert!(error.contains("HTTP 429"), "{error}");
+        assert!(error.contains("3 times"), "{error}");
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-06). A
+    /// `Retry-After` of 61 seconds stops the host for the batch. Each queued
+    /// job of that host then stops with a text that names the host and the
+    /// wait. Jobs of other hosts continue.
+    #[test]
+    fn adr_0084_task_039_r39_06_long_retry_after_stops_the_host() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(feed_job(1, "g1"));
+        queue.enqueue(feed_job(2, "g2"));
+        queue.enqueue(feed_job(3, "g3"));
+        let first = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&first.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Go
+        );
+        queue.host_throttled(
+            &first.identity,
+            first.job.clone(),
+            WAVLAKE,
+            Some(Duration::from_secs(61)),
+            at(0),
+        );
+        let second = start_one(&mut queue);
+        match queue.host_turn(&second.identity, Some(WAVLAKE), at(0)) {
+            HostTurn::Stopped(reason) => {
+                assert!(reason.contains("wavlake.com"), "{reason}");
+                assert!(reason.contains("61 seconds"), "{reason}");
+            }
+            other => panic!("expected Stopped, got {other:?}"),
+        }
+        let other = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&other.identity, Some("example.test"), at(0)),
+            HostTurn::Go,
+            "a job of another host continues"
+        );
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (R39-07). "Stop
+    /// queued" removes a job that waits for its host, and the batch counts
+    /// it as stopped. The phase of that job is `WaitingForHost` before it.
+    #[test]
+    fn adr_0084_task_039_r39_07_stop_queued_removes_a_waiting_job() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(track_job(40, "g1"));
+        queue.enqueue(feed_job(2, "g2"));
+        let first = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&first.identity, Some(WAVLAKE), at(0)),
+            HostTurn::Go
+        );
+        queue.host_throttled(
+            &first.identity,
+            first.job.clone(),
+            WAVLAKE,
+            Some(Duration::from_secs(30)),
+            at(0),
+        );
+        let retry = start_one(&mut queue);
+        assert_eq!(
+            queue.host_turn(&retry.identity, Some(WAVLAKE), at(0)),
+            HostTurn::WaitUntil(at(30))
+        );
+        assert_eq!(
+            queue.activity().track_phase(40),
+            Some(DownloadPhase::WaitingForHost {
+                until: Some(at(30))
+            })
+        );
+        let stopped = queue.stop_queued(at(1));
+        assert_eq!(stopped, 2, "the waiting job and the queued job");
+        assert_eq!(queue.batch().expect("batch").stopped, 2);
+        assert_eq!(queue.activity().track_phase(40), None);
+        assert!(!queue.is_waiting_for(&retry.identity, Some(at(30))));
     }
 }
