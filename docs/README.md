@@ -167,8 +167,8 @@ Current plans:
   from Attach, Replace and forget. Open
 - [Research UI shell and search request](plans/research-ui-shell-and-search-request.md):
   the research repository gives the stack shell, the destinations, sort,
-  view, scope and the toolbar search of 2026-10-24. Received. No ADR until
-  the mockups are fixed
+  view, scope and the toolbar search of 2026-10-24. Received. The hold is
+  lifted, and musicindex ADRs 0027 to 0029 state the shared rules
 - [Research search request](plans/research-search-request.md): the research
   repository proposes shared search code with the website and Studio, and
   gives four client results and the Stophammer search defects. Received

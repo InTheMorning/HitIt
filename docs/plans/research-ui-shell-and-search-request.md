@@ -9,10 +9,12 @@ Received - 2026-10-24. This request comes from the research repository at
 This document binds nothing in v4vmm. v4vmm records each decision in its own
 ADR.
 
-**Wait before an ADR.** On 2026-10-24 the operator decided that v4vmm writes
-no ADR from this request yet. First the operator fixes the research mockups.
-Then a musicindex ADR codifies the shared rules. Read the request now. Do not draft
-an ADR yet.
+**The hold is lifted.** On 2026-10-25 the operator lifted the hold. musicindex
+ADR 0027 (the shell, sort, view, the back control and the toolbar), ADR 0028
+(the sections and the header actions of an item page, and the animated
+cover) and ADR 0029 (the web scale, which v4vmm does not use) state the
+shared rules. v4vmm can now write its own ADRs for sections 1 to 4 of this
+request. They cite the musicindex rules and do not restate them.
 
 The research examined v4vmm at HEAD `58ce1ab`. The mockups are research
 commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits

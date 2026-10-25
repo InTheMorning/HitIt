@@ -6,6 +6,8 @@ Accepted - 2026-10-08. The operator accepted this text on 2026-10-08. The operat
 
 Amended 2026-10-19: the operator found the hidden checkboxes unclear and asked for the selection mode of Apple Photos, Files and Mail. Decision 10 now gives a "Select" button and a selection mode.
 
+Amended 2026-10-25 by operator decision: musicindex ADR 0027 R-SHELL-1 replaces Decision 1. The shell is a stack: a list is a page at full width, and an item opens over it. Its numbers are musicindex numbers. A new v4vmm ADR records the destinations, the start page and the scopes of the [research request](../plans/research-ui-shell-and-search-request.md), which change Decisions 2, 3 and 8.
+
 The first draft left three points open. The operator decided them on the same day:
 
 - the rule for each release kind (Decision 5)
@@ -57,6 +59,8 @@ The operator compared three clickable structures and chose the column browser. T
 ## Decision
 
 ### 1. Music Is Three Columns
+
+Replaced by musicindex ADR 0027 R-SHELL-1 on 2026-10-25. The text below records the replaced decision.
 
 The Music section shows three columns:
 

@@ -167,7 +167,7 @@ The records are in `../musicindex/docs/adr/`. Their numbers are musicindex numbe
 
 Decisions 7 and 10 lose no part. Decision 9 is superseded by v4vmm ADR 0084.
 
-The other rules of musicindex ADRs 0020 to 0026 add to this record. They replace no part of it. This includes musicindex ADR 0022 on the shared assets.
+The other rules of musicindex ADRs 0020 to 0028 add to this record. They replace no part of it. This includes musicindex ADR 0022 on the shared assets. musicindex ADR 0029 applies only to the two web apps, not to v4vmm.
 
 ## Consequences
 
