@@ -15,7 +15,8 @@ Then a musicindex ADR codifies the shared rules. Read the request now. Do not dr
 an ADR yet.
 
 The research examined v4vmm at HEAD `58ce1ab`. The mockups are research
-commits `6bacd1c`, `4fedc27` and `8d02b00`.
+commits `6bacd1c`, `4fedc27`, `8d02b00` and `10fd7eb`. Commit `10fd7eb` gives
+the corrections of sections 2, 3 and 4.
 
 ## The Data
 
@@ -29,6 +30,8 @@ commits `6bacd1c`, `4fedc27` and `8d02b00`.
 | The study compared with the cross-app rules | `../musicindex-research/research_notes/ui-design/v4vmm-journeys-comparison.md` |
 | The cross-app rules | `../musicindex/docs/adr/0020-cross-app-interface-rules.md` to `0026-cross-app-controls-and-feedback.md` |
 | The search filters of the Index | `docs/plans/v4vmm-open-requests.md`, request 10 |
+| The alternatives for Discover and for the edit of a saved search | `../musicindex-research/research_notes/ui-design/mockups/discover-options.html` |
+| Three feeds of the Index in the mockups, with their tracks and covers | `../musicindex-research/sources/captures/2026-10-24-heycitizen-feeds/` |
 
 ## 1. The Shell Is A Stack With Two Exceptions
 
@@ -52,22 +55,54 @@ ADR 0084 Decision 1 (three columns).
 
 ## 2. The Destinations
 
-- Music: Discover, Releases, Artists, Playlists, Live, Needs attention. Then
-  Show, Inbox and Settings.
+The operator corrected this section on 2026-10-24. It changes ADR 0084
+Decision 2 (the destinations), Decision 3 (Music opens on Discover) and
+Decision 8 (two scopes).
+
+- The sidebar is one list with no group labels: **Search, Releases, Artists,
+  My Playlists, Public Playlists, Live, Needs attention**. Then Show, Inbox
+  and Settings.
+- **Discover is not a destination.** Its "New releases" view was the same as
+  Releases with All and Newest. Releases is the start page.
+- **Search** opens the saved searches, and puts the focus in the toolbar
+  field. Section 4 gives the page.
 - **Tracks is not a destination.** Tracks stay reachable from a release page,
-  a playlist and the Tracks scope of search.
-- **Playlists has two scopes, "Yours" and "Public".** Yours is the default.
-  Public lists the public playlists of the Index (musicL feeds), as the website
-  does.
+  a playlist and the Tracks tab of the results.
+- **My Playlists** holds the playlists of the curator in the sequence that the
+  curator sets. The operator plans folders, moves and renames, as in a file
+  manager. The mockup does not show folders.
+- **Public Playlists** lists the public playlists of the Index (musicL feeds),
+  as the website does. Its item menu has "Copy to My Playlists…".
 - **Live** lists what is live now on the Index, as the website does. Red is
   only for an item that is live now (musicindex ADR 0012 item 3).
-- **The start page is Discover**, with the new releases as tiles.
 - **Play stays on the current page** and opens the now-playing playlist. It
   does not move to the Show page.
 - Adding to a playlist is in the item menu only. A row has no "+ Episode 42".
   The main action of an album or a track in the Library is Play.
 
-## 3. The Search
+## 3. Sort, View And Scope
+
+- **Sort** is a plain button that names the current sort, for example
+  "Newest ⌄". It opens a menu with "Newest" and "A to Z", with a check mark
+  on the current one. A to Z also shows the letter bar.
+- **View** is two icons, tiles and rows. The current icon has a tint.
+- Sort and view are at the right end of the title row. They are not a scope,
+  so they do not use the segmented control (musicindex ADR 0023 R-SCOPE-1).
+- **Scope** "All | In Library" is a segmented control below the title, at the
+  left, with a count for each of the two. All is the default. In Library holds
+  what is downloaded, downloading or failed. A dropped release shows only in
+  All, so the mockup has no "Dropped" link.
+- Each page keeps its own sort, view and scope.
+
+| Page | Sort | View at the start | Scope |
+| --- | --- | --- | --- |
+| Releases | Newest | Rows | All |
+| Artists | A to Z | Rows | All |
+| My Playlists | None. The curator sets the sequence. | Rows | None |
+| Public Playlists | Newest | Tiles | None |
+| The results and a saved search | Newest | Rows | In the query, section 4 |
+
+## 4. The Search
 
 - **One wide field in the toolbar of the content area, on each page**, as
   ADR 0060 and ADR 0087 state. It is 360 px, and 520 px while it has focus.
@@ -81,11 +116,31 @@ ADR 0084 Decision 1 (three columns).
   example `host:wavlake.com` and `-host:wavlake.com`. Request 10 item 7 asks
   Stophammer for `host` and `not_host`. ADR 0087 Decision 2 needs an
   amendment for the field when v4vmm writes ADRs again.
+- **A selection goes into the query text in three conditions.** It must stay
+  with a saved search, it needs a new run or the Index, or a field gives the
+  same selection. In all other conditions, it can be a view of one run.
+- **"All | In Library" on the results is part of the query.** A click writes
+  `in:library` or removes it (ADR 0087 Decision 2), so it shows no counts. It
+  is the first row below the title.
+- **The type tabs** (All, Releases, Tracks, Artists, Labels) are the second
+  row. They select a group of one run and do not change the query, so each
+  tab shows its count.
+- **The Search page** lists the saved searches, each with its query and the
+  count of its new results. "New Saved Search" makes one. "How to Search"
+  gives four steps and example queries. The steps show when no search is
+  saved.
+- **A saved search** opens over the list with the same results as the
+  results page. A click on its query makes it a field, and the results change
+  while the curator types. "Save Query" or Enter keeps the change. Escape
+  cancels it.
+- The item menu of a saved search has Edit Query, Rename…, Duplicate and
+  Delete Saved Search…. ADR 0087 Decision 6 stays: a saved search keeps its
+  text.
 - The mockup parser gives the results that the mechanical criteria of ADR 0087
   name, for example five terms for
   `artist:jsmovie kind:single after:2026-10-01 -title:remix "night drive"`.
 
-## 4. Open Questions For The Operator
+## 5. Open Questions For The Operator
 
 The operator has not decided these:
 
@@ -93,8 +148,8 @@ The operator has not decided these:
    "Drop".
 2. One Inbox, or the Inbox and the Needs attention destination.
 3. Does Live also list upcoming items, as the website does?
-4. The actions of a public playlist, for example "Copy to Yours…".
-5. "Library | Everything" on the results page maps to `in:library` and to no
-   `in:` field. `in:index` is then reachable only by typing it.
+4. The actions of a public playlist, for example "Copy to My Playlists…".
+5. "All | In Library" on the results page maps to no `in:` field and to
+   `in:library`. `in:index` is reachable only when the curator types it.
 6. The row actions show only on hover or keyboard focus (ADR 0083). The
    study shows the main row action on each row.
