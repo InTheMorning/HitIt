@@ -165,6 +165,9 @@ Current plans:
 - [Reserved event safety request](plans/reserved-event-safety-request.md):
   the publisher asks v4vmm to keep a reserved live event and its token safe
   from Attach, Replace and forget. Open
+- [Research UI shell and search request](plans/research-ui-shell-and-search-request.md):
+  the research repository gives the stack shell, the destinations and the
+  toolbar search of 2026-10-24. Received. No ADR until the mockups are fixed
 - [Research search request](plans/research-search-request.md): the research
   repository proposes shared search code with the website and Studio, and
   gives four client results and the Stophammer search defects. Received
