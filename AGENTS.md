@@ -87,7 +87,7 @@ page, whatever its origin. The Library is a state that each page and list shows,
 **Artists, not publishers.** The interface calls a feed a "publisher" only in the frame title of a feed that is
 definitely not an artist. A feed that albums name through a confirmed link is an artist, confirmed or unverified, and other roles show when a feed states them. ADR 0085.
 
-**Shared interface rules come from musicindex.** musicindex ADRs 0020 to 0026 own the interface rules that
+**Shared interface rules come from musicindex.** musicindex ADRs 0020 to 0029 own the interface rules that
 musicindex.org, Studio and v4vmm share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a
 shared rule needs a record in `../musicindex`.
 
