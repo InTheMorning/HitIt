@@ -426,28 +426,50 @@ impl PublisherPageLoadDisplay {
     }
 }
 
-/// The role word of the feed page header (musicindex ADR 0033 R-WORD-3). The
-/// screen maps each role to its entity kind and its dot color.
+/// The role of a feed page header dot (musicindex ADR 0033 R-WORD-3 item 2).
+/// The screen maps each role to its entity color (ADR 0012 item 5). A role with
+/// no color of its own uses `Publisher`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum HeaderRole {
-    /// The word "Artist" and the artist dot (R-WORD-3 item 1).
     Artist,
-    /// The word "Label" and the label dot (R-WORD-3 item 1).
     Label,
-    /// The word "Publisher" and the publisher dot, for a feed that is
-    /// definitely not an artist and that states no role (R-WORD-3 item 3).
+    Host,
+    Author,
+    Producer,
+    Network,
+    Hosting,
+    Sponsor,
+    /// The publisher color: a feed with two or more roles and no artist role,
+    /// a feed that is definitely not an artist, or a role with no color.
     Publisher,
-    /// The word "Feed" and the feed dot (R-WORD-3 item 4).
+    /// The feed color, for a publisher feed with no role (R-WORD-3 item 5).
     Feed,
 }
 
-/// The header badge of a feed page: its role, and whether its dot is filled.
-/// A role that both sides of the link give is filled. An inferred role, or
-/// a role that one side gives, is hollow (R-WORD-3 item 2).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// The type label of a feed page (musicindex ADR 0033 R-WORD-3). `word` is
+/// the word of the page title and of the header badge (item 6). `role` gives
+/// the dot color. `confirmed` is true when both sides give the role, and false
+/// when the role is inferred or one side gives it (item 3).
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HeaderBadge {
     pub(crate) role: HeaderRole,
+    pub(crate) word: String,
     pub(crate) confirmed: bool,
+}
+
+/// The entity color of one stated role word (ADR 0012 item 5). Each role
+/// word with no color of its own uses the publisher color.
+fn header_role_for_word(word: &str) -> HeaderRole {
+    match word {
+        "label" => HeaderRole::Label,
+        "host" => HeaderRole::Host,
+        "author" => HeaderRole::Author,
+        "producer" => HeaderRole::Producer,
+        "network" => HeaderRole::Network,
+        "hosting" => HeaderRole::Hosting,
+        "sponsor" => HeaderRole::Sponsor,
+        _ => HeaderRole::Publisher,
+    }
 }
 
 /// The confirmation level of a feed (ADR 0085 Decision 2). The Artists list
@@ -671,75 +693,56 @@ impl PublisherPageVm {
         }
     }
 
-    /// The frame title of this feed page (ADR 0085 Decision 7).
+    /// The frame title of this feed page (ADR 0085 Decision 7). It is the word
+    /// of the type label, so the title and the header badge agree (musicindex
+    /// ADR 0033 R-WORD-3 item 6).
     #[must_use]
     pub(crate) fn frame_title(&self) -> String {
-        match self.level() {
-            FeedLevel::Artist | FeedLevel::UnverifiedArtist => {
-                return Self::FRAME_TITLE_ARTIST.to_owned();
-            }
-            FeedLevel::None => {}
-        }
-        let agreed_roles = self.agreed_role_words();
-        if !agreed_roles.is_empty() {
-            return capitalize_first(&role_list_text(&agreed_roles));
-        }
-        if self.is_definitely_not_artist() {
-            return Self::FRAME_TITLE_PUBLISHER.to_owned();
-        }
-        Self::FRAME_TITLE_FEED.to_owned()
+        self.header_badge().word
     }
 
-    /// The header badge of this feed page (musicindex ADR 0033 R-WORD-3).
-    /// It reads the level, the agreed roles, the stated role of each side and
-    /// the test of ADR 0085 Decision 7.
+    /// The type label of this feed page (musicindex ADR 0033 R-WORD-3 items 1
+    /// to 5). The page title and the header badge both read this function.
     #[must_use]
     pub(crate) fn header_badge(&self) -> HeaderBadge {
-        match self.level() {
-            FeedLevel::Artist => {
-                return HeaderBadge {
-                    role: HeaderRole::Artist,
-                    confirmed: true,
-                };
-            }
-            FeedLevel::UnverifiedArtist => {
-                return HeaderBadge {
-                    role: HeaderRole::Artist,
-                    confirmed: false,
-                };
-            }
-            FeedLevel::None => {}
-        }
-        let agreed_roles = self.agreed_role_words();
-        if agreed_roles.iter().any(|word| word == "label") {
+        let agreed = self.agreed_role_words();
+        let level = self.level();
+        let artist_agreed = agreed.iter().any(|word| word == "artist");
+        let artist_stated = level != FeedLevel::None
+            || artist_agreed
+            || self.side_role_words().iter().any(|word| word == "artist");
+        if artist_stated {
             return HeaderBadge {
-                role: HeaderRole::Label,
-                confirmed: true,
+                role: HeaderRole::Artist,
+                word: Self::FRAME_TITLE_ARTIST.to_owned(),
+                confirmed: level == FeedLevel::Artist || artist_agreed,
             };
         }
-        if !agreed_roles.is_empty() {
-            // R-WORD-3 item 5 gives other roles their own word. This badge
-            // does not show that word yet, so it shows the feed word.
-            return HeaderBadge {
-                role: HeaderRole::Feed,
-                confirmed: true,
-            };
-        }
-        if self.any_side_states_label() {
-            return HeaderBadge {
-                role: HeaderRole::Label,
-                confirmed: false,
-            };
-        }
-        if self.is_definitely_not_artist() {
-            return HeaderBadge {
+        let mut roles = agreed.clone();
+        roles.extend(self.side_role_words());
+        roles.sort();
+        roles.dedup();
+        match roles.as_slice() {
+            [] if self.is_definitely_not_artist() => HeaderBadge {
                 role: HeaderRole::Publisher,
+                word: Self::FRAME_TITLE_PUBLISHER.to_owned(),
                 confirmed: true,
-            };
-        }
-        HeaderBadge {
-            role: HeaderRole::Feed,
-            confirmed: false,
+            },
+            [] => HeaderBadge {
+                role: HeaderRole::Feed,
+                word: Self::FRAME_TITLE_FEED.to_owned(),
+                confirmed: false,
+            },
+            [role] => HeaderBadge {
+                role: header_role_for_word(role),
+                word: capitalize_first(role),
+                confirmed: agreed.contains(role),
+            },
+            _ => HeaderBadge {
+                role: HeaderRole::Publisher,
+                word: Self::FRAME_TITLE_PUBLISHER.to_owned(),
+                confirmed: roles.iter().all(|role| agreed.contains(role)),
+            },
         }
     }
 
@@ -763,15 +766,22 @@ impl PublisherPageVm {
         !any_side_states_artist && each_named_rank_known_and_not_one
     }
 
-    /// True when one side of any row states the role `label` (R-WORD-3
-    /// item 2: a role that one side gives).
-    fn any_side_states_label(&self) -> bool {
-        self.facts.albums.iter().any(|album| {
-            role_words(album.publisher_rel.as_deref())
-                .iter()
-                .chain(role_words(album.music_rel.as_deref()).iter())
-                .any(|word| word == "label")
-        })
+    /// Every role word that one side of a row states, sorted and unique
+    /// (musicindex ADR 0033 R-WORD-3 item 3: one side can give a role).
+    fn side_role_words(&self) -> Vec<String> {
+        let mut words: Vec<String> = self
+            .facts
+            .albums
+            .iter()
+            .flat_map(|album| {
+                role_words(album.publisher_rel.as_deref())
+                    .into_iter()
+                    .chain(role_words(album.music_rel.as_deref()))
+            })
+            .collect();
+        words.sort();
+        words.dedup();
+        words
     }
 
     /// The header facts of this page, ready to view (ADR 0085 Decision 2,
@@ -1246,98 +1256,191 @@ mod tests {
         assert_eq!(vm.level(), FeedLevel::None);
     }
 
-    /// musicindex ADR 0033 R-WORD-3 item 1: a role that both sides give is
-    /// the badge word, and its dot is filled.
+    /// Asserts the type label of a feed page, and that its title shows the
+    /// same word (musicindex ADR 0033 R-WORD-3 item 6).
+    fn assert_type_label(vm: &PublisherPageVm, role: HeaderRole, word: &str, confirmed: bool) {
+        let badge = vm.header_badge();
+        assert_eq!(
+            badge,
+            HeaderBadge {
+                role,
+                word: word.to_owned(),
+                confirmed,
+            }
+        );
+        assert_eq!(
+            vm.frame_title(),
+            word,
+            "the title and the badge give one word"
+        );
+    }
+
+    /// musicindex ADR 0033 R-WORD-3 item 1, one row of the rule for each case.
+    /// A feed with the role artist is "Artist", also with other roles. One role
+    /// gives its own word. Two or more roles with no artist give "Publisher".
     #[test]
-    fn adr_0033_header_badge_r33_3_01_agreed_roles_fill_the_dot() {
-        let mut agreed_artist = album_with_guid(
+    fn adr_0033_r_word_3_item_1_artist_and_one_role_rows() {
+        // An artist with another role: "Artist", filled.
+        let mut artist = album_with_guid(
             "a1",
             Some(AlbumNamesAs::Publisher),
             Some(RoleAgreement::Both),
             Some("artist"),
         );
-        agreed_artist.two_way_validated = Some(true);
-        assert_eq!(
-            PublisherPageVm::new(facts(vec![agreed_artist])).header_badge(),
-            HeaderBadge {
-                role: HeaderRole::Artist,
-                confirmed: true,
-            }
-        );
-
-        let agreed_label = album_with_guid(
+        artist.two_way_validated = Some(true);
+        let label = album_with_guid(
             "a2",
             Some(AlbumNamesAs::Publisher),
             Some(RoleAgreement::Both),
             Some("label"),
         );
-        assert_eq!(
-            PublisherPageVm::new(facts(vec![agreed_label])).header_badge(),
-            HeaderBadge {
-                role: HeaderRole::Label,
-                confirmed: true,
-            }
-        );
-    }
-
-    /// musicindex ADR 0033 R-WORD-3 item 2: an inferred role, or a role that
-    /// one side gives, keeps its word and its dot is hollow.
-    #[test]
-    fn adr_0033_header_badge_r33_3_02_inferred_or_one_sided_roles_are_hollow() {
-        let mut unverified = album_with_guid("a1", Some(AlbumNamesAs::Publisher), None, None);
-        unverified.two_way_validated = Some(true);
-        unverified.named_rank = Some(1);
-        assert_eq!(
-            PublisherPageVm::new(facts(vec![unverified])).header_badge(),
-            HeaderBadge {
-                role: HeaderRole::Artist,
-                confirmed: false,
-            }
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![artist, label])),
+            HeaderRole::Artist,
+            "Artist",
+            true,
         );
 
+        // One agreed role: its word and its color.
+        let agreed_label = album_with_guid(
+            "a3",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("label"),
+        );
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![agreed_label])),
+            HeaderRole::Label,
+            "Label",
+            true,
+        );
+        let agreed_producer = album_with_guid(
+            "a4",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("producer"),
+        );
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![agreed_producer])),
+            HeaderRole::Producer,
+            "Producer",
+            true,
+        );
+
+        // One role that one side gives: its word, hollow (item 3).
         let mut one_sided_label = album_with_guid(
-            "a2",
+            "a5",
             Some(AlbumNamesAs::Publisher),
             Some(RoleAgreement::OneSide),
-            Some("label"),
+            None,
         );
         one_sided_label.publisher_rel = Some("label".into());
         one_sided_label.named_rank = Some(2);
-        assert_eq!(
-            PublisherPageVm::new(facts(vec![one_sided_label])).header_badge(),
-            HeaderBadge {
-                role: HeaderRole::Label,
-                confirmed: false,
-            }
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![one_sided_label])),
+            HeaderRole::Label,
+            "Label",
+            false,
+        );
+
+        // A role with no color of its own: its own word, the publisher color.
+        let mut unknown_role = album_with_guid(
+            "a6",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::OneSide),
+            None,
+        );
+        unknown_role.publisher_rel = Some("recordLabel".into());
+        unknown_role.named_rank = Some(2);
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![unknown_role])),
+            HeaderRole::Publisher,
+            "RecordLabel",
+            false,
         );
     }
 
-    /// musicindex ADR 0033 R-WORD-3 item 3: a feed that is definitely not an
-    /// artist, and that states no role, has the word "Publisher" and a
-    /// filled publisher dot.
+    /// musicindex ADR 0033 R-WORD-3 item 1: two or more roles with no artist
+    /// role give "Publisher". The dot is filled only when every role is agreed.
     #[test]
-    fn adr_0033_header_badge_r33_3_03_definitely_not_artist_is_publisher() {
+    fn adr_0033_r_word_3_item_1_two_roles_rows() {
+        // Two roles, both agreed, no artist: "Publisher", filled.
+        let agreed_label_again = album_with_guid(
+            "b1",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("label"),
+        );
+        let agreed_producer_again = album_with_guid(
+            "b2",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("producer"),
+        );
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![agreed_label_again, agreed_producer_again])),
+            HeaderRole::Publisher,
+            "Publisher",
+            true,
+        );
+
+        // Two roles, one agreed and one one-sided: "Publisher", hollow.
+        let agreed_host = album_with_guid(
+            "c1",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("host"),
+        );
+        let mut one_sided_producer = album_with_guid(
+            "c2",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::OneSide),
+            None,
+        );
+        one_sided_producer.publisher_rel = Some("producer".into());
+        one_sided_producer.named_rank = Some(2);
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![agreed_host, one_sided_producer])),
+            HeaderRole::Publisher,
+            "Publisher",
+            false,
+        );
+
+        // An artist that one side gives, with no link: "Artist", hollow.
+        let mut one_sided_artist = album_with_guid(
+            "d1",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::OneSide),
+            None,
+        );
+        one_sided_artist.publisher_rel = Some("artist".into());
+        one_sided_artist.named_rank = Some(2);
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![one_sided_artist])),
+            HeaderRole::Artist,
+            "Artist",
+            false,
+        );
+    }
+
+    /// musicindex ADR 0033 R-WORD-3 items 4 and 5, and ADR 0085 Decision 7: a
+    /// feed with no role is "Publisher" when it is definitely not an artist,
+    /// and "Feed", hollow, otherwise.
+    #[test]
+    fn adr_0033_r_word_3_items_4_and_5_no_role_rows() {
         let mut named = album_with_guid("p1", Some(AlbumNamesAs::Publisher), None, None);
         named.named_rank = Some(2);
-        assert_eq!(
-            PublisherPageVm::new(facts(vec![named])).header_badge(),
-            HeaderBadge {
-                role: HeaderRole::Publisher,
-                confirmed: true,
-            }
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![named])),
+            HeaderRole::Publisher,
+            "Publisher",
+            true,
         );
-    }
-
-    /// musicindex ADR 0033 R-WORD-3 item 4: any other publisher feed with no
-    /// role has the word "Feed" and a hollow feed dot.
-    #[test]
-    fn adr_0033_header_badge_r33_3_04_other_feed_with_no_role_is_hollow_feed() {
-        assert_eq!(
-            PublisherPageVm::new(facts(vec![owned_album()])).header_badge(),
-            HeaderBadge {
-                role: HeaderRole::Feed,
-                confirmed: false,
-            }
+        assert_type_label(
+            &PublisherPageVm::new(facts(vec![owned_album()])),
+            HeaderRole::Feed,
+            "Feed",
+            false,
         );
     }
 
@@ -1655,9 +1758,11 @@ mod tests {
         );
         one_side_artist_rank_two.publisher_rel = Some("artist".into());
         one_side_artist_rank_two.named_rank = Some(2);
+        // musicindex ADR 0033 R-WORD-3 item 1: a stated role `artist` gives the
+        // word "Artist". Item 3: one side gives it, so the dot is hollow.
         assert_eq!(
             PublisherPageVm::new(facts(vec![one_side_artist_rank_two])).frame_title(),
-            "Feed"
+            "Artist"
         );
     }
 

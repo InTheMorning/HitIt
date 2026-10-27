@@ -38,6 +38,8 @@ pub struct DetailHeaderDisplay {
     /// Draw the type dot as a hollow ring. A role that the app infers, or that
     /// one side gives, shows this way (musicindex ADR 0033 R-WORD-3 item 2).
     pub hollow: bool,
+    /// The type word of the dot. `None` shows the word of the kind.
+    pub label: Option<SharedString>,
     pub title: SharedString,
     pub subtitle: Option<SharedString>,
     pub data_rows: Vec<DetailHeaderDataRow>,
@@ -115,7 +117,7 @@ impl RenderOnce for DetailHeader {
         let metadata_label_color = resolve_color(cx, SemanticColor::TertiaryLabel, self.appearance);
         let mut badge = TagBadge::new(TagBadgeDisplay {
             kind: self.display.kind,
-            label: None,
+            label: self.display.label.clone(),
         })
         .hollow(self.display.hollow);
         if let Some(appearance) = self.appearance {
@@ -231,6 +233,7 @@ mod tests {
         let header = DetailHeader::new(DetailHeaderDisplay {
             kind: EntityKind::Artist,
             hollow: false,
+            label: None,
             title: "Artist".into(),
             subtitle: Some("Subtitle".into()),
             data_rows: vec![DetailHeaderDataRow {
@@ -257,6 +260,7 @@ mod tests {
         let header = DetailHeader::new(DetailHeaderDisplay {
             kind: EntityKind::Artist,
             hollow: false,
+            label: None,
             title: "Artist".into(),
             subtitle: None,
             data_rows: Vec::new(),

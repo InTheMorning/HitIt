@@ -287,6 +287,7 @@ fn render_contract_header(
     DetailHeader::new(DetailHeaderDisplay {
         kind: entity_kind(display.kind),
         hollow: false,
+        label: None,
         title: display.title.into(),
         subtitle: None,
         data_rows: display

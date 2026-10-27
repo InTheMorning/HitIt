@@ -13,6 +13,8 @@ The operator also accepted the read of Decision 6 for a primary named feed with 
 Amended 2026-10-18 a third time: the operator decided that "Unverified artist" needs a confirmed link, as Stophammer ADR 0071 counts `first_named_count`. Decisions 2 and 6 now state it.
 An album can name any feed, so a link that only the album states does not make the feed an artist.
 
+Amended 2026-10-27 again by musicindex ADR 0033 R-WORD-3 items 1 and 6. Decision 7 gives the type label of that rule. One stated role gives its word. Two or more roles give "Publisher". A side that states `artist` gives "Artist".
+
 Amended 2026-10-27 by musicindex ADR 0033. Decision 1 and the Invariants line cite that record for the word rules of a publisher feed. Decision 7 keeps its test for a feed that is definitely not an artist. Its frame title constant is also the label of the Publisher badge (ADR 0033 R-WORD-3 item 3).
 
 The header badge of a feed page follows R-WORD-3. A role that the two sides agree on has a filled dot. An inferred role, or a role that one side gives, has a hollow dot. A feed with no role has the word "Feed" and a hollow dot.
@@ -119,16 +121,17 @@ The named feeds of an album keep the sequence of the RSS: the `position` of each
 
 ### 7. The Frame Title Of A Feed Page Names Its Relation
 
-The frame title of a feed page comes from the facts of its page, in this sequence:
+The frame title of a feed page is the type label of musicindex ADR 0033 R-WORD-3. The title and the header badge show the same word (ADR 0033 R-WORD-3 item 6). A role counts when a side states it. This decision keeps these v4vmm facts:
 
 | Page | Frame title |
 |---|---|
-| The level is Artist or Unverified artist (Decision 2) | "Artist" |
-| No artist level, and a link has an agreed role set | The agreed role words, as the "As <roles>" heading of Decision 3 gives them, with a capital first letter. Example: "Label" |
-| No link has an agreed role, no side states `artist`, and each named link has a known rank that is not 1 | "Publisher" |
+| The level is Artist or Unverified artist (Decision 2), or a side states `artist` | "Artist" |
+| No artist role, and the feed states one role | The word of that role, with a capital first letter. Example: "Label" |
+| No artist role, and the feed states two or more roles | "Publisher" |
+| No role, no side states `artist`, and each named link has a known rank that is not 1 | "Publisher" |
 | Each other page | "Feed" |
 
-- "Publisher" names only a feed that is definitely not an artist. The feed is never the first named feed of an album, no link agrees on a role, and no side states `artist`.
+- "Definitely not an artist" is the test of this decision: no side states `artist`, and each named link has a known rank that is not 1. ADR 0033 R-WORD-3 item 4 cites it.
 - An unknown rank never gives "Publisher". Before the page facts load, the title is "Feed".
 - The header, the sections and the rows keep Decision 1.
 

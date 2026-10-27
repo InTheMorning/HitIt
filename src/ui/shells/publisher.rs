@@ -96,6 +96,12 @@ const fn entity_kind_for_header_role(role: HeaderRole) -> EntityKind {
     match role {
         HeaderRole::Artist => EntityKind::Artist,
         HeaderRole::Label => EntityKind::Label,
+        HeaderRole::Host => EntityKind::Host,
+        HeaderRole::Author => EntityKind::Author,
+        HeaderRole::Producer => EntityKind::Producer,
+        HeaderRole::Network => EntityKind::Network,
+        HeaderRole::Hosting => EntityKind::Hosting,
+        HeaderRole::Sponsor => EntityKind::Sponsor,
         HeaderRole::Publisher => EntityKind::Publisher,
         HeaderRole::Feed => EntityKind::Feed,
     }
@@ -115,6 +121,7 @@ fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyEle
     DetailHeader::new(DetailHeaderDisplay {
         kind: entity_kind_for_header_role(badge.role),
         hollow: !badge.confirmed,
+        label: Some(badge.word.clone().into()),
         title: vm.title_text().into(),
         subtitle: None,
         data_rows,
