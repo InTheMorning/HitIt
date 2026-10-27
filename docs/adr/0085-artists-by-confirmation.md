@@ -13,6 +13,8 @@ The operator also accepted the read of Decision 6 for a primary named feed with 
 Amended 2026-10-18 a third time: the operator decided that "Unverified artist" needs a confirmed link, as Stophammer ADR 0071 counts `first_named_count`. Decisions 2 and 6 now state it.
 An album can name any feed, so a link that only the album states does not make the feed an artist.
 
+Amended 2026-10-27 by musicindex ADR 0033: Decision 1 and the Invariants line cite that record for the word rules of a publisher feed. Decision 7 keeps its test for a feed that is definitely not an artist. The feed page header shows a hollow dot for an unverified artist (ADR 0033 R-WORD-3 item 2).
+
 Built 2026-10-21: [ADR 0084 packet 017](../tasks/adr-0084-task-017-name-level-artist-page.md) builds the name level page with the level word "Name only". Its visual check is open.
 
 It supersedes [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) Decisions 1, 2, 3 and 6.
@@ -46,15 +48,11 @@ An album can name more than one feed. The orchestrator recorded these facts on 2
 
 ### 1. The Interface Does Not Name A Feed "Publisher"
 
-No label, heading, badge, breadcrumb, action label or accessibility label calls a feed a "publisher".
+musicindex ADR 0033 R-WORD-3 and R-WORD-4 own the words for a publisher feed in all apps. ADR 0033 Context gives the reason: most artists do not know the RSS word "publisher". This decision keeps only the parts that apply to v4vmm:
 
-These keep the technical term:
-
-- code identifiers, database columns and API field names
-- the CLI JSON output
-- the Inspect sources view, which shows each RSS value with its element name, for example `podcast:remoteItem medium="publisher"`
-
-One interface text is an exception: the frame title "Publisher" of Decision 7. No other interface text uses the word for a feed.
+- The frame title "Publisher" of Decision 7 is the test for a feed that is definitely not an artist. ADR 0033 R-WORD-3 item 3 cites it.
+- The Inspect sources view shows each RSS value with its element name, for example `podcast:remoteItem medium="publisher"`. ADR 0033 R-WORD-4 item 2 permits it.
+- Code identifiers, database columns, API field names and the CLI JSON output keep the technical term. ADR 0033 R-WORD-4 item 3 permits it.
 
 ### 2. Artists Have Three Confirmation Levels
 
@@ -134,7 +132,7 @@ The frame title of a feed page comes from the facts of its page, in this sequenc
 
 ## Invariants
 
-- No interface text names a feed "publisher", apart from the frame title of Decision 7.
+- The word rules of musicindex ADR 0033 R-WORD-3 and R-WORD-4 hold. The frame title of Decision 7 is the one v4vmm exception.
 - A level comes from `role_agreement`, `role`, `album_names_as`, `two_way_validated` and the rank of the named feed only. A count, a name match or a credit text never selects it.
 - Each level shows in words. Color is never the only difference.
 - A release appears one time on one page.
@@ -176,7 +174,7 @@ The frame title of a feed page comes from the facts of its page, in this sequenc
 
 Mechanical, phrased at the owning layer:
 
-- A guard finds no interface string constant in `src/view_models` or `src/ui` that names a feed "publisher". The one frame title constant of Decision 7 is the exception. The guard cites this ADR.
+- The guard `adr_0085_feed_page_guard_no_interface_text_names_a_feed_publisher` finds no interface string in `src/view_models`, `src/ui`, `src/app` or the views that names a feed "publisher" (ADR 0033 R-WORD-5). The frame title constant of Decision 7 is the exception.
 - The feed page view model gives the frame title of Decision 7 for each row of its table. A feed with an unknown rank gets "Feed", not "Publisher".
 - The artists view model gives the level of Decision 2 for each `role_agreement` and `album_names_as` combination. Its list rows expose no level text.
 - The artist page view model gives the sections of Decision 3 in their sequence, with each release one time. A test uses the Sir Libre Records facts of 2026-10-18: 3 agreed `label` links, 3 conflicts of `label` and `recordLabel`, and 1 listed release.

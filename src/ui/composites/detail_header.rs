@@ -35,6 +35,9 @@ pub struct DetailHeader {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetailHeaderDisplay {
     pub kind: EntityKind,
+    /// Draw the type dot as a hollow ring. A role that the app infers, or that
+    /// one side gives, shows this way (musicindex ADR 0033 R-WORD-3 item 2).
+    pub hollow: bool,
     pub title: SharedString,
     pub subtitle: Option<SharedString>,
     pub data_rows: Vec<DetailHeaderDataRow>,
@@ -113,7 +116,8 @@ impl RenderOnce for DetailHeader {
         let mut badge = TagBadge::new(TagBadgeDisplay {
             kind: self.display.kind,
             label: None,
-        });
+        })
+        .hollow(self.display.hollow);
         if let Some(appearance) = self.appearance {
             badge = badge.appearance(appearance);
         }
@@ -226,6 +230,7 @@ mod tests {
     fn header_uses_display_contract() {
         let header = DetailHeader::new(DetailHeaderDisplay {
             kind: EntityKind::Artist,
+            hollow: false,
             title: "Artist".into(),
             subtitle: Some("Subtitle".into()),
             data_rows: vec![DetailHeaderDataRow {
@@ -251,6 +256,7 @@ mod tests {
     fn title_size_defaults_to_title2_and_is_settable() {
         let header = DetailHeader::new(DetailHeaderDisplay {
             kind: EntityKind::Artist,
+            hollow: false,
             title: "Artist".into(),
             subtitle: None,
             data_rows: Vec::new(),

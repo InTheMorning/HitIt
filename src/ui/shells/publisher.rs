@@ -100,6 +100,12 @@ const fn entity_kind_for_level(level: FeedLevel) -> EntityKind {
     }
 }
 
+/// A feed whose artist role is inferred shows a hollow dot (musicindex ADR
+/// 0033 R-WORD-3 item 2). An `Artist` level has an agreed role, so it is filled.
+const fn is_unverified_level(level: FeedLevel) -> bool {
+    matches!(level, FeedLevel::UnverifiedArtist)
+}
+
 fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyElement {
     let data_rows = vm
         .header_facts()
@@ -112,6 +118,7 @@ fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyEle
         .collect();
     DetailHeader::new(DetailHeaderDisplay {
         kind: entity_kind_for_level(vm.level()),
+        hollow: is_unverified_level(vm.level()),
         title: vm.title_text().into(),
         subtitle: None,
         data_rows,
@@ -278,4 +285,18 @@ fn status_message(message: String, cx: &App) -> AnyElement {
         .text_color(color(cx, SemanticColor::TertiaryLabel))
         .child(message)
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// musicindex ADR 0033 R-WORD-3 item 2: only an inferred role is hollow,
+    /// and an unverified artist has an inferred role.
+    #[test]
+    fn only_an_unverified_artist_has_a_hollow_dot() {
+        assert!(is_unverified_level(FeedLevel::UnverifiedArtist));
+        assert!(!is_unverified_level(FeedLevel::Artist));
+        assert!(!is_unverified_level(FeedLevel::None));
+    }
 }

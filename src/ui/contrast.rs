@@ -521,25 +521,25 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         fg: SemanticColor::EntityPublisher,
         bg: SemanticColor::SystemBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "shared palette entity dot",
+        note: "publisher entity dot on canvas", // ADR 0033 R-WORD-4: not interface text
     },
     ContrastPair {
         fg: SemanticColor::EntityPublisher,
         bg: SemanticColor::SecondarySystemBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "shared palette entity dot",
+        note: "publisher entity dot on surface", // ADR 0033 R-WORD-4: not interface text
     },
     ContrastPair {
         fg: SemanticColor::EntityPublisher,
         bg: SemanticColor::TertiarySystemBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "shared palette entity dot",
+        note: "publisher entity dot on raised surface", // ADR 0033 R-WORD-4: not interface text
     },
     ContrastPair {
         fg: SemanticColor::EntityPublisher,
         bg: SemanticColor::SidebarBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "shared palette entity dot",
+        note: "publisher entity dot on sidebar surface", // ADR 0033 R-WORD-4: not interface text
     },
     ContrastPair {
         fg: SemanticColor::EntityProducer,

@@ -187,6 +187,7 @@ pub(crate) fn render_playlist_detail_shell(
 
     let mut header = DetailHeader::new(DetailHeaderDisplay {
         kind: EntityKind::Playlist,
+        hollow: false,
         title: SharedString::from(header_display.title),
         subtitle: None,
         data_rows: Vec::new(),
