@@ -14,6 +14,8 @@ Amended 2026-10-22 by operator decision: Decision 6 shows the download state of 
 
 Amended 2026-10-07: Decision 5 names the main action until a page can play a track.
 
+Amended 2026-10-27: Decision 2 cites musicindex ADR 0032 R-DOT-1 for the dot. The shared rule sets the dot dimensions and the hollow dot, and the shared copy `src/assets/tokens.json` gives the entity values that R-DOT-2 checks.
+
 Amended 2026-10-25 by operator decision: musicindex ADRs 0020 to 0026 replace parts of Decisions 1 to 6 and 8. They also replace one item of Consequences and two verification items. Those records own the interface rules that musicindex.org, Studio and v4vmm share. [Rules that musicindex replaces](#rules-that-musicindex-replaces) names each part.
 
 It amends [ADR 0025](0025-theme-icon-style-boundary.md) (entity roles get their own palette), [ADR 0062](0062-music-content-surface.md) (a tile is a release) and [ADR 0066](0066-configuration-and-startup-failure-recovery.md) (the normal-shell notice opens from the status bar).
@@ -65,7 +67,7 @@ Each color has one meaning:
 
 - **Accent** marks the selected item, a link and the focus ring.
 - **Status** colors mark success, warning, danger and information. Danger also marks a destructive action. In the dark profile, the warning color is orange, as in the light profile, because gold is a value color.
-- **Entity** colors mark a stated entity kind: feed, track, playlist, artist, publisher, label and the other kinds of the website. They show as a small dot, never as a filled text badge. Live red is reserved for a live item.
+- **Entity** colors mark a stated entity kind: feed, track, playlist, artist, publisher, label and the other kinds of the website. They show as a dot, and musicindex ADR 0032 R-DOT-1 sets the dot. A dot is never a filled text badge. Live red is reserved for a live item.
 - **Value** colors mark the shares of a payment split. The largest share is lightning gold `#ffd666`. Each next share is a darker, less saturated step of the same hue. The steps differ in lightness.
 
 An entity color appears only when the source states the kind. A payment recipient has no stated kind, so its share uses a value color. Text always carries the meaning: a name, a word or a number. Color alone never does.

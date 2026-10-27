@@ -151,11 +151,21 @@ pub enum SemanticColor {
     // its token. `Release` reuses `EntityFeed` and `Recording` reuses
     // `EntityTrack`, because the website groups them in the same parent
     // color. A kind with no stated entity, such as `Generic`, does not use
-    // one of these tokens.
+    // one of these tokens. The values match `entity` in the shared copy at
+    // `src/assets/tokens.json` (musicindex ADR 0032 R-DOT-2).
     EntityFeed,
     EntityTrack,
     EntityPlaylist,
+    EntityLive,
     EntityArtist,
+    EntityHost,
+    EntityAuthor,
+    EntityLabel,
+    EntityPublisher,
+    EntityProducer,
+    EntityNetwork,
+    EntityHosting,
+    EntitySponsor,
 }
 
 impl SemanticColor {
@@ -264,6 +274,15 @@ impl SemanticColor {
             Self::EntityTrack => hex(0x00_8b99),
             Self::EntityPlaylist => hex(0x8e_dfad),
             Self::EntityArtist => hex(0xfa_b5e5),
+            Self::EntityLive => hex(0xff_453a),
+            Self::EntityHost => hex(0xff_b4d9),
+            Self::EntityAuthor => hex(0xf3_b7f0),
+            Self::EntityLabel => hex(0x87_5ccf),
+            Self::EntityPublisher => hex(0x7c_60d4),
+            Self::EntityProducer => hex(0x91_58c8),
+            Self::EntityNetwork => hex(0x9a_54c0),
+            Self::EntityHosting => hex(0x70_65d8),
+            Self::EntitySponsor => hex(0xa2_51b7),
         }
     }
 
@@ -352,6 +371,15 @@ impl SemanticColor {
             Self::EntityTrack => hex(0x00_8e9c),
             Self::EntityPlaylist => hex(0x00_6238),
             Self::EntityArtist => hex(0x72_3763),
+            Self::EntityLive => hex(0xd7_0015),
+            Self::EntityHost => hex(0x76_3559),
+            Self::EntityAuthor => hex(0x6d_396b),
+            Self::EntityLabel => hex(0x8d_62d5),
+            Self::EntityPublisher => hex(0x82_67db),
+            Self::EntityProducer => hex(0x97_5ecf),
+            Self::EntityNetwork => hex(0xa0_5bc7),
+            Self::EntityHosting => hex(0x75_6bdf),
+            Self::EntitySponsor => hex(0xa9_57be),
         }
     }
 }
@@ -372,6 +400,34 @@ pub fn color(cx: &App, token: SemanticColor) -> Rgba {
 #[must_use]
 pub fn resolve_color(cx: &App, token: SemanticColor, appearance: Option<Appearance>) -> Rgba {
     appearance.map_or_else(|| color(cx, token), |appearance| token.resolve(appearance))
+}
+
+// -----------------------------------------------------------------------------
+// TypeDot — the type dot of musicindex ADR 0032 R-DOT-1.
+// -----------------------------------------------------------------------------
+
+/// The shape of the type dot. The values match `shape.type-dot` in the shared
+/// copy at `src/assets/tokens.json`, and a test checks them.
+pub struct TypeDot;
+
+impl TypeDot {
+    /// Diameter of a filled dot, in pixels at 1.0×.
+    pub const SIZE_PX: f32 = 8.0;
+
+    /// Width of the ring of a hollow dot, in pixels at 1.0×.
+    pub const HOLLOW_RING_PX: f32 = 1.5;
+
+    /// Diameter of a filled dot, scaled by the active [`ScaleFactor`].
+    #[must_use]
+    pub fn size(cx: &App) -> Pixels {
+        scale_chrome_px(Self::SIZE_PX, ScaleFactor::current(cx))
+    }
+
+    /// Width of the ring of a hollow dot, scaled by the active [`ScaleFactor`].
+    #[must_use]
+    pub fn ring_width(cx: &App) -> Pixels {
+        scale_chrome_px(Self::HOLLOW_RING_PX, ScaleFactor::current(cx))
+    }
 }
 
 // -----------------------------------------------------------------------------
