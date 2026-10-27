@@ -16708,7 +16708,7 @@ fn adr_0059_event_target_commands_share_publisher_ownership() {
         "fn event_target_name_for_operation(",
     );
     assert!(command.contains("selection.revision != self.selection_revision"));
-    assert!(command.contains("Target configuration saved; Publisher restart failed"));
+    assert!(command.contains("Target configuration saved; relay sender restart failed"));
 }
 
 #[test]
@@ -19572,32 +19572,6 @@ writing the word, the composed string or the glyph directly in the screen.";
     );
 }
 
-/// The files that use the word "publisher" for the `musicindex-live-publisher`
-/// broadcast service (ADR 0085 Decision 1 names this one exception: the
-/// word then names a service, not a feed). Each entry gives its reason.
-const BROADCAST_PUBLISHER_SERVICE_FILES: &[(&str, &str)] = &[
-    (
-        "src/view_models/show.rs",
-        "the Show view model names and controls the musicindex-live-publisher service",
-    ),
-    (
-        "src/view_models/show/event_report.rs",
-        "the Show event report names the musicindex-live-publisher service in its text",
-    ),
-    (
-        "src/view_models/startup/capabilities.rs",
-        "the startup capabilities view model names the musicindex-live-publisher dependency",
-    ),
-    (
-        "src/view_models/startup/session.rs",
-        "the session report names the musicindex-live-publisher service that keeps running",
-    ),
-    (
-        "src/app/show.rs",
-        "the Show screen dispatch reports musicindex-live-publisher command and log errors",
-    ),
-];
-
 /// The one constant ADR 0085 Decision 7 permits to hold the word
 /// "publisher" as interface text: the frame title of a feed that is
 /// definitely not an artist. A line that declares it is exempt, by name.
@@ -19666,8 +19640,7 @@ fn source_before_own_test_module(source: &str) -> &str {
 /// The files the ADR 0085 Decision 1 guard scans: `src/view_models/`,
 /// `src/ui/`, `src/views.rs`, `src/app.rs` and `src/app/`, outside a
 /// dedicated test file (one whose own path ends in `tests.rs`, gated by
-/// `#[cfg(test)]` in its parent `mod.rs` instead of in its own text) and
-/// outside the broadcast publisher service files.
+/// `#[cfg(test)]` in its parent `mod.rs` instead of in its own text).
 fn feed_publisher_word_scan_files() -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = Vec::new();
     for dir in ["src/view_models", "src/ui", "src/app"] {
@@ -19682,9 +19655,6 @@ fn feed_publisher_word_scan_files() -> Vec<PathBuf> {
         .filter(|path| {
             let rel = rel_path(path);
             !rel.ends_with("tests.rs")
-                && !BROADCAST_PUBLISHER_SERVICE_FILES
-                    .iter()
-                    .any(|(file, _)| *file == rel)
         })
         .collect()
 }
@@ -19704,9 +19674,11 @@ view can show the RSS name, for example `podcast:publisher`."#;
 /// Situational — owner: musicindex ADR 0033 R-WORD-3 and R-WORD-4, applied to
 /// v4vmm by ADR 0085 §1. The guard finds the word "publisher" in interface
 /// text (R-WORD-4 item 3) and prints the R-WORD-5 message. Its v4vmm
-/// exceptions are `FRAME_TITLE_PUBLISHER` (ADR 0085 Decision 7), the broadcast
-/// service list above, and the line marker. Delete this guard when ADR 0085 §1
-/// and ADR 0033 no longer give the word rule.
+/// exceptions are `FRAME_TITLE_PUBLISHER` (ADR 0085 Decision 7), which the
+/// Publisher badge label reuses, and the line marker. The service
+/// `musicindex-live-publisher` has the name "Relay sender" in interface text
+/// (R-WORD-4 item 4), so its screen text is examined too. Delete this guard
+/// when ADR 0085 §1 and ADR 0033 no longer give the word rule.
 #[test]
 fn adr_0085_feed_page_guard_no_interface_text_names_a_feed_publisher() {
     let mut violations = Vec::new();
@@ -19728,7 +19700,7 @@ fn adr_0085_feed_page_guard_no_interface_text_names_a_feed_publisher() {
                         "{rel}:{line_number} names a feed \"publisher\" in interface text.\n\
 {ADR_0033_R_WORD_5_MESSAGE}\n\
 v4vmm ADR 0085 Decision 7: FRAME_TITLE_PUBLISHER is the one permitted constant. \
-A service name goes in BROADCAST_PUBLISHER_SERVICE_FILES in this file. \
+The service `musicindex-live-publisher` is named \"Relay sender\" in interface text (musicindex ADR 0033 R-WORD-4 item 4). \
 A string that is not interface text ends its line with `{WORD_RULE_NOT_INTERFACE_MARKER}`."
                     ));
                     break;

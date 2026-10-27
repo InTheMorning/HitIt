@@ -1654,7 +1654,7 @@ impl ShowPageVm {
                     ] {
                         action.availability = PublisherActionAvailability::Available;
                         action.label = "Repair tool";
-                        action.a11y_label = "Repair the original publisher operation".into();
+                        action.a11y_label = "Repair the original relay sender operation".into();
                     }
                 }
             }
@@ -2189,7 +2189,7 @@ fn live_metadata_card_state(section: &PublisherSectionDisplay) -> (ShowCardState
     }
     (
         ShowCardStateKind::Ok,
-        "Event, Producer, Publisher: ready".to_owned(),
+        "Event, Producer, Relay sender: ready".to_owned(),
     )
 }
 
@@ -2335,7 +2335,7 @@ impl EventSectionDisplay {
             {
                 if Some(target.event_id.as_str()) != event.event_id.as_deref() {
                     actions.attach.a11y_label = format!(
-                        "Attach this event; replace {} on target {} and restart Publisher",
+                        "Attach this event; replace {} on target {} and restart the relay sender",
                         target.event_id, target.name
                     );
                 }
@@ -2414,7 +2414,7 @@ impl EventTargetAttachmentDisplay {
                 .map_or_else(
                     || {
                         Self::not_attached(
-                            "The configured publisher target does not carry this event.",
+                            "The configured relay sender target does not carry this event.",
                         )
                     },
                     |target| Self::attached(&target.name),
@@ -2429,11 +2429,11 @@ impl EventTargetAttachmentDisplay {
                 state: EventTargetAttachmentState::CommandsUnavailable,
                 label: "Target commands unavailable".to_owned(),
                 target_name: None,
-                detail: "Publisher target commands are not installed.".to_owned(),
+                detail: "Relay sender target commands are not installed.".to_owned(),
             },
             EventTargetListInput::NotReachable => Self {
                 state: EventTargetAttachmentState::NotReachable,
-                label: "Publisher not reachable".to_owned(),
+                label: "Relay sender not reachable".to_owned(),
                 target_name: None,
                 detail: "Target list cannot be read from the host.".to_owned(),
             },
@@ -2449,7 +2449,7 @@ impl EventTargetAttachmentDisplay {
     fn attached(target_name: &str) -> Self {
         let target_name = target_name.trim();
         if target_name.is_empty() {
-            return Self::not_attached("Publisher returned an empty target name.");
+            return Self::not_attached("Relay sender returned an empty target name.");
         }
         Self {
             state: EventTargetAttachmentState::Attached,
@@ -2534,9 +2534,9 @@ impl EventActionsDisplay {
                 id: "event-target-attach",
                 label: "Attach",
                 a11y_label: if attach_target_name.is_empty() {
-                    "Attach selected event to publisher target".to_owned()
+                    "Attach selected event to relay sender target".to_owned()
                 } else {
-                    format!("Attach selected event to publisher target {attach_target_name}")
+                    format!("Attach selected event to relay sender target {attach_target_name}")
                 },
                 availability: event_action_availability(attach_available),
             },
@@ -2544,9 +2544,9 @@ impl EventActionsDisplay {
                 id: "event-target-detach",
                 label: "Detach",
                 a11y_label: target.target_name.as_ref().map_or_else(
-                    || "Detach selected event from publisher target".to_owned(),
+                    || "Detach selected event from relay sender target".to_owned(),
                     |target_name| {
-                        format!("Detach selected event from publisher target {target_name}")
+                        format!("Detach selected event from relay sender target {target_name}")
                     },
                 ),
                 availability: event_action_availability(detach_available),
@@ -2572,7 +2572,7 @@ fn registry_action_display(
 fn event_hint(input: &EventSectionInput) -> Option<String> {
     let event = input.selected_event.as_ref()?;
     (input.remote_host && event.token_file_missing)
-        .then(|| "Token file is missing locally; copy it to the publisher host.".to_owned())
+        .then(|| "Token file is missing locally; copy it to the relay sender host.".to_owned())
 }
 
 /// The accessibility label of "Copy feed tag" when the stored endpoint gives no URI (task 019).
@@ -2823,7 +2823,7 @@ fn readiness_detail_label(summary: &BroadcastReadinessSummary) -> String {
         parts.push(format!("{no_route_tag} without payment routes"));
     }
     if no_routes_upstream > 0 {
-        parts.push(format!("{no_routes_upstream} need publisher routes"));
+        parts.push(format!("{no_routes_upstream} need relay sender routes"));
     }
     if file_missing > 0 {
         parts.push(format!("{file_missing} with a missing file"));
@@ -2977,14 +2977,14 @@ const fn availability(available: bool) -> PublisherActionAvailability {
 
 const fn service_label(role: PublisherServiceRole) -> &'static str {
     match role {
-        PublisherServiceRole::Publisher => "Publisher",
+        PublisherServiceRole::Publisher => "Relay sender",
         PublisherServiceRole::Producer => "Producer",
     }
 }
 
 const fn service_id_seed(role: PublisherServiceRole) -> &'static str {
     match role {
-        PublisherServiceRole::Publisher => "publisher",
+        PublisherServiceRole::Publisher => "relay sender",
         PublisherServiceRole::Producer => "producer",
     }
 }
@@ -4142,7 +4142,7 @@ mod tests {
         assert_eq!(readiness.count_label, "3 tracks not ready");
         assert_eq!(
             readiness.detail,
-            "1 without payment routes, 1 need publisher routes, 1 with a missing file."
+            "1 without payment routes, 1 need relay sender routes, 1 with a missing file."
         );
         assert_eq!(readiness.state, SourceReadinessState::NeedsAttention);
         assert!(!readiness.action.disabled());
@@ -4466,7 +4466,7 @@ mod tests {
                 .expect("event row")
                 .hint
                 .as_deref(),
-            Some("Token file is missing locally; copy it to the publisher host.")
+            Some("Token file is missing locally; copy it to the relay sender host.")
         );
     }
 
@@ -4991,7 +4991,7 @@ mod tests {
             let section = vm.publisher.unwrap();
             assert_eq!(
                 section.services.iter().map(|s| s.label).collect::<Vec<_>>(),
-                ["Producer", "Publisher"]
+                ["Producer", "Relay sender"]
             );
             let event = section.event.unwrap();
             for candidate in [

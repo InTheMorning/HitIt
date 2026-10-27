@@ -409,7 +409,7 @@ pub fn dependency_title(dependency: Dependency) -> &'static str {
         Dependency::ThumbnailMaintenance => "Thumbnail maintenance",
         Dependency::MusicIndex => "MusicIndex",
         Dependency::Playback => "Built-in playback",
-        Dependency::Publisher => "Publisher host",
+        Dependency::Publisher => "Relay sender host",
         Dependency::Producer => "Drop-file publication",
         Dependency::Encoder => "Stream encoder",
         Dependency::Converter => "Audio converter",
@@ -426,13 +426,13 @@ pub fn consequence(dependency: Dependency) -> &'static str {
         Dependency::ThumbnailMaintenance => "App keeps its image cache usable, but cannot finish removing old thumbnail files.",
         Dependency::MusicIndex => "App cannot send MusicIndex requests. Local library work and known RSS URLs remain available.",
         Dependency::Playback => "App cannot use built-in playback. Library work and independent external broadcast controls remain available.",
-        Dependency::Publisher => "App cannot use this publisher host. Independent audio playback, drop-file publication and encoder controls remain available.",
-        Dependency::Producer => "App cannot publish built-in playback metadata to this drop file. Audio playback and external publisher controls remain available.",
-        Dependency::Encoder => "App cannot use this stream encoder. Publisher controls and library work remain available.",
+        Dependency::Publisher => "App cannot use this relay sender host. Independent audio playback, drop-file publication and encoder controls remain available.",
+        Dependency::Producer => "App cannot publish built-in playback metadata to this drop file. Audio playback and external relay sender controls remain available.",
+        Dependency::Encoder => "App cannot use this stream encoder. Relay sender controls and library work remain available.",
         Dependency::Converter => "App cannot use this converter setting. Other audio formats remain usable; WAV results report whether conversion succeeded or the WAV was retained.",
         Dependency::Presentation => "App uses its documented presentation defaults. App leaves the configuration unchanged and pauses ordinary configuration saves.",
         Dependency::LibraryPaths => "App retained completed path changes and remaining bindings. Only validated relative paths can drive file operations; unvalidated bindings remain stored.",
-        Dependency::Configuration("broadcast") => "App cannot use the malformed broadcast table for publisher controls, drop-file publication or encoder controls. Music and built-in playback remain available.",
+        Dependency::Configuration("broadcast") => "App cannot use the malformed broadcast table for relay sender controls, drop-file publication or encoder controls. Music and built-in playback remain available.",
         Dependency::Configuration("playback.mpv_path") => "App cannot use this player path setting. Explicit or default Null playback does not depend on that path. Ordinary configuration saves remain paused.",
         Dependency::Configuration(field) => consequence(configuration_dependency(field)),
     }
@@ -451,7 +451,7 @@ pub fn observation_text(observation: &CapabilityObservation) -> String {
         None => return match observation.dependency {
             Dependency::BackgroundRuntime => "App started its background runtime. This does not confirm that any external service is reachable.".into(),
             Dependency::ThumbnailMaintenance => "App completed its thumbnail cleanup scan.".into(),
-            Dependency::Publisher => "App read the configured publisher service state and refreshed its setup. App sent no service command.".into(),
+            Dependency::Publisher => "App read the configured relay sender state and refreshed its setup. App sent no service command.".into(),
             Dependency::Encoder => "App read the configured encoder status and refreshed its setup. App sent no connect or disconnect command.".into(),
             _ => format!("App verified {} configuration and local setup. No external service response was checked.", dependency_title(observation.dependency)),
         },
@@ -533,7 +533,7 @@ pub(crate) fn recovery_title(entry: &RecoveryIntent) -> String {
             target,
             ..
         } => format!(
-            "{operation:?} original event {}, publisher {}, target {}",
+            "{operation:?} original event {}, relay sender {}, target {}",
             event_id.as_deref().unwrap_or("new event"),
             recovery_host(host.as_ref()),
             target.as_deref().map_or_else(
@@ -601,7 +601,7 @@ pub(crate) fn edit_label(dependency: Dependency) -> &'static str {
     match canonical_dependency(dependency) {
         Dependency::MusicIndex => "Edit endpoint",
         Dependency::Playback => "Edit player settings",
-        Dependency::Publisher => "Edit publisher settings",
+        Dependency::Publisher => "Edit relay sender settings",
         Dependency::Producer => "Edit publication settings",
         Dependency::Encoder => "Edit encoder settings",
         Dependency::Converter => "Edit converter setting",
@@ -615,7 +615,7 @@ fn edit_help(dependency: Dependency) -> &'static str {
         Dependency::MusicIndex => "Edit endpoint opens musicindex_endpoint in Settings.",
         Dependency::Playback => "Edit player settings opens the player configuration in Settings.",
         Dependency::Publisher => {
-            "Edit publisher settings opens the host configuration in Settings."
+            "Edit relay sender settings opens the host configuration in Settings."
         }
         Dependency::Producer => {
             "Edit publication settings opens the drop-file configuration in Settings."
@@ -633,7 +633,7 @@ pub(crate) fn check_label(dependency: Dependency) -> &'static str {
     match canonical_dependency(dependency) {
         Dependency::MusicIndex => "Check endpoint",
         Dependency::Playback => "Check player",
-        Dependency::Publisher => "Check publisher",
+        Dependency::Publisher => "Check relay sender",
         Dependency::Producer => "Check publication folder",
         Dependency::Encoder => "Check encoder",
         Dependency::Converter => "Check converter setting",
@@ -651,7 +651,7 @@ fn check_help(dependency: Dependency) -> &'static str {
             "Check player prepares the saved player setup without playing a track."
         }
         Dependency::Publisher => {
-            "Check publisher reads service state without starting or stopping a service."
+            "Check relay sender reads service state without starting or stopping a service."
         }
         Dependency::Producer => {
             "Check publication folder tests directory access without publishing metadata."
@@ -722,11 +722,13 @@ fn run_label(action: &RecoveryAction) -> &'static str {
             operation, role, ..
         } => match (operation, role) {
             (PublisherServiceOperation::Start, BroadcastServiceRole::Publisher) => {
-                "Start publisher"
+                "Start relay sender"
             }
-            (PublisherServiceOperation::Stop, BroadcastServiceRole::Publisher) => "Stop publisher",
+            (PublisherServiceOperation::Stop, BroadcastServiceRole::Publisher) => {
+                "Stop relay sender"
+            }
             (PublisherServiceOperation::Reset, BroadcastServiceRole::Publisher) => {
-                "Clear publisher failure"
+                "Clear relay sender failure"
             }
             (PublisherServiceOperation::Start, BroadcastServiceRole::Producer) => "Start producer",
             (PublisherServiceOperation::Stop, BroadcastServiceRole::Producer) => "Stop producer",
@@ -791,7 +793,7 @@ mod tests {
                 "Thumbnail maintenance",
                 "MusicIndex",
                 "Built-in playback",
-                "Publisher host",
+                "Relay sender host",
                 "Drop-file publication",
                 "Stream encoder",
                 "Audio converter",
@@ -1092,20 +1094,20 @@ mod tests {
         );
         assert_eq!(
             vm.action(CapabilityAction::Repair(id)).label,
-            "Edit publisher settings"
+            "Edit relay sender settings"
         );
         assert_eq!(
             vm.action(CapabilityAction::Verify(id)).label,
-            "Check publisher"
+            "Check relay sender"
         );
         assert_eq!(
             vm.action(CapabilityAction::Retry(id)).label,
-            "Start publisher"
+            "Start relay sender"
         );
         let rows = vm.rows(true);
         let help = rows[0].help.as_ref().unwrap();
         assert!(help.contains("without starting or stopping a service"));
-        assert!(help.contains("Start publisher sends the original service command"));
+        assert!(help.contains("Start relay sender sends the original service command"));
         vm.pending
             .finish(id, "App could not start the original publisher.".into());
         assert_eq!(vm.rows(true)[0].actions.len(), 4);

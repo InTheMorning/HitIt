@@ -613,7 +613,7 @@ mod tests {
         assert_eq!(IndexDetailKind::Release.label(), "release");
         assert_eq!(
             entity_kind_for_index_detail(IndexDetailKind::Release).label(),
-            "release"
+            "Release"
         );
     }
 

@@ -34,8 +34,8 @@ use crate::ui::primitives::{Label, LabelVariant, SectionHeader};
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Spacing};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::publisher_page::{
-    CoCreditedFeedVm, FeedLevel, OtherAlbumsStatus, PublisherPageContext, PublisherPageLoadDisplay,
-    PublisherPageVm,
+    CoCreditedFeedVm, HeaderRole, OtherAlbumsStatus, PublisherPageContext,
+    PublisherPageLoadDisplay, PublisherPageVm,
 };
 
 /// Opens the feed page of a feed GUID (ADR 0082 Decision 5). The app layer
@@ -89,24 +89,20 @@ pub(crate) fn render_publisher_page(
     music_column_tracked_scrollbar(container, &rows.scroll, None)
 }
 
-/// The header entity icon for a feed's confirmation level (ADR 0085
-/// Decision 7 design, Required Change 7): `Artist` for the `Artist` and
-/// `UnverifiedArtist` levels, `Feed` for `None`. The view model carries no
-/// renderer type, so this screen makes the one choice it needs.
-const fn entity_kind_for_level(level: FeedLevel) -> EntityKind {
-    match level {
-        FeedLevel::Artist | FeedLevel::UnverifiedArtist => EntityKind::Artist,
-        FeedLevel::None => EntityKind::Feed,
+/// The entity kind of a header role (musicindex ADR 0033 R-WORD-3). The view
+/// model decides the role and whether the dot is filled. This screen maps
+/// the role to the entity palette, which the view model cannot name.
+const fn entity_kind_for_header_role(role: HeaderRole) -> EntityKind {
+    match role {
+        HeaderRole::Artist => EntityKind::Artist,
+        HeaderRole::Label => EntityKind::Label,
+        HeaderRole::Publisher => EntityKind::Publisher,
+        HeaderRole::Feed => EntityKind::Feed,
     }
 }
 
-/// A feed whose artist role is inferred shows a hollow dot (musicindex ADR
-/// 0033 R-WORD-3 item 2). An `Artist` level has an agreed role, so it is filled.
-const fn is_unverified_level(level: FeedLevel) -> bool {
-    matches!(level, FeedLevel::UnverifiedArtist)
-}
-
 fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyElement {
+    let badge = vm.header_badge();
     let data_rows = vm
         .header_facts()
         .into_iter()
@@ -117,8 +113,8 @@ fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyEle
         })
         .collect();
     DetailHeader::new(DetailHeaderDisplay {
-        kind: entity_kind_for_level(vm.level()),
-        hollow: is_unverified_level(vm.level()),
+        kind: entity_kind_for_header_role(badge.role),
+        hollow: !badge.confirmed,
         title: vm.title_text().into(),
         subtitle: None,
         data_rows,
@@ -285,18 +281,4 @@ fn status_message(message: String, cx: &App) -> AnyElement {
         .text_color(color(cx, SemanticColor::TertiaryLabel))
         .child(message)
         .into_any_element()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// musicindex ADR 0033 R-WORD-3 item 2: only an inferred role is hollow,
-    /// and an unverified artist has an inferred role.
-    #[test]
-    fn only_an_unverified_artist_has_a_hollow_dot() {
-        assert!(is_unverified_level(FeedLevel::UnverifiedArtist));
-        assert!(!is_unverified_level(FeedLevel::Artist));
-        assert!(!is_unverified_level(FeedLevel::None));
-    }
 }

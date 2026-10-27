@@ -13,7 +13,9 @@ The operator also accepted the read of Decision 6 for a primary named feed with 
 Amended 2026-10-18 a third time: the operator decided that "Unverified artist" needs a confirmed link, as Stophammer ADR 0071 counts `first_named_count`. Decisions 2 and 6 now state it.
 An album can name any feed, so a link that only the album states does not make the feed an artist.
 
-Amended 2026-10-27 by musicindex ADR 0033: Decision 1 and the Invariants line cite that record for the word rules of a publisher feed. Decision 7 keeps its test for a feed that is definitely not an artist. The feed page header shows a hollow dot for an unverified artist (ADR 0033 R-WORD-3 item 2).
+Amended 2026-10-27 by musicindex ADR 0033. Decision 1 and the Invariants line cite that record for the word rules of a publisher feed. Decision 7 keeps its test for a feed that is definitely not an artist. Its frame title constant is also the label of the Publisher badge (ADR 0033 R-WORD-3 item 3).
+
+The header badge of a feed page follows R-WORD-3. A role that the two sides agree on has a filled dot. An inferred role, or a role that one side gives, has a hollow dot. A feed with no role has the word "Feed" and a hollow dot.
 
 Built 2026-10-21: [ADR 0084 packet 017](../tasks/adr-0084-task-017-name-level-artist-page.md) builds the name level page with the level word "Name only". Its visual check is open.
 

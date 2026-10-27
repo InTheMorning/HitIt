@@ -542,7 +542,7 @@ mod tests {
             let hero = crate::view_models::entity_detail::ReleaseDetailVm::new(&feed, context)
                 .hero()
                 .display();
-            assert_eq!(entity_kind(hero.kind).label(), "release", "{context:?}");
+            assert_eq!(entity_kind(hero.kind).label(), "Release", "{context:?}");
         }
     }
 

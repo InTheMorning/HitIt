@@ -138,8 +138,8 @@ pub(super) fn render(input: &EventSectionInput) -> String {
     } else {
         lines.push("App has no available event selected.".to_owned());
     }
-    lines.push(format!("Publisher configuration: {}", input.context));
-    lines.push(format!("Publisher target: {}", input.attach_target_name));
+    lines.push(format!("Relay sender configuration: {}", input.context));
+    lines.push(format!("Relay sender target: {}", input.attach_target_name));
     lines.push(target_description(input));
     if let EventRegistryStatus::Failed(detail) = &input.registry.status {
         lines.push("App could not read the saved event list.".to_owned());
@@ -165,26 +165,28 @@ pub(super) fn render(input: &EventSectionInput) -> String {
 fn target_description(input: &EventSectionInput) -> String {
     let name = input.attach_target_name.trim();
     if name.is_empty() {
-        return "App has no publisher target name configured.".to_owned();
+        return "App has no relay sender target name configured.".to_owned();
     }
     match &input.targets {
         EventTargetListInput::Loaded { targets } => {
             let mut matching = targets.iter().filter(|target| target.name == name);
             match (matching.next(), matching.next()) {
-                (Some(target), None) => format!("Publisher target {name} uses event {}.", target.event_id),
-                (None, _) => format!("Publisher has no target named {name}."),
-                (Some(_), Some(_)) => format!("Publisher listed multiple targets named {name}. App cannot confirm which event that target uses."),
+                (Some(target), None) => format!("Relay sender target {name} uses event {}.", target.event_id),
+                (None, _) => format!("Relay sender has no target named {name}."),
+                (Some(_), Some(_)) => format!("Relay sender listed multiple targets named {name}. App cannot confirm which event that target uses."),
             }
         }
-        EventTargetListInput::Unknown => format!("App has not read publisher target {name} yet."),
+        EventTargetListInput::Unknown => {
+            format!("App has not read relay sender target {name} yet.")
+        }
         EventTargetListInput::CommandsUnavailable => {
-            format!("Publisher does not provide the commands needed to read target {name}.")
+            format!("Relay sender does not provide the commands needed to read target {name}.")
         }
         EventTargetListInput::NotReachable => {
-            format!("App could not reach the publisher to read target {name}.")
+            format!("App could not reach the relay sender to read target {name}.")
         }
         EventTargetListInput::Failed { .. } => format!(
-            "App could not read publisher target {name}. App cannot confirm which event it uses."
+            "App could not read relay sender target {name}. App cannot confirm which event it uses."
         ),
     }
 }
@@ -223,11 +225,11 @@ impl EventReportEntry {
             (EventReportOperation::Check, EventCommandState::Succeeded) => self.checked_event(event_id, relay),
             (EventReportOperation::Check, EventCommandState::Failed { .. }) => self.failed_check(event_id, relay),
             (EventReportOperation::TargetRead, EventCommandState::Working) =>
-                vec![format!("App is reading the target list from publisher {}.", self.publisher)],
+                vec![format!("App is reading the target list from relay sender {}.", self.publisher)],
             (EventReportOperation::TargetRead, EventCommandState::Succeeded) =>
-                vec![format!("App read the target list from publisher {}.", self.publisher), self.target_detail.clone()],
+                vec![format!("App read the target list from relay sender {}.", self.publisher), self.target_detail.clone()],
             (EventReportOperation::TargetRead, EventCommandState::Failed { .. }) =>
-                vec![format!("App could not read target {} from publisher {}. App cannot confirm which event that target uses.", self.target, self.publisher)],
+                vec![format!("App could not read target {} from relay sender {}. App cannot confirm which event that target uses.", self.target, self.publisher)],
             (EventReportOperation::TargetMutation, result) => self.target_action(event_id, result),
         }
     }
@@ -292,13 +294,13 @@ impl EventReportEntry {
             "to"
         };
         let request = format!(
-            "{action} event {event_id} {direction} target {} on publisher {}",
+            "{action} event {event_id} {direction} target {} on relay sender {}",
             self.target, self.publisher
         );
         let sentence = match result {
-            EventCommandState::Working => format!("App asked to {request} and restart Publisher. App is waiting for the result."),
-            EventCommandState::Succeeded => format!("Publisher accepted the request to {request} and restart. Its current service badge reports whether it is running."),
-            EventCommandState::Failed { .. } => format!("App could not finish the request to {request} and restart Publisher. The target may already have changed."),
+            EventCommandState::Working => format!("App asked to {request} and restart the relay sender. App is waiting for the result."),
+            EventCommandState::Succeeded => format!("Relay sender accepted the request to {request} and restart. Its current service badge reports whether it is running."),
+            EventCommandState::Failed { .. } => format!("App could not finish the request to {request} and restart the relay sender. The target may already have changed."),
             EventCommandState::Idle => return vec![],
         };
         vec![sentence]
@@ -485,7 +487,7 @@ mod tests {
         };
         input.feedback.target_read = EventCommandState::Succeeded;
         input.record_event_report(EventReportOperation::TargetRead, at(9));
-        assert!(render(&input).contains("Publisher has no target named default."));
+        assert!(render(&input).contains("Relay sender has no target named default."));
         input.feedback.active_action = Some(EventControlIntent::Attach);
         input.feedback.target_mutation = EventCommandState::Failed {
             detail: "restart failed".to_owned(),
