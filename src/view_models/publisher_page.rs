@@ -723,10 +723,12 @@ impl PublisherPageVm {
         roles.sort();
         roles.dedup();
         match roles.as_slice() {
+            // No side gives a role, so the dot is hollow (musicindex ADR
+            // 0033 R-WORD-3 item 4).
             [] if self.is_definitely_not_artist() => HeaderBadge {
                 role: HeaderRole::Publisher,
                 word: Self::FRAME_TITLE_PUBLISHER.to_owned(),
-                confirmed: true,
+                confirmed: false,
             },
             [] => HeaderBadge {
                 role: HeaderRole::Feed,
@@ -1425,7 +1427,7 @@ mod tests {
 
     /// musicindex ADR 0033 R-WORD-3 items 4 and 5, and ADR 0085 Decision 7: a
     /// feed with no role is "Publisher" when it is definitely not an artist,
-    /// and "Feed", hollow, otherwise.
+    /// and "Feed" otherwise. Both are hollow, because no side gives a role.
     #[test]
     fn adr_0033_r_word_3_items_4_and_5_no_role_rows() {
         let mut named = album_with_guid("p1", Some(AlbumNamesAs::Publisher), None, None);
@@ -1434,7 +1436,7 @@ mod tests {
             &PublisherPageVm::new(facts(vec![named])),
             HeaderRole::Publisher,
             "Publisher",
-            true,
+            false,
         );
         assert_type_label(
             &PublisherPageVm::new(facts(vec![owned_album()])),
