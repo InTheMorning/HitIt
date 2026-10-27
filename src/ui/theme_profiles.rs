@@ -137,6 +137,16 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
         SemanticColor::EntityTrack => hex(0x00_c2d4),
         SemanticColor::EntityPlaylist => hex(0x6e_f0a0),
         SemanticColor::EntityArtist => hex(0xff_9fe0),
+        // The other kinds of the shared entity palette (musicindex ADR 0032).
+        SemanticColor::EntityLive => hex(0xff_7a70),
+        SemanticColor::EntityHost => hex(0xff_c4e4),
+        SemanticColor::EntityAuthor => hex(0xf6_c8f4),
+        SemanticColor::EntityLabel => hex(0xb3_94ff),
+        SemanticColor::EntityPublisher => hex(0xa6_8cff),
+        SemanticColor::EntityProducer => hex(0xc4_8aff),
+        SemanticColor::EntityNetwork => hex(0xd0_8cff),
+        SemanticColor::EntityHosting => hex(0x9d_93ff),
+        SemanticColor::EntitySponsor => hex(0xdc_7cff),
     }
 }
 
@@ -202,6 +212,16 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
         SemanticColor::EntityTrack => hex(0x00_6b76),
         SemanticColor::EntityPlaylist => hex(0x00_4d2c),
         SemanticColor::EntityArtist => hex(0x5c_2c4f),
+        // The other kinds of the shared entity palette (musicindex ADR 0032).
+        SemanticColor::EntityLive => hex(0x9a_0010),
+        SemanticColor::EntityHost => hex(0x5e_2a4a),
+        SemanticColor::EntityAuthor => hex(0x52_2a55),
+        SemanticColor::EntityLabel => hex(0x4f_2c8f),
+        SemanticColor::EntityPublisher => hex(0x4a_30a0),
+        SemanticColor::EntityProducer => hex(0x63_2a8a),
+        SemanticColor::EntityNetwork => hex(0x66_2e8f),
+        SemanticColor::EntityHosting => hex(0x46_3ea6),
+        SemanticColor::EntitySponsor => hex(0x6e_2a7e),
     }
 }
 

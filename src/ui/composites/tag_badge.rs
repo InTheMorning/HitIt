@@ -4,7 +4,8 @@
 //!
 //! ADR 0083 Decision 2: an entity color shows only as a dot. No text is
 //! drawn on an entity color. Light/dark palettes are handled by choosing
-//! token colors per [`Appearance`]. We never hand-pick hex.
+//! token colors per [`Appearance`]. We never hand-pick hex. The dot shape
+//! and the shared entity values are musicindex ADR 0032 (R-DOT-1, R-DOT-2).
 
 #![warn(clippy::pedantic)]
 
@@ -15,7 +16,7 @@ use gpui::{
 
 use crate::ui::icons::IconName;
 use crate::ui::tokens::{
-    color, resolve_color, Appearance, FontSize, Radius, SemanticColor, Spacing,
+    color, resolve_color, Appearance, FontSize, Radius, SemanticColor, Spacing, TypeDot,
 };
 use crate::view_models::track_metadata_grid::TrackMetadataComparisonRole;
 
@@ -32,13 +33,27 @@ pub enum EntityKind {
     Release,
     Recording,
     Playlist,
+    /// A live item. Its color is the live red, reserved for live items.
+    Live,
+    Host,
+    Author,
+    Label,
+    /// The shared `publisher` entity color. Its label is "feed", not the
+    /// word "publisher", because ADR 0085 §1 bars interface text that names
+    /// a feed "publisher".
+    Publisher,
+    Producer,
+    Network,
+    Hosting,
+    Sponsor,
     /// Unknown / generic — uses the `Accent` token.
     Generic,
 }
 
 impl EntityKind {
     /// Map the legacy `&'static str` keys (e.g. `"feed"`) used throughout
-    /// the existing screen code. Unknown values fall back to
+    /// the existing screen code. The keys of the entity types in the shared
+    /// `tokens.json` are the same strings. Unknown values fall back to
     /// [`EntityKind::Generic`] so this never panics on stale call sites.
     #[must_use]
     pub fn from_legacy_str(s: &str) -> Self {
@@ -49,6 +64,14 @@ impl EntityKind {
             "release" => Self::Release,
             "recording" => Self::Recording,
             "playlist" => Self::Playlist,
+            "live" => Self::Live,
+            "host" => Self::Host,
+            "author" => Self::Author,
+            "label" => Self::Label,
+            "producer" => Self::Producer,
+            "network" => Self::Network,
+            "hosting" => Self::Hosting,
+            "sponsor" => Self::Sponsor,
             _ => Self::Generic,
         }
     }
@@ -57,11 +80,20 @@ impl EntityKind {
     pub fn label(self) -> &'static str {
         match self {
             Self::Artist => "artist",
-            Self::Feed => "feed",
+            // ADR 0085 §1 and Decision 7: the Publisher label is "feed", never "publisher".
+            Self::Feed | Self::Publisher => "feed",
             Self::Track => "track",
             Self::Release => "release",
             Self::Recording => "recording",
             Self::Playlist => "playlist",
+            Self::Live => "live",
+            Self::Host => "host",
+            Self::Author => "author",
+            Self::Label => "label",
+            Self::Producer => "producer",
+            Self::Network => "network",
+            Self::Hosting => "hosting",
+            Self::Sponsor => "sponsor",
             Self::Generic => "item",
         }
     }
@@ -81,6 +113,15 @@ impl EntityKind {
             Self::Release => "AL",
             Self::Recording => "RC",
             Self::Playlist => "PL",
+            Self::Live => "LV",
+            Self::Host => "HO",
+            Self::Author => "AU",
+            Self::Label => "LB",
+            Self::Publisher => "PB",
+            Self::Producer => "PR",
+            Self::Network => "NW",
+            Self::Hosting => "HS",
+            Self::Sponsor => "SP",
             Self::Generic => "IT",
         }
     }
@@ -99,6 +140,15 @@ impl EntityKind {
             Self::Feed | Self::Release => SemanticColor::EntityFeed,
             Self::Track | Self::Recording => SemanticColor::EntityTrack,
             Self::Playlist => SemanticColor::EntityPlaylist,
+            Self::Live => SemanticColor::EntityLive,
+            Self::Host => SemanticColor::EntityHost,
+            Self::Author => SemanticColor::EntityAuthor,
+            Self::Label => SemanticColor::EntityLabel,
+            Self::Publisher => SemanticColor::EntityPublisher,
+            Self::Producer => SemanticColor::EntityProducer,
+            Self::Network => SemanticColor::EntityNetwork,
+            Self::Hosting => SemanticColor::EntityHosting,
+            Self::Sponsor => SemanticColor::EntitySponsor,
             Self::Generic => SemanticColor::SystemFill,
         }
     }
@@ -213,6 +263,7 @@ pub struct TagBadge {
     kind: EntityKind,
     label: Option<SharedString>,
     appearance: Option<Appearance>,
+    hollow: bool,
 }
 
 /// Display-ready badge fields.
@@ -228,11 +279,19 @@ impl TagBadge {
             kind: display.kind,
             label: display.label,
             appearance: None,
+            hollow: false,
         }
     }
 
     pub fn appearance(mut self, appearance: Appearance) -> Self {
         self.appearance = Some(appearance);
+        self
+    }
+
+    /// Draw the dot as a ring with no fill. It shows a role that nothing
+    /// confirms (musicindex ADR 0032 R-DOT-1, item 4).
+    pub fn hollow(mut self, hollow: bool) -> Self {
+        self.hollow = hollow;
         self
     }
 }
@@ -247,21 +306,24 @@ impl RenderOnce for TagBadge {
         let label = self
             .label
             .unwrap_or_else(|| SharedString::from(self.kind.label()));
-        let dot_size = Spacing::SM.scaled(cx);
+        let dot_size = TypeDot::size(cx);
+        let dot = div()
+            .flex_none()
+            .w(dot_size)
+            .h(dot_size)
+            .rounded(Radius::Full.scaled(cx));
+        let dot = if self.hollow {
+            dot.border(TypeDot::ring_width(cx)).border_color(dot_color)
+        } else {
+            dot.bg(dot_color)
+        };
 
         div()
             .flex_none()
             .flex()
             .items_center()
             .gap(Spacing::XXS.scaled(cx))
-            .child(
-                div()
-                    .flex_none()
-                    .w(dot_size)
-                    .h(dot_size)
-                    .rounded(Radius::Full.scaled(cx))
-                    .bg(dot_color),
-            )
+            .child(dot)
             .child(
                 div()
                     .text_size(FontSize::Micro.scaled(cx))
@@ -275,6 +337,25 @@ impl RenderOnce for TagBadge {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const ALL_KINDS: [EntityKind; 16] = [
+        EntityKind::Artist,
+        EntityKind::Feed,
+        EntityKind::Track,
+        EntityKind::Release,
+        EntityKind::Recording,
+        EntityKind::Playlist,
+        EntityKind::Live,
+        EntityKind::Host,
+        EntityKind::Author,
+        EntityKind::Label,
+        EntityKind::Publisher,
+        EntityKind::Producer,
+        EntityKind::Network,
+        EntityKind::Hosting,
+        EntityKind::Sponsor,
+        EntityKind::Generic,
+    ];
 
     #[test]
     fn tag_badge_uses_display_contract() {
@@ -303,12 +384,22 @@ mod tests {
     fn entity_kind_fill_tokens_match_the_website_color_grouping() {
         use std::collections::HashSet;
 
-        // These five kinds each have their own color on the website.
+        // These kinds each have their own color in the shared entity palette
+        // (musicindex ADR 0032 R-DOT-2).
         let distinctly_colored = [
             EntityKind::Artist,
             EntityKind::Feed,
             EntityKind::Track,
             EntityKind::Playlist,
+            EntityKind::Live,
+            EntityKind::Host,
+            EntityKind::Author,
+            EntityKind::Label,
+            EntityKind::Publisher,
+            EntityKind::Producer,
+            EntityKind::Network,
+            EntityKind::Hosting,
+            EntityKind::Sponsor,
         ];
         let mut seen_tokens = HashSet::new();
         for kind in distinctly_colored {
@@ -349,15 +440,7 @@ mod tests {
             SemanticColor::DiffDifferent,
             SemanticColor::DiffMissing,
         ];
-        for kind in [
-            EntityKind::Artist,
-            EntityKind::Feed,
-            EntityKind::Track,
-            EntityKind::Release,
-            EntityKind::Recording,
-            EntityKind::Playlist,
-            EntityKind::Generic,
-        ] {
+        for kind in ALL_KINDS {
             assert!(
                 !forbidden.contains(&kind.fill_token()),
                 "{kind:?} must not resolve a status, accent, or diff token"
@@ -369,20 +452,116 @@ mod tests {
     /// `Thumbnail` when no cover image is available.
     #[test]
     fn entity_kind_monogram_is_two_letters_for_every_kind() {
-        for kind in [
-            EntityKind::Artist,
-            EntityKind::Feed,
-            EntityKind::Track,
-            EntityKind::Release,
-            EntityKind::Recording,
-            EntityKind::Playlist,
-            EntityKind::Generic,
-        ] {
+        for kind in ALL_KINDS {
             assert_eq!(
                 kind.monogram().chars().count(),
                 2,
                 "{kind:?} monogram must be exactly two letters"
             );
         }
+    }
+
+    /// musicindex ADR 0032 R-DOT-2: the entity colors and the type dot of this
+    /// app match the shared copy in `src/assets/tokens.json`.
+    #[test]
+    fn entity_colors_and_type_dot_match_the_shared_tokens() {
+        let shared: serde_json::Value =
+            serde_json::from_str(include_str!("../../assets/tokens.json"))
+                .expect("musicindex ADR 0032 R-DOT-2: src/assets/tokens.json is not valid JSON");
+
+        let type_dot = &shared["shape"]["type-dot"];
+        assert_dimension_matches("TypeDot::SIZE_PX", TypeDot::SIZE_PX, &type_dot["size-px"]);
+        assert_dimension_matches(
+            "TypeDot::HOLLOW_RING_PX",
+            TypeDot::HOLLOW_RING_PX,
+            &type_dot["hollow-ring-px"],
+        );
+
+        for (appearance, appearance_key) in
+            [(Appearance::Dark, "dark"), (Appearance::Light, "light")]
+        {
+            let entries = shared["entity"][appearance_key].as_object().expect(
+                "musicindex ADR 0032 R-DOT-2: entity.dark and entity.light must be objects",
+            );
+            for (key, value) in entries {
+                let kind = kind_for_shared_key(key);
+                assert_ne!(
+                    kind,
+                    EntityKind::Generic,
+                    "musicindex ADR 0032 R-DOT-2: entity type `{key}` in src/assets/tokens.json has no \
+                     EntityKind. Add it to kind_for_shared_key in the tests of src/ui/composites/tag_badge.rs, \
+                     and add its color to SemanticColor in src/ui/tokens.rs."
+                );
+                let expected_hex = value
+                    .as_str()
+                    .expect("musicindex ADR 0032 R-DOT-2: an entity color must be a string");
+                assert_color_matches(appearance, key, kind, expected_hex);
+            }
+        }
+    }
+
+    /// Map each entity key of the shared `tokens.json` to its kind. The key
+    /// `publisher` maps to `Publisher`, whose label is "feed" (ADR 0085 §1).
+    fn kind_for_shared_key(key: &str) -> EntityKind {
+        match key {
+            "feed" => EntityKind::Feed,
+            "track" => EntityKind::Track,
+            "playlist" => EntityKind::Playlist,
+            "live" => EntityKind::Live,
+            "artist" => EntityKind::Artist,
+            "host" => EntityKind::Host,
+            "author" => EntityKind::Author,
+            "label" => EntityKind::Label,
+            "publisher" => EntityKind::Publisher,
+            "producer" => EntityKind::Producer,
+            "network" => EntityKind::Network,
+            "hosting" => EntityKind::Hosting,
+            "sponsor" => EntityKind::Sponsor,
+            _ => EntityKind::Generic,
+        }
+    }
+
+    fn assert_dimension_matches(name: &str, actual: f32, shared: &serde_json::Value) {
+        let expected = shared
+            .as_f64()
+            .expect("musicindex ADR 0032 R-DOT-2: shape.type-dot must hold numbers");
+        assert!(
+            (f64::from(actual) - expected).abs() < 1e-9,
+            "musicindex ADR 0032 R-DOT-2: {name} is {actual} but shape.type-dot in \
+             src/assets/tokens.json gives {expected}. Copy tokens.json from musicindex-assets \
+             and change the value in src/ui/tokens.rs."
+        );
+    }
+
+    fn assert_color_matches(
+        appearance: Appearance,
+        key: &str,
+        kind: EntityKind,
+        expected_hex: &str,
+    ) {
+        let token = kind.fill_token();
+        let resolved = token.resolve(appearance);
+        let actual = [resolved.r, resolved.g, resolved.b];
+        let expected = channels_from_hex(expected_hex);
+        for (actual_channel, expected_channel) in actual.iter().zip(expected) {
+            assert!(
+                (actual_channel - expected_channel).abs() < 0.5 / 255.0,
+                "musicindex ADR 0032 R-DOT-2: the {appearance:?} color of entity `{key}` is \
+                 SemanticColor::{token:?} in src/ui/tokens.rs, which differs from {expected_hex} in \
+                 src/assets/tokens.json. Copy tokens.json from musicindex-assets and change the \
+                 value in src/ui/tokens.rs."
+            );
+        }
+    }
+
+    fn channels_from_hex(hex: &str) -> [f32; 3] {
+        let digits = hex
+            .strip_prefix('#')
+            .filter(|digits| digits.len() == 6)
+            .expect("musicindex ADR 0032 R-DOT-2: an entity color must be #rrggbb");
+        let channel = |range: std::ops::Range<usize>| {
+            f32::from(u8::from_str_radix(&digits[range], 16).expect("hex digits")) / 255.0
+        };
+        [channel(0..2), channel(2..4), channel(4..6)]
     }
 }
