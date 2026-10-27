@@ -19666,10 +19666,11 @@ const WORD_RULE_NOT_INTERFACE_MARKER: &str = "// ADR 0033 R-WORD-4: not interfac
 
 /// The message of ADR 0033 R-WORD-5. Each failure of the guard below carries it.
 const ADR_0033_R_WORD_5_MESSAGE: &str = r#"musicindex ADR 0033 R-WORD-4: most artists do not know the RSS word
-"publisher". Show the role of a publisher feed: "Artist" or "Label".
-Use "Publisher" only for a feed that is definitely not an artist and
-that states no role. Use "Feed" when the role is not known. A technical
-view can show the RSS name, for example `podcast:publisher`."#;
+"publisher". Show the role of a publisher feed: "Artist", "Label" or
+the word of its one role. Use "Publisher" only for a feed with two or
+more roles and no artist role, or for a feed that is definitely not an
+artist and that states no role. Use "Feed" when the role is not known.
+A technical view can show the RSS name, for example `podcast:publisher`."#;
 
 /// Situational — owner: musicindex ADR 0033 R-WORD-3 and R-WORD-4, applied to
 /// v4vmm by ADR 0085 §1. The guard finds the word "publisher" in interface

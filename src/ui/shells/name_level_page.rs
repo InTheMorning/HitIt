@@ -93,6 +93,7 @@ fn render_header(vm: &NameLevelPageVm, header_art: CollectionArtImage) -> AnyEle
     DetailHeader::new(DetailHeaderDisplay {
         kind: EntityKind::Artist,
         hollow: false,
+        label: None,
         title: vm.title_text().into(),
         subtitle: None,
         data_rows,
