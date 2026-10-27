@@ -19689,25 +19689,47 @@ fn feed_publisher_word_scan_files() -> Vec<PathBuf> {
         .collect()
 }
 
-/// Situational — ADR 0085 Decision 1 ("The Interface Does Not Name A Feed
-/// 'Publisher'"). No label, heading, mark or accessibility text calls a
-/// feed "publisher". Delete this guard when ADR 0085 Decision 1 is
-/// superseded.
+/// The marker that ends a line whose string is not interface text (ADR 0033
+/// R-WORD-4 item 3). The guard reads the raw line, so the marker survives the
+/// comment strip.
+const WORD_RULE_NOT_INTERFACE_MARKER: &str = "// ADR 0033 R-WORD-4: not interface text";
+
+/// The message of ADR 0033 R-WORD-5. Each failure of the guard below carries it.
+const ADR_0033_R_WORD_5_MESSAGE: &str = r#"musicindex ADR 0033 R-WORD-4: most artists do not know the RSS word
+"publisher". Show the role of a publisher feed: "Artist" or "Label".
+Use "Publisher" only for a feed that is definitely not an artist and
+that states no role. Use "Feed" when the role is not known. A technical
+view can show the RSS name, for example `podcast:publisher`."#;
+
+/// Situational — owner: musicindex ADR 0033 R-WORD-3 and R-WORD-4, applied to
+/// v4vmm by ADR 0085 §1. The guard finds the word "publisher" in interface
+/// text (R-WORD-4 item 3) and prints the R-WORD-5 message. Its v4vmm
+/// exceptions are `FRAME_TITLE_PUBLISHER` (ADR 0085 Decision 7), the broadcast
+/// service list above, and the line marker. Delete this guard when ADR 0085 §1
+/// and ADR 0033 no longer give the word rule.
 #[test]
 fn adr_0085_feed_page_guard_no_interface_text_names_a_feed_publisher() {
     let mut violations = Vec::new();
     for path in feed_publisher_word_scan_files() {
         let rel = rel_path(&path);
         let source = read_source(&path);
-        for (line_number, line) in code_lines(source_before_own_test_module(&source)) {
-            if line.contains(FEED_PAGE_FRAME_TITLE_PUBLISHER_CONSTANT) {
+        for (index, raw) in source_before_own_test_module(&source).lines().enumerate() {
+            let line_number = index + 1;
+            if raw.contains(WORD_RULE_NOT_INTERFACE_MARKER) {
                 continue;
             }
-            for literal in string_literals(&line) {
+            let line = strip_line_comment(raw).trim();
+            if line.is_empty() || line.contains(FEED_PAGE_FRAME_TITLE_PUBLISHER_CONSTANT) {
+                continue;
+            }
+            for literal in string_literals(line) {
                 if literal_names_a_feed_publisher(&literal) {
                     violations.push(format!(
-                        "ADR 0085 §1 The Interface Does Not Name A Feed \"Publisher\": {rel}:{line_number} names a feed \"publisher\".\n\
-Use \"feed\", \"artist\" or the RSS element name. Only the Decision 7 frame title says \"Publisher\". A service name goes in the broadcast file list of this guard."
+                        "{rel}:{line_number} names a feed \"publisher\" in interface text.\n\
+{ADR_0033_R_WORD_5_MESSAGE}\n\
+v4vmm ADR 0085 Decision 7: FRAME_TITLE_PUBLISHER is the one permitted constant. \
+A service name goes in BROADCAST_PUBLISHER_SERVICE_FILES in this file. \
+A string that is not interface text ends its line with `{WORD_RULE_NOT_INTERFACE_MARKER}`."
                     ));
                     break;
                 }
@@ -19716,7 +19738,7 @@ Use \"feed\", \"artist\" or the RSS element name. Only the Decision 7 frame titl
     }
     assert!(
         violations.is_empty(),
-        "ADR 0085 Decision 1 \"no feed publisher\" violations:\n{}",
+        "musicindex ADR 0033 R-WORD-4 (v4vmm ADR 0085 §1) violations:\n{}",
         violations.join("\n")
     );
 }

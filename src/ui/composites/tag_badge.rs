@@ -38,9 +38,9 @@ pub enum EntityKind {
     Host,
     Author,
     Label,
-    /// The shared `publisher` entity color. Its label is "feed", not the
-    /// word "publisher", because ADR 0085 §1 bars interface text that names
-    /// a feed "publisher".
+    /// The shared `publisher` entity color. The label is "feed" here. A
+    /// screen that shows this kind reads musicindex ADR 0033 R-WORD-3 item 3
+    /// first, which gives the word "Publisher" to a feed with no role.
     Publisher,
     Producer,
     Network,
@@ -80,7 +80,7 @@ impl EntityKind {
     pub fn label(self) -> &'static str {
         match self {
             Self::Artist => "artist",
-            // ADR 0085 §1 and Decision 7: the Publisher label is "feed", never "publisher".
+            // The Publisher kind shows "feed" here. See the variant comment.
             Self::Feed | Self::Publisher => "feed",
             Self::Track => "track",
             Self::Release => "release",

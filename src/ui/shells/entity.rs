@@ -286,6 +286,7 @@ fn render_contract_header(
     let display = hero.display();
     DetailHeader::new(DetailHeaderDisplay {
         kind: entity_kind(display.kind),
+        hollow: false,
         title: display.title.into(),
         subtitle: None,
         data_rows: display
