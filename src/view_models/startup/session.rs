@@ -30,7 +30,7 @@ pub(crate) struct SessionReportVm {
 
 impl SessionReportVm {
     pub(crate) const TITLE: &'static str = "App session";
-    pub(crate) const EXPLANATION: &'static str = "End this app session to open recovery and maintenance. App commands and built-in playback will stop. Unsaved Settings edits will be discarded. External publisher and encoder services will keep running.";
+    pub(crate) const EXPLANATION: &'static str = "End this app session to open recovery and maintenance. App commands and built-in playback will stop. Unsaved Settings edits will be discarded. External relay sender and encoder services will keep running.";
     pub(crate) const WAITING: &'static str = "App is finishing its work and releasing its database connections. Maintenance cannot start until they are released.";
 
     pub(crate) fn new(generation: u64) -> Self {
@@ -104,7 +104,7 @@ impl SessionReportVm {
 
     pub(crate) fn released(&mut self) {
         self.working = false;
-        self.record("App finished its work, stopped built-in playback and closed its configured database connections. Recovery is available. Ending the app session sent no stop command to external publisher or encoder services.");
+        self.record("App finished its work, stopped built-in playback and closed its configured database connections. Recovery is available. Ending the app session sent no stop command to external relay sender or encoder services.");
     }
 
     pub(crate) fn resumed(&mut self, generation: u64) {
@@ -134,7 +134,7 @@ mod tests {
         assert_eq!(entry.availability, StartupAvailability::Available);
         assert!(entry.a11y_label.contains("built-in playback"));
         assert!(SessionReportVm::EXPLANATION.contains("Unsaved Settings edits"));
-        assert!(SessionReportVm::EXPLANATION.contains("External publisher and encoder"));
+        assert!(SessionReportVm::EXPLANATION.contains("External relay sender and encoder"));
         let mut vm = SessionReportVm::new(7);
         assert_eq!(
             vm.action(SessionAction::RetryDrain).availability,

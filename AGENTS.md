@@ -86,8 +86,8 @@ cannot act is absent, not disabled.
 **One page for each item.** Music is a column browser. Each release, track, artist and playlist has one
 page, whatever its origin. The Library is a state that each page and list shows, not a place. ADR 0084.
 
-**Artists, not publishers.** The interface calls a feed a "publisher" only in the frame title of a feed that is
-definitely not an artist. A feed that albums name through a confirmed link is an artist, confirmed or unverified, and other roles show when a feed states them. ADR 0085.
+**Artists, not publishers.** A feed shows its role word, not the RSS word. The word rules are musicindex ADR 0033
+R-WORD-3 and R-WORD-4, and ADR 0085 applies them here. A feed that albums name through a confirmed link is an artist, confirmed or unverified.
 
 **Shared interface rules come from musicindex.** musicindex ADRs 0020 to 0029 own the interface rules that
 musicindex.org, Studio and v4vmm share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a
@@ -103,7 +103,7 @@ source-boundary problem, never a renderer problem. ADR 0075 Decision I.
 surface and a status display, never a required part of the chain. The built-in
 player is the one exception.
 
-**Real time is canonical.** This app, the encoder, and the publisher all
+**Real time is canonical.** This app, the encoder, and the relay sender all
 present real time. Delivery delay serves the live path only and never reaches a
 recording or an interface.
 

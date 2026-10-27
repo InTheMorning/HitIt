@@ -481,7 +481,7 @@ impl TopApp {
         let selected_host = match selected_broadcast_host(&self.broadcast) {
             Ok(host) => host,
             Err(error) => {
-                self.settings_status = format!("Publisher command error: {error:#}");
+                self.settings_status = format!("Relay sender command error: {error:#}");
                 cx.notify();
                 return;
             }
@@ -489,7 +489,7 @@ impl TopApp {
         let command = match PublisherServiceCommand::new(&selected_host, role, operation) {
             Ok(command) => command,
             Err(error) => {
-                self.settings_status = format!("Publisher command error: {error}");
+                self.settings_status = format!("Relay sender command error: {error}");
                 cx.notify();
                 return;
             }
@@ -510,7 +510,7 @@ impl TopApp {
     {
         let Some(command_id) = self.show_commands.begin_service(role, operation) else {
             if let Some(id) = retry_id {
-                self.capability_vm.pending.finish(id, "App is already running a command for this publisher. Check again when it finishes.".into());
+                self.capability_vm.pending.finish(id, "App is already running a command for this relay sender. Check again when it finishes.".into());
             }
             return;
         };
@@ -692,9 +692,10 @@ impl TopApp {
         let selected_host = match selected_broadcast_host(&self.broadcast) {
             Ok(host) => host,
             Err(error) => {
-                self.show_page
-                    .log_pane
-                    .apply_result(request_id, Err(format!("Publisher log error: {error:#}")));
+                self.show_page.log_pane.apply_result(
+                    request_id,
+                    Err(format!("Relay sender log error: {error:#}")),
+                );
                 cx.notify();
                 return;
             }
@@ -705,7 +706,7 @@ impl TopApp {
             Err(error) => {
                 self.show_page
                     .log_pane
-                    .apply_result(request_id, Err(format!("Publisher log error: {error}")));
+                    .apply_result(request_id, Err(format!("Relay sender log error: {error}")));
                 cx.notify();
                 return;
             }
@@ -725,11 +726,10 @@ impl TopApp {
                 }
             },
             move |this, error, cx| {
-                if this
-                    .show_page
-                    .log_pane
-                    .apply_result(request_id, Err(format!("Publisher log error: {error:#}")))
-                {
+                if this.show_page.log_pane.apply_result(
+                    request_id,
+                    Err(format!("Relay sender log error: {error:#}")),
+                ) {
                     cx.notify();
                 }
             },
@@ -953,7 +953,7 @@ impl TopApp {
             Ok(host) => host,
             Err(error) => {
                 if let Some(id) = retry_id {
-                    self.capability_vm.pending.finish(id, "App did not retry the event target because its original publisher or target is unavailable. Check it again.".into());
+                    self.capability_vm.pending.finish(id, "App did not retry the event target because its original relay sender or target is unavailable. Check it again.".into());
                 }
                 self.settings_status = format!("Event target command error: {error:#}");
                 cx.notify();
@@ -971,7 +971,7 @@ impl TopApp {
             Ok(name) => name,
             Err(error) => {
                 if let Some(id) = retry_id {
-                    self.capability_vm.pending.finish(id, "App did not retry the event target because its original publisher or target is unavailable. Check it again.".into());
+                    self.capability_vm.pending.finish(id, "App did not retry the event target because its original relay sender or target is unavailable. Check it again.".into());
                 }
                 self.settings_status = format!("Event target command error: {error}");
                 cx.notify();
@@ -985,7 +985,7 @@ impl TopApp {
             if let Some(id) = retry_id {
                 self.capability_vm.pending.finish(
                     id,
-                    "App is already running a publisher command. Check again after it finishes."
+                    "App is already running a relay sender command. Check again after it finishes."
                         .into(),
                 );
             }
@@ -1663,7 +1663,7 @@ impl ApplicationCommand for EventTargetCommand {
         .map_err(|error| {
             if let PublisherTargetCommandError::RestartFailed { detail } = error {
                 return event_target_command_error(format!(
-                    "Target configuration saved; Publisher restart failed: {detail}"
+                    "Target configuration saved; relay sender restart failed: {detail}"
                 ));
             }
             event_target_command_error(format!(
@@ -1996,7 +1996,7 @@ fn event_target_command_error(error: impl std::fmt::Display) -> CommandError {
 
 const fn role_label(role: PublisherServiceRole) -> &'static str {
     match role {
-        PublisherServiceRole::Publisher => "publisher",
+        PublisherServiceRole::Publisher => "relay sender",
         PublisherServiceRole::Producer => "producer",
     }
 }
@@ -2968,10 +2968,10 @@ impl TopApp {
                     detail: detail.clone(),
                 },
                 EventTargetListInput::CommandsUnavailable => EventCommandState::Failed {
-                    detail: "Publisher target commands unavailable".to_owned(),
+                    detail: "Relay sender target commands unavailable".to_owned(),
                 },
                 EventTargetListInput::NotReachable => EventCommandState::Failed {
-                    detail: "Publisher not reachable".to_owned(),
+                    detail: "Relay sender not reachable".to_owned(),
                 },
                 EventTargetListInput::Unknown => EventCommandState::Failed {
                     detail: "No target observation".to_owned(),

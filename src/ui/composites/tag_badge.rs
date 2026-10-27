@@ -18,6 +18,7 @@ use crate::ui::icons::IconName;
 use crate::ui::tokens::{
     color, resolve_color, Appearance, FontSize, Radius, SemanticColor, Spacing, TypeDot,
 };
+use crate::view_models::publisher_page::PublisherPageVm;
 use crate::view_models::track_metadata_grid::TrackMetadataComparisonRole;
 
 /// Domain entity kinds the badge knows how to color.
@@ -79,22 +80,24 @@ impl EntityKind {
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::Artist => "artist",
-            // The Publisher kind shows "feed" here. See the variant comment.
-            Self::Feed | Self::Publisher => "feed",
-            Self::Track => "track",
-            Self::Release => "release",
-            Self::Recording => "recording",
-            Self::Playlist => "playlist",
-            Self::Live => "live",
-            Self::Host => "host",
-            Self::Author => "author",
-            Self::Label => "label",
-            Self::Producer => "producer",
-            Self::Network => "network",
-            Self::Hosting => "hosting",
-            Self::Sponsor => "sponsor",
-            Self::Generic => "item",
+            Self::Artist => "Artist",
+            Self::Feed => "Feed",
+            Self::Track => "Track",
+            Self::Release => "Release",
+            Self::Recording => "Recording",
+            Self::Playlist => "Playlist",
+            Self::Live => "Live",
+            Self::Host => "Host",
+            Self::Author => "Author",
+            Self::Label => "Label",
+            // ADR 0033 R-WORD-3 item 3: the word of a feed that is definitely
+            // not an artist. It is the frame title constant of ADR 0085 Decision 7.
+            Self::Publisher => PublisherPageVm::FRAME_TITLE_PUBLISHER,
+            Self::Producer => "Producer",
+            Self::Network => "Network",
+            Self::Hosting => "Hosting",
+            Self::Sponsor => "Sponsor",
+            Self::Generic => "Item",
         }
     }
 
