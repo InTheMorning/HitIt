@@ -183,6 +183,7 @@ ADR 0039 is Implemented. Its scheduled work is complete.
 | 4 | Remaining narrow Show layout and A10 | Future decision and packet: compact cards, full-width log docking, card-title readability, and hiding transport only when every typed action is unavailable; one combined visual gate. ADR 0070 log-height priority is already in the shared-log packet |
 | 5 | Remaining UTC emitter/adapter work | Shared app log framing and following moved before recovery 007; agree the common UTC contract and correct external emitters in bounded packets after the earlier chain work |
 | 6 | Steady state | v4vmm ADR 0064 task 002; publisher show-log 001 → 002; installed-but-unconfigured publisher state |
+| 7, after Studio task 073 | Studio connection: publisher Studio client task 001 → [v4vmm ADR 0059 task 020](../tasks/adr-0059-task-020-studio-connection.md) | Not started - 2026-11-01. Studio ADR 0110 owns the interface. Each task writes its decision record first: publisher ADR 0018, then an amendment of v4vmm ADR 0059 |
 
 **Priority trigger:** when a real show is scheduled, publisher show-log task
 001 becomes the next packet ahead of this order and must be operational before
