@@ -307,13 +307,37 @@ pub fn write_id3v24_edits(path: &Path, edits: &[Id3v24Edit]) -> Result<TagWriteR
             write_lofty_edits(path, edits, lofty::tag::TagType::VorbisComments).map(lofty_result)
         }
         Ok(AudioFormat::Mp4) => {
-            write_lofty_edits(path, edits, lofty::tag::TagType::Mp4Ilst).map(lofty_result)
+            let edits = mp4_single_date_edits(edits);
+            write_lofty_edits(path, &edits, lofty::tag::TagType::Mp4Ilst).map(lofty_result)
         }
         Ok(AudioFormat::Wav) => Err(anyhow!(
             "cannot tag raw WAV ({}); re-subscribe with `flac` installed to upgrade",
             path.display()
         )),
     }
+}
+
+/// ADR 0080 Decision 6: an MP4 file holds one date atom. The `TDRC` edit
+/// gives the full date. The `TYER` edit gives its year. The reader gives
+/// both atoms as `TDRC`, so two atoms could not be told apart. This keeps
+/// the `TDRC` edit, drops the `TYER` edit when a `TDRC` edit exists, and
+/// stores a lone `TYER` edit under the `TDRC` atom.
+fn mp4_single_date_edits(edits: &[Id3v24Edit]) -> Vec<Id3v24Edit> {
+    let has_full_date = edits.iter().any(|edit| edit.frame_label == "TDRC");
+    edits
+        .iter()
+        .filter(|edit| !(has_full_date && edit.frame_label == "TYER"))
+        .map(|edit| {
+            if edit.frame_label == "TYER" {
+                Id3v24Edit {
+                    frame_label: "TDRC".into(),
+                    value: edit.value.clone(),
+                }
+            } else {
+                edit.clone()
+            }
+        })
+        .collect()
 }
 
 fn lofty_result(applied: usize) -> TagWriteResult {
@@ -710,6 +734,17 @@ fn remove_stale_lofty_keyed_items(
         }
         if let Some(key) = lofty_generic_key(&edit.frame_label, tag_type) {
             keys.insert(key);
+        }
+    }
+    // An earlier write stored a second MP4 date atom under `TYER`. A date
+    // write removes it, so the file keeps one date atom.
+    if tag_type == lofty::tag::TagType::Mp4Ilst {
+        if let Some(date_key) = lofty_generic_key("TDRC", tag_type) {
+            if keys.contains(&date_key) {
+                if let Some(year_key) = lofty_generic_key("TYER", tag_type) {
+                    keys.insert(year_key);
+                }
+            }
         }
     }
     for key in keys {
