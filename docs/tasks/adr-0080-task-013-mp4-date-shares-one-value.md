@@ -55,7 +55,7 @@ Visual, listed apart, for the operator to walk:
 
 1. Find one MP4 file in the Library: run `sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT path FROM local_files WHERE path LIKE '%.m4a' LIMIT 1"`. The path can be relative to the music directory.
 2. Run `cargo run --bin v4vmm` in a desktop session.
-3. Open "Update n files" on the playlist of that file.
+3. Open "Update n files" in the Music sidebar. It lists each Library file that differs, not only one playlist.
 4. Confirm the update. Run the scan again.
 5. Wrong: the file still shows `TYER` or `TDRC`.
 6. Run `ffprobe -hide_banner FILE`, with FILE as the path of the file.

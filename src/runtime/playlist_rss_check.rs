@@ -981,6 +981,26 @@ struct FeedRequest<'a> {
     started_at_us: i64,
 }
 
+/// The validators of the next request. A feed that an older reader applied
+/// sends none, so HTTP 304 cannot hide a value that the new reader reads
+/// (ADR 0076 Decision 2). A validator that the app cannot read only removes
+/// the condition from the request.
+fn stored_validators(
+    conn: &Arc<Mutex<Connection>>,
+    feed_id: i64,
+    spec: &crate::provider_observation::ProviderRequestSpec,
+) -> Option<RequestValidators> {
+    let conn = conn.lock().ok()?;
+    if crate::local_metadata::rss_reader_revision(&conn, feed_id)
+        < crate::rss::check_apply::RSS_READER_REVISION
+    {
+        return None;
+    }
+    crate::db::provider_observations::read_request_validators(&conn, spec)
+        .ok()
+        .flatten()
+}
+
 /// Send one request, record its observation and apply a received
 /// document (packet 002). Blocking.
 fn check_feed(
@@ -999,11 +1019,7 @@ fn check_feed(
     spec.started_at_us = started_at_us;
     // A validator that the app cannot read only removes the condition from
     // the request. The request still runs.
-    let validators = conn.lock().ok().and_then(|conn| {
-        crate::db::provider_observations::read_request_validators(&conn, &spec)
-            .ok()
-            .flatten()
-    });
+    let validators = stored_validators(conn, feed_id, &spec);
     let recorder = ProviderObservationRecorder::new(Arc::clone(conn));
     let token = match recorder.begin(spec) {
         Ok(token) => token,
@@ -1653,6 +1669,160 @@ mod tests {
                 last_modified: Some("Wed, 23 Sep 2026 10:00:00 GMT".into()),
             })
         );
+    }
+
+    fn etag_response(url: &str) -> ProviderObservation {
+        response(
+            url,
+            200,
+            &[
+                ("etag", "\"v1\""),
+                ("last-modified", "Wed, 23 Sep 2026 10:00:00 GMT"),
+            ],
+            Some(RSS),
+        )
+    }
+
+    fn stored_revision(conn: &Arc<Mutex<Connection>>, feed_id: i64) -> i64 {
+        crate::local_metadata::rss_reader_revision(&conn.lock().unwrap(), feed_id)
+    }
+
+    /// Run two checks of one feed. The step between them changes the
+    /// stored state. Returns the two requests.
+    async fn two_checks(
+        url: &str,
+        between: impl FnOnce(&Arc<Mutex<Connection>>, i64),
+    ) -> (Vec<SentRequest>, Arc<Mutex<Connection>>, i64) {
+        let (conn, playlist_id, feed_ids) = database(&[(url, 1)]);
+        let clock = FakeClock::new();
+        let fetcher = FakeFetcher::new(Arc::clone(&clock), etag_response);
+        let session = SessionLifecycle::new();
+        let handle = start(&conn, &fetcher, &clock, &session);
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        let first = finished(&handle, playlist_id).await;
+        between(&conn, feed_ids[0]);
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        finished_after(&handle, playlist_id, first.run_id).await;
+        (fetcher.sent(), conn, feed_ids[0])
+    }
+
+    fn set_revision(conn: &Arc<Mutex<Connection>>, feed_id: i64, revision: i64) {
+        crate::db::replace_local_metadata_fact(
+            &conn.lock().unwrap(),
+            crate::db::LocalMetadataOwner::Feed(feed_id),
+            "rss",
+            &crate::db::LocalMetadataFactInput {
+                fact_key: crate::local_metadata::RSS_READER_REVISION_FACT.to_owned(),
+                value: crate::db::LocalMetadataValue::Integer(revision),
+                extraction_path: None,
+                observed_at: None,
+                raw_json: None,
+            },
+        )
+        .unwrap();
+    }
+
+    /// ADR 0076 Decision 2: after a document applies, the revision is
+    /// stored and the next request carries the validators.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0076_reader_revision_applied_document_keeps_validators() {
+        let (sent, conn, feed_id) = two_checks("https://rev.test/a.xml", |_, _| {}).await;
+        assert_eq!(sent[0].validators, None);
+        assert!(sent[1].validators.is_some());
+        assert_eq!(
+            stored_revision(&conn, feed_id),
+            crate::rss::check_apply::RSS_READER_REVISION
+        );
+    }
+
+    /// ADR 0076 Decision 2: a feed with validators and no revision gets a
+    /// request with no validators.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0076_reader_revision_missing_sends_no_validators() {
+        let (sent, conn, feed_id) = two_checks("https://rev.test/b.xml", |conn, feed_id| {
+            crate::db::delete_local_metadata_fact(
+                &conn.lock().unwrap(),
+                crate::db::LocalMetadataOwner::Feed(feed_id),
+                "rss",
+                crate::local_metadata::RSS_READER_REVISION_FACT,
+            )
+            .unwrap();
+        })
+        .await;
+        assert_eq!(sent[1].validators, None);
+        assert_eq!(
+            stored_revision(&conn, feed_id),
+            crate::rss::check_apply::RSS_READER_REVISION
+        );
+    }
+
+    /// ADR 0076 Decision 2: a feed with a lower revision gets a request
+    /// with no validators.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0076_reader_revision_lower_sends_no_validators() {
+        let (sent, _, _) = two_checks("https://rev.test/c.xml", |conn, feed_id| {
+            set_revision(conn, feed_id, 0);
+        })
+        .await;
+        assert_eq!(sent[1].validators, None);
+    }
+
+    /// ADR 0076 Decision 2: HTTP 304 leaves the stored revision as it was.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0076_reader_revision_not_modified_keeps_revision() {
+        let url = "https://rev.test/d.xml";
+        let (conn, playlist_id, feed_ids) = database(&[(url, 1)]);
+        let clock = FakeClock::new();
+        let calls = Arc::new(Mutex::new(0_usize));
+        let counter = Arc::clone(&calls);
+        let fetcher = FakeFetcher::new(Arc::clone(&clock), move |url| {
+            let mut calls = counter.lock().unwrap();
+            *calls += 1;
+            if *calls == 1 {
+                etag_response(url)
+            } else {
+                response(url, 304, &[], None)
+            }
+        });
+        let session = SessionLifecycle::new();
+        let handle = start(&conn, &fetcher, &clock, &session);
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        let first = finished(&handle, playlist_id).await;
+        let before = stored_revision(&conn, feed_ids[0]);
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        let second = finished_after(&handle, playlist_id, first.run_id).await;
+        assert_eq!(second.feeds[0].outcome, Some(RssFeedOutcome::NotModified));
+        assert_eq!(stored_revision(&conn, feed_ids[0]), before);
+        assert_eq!(before, crate::rss::check_apply::RSS_READER_REVISION);
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        finished_after(&handle, playlist_id, second.run_id).await;
+        assert!(fetcher.sent()[2].validators.is_some());
+    }
+
+    /// ADR 0076 Decision 2: a document that does not apply stores no
+    /// revision, so the next request carries no validators.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0076_reader_revision_failed_apply_stores_none() {
+        let url = "https://rev.test/e.xml";
+        let (conn, playlist_id, feed_ids) = database(&[(url, 1)]);
+        // The trigger fails the transaction after the document applied.
+        crate::db::refuse_local_metadata_fact_key(
+            &conn.lock().unwrap(),
+            crate::local_metadata::RSS_READER_REVISION_FACT,
+        )
+        .unwrap();
+        let clock = FakeClock::new();
+        let fetcher = FakeFetcher::new(Arc::clone(&clock), etag_response);
+        let session = SessionLifecycle::new();
+        let handle = start(&conn, &fetcher, &clock, &session);
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        let first = finished(&handle, playlist_id).await;
+        assert_eq!(stored_revision(&conn, feed_ids[0]), 0);
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        finished_after(&handle, playlist_id, first.run_id).await;
+        let sent = fetcher.sent();
+        assert_eq!(sent[1].validators, None);
+        assert_eq!(stored_revision(&conn, feed_ids[0]), 0);
     }
 
     #[tokio::test(flavor = "current_thread")]

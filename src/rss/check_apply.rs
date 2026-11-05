@@ -33,6 +33,11 @@ use crate::db::{
 };
 
 const RSS_SOURCE: &str = "rss";
+/// The revision of the RSS reader. A change that reads a new value from an RSS
+/// document raises this value. A feed that holds a lower revision gets its
+/// next request with no validators, so HTTP `304` cannot hide the new value
+/// (ADR 0076 Decision 2).
+pub(crate) const RSS_READER_REVISION: i64 = 1;
 const NOSTR_SCHEMES: [&str; 2] = ["nostr_npub", "nostr_nprofile"];
 
 /// The result of one applied document.
@@ -69,6 +74,7 @@ pub(crate) fn apply_checked_document(
     };
     apply.channel(&document.channel)?;
     apply.items(&document.items)?;
+    write_reader_revision(&tx, feed_id)?;
     let differences = apply.differences;
     tx.commit().context("commit RSS check apply")?;
     Ok(AppliedDocument { differences })
@@ -1050,6 +1056,7 @@ pub(crate) fn record_subscribed_document(
         LocalMetadataOwner::Feed(feed_id),
         document.channel.license.as_ref(),
     )?;
+    write_reader_revision(&tx, feed_id)?;
     // ADR 0076 packet 006: the persist step wrote the `rss` credit list. The
     // `MusicIndex` credit list is a second stored list, so the persons slot
     // holds the RSS value like a fact-backed slot.
@@ -1106,6 +1113,18 @@ pub(crate) fn record_subscribed_document(
     }
     tx.commit().context("commit subscribe hold write")?;
     Ok(())
+}
+
+/// Store the current reader revision as an `rss` fact of the feed (ADR 0076
+/// Decision 2). Call it inside the transaction that applies the document.
+fn write_reader_revision(conn: &Connection, feed_id: i64) -> Result<()> {
+    write_rss_fact(
+        conn,
+        LocalMetadataOwner::Feed(feed_id),
+        crate::local_metadata::RSS_READER_REVISION_FACT,
+        Some(LocalMetadataValue::Integer(RSS_READER_REVISION)),
+        "v4vmm reader revision",
+    )
 }
 
 /// ADR 0080 Decision 11: store the `podcast:license` of an owner as the two
@@ -2235,6 +2254,26 @@ mod tests {
             crate::local_metadata::rss_license_facts(&conn, LocalMetadataOwner::Feed(feed_id))
                 .unwrap(),
             (None, Some("cc-by-4.0".to_owned()))
+        );
+    }
+
+    /// ADR 0076 Decision 2: the subscribe step stores the current reader
+    /// revision, so the first check of a new feed carries the validators.
+    #[test]
+    fn adr_0076_reader_revision_subscribe_stores_current_revision() {
+        let body = document(&first());
+        let (conn, feed_id) = subscribed(&body);
+        assert_eq!(
+            crate::local_metadata::rss_reader_revision(&conn, feed_id),
+            0
+        );
+        let parsed = parse_feed_document(&body).unwrap();
+
+        record_subscribed_document(&conn, feed_id, &parsed, T1).unwrap();
+
+        assert_eq!(
+            crate::local_metadata::rss_reader_revision(&conn, feed_id),
+            RSS_READER_REVISION
         );
     }
 }

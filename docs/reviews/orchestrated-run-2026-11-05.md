@@ -2,7 +2,7 @@
 
 ## Status
 
-Open - 2026-11-05. The run implemented [ADR 0080 packets 006 to 013](../plans/adr-0080-tag-frames-phase-plan.md). Each packet is committed. The final walk is not started, and three points wait for the operator.
+Open - 2026-11-05. The run implemented [ADR 0080 packets 006 to 013](../plans/adr-0080-tag-frames-phase-plan.md) and [ADR 0076 packet 011](../tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md). Each packet is committed. The final walk is in progress, and four points wait for the operator.
 
 This record is advisory. It states no rule. Each rule stays in its ADR or its packet.
 
@@ -42,6 +42,8 @@ Each entry names the step, the decision and the reason.
 - Packet 012, a foreign `TLAN` value: a write replaces it on MP3, FLAC and MP4. This is the same open point as `TPUB`. The test `adr_0080_language_write_over_a_foreign_tlan_value_on_mp3_flac_and_mp4` records the present result.
 - Operator checks, the tag reader: a test on 2026-11-05 showed that `ffprobe` does not show `WPAY`, `WCOP` or `TLAN` of an MP3 file. The orchestrator changed the steps of packets 007, 009, 010, 011 and 012 to `exiftool -a -G1 -s FILE`, which shows each frame on MP3, and each key on FLAC and MP4.
 - Packet 013, the operator command: the packet named a column that does not exist. The command now reads `local_files.path`.
+- Packet 013, the observation of 2026-10-16: the Library holds no MP4 file, so the MP4 defect did not cause it. A reading of the code gives one possible cause, and no test confirms it. A FLAC file with only `DATE=2025-10-19` matches `TDRC` and not `TYER`, so the scan gives the text that the operator saw. One write then stores both values, and the file settles.
+- Operator checks, the scope of a write: the orchestrator first told the operator to select a small playlist for a write. That was incorrect, because a write includes each listed file. The orchestrator corrected the walk on 2026-11-05.
 - Packet 006: the orchestrator moved it to the archive, because it has no visual check.
 
 ## Steps
@@ -56,14 +58,16 @@ Each entry names the packet, the result and the commit.
 6. Packet 010: implemented and Green on 2026-11-05, after one guard failure that the agent corrected. The RSS license is stored as two local facts. Its URL goes into `WCOP`, or with a different URL into `TXXX:LICENSE`, and its text goes into `TXXX:MusicIndex License`. Real-file tests pass on MP3, FLAC and MP4. Schema version 21 stays. 2642 lib tests and 398 guards pass.
 7. Packet 011: implemented and Green on 2026-11-05, with no stop. `TPUB` holds the titles of the confirmed labels, from `feed_publisher_relationships` for a Library context and from the `publisher` entries for an Index context. The owner name stays in `TXXX:V4V_PUBLISHER`. The agent corrected the Vorbis cleanup, because each FLAC write added a `TPUB` value. 2652 lib tests and 398 guards pass.
 8. Packet 012: implemented and Green on 2026-11-05, with no stop. `TLAN` holds a three-letter code, from a table of 183 codes that the agent generated from `/usr/share/iso-codes/json/iso_639-2.json`. A Library track has no stored item language, so a Library write uses the channel code. The Library context reads the channel language from the stored value projection. 2664 lib tests and 398 guards pass.
+9. ADR 0076 packet 011: implemented and Green on 2026-11-05, with no stop. The operator asked for this packet after the popup results. A feed with a lower or missing RSS reader revision gets one request with no validators. The value is an `rss` fact of the feed, so the schema stays at version 21. 2670 lib tests and 398 guards pass.
 
 ## Open Points For The Operator
 
 The orchestrator did not decide these points. Do not run a rewrite of the full real Library until the operator answers point 1.
 
-1. A write replaces a `TPUB` or `TLAN` value from a different source. ADR 0080 Decision 6 keeps such a value. Recommendation: amend Decision 13, so that `TLAN` holds one language and replaces the value. Keep the `TPUB` value, because Decision 6 names a MusicBrainz label. This needs one new packet for the writer.
+1. A write replaces a `TPUB` or `TLAN` value from a different source. ADR 0080 Decision 6 keeps such a value. Recommendation: amend Decision 13, so that `TLAN` holds one language and replaces the value. Keep the `TPUB` value, because Decision 6 names a MusicBrainz label. This needs one new packet for the writer. On 2026-11-05 the operator ran `exiftool` on the 231 Library files: 0 files hold a publisher, label or language value. Thus a write replaces no such value in the Library of that date. The rule stays open for a file from a different tool.
 2. A file that the app wrote earlier can keep a `remixer` name in `TIPL`, or an `original lyricist` name in `TEXT`. The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md#open-finding---2026-11-05) records it. Recommendation: count the credits with the command in Setup step 4, then decide. A low count needs no packet.
-3. A later confirmed label has a title only when the Library holds its feed. Recommendation: no change, because a stored title of each named feed needs a new request or a schema change.
+3. Check RSS reads only a feed with a track in a playlist. The operator has two playlists and 91 feeds. "Check all feeds" reads MusicIndex, not RSS. Thus the license reaches a track only when a playlist holds a track of its feed, or at a new subscribe. ADR 0076 packet 011 corrected the HTTP `304` gap of this path. It does not widen the path. The operator decides if a full rewrite waits for more playlist checks.
+4. A later confirmed label has a title only when the Library holds its feed. Recommendation: no change, because a stored title of each named feed needs a new request or a schema change.
 
 ## Final Walk
 
@@ -71,7 +75,7 @@ Not started. The "Operator Visual Check" section of each packet gives the steps 
 
 ### Setup
 
-The run adds no migration and no configuration key, so no backup is necessary. The walk writes tags to real files, so select a small playlist for each "Update n files".
+The run adds no migration and no configuration key, so no backup is necessary. The "Update n files" button is in the Music sidebar, next to "Check all feeds". It lists each Library file that differs, and "Write Tags" writes each listed file. It is not limited to a playlist, and it has no selection for each file. Thus do not click "Write Tags" until the operator answers open point 1 or copies the music directory. The scan runs by itself at start, after an RSS check and after a write.
 
 1. Open a terminal in a desktop session.
 2. Build both binaries: `cd ~/build/v4vmm && cargo build --release && cargo build --bin v4vmm`.
@@ -81,12 +85,25 @@ The run adds no migration and no configuration key, so no backup is necessary. T
    `sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT lower(role), count(*) FROM entity_contributors WHERE lower(role) LIKE '%remix%' OR lower(role) LIKE '%original lyric%' GROUP BY 1"`
 5. Start the app with `./target/release/v4vmm`. Run the RSS check of each playlist that you use, because the funding, license and label values reach the Library at that check.
 
+### Results Of The Popup - 2026-11-05
+
+The operator ran the scenario `tagpopup` of `~/.claude/scripts/v4vmm-shots.sh` on a list of 144 files. These results cover only the popup. No person has clicked "Write Tags".
+
+- Packet 012: each line that the orchestrator read shows `TLAN: eng (file: no value)`.
+- Packet 009: `WPAY` lines hold plain URLs with no label text.
+- Packet 011: `TPUB: HeyCitizen` shows on two albums. Its role row is not confirmed yet.
+- `TYER: 2025 (file: 2025-10-19)` shows on "Ethereal Realm ( 528hz )". "Whispers" has no `TYER` line.
+- "The Heycitizen Experience" tracks show a Nostr key in the file that differs from the feed key.
+
+After ADR 0076 packet 011, restart the app, so that it uses the new binary.
+
 ### Order
 
-1. Packet 013 V1. If the files of Setup step 3 are not MP4 files, this packet does not correct them. Report the format.
+1. Packet 013 V1. On 2026-11-05 the operator reported that the Library holds 156 `.mp3` files, 75 `.flac` files and no MP4 file. No real file can walk this check, so it stays open.
 2. Packet 008 V1. It needs a feed that you host.
 3. Packet 012 V1.
 4. Packet 009 V1 and V2.
 5. Packet 010 V1 and V2. It needs a change to a test feed in Studio.
 6. Packet 011 V1 and V2. Also read the "Label" row of the Library track page before the scan, and report an empty row for an album with a confirmed label.
 7. Packet 007 V1.
+8. ADR 0076 packet 011 V1 and V2.

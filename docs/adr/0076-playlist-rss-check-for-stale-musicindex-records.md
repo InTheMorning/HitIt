@@ -15,6 +15,8 @@ This tightens Decision 3. Section 3 states the rule.
 Amended 2026-10-03: the operator decided that a download writes the tags of the stored values. Section 10 states the rule.
 On 2026-10-03 two fresh HeyCitizen downloads had no `WOAR` frame, and the next scan listed them at once. [Packet 009](../tasks/archive/adr-0076-task-009-download-writes-stored-values.md) implements the rule.
 
+Amended 2026-11-05: the operator decided that a new RSS reader reads each stored feed one time. Decision 2 states the rule. On 2026-11-05 a Check RSS answered HTTP 304, so the readers of ADR 0080 packets 008 and 010 did not see that document.
+
 ## Context
 
 ADR 0075 made the app select a source for each field each time it showed that field.
@@ -57,6 +59,7 @@ The same check runs automatically when the operator selects a playlist for a sho
 
 The check reads the RSS document of each feed that has a track in the playlist. It reads each feed once.
 It sends conditional GET requests. It sends one request at a time to each host, with a minimum interval between them.
+The app has one RSS reader revision. It rises when the app reads a new value from an RSS document. A feed stores the revision that last read its document. A feed with no stored revision, or a lower one, gets one request with no validators. An HTTP `304` does not change the stored revision.
 It obeys `Retry-After`. After HTTP `429`, it sends no more requests to that host during this check, and the report names the feeds that it did not check.
 
 The check runs as a runtime actor under ADR 0040. The mounted view updates in place.
@@ -210,7 +213,8 @@ Mechanical criteria, phrased at the owning layer:
 - The playlist check requests each distinct feed of the playlist once.
 - The check sends one request at a time to each host, with the accepted minimum interval. A test with an injected clock proves this.
 - After HTTP `429`, the check sends no more requests to that host, and the result names each unchecked feed.
-- The check sends a conditional request when a stored validator exists, and treats `304` as no change.
+- The check sends a conditional request when a stored validator exists and the feed holds the current RSS reader revision, and treats `304` as no change.
+- A feed with a lower or missing RSS reader revision gets a request with no validators. A document that applies stores the current revision.
 - The comparison reports no difference for two descriptions with the same readable text.
 - The comparison reports a difference for each compared element, and no difference for a derived field.
 - An RSS difference writes the stored field, and a later different MusicIndex value does not overwrite it.

@@ -25,6 +25,26 @@ pub(crate) const LICENSE_URL_FACT: &str = "license_url";
 /// The `fact_key` of the RSS license text (ADR 0080 Decision 11).
 pub(crate) const LICENSE_TEXT_FACT: &str = "license_text";
 
+/// The `fact_key` of the RSS reader revision of a feed (ADR 0076 Decision 2).
+/// A fact key is free text, so the key needs no schema change.
+pub(crate) const RSS_READER_REVISION_FACT: &str = "rss_reader_revision";
+
+/// The revision of the RSS reader that last applied a document of the feed
+/// (ADR 0076 Decision 2). A missing or unreadable value gives `0`, so the
+/// next check reads the full document.
+pub(crate) fn rss_reader_revision(conn: &Connection, feed_id: i64) -> i64 {
+    db::local_metadata_fact(
+        conn,
+        LocalMetadataOwner::Feed(feed_id),
+        RSS_SOURCE,
+        RSS_READER_REVISION_FACT,
+    )
+    .ok()
+    .flatten()
+    .and_then(|row| integer_value(&row.value))
+    .unwrap_or(0)
+}
+
 /// The `rss` license facts of one owner: the `url` of its `podcast:license`
 /// tag, then its text. Neither value passes through the `MusicIndex` rows
 /// (ADR 0075 Decision I).
