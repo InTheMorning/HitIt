@@ -24,12 +24,11 @@ Active - 2026-09-29. This plan is advisory. It states no rule.
 | [013](../tasks/adr-0080-task-013-mp4-date-shares-one-value.md) | An MP4 date settles after one write | ADR 0080 Decision 6 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open. |
 | [014](../tasks/adr-0080-task-014-reader-keeps-each-frame.md) | The MP3 reader keeps each frame | ADR 0080 Decision 6 | None | Implemented 2026-11-05. Mechanical checks Green. Operator V1 passed 2026-11-05 |
 | [015](../tasks/archive/adr-0080-task-015-tpub-replaces-other-values.md) | A write replaces each other `TPUB` or `TLAN` value | ADR 0080 Decisions 12 and 13 | None | Complete 2026-11-05. It has no visual check |
+| [016](../tasks/archive/adr-0080-task-016-a-write-replaces-each-other-value.md) | A write replaces each other value of `WOAR`, `WOAF`, `WCOP` and `TXXX:LICENSE`, and the scan lists such a value | ADR 0080 Decisions 6 and 11 | 015 | Complete 2026-11-05. It has no visual check |
 
 ## Sequence
 
 Packet 001 goes first. It owns the writer, the removal of app values, and the compare. Packet 002 then changes only the MusicBrainz source of URL values.
-
-Until packet 002 is complete, packet 001 keeps each MusicBrainz URL value that the present code writes. Decision 6 does not permit the removal of a MusicBrainz value.
 
 Packets 006 to 008 and 013 are corrections, so they go first. Packets 009 to 012 add frames. Packets 009 to 013 each add a difference to "Update n files" or remove one, so run them before the next rewrite of the real Library. Then one rewrite settles each file.
 

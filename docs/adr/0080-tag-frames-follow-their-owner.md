@@ -12,7 +12,7 @@ Amended 2026-11-04: Decisions 10 to 14 add funding, license, label and language,
 
 Amended 2026-11-05: Decision 10 limits Decision 6 for `WPAY`. The operator decided on 2026-11-05 that an RSS funding link replaces each other `WPAY` value.
 
-Amended 2026-11-05: Decisions 12 and 13 limit Decision 6 for `TPUB` and `TLAN`. A write replaces each other value of these frames, so that a frame does not grow. The operator decided this on 2026-11-05.
+Amended 2026-11-05: Decision 6 changes. A write replaces each other value of a frame that it supplies, so that a frame does not grow. Decisions 10 to 13 follow. The operator decided this on 2026-11-05: "overwrite all".
 
 ## Context
 
@@ -95,9 +95,10 @@ A second write with the same inputs changes no frame. A write never adds a dupli
 For each frame that the app owns, a write removes the values that the app supplies, and then adds the current values. The app supplies a value from RSS or from MusicBrainz.
 The write recognizes each earlier form of an app value as an app value, and replaces it. An earlier form is a value with a label before the URL, or a track page in `WOAR`.
 
-A write keeps each value that neither RSS nor MusicBrainz supplied, for example a value from another tool.
-A write never removes a MusicBrainz value. RSS values and MusicBrainz values stay side by side in a frame. The compare shows each value on its own row with its source (ADR 0075 Decision I).
-The operator decided this on 2026-09-29.
+For each frame that a write supplies, the file then holds only the values of that write. A write removes each other value of that frame, also a value from another tool or from MusicBrainz. An RSS value and a MusicBrainz value of one write stay side by side in a frame.
+A write does not change a frame that it does not supply. A frame with a descriptor, such as `TXXX` or `COMM`, is one frame for each descriptor.
+The scan lists a file with another value in a frame that it supplies. The scan supplies only RSS values, so "Update n files" removes a MusicBrainz value from such a frame. The compare shows each value on its own row with its source (ADR 0075 Decision I).
+The operator decided this on 2026-11-05. It replaces the decision of 2026-09-29, which kept these values.
 
 ### 7. An Invalid Nostr Key Goes Into No Frame
 
@@ -139,7 +140,7 @@ The frame `WPAY` holds one URL: the first `podcast:funding` of the RSS item, oth
 - ID3v2.4 permits one `WPAY` frame, and the Podcast Namespace permits many funding tags. The database keeps each link with its owner and its label. A file holds the resolved link only.
 - The URL follows Decision 8. A file holds no label. A value that is not an `http` or `https` URL goes into no frame.
 - A Vorbis or MP4 file uses the storage key of `UrlKind::Payment`.
-- The frame follows Decisions 3 and 4, and Decision 6 with one limit. When RSS supplies a funding link, the frame holds only that link, and a write removes a value from a different tool. The app cannot identify which values are its own earlier links, and the frame holds one URL. When RSS supplies no funding link, a value from a different tool stays.
+- The frame follows Decisions 3, 4 and 6. When RSS supplies no funding link, a value from a different tool stays.
 
 ### 11. The License Goes Into `WCOP` Or `TXXX:LICENSE`, And Its Name Into `TXXX:MusicIndex License`
 
@@ -147,12 +148,12 @@ The RSS license is the `podcast:license` of the item, otherwise the `podcast:lic
 
 | Value | Frame |
 |---|---|
-| The `url` of the RSS license, when the file holds no different license URL | `WCOP` |
-| The `url` of the RSS license and a different license URL from MusicBrainz or from a file value | Both in `TXXX:LICENSE`, and no `WCOP` |
+| The `url` of the RSS license | `WCOP` |
+| The `url` of the RSS license and a different license URL from MusicBrainz in one write | Both in `TXXX:LICENSE`, and no `WCOP` |
 | The text of the RSS license, for example `cc-by-4.0` | `TXXX:MusicIndex License` |
 
-A write moves a `WCOP` value into `TXXX:LICENSE`. It does not remove the value, so Decision 6 stays true. ID3v2.4 permits one `WCOP` frame.
-The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` holds it.
+A license edit replaces each `WCOP` and `TXXX:LICENSE` value of the file (Decision 6). ID3v2.4 permits one `WCOP` frame.
+The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` holds it. The scan lists a file with another license URL.
 
 ### 12. `TPUB` Holds A Confirmed Label
 
@@ -161,7 +162,7 @@ The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` hol
 - The `itunes:owner` name is not a label. It stays in `TXXX:V4V_PUBLISHER`, and the compare no longer shows it as the RSS value of the "Label" row.
 - A link that only one side states gives no `TPUB` value.
 - A MusicBrainz label stays a separate value in the compare (ADR 0075 Decision I).
-- When the album names a confirmed label, a write replaces each other `TPUB` value, also a value from another tool or from MusicBrainz. This limits Decision 6. With no confirmed label, the write does not change `TPUB`.
+- With no confirmed label, a write does not supply `TPUB`, so the value stays (Decision 6).
 
 ### 13. The Language Goes Into `TLAN`
 
@@ -170,7 +171,7 @@ The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` hol
 - RSS gives a code such as `en` or `en-us`. The primary subtag selects the code. A two-letter subtag gives its ISO 639-2/T code, for example `deu`. A three-letter subtag stays as it is.
 - ID3v2.4 names ISO 639-2 and no variant. Picard uses ISO 639-3 codes, which agree with the T variant.
 - A value with no known code goes into no frame. The database keeps it.
-- A file holds one language. A write replaces each other `TLAN` value. This limits Decision 6.
+- A file holds one language (Decision 6).
 
 ### 14. The Disc Waits For Studio
 
@@ -195,7 +196,7 @@ Mechanical criteria, phrased at the owning layer:
 - The scan reports a file with an earlier mapping as a difference.
 - The tag edits for a track without its own description hold the channel description in `COMM:MusicIndex Album Description`, and no `COMM:MusicIndex Description`.
 - A write of the same edits twice gives equal frames. A file with an earlier labeled `WOAR` value holds only the plain URL after one write.
-- A write keeps a MusicBrainz URL and a `WOAR` value that no source supplied.
+- A write replaces each other value of a frame that it supplies. A file with another value shows a difference at the scan.
 - An invalid item Nostr key gives the valid channel key. Two invalid keys give no Nostr frame.
 - Each URL frame value parses as a URL, with no label text. A MusicBrainz "download for free" relation gives no frame.
 - The tag edits for a track with its own image hold that URL in `TXXX:MusicIndex Image`. Without it, they hold the channel image URL. A `data:` URL, a relative URL or a URL longer than 2,048 characters gives no frame.
@@ -223,6 +224,7 @@ Visual criteria, for an operator check after the visual pause ends:
 - `WXXX` frames with the MusicBrainz relation type as the description. Rejected: ID3 permits one `WXXX` frame for each description, players seldom show it, and Picard does not use it.
 - The label form `<type> (<target>, <direction>): <url>` for MusicBrainz values only. Rejected: a player cannot open the value, and one frame then holds two formats.
 - MusicBrainz values replace RSS values in a frame. Rejected: ADR 0075 Decision I keeps the two sources apart, and no source wins.
+- A write keeps each value from another tool or from MusicBrainz. The decision of 2026-09-29, rejected by the operator on 2026-11-05: frames then grow with no limit.
 - Each funding link in a `WXXX` frame. Rejected: Decision 8 permits no `WXXX` frame, and players seldom show it.
 - The license text in `USER`, as `id3v24_musicbrainz_rss_mapping.html` suggests. Rejected: the `id3` content types have no terms-of-use form, and the writer has no path for a frame with raw bytes. A Vorbis or MP4 file has no such frame either.
 - The license text in `TCOP`. Rejected: ID3v2.4 requires a year at the start of that value, and the mapping document assigns `TCOP` to the RSS `<copyright>` element.
@@ -235,7 +237,8 @@ Visual criteria, for an operator check after the visual pause ends:
 - A file that the app wrote agrees with the next compare.
 - Each existing file with the earlier mapping needs one confirmed rewrite.
 - MusicBrainz relation types other than official homepage and license go into no file. They show only in an open lookup result.
-- A file can hold two `WOAR` values: the RSS channel website and the MusicBrainz official homepage.
+- A file can hold two `WOAR` values only after one write with the RSS channel website and the MusicBrainz official homepage. The next "Update n files" removes the MusicBrainz value.
+- A value from another tool in a frame that the app supplies is lost at the next write. No backup keeps it.
 - A file loses each funding link after the first. The database keeps them.
 - Each existing file shows a difference until one confirmed rewrite adds the new frames (Decision 4).
 - These values stay out of a file, and no packet changes that: the `Explicit` row, the `<copyright>` element, `itunes:keywords`, and the `npub`, `href` and `group` of a credit.
