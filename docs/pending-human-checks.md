@@ -246,6 +246,6 @@ Open - the packets are implemented, and the mechanical suite is Green. No person
 - [Packet 010](tasks/adr-0080-task-010-license-frames.md) V1 and V2: the RSS license in its frames, and on its own compare rows.
 - [Packet 011](tasks/adr-0080-task-011-confirmed-label-frame.md) V1 and V2: a confirmed label in `TPUB`, and no owner name in the "Label" row.
 - [Packet 012](tasks/adr-0080-task-012-language-frame.md) V1: the language code in `TLAN`.
-- [Packet 014](tasks/adr-0080-task-014-reader-keeps-each-frame.md) V1: the two files of the write of 2026-11-05 show no false `file: no value`.
+- [Packet 014](tasks/adr-0080-task-014-reader-keeps-each-frame.md) V1 passed on 2026-11-05. The run record owns the result, and the close of the run removes this line.
 - [Packet 013](tasks/adr-0080-task-013-mp4-date-shares-one-value.md) V1: an MP4 file settles after one write. The run record also asks for the format of the two files of the observation of 2026-10-16.
 - [ADR 0076 packet 011](tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md) V1 and V2: the first Check RSS of a feed reads its full document, and its license reaches the "Update n files" list.

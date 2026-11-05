@@ -114,6 +114,19 @@ After ADR 0076 packet 011, restart the app, so that it uses the new binary.
 - V2 is open. The popup of 09:46 local time shows only `TLAN` for the tracks of the two checked feeds, and no license line. It is not known if these feeds have `podcast:license`.
 - The screenshots of that popup have gaps, so they do not prove that no file in the list has a license line.
 
+### Results After The Write And Packet 014 - 2026-11-05
+
+The operator started the release binary with `id3` 1.17.1, and opened "Update n files".
+
+- Packet 014 V1 passes. The popup lists 1 file, "Tiddies In My Face (Single)". It does not list "To be in Nashville" or "The Wait Is Over". The earlier list had 3 files.
+- That file shows "In use by the show" and `TLAN: eng (file: no value)`. Thus the app correctly did not write it.
+- Packet 012 V1 passes. `exiftool` shows `eng` in the 143 written files.
+- Packet 009 V1 passes, because the popup listed `WPAY` with plain URLs. The second part of V2 passes: the scan shows no difference for the written files. The `exiftool` part of V2 is open.
+- This scan does not prove `TPUB`. The stored rows give the same stale value, so the scan shows no difference.
+- Packet 014 has a known limit: a write with `id3` 1.16.4 possibly removed frames that no source supplies. The scan cannot find them.
+- Observation: the popup title is "Update 1 file?", its text says 0 files, and "Write Tags" stays available. The orchestrator did not read what a click does in this condition. No packet owns this.
+- Observation: `push_track_metadata_row` at `src/metadata.rs:1397` gives the full date to the "Release year" row of the track page. The compare row at `src/metadata.rs:1651` uses `release_year_from_value`. The popup line `TYER: 2025` holds a year, so the file value is not affected. This is a display defect, and no packet owns it.
+
 ### Order
 
 1. Packet 013 V1. On 2026-11-05 the operator reported that the Library holds 156 `.mp3` files, 75 `.flac` files and no MP4 file. No real file can walk this check, so it stays open.
