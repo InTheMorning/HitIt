@@ -702,7 +702,15 @@ fn hydrate_track_identity(
     Ok(track)
 }
 
-fn source_link_from_local(row: db::LocalIdentityLinkRow) -> SourceEntityLink {
+pub(crate) fn source_link_from_local(row: db::LocalIdentityLinkRow) -> SourceEntityLink {
+    // ADR 0080 Decision 10: a funding row keeps its label in `raw_json`. The
+    // text comes from RSS or from MusicIndex, so it is untrusted input.
+    let label = row
+        .raw_json
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+        .and_then(|json| json.get("label")?.as_str().map(str::to_owned))
+        .filter(|label| !label.trim().is_empty());
     SourceEntityLink {
         entity_type: row.entity_type,
         entity_id: row.entity_id,
@@ -711,7 +719,7 @@ fn source_link_from_local(row: db::LocalIdentityLinkRow) -> SourceEntityLink {
         url: row.url,
         source: Some(row.source),
         extraction_path: row.extraction_path,
-        label: None,
+        label,
         url_scheme_added: None,
         observed_at: row.observed_at,
     }

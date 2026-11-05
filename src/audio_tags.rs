@@ -1032,7 +1032,10 @@ fn id3v24_edit_frame(edit: &Id3v24Edit) -> Result<Frame> {
         )),
         "TIT2" => Ok(Frame::text("TIT2", sanitize_title_text(value))),
         id if id.starts_with('T') => Ok(Frame::text(id, value)),
-        id if id.starts_with('W') => Ok(Frame::with_content(id, Content::Link(value.to_string()))),
+        id if id.starts_with('W') => Ok(Frame::with_content(
+            id,
+            id3::frame::Content::Link(value.to_string()),
+        )),
         _ => unreachable!("frame writability was checked before construction"),
     }
 }
@@ -2387,5 +2390,115 @@ mod tests {
                 "ID3v2.{major_version}"
             );
         }
+    }
+
+    fn wpay_frame_values(tag: &Tag) -> Vec<String> {
+        tag.frames()
+            .filter(|frame| frame.id() == "WPAY")
+            .map(|frame| frame.content().link().unwrap_or_default().to_string())
+            .collect()
+    }
+
+    /// ADR 0080 Decision 10: a file with a different `WPAY` value from
+    /// another tool holds only the RSS link after one write, in one frame.
+    #[test]
+    fn adr_0080_funding_write_replaces_a_foreign_wpay_value() {
+        let temp = tempfile::NamedTempFile::new().expect("temp file");
+        fs::write(temp.path(), b"not really an mp3").expect("write file");
+        write_id3v24_edits(
+            temp.path(),
+            &[Id3v24Edit {
+                frame_label: "WPAY".into(),
+                value: "https://foreign.example/pay".into(),
+            }],
+        )
+        .expect("seed the foreign value");
+        let seeded = Tag::read_from_path(temp.path()).expect("read seeded tag");
+        assert_eq!(
+            wpay_frame_values(&seeded),
+            vec!["https://foreign.example/pay"]
+        );
+
+        let rss_link = Id3v24Edit {
+            frame_label: "WPAY".into(),
+            value: "https://rss.example/tip".into(),
+        };
+        write_id3v24_edits(temp.path(), std::slice::from_ref(&rss_link)).expect("write");
+
+        let tag = Tag::read_from_path(temp.path()).expect("read written tag");
+        assert_eq!(wpay_frame_values(&tag), vec!["https://rss.example/tip"]);
+
+        write_id3v24_edits(temp.path(), &[rss_link]).expect("second write");
+        let tag = Tag::read_from_path(temp.path()).expect("read second tag");
+        assert_eq!(wpay_frame_values(&tag), vec!["https://rss.example/tip"]);
+    }
+
+    /// ADR 0080 Decision 10: the `add_frame` call of the id3 crate replaces
+    /// every earlier `WPAY` frame. A file with two `WPAY` frames from
+    /// another tool holds one frame, the RSS link, after one write. The
+    /// writer needs no removal step of its own.
+    #[test]
+    fn adr_0080_funding_write_replaces_two_foreign_wpay_frames() {
+        let temp = tempfile::NamedTempFile::new().expect("temp file");
+        fs::write(temp.path(), b"not really an mp3").expect("write file");
+        let mut tag = Tag::new();
+        tag.frames_vec_mut().push(Frame::with_content(
+            "WPAY",
+            id3::frame::Content::Link("https://a.example/".into()),
+        ));
+        tag.frames_vec_mut().push(Frame::with_content(
+            "WPAY",
+            id3::frame::Content::Link("https://b.example/".into()),
+        ));
+        tag.write_to_path(temp.path(), id3::Version::Id3v24)
+            .expect("seed");
+        write_id3v24_edits(
+            temp.path(),
+            &[Id3v24Edit {
+                frame_label: "WPAY".into(),
+                value: "https://rss.example/tip".into(),
+            }],
+        )
+        .expect("w");
+        let tag = Tag::read_from_path(temp.path()).expect("read");
+        assert_eq!(wpay_frame_values(&tag), vec!["https://rss.example/tip"]);
+    }
+
+    /// ADR 0080 Decision 10: a file with a `WPAY` value keeps it when the
+    /// write holds no `WPAY` edit. The write adds no frame.
+    #[test]
+    fn adr_0080_funding_write_without_a_link_keeps_the_wpay_value() {
+        let temp = tempfile::NamedTempFile::new().expect("temp file");
+        fs::write(temp.path(), b"not really an mp3").expect("write file");
+        write_id3v24_edits(
+            temp.path(),
+            &[Id3v24Edit {
+                frame_label: "WPAY".into(),
+                value: "https://foreign.example/pay".into(),
+            }],
+        )
+        .expect("seed the foreign value");
+
+        write_id3v24_edits(
+            temp.path(),
+            &[Id3v24Edit {
+                frame_label: "TIT2".into(),
+                value: "Song".into(),
+            }],
+        )
+        .expect("write a track with no funding link");
+
+        let tag = Tag::read_from_path(temp.path()).expect("read written tag");
+        assert_eq!(wpay_frame_values(&tag), vec!["https://foreign.example/pay"]);
+    }
+
+    /// ADR 0080 Decision 10: the funding link goes into the Vorbis key of
+    /// `UrlKind::Payment`.
+    #[test]
+    fn adr_0080_funding_frame_maps_to_the_payment_key() {
+        assert_eq!(
+            vorbis_storage_key("WPAY", crate::audio_format::AudioFormat::Flac),
+            Some("PAYMENTWEBPAGE".into())
+        );
     }
 }

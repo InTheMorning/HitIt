@@ -1209,6 +1209,89 @@ mod tests {
             "https://example.test/other",
         ));
     }
+
+    const FUNDING_URL: &str = "https://channel.test/pay";
+
+    /// Give feed 1 one stored `funding` row, as the RSS reader writes it.
+    fn add_channel_funding(conn: &mut Connection) {
+        db::replace_local_identity_links(
+            conn,
+            db::LocalIdentityOwner::Feed(1),
+            "rss",
+            &[db::LocalIdentityLinkInput {
+                entity_type: Some("feed".into()),
+                entity_id: None,
+                position: Some(1),
+                link_type: Some("funding".into()),
+                url: Some(FUNDING_URL.into()),
+                extraction_path: Some("feed.podcast:funding".into()),
+                observed_at: None,
+                raw_json: Some(r#"{"url":"https://channel.test/pay","label":"Support"}"#.into()),
+            }],
+        )
+        .unwrap();
+    }
+
+    /// ADR 0080 Decision 10: an MP3 file written with the full edits of a
+    /// track whose feed has a funding link holds one `WPAY` frame and shows
+    /// no difference at the next scan. A second write holds one frame too.
+    #[test]
+    fn adr_0080_funding_mp3_write_settles_with_one_frame() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        add_channel_funding(&mut conn);
+        let path = dir.path().join("song-1.mp3");
+        let edits = full_edits(&conn);
+        assert!(edits.iter().any(|edit| edit.frame_label == "WPAY"));
+        let before = scan_tag_updates(&conn, dir.path()).unwrap();
+        assert!(changed_labels(&before.files[0]).contains(&"WPAY"));
+
+        write_id3v24_edits(&path, &edits).unwrap();
+        write_id3v24_edits(&path, &edits).unwrap();
+
+        let tag = id3::Tag::read_from_path(&path).unwrap();
+        let frames = tag
+            .frames()
+            .filter(|frame| frame.id() == "WPAY")
+            .map(|frame| frame.content().link().unwrap_or_default().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(frames, vec![FUNDING_URL]);
+        assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
+    }
+
+    /// ADR 0080 Decision 10: a FLAC file holds the link under the key of
+    /// `UrlKind::Payment`, one value, and shows no difference at the scan.
+    #[test]
+    fn adr_0080_funding_flac_write_settles_with_one_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut conn, path) = flac_library(dir.path());
+        add_channel_funding(&mut conn);
+        let edits = full_edits(&conn);
+
+        write_id3v24_edits(&path, &edits).unwrap();
+        write_id3v24_edits(&path, &edits).unwrap();
+
+        assert_eq!(field_values(&path, "WPAY"), vec![FUNDING_URL]);
+        assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
+    }
+
+    /// ADR 0080 Decision 10: an MP4 file holds the link under the key of
+    /// `UrlKind::Payment`, one value, and shows no difference at the scan.
+    #[test]
+    fn adr_0080_funding_mp4_write_settles_with_one_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut conn, path) = mp4_library(dir.path());
+        add_channel_funding(&mut conn);
+        let edits = full_edits(&conn);
+
+        write_id3v24_edits(&path, &edits).unwrap();
+        write_id3v24_edits(&path, &edits).unwrap();
+
+        assert_eq!(field_values(&path, "WPAY"), vec![FUNDING_URL]);
+        assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
+    }
 }
 
 /// Fixtures that the tag update tests of other modules share.
