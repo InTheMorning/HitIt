@@ -60,6 +60,7 @@ Each entry names the packet, the result and the commit.
 8. Packet 012: implemented and Green on 2026-11-05, with no stop. `TLAN` holds a three-letter code, from a table of 183 codes that the agent generated from `/usr/share/iso-codes/json/iso_639-2.json`. A Library track has no stored item language, so a Library write uses the channel code. The Library context reads the channel language from the stored value projection. 2664 lib tests and 398 guards pass.
 9. ADR 0076 packet 011: implemented and Green on 2026-11-05, with no stop. The operator asked for this packet after the popup results. A feed with a lower or missing RSS reader revision gets one request with no validators. The value is an `rss` fact of the feed, so the schema stays at version 21. 2670 lib tests and 398 guards pass.
 10. ADR 0080 packet 015: implemented and Green on 2026-11-05, with no stop. Commit `402300a` kept a `TPUB` value from another source. The operator changed this rule, and the next commit removes that code. A write replaces `TPUB` and `TLAN`.
+11. ADR 0080 packet 016: implemented and Green on 2026-11-05, with no stop. The operator decided "overwrite all". Decision 6 changes: a write replaces each other value of a frame that it supplies, and the scan lists such a value. The next scan can list more files.
 
 ## Open Points For The Operator
 

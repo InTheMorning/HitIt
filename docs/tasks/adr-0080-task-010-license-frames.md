@@ -30,8 +30,7 @@ The RSS license reaches a file. Its URL goes into `WCOP` or `TXXX:LICENSE`, and 
 5. Writer rule for the URL, in `src/audio_tags.rs`:
    - The file holds no license URL: write `WCOP`.
    - `WCOP` holds the same URL: change nothing.
-   - `WCOP` holds a different URL: write both URLs to `TXXX:LICENSE`, joined as `join_values` joins them, and remove `WCOP`.
-   - `TXXX:LICENSE` holds the URL already: change nothing.
+   - Packet 016 replaced this step: the URL of the write replaces each `WCOP` and `TXXX:LICENSE` value.
 6. The text goes into `TXXX:MusicIndex License`, and into the `MUSICINDEX LICENSE` custom key of a Vorbis or MP4 file.
 7. The compare counts the RSS URL as equal when `WCOP` or `TXXX:LICENSE` holds it.
 
@@ -39,7 +38,6 @@ The RSS license reaches a file. Its URL goes into `WCOP` or `TXXX:LICENSE`, and 
 
 - No `USER` frame and no `TCOP` frame (ADR 0080 "Alternatives Considered").
 - No license display on a screen, other than the compare rows.
-- No removal of a value. A write moves a `WCOP` value and keeps it.
 
 ## Acceptance Criteria
 
@@ -48,7 +46,7 @@ Mechanical:
 - The tag edits for a track with its own license hold its URL and its text. Without it, they hold the channel values.
 - A license with text and no `url` gives only `TXXX:MusicIndex License`.
 - A `url` that is not an `http` or `https` URL gives no URL frame.
-- A file with a different `WCOP` holds both URLs in `TXXX:LICENSE` after one write, and no `WCOP`.
+- A file with a different `WCOP` holds only the RSS URL in `WCOP` after one write, and no `TXXX:LICENSE`.
 - A second write gives equal frames.
 - The compare of each state above reports no difference after the write.
 - A MusicBrainz license stays on its own row, and its write follows ADR 0080 Decision 8.

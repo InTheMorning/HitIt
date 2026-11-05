@@ -262,6 +262,11 @@ pub(crate) fn scan_tag_updates(conn: &Connection, music_dir: &Path) -> Result<Ta
     )?))
 }
 
+/// The frames that can hold more than one value in a file, and that the scan
+/// reads for a value from a different source (ADR 0080 Decisions 6, 10, 12
+/// and 13).
+const SINGLE_SOURCE_FRAMES: [&str; 5] = ["WOAR", "WOAF", "WPAY", "TPUB", "TLAN"];
+
 fn changed_frames(
     file: &PlannedFile,
     tags: &AudioTags,
@@ -279,19 +284,51 @@ fn changed_frames(
             .filter(|field| compare_key(&field.frame_id, format) == target)
             .map(|field| field.value.clone())
             .collect::<Vec<_>>();
-        // ADR 0080 Decision 11: the license URL counts as equal when `WCOP`
-        // or `TXXX:LICENSE` holds it. `TXXX:LICENSE` joins its URLs in one
-        // value, so each URL of the value is a file value of `WCOP`.
-        let license_list_matches = edit.frame_label == LICENSE_URL_FRAME && {
+        // ADR 0080 Decisions 6 and 11: a write replaces each other value of
+        // a license URL. `TXXX:LICENSE` joins its URLs in one value, so each
+        // URL of the value is a file value of `WCOP`.
+        if edit.frame_label == LICENSE_URL_FRAME {
             let list_key = compare_key(LICENSE_LIST_FRAME, format);
-            tags.fields
+            let held = file_values
                 .iter()
-                .filter(|field| compare_key(&field.frame_id, format) == list_key)
-                .flat_map(|field| split_license_list(&field.value))
-                .any(|url| values_match(&edit.frame_label, &url, &edit.value))
-        };
-        if license_list_matches {
+                .cloned()
+                .chain(
+                    tags.fields
+                        .iter()
+                        .filter(|field| compare_key(&field.frame_id, format) == list_key)
+                        .flat_map(|field| split_license_list(&field.value)),
+                )
+                .collect::<Vec<_>>();
+            let other = held
+                .iter()
+                .find(|url| !values_match(&edit.frame_label, url, &edit.value));
+            if !held.is_empty() && other.is_none() {
+                continue;
+            }
+            frames.push(TagFrameChange {
+                frame_label: edit.frame_label.clone(),
+                file_value: other.cloned(),
+                expected_value: edit.value.clone(),
+            });
             continue;
+        }
+        // ADR 0080 Decision 6: a write replaces each other value of a frame
+        // that it supplies, so the scan lists a file with such a value.
+        if SINGLE_SOURCE_FRAMES.contains(&edit.frame_label.as_str()) {
+            let other = file_values.iter().find(|value| {
+                !file.expected.iter().any(|expected| {
+                    expected.frame_label == edit.frame_label
+                        && values_match(&edit.frame_label, value, &expected.value)
+                })
+            });
+            if let Some(other) = other {
+                frames.push(TagFrameChange {
+                    frame_label: edit.frame_label.clone(),
+                    file_value: Some(other.clone()),
+                    expected_value: edit.value.clone(),
+                });
+                continue;
+            }
         }
         if file_values.iter().any(|value| {
             values_match(&edit.frame_label, value, &edit.value)
@@ -596,11 +633,11 @@ mod tests {
     }
 
     /// R80-10 (ADR 0080): the scan reports a file that still holds the
-    /// earlier labeled channel value in `WOAR`. It does not report a file
-    /// whose `WOAR` holds the current channel value alongside an unrelated
-    /// (foreign) value from another tool.
+    /// earlier labeled channel value in `WOAR`. It also reports a file whose
+    /// `WOAR` holds the current channel value beside a value from another
+    /// tool, because a write replaces that value (Decision 6).
     #[test]
-    fn adr_0080_scan_reports_earlier_labeled_woar_and_ignores_a_foreign_one() {
+    fn adr_0080_scan_reports_earlier_labeled_woar_and_another_value() {
         let dir = tempfile::tempdir().unwrap();
         let mut conn = library(dir.path(), &[1, 2]);
         db::replace_local_identity_links(
@@ -658,9 +695,14 @@ mod tests {
             frame(track_1, "WOAR").is_some(),
             "the earlier labeled value must be reported"
         );
-        assert!(
-            scan.files.iter().all(|file| file.track_id != 2),
-            "a foreign value alongside the current one must not be reported"
+        let track_2 = scan
+            .files
+            .iter()
+            .find(|file| file.track_id == 2)
+            .expect("track 2 is listed for the value from another tool");
+        assert_eq!(
+            frame(track_2, "WOAR").and_then(|change| change.file_value.as_deref()),
+            Some("https://foreign.example/from-another-tool")
         );
     }
 
@@ -1466,12 +1508,10 @@ mod tests {
         assert_license_write_settles_on_an_empty_file(&conn, dir.path(), &path);
     }
 
-    /// ADR 0080 Decision 11. A file with a different `WCOP` URL holds both
-    /// URLs in `TXXX:LICENSE` after one write, and no `WCOP`. A second
-    /// write gives equal frames, and the scan lists nothing.
-    fn assert_license_write_moves_a_different_wcop(conn: &Connection, dir: &Path, path: &Path) {
+    /// ADR 0080 Decision 11. The RSS URL replaces a different `WCOP` URL. A
+    /// second write gives equal frames, and the scan lists nothing.
+    fn assert_license_write_replaces_a_different_wcop(conn: &Connection, dir: &Path, path: &Path) {
         write_id3v24_edits(path, &[license_edit("WCOP", FOREIGN_LICENSE_URL)]).unwrap();
-        assert_eq!(license_values(path, "WCOP"), vec![FOREIGN_LICENSE_URL]);
         let edits = full_edits(conn);
         let before = scan_tag_updates(conn, dir).unwrap();
         assert!(changed_labels(&before.files[0]).contains(&"WCOP"));
@@ -1481,22 +1521,19 @@ mod tests {
         write_id3v24_edits(path, &edits).unwrap();
 
         assert_eq!(all_fields(path), first);
-        assert!(license_values(path, "WCOP").is_empty(), "{first:?}");
-        assert_eq!(
-            license_values(path, "TXXX:LICENSE"),
-            vec![format!("{FOREIGN_LICENSE_URL} · {LICENSE_URL}")]
-        );
+        assert_eq!(license_values(path, "WCOP"), vec![LICENSE_URL]);
+        assert!(license_values(path, "TXXX:LICENSE").is_empty());
         assert_eq!(scan_tag_updates(conn, dir).unwrap().count(), 0);
     }
 
     #[test]
-    fn adr_0080_license_mp3_write_moves_a_different_wcop_url() {
+    fn adr_0080_license_mp3_write_replaces_a_different_wcop_url() {
         let dir = tempfile::tempdir().unwrap();
         let mut conn = library(dir.path(), &[1]);
         conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
             .unwrap();
         add_channel_license(&mut conn, Some(LICENSE_URL), Some(LICENSE_TEXT));
-        assert_license_write_moves_a_different_wcop(
+        assert_license_write_replaces_a_different_wcop(
             &conn,
             dir.path(),
             &dir.path().join("song-1.mp3"),
@@ -1504,63 +1541,63 @@ mod tests {
     }
 
     #[test]
-    fn adr_0080_license_flac_write_moves_a_different_wcop_url() {
+    fn adr_0080_license_flac_write_replaces_a_different_wcop_url() {
         let dir = tempfile::tempdir().unwrap();
         let (mut conn, path) = flac_library(dir.path());
         add_channel_license(&mut conn, Some(LICENSE_URL), Some(LICENSE_TEXT));
-        assert_license_write_moves_a_different_wcop(&conn, dir.path(), &path);
+        assert_license_write_replaces_a_different_wcop(&conn, dir.path(), &path);
     }
 
     #[test]
-    fn adr_0080_license_mp4_write_moves_a_different_wcop_url() {
+    fn adr_0080_license_mp4_write_replaces_a_different_wcop_url() {
         let dir = tempfile::tempdir().unwrap();
         let (mut conn, path) = mp4_library(dir.path());
         add_channel_license(&mut conn, Some(LICENSE_URL), Some(LICENSE_TEXT));
-        assert_license_write_moves_a_different_wcop(&conn, dir.path(), &path);
+        assert_license_write_replaces_a_different_wcop(&conn, dir.path(), &path);
     }
 
-    /// ADR 0080 Decision 11. `TXXX:LICENSE` holds the RSS URL already, so
-    /// the scan lists no `WCOP` difference, and a write adds no `WCOP`.
-    fn assert_license_in_list_frame_is_equal(conn: &Connection, dir: &Path, path: &Path) {
+    /// ADR 0080 Decision 11. `TXXX:LICENSE` holds the RSS URL and a different
+    /// URL. The scan lists `WCOP`, and a write leaves only the RSS URL.
+    fn assert_license_list_frame_is_replaced(conn: &Connection, dir: &Path, path: &Path) {
         let joined = format!("{FOREIGN_LICENSE_URL} · {LICENSE_URL}");
         write_id3v24_edits(path, &[license_edit("TXXX:LICENSE", &joined)]).unwrap();
         let before = scan_tag_updates(conn, dir).unwrap();
         assert!(
-            !changed_labels(&before.files[0]).contains(&"WCOP"),
+            changed_labels(&before.files[0]).contains(&"WCOP"),
             "{before:?}"
         );
 
         write_id3v24_edits(path, &full_edits(conn)).unwrap();
 
-        assert!(license_values(path, "WCOP").is_empty());
-        assert_eq!(license_values(path, "TXXX:LICENSE"), vec![joined]);
+        assert_eq!(license_values(path, "WCOP"), vec![LICENSE_URL]);
+        assert!(license_values(path, "TXXX:LICENSE").is_empty());
         assert_eq!(scan_tag_updates(conn, dir).unwrap().count(), 0);
     }
 
     #[test]
-    fn adr_0080_license_mp3_url_in_the_list_frame_is_equal() {
+    fn adr_0080_license_mp3_list_frame_is_replaced() {
         let dir = tempfile::tempdir().unwrap();
         let mut conn = library(dir.path(), &[1]);
         conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
             .unwrap();
         add_channel_license(&mut conn, Some(LICENSE_URL), Some(LICENSE_TEXT));
-        assert_license_in_list_frame_is_equal(&conn, dir.path(), &dir.path().join("song-1.mp3"));
+        assert_license_list_frame_is_replaced(&conn, dir.path(), &dir.path().join("song-1.mp3"));
     }
 
     #[test]
-    fn adr_0080_license_flac_url_in_the_list_frame_is_equal() {
+    fn adr_0080_license_flac_list_frame_is_replaced() {
         let dir = tempfile::tempdir().unwrap();
         let (mut conn, path) = flac_library(dir.path());
         add_channel_license(&mut conn, Some(LICENSE_URL), Some(LICENSE_TEXT));
-        assert_license_in_list_frame_is_equal(&conn, dir.path(), &path);
+        assert_license_list_frame_is_replaced(&conn, dir.path(), &path);
     }
 
     #[test]
-    fn adr_0080_license_mp4_url_in_the_list_frame_is_equal() {
+    fn adr_0080_license_mp4_list_frame_is_replaced() {
         let dir = tempfile::tempdir().unwrap();
         let (mut conn, path) = mp4_library(dir.path());
         add_channel_license(&mut conn, Some(LICENSE_URL), Some(LICENSE_TEXT));
-        assert_license_in_list_frame_is_equal(&conn, dir.path(), &path);
+        assert_license_list_frame_is_replaced(&conn, dir.path(), &path);
     }
 
     /// ADR 0080 Decision 11. A license with text and no URL gives only the
@@ -1841,6 +1878,60 @@ mod tests {
             assert_eq!(before, vec!["Other Tool Label"]);
             assert_eq!(after, vec![LABEL_ONE], "{after:?}");
         }
+    }
+
+    /// ADR 0080 Decision 6. The channel website replaces a `WOAR` value from
+    /// another tool on each format, and the scan then lists nothing.
+    fn assert_other_website_is_replaced(conn: &mut Connection, dir: &Path, path: &Path) {
+        db::replace_local_identity_links(
+            conn,
+            db::LocalIdentityOwner::Feed(1),
+            "rss",
+            &[db::LocalIdentityLinkInput {
+                entity_type: None,
+                entity_id: None,
+                position: None,
+                link_type: Some("website".into()),
+                url: Some("https://example.test/feed".into()),
+                extraction_path: None,
+                observed_at: None,
+                raw_json: None,
+            }],
+        )
+        .unwrap();
+        let edits = full_edits(conn);
+        write_id3v24_edits(path, &edits).unwrap();
+        write_id3v24_edits(
+            path,
+            &[license_edit("WOAR", "https://foreign.example/page")],
+        )
+        .unwrap();
+        assert!(changed_labels(&scan_tag_updates(conn, dir).unwrap().files[0]).contains(&"WOAR"));
+
+        write_id3v24_edits(path, &edits).unwrap();
+
+        assert_eq!(
+            license_values(path, "WOAR"),
+            vec!["https://example.test/feed"]
+        );
+        assert_eq!(scan_tag_updates(conn, dir).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn adr_0080_website_write_replaces_another_value_on_mp3_flac_and_mp4() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        assert_other_website_is_replaced(&mut conn, dir.path(), &dir.path().join("song-1.mp3"));
+
+        let dir = tempfile::tempdir().unwrap();
+        let (mut conn, path) = flac_library(dir.path());
+        assert_other_website_is_replaced(&mut conn, dir.path(), &path);
+
+        let dir = tempfile::tempdir().unwrap();
+        let (mut conn, path) = mp4_library(dir.path());
+        assert_other_website_is_replaced(&mut conn, dir.path(), &path);
     }
 
     fn set_feed_language(conn: &Connection, language: &str) {
