@@ -1,6 +1,6 @@
 # ADR 0080 Task 006: The Contract Of Release 0.18.1 And The Link Label
 
-Status: Ready - 2026-11-04. This packet changes no presentation, so it has no visual check.
+Status: Implemented 2026-11-05. Mechanical checks Green.
 
 ## Goal
 

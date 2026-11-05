@@ -1252,6 +1252,8 @@ fn append_track_source_link(
         url: Some(url.into()),
         source: Some("rss".into()),
         extraction_path: Some(extraction_path.into()),
+        label: None,
+        url_scheme_added: None,
         observed_at: None,
     });
     true
