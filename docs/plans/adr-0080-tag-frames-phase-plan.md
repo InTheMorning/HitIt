@@ -17,7 +17,7 @@ Active - 2026-09-29. This plan is advisory. It states no rule.
 | [006](../tasks/adr-0080-task-006-contract-0-18-1-and-link-label.md) | The stored contract of Stophammer 0.18.1, and `label` on a source link | ADR 0075 section 6 | None | Implemented 2026-11-05. Mechanical checks Green |
 | [007](../tasks/adr-0080-task-007-contributor-role-frames.md) | One role classifier, so that each credit role selects the correct frame | ADR 0080 Decisions 3 and 6 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
 | [008](../tasks/adr-0080-task-008-rss-readers-agree.md) | The two RSS readers give one track number and one artwork URL | ADR 0075 artwork order, ADR 0080 Decision 9 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
-| [009](../tasks/adr-0080-task-009-funding-link-frame.md) | The funding link in `WPAY` | ADR 0080 Decision 10 | 006 | Ready 2026-11-04 |
+| [009](../tasks/adr-0080-task-009-funding-link-frame.md) | The funding link in `WPAY` | ADR 0080 Decision 10 | 006 | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
 | [010](../tasks/adr-0080-task-010-license-frames.md) | The RSS license in `WCOP` or `TXXX:LICENSE`, and in `TXXX:MusicIndex License` | ADR 0080 Decision 11 | 006 | Ready 2026-11-04 |
 | [011](../tasks/adr-0080-task-011-confirmed-label-frame.md) | A confirmed label in `TPUB` | ADR 0080 Decision 12 | None | Ready 2026-11-04 |
 | [012](../tasks/adr-0080-task-012-language-frame.md) | The language in `TLAN` | ADR 0080 Decision 13 | None | Ready 2026-11-04 |

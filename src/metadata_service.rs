@@ -7,9 +7,9 @@ use crate::api::{PaymentRoute, Track};
 use crate::audio_tags::{AudioTags, Id3v24Edit};
 use crate::db;
 use crate::metadata::{
-    auto_populated_pending_id3_edits, expand_woar_metadata_rows, feed_nostr,
-    pending_id3_edits_for_apply, summarize_value_routes, track_metadata_rows, track_nostr,
-    MetadataColumn, PendingId3Edit, TrackContext, MUSICINDEX_VALUE_ROUTES_FRAME,
+    auto_populated_pending_id3_edits, expand_woar_metadata_rows, feed_funding, feed_nostr,
+    pending_id3_edits_for_apply, summarize_value_routes, track_funding, track_metadata_rows,
+    track_nostr, MetadataColumn, PendingId3Edit, TrackContext, MUSICINDEX_VALUE_ROUTES_FRAME,
 };
 use crate::musicbrainz::LookupMetadata;
 use crate::rss::{validate_nostr_identity, IdentityValidation, NostrIdentity};
@@ -17,11 +17,15 @@ use crate::rss::{validate_nostr_identity, IdentityValidation, NostrIdentity};
 /// The frame that holds the one resolved Nostr key (ADR 0080 Decision 1).
 const RSS_NOSTR_HANDLE_FRAME: &str = "TXXX:RSS Nostr Handle";
 
+/// The frame that holds the one resolved funding link (ADR 0080 Decision 10).
+const FUNDING_FRAME: &str = "WPAY";
+
 pub fn id3_edits_for_track_context(track_context: &TrackContext) -> Vec<Id3v24Edit> {
     let rows = expand_woar_metadata_rows(track_metadata_rows(track_context, None, false));
     let mut pending =
         auto_populated_pending_id3_edits(&rows, &BTreeMap::new(), &BTreeSet::new(), None);
     apply_resolved_nostr_key(&mut pending, track_context);
+    apply_resolved_funding_link(&mut pending, track_context);
     pending_id3_edits_for_apply(&pending)
 }
 
@@ -46,6 +50,35 @@ fn apply_resolved_nostr_key(
         PendingId3Edit {
             field: "Nostr handle".to_owned(),
             frame: RSS_NOSTR_HANDLE_FRAME.to_owned(),
+            value,
+            source: MetadataColumn::Rss,
+        },
+    );
+}
+
+/// ADR 0080 Decision 10: a file holds one funding link in `WPAY`. The first
+/// valid `podcast:funding` of the item wins. The first valid one of the
+/// channel is the fallback. A value with no `http` or `https` scheme is not
+/// valid. With no valid link, the file gets no `WPAY` edit.
+///
+/// The compare grid keeps its own "Funding" and "RSS feed funding" rows
+/// apart. This function resolves the value that a write puts in the file,
+/// as `apply_resolved_nostr_key` does for the Nostr key.
+fn apply_resolved_funding_link(
+    pending: &mut BTreeMap<String, PendingId3Edit>,
+    track_context: &TrackContext,
+) {
+    pending.retain(|_, edit| edit.frame != FUNDING_FRAME);
+    let Some(value) = track_funding(&track_context.track)
+        .or_else(|| track_context.feed.as_ref().and_then(feed_funding))
+    else {
+        return;
+    };
+    pending.insert(
+        "adr-0080:resolved-funding-link".to_owned(),
+        PendingId3Edit {
+            field: "Funding".to_owned(),
+            frame: FUNDING_FRAME.to_owned(),
             value,
             source: MetadataColumn::Rss,
         },
@@ -517,5 +550,215 @@ mod tests {
             !edits.iter().any(|edit| edit.frame_label == "TDRC"),
             "a track with no own date must write no TDRC edit"
         );
+    }
+
+    fn funding_link(url: Option<&str>, label: &str) -> SourceEntityLink {
+        SourceEntityLink {
+            link_type: Some("funding".into()),
+            url: url.map(str::to_owned),
+            label: Some(label.to_owned()),
+            ..Default::default()
+        }
+    }
+
+    fn wpay_values(edits: &[Id3v24Edit]) -> Vec<&str> {
+        edits
+            .iter()
+            .filter(|edit| edit.frame_label == "WPAY")
+            .map(|edit| edit.value.as_str())
+            .collect()
+    }
+
+    /// ADR 0080 Decision 10: the item funding link wins over the channel
+    /// links.
+    #[test]
+    fn adr_0080_funding_edit_prefers_the_item_link() {
+        let mut context = track_context_with_own_identity();
+        context
+            .track
+            .source_links
+            .as_mut()
+            .expect("links")
+            .push(funding_link(Some("https://item.test/tip"), "Tip jar"));
+        context
+            .feed
+            .as_mut()
+            .expect("feed")
+            .source_links
+            .as_mut()
+            .expect("links")
+            .push(funding_link(Some("https://channel.test/pay"), "Support"));
+
+        let edits = id3_edits_for_track_context(&context);
+
+        assert_eq!(wpay_values(&edits), vec!["https://item.test/tip"]);
+    }
+
+    /// ADR 0080 Decision 10: without an item link, the edit holds the
+    /// first channel link. It holds no label text.
+    #[test]
+    fn adr_0080_funding_edit_falls_back_to_the_first_channel_link() {
+        let mut context = track_context_without_own_identity();
+        let links = context
+            .feed
+            .as_mut()
+            .expect("feed")
+            .source_links
+            .as_mut()
+            .expect("links");
+        links.push(funding_link(
+            Some("https://channel.test/one"),
+            "First label",
+        ));
+        links.push(funding_link(
+            Some("https://channel.test/two"),
+            "Second label",
+        ));
+
+        let edits = id3_edits_for_track_context(&context);
+
+        assert_eq!(wpay_values(&edits), vec!["https://channel.test/one"]);
+    }
+
+    /// ADR 0080 Decision 10: a value with no `http` or `https` scheme gives
+    /// no frame, and the next channel value is used.
+    #[test]
+    fn adr_0080_funding_edit_skips_a_value_with_no_http_scheme() {
+        let mut context = track_context_without_own_identity();
+        let links = context
+            .feed
+            .as_mut()
+            .expect("feed")
+            .source_links
+            .as_mut()
+            .expect("links");
+        links.push(funding_link(None, "Null url"));
+        links.push(funding_link(Some("javascript:alert(1)"), "Script"));
+        links.push(funding_link(Some("ftp://channel.test/file"), "Ftp"));
+        links.push(funding_link(Some("channel.test/no-scheme"), "No scheme"));
+        links.push(funding_link(Some("https://channel.test/valid"), "Valid"));
+
+        let edits = id3_edits_for_track_context(&context);
+        assert_eq!(wpay_values(&edits), vec!["https://channel.test/valid"]);
+
+        context
+            .feed
+            .as_mut()
+            .expect("feed")
+            .source_links
+            .as_mut()
+            .expect("links")
+            .pop();
+        let edits = id3_edits_for_track_context(&context);
+        assert!(
+            wpay_values(&edits).is_empty(),
+            "no valid funding link must give no WPAY edit"
+        );
+    }
+
+    /// ADR 0080 Decision 10: an item link that is not valid does not block
+    /// the channel link.
+    #[test]
+    fn adr_0080_funding_edit_uses_the_channel_link_past_an_invalid_item_link() {
+        let mut context = track_context_with_own_identity();
+        context
+            .track
+            .source_links
+            .as_mut()
+            .expect("links")
+            .push(funding_link(Some("javascript:alert(1)"), "Script"));
+        context
+            .feed
+            .as_mut()
+            .expect("feed")
+            .source_links
+            .as_mut()
+            .expect("links")
+            .push(funding_link(Some("https://channel.test/pay"), "Support"));
+
+        let edits = id3_edits_for_track_context(&context);
+
+        assert_eq!(wpay_values(&edits), vec!["https://channel.test/pay"]);
+    }
+
+    /// ADR 0080 Decision 10: a funding row gives no `WOAR`, `WOAF` or
+    /// transcript value, and the compare grid shows it in its own rows.
+    #[test]
+    fn adr_0080_funding_row_gives_no_website_or_transcript_edit() {
+        let mut context = track_context_without_own_identity();
+        context
+            .track
+            .source_links
+            .get_or_insert_with(Vec::new)
+            .push(funding_link(Some("https://item.test/tip"), "Tip jar"));
+        let feed = context.feed.as_mut().expect("feed");
+        feed.source_links = Some(vec![funding_link(
+            Some("https://channel.test/pay"),
+            "Support",
+        )]);
+
+        let edits = id3_edits_for_track_context(&context);
+
+        for frame in [
+            "WOAF",
+            "WOAR",
+            "SYLT:MusicIndex Transcript",
+            "USLT:MusicIndex Transcript",
+        ] {
+            assert!(
+                !edits.iter().any(|edit| edit.frame_label == frame),
+                "a funding row must give no {frame} edit: {edits:?}"
+            );
+        }
+        let rows = crate::metadata::track_metadata_rows(&context, None, false);
+        let fields = rows
+            .iter()
+            .filter_map(|row| match row {
+                crate::metadata::MetadataGridRow::Data(row) => Some(row.field.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(fields.contains(&"Funding"), "{fields:?}");
+        assert!(fields.contains(&"RSS feed funding"), "{fields:?}");
+    }
+
+    /// ADR 0080 Decision 10: a write of the freshly built edits reads back
+    /// unchanged, and a second write gives equal frames with one `WPAY`.
+    #[test]
+    fn adr_0080_funding_edit_round_trips_with_one_frame() {
+        let mut context = track_context_with_own_identity();
+        context
+            .track
+            .source_links
+            .as_mut()
+            .expect("links")
+            .push(funding_link(Some("https://item.test/tip"), "Tip jar"));
+        let edits = vec![edit("WPAY", "https://item.test/tip")];
+        assert_eq!(
+            id3_edits_for_track_context(&context)
+                .into_iter()
+                .filter(|edit| edit.frame_label == "WPAY")
+                .collect::<Vec<_>>(),
+            edits
+        );
+
+        let temp = tempfile::NamedTempFile::new().expect("temp file");
+        std::fs::write(temp.path(), b"not really an mp3").expect("write file");
+        crate::audio_tags::write_id3v24_edits(temp.path(), &edits).expect("first write");
+        let first = crate::audio_tags::read_audio_tags(temp.path())
+            .expect("read")
+            .fields;
+        crate::audio_tags::write_id3v24_edits(temp.path(), &edits).expect("second write");
+        let second = crate::audio_tags::read_audio_tags(temp.path())
+            .expect("read")
+            .fields;
+
+        assert_eq!(first, second);
+        let values = second
+            .iter()
+            .filter(|field| field.frame_id == "WPAY")
+            .map(|field| field.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(values, vec!["https://item.test/tip"]);
     }
 }

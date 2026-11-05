@@ -21,7 +21,7 @@ use serde_json::{json, Value};
 use super::compare::{self, TextRepresentation};
 use super::subscribe::{
     parse_feed_document, rss_feed_link_inputs, upsert_item_columns, ParsedChannel,
-    ParsedFeedDocument, ParsedItem, ParsedNostrId,
+    ParsedFeedDocument, ParsedItem, ParsedNostrId, FUNDING_LINK_TYPE,
 };
 use crate::application::queries::stored_values;
 use crate::db::rss_field_holds::{
@@ -276,7 +276,11 @@ impl Apply<'_> {
         )?;
 
         let link = channel.link.clone();
-        let link_rows = rss_feed_link_inputs(channel.feed_guid.as_deref(), link.as_deref());
+        let link_rows = rss_feed_link_inputs(
+            channel.feed_guid.as_deref(),
+            link.as_deref(),
+            &channel.funding_links,
+        );
         self.element(
             owner,
             RssField::Link,
@@ -343,6 +347,7 @@ impl Apply<'_> {
             channel.people_json.as_deref(),
         )?;
         self.nostr(owner, LocalIdentityOwner::Feed(feed_id), &channel.nostr_ids)?;
+        self.funding(LocalIdentityOwner::Feed(feed_id), &channel.funding_links)?;
 
         let routes = channel.podcast_value_json.clone();
         self.element(
@@ -478,6 +483,46 @@ impl Apply<'_> {
             },
         )?;
         Ok(())
+    }
+
+    /// ADR 0080 Decision 10: the check stores the `funding` rows of the
+    /// document next to the other `rss` link rows of the owner. The rows
+    /// are not a compared element, so the check records no difference and
+    /// shows no funding row. The next tag scan lists a file whose `WPAY`
+    /// value differs. A write happens only when the stored rows differ, and
+    /// it keeps each other `rss` row.
+    fn funding(
+        &self,
+        identity: LocalIdentityOwner,
+        parsed: &[db::LocalIdentityLinkInput],
+    ) -> Result<()> {
+        let rows = db::local_identity_links(self.conn, identity)?
+            .into_iter()
+            .filter(|row| row.source == RSS_SOURCE)
+            .map(|row| db::LocalIdentityLinkInput {
+                entity_type: row.entity_type,
+                entity_id: row.entity_id,
+                position: row.position,
+                link_type: row.link_type,
+                url: row.url,
+                extraction_path: row.extraction_path,
+                observed_at: None,
+                raw_json: row.raw_json,
+            })
+            .collect::<Vec<_>>();
+        let is_funding = |link: &db::LocalIdentityLinkInput| {
+            link.link_type.as_deref() == Some(FUNDING_LINK_TYPE)
+        };
+        let stored = rows.iter().filter(|link| is_funding(link)).cloned();
+        if stored.eq(parsed.iter().cloned()) {
+            return Ok(());
+        }
+        let mut next = rows
+            .into_iter()
+            .filter(|link| !is_funding(link))
+            .collect::<Vec<_>>();
+        next.extend(parsed.iter().cloned());
+        db::write_local_identity_links(self.conn, identity, RSS_SOURCE, &next)
     }
 
     fn items(&mut self, items: &[ParsedItem]) -> Result<()> {
@@ -696,6 +741,13 @@ impl Apply<'_> {
             item.people_json.as_deref(),
         )?;
         self.nostr(owner, LocalIdentityOwner::Track(track_id), &item.nostr_ids)?;
+        let funding = item
+            .links
+            .iter()
+            .filter(|link| link.link_type.as_deref() == Some(FUNDING_LINK_TYPE))
+            .cloned()
+            .collect::<Vec<_>>();
+        self.funding(LocalIdentityOwner::Track(track_id), &funding)?;
 
         let routes = item.item_value_json.clone();
         self.element(
@@ -2001,5 +2053,74 @@ mod tests {
         resubscribe(&mut conn, &first(), T2 + 1);
         assert_eq!(splits(&conn, FEED), vec![Some(100.0)]);
         assert_eq!(splits(&conn, ITEM_ONE), vec![Some(100.0)]);
+    }
+
+    /// ADR 0080 Decision 10: the check stores the funding rows of a
+    /// document, keeps the website row, records no difference for them, and
+    /// changes nothing on a second check of the same document.
+    #[test]
+    fn adr_0080_funding_check_stores_rows_and_keeps_the_website() {
+        let (conn, feed_id) = subscribed(&document(&first()));
+        let with_funding = String::from_utf8(document(&first()))
+            .unwrap()
+            .replace(
+                "<podcast:guid>feed-guid-1</podcast:guid>",
+                "<podcast:guid>feed-guid-1</podcast:guid><podcast:funding url=\"https://band.test/pay\">Support</podcast:funding>",
+            )
+            .replace(
+                "<guid isPermaLink=\"false\">item-1</guid>",
+                "<guid isPermaLink=\"false\">item-1</guid><podcast:funding url=\"https://band.test/tip\">Tip</podcast:funding>",
+            )
+            .into_bytes();
+        let track = track_id(&conn, "item-1");
+        let funding = |owner: LocalIdentityOwner| {
+            db::local_identity_links(&conn, owner)
+                .unwrap()
+                .into_iter()
+                .filter(|row| row.source == RSS_SOURCE)
+                .map(|row| (row.link_type, row.url, row.position))
+                .collect::<Vec<_>>()
+        };
+        let before = funding(LocalIdentityOwner::Feed(feed_id));
+        assert!(before.iter().all(|row| row.0.as_deref() != Some("funding")));
+
+        // A first check of the plain document settles the compared elements.
+        let run_id = run(&conn, T1);
+        apply_checked_document(&conn, run_id, feed_id, &document(&first()), T1).unwrap();
+        let run_id = run(&conn, T1 + 1);
+        let applied =
+            apply_checked_document(&conn, run_id, feed_id, &with_funding, T1 + 1).unwrap();
+        let feed_rows = funding(LocalIdentityOwner::Feed(feed_id));
+        let track_rows = funding(LocalIdentityOwner::Track(track));
+
+        assert_eq!(
+            applied.differences, 0,
+            "funding rows are no compared element"
+        );
+        assert_eq!(
+            feed_rows,
+            vec![
+                (Some("website".into()), Some(first().link.into()), Some(0)),
+                (
+                    Some("funding".into()),
+                    Some("https://band.test/pay".into()),
+                    Some(1)
+                ),
+            ]
+        );
+        assert!(track_rows.contains(&(
+            Some("funding".into()),
+            Some("https://band.test/tip".into()),
+            Some(2)
+        )));
+
+        let run_id = run(&conn, T2);
+        apply_checked_document(&conn, run_id, feed_id, &with_funding, T2).unwrap();
+        assert_eq!(funding(LocalIdentityOwner::Feed(feed_id)), feed_rows);
+        assert_eq!(funding(LocalIdentityOwner::Track(track)), track_rows);
+
+        let run_id = run(&conn, T2 + 1);
+        apply_checked_document(&conn, run_id, feed_id, &document(&first()), T2 + 1).unwrap();
+        assert_eq!(funding(LocalIdentityOwner::Feed(feed_id)), before);
     }
 }

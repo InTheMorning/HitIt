@@ -49,6 +49,9 @@ pub(crate) struct ParsedChannel {
     pub(crate) nostr_ids: Vec<ParsedNostrId>,
     /// The `podcast:publisher` remote item of the album.
     pub(crate) publisher: Option<ParsedPublisher>,
+    /// One `funding` link row for each `podcast:funding` tag of the channel
+    /// (ADR 0080 Decision 10).
+    pub(crate) funding_links: Vec<db::LocalIdentityLinkInput>,
 }
 
 /// One item of a document. Column values have the form that the `tracks`
@@ -162,6 +165,13 @@ pub(crate) fn parse_feed_document(body: &[u8]) -> Result<ParsedFeedDocument> {
         contributors: contributor_inputs_from_extensions(feed.extensions()),
         nostr_ids: nostr_ids_from_extensions(feed.extensions()),
         publisher: publisher_from_extensions(feed.extensions()),
+        funding_links: funding_link_inputs(
+            feed.extensions(),
+            "feed",
+            find_ext_text(feed.extensions(), "podcast", "guid").as_deref(),
+            FEED_FUNDING_FIRST_POSITION,
+            FEED_FUNDING_EXTRACTION_PATH,
+        ),
     };
 
     let mut items = Vec::new();
@@ -224,12 +234,22 @@ pub(crate) fn parse_feed_document(body: &[u8]) -> Result<ParsedFeedDocument> {
             extra_json: track_extra_json(transcript_url.as_deref(), transcript_type.as_deref()),
             description: item.description().map(ToOwned::to_owned),
             contributors: contributor_inputs_from_extensions(item.extensions()),
-            links: rss_track_link_inputs(
-                &item_guid,
-                item_link.as_deref(),
-                transcript_url.as_deref(),
-                transcript_type.as_deref(),
-            ),
+            links: {
+                let mut links = rss_track_link_inputs(
+                    &item_guid,
+                    item_link.as_deref(),
+                    transcript_url.as_deref(),
+                    transcript_type.as_deref(),
+                );
+                links.extend(funding_link_inputs(
+                    item.extensions(),
+                    "track",
+                    Some(&item_guid),
+                    ITEM_FUNDING_FIRST_POSITION,
+                    ITEM_FUNDING_EXTRACTION_PATH,
+                ));
+                links
+            },
             nostr_ids: nostr_ids_from_extensions(item.extensions()),
             item_guid,
         });
@@ -513,6 +533,7 @@ pub(crate) fn persist_channel(
         feed_id,
         channel.feed_guid.as_deref(),
         channel.link.as_deref(),
+        &channel.funding_links,
         &channel.contributors,
     )?;
     Ok(feed_id)
@@ -672,6 +693,7 @@ fn persist_rss_feed_identity(
     feed_id: i64,
     feed_guid: Option<&str>,
     feed_link: Option<&str>,
+    funding: &[db::LocalIdentityLinkInput],
     contributors: &[db::LocalContributorInput],
 ) -> Result<()> {
     db::replace_local_contributors(
@@ -684,7 +706,7 @@ fn persist_rss_feed_identity(
         conn,
         db::LocalIdentityOwner::Feed(feed_id),
         "rss",
-        &rss_feed_link_inputs(feed_guid, feed_link),
+        &rss_feed_link_inputs(feed_guid, feed_link, funding),
     )
 }
 
@@ -736,13 +758,15 @@ fn contributor_inputs_from_extensions(exts: &ExtensionMap) -> Vec<db::LocalContr
         .collect()
 }
 
-/// The feed `rss` website row of the channel link. The subscribe and the
-/// RSS check both write it (ADR 0076 Decision 10).
+/// The feed `rss` link rows: the website row of the channel link and the
+/// `funding` rows of the channel tags. The subscribe and the RSS check both
+/// write them (ADR 0076 Decision 10, ADR 0080 Decision 10).
 pub(crate) fn rss_feed_link_inputs(
     feed_guid: Option<&str>,
     feed_link: Option<&str>,
+    funding: &[db::LocalIdentityLinkInput],
 ) -> Vec<db::LocalIdentityLinkInput> {
-    clean_text(feed_link)
+    let mut links = clean_text(feed_link)
         .map(|url| {
             vec![db::LocalIdentityLinkInput {
                 entity_type: Some("feed".to_owned()),
@@ -755,7 +779,82 @@ pub(crate) fn rss_feed_link_inputs(
                 raw_json: Some(serde_json::json!({ "link": url }).to_string()),
             }]
         })
-        .unwrap_or_default()
+        .unwrap_or_default();
+    links.extend(funding.iter().cloned());
+    links
+}
+
+/// The `link_type` of a funding row (Stophammer ADR 0082 Decision 1).
+pub(crate) const FUNDING_LINK_TYPE: &str = "funding";
+/// The `extraction_path` of a channel funding row (Stophammer ADR 0082).
+const FEED_FUNDING_EXTRACTION_PATH: &str = "feed.podcast:funding";
+/// The `extraction_path` of an item funding row (Stophammer ADR 0082).
+const ITEM_FUNDING_EXTRACTION_PATH: &str = "entity.podcast:funding";
+/// A channel website row has position 0. The funding rows follow it.
+const FEED_FUNDING_FIRST_POSITION: i64 = 1;
+/// An item page row has position 0 and a transcript row has position 1.
+/// The funding rows follow them.
+const ITEM_FUNDING_FIRST_POSITION: i64 = 2;
+
+/// One `funding` row for each direct `podcast:funding` tag of `exts`, in
+/// document order (ADR 0080 Decision 10, Stophammer ADR 0082 Decision 1).
+///
+/// - A tag with no `url` attribute, or an empty one, gives no row.
+/// - The row `url` is the attribute with the white space at its ends
+///   removed. A value that is not an `http` or `https` URL gives a null
+///   `url`. The attribute text stays in `raw_json`.
+/// - The node text, trimmed, is the label. It stays in `raw_json` only. An
+///   empty node gives no label.
+/// - A second tag with the same `url` gives no row. The first tag gives the
+///   label.
+fn funding_link_inputs(
+    exts: &ExtensionMap,
+    entity_type: &str,
+    entity_id: Option<&str>,
+    first_position: i64,
+    extraction_path: &str,
+) -> Vec<db::LocalIdentityLinkInput> {
+    let Some(tags) = exts
+        .get("podcast")
+        .and_then(|podcast| podcast.get("funding"))
+    else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    let mut links = Vec::new();
+    for tag in tags {
+        let Some(attribute) = tag
+            .attrs
+            .get("url")
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if !seen.insert(attribute.to_owned()) {
+            continue;
+        }
+        let label = tag
+            .value
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let url = reqwest::Url::parse(attribute)
+            .ok()
+            .filter(|parsed| matches!(parsed.scheme(), "http" | "https"))
+            .map(|_| attribute.to_owned());
+        links.push(db::LocalIdentityLinkInput {
+            entity_type: Some(entity_type.to_owned()),
+            entity_id: clean_text(entity_id),
+            position: Some(first_position + i64::try_from(links.len()).unwrap_or_default()),
+            link_type: Some(FUNDING_LINK_TYPE.to_owned()),
+            url,
+            extraction_path: Some(extraction_path.to_owned()),
+            observed_at: None,
+            raw_json: Some(serde_json::json!({ "url": attribute, "label": label }).to_string()),
+        });
+    }
+    links
 }
 
 fn rss_track_link_inputs(
@@ -941,6 +1040,7 @@ mod tests {
             feed_id,
             Some("feed-guid"),
             Some("https://example.test"),
+            &[],
             &contributor_inputs_from_extensions(&podcast_person_extensions()),
         )?;
 
@@ -1016,6 +1116,7 @@ mod tests {
             feed_id,
             Some("feed-guid"),
             Some("https://example.test/feed"),
+            &[],
             &[],
         )?;
 
@@ -1155,5 +1256,132 @@ mod tests {
             let error = fetch_feed_document(&url).expect_err("HTTP 404 is an error");
             assert!(error.downcast_ref::<HostThrottled>().is_none());
         }
+    }
+
+    const FUNDING_DOCUMENT: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
+<title>Feed</title><podcast:guid>feed-guid</podcast:guid>
+<podcast:funding url=" https://channel.test/one ">Support the show</podcast:funding>
+<podcast:funding url="javascript:alert(1)">Bad scheme</podcast:funding>
+<podcast:funding url="channel.test/no-scheme"> </podcast:funding>
+<podcast:funding url="">Empty</podcast:funding>
+<podcast:funding>No attribute</podcast:funding>
+<podcast:funding url="https://channel.test/one">Second tag of the same URL</podcast:funding>
+<item><guid>item-guid</guid><link>https://item.test/page</link>
+<podcast:funding url="https://item.test/tip">Tip jar</podcast:funding>
+</item></channel></rss>"#;
+
+    /// ADR 0080 Decision 10: the reader gives one `funding` row for each
+    /// `podcast:funding` tag of the channel and of the item, with the
+    /// extraction path of Stophammer ADR 0082.
+    #[test]
+    fn adr_0080_funding_reader_gives_one_row_for_each_valid_tag() {
+        let parsed = parse_feed_document(FUNDING_DOCUMENT.as_bytes()).unwrap();
+
+        let feed = &parsed.channel.funding_links;
+        assert_eq!(feed.len(), 3, "{feed:?}");
+        assert_eq!(feed[0].link_type.as_deref(), Some("funding"));
+        assert_eq!(feed[0].entity_type.as_deref(), Some("feed"));
+        assert_eq!(feed[0].entity_id.as_deref(), Some("feed-guid"));
+        assert_eq!(feed[0].url.as_deref(), Some("https://channel.test/one"));
+        assert_eq!(
+            feed[0].extraction_path.as_deref(),
+            Some("feed.podcast:funding")
+        );
+        let raw: serde_json::Value =
+            serde_json::from_str(feed[0].raw_json.as_deref().unwrap()).unwrap();
+        assert_eq!(raw["label"], "Support the show");
+        // A value with no http or https scheme keeps a null url and its text.
+        assert_eq!(feed[1].url, None);
+        assert_eq!(feed[2].url, None);
+        let raw: serde_json::Value =
+            serde_json::from_str(feed[2].raw_json.as_deref().unwrap()).unwrap();
+        assert_eq!(raw["url"], "channel.test/no-scheme");
+        assert_eq!(raw["label"], serde_json::Value::Null);
+
+        let item = &parsed.items[0];
+        let funding = item
+            .links
+            .iter()
+            .filter(|link| link.link_type.as_deref() == Some("funding"))
+            .collect::<Vec<_>>();
+        assert_eq!(funding.len(), 1);
+        assert_eq!(funding[0].entity_type.as_deref(), Some("track"));
+        assert_eq!(funding[0].url.as_deref(), Some("https://item.test/tip"));
+        assert_eq!(
+            funding[0].extraction_path.as_deref(),
+            Some("entity.podcast:funding")
+        );
+        // The item page keeps position 0.
+        assert!(item
+            .links
+            .iter()
+            .any(|link| link.link_type.as_deref() == Some("web_page")));
+    }
+
+    /// ADR 0080 Decision 10: a funding row gives no website, page or
+    /// transcript value.
+    #[test]
+    fn adr_0080_funding_row_gives_no_website_or_transcript_value() -> Result<()> {
+        use crate::api::SourceEntityLink;
+
+        let mut conn = setup_test_db()?;
+        let (feed_id, track_id) = create_feed_and_track(&conn)?;
+        let parsed = parse_feed_document(FUNDING_DOCUMENT.as_bytes())?;
+        persist_rss_feed_identity(
+            &mut conn,
+            feed_id,
+            parsed.channel.feed_guid.as_deref(),
+            None,
+            &parsed.channel.funding_links,
+            &[],
+        )?;
+        let facts = RssTrackIdentityFacts {
+            item_guid: "item-guid".to_owned(),
+            contributors: Vec::new(),
+            links: parsed.items[0]
+                .links
+                .iter()
+                .filter(|link| link.link_type.as_deref() == Some("funding"))
+                .cloned()
+                .collect(),
+        };
+        persist_rss_track_identity(&mut conn, "https://example.test/feed.xml", &facts)?;
+
+        let to_api = |rows: Vec<db::LocalIdentityLinkRow>| {
+            rows.into_iter()
+                .map(|row| SourceEntityLink {
+                    link_type: row.link_type,
+                    url: row.url,
+                    extraction_path: row.extraction_path,
+                    ..SourceEntityLink::default()
+                })
+                .collect::<Vec<_>>()
+        };
+        let feed_links = to_api(db::local_identity_links(
+            &conn,
+            db::LocalIdentityOwner::Feed(feed_id),
+        )?);
+        let track_links = to_api(db::local_identity_links(
+            &conn,
+            db::LocalIdentityOwner::Track(track_id),
+        )?);
+
+        assert_eq!(feed_links.len(), 3);
+        assert_eq!(track_links.len(), 1);
+        assert_eq!(crate::metadata::website_from_links(Some(&feed_links)), None);
+        assert_eq!(
+            crate::metadata::website_from_links(Some(&track_links)),
+            None
+        );
+        assert_eq!(
+            crate::metadata::transcript_from_links(Some(&feed_links)),
+            None
+        );
+        assert_eq!(
+            crate::metadata::transcript_from_links(Some(&track_links)),
+            None
+        );
+        Ok(())
     }
 }

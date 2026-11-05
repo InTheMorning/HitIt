@@ -1310,4 +1310,89 @@ mod tests {
 
         Ok(())
     }
+
+    /// ADR 0080 Decision 10: the label of an API link and the label of an
+    /// RSS link both survive a store and a read of the local identity link.
+    #[test]
+    fn adr_0080_funding_label_survives_store_and_read() -> Result<()> {
+        let mut conn = setup_test_db()?;
+        let (_, track_id) = create_feed_and_track(&conn)?;
+        let owner = LocalIdentityOwner::Track(track_id);
+        persist_source_links(
+            &mut conn,
+            owner,
+            Some(&[SourceEntityLink {
+                link_type: Some("funding".into()),
+                url: Some("https://index.test/pay".into()),
+                source: Some("podcast_funding".into()),
+                label: Some("Index label".into()),
+                ..SourceEntityLink::default()
+            }]),
+        )?;
+        db::replace_local_identity_links(
+            &mut conn,
+            owner,
+            "rss",
+            &[LocalIdentityLinkInput {
+                link_type: Some("funding".into()),
+                url: Some("https://rss.test/pay".into()),
+                raw_json: Some(r#"{"url":"https://rss.test/pay","label":"Rss label"}"#.into()),
+                ..LocalIdentityLinkInput::default()
+            }],
+        )?;
+
+        let links = db::local_identity_links(&conn, owner)?
+            .into_iter()
+            .map(crate::feed_service::source_link_from_local)
+            .map(|link| (link.url, link.label))
+            .collect::<Vec<_>>();
+
+        assert!(links.contains(&(
+            Some("https://index.test/pay".into()),
+            Some("Index label".into())
+        )));
+        assert!(links.contains(&(
+            Some("https://rss.test/pay".into()),
+            Some("Rss label".into())
+        )));
+        Ok(())
+    }
+
+    /// A row with no label, or with `raw_json` that holds none, gives `None`.
+    #[test]
+    fn adr_0080_funding_row_with_no_label_gives_none() -> Result<()> {
+        let mut conn = setup_test_db()?;
+        let (_, track_id) = create_feed_and_track(&conn)?;
+        let owner = LocalIdentityOwner::Track(track_id);
+        db::replace_local_identity_links(
+            &mut conn,
+            owner,
+            "rss",
+            &[
+                LocalIdentityLinkInput {
+                    position: Some(0),
+                    link_type: Some("website".into()),
+                    url: Some("https://rss.test/page".into()),
+                    raw_json: Some(r#"{"link":"https://rss.test/page"}"#.into()),
+                    ..LocalIdentityLinkInput::default()
+                },
+                LocalIdentityLinkInput {
+                    position: Some(1),
+                    link_type: Some("funding".into()),
+                    url: Some("https://rss.test/pay".into()),
+                    raw_json: Some(r#"{"url":"https://rss.test/pay","label":null}"#.into()),
+                    ..LocalIdentityLinkInput::default()
+                },
+            ],
+        )?;
+
+        let labels = db::local_identity_links(&conn, owner)?
+            .into_iter()
+            .map(crate::feed_service::source_link_from_local)
+            .map(|link| link.label)
+            .collect::<Vec<_>>();
+
+        assert_eq!(labels, vec![None, None]);
+        Ok(())
+    }
 }

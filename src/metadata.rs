@@ -209,6 +209,7 @@ pub fn compare_track_rows(
     );
     push_compare_row(&mut rows, "Nostr handle", track_nostr(track), None);
     push_compare_row(&mut rows, "Website", track_website(track), None);
+    push_compare_row(&mut rows, "Funding", track_funding(track), None);
     let release_date = track_release_pubdate(track).or_else(|| feed.and_then(feed_release_pubdate));
     push_compare_row(&mut rows, "Release date", release_date.clone(), None);
     push_compare_row(
@@ -252,6 +253,8 @@ pub fn compare_track_rows(
         // frame (`WOAR`), so this row shows even when it equals the item's
         // page (`WOAF`).
         push_compare_row(&mut rows, "RSS feed website", feed_website(feed), None);
+        // ADR 0080 Decision 10: the channel funding link has its own row.
+        push_compare_row(&mut rows, "RSS feed funding", feed_funding(feed), None);
     }
 
     rows
@@ -355,6 +358,28 @@ pub fn website_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> 
             None
         }
     })
+}
+
+/// ADR 0080 Decision 10: the first `funding` row whose URL is an `http` or
+/// `https` URL that `format_id3_website_url` accepts. A row with a null URL,
+/// or with another scheme, is skipped. The label never enters the value.
+pub fn funding_url_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> {
+    links?.iter().find_map(|link| {
+        if link.link_type.as_deref() != Some("funding") {
+            return None;
+        }
+        let url = format_id3_website_url(link.url.as_deref()?.trim())?;
+        let parsed = reqwest::Url::parse(&url).ok()?;
+        matches!(parsed.scheme(), "http" | "https").then_some(url)
+    })
+}
+
+pub fn track_funding(track: &Track) -> Option<String> {
+    funding_url_from_links(track.source_links.as_deref())
+}
+
+pub fn feed_funding(feed: &Feed) -> Option<String> {
+    funding_url_from_links(feed.source_links.as_deref())
 }
 
 pub fn transcript_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> {
@@ -1233,6 +1258,13 @@ pub fn track_metadata_rows(
         // value.
         musicbrainz_value_for_field("Website", musicbrainz),
     );
+    push_track_metadata_row(
+        &mut rows,
+        "url-link-frames",
+        "Funding",
+        track_funding(track),
+        None,
+    );
     if let Some(feed) = track_context.feed.as_ref() {
         // ADR 0080 Decision 2: the item page writes to `WOAF` and the
         // channel website writes to `WOAR`. The row shows even when the two
@@ -1243,6 +1275,15 @@ pub fn track_metadata_rows(
             "RSS feed website",
             feed_website(feed),
             musicbrainz_value_for_field("RSS feed website", musicbrainz),
+        );
+        // ADR 0080 Decision 10: the channel funding link. A file holds one
+        // `WPAY` value, and the writer resolves item over channel.
+        push_track_metadata_row(
+            &mut rows,
+            "url-link-frames",
+            "RSS feed funding",
+            feed_funding(feed),
+            None,
         );
     }
     push_track_metadata_row(
@@ -1801,7 +1842,9 @@ pub fn metadata_field_group_key(field: &str) -> &'static str {
         "Artwork" | "MusicIndex Image" | "Transcript" | "Transcript text" => {
             "lyrics-comments-artwork-user-facing-content"
         }
-        "Website" | "RSS feed website" | "License" => "url-link-frames",
+        "Website" | "RSS feed website" | "Funding" | "RSS feed funding" | "License" => {
+            "url-link-frames"
+        }
         "Nostr handle" | "RSS feed nostr handle" => "identity-linking-private-registration",
         "Value Routes" => "music-disc-acquisition-commerce",
         "Composer" | "Lyricist" | "Lead performer" | "Album artist" | "Conductor" | "Remixer"
@@ -2204,6 +2247,8 @@ fn source_value_for_metadata_field(field: &str, track_context: &TrackContext) ->
         "RSS feed nostr handle" => feed.and_then(feed_nostr),
         "Website" => track_website(track),
         "RSS feed website" => feed.and_then(feed_website),
+        "Funding" => track_funding(track),
+        "RSS feed funding" => feed.and_then(feed_funding),
         "Release date" | "Release year" => musicindex_release_date(track_context),
         "Duration" => track.duration_secs.map(fmt_dur),
         "Explicit" => track.explicit.and_then(explicit_metadata_value),
@@ -3134,7 +3179,9 @@ pub fn normalized_field_compare_value(field: &str, value: Option<&str>) -> Optio
     match field {
         "Release date" | "RSS item pubdate" => normalized_date_compare_value(&value),
         "Release year" => release_year_from_value(&value),
-        "Website" | "RSS feed website" => normalized_url_compare_value(&value),
+        "Website" | "RSS feed website" | "Funding" | "RSS feed funding" => {
+            normalized_url_compare_value(&value)
+        }
         "Contributors" => normalized_contributors_compare_value(&value),
         "Artist" | "Album artist" | "Lead performer" | "Composer" | "Lyricist" | "Conductor"
         | "Remixer" | "Original artist" | "Original lyricist" => {
@@ -3870,6 +3917,8 @@ pub fn id3_frame_hint(field: &str) -> Option<&'static str> {
         // frames. Neither value goes in the other's frame.
         "Website" => Some("WOAF"),
         "RSS feed website" => Some("WOAR"),
+        // ADR 0080 Decision 10: both funding rows compare against `WPAY`.
+        "Funding" | "RSS feed funding" => Some("WPAY"),
         "Tempo" => Some("TBPM"),
         "Release date" => Some("TDRC"),
         "Release year" => Some("TYER"),
