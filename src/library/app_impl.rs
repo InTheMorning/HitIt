@@ -5600,6 +5600,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: crate::provider_observation::ProviderTrackState::default(),
+            confirmed_labels: Vec::new(),
             track: crate::api::Track {
                 title: Some("Remote Track".into()),
                 publisher_text: Some("Remote Publisher".into()),
@@ -5611,6 +5612,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: crate::provider_observation::ProviderTrackState::default(),
+            confirmed_labels: Vec::new(),
             track: crate::api::Track {
                 publisher_text: Some("Local Publisher".into()),
                 description: Some("Local track description".into()),

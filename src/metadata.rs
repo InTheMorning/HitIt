@@ -73,6 +73,12 @@ pub struct TrackContext {
     pub rss_observation: Option<Arc<RssObservation>>,
     pub observation_receipts: Vec<crate::provider_observation::ObservationReceipt>,
     pub provider_state: crate::provider_observation::ProviderTrackState,
+    /// ADR 0080 Decision 3: the titles of the confirmed labels of the feed,
+    /// in their RSS sequence. A Library context reads them from the stored
+    /// `feed_publisher_relationships` rows. An Index context reads them from
+    /// the `publisher` entries of a feed response. A context with no stored
+    /// relationship has none.
+    pub confirmed_labels: Vec<String>,
 }
 
 impl TrackContext {
@@ -83,6 +89,7 @@ impl TrackContext {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
         }
     }
 
@@ -1309,6 +1316,15 @@ pub fn track_metadata_rows(
         track_funding(track),
         None,
     );
+    // ADR 0080 Decision 3: the RSS "Label" row holds the confirmed labels.
+    // The MusicBrainz label shares the row.
+    push_track_metadata_row(
+        &mut rows,
+        "people-credits",
+        "Label",
+        source_value_for_metadata_field("Label", track_context),
+        musicbrainz_value_for_field("Label", musicbrainz),
+    );
     // ADR 0080 Decision 11: the RSS license has its own rows. The
     // MusicBrainz "License" row is a separate row that the MusicBrainz
     // remainder rows add.
@@ -1968,6 +1984,9 @@ pub fn musicbrainz_value_for_field(
         "Track #" => candidate.track_number.clone(),
         "Total tracks" => candidate.total_tracks.map(|count| count.to_string()),
         "Publisher" => None,
+        // ADR 0080 Decision 3: the MusicBrainz label shares the "Label" row
+        // and stays apart from the RSS value.
+        "Label" => join_values(&candidate.labels),
         "Contributors" => candidate
             .track_artist
             .clone()
@@ -1988,6 +2007,7 @@ pub fn musicbrainz_key_for_field(field: &str) -> Option<&'static str> {
         "Artist" => Some("artist-credit.name"),
         "Album/Feed" => Some("release.title"),
         "Track #" => Some("track.number/medium.track-count"),
+        "Label" => Some("label-info"),
         "Contributors" => Some("track.artist-credit.name"),
         "RSS feed website" => Some("release-group.relations.official homepage"),
         "Release date" => Some("release.date"),
@@ -2088,7 +2108,12 @@ pub fn musicbrainz_remainder_rows(
         "release-group.secondary-types",
         join_values(&candidate.release_group_secondary_types),
     );
-    push("Label", "label-info", join_values(&candidate.labels));
+    // ADR 0080 Decision 3: the RSS "Label" row carries the MusicBrainz label.
+    // This row stands alone only for a compare that has no "Label" row. The
+    // metadata page (`result` is `None`) always has the RSS row.
+    if result.is_some_and(|result| result.rows.iter().all(|row| row.field != "Label")) {
+        push("Label", "label-info", join_values(&candidate.labels));
+    }
     push("Media", "medium.format", candidate.format.clone());
     push(
         "Disc #",
@@ -2307,10 +2332,12 @@ fn source_value_for_metadata_field(field: &str, track_context: &TrackContext) ->
         "Track #" => track
             .track_number
             .map(|track_number| track_number.to_string()),
-        "Publisher" | "Label" => drop_placeholder_source_text(track.publisher_text.clone())
-            .or_else(|| {
-                feed.and_then(|feed| drop_placeholder_source_text(feed.publisher_text.clone()))
-            }),
+        "Publisher" => drop_placeholder_source_text(track.publisher_text.clone()).or_else(|| {
+            feed.and_then(|feed| drop_placeholder_source_text(feed.publisher_text.clone()))
+        }),
+        // ADR 0080 Decision 3: `TPUB` holds the labels that both sides of a
+        // link confirm. The `itunes:owner` name gives only `Publisher`.
+        "Label" => join_values(&track_context.confirmed_labels),
         "RSS track guid" => track.track_guid.clone(),
         "RSS feed guid" => track
             .feed_guid
@@ -3227,7 +3254,6 @@ pub fn musicbrainz_equivalent_compare_field(field: &str) -> Option<&'static str>
         "Title" => Some("Title"),
         "Artist" => Some("Artist"),
         "Track #" => Some("Track #"),
-        "Label" => Some("Publisher"),
         "Website" => Some("Website"),
         _ => None,
     }
@@ -4256,6 +4282,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 feed_title: Some("...".into()),
                 title: Some("...\n...\n...".into()),
@@ -4465,6 +4492,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 title: Some("The Platform".into()),
                 track_artist: Some("HeyCitizen".into()),
@@ -4515,6 +4543,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 title: Some("<p>...</p><p>...</p>".into()),
                 track_artist: Some("&hellip;".into()),
@@ -4581,6 +4610,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 pub_date: Some(1_712_275_200),
                 explicit: Some(true),
@@ -4604,6 +4634,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 explicit: Some(false),
                 ..Default::default()
@@ -4679,6 +4710,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 pub_date: Some(1_704_067_200),
                 ..Default::default()
@@ -4705,6 +4737,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track::default(),
             feed: Some(Feed {
                 oldest_item_at: Some(1_640_995_200),
@@ -4737,6 +4770,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 source_release_claims: Some(vec![SourceReleaseClaim {
                     claim_type: Some("last_build_date".into()),
@@ -4845,6 +4879,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track {
                 source_contributors: Some(vec![
                     Contributor {
@@ -5146,6 +5181,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: Track::default(),
             feed: Some(Feed {
                 source_links: Some(vec![SourceEntityLink {

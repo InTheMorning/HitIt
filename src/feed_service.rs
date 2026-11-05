@@ -222,6 +222,10 @@ fn merge_track_context_with_recorder(
 ) -> Result<TrackContext> {
     let local_track = crate::subscribe_service::track_row_to_api_track(track_row);
     let local_feed = track_row_to_feed(track_row);
+    let confirmed_labels = fetched_feed
+        .as_ref()
+        .map(confirmed_labels_from_feed_response)
+        .unwrap_or_default();
     let feed = feed_defaults(
         fetched_feed
             .map(library_feed_from_response)
@@ -236,9 +240,20 @@ fn merge_track_context_with_recorder(
         Some(&feed),
     );
     let mut context = TrackContext::new(track, Some(feed));
+    // ADR 0080 Decision 3: an Index context reads the confirmed labels from
+    // the `publisher` entries of the feed response. It sends no request.
+    context.confirmed_labels = confirmed_labels;
     crate::subscribe_service::enrich_track_context_from_rss_with_recorder(&mut context, recorder)?;
     sanitize_track_context_source_text(&mut context);
     Ok(context)
+}
+
+/// ADR 0080 Decision 3: the titles of the confirmed labels in the `publisher`
+/// entries of a feed response, in the RSS sequence of the named feeds.
+fn confirmed_labels_from_feed_response(feed: &Feed) -> Vec<String> {
+    let feeds =
+        crate::views::named_feeds_from_api(feed.publisher.as_deref(), feed.remote_items.as_deref());
+    crate::view_models::named_feeds::confirmed_label_titles(&feeds)
 }
 
 /// ADR 0075 packet 052: a feed request now asks for every collection,
@@ -641,6 +656,11 @@ pub fn track_row_to_track_context_with_local_identity(
         context.feed.take(),
     )?);
     context.track = hydrate_track_identity(conn, track.id, context.track, &values)?;
+    // ADR 0080 Decision 3: a Library context reads the confirmed labels from
+    // the stored `feed_publisher_relationships` rows. It sends no request.
+    context.confirmed_labels = crate::view_models::named_feeds::confirmed_label_titles(
+        &db::publisher_relationships::named_feeds(conn, track.feed_id)?,
+    );
     sanitize_track_context_source_text(&mut context);
     Ok(context)
 }
@@ -1728,5 +1748,57 @@ mod adr_0075_request_profile_tests {
             )
             .unwrap();
         assert_eq!(route, stored, "the stored route stays the same");
+    }
+
+    /// ADR 0080 Decision 12: an Index context reads the confirmed labels from
+    /// the `publisher` entries of the feed response, in the RSS sequence of
+    /// `remote_items`. It sends no request.
+    #[test]
+    fn adr_0080_label_index_context_reads_the_publisher_entries() {
+        let entry = |guid: &str, title: &str, role: &str, agreement: crate::api::RoleAgreement| {
+            crate::api::PublisherRelationship {
+                direction: Some("music_to_publisher".into()),
+                publisher_feed_guid: Some(guid.into()),
+                remote_feed_guid: Some(guid.into()),
+                music_names_publisher: Some(true),
+                remote_feed_title: Some(title.into()),
+                role: Some(role.into()),
+                role_agreement: Some(agreement),
+                ..crate::api::PublisherRelationship::default()
+            }
+        };
+        let item = |guid: &str, position: i64| crate::api::RemoteItem {
+            position: Some(position),
+            remote_feed_guid: Some(guid.into()),
+            source: Some("podcast_publisher".into()),
+            ..crate::api::RemoteItem::default()
+        };
+        let feed = Feed {
+            publisher: Some(vec![
+                entry(
+                    "b",
+                    "Second Label",
+                    "label",
+                    crate::api::RoleAgreement::Both,
+                ),
+                entry("a", "First Label", "label", crate::api::RoleAgreement::Both),
+                entry(
+                    "c",
+                    "Conflict",
+                    "label",
+                    crate::api::RoleAgreement::Conflict,
+                ),
+                entry("d", "Artist", "artist", crate::api::RoleAgreement::Both),
+            ]),
+            remote_items: Some(vec![item("a", 0), item("b", 1)]),
+            ..Feed::default()
+        };
+        let track_row = crate::db::TrackRow::default();
+        let context =
+            merge_track_context_with_recorder(&track_row, None, Some(feed), None).unwrap();
+        assert_eq!(
+            context.confirmed_labels,
+            vec!["First Label", "Second Label"]
+        );
     }
 }

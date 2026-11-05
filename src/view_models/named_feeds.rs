@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 
 use crate::api::NamedFeedEntry;
-use crate::view_models::role_words::role_contains_artist;
+use crate::view_models::role_words::{role_contains_artist, role_contains_label};
 
 /// The `role_agreement` value that tells that both sides agree on the role
 /// of a named feed link (ADR 0085 Decision 6).
@@ -119,6 +119,34 @@ pub(crate) fn select_artist_feed(feeds: &[NamedFeed]) -> ArtistFeed {
         return ArtistFeed::Unverified(0);
     }
     ArtistFeed::None
+}
+
+/// The titles of the confirmed labels of `feeds`, in their sequence (ADR 0080
+/// Decision 3). A confirmed label is a named feed whose link has
+/// `role_agreement` `both` and a role set that contains `label`. A feed with
+/// no title gives no value, and a repeated title appears once.
+#[must_use]
+pub(crate) fn confirmed_label_titles(feeds: &[NamedFeed]) -> Vec<String> {
+    let mut titles = Vec::<String>::new();
+    for feed in feeds {
+        if feed.role_agreement.as_deref() != Some(ROLE_AGREEMENT_BOTH)
+            || !role_contains_label(feed.role.as_deref())
+        {
+            continue;
+        }
+        let Some(title) = feed
+            .title
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        else {
+            continue;
+        };
+        if !titles.iter().any(|known| known == title) {
+            titles.push(title.to_owned());
+        }
+    }
+    titles
 }
 
 /// The channel image of each named feed, by feed GUID (ADR 0084 Decision
@@ -318,5 +346,30 @@ mod tests {
             assert_eq!(feed.album_rel, None);
             assert_eq!(feed.image_url, None);
         }
+    }
+
+    /// ADR 0080 Decision 12: a confirmed label has the role `label` and
+    /// `role_agreement` `both`. The titles keep the RSS sequence.
+    #[test]
+    fn adr_0080_label_confirmed_label_titles_follow_the_agreement_and_the_role() {
+        let named =
+            |guid: &str, title: Option<&str>, role: Option<&str>, agreement: Option<&str>| {
+                NamedFeed {
+                    title: title.map(str::to_owned),
+                    role: role.map(str::to_owned),
+                    role_agreement: agreement.map(str::to_owned),
+                    ..feed(guid, None)
+                }
+            };
+        let feeds = vec![
+            named("a", Some("First"), Some("label"), Some("both")),
+            named("b", Some("Conflict"), Some("label"), Some("conflict")),
+            named("c", Some("No agreement"), Some("label"), None),
+            named("d", Some("Artist"), Some("artist"), Some("both")),
+            named("e", Some("Record label"), Some("recordLabel"), Some("both")),
+            named("f", None, Some("label"), Some("both")),
+            named("g", Some("Second"), Some("Artist, Label"), Some("both")),
+        ];
+        assert_eq!(confirmed_label_titles(&feeds), vec!["First", "Second"]);
     }
 }

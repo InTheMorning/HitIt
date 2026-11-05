@@ -19,7 +19,7 @@ Active - 2026-09-29. This plan is advisory. It states no rule.
 | [008](../tasks/adr-0080-task-008-rss-readers-agree.md) | The two RSS readers give one track number and one artwork URL | ADR 0075 artwork order, ADR 0080 Decision 9 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
 | [009](../tasks/adr-0080-task-009-funding-link-frame.md) | The funding link in `WPAY` | ADR 0080 Decision 10 | 006 | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
 | [010](../tasks/adr-0080-task-010-license-frames.md) | The RSS license in `WCOP` or `TXXX:LICENSE`, and in `TXXX:MusicIndex License` | ADR 0080 Decision 11 | 006 | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
-| [011](../tasks/adr-0080-task-011-confirmed-label-frame.md) | A confirmed label in `TPUB` | ADR 0080 Decision 12 | None | Ready 2026-11-04 |
+| [011](../tasks/adr-0080-task-011-confirmed-label-frame.md) | A confirmed label in `TPUB` | ADR 0080 Decision 12 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
 | [012](../tasks/adr-0080-task-012-language-frame.md) | The language in `TLAN` | ADR 0080 Decision 13 | None | Ready 2026-11-04 |
 | [013](../tasks/adr-0080-task-013-mp4-date-shares-one-value.md) | An MP4 date settles after one write | ADR 0080 Decision 6 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open. |
 

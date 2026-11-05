@@ -1540,6 +1540,276 @@ mod tests {
         write_id3v24_edits(&dir.path().join("song-1.mp3"), &edits).unwrap();
         assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
     }
+
+    const LABEL_ONE: &str = "Sir Libre Records";
+    const LABEL_TWO: &str = "Second Label";
+
+    /// Store one named feed link for feed 1, as the feed hydration stores it
+    /// (ADR 0080 packet 011). `title` is the `publisher_feed_title`.
+    fn add_named_feed(
+        conn: &Connection,
+        guid: &str,
+        title: Option<&str>,
+        position: i64,
+        role: Option<&str>,
+        agreement: Option<&str>,
+    ) {
+        conn.execute(
+            "INSERT INTO feed_publisher_relationships(feed_id, direction, publisher_feed_guid, \
+             remote_feed_guid, music_names_publisher, named_feed_position, role, role_agreement, \
+             two_way_validated, publisher_feed_title, observed_at) \
+             VALUES(1, 'music_to_publisher', ?1, ?1, 1, ?2, ?3, ?4, 1, ?5, 1)",
+            rusqlite::params![guid, position, role, agreement, title],
+        )
+        .unwrap();
+    }
+
+    /// Give feed 1 two confirmed labels. The Library holds the second feed.
+    fn add_two_labels(conn: &Connection) {
+        add_named_feed(
+            conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        add_named_feed(conn, "label-b", None, 1, Some("label"), Some("both"));
+        conn.execute(
+            "INSERT INTO feeds(id,feed_url,feed_guid,title,is_subscribed) \
+             VALUES(2,'http://fixture.invalid/label.xml','label-b',?1,0)",
+            [LABEL_TWO],
+        )
+        .unwrap();
+    }
+
+    fn tpub_edits(edits: &[Id3v24Edit]) -> Vec<&str> {
+        edits
+            .iter()
+            .filter(|edit| edit.frame_label == "TPUB")
+            .map(|edit| edit.value.as_str())
+            .collect()
+    }
+
+    /// ADR 0080 Decision 12. An MP3, FLAC or MP4 file written with the full
+    /// edits of a track with a confirmed label holds the title in `TPUB`.
+    /// A second write gives equal fields, and the scan lists nothing.
+    fn assert_label_write_settles(conn: &Connection, dir: &Path, path: &Path, expected: &str) {
+        let edits = full_edits(conn);
+        assert_eq!(tpub_edits(&edits), vec![expected]);
+        let before = scan_tag_updates(conn, dir).unwrap();
+        assert!(changed_labels(&before.files[0]).contains(&"TPUB"));
+
+        write_id3v24_edits(path, &edits).unwrap();
+        let first = all_fields(path);
+        write_id3v24_edits(path, &edits).unwrap();
+
+        assert_eq!(all_fields(path), first);
+        assert_eq!(license_values(path, "TPUB"), vec![expected]);
+        assert_eq!(scan_tag_updates(conn, dir).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn adr_0080_label_mp3_write_settles_with_one_label() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        assert_label_write_settles(&conn, dir.path(), &dir.path().join("song-1.mp3"), LABEL_ONE);
+    }
+
+    #[test]
+    fn adr_0080_label_flac_write_settles_with_one_label() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = flac_library(dir.path());
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        assert_label_write_settles(&conn, dir.path(), &path, LABEL_ONE);
+    }
+
+    #[test]
+    fn adr_0080_label_mp4_write_settles_with_one_label() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        assert_label_write_settles(&conn, dir.path(), &path, LABEL_ONE);
+    }
+
+    /// ADR 0080 Decision 12. Two confirmed labels give one joined value, in
+    /// their RSS sequence, as `join_values` joins every multi-value field.
+    /// The write keeps that value, and the scan lists nothing after it.
+    #[test]
+    fn adr_0080_label_two_labels_settle_on_mp3_flac_and_mp4() {
+        let joined = format!("{LABEL_ONE} \u{b7} {LABEL_TWO}");
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        add_two_labels(&conn);
+        assert_label_write_settles(&conn, dir.path(), &dir.path().join("song-1.mp3"), &joined);
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = flac_library(dir.path());
+        add_two_labels(&conn);
+        assert_label_write_settles(&conn, dir.path(), &path, &joined);
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        add_two_labels(&conn);
+        assert_label_write_settles(&conn, dir.path(), &path, &joined);
+    }
+
+    /// ADR 0080 Decision 12. A link with `conflict`, with no agreement, with
+    /// one side, or with only the `artist` role gives no `TPUB` value. An
+    /// `itunes:owner` name gives `TXXX:V4V_PUBLISHER` only.
+    #[test]
+    fn adr_0080_label_unconfirmed_links_and_owner_name_give_no_tpub() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        conn.execute(
+            "UPDATE feeds SET publisher_text = 'Owner Name' WHERE id = 1",
+            [],
+        )
+        .ok();
+        add_named_feed(
+            &conn,
+            "a",
+            Some("Conflict"),
+            0,
+            Some("label"),
+            Some("conflict"),
+        );
+        add_named_feed(&conn, "b", Some("No agreement"), 1, Some("label"), None);
+        add_named_feed(
+            &conn,
+            "c",
+            Some("One side"),
+            2,
+            Some("label"),
+            Some("one_side"),
+        );
+        add_named_feed(
+            &conn,
+            "d",
+            Some("Artist only"),
+            3,
+            Some("artist"),
+            Some("both"),
+        );
+        add_named_feed(
+            &conn,
+            "e",
+            Some("Record label"),
+            4,
+            Some("recordLabel"),
+            Some("both"),
+        );
+        let edits = full_edits(&conn);
+        assert!(tpub_edits(&edits).is_empty(), "{edits:?}");
+
+        // A named feed after the first one takes its title from the Library
+        // feed with its GUID (`db::publisher_relationships::named_feeds`).
+        add_named_feed(&conn, "f", None, 5, Some("artist, label"), Some("both"));
+        conn.execute(
+            "INSERT INTO feeds(id,feed_url,feed_guid,title,is_subscribed) \
+             VALUES(2,'http://fixture.invalid/mixed.xml','f','Mixed roles',0)",
+            [],
+        )
+        .unwrap();
+        let edits = full_edits(&conn);
+        assert_eq!(tpub_edits(&edits), vec!["Mixed roles"]);
+    }
+
+    /// ADR 0080 Decision 6 keeps a value that another tool wrote, and a
+    /// `MusicBrainz` value. OPEN POINT: v4vmm has no separate writer path for
+    /// `TPUB`, and it stores no `MusicBrainz` lookup result. This test records
+    /// what a write does to a `TPUB` value that a different source wrote.
+    /// The orchestrator records the result in the packet report. The
+    /// assertions below state the observed behavior. They are not a ruling.
+    fn tpub_after_write_over_foreign_value(
+        format: &str,
+        conn: &Connection,
+        path: &Path,
+    ) -> (Vec<String>, Vec<String>) {
+        write_id3v24_edits(path, &[license_edit("TPUB", "Other Tool Label")]).unwrap();
+        let before = license_values(path, "TPUB");
+        write_id3v24_edits(path, &full_edits(conn)).unwrap();
+        let after = license_values(path, "TPUB");
+        eprintln!("TPUB {format} before: {before:?}, after: {after:?}");
+        (before, after)
+    }
+
+    #[test]
+    fn adr_0080_label_write_over_a_foreign_tpub_value_on_mp3_flac_and_mp4() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        let mp3 = tpub_after_write_over_foreign_value("MP3", &conn, &dir.path().join("song-1.mp3"));
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = flac_library(dir.path());
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        let flac = tpub_after_write_over_foreign_value("FLAC", &conn, &path);
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        let mp4 = tpub_after_write_over_foreign_value("MP4", &conn, &path);
+
+        for (before, after) in [mp3, flac, mp4] {
+            assert_eq!(before, vec!["Other Tool Label"]);
+            assert!(after.contains(&LABEL_ONE.to_owned()), "{after:?}");
+            // OPEN POINT (ADR 0080 Decision 6): the expected result below is
+            // the observed one. Update it when the operator decides.
+            assert_eq!(after, vec![LABEL_ONE], "{after:?}");
+        }
+    }
 }
 
 /// Fixtures that the tag update tests of other modules share.

@@ -364,6 +364,7 @@ fn subscribe_track_from_search_internal(
     let original_track = track_context.track.clone();
     let track = track_with_feed_defaults(original_track.clone(), feed.as_ref());
     let mut refreshed_context = TrackContext::new(track, feed);
+    refreshed_context.confirmed_labels = track_context.confirmed_labels;
     refreshed_context.rss_observation = track_context.rss_observation;
     enrich_track_context_from_rss(&mut refreshed_context);
     sanitize_track_context_source_text(&mut refreshed_context);
@@ -589,6 +590,20 @@ pub fn compare_downloaded_track_path(
     });
     let track = &track_context.track;
     let mut rows = crate::metadata::compare_track_rows(track, track_context.feed.as_ref(), &tags);
+    // ADR 0080 Decision 3: the "Label" row holds the confirmed labels, and
+    // the row shows the `TPUB` value of the file.
+    let label_tag_values = tags
+        .fields
+        .iter()
+        .filter(|field| field.frame_id.eq_ignore_ascii_case("TPUB"))
+        .map(|field| field.value.clone())
+        .collect::<Vec<_>>();
+    crate::metadata::push_compare_row(
+        &mut rows,
+        "Label",
+        crate::metadata::join_values(&track_context.confirmed_labels),
+        crate::metadata::join_values(&label_tag_values),
+    );
     let detected = crate::audio_format::AudioFormat::detect_from_file(path).ok();
     if let Some(detected) = detected {
         crate::metadata::push_compare_row(
