@@ -124,13 +124,12 @@ pub(crate) fn parse_feed_document(body: &[u8]) -> Result<ParsedFeedDocument> {
         Some(desc.to_string())
     };
 
-    // Album image (prefer podcast:image/@href; fall back to itunes channel image; then <image><url>)
-    let mut album_image_href = find_ext_attr(feed.extensions(), "podcast", "image", "href")
-        .or_else(|| {
-            feed.itunes_ext()
-                .and_then(|it| it.image())
-                .map(|s| s.to_string())
-        });
+    // Album image (ADR 0075: artwork podcast:image, then itunes channel image, then <image><url>)
+    let mut album_image_href = first_artwork_podcast_image(feed.extensions()).or_else(|| {
+        feed.itunes_ext()
+            .and_then(|it| it.image())
+            .map(|s| s.to_string())
+    });
     if album_image_href.is_none() {
         if let Some(img) = feed.image() {
             album_image_href = Some(img.url().to_string());
@@ -207,15 +206,18 @@ pub(crate) fn parse_feed_document(body: &[u8]) -> Result<ParsedFeedDocument> {
             album_artist_name: feed_artist.clone().or_else(|| artist_name.clone()),
             artist_name,
             disc_number: None,
-            // Canonical ordering: podcast:episode
-            track_number: find_ext_text(item.extensions(), "podcast", "episode")
-                .and_then(|s| s.trim().parse::<i64>().ok()),
+            // Canonical ordering: podcast:episode, then itunes:episode
+            track_number: pick_track_number::<i64>(
+                find_ext_text(item.extensions(), "podcast", "episode").as_deref(),
+                itunes.and_then(|it| it.episode()),
+            ),
             duration_seconds: itunes_duration_raw
                 .as_deref()
                 .and_then(parse_itunes_duration),
             itunes_duration_raw,
             itunes_explicit: itunes.and_then(|it| it.explicit()).map(|s| s.to_string()),
-            track_image_href: itunes.and_then(|it| it.image()).map(|s| s.to_string()),
+            track_image_href: first_artwork_podcast_image(item.extensions())
+                .or_else(|| itunes.and_then(|it| it.image()).map(|s| s.to_string())),
             track_image_mime: None,
             people_json: collect_people_json(item.extensions()),
             item_value_json: value_block_json(item.extensions(), "podcast", "value"),

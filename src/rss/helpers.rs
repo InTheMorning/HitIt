@@ -15,6 +15,38 @@ pub fn find_ext_attr(exts: &ExtensionMap, ns: &str, name: &str, attr: &str) -> O
     find_ext(exts, ns, name)?.attrs.get(attr).cloned()
 }
 
+/// ADR 0075 amendment of 2026-11-04: a `podcast:image` is artwork when it has
+/// no `purpose`, or when its `purpose` holds the word `artwork`.
+pub fn purpose_marks_artwork(purpose: Option<&str>) -> bool {
+    match purpose.map(str::trim) {
+        None | Some("") => true,
+        Some(purpose) => purpose
+            .split_whitespace()
+            .any(|word| word.eq_ignore_ascii_case("artwork")),
+    }
+}
+
+/// The `href` of the first artwork `podcast:image` of one owner (ADR 0080 packet 008).
+pub fn first_artwork_podcast_image(exts: &ExtensionMap) -> Option<String> {
+    exts.get("podcast")?
+        .get("image")?
+        .iter()
+        .filter(|image| purpose_marks_artwork(image.attrs.get("purpose").map(String::as_str)))
+        .find_map(|image| clean_text(image.attrs.get("href").map(String::as_str)))
+}
+
+/// The track number of one item: `podcast:episode`, then `itunes:episode`
+/// (ADR 0080 packet 008). A value that is not a number gives way to the next one.
+pub fn pick_track_number<T: std::str::FromStr>(
+    podcast_episode: Option<&str>,
+    itunes_episode: Option<&str>,
+) -> Option<T> {
+    [podcast_episode, itunes_episode]
+        .into_iter()
+        .flatten()
+        .find_map(|value| value.trim().parse().ok())
+}
+
 pub fn clean_text(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)
