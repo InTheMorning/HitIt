@@ -19,6 +19,26 @@ const MUSICINDEX_SOURCE: &str = "musicindex";
 /// check write.
 const RSS_SOURCE: &str = "rss";
 
+/// The `fact_key` of the RSS license URL (ADR 0080 Decision 11). A fact key
+/// is free text, so the key needs no schema change.
+pub(crate) const LICENSE_URL_FACT: &str = "license_url";
+/// The `fact_key` of the RSS license text (ADR 0080 Decision 11).
+pub(crate) const LICENSE_TEXT_FACT: &str = "license_text";
+
+/// The `rss` license facts of one owner: the `url` of its `podcast:license`
+/// tag, then its text. Neither value passes through the `MusicIndex` rows
+/// (ADR 0075 Decision I).
+pub(crate) fn rss_license_facts(
+    conn: &Connection,
+    owner: LocalMetadataOwner,
+) -> Result<(Option<String>, Option<String>)> {
+    let read = |fact_key: &str| -> Result<Option<String>> {
+        Ok(db::local_metadata_fact(conn, owner, RSS_SOURCE, fact_key)?
+            .and_then(|row| text_value(row.value)))
+    };
+    Ok((read(LICENSE_URL_FACT)?, read(LICENSE_TEXT_FACT)?))
+}
+
 /// The decoded fact rows of one owner, one set for each source that the
 /// stored value projection reads (ADR 0075 packet 020).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

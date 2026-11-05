@@ -34,6 +34,9 @@ Each entry names the step, the decision and the reason.
 - Packet 007, stale credit values: the orchestrator did not expand the packet. A file that the app wrote earlier can keep a `remixer` name in `TIPL` or an `original lyricist` name in `TEXT`. A correction needs a new removal path and a new scan rule, and Decision 6 does not name this value. The phase plan records the finding, and packet 007 V1 names it.
 - Packet 007, classifier order: the agent reported two results outside the Studio list. `mixing` now gives `TIPL`, and `remix artist` now gives `TPE4`. The orchestrator accepted both, because the normalized role already read them so.
 - Packet 013, the observation of 2026-10-16: before the change, the scan of an MP4 file gave `TYER` with no file value. The operator saw `TYER: 2025 (file: 2025-10-19)`, which has a file value. Thus the two files may not be MP4 files, and this packet may not correct them. The final walk asks for their format.
+- Packet 010, row name: the RSS row is "License URL", not "License". A row with the name "License" would share its row ID with the MusicBrainz row, and it would change the value of that row.
+- Packet 010, a MusicBrainz `WCOP` write: it now uses the same resolver as RSS. A MusicBrainz `WCOP` over a different file value moves the two URLs into `TXXX:LICENSE`. Before, it replaced the file value. Decision 6 requires this result.
+- Packet 010, the guard `adr_0075_projection_views_combine_no_fact_and_column` forbids a fact read in `src/rss/check_apply.rs`. The agent removed its read and did not change the guard. The check thus writes the two license facts at each pass, with equal values.
 
 ## Steps
 
@@ -44,6 +47,7 @@ Each entry names the packet, the result and the commit.
 3. Packet 008: implemented and Green on 2026-11-05, with no stop. Each reader gives an artwork `podcast:image` first for a channel and for an item, and `podcast:episode` then `itunes:episode` for a track number. A value of `podcast:episode` that is not a number gives way to `itunes:episode`. 2603 lib tests and 398 guards pass.
 4. Packet 013: implemented and Green on 2026-11-05, with no stop. The two new tests failed before the change, so the defect is confirmed on an MP4 file. A write stores one date atom, and the scan treats `TDRC` and `TYER` as one value. The agent added the fixture `docs/runbooks/fixtures/conversion.m4a`. 2605 lib tests and 398 guards pass.
 5. Packet 009: implemented and Green on 2026-11-05, with no stop. Each reader and the RSS check store the funding rows of a channel and of an item. The file holds one resolved link in `WPAY`. The writer needed no change, because a test on a real file shows that `add_frame` replaces each earlier `WPAY`. The RSS check records no difference for a funding row, because a check row would show funding on a screen, and the packet forbids that. The next tag scan lists a changed `WPAY`. 2623 lib tests and 398 guards pass.
+6. Packet 010: implemented and Green on 2026-11-05, after one guard failure that the agent corrected. The RSS license is stored as two local facts. Its URL goes into `WCOP`, or with a different URL into `TXXX:LICENSE`, and its text goes into `TXXX:MusicIndex License`. Real-file tests pass on MP3, FLAC and MP4. Schema version 21 stays. 2642 lib tests and 398 guards pass.
 
 ## Final Walk
 

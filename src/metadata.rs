@@ -2,7 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use crate::api::*;
-use crate::audio_tags::{id3v24_edit_label_is_writable, AudioTags, Id3Field, Id3v24Edit};
+use crate::audio_tags::{
+    id3v24_edit_label_is_writable, split_license_list, AudioTags, Id3Field, Id3v24Edit,
+};
 use crate::musicbrainz::{
     MusicBrainzCandidate, MusicBrainzLookup, MusicBrainzRelationOwner, MusicBrainzUrlRelation,
 };
@@ -210,6 +212,10 @@ pub fn compare_track_rows(
     push_compare_row(&mut rows, "Nostr handle", track_nostr(track), None);
     push_compare_row(&mut rows, "Website", track_website(track), None);
     push_compare_row(&mut rows, "Funding", track_funding(track), None);
+    // ADR 0080 Decision 11: the rows show the license that the writer writes.
+    let (license_url, license_name) = resolved_license(track, feed);
+    push_compare_row(&mut rows, "License URL", license_url, None);
+    push_compare_row(&mut rows, "License name", license_name, None);
     let release_date = track_release_pubdate(track).or_else(|| feed.and_then(feed_release_pubdate));
     push_compare_row(&mut rows, "Release date", release_date.clone(), None);
     push_compare_row(
@@ -380,6 +386,44 @@ pub fn track_funding(track: &Track) -> Option<String> {
 
 pub fn feed_funding(feed: &Feed) -> Option<String> {
     funding_url_from_links(feed.source_links.as_deref())
+}
+
+pub use crate::audio_tags::{LICENSE_LIST_FRAME, LICENSE_NAME_FRAME, LICENSE_URL_FRAME};
+
+/// ADR 0080 Decision 11: a license URL goes into a frame only when it parses
+/// as an `http` or `https` URL. The label never enters the value.
+pub fn valid_license_url(value: &str) -> Option<String> {
+    let url = value.trim();
+    if url.is_empty() {
+        return None;
+    }
+    let parsed = reqwest::Url::parse(url).ok()?;
+    matches!(parsed.scheme(), "http" | "https").then(|| url.to_string())
+}
+
+/// ADR 0080 Decision 11: the RSS license is the `podcast:license` of the
+/// item, otherwise the `podcast:license` of the channel. The pair is the
+/// valid URL and the text. An item that states a license, even with no URL,
+/// does not take the URL of the channel license.
+pub fn resolved_license(track: &Track, feed: Option<&Feed>) -> (Option<String>, Option<String>) {
+    let item_text = drop_placeholder_source_text(track.license_text.clone());
+    let item_url = track
+        .license_url
+        .clone()
+        .filter(|url| !url.trim().is_empty());
+    let (url, text) = if item_url.is_some() || item_text.is_some() {
+        (item_url, item_text)
+    } else {
+        feed.map_or((None, None), |feed| {
+            (
+                feed.license_url
+                    .clone()
+                    .filter(|url| !url.trim().is_empty()),
+                drop_placeholder_source_text(feed.license_text.clone()),
+            )
+        })
+    };
+    (url.as_deref().and_then(valid_license_url), text)
 }
 
 pub fn transcript_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> {
@@ -1265,6 +1309,24 @@ pub fn track_metadata_rows(
         track_funding(track),
         None,
     );
+    // ADR 0080 Decision 11: the RSS license has its own rows. The
+    // MusicBrainz "License" row is a separate row that the MusicBrainz
+    // remainder rows add.
+    let (license_url, license_name) = resolved_license(track, track_context.feed.as_ref());
+    push_track_metadata_row(
+        &mut rows,
+        "url-link-frames",
+        "License URL",
+        license_url,
+        None,
+    );
+    push_track_metadata_row(
+        &mut rows,
+        "url-link-frames",
+        "License name",
+        license_name,
+        None,
+    );
     if let Some(feed) = track_context.feed.as_ref() {
         // ADR 0080 Decision 2: the item page writes to `WOAF` and the
         // channel website writes to `WOAR`. The row shows even when the two
@@ -1506,6 +1568,11 @@ pub fn aligned_compare_rows(
                 musicbrainz_value,
                 id3_compare_value,
             )
+        };
+        let id3_compare_value = if row.field == "License URL" {
+            license_url_compare_value(rss_value.as_deref(), id3_compare_value, result)
+        } else {
+            id3_compare_value
         };
         let id3_status = compare_id3_field_values(
             row.field,
@@ -1842,9 +1909,8 @@ pub fn metadata_field_group_key(field: &str) -> &'static str {
         "Artwork" | "MusicIndex Image" | "Transcript" | "Transcript text" => {
             "lyrics-comments-artwork-user-facing-content"
         }
-        "Website" | "RSS feed website" | "Funding" | "RSS feed funding" | "License" => {
-            "url-link-frames"
-        }
+        "Website" | "RSS feed website" | "Funding" | "RSS feed funding" | "License"
+        | "License URL" | "License name" => "url-link-frames",
         "Nostr handle" | "RSS feed nostr handle" => "identity-linking-private-registration",
         "Value Routes" => "music-disc-acquisition-commerce",
         "Composer" | "Lyricist" | "Lead performer" | "Album artist" | "Conductor" | "Remixer"
@@ -2067,14 +2133,21 @@ fn musicbrainz_license_row(
         .filter(|relation| is_release_license(relation))
         .map(|relation| relation.url.clone())
         .collect::<Vec<_>>();
-    let (frame, value, read_frame_id, needles): (&str, String, &str, &[&str]) =
-        match license_urls.as_slice() {
-            [] => return None,
-            [one] => ("WCOP", one.clone(), "WCOP", &[]),
-            many => ("TXXX:LICENSE", join_values(many)?, "TXXX", &["license"]),
-        };
+    let (frame, value): (&str, String) = match license_urls.as_slice() {
+        [] => return None,
+        [one] => (LICENSE_URL_FRAME, one.clone()),
+        many => (LICENSE_LIST_FRAME, join_values(many)?),
+    };
     let rss_value = musicbrainz_source_value_for_field("License", track_context, result);
-    let id3_value = result.and_then(|result| id3_values_for_frame(result, read_frame_id, needles));
+    // The exact label keeps `TXXX:MusicIndex License`, the frame of the RSS
+    // license name, out of this read (ADR 0080 Decision 11).
+    let id3_value = result.and_then(|result| {
+        if frame == LICENSE_LIST_FRAME {
+            id3_exact_frame_value(result, LICENSE_LIST_FRAME)
+        } else {
+            id3_values_for_frame(result, LICENSE_URL_FRAME, &[])
+        }
+    });
     let id3_status = compare_optional_values(rss_value.as_deref(), id3_value.as_deref());
     let musicbrainz_status = compare_optional_values(rss_value.as_deref(), Some(value.as_str()));
     Some(AlignedCompareRow {
@@ -2249,6 +2322,8 @@ fn source_value_for_metadata_field(field: &str, track_context: &TrackContext) ->
         "RSS feed website" => feed.and_then(feed_website),
         "Funding" => track_funding(track),
         "RSS feed funding" => feed.and_then(feed_funding),
+        "License URL" => resolved_license(track, feed).0,
+        "License name" => resolved_license(track, feed).1,
         "Release date" | "Release year" => musicindex_release_date(track_context),
         "Duration" => track.duration_secs.map(fmt_dur),
         "Explicit" => track.explicit.and_then(explicit_metadata_value),
@@ -2386,6 +2461,10 @@ pub fn id3_value_for_field(field: &str, result: &TagCompareResult) -> Option<Str
         return id3_contributor_values(result);
     }
 
+    if field == "License URL" {
+        return join_values(&id3_license_urls(result));
+    }
+
     let frame_label = id3_frame_hint(field)?;
     let frame_id = id3_frame_base(frame_label);
     if frame_id == "TLEN" {
@@ -2427,6 +2506,10 @@ pub fn id3_compare_value_for_field(field: &str, result: &TagCompareResult) -> Op
 
     if field == "Contributors" {
         return id3_contributor_values(result);
+    }
+
+    if field == "License URL" {
+        return join_values(&id3_license_urls(result));
     }
 
     let frame_label = id3_frame_hint(field)?;
@@ -2850,6 +2933,52 @@ pub fn id3_values_for_frame(
     join_values(&values)
 }
 
+/// ADR 0080 Decision 11: each license URL that the file holds, in the order of
+/// the file. `WCOP` holds one URL for each frame. `TXXX:LICENSE` holds the
+/// URLs of one frame in one value, joined as `join_values` joins them. A
+/// value that two frames both hold appears once.
+pub fn id3_license_urls(result: &TagCompareResult) -> Vec<String> {
+    let mut urls = Vec::<String>::new();
+    for field in &result.id3_fields {
+        let values = if id3_frame_base(&field.frame_id) == LICENSE_URL_FRAME {
+            vec![field.value.trim().to_string()]
+        } else if field.frame_id.eq_ignore_ascii_case(LICENSE_LIST_FRAME) {
+            split_license_list(&field.value)
+        } else {
+            continue;
+        };
+        for value in values {
+            if !value.is_empty() && !urls.contains(&value) {
+                urls.push(value);
+            }
+        }
+    }
+    urls
+}
+
+/// ADR 0080 Decision 11: the compare counts the RSS license URL as equal when
+/// `WCOP` or `TXXX:LICENSE` holds it. Then the file value to compare is the
+/// RSS value. Otherwise it is the joined value of the file.
+fn license_url_compare_value(
+    rss_value: Option<&str>,
+    file_value: Option<String>,
+    result: &TagCompareResult,
+) -> Option<String> {
+    let rss =
+        rss_value.and_then(|value| normalized_field_compare_value("License URL", Some(value)));
+    let held = rss.is_some_and(|rss| {
+        id3_license_urls(result).iter().any(|url| {
+            normalized_field_compare_value("License URL", Some(url)).as_deref()
+                == Some(rss.as_str())
+        })
+    });
+    if held {
+        rss_value.map(str::to_string)
+    } else {
+        file_value
+    }
+}
+
 /// The value of the field whose full label, including its descriptor,
 /// matches `frame_label`. Unlike [`id3_values_for_frame`], this makes no
 /// substring guess: it keeps two owners of the same base frame, such as
@@ -3080,6 +3209,7 @@ pub fn id3_txxx_needles(field: &str) -> &'static [&'static str] {
         "Contributors" => &["musicindex", "contributors"],
         "Value Routes" => &["musicindex", "value", "routes"],
         "MusicIndex Image" => &["musicindex", "image"],
+        "License name" => &["musicindex", "license"],
         _ => &[],
     }
 }
@@ -3179,7 +3309,7 @@ pub fn normalized_field_compare_value(field: &str, value: Option<&str>) -> Optio
     match field {
         "Release date" | "RSS item pubdate" => normalized_date_compare_value(&value),
         "Release year" => release_year_from_value(&value),
-        "Website" | "RSS feed website" | "Funding" | "RSS feed funding" => {
+        "Website" | "RSS feed website" | "Funding" | "RSS feed funding" | "License URL" => {
             normalized_url_compare_value(&value)
         }
         "Contributors" => normalized_contributors_compare_value(&value),
@@ -3919,6 +4049,9 @@ pub fn id3_frame_hint(field: &str) -> Option<&'static str> {
         "RSS feed website" => Some("WOAR"),
         // ADR 0080 Decision 10: both funding rows compare against `WPAY`.
         "Funding" | "RSS feed funding" => Some("WPAY"),
+        // ADR 0080 Decision 11.
+        "License URL" => Some(LICENSE_URL_FRAME),
+        "License name" => Some(LICENSE_NAME_FRAME),
         "Tempo" => Some("TBPM"),
         "Release date" => Some("TDRC"),
         "Release year" => Some("TYER"),
@@ -4009,7 +4142,7 @@ mod tests {
     use crate::api::{
         Contributor, Feed, SourceEntityId, SourceEntityLink, SourceReleaseClaim, Track,
     };
-    use crate::audio_tags::{read_audio_tags, write_id3v24_edits, AudioTags};
+    use crate::audio_tags::{read_audio_tags, write_id3v24_edits, AudioTags, Id3v24Edit};
     use crate::musicbrainz::{
         MusicBrainzCandidate, MusicBrainzRelationOwner, MusicBrainzUrlRelation,
     };
@@ -5109,5 +5242,63 @@ mod tests {
             ComparisonStatus::Different,
             "the License row must report no difference: {license_row:?}"
         );
+    }
+    /// ADR 0080 Decision 11: the compare counts the RSS license URL as equal
+    /// when `WCOP` or `TXXX:LICENSE` holds it, and as different when neither
+    /// holds it. The MusicBrainz "License" row stays apart.
+    #[test]
+    fn adr_0080_license_url_row_is_equal_when_wcop_or_the_list_frame_holds_it() {
+        let mut track_context = track_context_with_channel_website();
+        track_context.track.license_url = Some("https://rss.example/by".into());
+        track_context.track.license_text = Some("cc-by-4.0".into());
+        let status_after_writing = |edits: &[(&str, &str)]| {
+            let temp = tempfile::NamedTempFile::new().expect("temp file");
+            std::fs::write(temp.path(), b"not really an mp3").expect("write file");
+            let edits = edits
+                .iter()
+                .map(|(label, value)| Id3v24Edit {
+                    frame_label: (*label).into(),
+                    value: (*value).into(),
+                })
+                .collect::<Vec<_>>();
+            write_id3v24_edits(temp.path(), &edits).expect("write edits");
+            let tags = read_audio_tags(temp.path()).expect("read tags back");
+            let result = TagCompareResult {
+                path: temp.path().display().to_string(),
+                rows: compare_track_rows(&track_context.track, track_context.feed.as_ref(), &tags),
+                file_image: None,
+                contributors: Vec::new(),
+                value_routes: Vec::new(),
+                id3_fields: tags.fields.clone(),
+                total_tracks: None,
+                format: None,
+            };
+            let rows = aligned_compare_rows(&result, &track_context, None, false, &BTreeSet::new());
+            let status_of = |field: &str| {
+                rows.iter().find_map(|row| match row {
+                    MetadataGridRow::Data(row) if row.field == field => {
+                        Some(row.id3_status.clone())
+                    }
+                    _ => None,
+                })
+            };
+            (status_of("License URL"), status_of("License name"))
+        };
+
+        let (url, name) = status_after_writing(&[
+            ("WCOP", "https://rss.example/by"),
+            ("TXXX:MusicIndex License", "cc-by-4.0"),
+        ]);
+        assert_eq!(url, Some(ComparisonStatus::Match));
+        assert_eq!(name, Some(ComparisonStatus::Match));
+
+        let (url, _) = status_after_writing(&[(
+            "TXXX:LICENSE",
+            "https://other.example/license · https://rss.example/by",
+        )]);
+        assert_eq!(url, Some(ComparisonStatus::Match));
+
+        let (url, _) = status_after_writing(&[("WCOP", "https://other.example/license")]);
+        assert_eq!(url, Some(ComparisonStatus::Different));
     }
 }

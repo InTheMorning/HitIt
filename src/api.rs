@@ -197,6 +197,16 @@ pub struct Feed {
     /// even when the text does not parse (ADR 0075 packet 050).
     #[serde(skip)]
     pub channel_pub_date_text: Option<String>,
+    /// The `url` of the RSS `podcast:license` tag, as the RSS document
+    /// states it. This app's own RSS reader is the only writer. The
+    /// MusicIndex contract declares no such field (ADR 0080 Decision 11).
+    #[serde(skip)]
+    pub license_url: Option<String>,
+    /// The text of the RSS `podcast:license` tag, for example `cc-by-4.0`
+    /// (ADR 0080 Decision 11). The MusicIndex contract declares no such
+    /// field.
+    #[serde(skip)]
+    pub license_text: Option<String>,
     pub publisher_text: Option<String>,
     pub language: Option<String>,
     pub explicit: Option<bool>,
@@ -279,6 +289,16 @@ pub struct Track {
     pub track_number: Option<i32>,
     pub explicit: Option<bool>,
     pub description: Option<String>,
+    /// The `url` of the RSS `podcast:license` tag, as the RSS document
+    /// states it. This app's own RSS reader is the only writer. The
+    /// MusicIndex contract declares no such field (ADR 0080 Decision 11).
+    #[serde(skip)]
+    pub license_url: Option<String>,
+    /// The text of the RSS `podcast:license` tag, for example `cc-by-4.0`
+    /// (ADR 0080 Decision 11). The MusicIndex contract declares no such
+    /// field.
+    #[serde(skip)]
+    pub license_text: Option<String>,
     pub enclosure_url: Option<String>,
     pub enclosure_type: Option<String>,
     pub enclosure_bytes: Option<i64>,
