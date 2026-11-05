@@ -1,6 +1,6 @@
 # ADR 0080 Task 014: The MP3 Reader Keeps Each Frame
 
-Status: Implemented 2026-11-05. Mechanical checks Green. Operator visual check open.
+Status: Implemented 2026-11-05. Mechanical checks Green. Operator visual check V1 passed on 2026-11-05.
 
 ## Goal
 
@@ -16,7 +16,7 @@ The MP3 reader gives each frame of a tag. A write keeps each frame that it does 
 - After a write of 143 files, "To be in Nashville" and "The Wait Is Over" showed `file: no value` for frames that `exiftool` shows in the files.
 - In the two files, each frame with no value comes after one position in the tag. Each earlier frame shows its value.
 - `id3` 1.16.4 calls `read` for a frame header, and takes a short read as the end of the tag. A frame header across the 8 KiB read buffer gives a short read. The crate gives no error.
-- `write_mp3_edits` reads the tag with the same function. A write on such a read removes each later frame.
+- `write_mp3_edits` reads the tag with the same function. A write on such a read removes each frame after that position.
 - `id3` 1.17.1 calls `read_exact`. The FLAC and MP4 paths use `lofty`, and this fault does not apply to them.
 
 ## Required Changes
@@ -51,7 +51,7 @@ Cleanup: none.
 
 ## Known Limit
 
-A write with an earlier version can have removed frames from a file. These frames are not known if no source supplies them. The test cannot find them, and the scan cannot find them.
+A write with an earlier version possibly removed frames from a file. If no source supplies such a frame, the scan cannot find it.
 
 ## Test Commands
 
