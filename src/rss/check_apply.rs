@@ -21,7 +21,7 @@ use serde_json::{json, Value};
 use super::compare::{self, TextRepresentation};
 use super::subscribe::{
     parse_feed_document, rss_feed_link_inputs, upsert_item_columns, ParsedChannel,
-    ParsedFeedDocument, ParsedItem, ParsedNostrId, FUNDING_LINK_TYPE,
+    ParsedFeedDocument, ParsedItem, ParsedLicense, ParsedNostrId, FUNDING_LINK_TYPE,
 };
 use crate::application::queries::stored_values;
 use crate::db::rss_field_holds::{
@@ -348,6 +348,7 @@ impl Apply<'_> {
         )?;
         self.nostr(owner, LocalIdentityOwner::Feed(feed_id), &channel.nostr_ids)?;
         self.funding(LocalIdentityOwner::Feed(feed_id), &channel.funding_links)?;
+        write_license_facts(self.conn, fact_owner, channel.license.as_ref())?;
 
         let routes = channel.podcast_value_json.clone();
         self.element(
@@ -748,6 +749,7 @@ impl Apply<'_> {
             .cloned()
             .collect::<Vec<_>>();
         self.funding(LocalIdentityOwner::Track(track_id), &funding)?;
+        write_license_facts(self.conn, fact_owner, item.license.as_ref())?;
 
         let routes = item.item_value_json.clone();
         self.element(
@@ -1043,6 +1045,11 @@ pub(crate) fn record_subscribed_document(
             subscribed_at_us,
         )?;
     }
+    write_license_facts(
+        &tx,
+        LocalMetadataOwner::Feed(feed_id),
+        document.channel.license.as_ref(),
+    )?;
     // ADR 0076 packet 006: the persist step wrote the `rss` credit list. The
     // `MusicIndex` credit list is a second stored list, so the persons slot
     // holds the RSS value like a fact-backed slot.
@@ -1069,6 +1076,11 @@ pub(crate) fn record_subscribed_document(
             feed_id,
             track_id: track.id,
         };
+        write_license_facts(
+            &tx,
+            LocalMetadataOwner::Track(track.id),
+            item.license.as_ref(),
+        )?;
         for slot in item_fact_slots(item) {
             slot.write_fact(&tx, LocalMetadataOwner::Track(track.id))?;
             holds::write_hold(
@@ -1093,6 +1105,36 @@ pub(crate) fn record_subscribed_document(
         }
     }
     tx.commit().context("commit subscribe hold write")?;
+    Ok(())
+}
+
+/// ADR 0080 Decision 11: store the `podcast:license` of an owner as the two
+/// `rss` facts `license_url` and `license_text`. The facts are not a compared
+/// element, so the check records no difference and shows no license line. The
+/// next tag scan lists a file whose license frames differ. A tag that states
+/// no value deletes the fact. A second write of the same value gives the
+/// same rows.
+pub(crate) fn write_license_facts(
+    conn: &Connection,
+    owner: LocalMetadataOwner,
+    license: Option<&ParsedLicense>,
+) -> Result<()> {
+    let slots = [
+        (
+            crate::local_metadata::LICENSE_URL_FACT,
+            license.and_then(|license| license.url.as_deref()),
+            "podcast:license/@url",
+        ),
+        (
+            crate::local_metadata::LICENSE_TEXT_FACT,
+            license.and_then(|license| license.text.as_deref()),
+            "podcast:license",
+        ),
+    ];
+    for (fact_key, value, extraction_path) in slots {
+        let next = value.map(|value| LocalMetadataValue::Text(value.to_owned()));
+        write_rss_fact(conn, owner, fact_key, next, extraction_path)?;
+    }
     Ok(())
 }
 
@@ -2122,5 +2164,77 @@ mod tests {
         let run_id = run(&conn, T2 + 1);
         apply_checked_document(&conn, run_id, feed_id, &document(&first()), T2 + 1).unwrap();
         assert_eq!(funding(LocalIdentityOwner::Feed(feed_id)), before);
+    }
+    /// ADR 0080 Decision 11: the check stores the license of a document as
+    /// two `rss` facts for the channel and for the item, records no
+    /// difference for them, changes nothing on a second check, and deletes
+    /// the facts when the document drops the tag.
+    #[test]
+    fn adr_0080_license_check_stores_facts_and_records_no_difference() {
+        let (conn, feed_id) = subscribed(&document(&first()));
+        let with_license = String::from_utf8(document(&first()))
+            .unwrap()
+            .replace(
+                "<podcast:guid>feed-guid-1</podcast:guid>",
+                "<podcast:guid>feed-guid-1</podcast:guid><podcast:license url=\"https://creativecommons.org/licenses/by/4.0/\">cc-by-4.0</podcast:license>",
+            )
+            .replace(
+                "<guid isPermaLink=\"false\">item-1</guid>",
+                "<guid isPermaLink=\"false\">item-1</guid><podcast:license>All rights reserved</podcast:license>",
+            )
+            .into_bytes();
+        let track = track_id(&conn, "item-1");
+        let facts = |owner: LocalMetadataOwner| {
+            crate::local_metadata::rss_license_facts(&conn, owner).unwrap()
+        };
+        assert_eq!(facts(LocalMetadataOwner::Feed(feed_id)), (None, None));
+
+        let run_id = run(&conn, T1);
+        apply_checked_document(&conn, run_id, feed_id, &document(&first()), T1).unwrap();
+        let run_id = run(&conn, T1 + 1);
+        let applied =
+            apply_checked_document(&conn, run_id, feed_id, &with_license, T1 + 1).unwrap();
+
+        assert_eq!(applied.differences, 0, "the license is no compared element");
+        let channel = (
+            Some("https://creativecommons.org/licenses/by/4.0/".to_owned()),
+            Some("cc-by-4.0".to_owned()),
+        );
+        let item = (None, Some("All rights reserved".to_owned()));
+        assert_eq!(facts(LocalMetadataOwner::Feed(feed_id)), channel);
+        assert_eq!(facts(LocalMetadataOwner::Track(track)), item);
+
+        let run_id = run(&conn, T2);
+        let second = apply_checked_document(&conn, run_id, feed_id, &with_license, T2).unwrap();
+        assert_eq!(second.differences, 0);
+        assert_eq!(facts(LocalMetadataOwner::Feed(feed_id)), channel);
+        assert_eq!(facts(LocalMetadataOwner::Track(track)), item);
+
+        let run_id = run(&conn, T2 + 1);
+        apply_checked_document(&conn, run_id, feed_id, &document(&first()), T2 + 1).unwrap();
+        assert_eq!(facts(LocalMetadataOwner::Feed(feed_id)), (None, None));
+        assert_eq!(facts(LocalMetadataOwner::Track(track)), (None, None));
+    }
+    /// ADR 0080 Decision 11: the subscribe step stores the license facts of
+    /// the channel and of each item, as the check does.
+    #[test]
+    fn adr_0080_license_subscribe_stores_facts() {
+        let body = String::from_utf8(document(&first()))
+            .unwrap()
+            .replace(
+                "<podcast:guid>feed-guid-1</podcast:guid>",
+                "<podcast:guid>feed-guid-1</podcast:guid><podcast:license>cc-by-4.0</podcast:license>",
+            )
+            .into_bytes();
+        let (conn, feed_id) = subscribed(&body);
+        let parsed = parse_feed_document(&body).unwrap();
+
+        record_subscribed_document(&conn, feed_id, &parsed, T1).unwrap();
+
+        assert_eq!(
+            crate::local_metadata::rss_license_facts(&conn, LocalMetadataOwner::Feed(feed_id))
+                .unwrap(),
+            (None, Some("cc-by-4.0".to_owned()))
+        );
     }
 }

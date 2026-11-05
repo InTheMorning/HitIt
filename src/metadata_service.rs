@@ -8,8 +8,9 @@ use crate::audio_tags::{AudioTags, Id3v24Edit};
 use crate::db;
 use crate::metadata::{
     auto_populated_pending_id3_edits, expand_woar_metadata_rows, feed_funding, feed_nostr,
-    pending_id3_edits_for_apply, summarize_value_routes, track_funding, track_metadata_rows,
-    track_nostr, MetadataColumn, PendingId3Edit, TrackContext, MUSICINDEX_VALUE_ROUTES_FRAME,
+    pending_id3_edits_for_apply, resolved_license, summarize_value_routes, track_funding,
+    track_metadata_rows, track_nostr, MetadataColumn, PendingId3Edit, TrackContext,
+    LICENSE_NAME_FRAME, LICENSE_URL_FRAME, MUSICINDEX_VALUE_ROUTES_FRAME,
 };
 use crate::musicbrainz::LookupMetadata;
 use crate::rss::{validate_nostr_identity, IdentityValidation, NostrIdentity};
@@ -26,6 +27,7 @@ pub fn id3_edits_for_track_context(track_context: &TrackContext) -> Vec<Id3v24Ed
         auto_populated_pending_id3_edits(&rows, &BTreeMap::new(), &BTreeSet::new(), None);
     apply_resolved_nostr_key(&mut pending, track_context);
     apply_resolved_funding_link(&mut pending, track_context);
+    apply_resolved_license(&mut pending, track_context);
     pending_id3_edits_for_apply(&pending)
 }
 
@@ -83,6 +85,45 @@ fn apply_resolved_funding_link(
             source: MetadataColumn::Rss,
         },
     );
+}
+
+/// ADR 0080 Decision 11: the RSS license is the `podcast:license` of the
+/// item, otherwise the one of the channel. Its `http` or `https` URL goes
+/// to `WCOP`, and its text goes to `TXXX:MusicIndex License`. A license with
+/// no valid URL gives no `WCOP` edit. A license with no text gives no text
+/// edit. The writer decides if the URL stays in `WCOP` or joins
+/// `TXXX:LICENSE` (`write_id3v24_edits`).
+fn apply_resolved_license(
+    pending: &mut BTreeMap<String, PendingId3Edit>,
+    track_context: &TrackContext,
+) {
+    pending.retain(|_, edit| edit.frame != LICENSE_URL_FRAME && edit.frame != LICENSE_NAME_FRAME);
+    let (url, name) = resolved_license(&track_context.track, track_context.feed.as_ref());
+    for (key, field, frame, value) in [
+        (
+            "adr-0080:resolved-license-url",
+            "License URL",
+            LICENSE_URL_FRAME,
+            url,
+        ),
+        (
+            "adr-0080:resolved-license-name",
+            "License name",
+            LICENSE_NAME_FRAME,
+            name,
+        ),
+    ] {
+        let Some(value) = value else { continue };
+        pending.insert(
+            key.to_owned(),
+            PendingId3Edit {
+                field: field.to_owned(),
+                frame: frame.to_owned(),
+                value,
+                source: MetadataColumn::Rss,
+            },
+        );
+    }
 }
 
 /// The item's own Nostr key, when it is a valid `npub`. Otherwise the
@@ -760,5 +801,121 @@ mod tests {
             .map(|field| field.value.as_str())
             .collect::<Vec<_>>();
         assert_eq!(values, vec!["https://item.test/tip"]);
+    }
+    fn license_edits(edits: &[Id3v24Edit]) -> Vec<(&str, &str)> {
+        let mut found = edits
+            .iter()
+            .filter(|edit| {
+                edit.frame_label == "WCOP" || edit.frame_label == "TXXX:MusicIndex License"
+            })
+            .map(|edit| (edit.frame_label.as_str(), edit.value.as_str()))
+            .collect::<Vec<_>>();
+        found.sort_by_key(|(label, _)| *label != "WCOP");
+        found
+    }
+
+    /// ADR 0080 Decision 11: the edits of a track with its own license hold
+    /// its URL and its text. Without it, they hold the channel values.
+    #[test]
+    fn adr_0080_license_edit_prefers_the_item_license() {
+        let mut context = track_context_with_own_identity();
+        context.feed.as_mut().expect("feed").license_url = Some("https://channel.test/by".into());
+        context.feed.as_mut().expect("feed").license_text = Some("channel-license".into());
+
+        let channel_only = id3_edits_for_track_context(&context);
+        assert_eq!(
+            license_edits(&channel_only),
+            vec![
+                ("WCOP", "https://channel.test/by"),
+                ("TXXX:MusicIndex License", "channel-license")
+            ]
+        );
+
+        context.track.license_url = Some("https://item.test/by".into());
+        context.track.license_text = Some("item-license".into());
+        let own = id3_edits_for_track_context(&context);
+        assert_eq!(
+            license_edits(&own),
+            vec![
+                ("WCOP", "https://item.test/by"),
+                ("TXXX:MusicIndex License", "item-license")
+            ]
+        );
+    }
+
+    /// ADR 0080 Decision 11: text with no `url` gives only the text frame. A
+    /// `url` that is not `http` or `https` gives no URL frame. An item
+    /// license with no URL does not take the URL of the channel.
+    #[test]
+    fn adr_0080_license_edit_text_alone_and_invalid_url() {
+        let mut context = track_context_without_own_identity();
+        context.track.license_text = Some("All rights reserved".into());
+        context.feed.as_mut().expect("feed").license_url = Some("https://channel.test/by".into());
+
+        let edits = id3_edits_for_track_context(&context);
+        assert_eq!(
+            license_edits(&edits),
+            vec![("TXXX:MusicIndex License", "All rights reserved")]
+        );
+
+        context.track.license_url = Some("my-podcast-license-v1".into());
+        context.track.license_text = Some("my-podcast-license-v1".into());
+        let edits = id3_edits_for_track_context(&context);
+        assert_eq!(
+            license_edits(&edits),
+            vec![("TXXX:MusicIndex License", "my-podcast-license-v1")]
+        );
+
+        context.track.license_url = Some("ftp://item.test/by".into());
+        let edits = id3_edits_for_track_context(&context);
+        assert!(edits.iter().all(|edit| edit.frame_label != "WCOP"));
+    }
+
+    /// ADR 0080 Decision 11: the grid shows the RSS license on its own rows,
+    /// apart from the "License" row of MusicBrainz.
+    #[test]
+    fn adr_0080_license_rows_stay_apart_from_the_musicbrainz_row() {
+        let mut context = track_context_without_own_identity();
+        context.track.license_url = Some("https://item.test/by".into());
+        context.track.license_text = Some("cc-by-4.0".into());
+        let candidate = crate::musicbrainz::MusicBrainzCandidate {
+            recording_id: "recording-id".into(),
+            url_relations: vec![crate::musicbrainz::MusicBrainzUrlRelation {
+                relation_type: "license".into(),
+                url: "https://mb.example/license".into(),
+                owner: crate::musicbrainz::MusicBrainzRelationOwner::Release,
+            }],
+            ..Default::default()
+        };
+
+        let rows = crate::metadata::track_metadata_rows(&context, Some(&candidate), true);
+        let data = |field: &str| {
+            rows.iter()
+                .filter_map(|row| match row {
+                    crate::metadata::MetadataGridRow::Data(row) if row.field == field => Some(row),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+
+        let url = data("License URL");
+        let name = data("License name");
+        let musicbrainz = data("License");
+        assert_eq!(url.len(), 1);
+        assert_eq!(url[0].rss_value.as_deref(), Some("https://item.test/by"));
+        assert_eq!(url[0].id3_frame.as_deref(), Some("WCOP"));
+        assert_eq!(name.len(), 1);
+        assert_eq!(name[0].rss_value.as_deref(), Some("cc-by-4.0"));
+        assert_eq!(
+            name[0].id3_frame.as_deref(),
+            Some("TXXX:MusicIndex License")
+        );
+        assert_eq!(musicbrainz.len(), 1);
+        assert_eq!(musicbrainz[0].rss_value, None);
+        assert_eq!(
+            musicbrainz[0].musicbrainz_value.as_deref(),
+            Some("https://mb.example/license")
+        );
+        assert_ne!(url[0].row_id, musicbrainz[0].row_id);
     }
 }

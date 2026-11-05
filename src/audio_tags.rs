@@ -37,6 +37,124 @@ const DESCRIPTION_FRAME_LABELS: [&str; 2] = [
     "COMM:MusicIndex Album Description",
 ];
 
+/// The frame that holds the URL of the RSS license when the file holds no
+/// different license URL (ADR 0080 Decision 11).
+pub const LICENSE_URL_FRAME: &str = "WCOP";
+
+/// The frame that holds the text of the RSS license, for example
+/// `cc-by-4.0` (ADR 0080 Decision 11).
+pub const LICENSE_NAME_FRAME: &str = "TXXX:MusicIndex License";
+
+/// The frame that holds more than one license URL (ADR 0080 Decisions 8 and
+/// 11). It holds them in one value, joined with the separator below.
+pub const LICENSE_LIST_FRAME: &str = "TXXX:LICENSE";
+
+/// The separator of `join_values` in `src/metadata.rs`. A `TXXX:LICENSE`
+/// value joins its URLs with it.
+const LICENSE_LIST_SEPARATOR: &str = " · ";
+
+/// The result of `resolve_license_edits`.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct LicenseResolution {
+    /// The edits that the writer applies. A `WCOP` edit that the file
+    /// already satisfies is absent. A move gives one `TXXX:LICENSE` edit.
+    edits: Vec<Id3v24Edit>,
+    /// `true` when the write must remove each `WCOP` value of the file,
+    /// because `TXXX:LICENSE` holds it after the write.
+    remove_wcop: bool,
+    /// `true` when `edits` holds a `TXXX:LICENSE` edit, so the writer must
+    /// remove each earlier `TXXX:LICENSE` value first.
+    replaces_list: bool,
+}
+
+fn license_urls_equal(left: &str, right: &str) -> bool {
+    left.trim()
+        .trim_end_matches('/')
+        .eq_ignore_ascii_case(right.trim().trim_end_matches('/'))
+}
+
+/// The URLs of one `TXXX:LICENSE` value. This reverses `join_values`.
+pub(crate) fn split_license_list(value: &str) -> Vec<String> {
+    value
+        .split(LICENSE_LIST_SEPARATOR)
+        .map(|part| part.trim().to_string())
+        .filter(|part| !part.is_empty())
+        .collect()
+}
+
+/// ADR 0080 Decisions 6 and 11: decide where each license URL of `edits`
+/// goes, from the license URLs that the file holds. The writer replaces the
+/// frame of an edit, so a `WCOP` edit would lose a different value of the
+/// file. This function reads the file values first, in order:
+///
+/// - The file holds the URL in `WCOP` or in `TXXX:LICENSE`: no edit.
+/// - The file holds no license URL: the `WCOP` edit stays.
+/// - The file holds a different license URL: one `TXXX:LICENSE` edit holds
+///   each file URL and the new URL, and `WCOP` is removed.
+///
+/// A `TXXX:LICENSE` edit from MusicBrainz keeps the URLs that an earlier
+/// `WCOP` edit of the same write moved. The function applies the edits in
+/// order. The result is the same for a second write.
+fn resolve_license_edits(
+    existing_wcop: &[String],
+    existing_list: &[String],
+    edits: &[Id3v24Edit],
+) -> LicenseResolution {
+    let mut wcop = existing_wcop.to_vec();
+    let mut list = existing_list.to_vec();
+    let mut carried = Vec::<String>::new();
+    let mut resolution = LicenseResolution::default();
+    for edit in edits {
+        if edit.frame_label == LICENSE_URL_FRAME {
+            let url = edit.value.trim();
+            if wcop
+                .iter()
+                .chain(list.iter())
+                .any(|held| license_urls_equal(held, url))
+            {
+                continue;
+            }
+            if wcop.is_empty() && list.is_empty() {
+                wcop.push(url.to_string());
+                resolution.edits.push(edit.clone());
+                continue;
+            }
+            let mut next = std::mem::take(&mut wcop);
+            for held in list.drain(..) {
+                if !next.iter().any(|value| license_urls_equal(value, &held)) {
+                    next.push(held);
+                }
+            }
+            next.push(url.to_string());
+            carried.clone_from(&next);
+            list = next;
+            resolution.remove_wcop = true;
+            resolution.replaces_list = true;
+            resolution
+                .edits
+                .retain(|kept| kept.frame_label != LICENSE_URL_FRAME);
+        } else if edit.frame_label.eq_ignore_ascii_case(LICENSE_LIST_FRAME) {
+            let mut next = split_license_list(&edit.value);
+            for held in &carried {
+                if !next.iter().any(|value| license_urls_equal(value, held)) {
+                    next.push(held.clone());
+                }
+            }
+            list = next;
+            resolution.replaces_list = true;
+        } else {
+            resolution.edits.push(edit.clone());
+        }
+    }
+    if resolution.replaces_list {
+        resolution.edits.push(Id3v24Edit {
+            frame_label: LICENSE_LIST_FRAME.to_string(),
+            value: list.join(LICENSE_LIST_SEPARATOR),
+        });
+    }
+    resolution
+}
+
 /// The plain, lower-cased URL that `edits` is about to write into a `WOAR`
 /// or `WOAF` frame. Empty when this write touches neither frame.
 fn website_urls_in_edits(edits: &[Id3v24Edit]) -> BTreeSet<String> {
@@ -256,6 +374,10 @@ fn lofty_item_label(key: &lofty::prelude::ItemKey) -> String {
     use lofty::prelude::ItemKey;
     use lofty::tag::TagType;
     match key {
+        // ADR 0080 Decision 11: lofty reads the `LICENSE` key of a Vorbis
+        // comment and of an MP4 freeform atom as its own item key. The
+        // compare grid and the scan know it as `TXXX:LICENSE`.
+        ItemKey::License => "TXXX:LICENSE".into(),
         ItemKey::Unknown(name) => TagFieldId::from_storage_key_name(name)
             .map(|field| match field {
                 TagFieldId::Custom(desc) => format!("TXXX:{desc}"),
@@ -354,6 +476,8 @@ fn write_mp3_edits(path: &Path, edits: &[Id3v24Edit]) -> Result<TagWriteResult> 
     let removed_frames = convert_old_v22_frames(&mut tag);
     remove_stale_id3_website_frames(&mut tag, edits);
     remove_stale_id3_description_frames(&mut tag, edits);
+    let license = resolve_id3_license_edits(&mut tag, edits);
+    let edits = license.edits.as_slice();
     let mut applied = 0;
 
     for edit in edits {
@@ -367,6 +491,49 @@ fn write_mp3_edits(path: &Path, edits: &[Id3v24Edit]) -> Result<TagWriteResult> 
         applied,
         removed_frames,
     })
+}
+
+/// ADR 0080 Decision 11, for an MP3 file. The id3 crate replaces each earlier
+/// `WCOP` frame when a new one is added. This function reads the license URLs
+/// of the tag first, resolves the license edits, and removes the frames that
+/// the resolution replaces. It returns the edits to apply.
+fn resolve_id3_license_edits(tag: &mut Tag, edits: &[Id3v24Edit]) -> LicenseResolution {
+    if !edits.iter().any(|edit| {
+        edit.frame_label == LICENSE_URL_FRAME
+            || edit.frame_label.eq_ignore_ascii_case(LICENSE_LIST_FRAME)
+    }) {
+        return LicenseResolution {
+            edits: edits.to_vec(),
+            ..LicenseResolution::default()
+        };
+    }
+    let is_list_frame = |frame: &Frame| match frame.content() {
+        Content::ExtendedText(text) => {
+            frame.id() == "TXXX" && text.description.eq_ignore_ascii_case("LICENSE")
+        }
+        _ => false,
+    };
+    let existing_wcop = tag
+        .frames()
+        .filter(|frame| frame.id() == LICENSE_URL_FRAME)
+        .filter_map(|frame| frame.content().link())
+        .map(|link| link.trim().to_string())
+        .filter(|link| !link.is_empty())
+        .collect::<Vec<_>>();
+    let existing_list = tag
+        .frames()
+        .filter(|frame| is_list_frame(frame))
+        .filter_map(|frame| frame.content().extended_text())
+        .flat_map(|text| split_license_list(&text.value))
+        .collect::<Vec<_>>();
+    let resolution = resolve_license_edits(&existing_wcop, &existing_list, edits);
+    if resolution.remove_wcop {
+        tag.remove(LICENSE_URL_FRAME);
+    }
+    if resolution.replaces_list {
+        tag.frames_vec_mut().retain(|frame| !is_list_frame(frame));
+    }
+    resolution
 }
 
 /// The ID3v2.2 frames from iTunes that the conversion table of the id3
@@ -519,6 +686,10 @@ fn write_lofty_edits(
     let mut tag = tagged
         .remove(tag_type)
         .unwrap_or_else(|| LoftyTag::new(tag_type));
+    // ADR 0080 Decision 11: resolve the license URLs against the file values
+    // before any cleanup pass removes a key.
+    let license = resolve_lofty_license_edits(&mut tag, tag_type, edits);
+    let edits = license.edits.as_slice();
     // Each cleanup pass runs once, before any edit is added. A pass inside
     // the loop would remove the value of an earlier edit that shares its
     // key with a later one (orchestrator review, defect 2).
@@ -611,6 +782,57 @@ fn write_lofty_edits(
         .save_to_path(path, lofty::config::WriteOptions::default())
         .with_context(|| format!("write tags to {}", path.display()))?;
     Ok(applied)
+}
+
+/// ADR 0080 Decision 11, for Vorbis Comments and MP4 freeform atoms. `WCOP`
+/// and `TXXX:LICENSE` use two stored keys here, so the keyed cleanup would
+/// remove a different `WCOP` value of the file. This function reads the
+/// license URLs of both keys, resolves the license edits, and removes the
+/// `WCOP` key when the resolution moves its values. It returns the edits to
+/// apply.
+fn resolve_lofty_license_edits(
+    tag: &mut lofty::tag::Tag,
+    tag_type: lofty::tag::TagType,
+    edits: &[Id3v24Edit],
+) -> LicenseResolution {
+    use lofty::tag::ItemValue;
+
+    let touches_license = edits.iter().any(|edit| {
+        edit.frame_label == LICENSE_URL_FRAME
+            || edit.frame_label.eq_ignore_ascii_case(LICENSE_LIST_FRAME)
+    });
+    let wcop_key = lofty_generic_key(LICENSE_URL_FRAME, tag_type);
+    let list_key = lofty_generic_key(LICENSE_LIST_FRAME, tag_type);
+    let (Some(wcop_key), Some(list_key), true) = (wcop_key, list_key, touches_license) else {
+        return LicenseResolution {
+            edits: edits.to_vec(),
+            ..LicenseResolution::default()
+        };
+    };
+    let values_of = |tag: &lofty::tag::Tag, key: &str| -> Vec<String> {
+        tag.items()
+            .filter(|item| {
+                item.key()
+                    .map_key(tag_type, true)
+                    .is_some_and(|existing| existing.eq_ignore_ascii_case(key))
+            })
+            .filter_map(|item| match item.value() {
+                ItemValue::Text(text) | ItemValue::Locator(text) => Some(text.trim().to_string()),
+                ItemValue::Binary(_) => None,
+            })
+            .filter(|value| !value.is_empty())
+            .collect()
+    };
+    let existing_wcop = values_of(tag, &wcop_key);
+    let existing_list = values_of(tag, &list_key)
+        .iter()
+        .flat_map(|value| split_license_list(value))
+        .collect::<Vec<_>>();
+    let resolution = resolve_license_edits(&existing_wcop, &existing_list, edits);
+    if resolution.remove_wcop {
+        remove_lofty_item_by_key(tag, tag_type, &wcop_key);
+    }
+    resolution
 }
 
 /// ADR 0080 Decision 5: the field that `frame_label` maps to, for the lofty
@@ -1413,7 +1635,8 @@ mod tests {
         add_lofty_compare_aliases, audio_tags_from_id3, id3v24_edit_label_is_writable,
         lofty_field_for_label, lofty_item_label, lofty_mp4_freeform_key,
         normalize_frame_descriptor, read_audio_tags, read_picture_reference, read_text_reference,
-        vorbis_storage_key, write_id3v24_edits, AudioTags, EmbeddedArtwork, Id3Field, Id3v24Edit,
+        resolve_license_edits, vorbis_storage_key, write_id3v24_edits, AudioTags, EmbeddedArtwork,
+        Id3Field, Id3v24Edit, LicenseResolution,
     };
 
     #[test]
@@ -2500,5 +2723,80 @@ mod tests {
             vorbis_storage_key("WPAY", crate::audio_format::AudioFormat::Flac),
             Some("PAYMENTWEBPAGE".into())
         );
+    }
+    fn license_edit(frame_label: &str, value: &str) -> Id3v24Edit {
+        Id3v24Edit {
+            frame_label: frame_label.into(),
+            value: value.into(),
+        }
+    }
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    /// ADR 0080 Decision 11: the four states of a file against the RSS URL.
+    #[test]
+    fn adr_0080_license_resolution_covers_each_file_state() {
+        let rss = license_edit("WCOP", "https://rss.example/by");
+
+        let empty = resolve_license_edits(&[], &[], std::slice::from_ref(&rss));
+        assert_eq!(empty.edits, vec![rss.clone()]);
+        assert!(!empty.remove_wcop && !empty.replaces_list);
+
+        let same = resolve_license_edits(
+            &strings(&["https://rss.example/by/"]),
+            &[],
+            std::slice::from_ref(&rss),
+        );
+        assert_eq!(same, LicenseResolution::default());
+
+        let moved = resolve_license_edits(
+            &strings(&["https://foreign.example/license"]),
+            &[],
+            std::slice::from_ref(&rss),
+        );
+        assert_eq!(
+            moved.edits,
+            vec![license_edit(
+                "TXXX:LICENSE",
+                "https://foreign.example/license · https://rss.example/by"
+            )]
+        );
+        assert!(moved.remove_wcop && moved.replaces_list);
+
+        let listed = resolve_license_edits(
+            &[],
+            &strings(&["https://foreign.example/license", "https://rss.example/by"]),
+            std::slice::from_ref(&rss),
+        );
+        assert_eq!(listed, LicenseResolution::default());
+    }
+
+    /// ADR 0080 Decisions 8 and 11: a `TXXX:LICENSE` edit from MusicBrainz and
+    /// a `WCOP` edit from RSS give the same final edit in either order, and
+    /// the final edit holds each URL once.
+    #[test]
+    fn adr_0080_license_resolution_keeps_both_sources_in_either_order() {
+        let rss = license_edit("WCOP", "https://rss.example/by");
+        let mb = license_edit(
+            "TXXX:LICENSE",
+            "https://mb.example/one · https://mb.example/two",
+        );
+
+        let rss_first = resolve_license_edits(&[], &[], &[rss.clone(), mb.clone()]);
+        assert_eq!(rss_first.edits.len(), 2, "{rss_first:?}");
+        assert_eq!(rss_first.edits[0], rss);
+        assert!(!rss_first.remove_wcop);
+
+        let mb_first = resolve_license_edits(&[], &[], &[mb, rss]);
+        assert_eq!(
+            mb_first.edits,
+            vec![license_edit(
+                "TXXX:LICENSE",
+                "https://mb.example/one · https://mb.example/two · https://rss.example/by"
+            )]
+        );
+        assert!(mb_first.remove_wcop);
     }
 }

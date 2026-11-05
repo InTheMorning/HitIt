@@ -1,6 +1,6 @@
 # ADR 0080 Task 010: The RSS License In A File
 
-Status: Ready - 2026-11-04. It needs packet 006. The operator visual check stays open until a person walks it.
+Status: Implemented 2026-11-05. Mechanical checks Green. Operator visual check open.
 
 ## Goal
 

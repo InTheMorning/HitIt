@@ -52,6 +52,18 @@ pub(crate) struct ParsedChannel {
     /// One `funding` link row for each `podcast:funding` tag of the channel
     /// (ADR 0080 Decision 10).
     pub(crate) funding_links: Vec<db::LocalIdentityLinkInput>,
+    /// The first `podcast:license` tag of the channel (ADR 0080 Decision 11).
+    pub(crate) license: Option<ParsedLicense>,
+}
+
+/// The text and the `url` of one `podcast:license` tag (ADR 0080 Decision
+/// 11). Each value has its white space removed. The `url` is the attribute
+/// text. Whether it is an `http` or `https` URL is decided where the
+/// writer resolves the frame value.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ParsedLicense {
+    pub(crate) url: Option<String>,
+    pub(crate) text: Option<String>,
 }
 
 /// One item of a document. Column values have the form that the `tracks`
@@ -81,6 +93,8 @@ pub(crate) struct ParsedItem {
     pub(crate) contributors: Vec<db::LocalContributorInput>,
     pub(crate) links: Vec<db::LocalIdentityLinkInput>,
     pub(crate) nostr_ids: Vec<ParsedNostrId>,
+    /// The first `podcast:license` tag of the item (ADR 0080 Decision 11).
+    pub(crate) license: Option<ParsedLicense>,
 }
 
 /// One valid Nostr identity of a `podcast:txt purpose="npub"` element.
@@ -172,6 +186,7 @@ pub(crate) fn parse_feed_document(body: &[u8]) -> Result<ParsedFeedDocument> {
             FEED_FUNDING_FIRST_POSITION,
             FEED_FUNDING_EXTRACTION_PATH,
         ),
+        license: license_from_extensions(feed.extensions()),
     };
 
     let mut items = Vec::new();
@@ -251,6 +266,7 @@ pub(crate) fn parse_feed_document(body: &[u8]) -> Result<ParsedFeedDocument> {
                 links
             },
             nostr_ids: nostr_ids_from_extensions(item.extensions()),
+            license: license_from_extensions(item.extensions()),
             item_guid,
         });
     }
@@ -857,6 +873,27 @@ fn funding_link_inputs(
     links
 }
 
+/// The first direct `podcast:license` tag of `exts` that states a text or a
+/// `url` (ADR 0080 Decision 11). A tag with neither gives `None`. A later
+/// tag is not read, because a file holds one license text.
+fn license_from_extensions(exts: &ExtensionMap) -> Option<ParsedLicense> {
+    exts.get("podcast")?.get("license")?.iter().find_map(|tag| {
+        let url = tag
+            .attrs
+            .get("url")
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let text = tag
+            .value
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        (url.is_some() || text.is_some()).then_some(ParsedLicense { url, text })
+    })
+}
+
 fn rss_track_link_inputs(
     item_guid: &str,
     item_link: Option<&str>,
@@ -1383,5 +1420,46 @@ mod tests {
             None
         );
         Ok(())
+    }
+    /// ADR 0080 Decision 11: the reader gives the first `podcast:license` tag
+    /// of the channel and of each item, with trimmed text and `url`. A tag
+    /// with neither gives none.
+    #[test]
+    fn adr_0080_license_reader_gives_the_first_tag_of_the_channel_and_item() {
+        let document = r#"<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
+<title>Feed</title>
+<podcast:license url=" https://creativecommons.org/licenses/by/4.0/ "> cc-by-4.0 </podcast:license>
+<podcast:license>Second tag</podcast:license>
+<item><guid>one</guid><podcast:license>All rights reserved</podcast:license></item>
+<item><guid>two</guid><podcast:license url="my-podcast-license-v1"> </podcast:license></item>
+<item><guid>three</guid><podcast:license> </podcast:license></item>
+<item><guid>four</guid></item>
+</channel></rss>"#;
+        let parsed = parse_feed_document(document.as_bytes()).unwrap();
+
+        assert_eq!(
+            parsed.channel.license,
+            Some(ParsedLicense {
+                url: Some("https://creativecommons.org/licenses/by/4.0/".into()),
+                text: Some("cc-by-4.0".into()),
+            })
+        );
+        assert_eq!(
+            parsed.items[0].license,
+            Some(ParsedLicense {
+                url: None,
+                text: Some("All rights reserved".into()),
+            })
+        );
+        assert_eq!(
+            parsed.items[1].license,
+            Some(ParsedLicense {
+                url: Some("my-podcast-license-v1".into()),
+                text: None,
+            })
+        );
+        assert_eq!(parsed.items[2].license, None);
+        assert_eq!(parsed.items[3].license, None);
     }
 }

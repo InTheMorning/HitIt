@@ -662,6 +662,9 @@ fn hydrate_feed_identity(conn: &Connection, feed_id: i64, feed: Option<Feed>) ->
             .map(source_id_from_local)
             .collect(),
     );
+    // ADR 0080 Decision 11: the RSS license of the channel.
+    (feed.license_url, feed.license_text) =
+        crate::local_metadata::rss_license_facts(conn, db::LocalMetadataOwner::Feed(feed_id))?;
     // ADR 0076 packet 006: the projected credit list of the channel.
     feed.source_contributors = Some(
         stored_values::feed_credits(conn, feed_id)?
@@ -690,6 +693,9 @@ fn hydrate_track_identity(
             .map(source_id_from_local)
             .collect(),
     );
+    // ADR 0080 Decision 11: the RSS license of the item.
+    (track.license_url, track.license_text) =
+        crate::local_metadata::rss_license_facts(conn, db::LocalMetadataOwner::Track(track_id))?;
     // ADR 0076 packet 006: the projected credit list of the item.
     track.source_contributors = Some(
         values
