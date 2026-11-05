@@ -544,7 +544,7 @@ const NAMED_FEED_REMOTE_ITEM_SOURCE: &str = "podcast_publisher";
 /// `music_names_publisher = true` becomes one named feed. The title is
 /// `remote_feed_title`. The position comes from `remote_items`, by the rule
 /// of the hydration. Never reads `publisher_text`.
-fn named_feeds_from_api(
+pub(crate) fn named_feeds_from_api(
     relationships: Option<&[api::PublisherRelationship]>,
     remote_items: Option<&[api::RemoteItem]>,
 ) -> Vec<NamedFeed> {

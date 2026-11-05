@@ -910,11 +910,26 @@ fn is_website_field(field: &crate::tag_field::TagFieldId) -> bool {
 /// own typed `ItemKey` rather than as `ItemKey::Unknown`, so comparing the
 /// mapped key string, instead of the `ItemKey` value, keeps one item for
 /// that key across a repeated write (ADR 0080 Decision 6).
+///
+/// Lofty reads two stored keys as one typed `ItemKey` for some fields. For
+/// example, `ORGANIZATION` and `LABEL` both read as `ItemKey::Label`, and the
+/// mapped key of that item is `LABEL`. Thus the function also removes an item
+/// whose typed key equals the typed key of `key` (ADR 0080 Decision 12: a
+/// repeated `TPUB` write keeps one value in a Vorbis Comment).
 fn remove_lofty_item_by_key(tag: &mut lofty::tag::Tag, tag_type: lofty::tag::TagType, key: &str) {
+    use lofty::tag::ItemKey;
+
+    let typed_key = match ItemKey::from_key(tag_type, &key.to_ascii_uppercase()) {
+        ItemKey::Unknown(_) => None,
+        typed => Some(typed),
+    };
     tag.retain(|item| {
-        item.key()
+        let same_mapped_key = item
+            .key()
             .map_key(tag_type, true)
-            .is_none_or(|existing| !existing.eq_ignore_ascii_case(key))
+            .is_some_and(|existing| existing.eq_ignore_ascii_case(key));
+        let same_typed_key = typed_key.as_ref() == Some(item.key());
+        !(same_mapped_key || same_typed_key)
     });
 }
 

@@ -3789,6 +3789,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
             track: crate::api::Track {
                 title: Some(title.to_owned()),
                 source_contributors: Some(vec![credit(track_credit)]),

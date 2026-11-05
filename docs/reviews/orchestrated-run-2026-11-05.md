@@ -37,6 +37,8 @@ Each entry names the step, the decision and the reason.
 - Packet 010, row name: the RSS row is "License URL", not "License". A row with the name "License" would share its row ID with the MusicBrainz row, and it would change the value of that row.
 - Packet 010, a MusicBrainz `WCOP` write: it now uses the same resolver as RSS. A MusicBrainz `WCOP` over a different file value moves the two URLs into `TXXX:LICENSE`. Before, it replaced the file value. Decision 6 requires this result.
 - Packet 010, the guard `adr_0075_projection_views_combine_no_fact_and_column` forbids a fact read in `src/rss/check_apply.rs`. The agent removed its read and did not change the guard. The check thus writes the two license facts at each pass, with equal values.
+- Packet 011, a foreign `TPUB` value: a write replaces it on MP3, FLAC and MP4. Decision 6 keeps a value from another tool, so this result conflicts with it. A keep rule needs new writer logic, and the app stores no MusicBrainz lookup result. The orchestrator did not decide this. The operator decides it after the run. The test `adr_0080_label_write_over_a_foreign_tpub_value_on_mp3_flac_and_mp4` records the present result.
+- Packet 011, a second label: the stored title belongs to the first named feed only. A later confirmed label has a title only when the Library holds its feed, so a label that the Library does not hold gives no `TPUB` value. The packet forbids a new request.
 
 ## Steps
 
@@ -48,6 +50,7 @@ Each entry names the packet, the result and the commit.
 4. Packet 013: implemented and Green on 2026-11-05, with no stop. The two new tests failed before the change, so the defect is confirmed on an MP4 file. A write stores one date atom, and the scan treats `TDRC` and `TYER` as one value. The agent added the fixture `docs/runbooks/fixtures/conversion.m4a`. 2605 lib tests and 398 guards pass.
 5. Packet 009: implemented and Green on 2026-11-05, with no stop. Each reader and the RSS check store the funding rows of a channel and of an item. The file holds one resolved link in `WPAY`. The writer needed no change, because a test on a real file shows that `add_frame` replaces each earlier `WPAY`. The RSS check records no difference for a funding row, because a check row would show funding on a screen, and the packet forbids that. The next tag scan lists a changed `WPAY`. 2623 lib tests and 398 guards pass.
 6. Packet 010: implemented and Green on 2026-11-05, after one guard failure that the agent corrected. The RSS license is stored as two local facts. Its URL goes into `WCOP`, or with a different URL into `TXXX:LICENSE`, and its text goes into `TXXX:MusicIndex License`. Real-file tests pass on MP3, FLAC and MP4. Schema version 21 stays. 2642 lib tests and 398 guards pass.
+7. Packet 011: implemented and Green on 2026-11-05, with no stop. `TPUB` holds the titles of the confirmed labels, from `feed_publisher_relationships` for a Library context and from the `publisher` entries for an Index context. The owner name stays in `TXXX:V4V_PUBLISHER`. The agent corrected the Vorbis cleanup, because each FLAC write added a `TPUB` value. 2652 lib tests and 398 guards pass.
 
 ## Final Walk
 

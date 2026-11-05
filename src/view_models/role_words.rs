@@ -59,6 +59,18 @@ pub(crate) fn role_contains_artist(role_set: Option<&str>) -> bool {
         .any(|word| word.eq_ignore_ascii_case(ARTIST_ROLE))
 }
 
+/// The role word that confirms a label link (ADR 0080 Decision 3).
+const LABEL_ROLE: &str = "label";
+
+/// Tells if `role_set`'s role words contain `label`, without case (ADR 0080
+/// Decision 3). Another word, such as `recordLabel`, does not match.
+#[must_use]
+pub(crate) fn role_contains_label(role_set: Option<&str>) -> bool {
+    role_words(role_set)
+        .iter()
+        .any(|word| word.eq_ignore_ascii_case(LABEL_ROLE))
+}
+
 /// Joins `words`: "label", "label and producer", "distributor, label and
 /// producer".
 #[must_use]

@@ -253,6 +253,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
         }
     }
 
@@ -296,6 +297,7 @@ mod tests {
             rss_observation: None,
             observation_receipts: Vec::new(),
             provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
         }
     }
 
@@ -917,5 +919,59 @@ mod tests {
             Some("https://mb.example/license")
         );
         assert_ne!(url[0].row_id, musicbrainz[0].row_id);
+    }
+
+    /// ADR 0080 Decision 12: the confirmed labels of the context give one
+    /// `TPUB` edit. The `itunes:owner` name gives `TXXX:V4V_PUBLISHER` only,
+    /// and the RSS value of the "Label" row is empty for it.
+    #[test]
+    fn adr_0080_label_owner_name_gives_no_tpub_and_a_confirmed_label_does() {
+        let mut context = track_context_without_own_identity();
+        context.track.publisher_text = Some("Owner Name".into());
+        let edits = id3_edits_for_track_context(&context);
+        assert!(edits.iter().all(|edit| edit.frame_label != "TPUB"));
+        assert!(edits
+            .iter()
+            .any(|edit| edit.frame_label == "TXXX:V4V_PUBLISHER" && edit.value == "Owner Name"));
+        let rows = crate::metadata::track_metadata_rows(&context, None, false);
+        let label = rows.iter().find_map(|row| match row {
+            crate::metadata::MetadataGridRow::Data(row) if row.field == "Label" => Some(row),
+            _ => None,
+        });
+        assert_eq!(label.expect("Label row").rss_value, None);
+
+        context.confirmed_labels = vec!["First Label".into(), "Second Label".into()];
+        let edits = id3_edits_for_track_context(&context);
+        let tpub = edits
+            .iter()
+            .filter(|edit| edit.frame_label == "TPUB")
+            .map(|edit| edit.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(tpub, vec!["First Label \u{b7} Second Label"]);
+    }
+
+    /// ADR 0080 Decision 12: the MusicBrainz label shares the "Label" row and
+    /// stays apart from the RSS value.
+    #[test]
+    fn adr_0080_label_musicbrainz_label_shares_the_row_and_stays_apart() {
+        let mut context = track_context_without_own_identity();
+        context.confirmed_labels = vec!["Rss Label".into()];
+        let candidate = crate::musicbrainz::MusicBrainzCandidate {
+            recording_id: "recording-id".into(),
+            labels: vec!["Mb Label".into()],
+            ..Default::default()
+        };
+        let rows = crate::metadata::track_metadata_rows(&context, Some(&candidate), true);
+        let labels = rows
+            .iter()
+            .filter_map(|row| match row {
+                crate::metadata::MetadataGridRow::Data(row) if row.field == "Label" => Some(row),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(labels.len(), 1, "{labels:?}");
+        assert_eq!(labels[0].rss_value.as_deref(), Some("Rss Label"));
+        assert_eq!(labels[0].musicbrainz_value.as_deref(), Some("Mb Label"));
+        assert_eq!(labels[0].id3_frame.as_deref(), Some("TPUB"));
     }
 }

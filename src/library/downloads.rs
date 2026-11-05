@@ -602,10 +602,7 @@ impl LibraryApp {
                 if let Some(title) = track.title.as_deref() {
                     this.download_queue.rename(&identity, title);
                 }
-                let context = TrackContext::new(
-                    api_track_from_view(&feed, track),
-                    Some(api_feed_from_view(&feed)),
-                );
+                let context = index_track_context(&feed, track);
                 this.run_index_track_job(
                     identity,
                     Some(feed_guid),
@@ -697,10 +694,7 @@ pub(crate) fn index_track_job(
     feed: &FeedView,
     track: &TrackView,
 ) -> Result<QueuedJob, DownloadRefusal> {
-    let context = TrackContext::new(
-        api_track_from_view(feed, track),
-        Some(api_feed_from_view(feed)),
-    );
+    let context = index_track_context(feed, track);
     QueuedJob::index_track(
         index_feed_guid(feed),
         feed.feed_url.as_deref(),
@@ -737,6 +731,19 @@ pub(crate) fn api_feed_from_view(feed: &FeedView) -> crate::api::Feed {
         payment_routes: Some(feed.payment_routes.clone()),
         ..crate::api::Feed::default()
     }
+}
+
+/// The tag context of an Index track. ADR 0080 Decision 3: the confirmed
+/// labels come from the named feeds that the Index `FeedView` holds. The
+/// context sends no request.
+fn index_track_context(feed: &FeedView, track: &TrackView) -> TrackContext {
+    let mut context = TrackContext::new(
+        api_track_from_view(feed, track),
+        Some(api_feed_from_view(feed)),
+    );
+    context.confirmed_labels =
+        crate::view_models::named_feeds::confirmed_label_titles(&feed.named_feeds);
+    context
 }
 
 /// The `MusicIndex` track of an Index `TrackView` of `feed`, for a
