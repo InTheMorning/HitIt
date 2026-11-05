@@ -12,6 +12,8 @@ Amended 2026-11-04: Decisions 10 to 14 add funding, license, label and language,
 
 Amended 2026-11-05: Decision 10 limits Decision 6 for `WPAY`. The operator decided on 2026-11-05 that an RSS funding link replaces each other `WPAY` value.
 
+Amended 2026-11-05: Decision 12 keeps a `TPUB` value from another source, and Decision 13 limits Decision 6 for `TLAN`. The operator decided this on 2026-11-05.
+
 ## Context
 
 An ID3 frame has no owner field. v4vmm writes values of two owners into one frame:
@@ -159,6 +161,7 @@ The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` hol
 - The `itunes:owner` name is not a label. It stays in `TXXX:V4V_PUBLISHER`, and the compare no longer shows it as the RSS value of the "Label" row.
 - A link that only one side states gives no `TPUB` value.
 - A MusicBrainz label stays a separate value in the compare (ADR 0075 Decision I).
+- A write keeps each `TPUB` value of the file, and adds each confirmed label that the file does not hold. The frame holds one value, joined with " · ". The file holds no marker for the source of a value. Thus a label that the app wrote earlier also stays when RSS no longer confirms it.
 
 ### 13. The Language Goes Into `TLAN`
 
@@ -167,6 +170,7 @@ The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` hol
 - RSS gives a code such as `en` or `en-us`. The primary subtag selects the code. A two-letter subtag gives its ISO 639-2/T code, for example `deu`. A three-letter subtag stays as it is.
 - ID3v2.4 names ISO 639-2 and no variant. Picard uses ISO 639-3 codes, which agree with the T variant.
 - A value with no known code goes into no frame. The database keeps it.
+- A file holds one language. A write replaces each other `TLAN` value. This limits Decision 6.
 
 ### 14. The Disc Waits For Studio
 
