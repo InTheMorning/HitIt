@@ -23,6 +23,7 @@ Dispatch the packets in this sequence. Each one needs the packets before it.
 | [008](../tasks/archive/adr-0076-task-008-confirmation-list-with-many-items.md) | Each confirmation item keeps its height when the list is taller than its column. The operator found an empty "Update 34 files" popup on 2026-10-03 | ADR 0076 Decision 8 | None | None | Complete 2026-10-07. Operator V1 to V3 passed |
 | [009](../tasks/archive/adr-0076-task-009-download-writes-stored-values.md) | A download writes the stored values after the RSS update, and the RSS check keeps both copies of the channel link equal | ADR 0076 Decision 10 | ADR 0066 task 014 | None | Complete 2026-10-07. Operator V1 and V2 passed |
 | [010](../tasks/archive/adr-0076-task-010-scan-compares-descriptions-as-readable-text.md) | The scan compares description frames by readable text | ADR 0075 description rule, ADR 0076 Decisions 3 and 8 | 009 | None | Complete 2026-10-03. Operator V1 passed |
+| [011](../tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md) | A new RSS reader reads each stored feed one time, with no validators | ADR 0076 Decision 2, amended 2026-11-05 | None | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open. |
 
 Packet 020 keeps its ADR 0075 number. ADR 0076 reduced it to a projection with no source selection.
 

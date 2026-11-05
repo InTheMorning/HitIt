@@ -4212,6 +4212,18 @@ pub(crate) fn migrate_schema(conn: &Connection) -> Result<()> {
     migrate_schema_to(conn, CURRENT_VERSION)
 }
 
+/// Make each insert of one fact key fail, so a test can prove that a
+/// transaction rolls back (ADR 0076 Decision 2).
+#[cfg(test)]
+pub(crate) fn refuse_local_metadata_fact_key(conn: &Connection, fact_key: &str) -> Result<()> {
+    conn.execute_batch(&format!(
+        "CREATE TRIGGER refuse_fact_key BEFORE INSERT ON entity_metadata_facts
+         WHEN NEW.fact_key = '{fact_key}'
+         BEGIN SELECT RAISE(ABORT, 'fact write refused'); END;"
+    ))
+    .context("create fact refusal trigger")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
