@@ -39,6 +39,7 @@ Each entry names the step, the decision and the reason.
 - Packet 010, the guard `adr_0075_projection_views_combine_no_fact_and_column` forbids a fact read in `src/rss/check_apply.rs`. The agent removed its read and did not change the guard. The check thus writes the two license facts at each pass, with equal values.
 - Packet 011, a foreign `TPUB` value: a write replaces it on MP3, FLAC and MP4. Decision 6 keeps a value from another tool, so this result conflicts with it. A keep rule needs new writer logic, and the app stores no MusicBrainz lookup result. The orchestrator did not decide this. The operator decides it after the run. The test `adr_0080_label_write_over_a_foreign_tpub_value_on_mp3_flac_and_mp4` records the present result.
 - Packet 011, a second label: the stored title belongs to the first named feed only. A later confirmed label has a title only when the Library holds its feed, so a label that the Library does not hold gives no `TPUB` value. The packet forbids a new request.
+- Packet 012, a foreign `TLAN` value: a write replaces it on MP3, FLAC and MP4. This is the same open point as `TPUB`. The test `adr_0080_language_write_over_a_foreign_tlan_value_on_mp3_flac_and_mp4` records the present result.
 
 ## Steps
 
@@ -51,6 +52,7 @@ Each entry names the packet, the result and the commit.
 5. Packet 009: implemented and Green on 2026-11-05, with no stop. Each reader and the RSS check store the funding rows of a channel and of an item. The file holds one resolved link in `WPAY`. The writer needed no change, because a test on a real file shows that `add_frame` replaces each earlier `WPAY`. The RSS check records no difference for a funding row, because a check row would show funding on a screen, and the packet forbids that. The next tag scan lists a changed `WPAY`. 2623 lib tests and 398 guards pass.
 6. Packet 010: implemented and Green on 2026-11-05, after one guard failure that the agent corrected. The RSS license is stored as two local facts. Its URL goes into `WCOP`, or with a different URL into `TXXX:LICENSE`, and its text goes into `TXXX:MusicIndex License`. Real-file tests pass on MP3, FLAC and MP4. Schema version 21 stays. 2642 lib tests and 398 guards pass.
 7. Packet 011: implemented and Green on 2026-11-05, with no stop. `TPUB` holds the titles of the confirmed labels, from `feed_publisher_relationships` for a Library context and from the `publisher` entries for an Index context. The owner name stays in `TXXX:V4V_PUBLISHER`. The agent corrected the Vorbis cleanup, because each FLAC write added a `TPUB` value. 2652 lib tests and 398 guards pass.
+8. Packet 012: implemented and Green on 2026-11-05, with no stop. `TLAN` holds a three-letter code, from a table of 183 codes that the agent generated from `/usr/share/iso-codes/json/iso_639-2.json`. A Library track has no stored item language, so a Library write uses the channel code. The Library context reads the channel language from the stored value projection. 2664 lib tests and 398 guards pass.
 
 ## Final Walk
 

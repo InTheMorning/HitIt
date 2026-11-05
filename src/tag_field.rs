@@ -18,6 +18,9 @@ pub enum TagFieldId {
     Composer,
     Genre,
     Publisher,
+    /// The language of the track or of its feed (`TLAN`, ADR 0080
+    /// Decision 13).
+    Language,
     Isrc,
     Comment,
     Lyrics,
@@ -94,6 +97,7 @@ impl TagFieldId {
             "TCOM" => Self::Composer,
             "TCON" => Self::Genre,
             "TPUB" => Self::Publisher,
+            "TLAN" => Self::Language,
             "TSRC" => Self::Isrc,
             "COMM" => Self::Comment,
             "USLT" => Self::Lyrics,
@@ -127,6 +131,7 @@ impl TagFieldId {
             Self::Composer => "COMPOSER".into(),
             Self::Genre => "GENRE".into(),
             Self::Publisher => "ORGANIZATION".into(),
+            Self::Language => "LANGUAGE".into(),
             Self::Isrc => "ISRC".into(),
             Self::Comment => "COMMENT".into(),
             Self::Lyrics => "LYRICS".into(),
@@ -219,6 +224,7 @@ impl TagFieldId {
             "COMPOSER" => Some(Self::Composer),
             "GENRE" => Some(Self::Genre),
             "ORGANIZATION" => Some(Self::Publisher),
+            "LANGUAGE" => Some(Self::Language),
             "ISRC" => Some(Self::Isrc),
             "COMMENT" => Some(Self::Comment),
             "LYRICS" => Some(Self::Lyrics),

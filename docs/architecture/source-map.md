@@ -86,6 +86,7 @@ When you need to look something up, consult this map first to find the right fil
 | MusicBrainz query client | `src/musicbrainz.rs` |
 | Track identity, local file binding | `src/track_identity.rs` |
 | ID3 frame field types | `src/tag_field.rs` |
+| RSS language value to ISO 639-2/T code (ADR 0080 Decision 13) | `src/language_code.rs` |
 | GPUI library view (view code only) | `src/library.rs` |
 | GPUI discover/search view (view code only) | `src/search.rs` |
 | Top-level GPUI window, tab switching | `src/app.rs` |

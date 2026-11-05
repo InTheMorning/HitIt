@@ -392,6 +392,7 @@ fn lofty_item_label(key: &lofty::prelude::ItemKey) -> String {
                 TagFieldId::Composer => "TCOM".into(),
                 TagFieldId::Genre => "TCON".into(),
                 TagFieldId::Publisher => "TPUB".into(),
+                TagFieldId::Language => "TLAN".into(),
                 TagFieldId::Isrc => "TSRC".into(),
                 TagFieldId::Comment => "COMM".into(),
                 TagFieldId::Lyrics => "USLT".into(),
@@ -856,6 +857,9 @@ fn lofty_mp4_freeform_key(frame_label: &str, field: &crate::tag_field::TagFieldI
     match field {
         TagFieldId::Custom(desc) => format!("----:com.apple.iTunes:{desc}"),
         TagFieldId::Url(kind) => format!("----:com.apple.iTunes:{}", kind.to_id3()),
+        // ADR 0080 Decision 13: the language lands under the `LANGUAGE` atom,
+        // the key that the Vorbis Comment uses.
+        TagFieldId::Language => "----:com.apple.iTunes:LANGUAGE".to_owned(),
         _ => format!("----:com.apple.iTunes:{frame_label}"),
     }
 }
@@ -2728,6 +2732,20 @@ mod tests {
 
         let tag = Tag::read_from_path(temp.path()).expect("read written tag");
         assert_eq!(wpay_frame_values(&tag), vec!["https://foreign.example/pay"]);
+    }
+
+    /// ADR 0080 Decision 13: the language goes into the `LANGUAGE` key of a
+    /// Vorbis Comment and into the `LANGUAGE` freeform atom of an MP4 file.
+    #[test]
+    fn adr_0080_language_frame_maps_to_the_language_key() {
+        assert_eq!(
+            vorbis_storage_key("TLAN", crate::audio_format::AudioFormat::Flac),
+            Some("LANGUAGE".into())
+        );
+        assert_eq!(
+            super::lofty_generic_key("TLAN", lofty::tag::TagType::Mp4Ilst).as_deref(),
+            Some("----:com.apple.iTunes:LANGUAGE")
+        );
     }
 
     /// ADR 0080 Decision 10: the funding link goes into the Vorbis key of

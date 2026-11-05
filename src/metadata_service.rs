@@ -974,4 +974,69 @@ mod tests {
         assert_eq!(labels[0].musicbrainz_value.as_deref(), Some("Mb Label"));
         assert_eq!(labels[0].id3_frame.as_deref(), Some("TPUB"));
     }
+
+    fn tlan_values(edits: &[Id3v24Edit]) -> Vec<&str> {
+        edits
+            .iter()
+            .filter(|edit| edit.frame_label == "TLAN")
+            .map(|edit| edit.value.as_str())
+            .collect()
+    }
+
+    /// ADR 0080 Decision 13: the edits hold the item language as a code.
+    /// Without it, they hold the channel language.
+    #[test]
+    fn adr_0080_language_edit_prefers_the_item_and_falls_back_to_the_channel() {
+        let mut context = track_context_with_own_identity();
+        context.feed.as_mut().expect("feed").language = Some("de-AT".into());
+        let edits = id3_edits_for_track_context(&context);
+        assert_eq!(tlan_values(&edits), vec!["deu"]);
+
+        context.track.language = Some("fr".into());
+        let edits = id3_edits_for_track_context(&context);
+        assert_eq!(tlan_values(&edits), vec!["fra"]);
+
+        context.track.language = Some("english".into());
+        let edits = id3_edits_for_track_context(&context);
+        assert_eq!(tlan_values(&edits), vec!["deu"]);
+
+        context.feed.as_mut().expect("feed").language = Some("xx".into());
+        let edits = id3_edits_for_track_context(&context);
+        assert!(tlan_values(&edits).is_empty(), "{edits:?}");
+    }
+
+    /// ADR 0080 Decision 13: a write of the freshly built edits reads back
+    /// unchanged, and a second write gives equal fields with one `TLAN`.
+    #[test]
+    fn adr_0080_language_edit_round_trips_with_one_frame() {
+        let mut context = track_context_with_own_identity();
+        context.feed.as_mut().expect("feed").language = Some("en".into());
+        let edits = vec![edit("TLAN", "eng")];
+        assert_eq!(
+            id3_edits_for_track_context(&context)
+                .into_iter()
+                .filter(|edit| edit.frame_label == "TLAN")
+                .collect::<Vec<_>>(),
+            edits
+        );
+
+        let temp = tempfile::NamedTempFile::new().expect("temp file");
+        std::fs::write(temp.path(), b"not really an mp3").expect("write file");
+        crate::audio_tags::write_id3v24_edits(temp.path(), &edits).expect("first write");
+        let first = crate::audio_tags::read_audio_tags(temp.path())
+            .expect("read")
+            .fields;
+        crate::audio_tags::write_id3v24_edits(temp.path(), &edits).expect("second write");
+        let second = crate::audio_tags::read_audio_tags(temp.path())
+            .expect("read")
+            .fields;
+
+        assert_eq!(first, second);
+        let values = second
+            .iter()
+            .filter(|field| field.frame_id == "TLAN")
+            .map(|field| field.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(values, vec!["eng"]);
+    }
 }

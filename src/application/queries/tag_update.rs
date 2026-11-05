@@ -1810,6 +1810,120 @@ mod tests {
             assert_eq!(after, vec![LABEL_ONE], "{after:?}");
         }
     }
+
+    fn set_feed_language(conn: &Connection, language: &str) {
+        conn.execute("UPDATE feeds SET language = ?1 WHERE id = 1", [language])
+            .unwrap();
+    }
+
+    /// ADR 0080 Decision 13. An MP3, FLAC or MP4 file written with the full
+    /// edits of a track whose feed language is `en-US` holds `eng` in
+    /// `TLAN`. A second write gives equal fields, and the scan lists nothing.
+    fn assert_language_write_settles(conn: &Connection, dir: &Path, path: &Path) {
+        set_feed_language(conn, "en-US");
+        let edits = full_edits(conn);
+        assert_eq!(
+            edits
+                .iter()
+                .filter(|edit| edit.frame_label == "TLAN")
+                .map(|edit| edit.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["eng"]
+        );
+        let before = scan_tag_updates(conn, dir).unwrap();
+        assert!(changed_labels(&before.files[0]).contains(&"TLAN"));
+
+        write_id3v24_edits(path, &edits).unwrap();
+        let first = all_fields(path);
+        write_id3v24_edits(path, &edits).unwrap();
+
+        assert_eq!(all_fields(path), first);
+        assert_eq!(license_values(path, "TLAN"), vec!["eng"]);
+        assert_eq!(scan_tag_updates(conn, dir).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn adr_0080_language_mp3_write_settles_with_one_code() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        assert_language_write_settles(&conn, dir.path(), &dir.path().join("song-1.mp3"));
+    }
+
+    #[test]
+    fn adr_0080_language_flac_write_settles_with_one_code() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = flac_library(dir.path());
+        assert_language_write_settles(&conn, dir.path(), &path);
+    }
+
+    #[test]
+    fn adr_0080_language_mp4_write_settles_with_one_code() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        assert_language_write_settles(&conn, dir.path(), &path);
+    }
+
+    /// ADR 0080 Decision 13. A value with no code gives no `TLAN` edit.
+    #[test]
+    fn adr_0080_language_value_without_a_code_gives_no_tlan() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        for value in ["english", "xx", "  "] {
+            set_feed_language(&conn, value);
+            let edits = full_edits(&conn);
+            assert!(
+                edits.iter().all(|edit| edit.frame_label != "TLAN"),
+                "{value}: {edits:?}"
+            );
+        }
+    }
+
+    /// ADR 0080 Decision 6 keeps a value that another tool wrote. OPEN
+    /// POINT: v4vmm has no separate writer path for `TLAN`. This test records
+    /// what a write does to a `TLAN` value that a different source wrote.
+    /// The orchestrator records the result in the packet report. The
+    /// assertions below state the observed behavior. They are not a ruling.
+    fn tlan_after_write_over_foreign_value(
+        format: &str,
+        conn: &Connection,
+        path: &Path,
+    ) -> (Vec<String>, Vec<String>) {
+        set_feed_language(conn, "en");
+        write_id3v24_edits(path, &[license_edit("TLAN", "fra")]).unwrap();
+        let before = license_values(path, "TLAN");
+        write_id3v24_edits(path, &full_edits(conn)).unwrap();
+        let after = license_values(path, "TLAN");
+        eprintln!("TLAN {format} before: {before:?}, after: {after:?}");
+        (before, after)
+    }
+
+    #[test]
+    fn adr_0080_language_write_over_a_foreign_tlan_value_on_mp3_flac_and_mp4() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        let mp3 = tlan_after_write_over_foreign_value("MP3", &conn, &dir.path().join("song-1.mp3"));
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = flac_library(dir.path());
+        let flac = tlan_after_write_over_foreign_value("FLAC", &conn, &path);
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        let mp4 = tlan_after_write_over_foreign_value("MP4", &conn, &path);
+
+        for (before, after) in [mp3, flac, mp4] {
+            assert_eq!(before, vec!["fra"]);
+            // OPEN POINT (ADR 0080 Decision 6): the expected result below is
+            // the observed one. Update it when the operator decides.
+            assert_eq!(after, vec!["eng"], "{after:?}");
+        }
+    }
 }
 
 /// Fixtures that the tag update tests of other modules share.
