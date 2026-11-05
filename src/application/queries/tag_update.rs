@@ -24,8 +24,8 @@ use rusqlite::Connection;
 use crate::api::PaymentRoute;
 use crate::audio_format::AudioFormat;
 use crate::audio_tags::{
-    label_list_holds, read_audio_tags, sanitize_title_text, split_label_list, split_license_list,
-    vorbis_storage_key, AudioTags, Id3v24Edit, LICENSE_LIST_FRAME, LICENSE_URL_FRAME,
+    read_audio_tags, sanitize_title_text, split_license_list, vorbis_storage_key, AudioTags,
+    Id3v24Edit, LICENSE_LIST_FRAME, LICENSE_URL_FRAME,
 };
 use crate::db;
 use crate::metadata::{
@@ -428,14 +428,6 @@ fn values_match(frame_label: &str, file_value: &str, expected: &str) -> bool {
         // The track and disc numbers compare their own number. A total that
         // only one side has is not a difference.
         "TRCK" | "TPOS" => leading_number(file_value) == leading_number(expected),
-        // ADR 0080 Decisions 6 and 12: `TPUB` can hold a value from another
-        // source beside each confirmed label.
-        "TPUB" => {
-            let held = split_label_list(file_value);
-            split_label_list(expected)
-                .iter()
-                .all(|label| label_list_holds(&held, label))
-        }
         // ADR 0075/0076: a description compares by readable text. HTML
         // formatting and equivalent whitespace alone are not a discrepancy.
         // Each `COMM` frame that the app writes holds a description (the
@@ -1730,55 +1722,6 @@ mod tests {
         assert_label_write_settles(&conn, dir.path(), &path, &joined);
     }
 
-    /// ADR 0080 Decisions 6 and 12. A `TPUB` value from another source stays
-    /// beside the confirmed label. A second write gives equal fields, and the
-    /// scan lists nothing.
-    fn assert_other_label_stays(conn: &Connection, dir: &Path, path: &Path) {
-        add_named_feed(
-            conn,
-            "label-a",
-            Some(LABEL_ONE),
-            0,
-            Some("label"),
-            Some("both"),
-        );
-        let other = Id3v24Edit {
-            frame_label: "TPUB".into(),
-            value: "Other Tool Label".into(),
-        };
-        write_id3v24_edits(path, &[other]).unwrap();
-        let edits = full_edits(conn);
-        assert!(changed_labels(&scan_tag_updates(conn, dir).unwrap().files[0]).contains(&"TPUB"));
-
-        write_id3v24_edits(path, &edits).unwrap();
-        let first = all_fields(path);
-        write_id3v24_edits(path, &edits).unwrap();
-
-        assert_eq!(all_fields(path), first);
-        assert_eq!(
-            license_values(path, "TPUB"),
-            vec![format!("Other Tool Label \u{b7} {LABEL_ONE}")]
-        );
-        assert_eq!(scan_tag_updates(conn, dir).unwrap().count(), 0);
-    }
-
-    #[test]
-    fn adr_0080_label_value_from_another_source_stays_on_mp3_flac_and_mp4() {
-        let dir = tempfile::tempdir().unwrap();
-        let conn = library(dir.path(), &[1]);
-        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
-            .unwrap();
-        assert_other_label_stays(&conn, dir.path(), &dir.path().join("song-1.mp3"));
-
-        let dir = tempfile::tempdir().unwrap();
-        let (conn, path) = flac_library(dir.path());
-        assert_other_label_stays(&conn, dir.path(), &path);
-
-        let dir = tempfile::tempdir().unwrap();
-        let (conn, path) = mp4_library(dir.path());
-        assert_other_label_stays(&conn, dir.path(), &path);
-    }
-
     /// ADR 0080 Decision 12. A link with `conflict`, with no agreement, with
     /// one side, or with only the `artist` role gives no `TPUB` value. An
     /// `itunes:owner` name gives `TXXX:V4V_PUBLISHER` only.
@@ -1840,6 +1783,64 @@ mod tests {
         .unwrap();
         let edits = full_edits(&conn);
         assert_eq!(tpub_edits(&edits), vec!["Mixed roles"]);
+    }
+
+    /// ADR 0080 Decision 12: a confirmed label replaces a `TPUB` value that a
+    /// different source wrote, so the frame does not grow.
+    fn tpub_after_write_over_foreign_value(
+        conn: &Connection,
+        path: &Path,
+    ) -> (Vec<String>, Vec<String>) {
+        write_id3v24_edits(path, &[license_edit("TPUB", "Other Tool Label")]).unwrap();
+        let before = license_values(path, "TPUB");
+        write_id3v24_edits(path, &full_edits(conn)).unwrap();
+        (before, license_values(path, "TPUB"))
+    }
+
+    #[test]
+    fn adr_0080_label_write_over_a_foreign_tpub_value_on_mp3_flac_and_mp4() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        let mp3 = tpub_after_write_over_foreign_value(&conn, &dir.path().join("song-1.mp3"));
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = flac_library(dir.path());
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        let flac = tpub_after_write_over_foreign_value(&conn, &path);
+
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        add_named_feed(
+            &conn,
+            "label-a",
+            Some(LABEL_ONE),
+            0,
+            Some("label"),
+            Some("both"),
+        );
+        let mp4 = tpub_after_write_over_foreign_value(&conn, &path);
+
+        for (before, after) in [mp3, flac, mp4] {
+            assert_eq!(before, vec!["Other Tool Label"]);
+            assert_eq!(after, vec![LABEL_ONE], "{after:?}");
+        }
     }
 
     fn set_feed_language(conn: &Connection, language: &str) {

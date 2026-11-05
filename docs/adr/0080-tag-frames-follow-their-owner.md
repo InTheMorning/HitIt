@@ -12,7 +12,7 @@ Amended 2026-11-04: Decisions 10 to 14 add funding, license, label and language,
 
 Amended 2026-11-05: Decision 10 limits Decision 6 for `WPAY`. The operator decided on 2026-11-05 that an RSS funding link replaces each other `WPAY` value.
 
-Amended 2026-11-05: Decision 12 keeps a `TPUB` value from another source, and Decision 13 limits Decision 6 for `TLAN`. The operator decided this on 2026-11-05.
+Amended 2026-11-05: Decisions 12 and 13 limit Decision 6 for `TPUB` and `TLAN`. A write replaces each other value of these frames, so that a frame does not grow. The operator decided this on 2026-11-05.
 
 ## Context
 
@@ -161,7 +161,7 @@ The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` hol
 - The `itunes:owner` name is not a label. It stays in `TXXX:V4V_PUBLISHER`, and the compare no longer shows it as the RSS value of the "Label" row.
 - A link that only one side states gives no `TPUB` value.
 - A MusicBrainz label stays a separate value in the compare (ADR 0075 Decision I).
-- A write keeps each `TPUB` value of the file, and adds each confirmed label that the file does not hold. The frame holds one value, joined with " · ". The file holds no marker for the source of a value. Thus a label that the app wrote earlier also stays when RSS no longer confirms it.
+- When the album names a confirmed label, a write replaces each other `TPUB` value, also a value from another tool or from MusicBrainz. This limits Decision 6. With no confirmed label, the write does not change `TPUB`.
 
 ### 13. The Language Goes Into `TLAN`
 

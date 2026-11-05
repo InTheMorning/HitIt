@@ -23,7 +23,7 @@ Active - 2026-09-29. This plan is advisory. It states no rule.
 | [012](../tasks/adr-0080-task-012-language-frame.md) | The language in `TLAN` | ADR 0080 Decision 13 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
 | [013](../tasks/adr-0080-task-013-mp4-date-shares-one-value.md) | An MP4 date settles after one write | ADR 0080 Decision 6 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open. |
 | [014](../tasks/adr-0080-task-014-reader-keeps-each-frame.md) | The MP3 reader keeps each frame | ADR 0080 Decision 6 | None | Implemented 2026-11-05. Mechanical checks Green. Operator V1 passed 2026-11-05 |
-| [015](../tasks/adr-0080-task-015-tpub-keeps-other-values.md) | A write keeps a `TPUB` value from another source | ADR 0080 Decisions 6 and 12 | None | Implemented 2026-11-05. Mechanical checks Green. It has no visual check |
+| [015](../tasks/archive/adr-0080-task-015-tpub-replaces-other-values.md) | A write replaces each other `TPUB` or `TLAN` value | ADR 0080 Decisions 12 and 13 | None | Complete 2026-11-05. It has no visual check |
 
 ## Sequence
 
