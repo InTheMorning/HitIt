@@ -148,6 +148,7 @@ Retain removed track artwork as evidence. Expiry cannot restore a removed track 
 Feed-artwork extraction order, accepted on 2026-09-20: prefer `podcast:image`, then iTunes artwork, then the RSS image.
 Report conflicting ties as unresolved and retain their evidence.
 Track-artwork extraction order, accepted separately: prefer `podcast:image`, then iTunes artwork. Report conflicting ties as unresolved.
+Amended 2026-11-04: a `podcast:image` counts as artwork when it has no `purpose`, or when its `purpose` holds the word `artwork`. A `podcast:image` with only other purposes, for example `banner`, `icon` or `social`, is not artwork. The operator can change this refinement. [ADR 0080 packet 008](../tasks/adr-0080-task-008-rss-readers-agree.md) applies the order in each RSS reader.
 
 Legacy track artwork, accepted on 2026-09-20: keep the image for display and report unknown ownership in metadata details.
 The compatibility value does not become a track-owned source fact.

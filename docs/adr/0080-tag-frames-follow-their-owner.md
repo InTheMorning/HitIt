@@ -8,6 +8,10 @@ The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md) registers its packe
 
 Amended 2026-10-04: Decision 9 adds the frame `TXXX:MusicIndex Image`. `musicindex-live-publisher` requested it in the [image tag request](../plans/musicindex-image-tag-request.md). The operator decided its three points on 2026-10-04.
 
+Amended 2026-11-04: Decisions 10 to 14 add funding, license, label and language, and defer the disc. Studio and Stophammer release 0.18.1 supply these values. The operator agreed on 2026-11-04 with the four recommendations of the tag review: the funding link, the two license sources, the confirmed label and the deferred disc. The agent selected these details, and the operator can change them: the frame `TXXX:MusicIndex License` of Decision 11, the language rule of Decision 13.
+
+Amended 2026-11-05: Decision 10 limits Decision 6 for `WPAY`. The operator decided on 2026-11-05 that an RSS funding link replaces each other `WPAY` value.
+
 ## Context
 
 An ID3 frame has no owner field. v4vmm writes values of two owners into one frame:
@@ -126,6 +130,49 @@ This is the same resolution as the embedded picture (`APIC`), and the same item-
 
 The broadcast producers read this frame into the `image` field of the drop file (`src/broadcast/producer.rs`, publisher ADR 0002). The operator decided these points on 2026-10-04.
 
+### 10. The Funding Link Goes Into `WPAY`
+
+The frame `WPAY` holds one URL: the first `podcast:funding` of the RSS item, otherwise the first `podcast:funding` of the RSS channel.
+
+- ID3v2.4 permits one `WPAY` frame, and the Podcast Namespace permits many funding tags. The database keeps each link with its owner and its label. A file holds the resolved link only.
+- The URL follows Decision 8. A file holds no label. A value that is not an `http` or `https` URL goes into no frame.
+- A Vorbis or MP4 file uses the storage key of `UrlKind::Payment`.
+- The frame follows Decisions 3 and 4, and Decision 6 with one limit. When RSS supplies a funding link, the frame holds only that link, and a write removes a value from a different tool. The app cannot identify which values are its own earlier links, and the frame holds one URL. When RSS supplies no funding link, a value from a different tool stays.
+
+### 11. The License Goes Into `WCOP` Or `TXXX:LICENSE`, And Its Name Into `TXXX:MusicIndex License`
+
+The RSS license is the `podcast:license` of the item, otherwise the `podcast:license` of the channel.
+
+| Value | Frame |
+|---|---|
+| The `url` of the RSS license, when the file holds no different license URL | `WCOP` |
+| The `url` of the RSS license and a different license URL from MusicBrainz or from a file value | Both in `TXXX:LICENSE`, and no `WCOP` |
+| The text of the RSS license, for example `cc-by-4.0` | `TXXX:MusicIndex License` |
+
+A write moves a `WCOP` value into `TXXX:LICENSE`. It does not remove the value, so Decision 6 stays true. ID3v2.4 permits one `WCOP` frame.
+The compare counts an RSS license URL as equal when `WCOP` or `TXXX:LICENSE` holds it.
+
+### 12. `TPUB` Holds A Confirmed Label
+
+`TPUB` holds the title of each feed that the album names with a confirmed `label` role. A confirmed role has the role `label` and `role_agreement` `both` in `feed_publisher_relationships`.
+
+- The `itunes:owner` name is not a label. It stays in `TXXX:V4V_PUBLISHER`, and the compare no longer shows it as the RSS value of the "Label" row.
+- A link that only one side states gives no `TPUB` value.
+- A MusicBrainz label stays a separate value in the compare (ADR 0075 Decision I).
+
+### 13. The Language Goes Into `TLAN`
+
+`TLAN` holds the language of the item, otherwise the language of the channel, as a three-letter ISO 639-2 code.
+
+- RSS gives a code such as `en` or `en-us`. The primary subtag selects the code. A two-letter subtag gives its ISO 639-2/T code, for example `deu`. A three-letter subtag stays as it is.
+- ID3v2.4 names ISO 639-2 and no variant. Picard uses ISO 639-3 codes, which agree with the T variant.
+- A value with no known code goes into no frame. The database keeps it.
+
+### 14. The Disc Waits For Studio
+
+`podcast:season` goes into no frame. `TPOS` and `TSST` keep only their MusicBrainz values.
+Studio ADR 0080 writes the disc as `podcast:season` and marks it Experimental, because other apps show the value as a podcast season. When Studio removes that mark, a new amendment of this ADR decides the frames.
+
 ## Relationship To Other Decisions
 
 - ADR 0004 and ADR 0008 own the tag boundary and the explicit ID3v2.4 write boundary. The writer's frame list in `src/audio_tags.rs` already contains `WOAF` and `WCOP`.
@@ -148,6 +195,11 @@ Mechanical criteria, phrased at the owning layer:
 - An invalid item Nostr key gives the valid channel key. Two invalid keys give no Nostr frame.
 - Each URL frame value parses as a URL, with no label text. A MusicBrainz "download for free" relation gives no frame.
 - The tag edits for a track with its own image hold that URL in `TXXX:MusicIndex Image`. Without it, they hold the channel image URL. A `data:` URL, a relative URL or a URL longer than 2,048 characters gives no frame.
+- The tag edits hold the first item funding URL in `WPAY`. Without it, they hold the first channel funding URL. They hold no label.
+- The tag edits hold the RSS license URL in `WCOP` and the license text in `TXXX:MusicIndex License`. A write that finds a different `WCOP` value holds both URLs in `TXXX:LICENSE`, and no `WCOP`.
+- The tag edits hold a confirmed label feed title in `TPUB`. A link with one side, or an `itunes:owner` name, gives no `TPUB` value.
+- The tag edits hold `eng` in `TLAN` for the RSS values `en` and `en-us`. An unknown value gives no frame.
+- The tag edits hold no `TPOS` value and no `TSST` value from RSS.
 
 Visual criteria, for an operator check after the visual pause ends:
 
@@ -155,6 +207,7 @@ Visual criteria, for an operator check after the visual pause ends:
 - After the update, the next scan shows no difference for that file.
 - A second "Update n file(s)" on the same file adds no frame in an external tag reader.
 - After "Update n file(s)", an external tag reader shows `TXXX:MusicIndex Image` with the track image URL.
+- After "Update n file(s)", an external tag reader shows the funding page, the license, the confirmed label and the language.
 
 ## Alternatives Considered
 
@@ -166,6 +219,10 @@ Visual criteria, for an operator check after the visual pause ends:
 - `WXXX` frames with the MusicBrainz relation type as the description. Rejected: ID3 permits one `WXXX` frame for each description, players seldom show it, and Picard does not use it.
 - The label form `<type> (<target>, <direction>): <url>` for MusicBrainz values only. Rejected: a player cannot open the value, and one frame then holds two formats.
 - MusicBrainz values replace RSS values in a frame. Rejected: ADR 0075 Decision I keeps the two sources apart, and no source wins.
+- Each funding link in a `WXXX` frame. Rejected: Decision 8 permits no `WXXX` frame, and players seldom show it.
+- The license text in `USER`, as `id3v24_musicbrainz_rss_mapping.html` suggests. Rejected: the `id3` content types have no terms-of-use form, and the writer has no path for a frame with raw bytes. A Vorbis or MP4 file has no such frame either.
+- The license text in `TCOP`. Rejected: ID3v2.4 requires a year at the start of that value, and the mapping document assigns `TCOP` to the RSS `<copyright>` element.
+- `podcast:season` in `TPOS` now. Rejected by the operator on 2026-11-04: a podcast season then looks like a disc number.
 
 ## Consequences
 
@@ -175,3 +232,6 @@ Visual criteria, for an operator check after the visual pause ends:
 - Each existing file with the earlier mapping needs one confirmed rewrite.
 - MusicBrainz relation types other than official homepage and license go into no file. They show only in an open lookup result.
 - A file can hold two `WOAR` values: the RSS channel website and the MusicBrainz official homepage.
+- A file loses each funding link after the first. The database keeps them.
+- Each existing file shows a difference until one confirmed rewrite adds the new frames (Decision 4).
+- These values stay out of a file, and no packet changes that: the `Explicit` row, the `<copyright>` element, `itunes:keywords`, and the `npub`, `href` and `group` of a credit.
