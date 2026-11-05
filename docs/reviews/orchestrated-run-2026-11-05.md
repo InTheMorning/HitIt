@@ -92,9 +92,9 @@ The operator ran the scenario `tagpopup` of `~/.claude/scripts/v4vmm-shots.sh` o
 - Packet 012: each line that the orchestrator read shows `TLAN: eng (file: no value)`.
 - Packet 009: `WPAY` lines hold plain URLs with no label text.
 - Packet 011: `TPUB: HeyCitizen` shows on two albums. `feed_publisher_relationships` holds two rows for the HeyCitizen publisher feed, feeds 2 and 3. Each stored row has `label` in `role` and `both` in `role_agreement`, and its `observed_at` is 2026-10-03.
-- Packet 011, result: `TPUB: HeyCitizen` comes from stale rows, so this value is incorrect. On 2026-11-05 the two live feeds hold `rel="artist"`, and the live MusicIndex response gives `role: artist`.
+- Packet 011, correction: the orchestrator first called this value incorrect. On 2026-11-05 the operator stated that HeyCitizen is the artist, the label, the publisher and the hosting. Thus `TPUB: HeyCitizen` is correct. The live feeds state only `rel="artist"`, so the stored rows and the feeds do not agree.
 - The track page reads the live response. Thus "The Platform" shows an empty "Label" row, and this is correct. The scan reads the stored rows.
-- At 2026-11-05 16:45:49 UTC the app report shows a tag update of 143 files, and 1 file not written. The button then shows "Update 3 files". Thus the files of the two albums can hold this incorrect value.
+- At 2026-11-05 16:45:49 UTC the app report shows a tag update of 143 files, and 1 file not written. The button then shows "Update 3 files". Thus the files of the two albums hold this value.
 - The next scan listed "To be in Nashville" and "The Wait Is Over" with `file: no value` for frames that `exiftool` shows in the files. [Packet 014](../tasks/adr-0080-task-014-reader-keeps-each-frame.md) corrects this reader fault. A write with the fault can remove frames. No source holds a frame that it removed, so the count of such frames is not known.
 - `changed_frames` reads only the expected frames. When the stored rows give no label, the scan shows no difference for `TPUB`, and a write does not remove the value.
 - Packet 011 V2 passes on "Stay Awhile": the "Label" row shows no RSS value. V1 stays open.
@@ -122,10 +122,25 @@ The operator started the release binary with `id3` 1.17.1, and opened "Update n 
 - That file shows "In use by the show" and `TLAN: eng (file: no value)`. Thus the app correctly did not write it.
 - Packet 012 V1 passes. `exiftool` shows `eng` in the 143 written files.
 - Packet 009 V1 passes, because the popup listed `WPAY` with plain URLs. The second part of V2 passes: the scan shows no difference for the written files. The `exiftool` part of V2 is open.
-- This scan does not prove `TPUB`. The stored rows give the same stale value, so the scan shows no difference.
+- This scan does not prove `TPUB`, because the file and the stored rows give the same value.
 - Packet 014 has a known limit: a write with `id3` 1.16.4 possibly removed frames that no source supplies. The scan cannot find them.
 - Observation: the popup title is "Update 1 file?", its text says 0 files, and "Write Tags" stays available. The orchestrator did not read what a click does in this condition. No packet owns this.
 - Observation: `push_track_metadata_row` at `src/metadata.rs:1397` gives the full date to the "Release year" row of the track page. The compare row at `src/metadata.rs:1651` uses `release_year_from_value`. The popup line `TYER: 2025` holds a year, so the file value is not affected. This is a display defect, and no packet owns it.
+
+### Results Of The File, License And Album Page Checks - 2026-11-05
+
+- Packet 009 V2 passes on MP3 files. `exiftool` shows `PaymentURL` with a plain URL in 33 files: 15 with `https://phafe.com/mattfinlay`, and 18 with the PayPal URL. No FLAC file shows a payment tag. The orchestrator did not read if a FLAC track has a feed with a funding link.
+- Packet 010 V1 and V2 and ADR 0076 packet 011 V2 stay open. The Library holds 0 license facts, and the two checked feeds hold 0 `podcast:license` lines. These results show no defect. These checks need a feed with `podcast:license`.
+- Album page test: the operator opened the album page. The rows of feeds 2 and 3 stay at `artist, author, host, label, producer`, with `observed_at` on 2026-10-03.
+- Cause, from the code. `hydrate_album_identity_on_view` in `src/library/app_impl.rs:2465` sends no request when an album has a website, a Nostr key, a description and metadata facts. Thus an open of such a page does not refresh its rows, and a restart does not change this. The orchestrator did not read the facts of feed 2, so this cause is not proved on that row.
+- `apply_feed_updates` in `src/feed_service.rs:482` requests `publisher`, and writes no relationship row. It runs only for a feed that MusicIndex reports as changed. The once-per-session pass reads only a feed with no stored row.
+- On 2026-11-05 the live API gives `role: artist` with the same relationship key for the two feeds. Thus one new write corrects each stored row.
+- The orchestrator's earlier statement, that an album page open refreshes the rows, did not give this condition.
+- Role sequence. musicindex ADR 0036 R-ROLE-1 gives the sequence artist, label, hosting, producer, host, author, network, sponsor. ADR 0033 R-WORD-3 item 1 gives the label "Artist" to a feed with the role artist, also when it has other roles. ADR 0011 item 4 permits more than one role on a feed.
+- These rules own the word and the dot. No document in the sister repositories names `TPUB`. v4vmm ADR 0080 Decision 12 and `role_contains_label` accept `label` at each position in the set. Thus a feed with the set artist and label gives a `TPUB` value. The operator decides if `TPUB` follows the sequence.
+- Operator decision, 2026-11-05: HeyCitizen is the artist, the label, the publisher and the hosting. Thus Decision 12 stays, and no file removal is necessary. The publisher feed proves the artist role: its 4 music items and the two album links hold `rel="artist"`.
+- Consequence: RSS is the source, and the live feeds do not state `label`. A new write of the stored rows gives `artist` only, and the "Label" row of the track page stays empty. Before a packet refreshes the rows, the feeds must state each role, on the two sides of each link. The operator owns this change in Studio.
+- Packet 011 V1: the file holds `TPUB` from a confirmed label row, and the operator confirmed the value. The orchestrator counts V1 as passed on HeyCitizen, not on Sir Libre Records.
 
 ### Order
 
