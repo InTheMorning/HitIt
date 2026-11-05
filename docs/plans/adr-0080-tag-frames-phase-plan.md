@@ -63,12 +63,13 @@ The tag review of 2026-11-04 compared Studio at `79fff94`, Stophammer at `61e876
 - An MP4 file has the same defect as packet 003 corrected for Vorbis. The writer stores `TDRC` and `TYER` in two freeform atoms, and the reader gives both values as `TDRC`.
   Thus the scan always reports `TYER` on an MP4 file with a date. The reader label does not name the atom, so a key comparison cannot correct it. Packet 013 owns this defect.
 - Operator observation of 2026-10-16: the "Update 2 files" list showed two files, "Ethereal Realm ( 528hz )" and "Whispers". Each showed one frame: `TYER: 2025 (file: 2025-10-19)` and `TYER: 2025 (file: 2025-10-03)`. The operator wrote no tag.
-  It is not confirmed that the two files are MP4 files, or that a write changes the stored date.
+  On 2026-11-05 the operator confirmed that both files are FLAC files, so this defect did not cause the observation. The test `adr_0080_shared_key_full_date_only_flac_settles_after_one_write` proves that one write settles such a file.
 
 ## Open Finding - 2026-11-05
 
 - Packet 007 moves a credit to its correct frame. A file that the app wrote earlier can hold the same name in the frame of the earlier mapping: `remixer` in `TIPL`, and `original lyricist` in `TEXT`.
   A write replaces a frame only when its edits name that frame. So the earlier value stays when the track has no other credit for that frame. The scan shows no difference for it. ADR 0080 Decision 6 does not list this value as an earlier form, and no packet owns it.
+  On 2026-11-05 the Library held 0 credits with a `remix` or `original lyric` role, so this finding changes no file in that Library.
 
 ## Session Rules
 

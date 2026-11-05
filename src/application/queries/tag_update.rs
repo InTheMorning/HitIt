@@ -1003,6 +1003,48 @@ mod tests {
         assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
     }
 
+    /// A FLAC file that holds only `DATE=<full date>` lists the `TYER` change
+    /// with the full date as the file value. After the write of that scan,
+    /// the file holds both values and the next scan gives no changed frame.
+    #[test]
+    fn adr_0080_shared_key_full_date_only_flac_settles_after_one_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = flac_library(dir.path());
+        let edits = full_edits(&conn);
+        let year = edits
+            .iter()
+            .find(|edit| edit.frame_label == "TYER")
+            .cloned()
+            .unwrap();
+        let date = edits
+            .iter()
+            .find(|edit| edit.frame_label == "TDRC")
+            .cloned()
+            .unwrap();
+        write_id3v24_edits(&path, &edits).unwrap();
+        // A write of the full date alone removes the other `DATE` value. This
+        // gives the state of the recorded "Ethereal Realm ( 528hz )" file.
+        write_id3v24_edits(&path, std::slice::from_ref(&date)).unwrap();
+        assert_eq!(field_values(&path, "TDRC"), vec![date.value.clone()]);
+
+        let scan = scan_tag_updates(&conn, dir.path()).unwrap();
+        assert_eq!(scan.count(), 1);
+        assert_eq!(changed_labels(&scan.files[0]), vec!["TYER"]);
+        let changed = frame(&scan.files[0], "TYER").unwrap();
+        assert_eq!(changed.file_value.as_deref(), Some(date.value.as_str()));
+        let written = scan.files[0].edits();
+        assert!(written.contains(&date), "the write keeps TDRC: {written:?}");
+        assert!(written.contains(&year), "the write holds TYER: {written:?}");
+        write_id3v24_edits(&path, &written).unwrap();
+
+        let mut dates = field_values(&path, "TDRC");
+        dates.sort();
+        let mut expected = vec![date.value, year.value];
+        expected.sort();
+        assert_eq!(dates, expected, "the file must hold both DATE values");
+        assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
+    }
+
     /// R80-3-03: a second write of the R80-3-01 file changes no value and
     /// adds no duplicate `DATE` value.
     #[test]
