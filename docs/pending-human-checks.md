@@ -242,10 +242,10 @@ Open - the packets are implemented, and the mechanical suite is Green. No person
 - Owner: the "Operator Visual Check" section of each packet file. Each file holds its steps and its cleanup.
 - [Packet 007](tasks/adr-0080-task-007-contributor-role-frames.md) V1: a `remixer` credit goes into `TPE4`.
 - [Packet 008](tasks/adr-0080-task-008-rss-readers-agree.md) V1: a feed with a banner `podcast:image` shows its cover.
-- [Packet 009](tasks/adr-0080-task-009-funding-link-frame.md) V1 and V2: the funding link in `WPAY`.
+- [Packet 009](tasks/adr-0080-task-009-funding-link-frame.md) V1 and V2 passed on MP3 files on 2026-11-05. The close of the run removes this line.
 - [Packet 010](tasks/adr-0080-task-010-license-frames.md) V1 and V2: the RSS license in its frames, and on its own compare rows.
-- [Packet 011](tasks/adr-0080-task-011-confirmed-label-frame.md) V1 and V2: a confirmed label in `TPUB`, and no owner name in the "Label" row.
-- [Packet 012](tasks/adr-0080-task-012-language-frame.md) V1: the language code in `TLAN`.
+- [Packet 011](tasks/adr-0080-task-011-confirmed-label-frame.md) V1 and V2 passed on 2026-11-05. The run record owns the results, and the close of the run removes this line.
+- [Packet 012](tasks/adr-0080-task-012-language-frame.md) V1 passed on 2026-11-05. The close of the run removes this line.
 - [Packet 014](tasks/adr-0080-task-014-reader-keeps-each-frame.md) V1 passed on 2026-11-05. The run record owns the result, and the close of the run removes this line.
 - [Packet 013](tasks/adr-0080-task-013-mp4-date-shares-one-value.md) V1: an MP4 file settles after one write. The run record also asks for the format of the two files of the observation of 2026-10-16.
 - [ADR 0076 packet 011](tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md) V1 and V2: the first Check RSS of a feed reads its full document, and its license reaches the "Update n files" list.
