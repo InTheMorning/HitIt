@@ -416,6 +416,8 @@ pub struct SourceEntityLink {
     pub source: Option<String>,
     pub extraction_path: Option<String>,
     pub observed_at: Option<i64>,
+    pub label: Option<String>,
+    pub url_scheme_added: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1433,6 +1435,21 @@ impl std::error::Error for HttpStatusError {}
 
 #[cfg(test)]
 pub(crate) mod tests {
+
+    #[test]
+    fn adr_0080_source_link_decodes_label_and_url_scheme_added_when_present_or_absent() {
+        let funding: SourceEntityLink = serde_json::from_str(
+            r#"{"link_type":"funding","url":"https://example.test/pay","label":"Tip jar","url_scheme_added":true}"#,
+        )
+        .unwrap();
+        assert_eq!(funding.label.as_deref(), Some("Tip jar"));
+        assert_eq!(funding.url_scheme_added, Some(true));
+        let plain: SourceEntityLink =
+            serde_json::from_str(r#"{"link_type":"website","url":"https://example.test"}"#)
+                .unwrap();
+        assert_eq!(plain.label, None);
+        assert_eq!(plain.url_scheme_added, None);
+    }
 
     #[test]
     fn adr_0066_invalid_endpoint_rejects_requests_before_transport() {

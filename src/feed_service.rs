@@ -711,6 +711,8 @@ fn source_link_from_local(row: db::LocalIdentityLinkRow) -> SourceEntityLink {
         url: row.url,
         source: Some(row.source),
         extraction_path: row.extraction_path,
+        label: None,
+        url_scheme_added: None,
         observed_at: row.observed_at,
     }
 }

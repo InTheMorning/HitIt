@@ -20034,7 +20034,7 @@ fn adr_0075_projection_views_combine_no_fact_and_column() {
 //
 // Situational — ADR 0075 section 6. `src/api.rs` must decode only fields
 // that the deployed MusicIndex contract declares. The guard below reads the
-// stored contract copy at `tests/fixtures/musicindex-openapi-0.13.0.json` and
+// stored contract copy at `tests/fixtures/musicindex-openapi-0.18.1.json` and
 // each mapped struct body in `src/api.rs`, and fails when a decoded field is
 // not a declared property. Delete this guard when ADR 0075 is superseded.
 //
@@ -20045,12 +20045,13 @@ fn adr_0075_projection_views_combine_no_fact_and_column() {
 // packet 016 replaced it with the Stophammer 0.12.0 contract on 2026-10-21,
 // for the two name lists and `named_feeds`. ADR 0084 packet 029 replaced it
 // with the Stophammer 0.13.0 contract on 2026-10-21, for the link facts of a
-// search row.
+// search row. ADR 0080 packet 006 replaced it with the Stophammer 0.18.1
+// contract on 2026-11-05, for `label` and `url_scheme_added` of a source link.
 
 /// The stored MusicIndex contract (ADR 0075 section 6). The file name holds
 /// the contract version. A person or an agent replaces this file after each
 /// Stophammer release, in the same change as the decode changes.
-const MUSICINDEX_CONTRACT_FIXTURE: &str = "tests/fixtures/musicindex-openapi-0.13.0.json";
+const MUSICINDEX_CONTRACT_FIXTURE: &str = "tests/fixtures/musicindex-openapi-0.18.1.json";
 
 /// Where a decoded type's declared fields live in the stored contract: a
 /// named schema under `components.schemas`, or the inline response schema
@@ -20095,8 +20096,8 @@ struct ContractTypeMapping {
 /// with named fields, mapped to its contract schema. Built from the
 /// deployed contract version `0.2.0` on 2026-10-01, and extended against
 /// the deployed contract version `0.7.0` on 2026-10-02 (ADR 0082 packet
-/// 001). The map is checked against the deployed contract version `0.13.0`
-/// since 2026-10-21 (ADR 0084 packet 029).
+/// 001). The map is checked against the deployed contract version `0.18.1`
+/// since 2026-11-05 (ADR 0080 packet 006).
 const CONTRACT_TYPE_MAP: &[ContractTypeMapping] = &[
     ContractTypeMapping {
         rust_type: "SearchResponse",
@@ -20480,7 +20481,7 @@ fn undeclared_fields(decoded: &[String], declared: &BTreeSet<String>) -> Vec<Str
 /// 0075 task 051 specifies.
 fn contract_field_violation(rust_type: &str, field: &str, schema_description: &str) -> String {
     format!(
-        "ADR 0075 section 6: api::{rust_type} decodes `{field}`, and MusicIndex contract 0.13.0 \
+        "ADR 0075 section 6: api::{rust_type} decodes `{field}`, and MusicIndex contract 0.18.1 \
 does not declare it in {schema_description}.\n\
 Remove the field, or replace {MUSICINDEX_CONTRACT_FIXTURE} with the contract that declares it."
     )
@@ -20579,12 +20580,12 @@ fn adr_0075_task_051_contract_field_guard_passes_on_present_code() {
 }
 
 /// R16-03 and R29-01: the stored contract copy gives `info.version`
-/// `0.13.0`, the 0.11.0 and 0.12.0 copies are absent, and the type map names
-/// each decoded type of the two name lists (ADR 0084 packets 016 and 029).
+/// `0.18.1`, the 0.11.0, 0.12.0 and 0.13.0 copies are absent, and the type
+/// map names each decoded type of the two name lists (ADR 0084 packets 016 and 029).
 #[test]
-fn adr_0084_scopes_r16_03_contract_fixture_is_0_13_0() {
+fn adr_0084_scopes_r16_03_contract_fixture_is_0_18_1() {
     let contract = load_musicindex_contract();
-    assert_eq!(contract["info"]["version"], "0.13.0");
+    assert_eq!(contract["info"]["version"], "0.18.1");
     let mapped: BTreeSet<&str> = CONTRACT_TYPE_MAP.iter().map(|m| m.rust_type).collect();
     for rust_type in [
         "FeedNamesResponse",
@@ -20601,6 +20602,7 @@ Add its contract schema to the map."
     for old_copy in [
         "tests/fixtures/musicindex-openapi-0.11.0.json",
         "tests/fixtures/musicindex-openapi-0.12.0.json",
+        "tests/fixtures/musicindex-openapi-0.13.0.json",
     ] {
         assert!(
             !manifest_path(old_copy).exists(),

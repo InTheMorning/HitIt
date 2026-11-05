@@ -35,6 +35,8 @@ Each entry names the step, the decision and the reason.
 
 Each entry names the packet, the result and the commit.
 
+1. Packet 006: implemented and Green on 2026-11-05, with no stop. The contract is release 0.18.1, revision `61e8762`. The agent found no removal and no rename. `url_scheme_added` was in the 0.13.0 contract, so 0.18.1 adds only `label` to the source link schema. The agent renamed the contract version test to `adr_0084_scopes_r16_03_contract_fixture_is_0_18_1`. 2590 lib tests and 398 guards pass.
+
 ## Final Walk
 
 Not started.
