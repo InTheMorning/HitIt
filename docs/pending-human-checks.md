@@ -234,3 +234,16 @@ Open - both packets are implemented on 2026-10-25. The visual checks are not wal
 - The open checks:
   - [ADR 0087 packet 009](tasks/adr-0087-task-009-one-error-for-the-latest-text.md) V1 and V2. V1 replaces packet 007 V4. With MusicIndex not reachable, a live run of `haleen` then `haleen d` shows one note for `haleen d` and no retained action for a live run. V2 checks that Enter keeps one retained action with "Edit endpoint".
   - [ADR 0087 packet 010](tasks/adr-0087-task-010-field-list-row-height.md) V1 to V5. V1 walks packet 004 V1 again. V3 walks packet 005 V7 again. Each row keeps its height, the list scrolls to its end, and the scroll bar covers no text.
+
+## 10. ADR 0080 Packets 007 To 013 - Implemented 2026-11-05
+
+Open - the packets are implemented, and the mechanical suite is Green. No person checked these packets. The [run record](reviews/orchestrated-run-2026-11-05.md#final-walk) gives the order and the setup.
+
+- Owner: the "Operator Visual Check" section of each packet file. Each file holds its steps and its cleanup.
+- [Packet 007](tasks/adr-0080-task-007-contributor-role-frames.md) V1: a `remixer` credit goes into `TPE4`.
+- [Packet 008](tasks/adr-0080-task-008-rss-readers-agree.md) V1: a feed with a banner `podcast:image` shows its cover.
+- [Packet 009](tasks/adr-0080-task-009-funding-link-frame.md) V1 and V2: the funding link in `WPAY`.
+- [Packet 010](tasks/adr-0080-task-010-license-frames.md) V1 and V2: the RSS license in its frames, and on its own compare rows.
+- [Packet 011](tasks/adr-0080-task-011-confirmed-label-frame.md) V1 and V2: a confirmed label in `TPUB`, and no owner name in the "Label" row.
+- [Packet 012](tasks/adr-0080-task-012-language-frame.md) V1: the language code in `TLAN`.
+- [Packet 013](tasks/adr-0080-task-013-mp4-date-shares-one-value.md) V1: an MP4 file settles after one write. The run record also asks for the format of the two files of the observation of 2026-10-16.

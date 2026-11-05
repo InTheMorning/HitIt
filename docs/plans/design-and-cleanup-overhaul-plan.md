@@ -202,7 +202,7 @@ Each step needs its packet written first. Each new screen uses the design of ste
 
 7. The download state of the release rows of the feed page and the name page: a count of a partial release, "Queued" and "Downloading" (open finding of ADR 0084 packet 033 D1).
 8. The inspection view of RSS, MusicIndex and file tags (ADR 0083 Decision 8). It includes the "Inspect sources" view of an Index track page and the contributors panel of an Index release page (open findings of the ADR 0084 phase plan).
-9. The tag frames of the review of 2026-11-04: [ADR 0080 packets 006 to 013](adr-0080-tag-frames-phase-plan.md), which include the `TYER` difference of an MP4 file, and [ADR 0088](../adr/0088-a-feed-move-follows-the-rss-tag.md), which waits for the operator. Each packet is written.
+9. The tag frames of the review of 2026-11-04: [ADR 0080 packets 006 to 013](adr-0080-tag-frames-phase-plan.md), which include the `TYER` difference of an MP4 file, and [ADR 0088](../adr/0088-a-feed-move-follows-the-rss-tag.md), which waits for the operator. The [run of 2026-11-05](../reviews/orchestrated-run-2026-11-05.md) implemented the ADR 0080 packets. Their visual checks are open.
 10. The payment split bar for the track page and the release page.
 
 ### Phase 6: Player And Cue

@@ -54,8 +54,8 @@ Visual, listed apart, for the operator to walk:
 1. Run `cargo run --bin v4vmm` in a desktop session.
 2. Open a Library track of a feed with `<language>en</language>`. Open "Update n files".
 3. Wrong: the list does not show `TLAN: eng`.
-4. Confirm the update. Run `ffprobe -hide_banner FILE`, with FILE as the path of the track.
-5. Wrong: the output does not show `eng`.
+4. Confirm the update. Run `exiftool -a -G1 -s FILE`, with FILE as the path of the track.
+5. Wrong: `Language` does not show `eng`.
 6. Run the scan again. Wrong: the file shows a difference.
 
 Cleanup: none. The tag rewrite is correct.

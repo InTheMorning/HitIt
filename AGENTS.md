@@ -53,9 +53,8 @@ The run of 2026-10-24 implemented ADR 0084 packets 035 to 037, ADR 0087 packets 
 Its open checks stay in [pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-24.md) lists them.
 
 Ready packets include
-[ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md) and
-[ADR 0080 packets 006 to 013](docs/plans/adr-0080-tag-frames-phase-plan.md), the tag frames of the review of 2026-11-04.
-The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implements those packets.
+[ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
+The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented [ADR 0080 packets 006 to 013](docs/plans/adr-0080-tag-frames-phase-plan.md), the tag frames of the review of 2026-11-04. Packet 006 is complete. The checks of the other packets are open in section 10 of [pending human checks](docs/pending-human-checks.md). Do not run a rewrite of the full real Library until the operator answers the open points of the run record.
 [ADR 0088](docs/adr/0088-a-feed-move-follows-the-rss-tag.md), the feed move, is Proposed, and its packet waits for the operator.
 
 Known open defects:

@@ -2,7 +2,7 @@
 
 ## Status
 
-Open - 2026-11-05. The run implements [ADR 0080 packets 006 to 013](../plans/adr-0080-tag-frames-phase-plan.md). The final walk comes after the last packet.
+Open - 2026-11-05. The run implemented [ADR 0080 packets 006 to 013](../plans/adr-0080-tag-frames-phase-plan.md). Each packet is committed. The final walk is not started, and three points wait for the operator.
 
 This record is advisory. It states no rule. Each rule stays in its ADR or its packet.
 
@@ -18,7 +18,7 @@ This record is advisory. It states no rule. Each rule stays in its ADR or its pa
 
 The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md#sequence) puts the corrections first. Each packet starts after the commit of the packet before it, because the packets change the same files.
 
-1. [Packet 006](../tasks/adr-0080-task-006-contract-0-18-1-and-link-label.md): the contract of release 0.18.1 and the link label.
+1. [Packet 006](../tasks/archive/adr-0080-task-006-contract-0-18-1-and-link-label.md): the contract of release 0.18.1 and the link label.
 2. [Packet 007](../tasks/adr-0080-task-007-contributor-role-frames.md): a credit role selects the correct frame.
 3. [Packet 008](../tasks/adr-0080-task-008-rss-readers-agree.md): the RSS readers agree.
 4. [Packet 013](../tasks/adr-0080-task-013-mp4-date-shares-one-value.md): an MP4 date settles after one write.
@@ -40,6 +40,9 @@ Each entry names the step, the decision and the reason.
 - Packet 011, a foreign `TPUB` value: a write replaces it on MP3, FLAC and MP4. Decision 6 keeps a value from another tool, so this result conflicts with it. A keep rule needs new writer logic, and the app stores no MusicBrainz lookup result. The orchestrator did not decide this. The operator decides it after the run. The test `adr_0080_label_write_over_a_foreign_tpub_value_on_mp3_flac_and_mp4` records the present result.
 - Packet 011, a second label: the stored title belongs to the first named feed only. A later confirmed label has a title only when the Library holds its feed, so a label that the Library does not hold gives no `TPUB` value. The packet forbids a new request.
 - Packet 012, a foreign `TLAN` value: a write replaces it on MP3, FLAC and MP4. This is the same open point as `TPUB`. The test `adr_0080_language_write_over_a_foreign_tlan_value_on_mp3_flac_and_mp4` records the present result.
+- Operator checks, the tag reader: a test on 2026-11-05 showed that `ffprobe` does not show `WPAY`, `WCOP` or `TLAN` of an MP3 file. The orchestrator changed the steps of packets 007, 009, 010, 011 and 012 to `exiftool -a -G1 -s FILE`, which shows each frame on MP3, and each key on FLAC and MP4.
+- Packet 013, the operator command: the packet named a column that does not exist. The command now reads `local_files.path`.
+- Packet 006: the orchestrator moved it to the archive, because it has no visual check.
 
 ## Steps
 
@@ -54,6 +57,36 @@ Each entry names the packet, the result and the commit.
 7. Packet 011: implemented and Green on 2026-11-05, with no stop. `TPUB` holds the titles of the confirmed labels, from `feed_publisher_relationships` for a Library context and from the `publisher` entries for an Index context. The owner name stays in `TXXX:V4V_PUBLISHER`. The agent corrected the Vorbis cleanup, because each FLAC write added a `TPUB` value. 2652 lib tests and 398 guards pass.
 8. Packet 012: implemented and Green on 2026-11-05, with no stop. `TLAN` holds a three-letter code, from a table of 183 codes that the agent generated from `/usr/share/iso-codes/json/iso_639-2.json`. A Library track has no stored item language, so a Library write uses the channel code. The Library context reads the channel language from the stored value projection. 2664 lib tests and 398 guards pass.
 
+## Open Points For The Operator
+
+The orchestrator did not decide these points. Do not run a rewrite of the full real Library until the operator answers point 1.
+
+1. A write replaces a `TPUB` or `TLAN` value from a different source. ADR 0080 Decision 6 keeps such a value. Recommendation: amend Decision 13, so that `TLAN` holds one language and replaces the value. Keep the `TPUB` value, because Decision 6 names a MusicBrainz label. This needs one new packet for the writer.
+2. A file that the app wrote earlier can keep a `remixer` name in `TIPL`, or an `original lyricist` name in `TEXT`. The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md#open-finding---2026-11-05) records it. Recommendation: count the credits with the command in Setup step 4, then decide. A low count needs no packet.
+3. A later confirmed label has a title only when the Library holds its feed. Recommendation: no change, because a stored title of each named feed needs a new request or a schema change.
+
 ## Final Walk
 
-Not started.
+Not started. The "Operator Visual Check" section of each packet gives the steps and the cleanup. Section 10 of [pending human checks](../pending-human-checks.md) lists each check.
+
+### Setup
+
+The run adds no migration and no configuration key, so no backup is necessary. The walk writes tags to real files, so select a small playlist for each "Update n files".
+
+1. Open a terminal in a desktop session.
+2. Build both binaries: `cd ~/build/v4vmm && cargo build --release && cargo build --bin v4vmm`.
+3. Find the format of the two files of the observation of 2026-10-16. Run this command, and then run `exiftool -FileType FILE` on each path:
+   `sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT t.track_title, lf.path FROM local_files lf JOIN tracks t ON t.id = lf.track_id WHERE t.track_title LIKE '%Ethereal Realm%' OR t.track_title LIKE '%Whispers%'"`
+4. Count the credits of open point 2:
+   `sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT lower(role), count(*) FROM entity_contributors WHERE lower(role) LIKE '%remix%' OR lower(role) LIKE '%original lyric%' GROUP BY 1"`
+5. Start the app with `./target/release/v4vmm`. Run the RSS check of each playlist that you use, because the funding, license and label values reach the Library at that check.
+
+### Order
+
+1. Packet 013 V1. If the files of Setup step 3 are not MP4 files, this packet does not correct them. Report the format.
+2. Packet 008 V1. It needs a feed that you host.
+3. Packet 012 V1.
+4. Packet 009 V1 and V2.
+5. Packet 010 V1 and V2. It needs a change to a test feed in Studio.
+6. Packet 011 V1 and V2. Also read the "Label" row of the Library track page before the scan, and report an empty row for an album with a confirmed label.
+7. Packet 007 V1.

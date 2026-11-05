@@ -1,6 +1,6 @@
 # ADR 0080 Task 006: The Contract Of Release 0.18.1 And The Link Label
 
-Status: Implemented 2026-11-05. Mechanical checks Green.
+Status: Complete 2026-11-05. Mechanical checks Green. This packet changes no presentation, so it has no visual check.
 
 ## Goal
 
@@ -8,9 +8,9 @@ The stored MusicIndex contract is the contract of Stophammer release 0.18.1. `ap
 
 ## Authority
 
-- [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) section 6: the stored contract changes after each Stophammer release, in the same change as the decode changes.
+- [ADR 0075](../../adr/0075-metadata-ownership-and-completeness.md) section 6: the stored contract changes after each Stophammer release, in the same change as the decode changes.
 - Stophammer ADR 0082 owns `link_type` `funding` and the field `label`.
-- [AGENTS.md](../../AGENTS.md): "Stored facts that agents need".
+- [AGENTS.md](../../../AGENTS.md): "Stored facts that agents need".
 
 ## Recorded Facts - 2026-11-04
 
@@ -30,7 +30,7 @@ The stored MusicIndex contract is the contract of Stophammer release 0.18.1. `ap
 3. Add `label: Option<String>` and `url_scheme_added: Option<bool>` to `SourceEntityLink`. Keep the struct defaults.
 4. Pass `label` through `IdentityLinkFact` in `src/views.rs` only if packet 009 needs it. This packet adds no reader.
 5. In `AGENTS.md`, change the stored contract line to name the new file.
-6. Read the section "Release 0.18.1" of [the open requests](../plans/v4vmm-open-requests.md). Correct it if this packet finds a different fact. Make the same change in the Stophammer copy.
+6. Read the section "Release 0.18.1" of [the open requests](../../plans/v4vmm-open-requests.md). Correct it if this packet finds a different fact. Make the same change in the Stophammer copy.
 
 ## Do Not Change
 

@@ -63,8 +63,8 @@ Visual, listed apart, for the operator to walk:
 4. Wrong: the list does not show `TPUB: Sir Libre Records`.
 5. Open a track of an album with no label link, and open its metadata compare.
 6. Wrong: the "Label" row shows the owner name as its RSS value.
-7. Confirm the update of the first track. Run `ffprobe -hide_banner FILE`, with FILE as the path of the track.
-8. Wrong: the publisher tag does not show the label. Then run the scan again. Wrong: the file shows a difference.
+7. Confirm the update of the first track. Run `exiftool -a -G1 -s FILE`, with FILE as the path of the track.
+8. Wrong: `Publisher` does not show the label. Then run the scan again. Wrong: the file shows a difference.
 
 Cleanup: remove the album from the Library if you downloaded it for this check.
 

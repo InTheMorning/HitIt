@@ -65,8 +65,8 @@ Visual, listed apart, for the operator to walk:
 2. Run `cargo run --bin v4vmm` in a desktop session.
 3. Run the RSS check of the playlist with that feed. Open "Update n files".
 4. Wrong: the list does not show `WCOP` and `TXXX:MusicIndex License`.
-5. Confirm the update. Run `ffprobe -hide_banner FILE`, with FILE as the path of the track.
-6. Wrong: the output does not show the URL and the text.
+5. Confirm the update. Run `exiftool -a -G1 -s FILE`, with FILE as the path of the track.
+6. Wrong: the output does not show the URL in `CopyrightURL` and the text in `MusicIndexLicense`.
 7. Run the scan again. Wrong: the file shows a difference.
 
 Cleanup: remove the license from the test feed in Studio, and publish it.

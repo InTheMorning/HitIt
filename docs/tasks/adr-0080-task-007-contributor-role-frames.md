@@ -62,8 +62,8 @@ Visual, listed apart, for the operator to walk:
 2. Open a Library track with a `remixer` credit in its feed. If no track has one, add the credit to a test feed in Studio and run the RSS check of that playlist.
 3. Open "Update n files", and read the list of frames.
 4. Wrong: the list does not show `TPE4`, or it shows the name for `TIPL`. A file that this app wrote earlier can still hold the earlier `TIPL` value after the update. The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md#open-finding---2026-11-05) records this, so it is not a failure of this check.
-5. Confirm the update. Run `ffprobe -hide_banner FILE`, with FILE as the path of the track.
-6. Wrong: the output does not show the name in the remixer tag.
+5. Confirm the update. Run `exiftool -a -G1 -s FILE`, with FILE as the path of the track.
+6. Wrong: the output does not show the name in `InterpretedBy`.
 7. Run the scan again. Wrong: the file shows a difference.
 
 Cleanup: remove the test credit in Studio if you added it. The tag rewrite stays, because it is correct.
