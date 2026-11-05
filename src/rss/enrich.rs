@@ -12,7 +12,9 @@ use chrono::{DateTime, Utc};
 use roxmltree::{Document, Node};
 use rss::{extension::ExtensionMap, Channel};
 
-use super::helpers::{clean_text, find_ext, parse_itunes_duration};
+use super::helpers::{
+    clean_text, find_ext, parse_itunes_duration, pick_track_number, purpose_marks_artwork,
+};
 use super::{IdentityValidation, NostrIdentity};
 use crate::api::{Feed, SourceEntityId, SourceEntityLink, Track};
 use crate::application::request_reuse::{self, RefreshIntent, RetainedCache, SharedFetchError};
@@ -921,9 +923,12 @@ fn enrichment_from_nodes(
         feed_title: channel_text(channel, "title"),
         feed_description: channel_text(channel, "description"),
         feed_artist: itunes_text(channel, "author"),
-        feed_image_url: extension(channel, &ITUNES_NAMESPACES, "image")
-            .and_then(|node| node.attribute("href"))
-            .and_then(|value| clean_text(Some(value)))
+        feed_image_url: artwork_podcast_image(channel)
+            .or_else(|| {
+                extension(channel, &ITUNES_NAMESPACES, "image")
+                    .and_then(|node| node.attribute("href"))
+                    .and_then(|value| clean_text(Some(value)))
+            })
             .or_else(|| {
                 channel
                     .parent()
@@ -938,10 +943,17 @@ fn enrichment_from_nodes(
         track_artist: itunes_text(item, "author")
             .or_else(|| text_child(item, "author"))
             .or_else(|| first_person(item)),
-        track_image_url: extension(item, &ITUNES_NAMESPACES, "image")
-            .and_then(|node| node.attribute("href"))
-            .and_then(|value| clean_text(Some(value))),
-        track_number: podcast_text(item, "episode").and_then(|value| value.trim().parse().ok()),
+        track_image_url: artwork_podcast_image(item).or_else(|| {
+            extension(item, &ITUNES_NAMESPACES, "image")
+                .and_then(|node| node.attribute("href"))
+                .and_then(|value| clean_text(Some(value)))
+        }),
+        track_number: pick_track_number(
+            podcast_text(item, "episode").as_deref(),
+            extension(item, &ITUNES_NAMESPACES, "episode")
+                .map(scalar_text)
+                .as_deref(),
+        ),
         duration_secs: itunes_text(item, "duration")
             .and_then(|value| parse_itunes_duration(&value))
             .and_then(|value| value.try_into().ok()),
@@ -953,6 +965,19 @@ fn enrichment_from_nodes(
             .and_then(|node| node.attribute("type"))
             .map(str::to_owned),
     }
+}
+/// The `href` of the first artwork `podcast:image` child of a node (ADR 0080 packet 008).
+fn artwork_podcast_image(node: Node<'_, '_>) -> Option<String> {
+    children(node)
+        .filter(|child| {
+            child.tag_name().name() == "image"
+                && child
+                    .tag_name()
+                    .namespace()
+                    .is_some_and(|namespace| PODCAST_NAMESPACES.contains(&namespace))
+        })
+        .filter(|image| purpose_marks_artwork(image.attribute("purpose")))
+        .find_map(|image| clean_text(image.attribute("href")))
 }
 fn first_person(item: Node<'_, '_>) -> Option<String> {
     children(item).find_map(|person| {
@@ -1514,6 +1539,140 @@ mod tests {
         assert_eq!(fields.feed_episode_count, Some(3));
         assert!(fields.pub_date.is_some());
         Ok(())
+    }
+
+    /// Run the subscribe reader and the enrichment reader on one document.
+    /// Give the channel image, the track number and the item image of each.
+    type ReaderValues = (Option<String>, Option<i64>, Option<String>);
+
+    fn both_readers(xml: &str) -> Result<[ReaderValues; 2]> {
+        let subscribed = super::super::subscribe::parse_feed_document(xml.as_bytes())?;
+        let item = &subscribed.items[0];
+        let enriched = parse(xml, Some("track"), None)?.enrichment.unwrap();
+        Ok([
+            (
+                subscribed.channel.album_image_href.clone(),
+                item.track_number,
+                item.track_image_href.clone(),
+            ),
+            (
+                enriched.feed_image_url,
+                enriched.track_number.map(i64::from),
+                enriched.track_image_url,
+            ),
+        ])
+    }
+
+    fn assert_readers_give(
+        channel: &str,
+        image: Option<&str>,
+        number: Option<i64>,
+        item_image: Option<&str>,
+    ) {
+        let [subscribe, enrich] = both_readers(&document(channel)).unwrap();
+        let expected = (
+            image.map(str::to_owned),
+            number,
+            item_image.map(str::to_owned),
+        );
+        assert_eq!(subscribe, expected, "subscribe reader");
+        assert_eq!(enrich, expected, "enrichment reader");
+    }
+
+    /// ADR 0080 packet 008: one document gives equal values in each reader.
+    #[test]
+    fn adr_0080_task_008_each_reader_agrees_on_one_document() {
+        assert_readers_give(
+            r#"<podcast:image href="channel-art.png"/><itunes:image href="channel-itunes.png"/>
+            <item><guid>track</guid><podcast:image href="item-art.png"/>
+            <itunes:image href="item-itunes.png"/><itunes:episode>4</itunes:episode></item>"#,
+            Some("channel-art.png"),
+            Some(4),
+            Some("item-art.png"),
+        );
+    }
+
+    /// ADR 0080 packet 008: a banner `podcast:image` is not artwork.
+    #[test]
+    fn adr_0080_task_008_banner_podcast_image_gives_way_to_itunes_image() {
+        assert_readers_give(
+            r#"<podcast:image purpose="banner" href="banner.png"/><itunes:image href="cover.png"/>
+            <item><guid>track</guid><podcast:image purpose="banner" href="item-banner.png"/>
+            <itunes:image href="item-cover.png"/></item>"#,
+            Some("cover.png"),
+            None,
+            Some("item-cover.png"),
+        );
+    }
+
+    /// ADR 0080 packet 008: a `purpose` that holds the word `artwork` counts.
+    #[test]
+    fn adr_0080_task_008_artwork_social_purpose_gives_the_podcast_image() {
+        assert_readers_give(
+            r#"<podcast:image purpose="artwork social" href="both.png"/><itunes:image href="cover.png"/>
+            <item><guid>track</guid></item>"#,
+            Some("both.png"),
+            None,
+            None,
+        );
+    }
+
+    /// ADR 0080 packet 008: a `podcast:image` with no `purpose` counts.
+    #[test]
+    fn adr_0080_task_008_podcast_image_without_purpose_gives_that_image() {
+        assert_readers_give(
+            r#"<itunes:image href="cover.png"/><podcast:image href="plain.png"/>
+            <item><guid>track</guid></item>"#,
+            Some("plain.png"),
+            None,
+            None,
+        );
+    }
+
+    /// ADR 0080 packet 008: a banner first and an artwork image second gives the second.
+    #[test]
+    fn adr_0080_task_008_artwork_image_after_a_banner_is_found() {
+        assert_readers_give(
+            r#"<podcast:image purpose="banner" href="banner.png"/><podcast:image purpose="artwork" href="art.png"/>
+            <item><guid>track</guid></item>"#,
+            Some("art.png"),
+            None,
+            None,
+        );
+    }
+
+    /// ADR 0080 packet 008: a DeMu form channel with only `<image><url>` gives that URL.
+    #[test]
+    fn adr_0080_task_008_demu_form_channel_gives_the_image_url() {
+        assert_readers_give(
+            r#"<image><url>demu.png</url></image><item><guid>track</guid></item>"#,
+            Some("demu.png"),
+            None,
+            None,
+        );
+    }
+
+    /// ADR 0080 packet 008: an item with only `itunes:episode` gives that number.
+    #[test]
+    fn adr_0080_task_008_itunes_episode_alone_gives_the_track_number() {
+        assert_readers_give(
+            r#"<item><guid>track</guid><itunes:episode>9</itunes:episode></item>"#,
+            None,
+            Some(9),
+            None,
+        );
+    }
+
+    /// ADR 0080 packet 008: an item with both elements gives `podcast:episode`.
+    #[test]
+    fn adr_0080_task_008_podcast_episode_wins_over_itunes_episode() {
+        assert_readers_give(
+            r#"<item><guid>track</guid><itunes:episode>9</itunes:episode>
+            <podcast:episode>3</podcast:episode></item>"#,
+            None,
+            Some(3),
+            None,
+        );
     }
 
     /// R50-01 (ADR 0075 packet 050): a channel `pubDate` that parses as an

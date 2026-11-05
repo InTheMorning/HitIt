@@ -40,6 +40,7 @@ Each entry names the packet, the result and the commit.
 
 1. Packet 006: implemented and Green on 2026-11-05, with no stop. The contract is release 0.18.1, revision `61e8762`. The agent found no removal and no rename. `url_scheme_added` was in the 0.13.0 contract, so 0.18.1 adds only `label` to the source link schema. The agent renamed the contract version test to `adr_0084_scopes_r16_03_contract_fixture_is_0_18_1`. 2590 lib tests and 398 guards pass.
 2. Packet 007: implemented and Green on 2026-11-05, with no stop. One classifier gives the frame and the normalized role. `remixer` gives `TPE4`, `original artist` gives `TOPE` and `original lyricist` gives `TOLY`. Of the 70 Studio roles, only `foley artist` changes: it now gives no frame. The orchestrator added the compare round-trip test. 2595 lib tests and 398 guards pass.
+3. Packet 008: implemented and Green on 2026-11-05, with no stop. Each reader gives an artwork `podcast:image` first for a channel and for an item, and `podcast:episode` then `itunes:episode` for a track number. A value of `podcast:episode` that is not a number gives way to `itunes:episode`. 2603 lib tests and 398 guards pass.
 
 ## Final Walk
 

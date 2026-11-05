@@ -1,6 +1,6 @@
 # ADR 0080 Task 008: The RSS Readers Agree On Track Number And Artwork
 
-Status: Ready - 2026-11-04. The operator visual check stays open until a person walks it.
+Status: Implemented 2026-11-05. Mechanical checks Green. Operator visual check open.
 
 ## Goal
 
