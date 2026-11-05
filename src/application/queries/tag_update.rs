@@ -278,10 +278,10 @@ fn changed_frames(
             .filter(|field| compare_key(&field.frame_id, format) == target)
             .map(|field| field.value.as_str())
             .collect::<Vec<_>>();
-        if file_values
-            .iter()
-            .any(|value| values_match(&edit.frame_label, value, &edit.value))
-        {
+        if file_values.iter().any(|value| {
+            values_match(&edit.frame_label, value, &edit.value)
+                || mp4_year_matches(&edit.frame_label, value, &edit.value, format)
+        }) {
             continue;
         }
         frames.push(TagFrameChange {
@@ -316,12 +316,18 @@ enum CompareKey {
     Stored(String),
     /// The ID3 target key. An MP3 file keeps each frame apart.
     Frame(String),
+    /// The one date value of an MP4 file. The reader gives the `TDRC` and
+    /// `TYER` atoms both as `TDRC`.
+    Mp4Date,
 }
 
 /// ADR 0080 Decision 6: the scan finds the file values of a frame by the
 /// storage key of the file format. The reader gives each value under one
 /// frame label for its key. Thus the scan must use the key, not the label.
 fn compare_key(frame_label: &str, format: Option<AudioFormat>) -> CompareKey {
+    if format == Some(AudioFormat::Mp4) && matches!(frame_label, "TDRC" | "TYER") {
+        return CompareKey::Mp4Date;
+    }
     format
         .and_then(|format| vorbis_storage_key(frame_label, format))
         .map_or_else(
@@ -343,7 +349,7 @@ fn shared_key_edits(
         .iter()
         .filter_map(|frame| match compare_key(&frame.frame_label, format) {
             CompareKey::Stored(key) => Some(key),
-            CompareKey::Frame(_) => None,
+            CompareKey::Frame(_) | CompareKey::Mp4Date => None,
         })
         .collect::<BTreeSet<_>>();
     if changed_keys.is_empty() {
@@ -381,6 +387,21 @@ fn frame_is_compared(frame_label: &str, format: Option<AudioFormat>) -> bool {
         }
         _ => true,
     }
+}
+
+/// ADR 0080 Decision 6: an MP4 file holds one date value. A `TYER` year is
+/// equal when the file date starts with it.
+fn mp4_year_matches(
+    frame_label: &str,
+    file_value: &str,
+    expected: &str,
+    format: Option<AudioFormat>,
+) -> bool {
+    let expected = expected.trim();
+    format == Some(AudioFormat::Mp4)
+        && frame_label == "TYER"
+        && !expected.is_empty()
+        && file_value.trim().starts_with(expected)
 }
 
 /// Compare one file value with one stored value as the tag writer stores it.
@@ -1026,6 +1047,79 @@ mod tests {
             &file.content,
             TagUpdateFileContent::Differs { shared_key_edits, .. } if shared_key_edits.is_empty()
         ));
+    }
+
+    /// A fixture database with track 1 and a copy of the MP4 fixture as its
+    /// file. The track has an item date.
+    fn mp4_library(dir: &Path) -> (Connection, PathBuf) {
+        let conn = library(dir, &[1]);
+        conn.execute("UPDATE tracks SET pub_date = ?1 WHERE id = 1", [ITEM_DATE])
+            .unwrap();
+        conn.execute(
+            "UPDATE local_files SET path = 'song-1.m4a' WHERE track_id = 1",
+            [],
+        )
+        .unwrap();
+        let path = dir.join("song-1.m4a");
+        std::fs::write(
+            &path,
+            include_bytes!("../../../docs/runbooks/fixtures/conversion.m4a"),
+        )
+        .unwrap();
+        (conn, path)
+    }
+
+    /// ADR 0080 task 013: an MP4 file written with the full edits of a
+    /// track with an item date gives no changed frame in the next scan.
+    #[test]
+    fn adr_0080_mp4_date_full_write_settles() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        let edits = full_edits(&conn);
+
+        write_id3v24_edits(&path, &edits).unwrap();
+
+        let scan = scan_tag_updates(&conn, dir.path()).unwrap();
+        assert_eq!(
+            scan.count(),
+            0,
+            "an MP4 file with the full edits must not differ: {:?}",
+            scan.files
+        );
+    }
+
+    /// ADR 0080 task 013: a second write changes no value, and a file with
+    /// two earlier date atoms holds one date atom after one write.
+    #[test]
+    fn adr_0080_mp4_date_write_is_idempotent_and_keeps_one_atom() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, path) = mp4_library(dir.path());
+        let edits = full_edits(&conn);
+        let date_atoms = |path: &Path| {
+            read_audio_tags(path)
+                .unwrap()
+                .custom
+                .into_iter()
+                .filter(|(key, _)| key.ends_with(":TDRC") || key.ends_with(":TYER"))
+                .collect::<Vec<_>>()
+        };
+
+        // The state of an earlier write: one atom for each date edit.
+        let old: Vec<Id3v24Edit> = edits
+            .iter()
+            .filter(|edit| matches!(edit.frame_label.as_str(), "TDRC" | "TYER"))
+            .cloned()
+            .collect();
+        write_id3v24_edits(&path, &old).unwrap();
+
+        write_id3v24_edits(&path, &edits).unwrap();
+        let first = read_audio_tags(&path).unwrap().fields;
+        assert_eq!(date_atoms(&path).len(), 1, "{:?}", date_atoms(&path));
+
+        write_id3v24_edits(&path, &edits).unwrap();
+        let second = read_audio_tags(&path).unwrap().fields;
+        assert_eq!(first, second, "a second write must change no value");
+        assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
     }
 
     /// R76-10-01 (ADR 0076 task 010): a stored description

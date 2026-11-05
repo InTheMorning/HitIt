@@ -62,8 +62,8 @@ Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for
   [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Proposed, and for the mpv IPC error.
-- An MP4 file always shows a `TYER` difference in "Update n files". The
-  [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md) owns it.
+- The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
+  owns the operator check, which is open.
 
 Stored facts that agents need:
 
