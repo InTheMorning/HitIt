@@ -144,6 +144,12 @@ The operator started the release binary with `id3` 1.17.1, and opened "Update n 
 - Consequence: RSS is the source, and the live feeds do not state `label`. A new write of the stored rows gives `artist` only, and the "Label" row of the track page stays empty. Before a packet refreshes the rows, the feeds must state each role, on the two sides of each link. The operator owns this change in Studio.
 - Packet 011 V1: the file holds `TPUB` from a confirmed label row, and the operator confirmed the value. The orchestrator counts V1 as passed on HeyCitizen, not on Sir Libre Records.
 
+### Scope Of The Scan - 2026-11-05
+
+- `local_files` holds 231 files. 208 have `is_in_library` 1, and 23 have `is_in_library` 0. The sidebar count and the scan read only the 208 files (`db::library_tracks`).
+- A sample of the 23 files is under `artists/`, as the Library files are. No "Update n files" write reaches these files. The operator decides if this needs a change.
+- After packet 016, the button shows "Update 1 file". The operator did not yet confirm the start time of the running binary.
+
 ### Order
 
 1. Packet 013 V1. On 2026-11-05 the operator reported that the Library holds 156 `.mp3` files, 75 `.flac` files and no MP4 file. No real file can walk this check, so it stays open.
