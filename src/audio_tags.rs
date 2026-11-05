@@ -2210,6 +2210,70 @@ mod tests {
         );
     }
 
+    /// A tag file whose `TLAN` frame header starts two bytes before the end of
+    /// the first 8 KiB read buffer. The bytes hold `TIT2`, then `USLT`, then
+    /// `TLAN`, then `TBPM`.
+    fn tag_with_frame_header_across_read_buffer() -> Vec<u8> {
+        const BUFFER_SIZE: usize = 8 * 1024;
+        let encode = |text_len: usize| {
+            let mut tag = Tag::new();
+            tag.set_title("Song");
+            tag.add_frame(id3::frame::Lyrics {
+                lang: "eng".into(),
+                description: String::new(),
+                text: "x".repeat(text_len),
+            });
+            tag.add_frame(Frame::text("TLAN", "eng"));
+            tag.add_frame(Frame::text("TBPM", "95"));
+            let mut bytes = Vec::new();
+            tag.write_to(&mut bytes, id3::Version::Id3v24)
+                .expect("encode tag");
+            bytes
+        };
+        let position = |bytes: &[u8]| {
+            bytes
+                .windows(4)
+                .position(|window| window == b"TLAN")
+                .expect("TLAN frame")
+        };
+        let text_len = BUFFER_SIZE - 2 - position(&encode(0));
+        let bytes = encode(text_len);
+        assert_eq!(position(&bytes), BUFFER_SIZE - 2);
+        bytes
+    }
+
+    /// ADR 0080 Decision 6: the operator found two files on 2026-11-05 that
+    /// showed each frame after one position as "no value". `id3` 1.16.4 took
+    /// a short read of a frame header as the end of the tag. A write on such
+    /// a read removes each later frame.
+    #[test]
+    fn adr_0080_frame_header_across_read_buffer_keeps_each_later_frame() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        let path = dir.path().join("song.mp3");
+        std::fs::write(&path, tag_with_frame_header_across_read_buffer()).expect("write file");
+
+        let tags = read_audio_tags(&path).expect("read tags");
+        for label in ["TLAN", "TBPM"] {
+            assert!(
+                tags.fields.iter().any(|field| field.frame_id == label),
+                "the reader must give {label}"
+            );
+        }
+
+        super::write_mp3_edits(
+            &path,
+            &[Id3v24Edit {
+                frame_label: "TPUB".into(),
+                value: "Label".into(),
+            }],
+        )
+        .expect("write edit");
+        let tag = Tag::read_from_path(&path).expect("read written tag");
+        for id in ["TIT2", "USLT", "TLAN", "TBPM", "TPUB"] {
+            assert!(tag.get(id).is_some(), "the write must keep {id}");
+        }
+    }
+
     /// Orchestrator review, defect 2: two edits that alias to the same
     /// Vorbis key (`TDRC` and `TYER`, both `DATE`) keep both their values.
     /// A once-per-edit removal would let the second edit erase the first.

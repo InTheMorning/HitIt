@@ -91,11 +91,28 @@ The operator ran the scenario `tagpopup` of `~/.claude/scripts/v4vmm-shots.sh` o
 
 - Packet 012: each line that the orchestrator read shows `TLAN: eng (file: no value)`.
 - Packet 009: `WPAY` lines hold plain URLs with no label text.
-- Packet 011: `TPUB: HeyCitizen` shows on two albums. Its role row is not confirmed yet.
+- Packet 011: `TPUB: HeyCitizen` shows on two albums. `feed_publisher_relationships` holds two rows for the HeyCitizen publisher feed, feeds 2 and 3. Each stored row has `label` in `role` and `both` in `role_agreement`, and its `observed_at` is 2026-10-03.
+- Packet 011, result: `TPUB: HeyCitizen` comes from stale rows, so this value is incorrect. On 2026-11-05 the two live feeds hold `rel="artist"`, and the live MusicIndex response gives `role: artist`.
+- The track page reads the live response. Thus "The Platform" shows an empty "Label" row, and this is correct. The scan reads the stored rows.
+- At 2026-11-05 16:45:49 UTC the app report shows a tag update of 143 files, and 1 file not written. The button then shows "Update 3 files". Thus the files of the two albums can hold this incorrect value.
+- The next scan listed "To be in Nashville" and "The Wait Is Over" with `file: no value` for frames that `exiftool` shows in the files. [Packet 014](../tasks/adr-0080-task-014-reader-keeps-each-frame.md) corrects this reader fault. A write with the fault can remove frames. No source holds a frame that it removed, so the count of such frames is not known.
+- `changed_frames` reads only the expected frames. When the stored rows give no label, the scan shows no difference for `TPUB`, and a write does not remove the value.
+- Packet 011 V2 passes on "Stay Awhile": the "Label" row shows no RSS value. V1 stays open.
 - `TYER: 2025 (file: 2025-10-19)` shows on "Ethereal Realm ( 528hz )". "Whispers" has no `TYER` line.
-- "The Heycitizen Experience" tracks show a Nostr key in the file that differs from the feed key.
+- "The Heycitizen Experience" tracks show a Nostr key in the file that differs from the feed key. The operator confirmed that `npub109pc…5aaj` is the correct key, and the live feed holds only this key. Thus this replacement is correct.
+- The live feed `Lofi-Experience/lofi.xml` holds the incorrect key `npub12um9…f5ck` 7 times. The operator's correction is not in this feed.
 
 After ADR 0076 packet 011, restart the app, so that it uses the new binary.
+
+### Results Of ADR 0076 Packet 011 - 2026-11-05
+
+- V1, feed 49, "Chatti und Claude". The report of 14:43:49 UTC shows `Not modified: 1`.
+- The database holds `rss_reader_revision` with the value 1 for this feed. Thus an earlier check applied its document.
+- The orchestrator did not see the report of the first check.
+- V1, "Stay Awhile" in "packet 025 test". The report of 14:45:22 UTC shows HTTP 200 and `Documents received: 1`. The report of 14:45:37 UTC shows HTTP 304 and `Not modified: 1`.
+- V1 passes on the two feeds. The first report of "Chatti und Claude" stays unseen.
+- V2 is open. The popup of 09:46 local time shows only `TLAN` for the tracks of the two checked feeds, and no license line. It is not known if these feeds have `podcast:license`.
+- The screenshots of that popup have gaps, so they do not prove that no file in the list has a license line.
 
 ### Order
 
