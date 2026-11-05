@@ -12,6 +12,7 @@ pub(crate) mod diagnostics;
 pub mod feed_service;
 pub mod http_client;
 pub mod identity_ingest;
+pub(crate) mod language_code;
 pub mod library;
 pub mod library_path;
 pub mod library_service;

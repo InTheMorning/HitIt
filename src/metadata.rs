@@ -223,6 +223,8 @@ pub fn compare_track_rows(
     let (license_url, license_name) = resolved_license(track, feed);
     push_compare_row(&mut rows, "License URL", license_url, None);
     push_compare_row(&mut rows, "License name", license_name, None);
+    // ADR 0080 Decision 13: the row shows the code that the writer writes.
+    push_compare_row(&mut rows, "Language", resolved_language(track, feed), None);
     let release_date = track_release_pubdate(track).or_else(|| feed.and_then(feed_release_pubdate));
     push_compare_row(&mut rows, "Release date", release_date.clone(), None);
     push_compare_row(
@@ -431,6 +433,19 @@ pub fn resolved_license(track: &Track, feed: Option<&Feed>) -> (Option<String>, 
         })
     };
     (url.as_deref().and_then(valid_license_url), text)
+}
+
+/// ADR 0080 Decision 13: a file holds one language in `TLAN`, as an ISO
+/// 639-2 code. The item language wins. The channel language is the fallback.
+/// A value that gives no code does not block the next value. The source text
+/// stays in the database.
+pub fn resolved_language(track: &Track, feed: Option<&Feed>) -> Option<String> {
+    let code = |value: &Option<String>| {
+        drop_placeholder_source_text(value.clone())
+            .as_deref()
+            .and_then(crate::language_code::language_code_for_tag)
+    };
+    code(&track.language).or_else(|| feed.and_then(|feed| code(&feed.language)))
 }
 
 pub fn transcript_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> {
@@ -1325,6 +1340,14 @@ pub fn track_metadata_rows(
         source_value_for_metadata_field("Label", track_context),
         musicbrainz_value_for_field("Label", musicbrainz),
     );
+    // ADR 0080 Decision 13: one language code, item before channel.
+    push_track_metadata_row(
+        &mut rows,
+        "descriptive-technical-rights-text",
+        "Language",
+        source_value_for_metadata_field("Language", track_context),
+        None,
+    );
     // ADR 0080 Decision 11: the RSS license has its own rows. The
     // MusicBrainz "License" row is a separate row that the MusicBrainz
     // remainder rows add.
@@ -1907,6 +1930,7 @@ pub fn metadata_field_group_key(field: &str) -> &'static str {
         | "ISRC" => "identification-release-structure",
         "Artist" | "Contributors" | "Label" => "people-credits",
         "Publisher"
+        | "Language"
         | "Release date"
         | "Release year"
         | "RSS item pubdate"
@@ -2351,6 +2375,7 @@ fn source_value_for_metadata_field(field: &str, track_context: &TrackContext) ->
         "RSS feed funding" => feed.and_then(feed_funding),
         "License URL" => resolved_license(track, feed).0,
         "License name" => resolved_license(track, feed).1,
+        "Language" => resolved_language(track, feed),
         "Release date" | "Release year" => musicindex_release_date(track_context),
         "Duration" => track.duration_secs.map(fmt_dur),
         "Explicit" => track.explicit.and_then(explicit_metadata_value),
@@ -4078,6 +4103,8 @@ pub fn id3_frame_hint(field: &str) -> Option<&'static str> {
         // ADR 0080 Decision 11.
         "License URL" => Some(LICENSE_URL_FRAME),
         "License name" => Some(LICENSE_NAME_FRAME),
+        // ADR 0080 Decision 13.
+        "Language" => Some("TLAN"),
         "Tempo" => Some("TBPM"),
         "Release date" => Some("TDRC"),
         "Release year" => Some("TYER"),

@@ -682,6 +682,9 @@ fn hydrate_feed_identity(conn: &Connection, feed_id: i64, feed: Option<Feed>) ->
             .map(source_id_from_local)
             .collect(),
     );
+    // ADR 0080 Decision 13: the stored channel language, in the form that
+    // the stored value projection selects.
+    feed.language = stored_values::feed_values(conn, feed_id)?.language.value;
     // ADR 0080 Decision 11: the RSS license of the channel.
     (feed.license_url, feed.license_text) =
         crate::local_metadata::rss_license_facts(conn, db::LocalMetadataOwner::Feed(feed_id))?;
