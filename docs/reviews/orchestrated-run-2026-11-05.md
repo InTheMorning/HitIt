@@ -31,11 +31,15 @@ The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md#sequence) puts the c
 
 Each entry names the step, the decision and the reason.
 
+- Packet 007, stale credit values: the orchestrator did not expand the packet. A file that the app wrote earlier can keep a `remixer` name in `TIPL` or an `original lyricist` name in `TEXT`. A correction needs a new removal path and a new scan rule, and Decision 6 does not name this value. The phase plan records the finding, and packet 007 V1 names it.
+- Packet 007, classifier order: the agent reported two results outside the Studio list. `mixing` now gives `TIPL`, and `remix artist` now gives `TPE4`. The orchestrator accepted both, because the normalized role already read them so.
+
 ## Steps
 
 Each entry names the packet, the result and the commit.
 
 1. Packet 006: implemented and Green on 2026-11-05, with no stop. The contract is release 0.18.1, revision `61e8762`. The agent found no removal and no rename. `url_scheme_added` was in the 0.13.0 contract, so 0.18.1 adds only `label` to the source link schema. The agent renamed the contract version test to `adr_0084_scopes_r16_03_contract_fixture_is_0_18_1`. 2590 lib tests and 398 guards pass.
+2. Packet 007: implemented and Green on 2026-11-05, with no stop. One classifier gives the frame and the normalized role. `remixer` gives `TPE4`, `original artist` gives `TOPE` and `original lyricist` gives `TOLY`. Of the 70 Studio roles, only `foley artist` changes: it now gives no frame. The orchestrator added the compare round-trip test. 2595 lib tests and 398 guards pass.
 
 ## Final Walk
 

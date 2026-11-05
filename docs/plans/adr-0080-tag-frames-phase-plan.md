@@ -15,7 +15,7 @@ Active - 2026-09-29. This plan is advisory. It states no rule.
 | [004](../tasks/archive/adr-0080-task-004-old-itunes-frames-and-safe-tag-writes.md) | Convert old iTunes v2.2 frames, write tags through a staged copy, and report a download tag-write failure | ADR 0080 Decision 6, ADR 0066 | 003 | Complete 2026-10-03. Operator V1 passed |
 | [005](../tasks/archive/adr-0080-task-005-musicindex-image-frame.md) | The artwork URL in `TXXX:MusicIndex Image`: item image, else channel image, `http` or `https` only | ADR 0080 Decision 9 | 004 | Complete 2026-10-04. Operator V80-51 and V80-52 passed |
 | [006](../tasks/adr-0080-task-006-contract-0-18-1-and-link-label.md) | The stored contract of Stophammer 0.18.1, and `label` on a source link | ADR 0075 section 6 | None | Implemented 2026-11-05. Mechanical checks Green |
-| [007](../tasks/adr-0080-task-007-contributor-role-frames.md) | One role classifier, so that each credit role selects the correct frame | ADR 0080 Decisions 3 and 6 | None | Ready 2026-11-04 |
+| [007](../tasks/adr-0080-task-007-contributor-role-frames.md) | One role classifier, so that each credit role selects the correct frame | ADR 0080 Decisions 3 and 6 | None | Implemented 2026-11-05. Mechanical checks Green. Operator visual check open |
 | [008](../tasks/adr-0080-task-008-rss-readers-agree.md) | The two RSS readers give one track number and one artwork URL | ADR 0075 artwork order, ADR 0080 Decision 9 | None | Ready 2026-11-04 |
 | [009](../tasks/adr-0080-task-009-funding-link-frame.md) | The funding link in `WPAY` | ADR 0080 Decision 10 | 006 | Ready 2026-11-04 |
 | [010](../tasks/adr-0080-task-010-license-frames.md) | The RSS license in `WCOP` or `TXXX:LICENSE`, and in `TXXX:MusicIndex License` | ADR 0080 Decision 11 | 006 | Ready 2026-11-04 |
@@ -64,6 +64,11 @@ The tag review of 2026-11-04 compared Studio at `79fff94`, Stophammer at `61e876
   Thus the scan always reports `TYER` on an MP4 file with a date. The reader label does not name the atom, so a key comparison cannot correct it. Packet 013 owns this defect.
 - Operator observation of 2026-10-16: the "Update 2 files" list showed two files, "Ethereal Realm ( 528hz )" and "Whispers". Each showed one frame: `TYER: 2025 (file: 2025-10-19)` and `TYER: 2025 (file: 2025-10-03)`. The operator wrote no tag.
   It is not confirmed that the two files are MP4 files, or that a write changes the stored date.
+
+## Open Finding - 2026-11-05
+
+- Packet 007 moves a credit to its correct frame. A file that the app wrote earlier can hold the same name in the frame of the earlier mapping: `remixer` in `TIPL`, and `original lyricist` in `TEXT`.
+  A write replaces a frame only when its edits name that frame. So the earlier value stays when the track has no other credit for that frame. The scan shows no difference for it. ADR 0080 Decision 6 does not list this value as an earlier form, and no packet owns it.
 
 ## Session Rules
 

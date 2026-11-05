@@ -699,6 +699,58 @@ mod tests {
         );
     }
 
+    /// ADR 0080 packet 007: a round trip. The scan reports no difference for
+    /// a file that holds the frame of each credit role.
+    #[test]
+    fn adr_0080_credit_roles_round_trip_edit_gives_no_scan_difference() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("song.mp3");
+        std::fs::write(&path, b"not really an mp3").unwrap();
+        let contributors = [
+            "remixer",
+            "original artist",
+            "original lyricist",
+            "foley artist",
+            "artist",
+            "mix engineer",
+            "mastering engineer",
+        ]
+        .iter()
+        .enumerate()
+        .map(|(index, role)| crate::api::Contributor {
+            name: Some(format!("Person {index}")),
+            role: Some((*role).into()),
+            ..crate::api::Contributor::default()
+        })
+        .collect::<Vec<_>>();
+        let expected = crate::metadata::contributor_id3_rows(&contributors)
+            .into_iter()
+            .map(|(_, frame, value)| Id3v24Edit {
+                frame_label: frame.into(),
+                value,
+            })
+            .collect::<Vec<_>>();
+        write_id3v24_edits(&path, &expected).unwrap();
+        let tags = read_audio_tags(&path).unwrap();
+
+        let planned = PlannedFile {
+            track_id: 1,
+            title: "Song".into(),
+            album: None,
+            path,
+            in_use: false,
+            expected,
+            route: None,
+        };
+
+        let frames = changed_frames(&planned, &tags, None);
+
+        assert!(
+            frames.is_empty(),
+            "a file the app wrote must show no difference for a credit frame: {frames:?}"
+        );
+    }
+
     /// R80-55 (ADR 0080 Decision 9): the scan reports a file without the
     /// frame as a difference when the track has an artwork URL.
     #[test]

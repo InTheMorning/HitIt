@@ -3230,36 +3230,11 @@ fn normalized_contributor_role(role: &str) -> Option<String> {
         return Some(instrument.to_string());
     }
     let role = role.to_ascii_lowercase();
-    let normalized = match role.as_str() {
-        role if role.contains("original lyric") => "original lyricist",
-        role if role.contains("original artist") => "original artist",
-        role if role.contains("composer") || role.contains("composed") => "composer",
-        role if role.contains("lyric") || role.contains("text writer") || role == "writer" => {
-            "lyricist"
-        }
-        role if role.contains("album artist")
-            || role.contains("band")
-            || role.contains("group") =>
-        {
-            "album artist"
-        }
-        role if role.contains("conductor") => "conductor",
-        role if role.contains("remix") => "remixer",
-        role if role.contains("master") => "mastering engineer",
-        role if role.contains("mix") => "mix engineer",
-        role if role.contains("engineer") => "engineer",
-        role if role.contains("producer") => "producer",
-        role if role.contains("arranger") => "arranger",
-        role if role == "musician"
-            || role.contains("lead")
-            || role.contains("performer")
-            || role.contains("artist") =>
-        {
-            "musician"
-        }
-        _ => role.as_str(),
-    };
-    Some(normalized.to_string())
+    Some(
+        classify_contributor_role(&role)
+            .map_or(role.as_str(), |class| class.normalized)
+            .to_string(),
+    )
 }
 
 fn normalized_person_compare_key(value: &str) -> Option<String> {
@@ -3398,54 +3373,87 @@ pub fn contributor_id3_rows(contributors: &[Contributor]) -> Vec<(String, &'stat
         .collect()
 }
 
-fn contributor_role_target(role: &str) -> Option<(&'static str, &'static str)> {
+/// The class of one credit role: its normalized name, and the ID3 field and
+/// frame that it selects (ADR 0080 Decision 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ContributorRoleClass {
+    normalized: &'static str,
+    field: &'static str,
+    frame: &'static str,
+}
+
+/// Roles with the word `artist` that select `TPE1`. Each other role with
+/// that word, for example `foley artist`, selects no frame.
+const LEAD_ARTIST_ROLES: [&str; 6] = [
+    "artist",
+    "lead artist",
+    "main artist",
+    "featured artist",
+    "recording artist",
+    "solo artist",
+];
+
+/// The one classifier of a lowercase credit role. The frame, the normalized
+/// role and the involved people role all read its result. The specific forms
+/// come first, so `remixer` is not read as `mixer`.
+fn classify_contributor_role(role: &str) -> Option<ContributorRoleClass> {
+    const fn class(
+        normalized: &'static str,
+        field: &'static str,
+        frame: &'static str,
+    ) -> Option<ContributorRoleClass> {
+        Some(ContributorRoleClass {
+            normalized,
+            field,
+            frame,
+        })
+    }
+    const INVOLVED: &str = "Involved people";
     match role {
+        role if role.contains("original lyric") => {
+            class("original lyricist", "Original lyricist", "TOLY")
+        }
+        role if role.contains("original artist") => {
+            class("original artist", "Original artist", "TOPE")
+        }
+        role if role.contains("remix") => class("remixer", "Remixer", "TPE4"),
         role if role.contains("composer") || role.contains("composed") => {
-            Some(("Composer", "TCOM"))
+            class("composer", "Composer", "TCOM")
         }
         role if role.contains("lyric") || role.contains("text writer") || role == "writer" => {
-            Some(("Lyricist", "TEXT"))
+            class("lyricist", "Lyricist", "TEXT")
         }
         role if role.contains("album artist")
             || role.contains("band")
             || role.contains("group") =>
         {
-            Some(("Album artist", "TPE2"))
+            class("album artist", "Album artist", "TPE2")
         }
-        role if role.contains("engineer") => Some(("Involved people", "TIPL")),
-        role if role.contains("producer") => Some(("Involved people", "TIPL")),
-        role if role.contains("arranger") => Some(("Involved people", "TIPL")),
-        role if role.contains("mixer") => Some(("Involved people", "TIPL")),
-        role if role.contains("master") => Some(("Involved people", "TIPL")),
+        role if role.contains("master") => class("mastering engineer", INVOLVED, "TIPL"),
+        role if role.contains("mix") => class("mix engineer", INVOLVED, "TIPL"),
+        role if role.contains("engineer") => class("engineer", INVOLVED, "TIPL"),
+        role if role.contains("producer") => class("producer", INVOLVED, "TIPL"),
+        role if role.contains("arranger") => class("arranger", INVOLVED, "TIPL"),
         role if role == "musician"
             || role.contains("lead")
             || role.contains("performer")
-            || role.contains("artist") =>
+            || LEAD_ARTIST_ROLES.contains(&role) =>
         {
-            Some(("Lead performer", "TPE1"))
+            class("musician", "Lead performer", "TPE1")
         }
-        role if role.contains("conductor") => Some(("Conductor", "TPE3")),
-        role if role.contains("remix") => Some(("Remixer", "TPE4")),
-        role if role.contains("original artist") => Some(("Original artist", "TOPE")),
-        role if role.contains("original lyric") => Some(("Original lyricist", "TOLY")),
+        role if role.contains("conductor") => class("conductor", "Conductor", "TPE3"),
         _ => None,
     }
 }
 
+fn contributor_role_target(role: &str) -> Option<(&'static str, &'static str)> {
+    classify_contributor_role(role).map(|class| (class.field, class.frame))
+}
+
 fn involved_people_role(role: &str) -> &'static str {
-    if role.contains("master") {
-        "mastering engineer"
-    } else if role.contains("mix") {
-        "mix engineer"
-    } else if role.contains("engineer") {
-        "engineer"
-    } else if role.contains("producer") {
-        "producer"
-    } else if role.contains("arranger") {
-        "arranger"
-    } else {
-        "involved person"
-    }
+    classify_contributor_role(role)
+        .filter(|class| class.frame == "TIPL")
+        .map_or("involved person", |class| class.normalized)
 }
 
 fn instrument_role(role: &str) -> Option<&str> {
@@ -4757,6 +4765,198 @@ mod tests {
         );
         assert!(summary.contains("Alice"));
         assert!(summary.contains("Bob"));
+    }
+
+    /// ADR 0080 Decision 3: each credit role selects the frame that its name
+    /// states. This table covers the forms that the classifier names.
+    const ROLE_FRAME_TABLE: [(&str, Option<&str>, &str); 12] = [
+        ("remixer", Some("TPE4"), "remixer"),
+        ("original artist", Some("TOPE"), "original artist"),
+        ("original lyricist", Some("TOLY"), "original lyricist"),
+        ("foley artist", None, "foley artist"),
+        ("artist", Some("TPE1"), "musician"),
+        ("mix engineer", Some("TIPL"), "mix engineer"),
+        ("mastering engineer", Some("TIPL"), "mastering engineer"),
+        ("composer", Some("TCOM"), "composer"),
+        ("lyricist", Some("TEXT"), "lyricist"),
+        ("album artist", Some("TPE2"), "album artist"),
+        ("conductor", Some("TPE3"), "conductor"),
+        ("featured artist", Some("TPE1"), "musician"),
+    ];
+
+    fn frame_of_role(role: &str) -> Option<&'static str> {
+        let contributors = vec![Contributor {
+            name: Some("Name".into()),
+            role: Some(role.into()),
+            ..Contributor::default()
+        }];
+        let rows = contributor_id3_rows(&contributors);
+        assert!(
+            rows.len() <= 1,
+            "one credit gives at most one row: {rows:?}"
+        );
+        rows.first().map(|(_, frame, _)| *frame)
+    }
+
+    #[test]
+    fn adr_0080_credit_role_selects_the_frame_of_its_name() {
+        for (role, frame, _) in ROLE_FRAME_TABLE {
+            assert_eq!(
+                frame_of_role(role),
+                frame,
+                "ADR 0080 Decision 3: the role {role:?} must select the frame {frame:?}. Fix classify_contributor_role in src/metadata.rs."
+            );
+        }
+    }
+
+    #[test]
+    fn adr_0080_credit_role_name_and_frame_agree() {
+        for (role, frame, normalized) in ROLE_FRAME_TABLE {
+            assert_eq!(
+                super::normalized_contributor_role(role).as_deref(),
+                Some(normalized),
+                "ADR 0080 Decision 3: the normalized role of {role:?} must be {normalized:?}. Read it from classify_contributor_role in src/metadata.rs."
+            );
+            if frame == Some("TIPL") {
+                let contributors = vec![Contributor {
+                    name: Some("Name".into()),
+                    role: Some(role.into()),
+                    ..Contributor::default()
+                }];
+                let rows = contributor_id3_rows(&contributors);
+                assert_eq!(rows[0].2, format!("{normalized}: Name"));
+            }
+        }
+    }
+
+    /// The 70 roles of the Studio list (Studio ADR 0112, `roles.rs` of
+    /// the Studio core, 7 of the group Music and 63 of the taxonomy, with
+    /// `editor` in two groups), in
+    /// lowercase as Studio writes them, with the expected frame of each.
+    const STUDIO_ROLE_FRAMES: [(&str, Option<&str>); 70] = [
+        ("band", Some("TPE2")),
+        ("vocalist", Some("TMCL")),
+        ("guitarist", Some("TMCL")),
+        ("bassist", Some("TMCL")),
+        ("drummer", Some("TMCL")),
+        ("keyboardist", Some("TMCL")),
+        ("musician", Some("TPE1")),
+        ("director", None),
+        ("assistant director", None),
+        ("executive producer", Some("TIPL")),
+        ("senior producer", Some("TIPL")),
+        ("producer", Some("TIPL")),
+        ("associate producer", Some("TIPL")),
+        ("development producer", Some("TIPL")),
+        ("creative director", None),
+        ("host", None),
+        ("co-host", None),
+        ("guest host", None),
+        ("guest", None),
+        ("voice actor", None),
+        ("narrator", None),
+        ("announcer", None),
+        ("reporter", None),
+        ("author", None),
+        ("editorial director", None),
+        ("co-writer", None),
+        ("writer", Some("TEXT")),
+        ("songwriter", None),
+        ("guest writer", None),
+        ("story editor", None),
+        ("managing editor", None),
+        ("script editor", None),
+        ("script coordinator", None),
+        ("researcher", None),
+        ("editor", None),
+        ("fact checker", None),
+        ("translator", None),
+        ("transcriber", None),
+        ("logger", None),
+        ("studio coordinator", None),
+        ("technical director", None),
+        ("technical manager", None),
+        ("audio engineer", Some("TIPL")),
+        ("remote recording engineer", Some("TIPL")),
+        ("post production engineer", Some("TIPL")),
+        ("audio editor", None),
+        ("sound designer", None),
+        ("foley artist", None),
+        ("composer", Some("TCOM")),
+        ("theme music", None),
+        ("music production", None),
+        ("music contributor", None),
+        ("production coordinator", None),
+        ("booking coordinator", None),
+        ("production assistant", None),
+        ("content manager", None),
+        ("marketing manager", None),
+        ("sales representative", None),
+        ("sales manager", None),
+        ("graphic designer", None),
+        ("cover art designer", None),
+        ("social media manager", None),
+        ("consultant", None),
+        ("intern", None),
+        ("camera operator", None),
+        ("lighting designer", None),
+        ("camera grip", None),
+        ("assistant camera", None),
+        ("editor", None),
+        ("assistant editor", None),
+    ];
+
+    #[test]
+    fn adr_0080_studio_roles_keep_their_frame_or_have_a_stated_result() {
+        for (role, frame) in STUDIO_ROLE_FRAMES {
+            assert_eq!(
+                frame_of_role(role),
+                frame,
+                "ADR 0080 Decision 3: the Studio role {role:?} must select the frame {frame:?}. Fix classify_contributor_role in src/metadata.rs."
+            );
+        }
+    }
+
+    /// The ADR 0080 round trip. A file written with a credit of each table
+    /// role reads back with the frame, and a second write adds no frame.
+    #[test]
+    fn adr_0080_credit_roles_round_trip_with_no_duplicate_frame() {
+        let contributors = ROLE_FRAME_TABLE
+            .iter()
+            .enumerate()
+            .map(|(index, (role, _, _))| Contributor {
+                name: Some(format!("Person {index}")),
+                role: Some((*role).into()),
+                ..Contributor::default()
+            })
+            .collect::<Vec<_>>();
+        let edits = contributor_id3_rows(&contributors)
+            .into_iter()
+            .map(|(_, frame, value)| crate::audio_tags::Id3v24Edit {
+                frame_label: frame.into(),
+                value,
+            })
+            .collect::<Vec<_>>();
+        let temp = tempfile::NamedTempFile::new().expect("temp file");
+        std::fs::write(temp.path(), b"not really an mp3").expect("write file");
+
+        write_id3v24_edits(temp.path(), &edits).expect("first write");
+        let first = read_audio_tags(temp.path()).expect("first read").fields;
+        write_id3v24_edits(temp.path(), &edits).expect("second write");
+        let second = read_audio_tags(temp.path()).expect("second read").fields;
+
+        assert_eq!(first, second, "a repeated write must not duplicate a frame");
+        for frame in ["TPE4", "TOPE", "TOLY", "TPE1", "TIPL"] {
+            assert!(
+                first.iter().any(|field| field.frame_id == frame),
+                "the file must hold the frame {frame}: {first:?}"
+            );
+        }
+        let remixer = first
+            .iter()
+            .find(|field| field.frame_id == "TPE4")
+            .map(|field| field.value.as_str());
+        assert_eq!(remixer, Some("Person 0"));
     }
 
     fn track_context_with_channel_website() -> TrackContext {
