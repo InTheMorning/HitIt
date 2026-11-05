@@ -68,8 +68,8 @@ Visual, listed apart, for the operator to walk:
 2. Open a Library track of a feed with `podcast:funding`. `phafe-music-the-singles` has one, if you have that feed.
 3. Run the RSS check of its playlist. Open "Update n files".
 4. Wrong: the list does not show `WPAY`, or its value holds label text.
-5. Confirm the update. Run `ffprobe -hide_banner FILE`, with FILE as the path of the track.
-6. Wrong: the output has no payment URL, or it holds label text.
+5. Confirm the update. Run `exiftool -a -G1 -s FILE`, with FILE as the path of the track.
+6. Wrong: the output has no `PaymentURL`, or it holds label text. On a FLAC or MP4 file the tag name is `PAYMENTWEBPAGE`.
 7. Run the scan again. Wrong: the file shows a difference.
 
 Cleanup: none. The tag rewrite is correct.
