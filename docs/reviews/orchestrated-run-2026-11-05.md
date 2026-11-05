@@ -59,10 +59,11 @@ Each entry names the packet, the result and the commit.
 7. Packet 011: implemented and Green on 2026-11-05, with no stop. `TPUB` holds the titles of the confirmed labels, from `feed_publisher_relationships` for a Library context and from the `publisher` entries for an Index context. The owner name stays in `TXXX:V4V_PUBLISHER`. The agent corrected the Vorbis cleanup, because each FLAC write added a `TPUB` value. 2652 lib tests and 398 guards pass.
 8. Packet 012: implemented and Green on 2026-11-05, with no stop. `TLAN` holds a three-letter code, from a table of 183 codes that the agent generated from `/usr/share/iso-codes/json/iso_639-2.json`. A Library track has no stored item language, so a Library write uses the channel code. The Library context reads the channel language from the stored value projection. 2664 lib tests and 398 guards pass.
 9. ADR 0076 packet 011: implemented and Green on 2026-11-05, with no stop. The operator asked for this packet after the popup results. A feed with a lower or missing RSS reader revision gets one request with no validators. The value is an `rss` fact of the feed, so the schema stays at version 21. 2670 lib tests and 398 guards pass.
+10. ADR 0080 packet 015: implemented and Green on 2026-11-05, with no stop. A write keeps a `TPUB` value from another source. `TLAN` replaces, as the amended Decision 13 states. 2673 lib tests and 398 guards pass.
 
 ## Open Points For The Operator
 
-The orchestrator did not decide these points. Do not run a rewrite of the full real Library until the operator answers point 1.
+The operator answered points 1, 3 and 4 on 2026-11-05, and each recommendation stands. Point 1: ADR 0080 is amended, and [packet 015](../tasks/adr-0080-task-015-tpub-keeps-other-values.md) implements `TPUB`. Point 3: no code change, and the next full write waits for more playlist checks. Point 4: no change.
 
 1. A write replaces a `TPUB` or `TLAN` value from a different source. ADR 0080 Decision 6 keeps such a value. Recommendation: amend Decision 13, so that `TLAN` holds one language and replaces the value. Keep the `TPUB` value, because Decision 6 names a MusicBrainz label. This needs one new packet for the writer. On 2026-11-05 the operator ran `exiftool` on the 231 Library files: 0 files hold a publisher, label or language value. Thus a write replaces no such value in the Library of that date. The rule stays open for a file from a different tool.
 2. A file that the app wrote earlier can keep a `remixer` name in `TIPL`, or an `original lyricist` name in `TEXT`. The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md#open-finding---2026-11-05) records it. On 2026-11-05 the command in Setup step 4 gave 0 rows, so no credit in the Library has this role. No packet is necessary for the Library of that date. Thus no Library track can walk packet 007 V1 with no test credit in Studio.
@@ -75,7 +76,7 @@ Not started. The "Operator Visual Check" section of each packet gives the steps 
 
 ### Setup
 
-The run adds no migration and no configuration key, so no backup is necessary. The "Update n files" button is in the Music sidebar, next to "Check all feeds". It lists each Library file that differs, and "Write Tags" writes each listed file. It is not limited to a playlist, and it has no selection for each file. Thus do not click "Write Tags" until the operator answers open point 1 or copies the music directory. The scan runs by itself at start, after an RSS check and after a write.
+The run adds no migration and no configuration key, so no backup is necessary. The "Update n files" button is in the Music sidebar, next to "Check all feeds". It lists each Library file that differs, and "Write Tags" writes each listed file. It is not limited to a playlist, and it has no selection for each file. Thus do not click "Write Tags" until more playlist checks are done (open point 3). The scan runs by itself at start, after an RSS check and after a write.
 
 1. Open a terminal in a desktop session.
 2. Build both binaries: `cd ~/build/v4vmm && cargo build --release && cargo build --bin v4vmm`.

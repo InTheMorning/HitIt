@@ -53,6 +53,9 @@ pub const LICENSE_LIST_FRAME: &str = "TXXX:LICENSE";
 /// value joins its URLs with it.
 const LICENSE_LIST_SEPARATOR: &str = " · ";
 
+/// The frame that holds each confirmed label (ADR 0080 Decision 12).
+const LABEL_FRAME: &str = "TPUB";
+
 /// The result of `resolve_license_edits`.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct LicenseResolution {
@@ -65,6 +68,52 @@ struct LicenseResolution {
     /// `true` when `edits` holds a `TXXX:LICENSE` edit, so the writer must
     /// remove each earlier `TXXX:LICENSE` value first.
     replaces_list: bool,
+}
+
+/// The labels of one `TPUB` value. An ID3 text frame separates its values
+/// with NUL, and `join_values` separates them with its separator.
+pub(crate) fn split_label_list(value: &str) -> Vec<String> {
+    value.split('\0').flat_map(split_license_list).collect()
+}
+
+/// Tells if `held` holds `label`, without ASCII case.
+pub(crate) fn label_list_holds(held: &[String], label: &str) -> bool {
+    held.iter().any(|value| value.eq_ignore_ascii_case(label))
+}
+
+/// ADR 0080 Decisions 6 and 12: the writer replaces the `TPUB` key, so an
+/// edit would lose a value of the file from another source. This function
+/// gives one `TPUB` edit, at the position of the first one. It holds each
+/// file value, and then each label of the edits that the file does not hold.
+/// The result is the same for a second write.
+fn merge_label_edits(existing: &[String], edits: &[Id3v24Edit]) -> Vec<Id3v24Edit> {
+    let mut labels = existing
+        .iter()
+        .flat_map(|value| split_label_list(value))
+        .collect::<Vec<_>>();
+    for edit in edits.iter().filter(|edit| edit.frame_label == LABEL_FRAME) {
+        for label in split_label_list(&edit.value) {
+            if !label_list_holds(&labels, &label) {
+                labels.push(label);
+            }
+        }
+    }
+    let mut merged = false;
+    edits
+        .iter()
+        .filter_map(|edit| {
+            if edit.frame_label != LABEL_FRAME {
+                return Some(edit.clone());
+            }
+            if std::mem::replace(&mut merged, true) {
+                return None;
+            }
+            Some(Id3v24Edit {
+                frame_label: LABEL_FRAME.to_owned(),
+                value: labels.join(LICENSE_LIST_SEPARATOR),
+            })
+        })
+        .collect()
 }
 
 fn license_urls_equal(left: &str, right: &str) -> bool {
@@ -477,7 +526,14 @@ fn write_mp3_edits(path: &Path, edits: &[Id3v24Edit]) -> Result<TagWriteResult> 
     let removed_frames = convert_old_v22_frames(&mut tag);
     remove_stale_id3_website_frames(&mut tag, edits);
     remove_stale_id3_description_frames(&mut tag, edits);
-    let license = resolve_id3_license_edits(&mut tag, edits);
+    let existing_labels = tag
+        .frames()
+        .filter(|frame| frame.id() == LABEL_FRAME)
+        .filter_map(|frame| frame.content().text())
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let edits = merge_label_edits(&existing_labels, edits);
+    let license = resolve_id3_license_edits(&mut tag, &edits);
     let edits = license.edits.as_slice();
     let mut applied = 0;
 
@@ -687,9 +743,10 @@ fn write_lofty_edits(
     let mut tag = tagged
         .remove(tag_type)
         .unwrap_or_else(|| LoftyTag::new(tag_type));
-    // ADR 0080 Decision 11: resolve the license URLs against the file values
-    // before any cleanup pass removes a key.
-    let license = resolve_lofty_license_edits(&mut tag, tag_type, edits);
+    // ADR 0080 Decisions 11 and 12: resolve the license URLs and the labels
+    // against the file values before any cleanup pass removes a key.
+    let edits = merge_label_edits(&lofty_label_values(&tag, tag_type), edits);
+    let license = resolve_lofty_license_edits(&mut tag, tag_type, &edits);
     let edits = license.edits.as_slice();
     // Each cleanup pass runs once, before any edit is added. A pass inside
     // the loop would remove the value of an earlier edit that shares its
@@ -921,20 +978,39 @@ fn is_website_field(field: &crate::tag_field::TagFieldId) -> bool {
 /// whose typed key equals the typed key of `key` (ADR 0080 Decision 12: a
 /// repeated `TPUB` write keeps one value in a Vorbis Comment).
 fn remove_lofty_item_by_key(tag: &mut lofty::tag::Tag, tag_type: lofty::tag::TagType, key: &str) {
+    tag.retain(|item| !lofty_item_has_key(item, tag_type, key));
+}
+
+/// Tells if `item` is stored under `key`, as `remove_lofty_item_by_key`
+/// states.
+fn lofty_item_has_key(
+    item: &lofty::tag::TagItem,
+    tag_type: lofty::tag::TagType,
+    key: &str,
+) -> bool {
     use lofty::tag::ItemKey;
 
     let typed_key = match ItemKey::from_key(tag_type, &key.to_ascii_uppercase()) {
         ItemKey::Unknown(_) => None,
         typed => Some(typed),
     };
-    tag.retain(|item| {
-        let same_mapped_key = item
-            .key()
-            .map_key(tag_type, true)
-            .is_some_and(|existing| existing.eq_ignore_ascii_case(key));
-        let same_typed_key = typed_key.as_ref() == Some(item.key());
-        !(same_mapped_key || same_typed_key)
-    });
+    let same_mapped_key = item
+        .key()
+        .map_key(tag_type, true)
+        .is_some_and(|existing| existing.eq_ignore_ascii_case(key));
+    same_mapped_key || typed_key.as_ref() == Some(item.key())
+}
+
+/// The values of the key that holds `TPUB` (ADR 0080 Decision 12).
+fn lofty_label_values(tag: &lofty::tag::Tag, tag_type: lofty::tag::TagType) -> Vec<String> {
+    let Some(key) = lofty_generic_key(LABEL_FRAME, tag_type) else {
+        return Vec::new();
+    };
+    tag.items()
+        .filter(|item| lofty_item_has_key(item, tag_type, &key))
+        .filter_map(|item| item.value().text())
+        .map(str::to_owned)
+        .collect()
 }
 
 /// ADR 0080 Decision 6: removes each key that `edits` gives a non-website,
@@ -2207,6 +2283,36 @@ mod tests {
         assert_eq!(
             first, second,
             "a repeated FLAC write must not duplicate a field"
+        );
+    }
+
+    /// ADR 0080 Decisions 6 and 12: the merge keeps each file value, does not
+    /// repeat a held label, and gives one edit.
+    #[test]
+    fn adr_0080_label_merge_keeps_file_values_and_adds_one_edit() {
+        let label = |value: &str| Id3v24Edit {
+            frame_label: "TPUB".into(),
+            value: value.into(),
+        };
+        let title = Id3v24Edit {
+            frame_label: "TIT2".into(),
+            value: "Song".into(),
+        };
+        let edits = [label("New"), title.clone(), label("Second")];
+        assert_eq!(
+            super::merge_label_edits(&["One\0Two".to_owned()], &edits),
+            vec![
+                label("One \u{b7} Two \u{b7} New \u{b7} Second"),
+                title.clone()
+            ]
+        );
+        assert_eq!(
+            super::merge_label_edits(&["NEW".to_owned()], &[label("New")]),
+            vec![label("NEW")]
+        );
+        assert_eq!(
+            super::merge_label_edits(&["One".to_owned()], std::slice::from_ref(&title)),
+            vec![title]
         );
     }
 
