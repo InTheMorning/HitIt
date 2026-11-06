@@ -21,6 +21,8 @@ pub const MIN_HIT_TARGET: Pixels = px(44.0);
 pub const HIT_TARGET_MIN: Pixels = MIN_HIT_TARGET;
 pub const CONTROL_FOCUS_RING_WIDTH: Pixels = px(2.0);
 pub const INSPECTOR_WIDTH: Pixels = px(360.0);
+/// The width of the Inspect Sources sheet (ADR 0089 Decision 8).
+pub const INSPECT_SOURCES_SHEET_WIDTH: Pixels = px(560.0);
 pub const INSPECTOR_MIN_WIDTH: Pixels = px(200.0);
 pub const INSPECTOR_MAX_WIDTH: Pixels = px(800.0);
 pub const SPLIT_HANDLE_WIDTH: Pixels = px(5.0);

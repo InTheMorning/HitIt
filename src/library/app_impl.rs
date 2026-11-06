@@ -49,6 +49,7 @@ use crate::presentation::delayed_presenter::present_after;
 use crate::presentation::{bridge_watch, present_command};
 use crate::runtime::musicbrainz_feed_saga::{MusicBrainzFeedSagaState, StartFeedLookup};
 use crate::subscribe_service::{self, SubscribeFeedRequest, SubscribeTrackRequest};
+use crate::ui::composites::inspect_sources_sheet::InspectSourcesSheet;
 use crate::ui::composites::letter_bar::LetterHandler;
 use crate::ui::composites::list_page_head::{
     list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
@@ -79,7 +80,9 @@ use crate::ui::shells::library::releases_tiles::{
 };
 use crate::ui::shells::library::search_page_list::{render_search_page_list, SearchPageListRename};
 use crate::ui::shells::library::sidebar::{render_sidebar_row, render_sidebar_separator};
-use crate::ui::shells::library::track_detail_metadata::track_metadata_rows_for_frame;
+use crate::ui::shells::library::track_detail_metadata::{
+    render_library_inspect_sources_sheet_body, track_metadata_rows_for_frame,
+};
 use crate::ui::shells::library_removal_confirmation::{
     open_library_removal_confirmation_dialog, open_selection_removal_confirmation_dialog,
 };
@@ -105,7 +108,8 @@ use crate::view_models::library::{
     ReleasesListItemVm, ReleasesRowId, RemovalConfirmation, TrackSubscribeOutcome,
 };
 use crate::view_models::library::{
-    name_level_art, spring_load_navigation, ArtistsListItemVm, SpringLoadGeneration,
+    name_level_art, spring_load_navigation, take_inspect_sources_request, ArtistsListItemVm,
+    SpringLoadGeneration,
 };
 use crate::view_models::library_removal::{
     SelectionRemovalConfirmationState, SelectionRemovalPendingItem, SelectionRemovalReport,
@@ -900,16 +904,11 @@ impl LibraryApp {
     ) {
         match action {
             TrackRowMenuAction::Download => self.download_library_tracks(&[track_id], cx),
-            // ADR 0083 task 006, decision D4: open the track page with the
-            // "Inspect sources" disclosure open.
+            // ADR 0083 task 006, decision D4, and ADR 0089 Decision 8: open
+            // the track page, then its Inspect Sources sheet.
             TrackRowMenuAction::InspectSources => {
                 if let Some(key) = self.vm.library_track_key(track_id) {
-                    self.request_inspect_sources(track_id);
-                    self.open_page(
-                        FrameNavigationEntry::Track(key),
-                        NavigationPathStart::CurrentPath,
-                        cx,
-                    );
+                    self.open_inspect_sources(track_id, FrameNavigationEntry::Track(key), cx);
                 }
             }
             // ADR 0083 Decision 5: "Remove from Library…" always asks for
@@ -2861,10 +2860,11 @@ impl LibraryApp {
         frame.inspector_state.description_state = self.vm.track_description_state(track.id, None);
         // ADR 0083 task 006, decision D4: "Inspect sources" of a track row
         // opens this page with its "Inspect sources" disclosure open.
-        if self.pending_inspect_sources.take() == Some(track.id) {
+        if take_inspect_sources_request(&mut self.pending_inspect_sources, track.id) {
             frame
                 .inspector_state
                 .expand_panel(InspectorPanelKind::Sources);
+            cx.emit(super::LibraryAppEvent::OpenInspectSourcesSheet);
         }
         if let Some(lookup) = self.vm.staged_musicbrainz(track.id).cloned() {
             frame.musicbrainz_lookup = LazyPanel::Loaded(lookup);
@@ -3714,11 +3714,80 @@ impl LibraryApp {
         );
     }
 
-    /// Asks the track page of `track_id` to open its "Inspect sources"
-    /// disclosure when it mounts next (ADR 0083 task 006, decision D4).
-    /// The navigation to that page mounts it after this call.
-    pub(crate) fn request_inspect_sources(&mut self, track_id: i64) {
-        self.pending_inspect_sources = Some(track_id);
+    /// Opens the track page `entry` of `track_id` with its Inspect Sources
+    /// sheet (ADR 0083 task 006, decision D4; ADR 0089 Decision 8). The
+    /// pending request marks the track when it mounts. The event opens the
+    /// sheet after the page mounts, because the top app owns the window.
+    pub(crate) fn open_inspect_sources(
+        &mut self,
+        track_id: i64,
+        entry: FrameNavigationEntry,
+        cx: &mut Context<Self>,
+    ) {
+        // A track that is not mounted yet takes the request when it mounts,
+        // and the mount emits the sheet event. A mounted track gets the event
+        // here, so the sheet opens once in either case.
+        let mounted = matches!(
+            &self.detail,
+            LibraryDetail::Track(frame) if frame.entity_id == track_id
+        );
+        if !mounted {
+            self.pending_inspect_sources = Some(track_id);
+        }
+        self.open_page(entry, NavigationPathStart::CurrentPath, cx);
+        if mounted {
+            cx.emit(super::LibraryAppEvent::OpenInspectSourcesSheet);
+        }
+    }
+
+    /// Opens the Inspect Sources sheet of the open track page (ADR 0089
+    /// Decision 8). The sheet shows the Sources state of the page, so the
+    /// state of the page and the open sheet stay equal.
+    pub(crate) fn open_inspect_sources_sheet(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(frame) = self.selected_track_frame_mut() else {
+            return;
+        };
+        frame
+            .inspector_state
+            .expand_panel(InspectorPanelKind::Sources);
+        cx.notify();
+        InspectSourcesSheet {
+            source: cx.entity(),
+            body: render_library_inspect_sources_sheet_body,
+            on_close: Self::collapse_inspect_sources,
+        }
+        .open(window, cx);
+    }
+
+    /// Closes the Inspect Sources sheet state of the open track page. The
+    /// sheet calls it when it closes (ADR 0089 Decision 8).
+    pub(crate) fn collapse_inspect_sources(&mut self, cx: &mut Context<Self>) {
+        if let Some(frame) = self.selected_track_frame_mut() {
+            frame
+                .inspector_state
+                .collapse_panel(InspectorPanelKind::Sources);
+        }
+        cx.notify();
+    }
+
+    /// The track frame whose Inspect Sources sheet is open. `None` when no
+    /// track page shows the sheet.
+    pub(crate) fn inspect_sources_frame(&self) -> Option<&InspectorFrame> {
+        match &self.detail {
+            LibraryDetail::Track(frame) if frame.inspector_display(None).inspect_sources_open() => {
+                Some(frame)
+            }
+            LibraryDetail::None
+            | LibraryDetail::Track(_)
+            | LibraryDetail::Album(_)
+            | LibraryDetail::Playlist(_)
+            | LibraryDetail::SinglesGroup(_)
+            | LibraryDetail::WindowGroup(_) => None,
+        }
     }
 
     /// The pointer of a track drag moves on or off the sidebar row of
@@ -3773,18 +3842,8 @@ impl LibraryApp {
         self.vm.busy_items()
     }
 
-    /// Opens or closes the "Inspect sources" disclosure of the selected
-    /// track page (ADR 0083 Decision 8).
-    pub(crate) fn toggle_inspect_sources(&mut self, cx: &mut Context<Self>) {
-        let Some(frame) = self.selected_track_frame_mut() else {
-            return;
-        };
-        frame.toggle_inspector_panel(InspectorPanelKind::Sources);
-        cx.notify();
-    }
-
-    /// "MusicBrainz lookup" of the track page menu: opens "Inspect sources"
-    /// and starts the lookup, or shows the panel when it is already open.
+    /// "MusicBrainz lookup" of the track page menu: opens the Inspect Sources
+    /// state and starts the lookup, or shows the panel when it is already open.
     pub(crate) fn show_musicbrainz_lookup(&mut self, cx: &mut Context<Self>) {
         let Some(frame) = self.selected_track_frame_mut() else {
             return;

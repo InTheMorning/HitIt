@@ -1563,7 +1563,7 @@ impl TopApp {
                 this.run_index_track_page_command(command, cx);
             });
         });
-        render_track_page(&vm, images, &dispatch, None, cx)
+        render_track_page(&vm, images, &dispatch, cx)
     }
 
     /// Runs one command of the open Index track page. The command reads
@@ -1599,6 +1599,7 @@ impl TopApp {
                 TrackPageAction::DownloadTrack
                 | TrackPageAction::AddToPlaylist
                 | TrackPageAction::MusicBrainzLookup
+                | TrackPageAction::InspectSources
                 | TrackPageAction::RemoveTrack,
             )
             | TrackPageCommand::AddToPlaylist(_)

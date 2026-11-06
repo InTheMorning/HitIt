@@ -12,6 +12,7 @@ use gpui::{div, prelude::*, AnyElement, Context, SharedString, Styled};
 
 use super::track_detail_metadata_grid::library_track_metadata_grid;
 pub(crate) use super::track_detail_metadata_grid::track_metadata_rows_for_frame;
+use crate::feed_service::track_row_to_track_context;
 use crate::library::{InspectorFrame, LazyPanel, LibraryApp};
 use crate::media::image_from_bytes;
 use crate::metadata::{
@@ -19,8 +20,8 @@ use crate::metadata::{
     TagCompareResult, TrackContext,
 };
 use crate::ui::composites::{
-    action_button, ActionButtonDisplay, ActionRow, ActionRowDisplay, ActionRowMessage,
-    DisclosureGroup, DisclosureGroupDisplay, FileHeader, MusicBrainzPanel,
+    action_button, ActionButtonDisplay, ActionRow, ActionRowDisplay, ActionRowMessage, FileHeader,
+    MusicBrainzPanel,
 };
 use crate::ui::primitives::LoadingMessage;
 use crate::ui::style::spacing;
@@ -32,51 +33,32 @@ use crate::view_models::musicbrainz_panel::MusicBrainzPanelVm;
 use crate::view_models::track_metadata_grid::TrackMetadataGridVm;
 use crate::views::TrackRef;
 
-/// The "Inspect sources" disclosure of a Library track page (ADR 0083
-/// Decision 8). The shared track page shell adds it below the page. The
-/// disclosure is closed by default. Opened, it holds Compare ID3, the
-/// `MusicBrainz` panel, waiting ID3 edits and the compare grid.
-pub(crate) fn render_library_track_detail_metadata(
-    frame: &InspectorFrame,
-    track_context: &TrackContext,
-    result: Option<&TagCompareResult>,
-    pending_id3_edits: &BTreeMap<String, PendingId3Edit>,
+/// The body of the Inspect Sources sheet of the open Library track (ADR 0089
+/// Decision 8, ADR 0083 Decision 8). The sheet calls it at each render, so a
+/// change of the track state shows in the open sheet. Opened, it holds
+/// Compare ID3, the `MusicBrainz` panel, waiting ID3 edits and the compare
+/// grid.
+pub(crate) fn render_library_inspect_sources_sheet_body(
+    library: &mut LibraryApp,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
-    let inspector_display = frame.inspector_display(track_context.track.description.as_deref());
-    let open = inspector_display.inspect_sources_open();
-
-    div()
-        .flex()
-        .flex_col()
-        .gap(spacing::LG)
-        .child(
-            DisclosureGroup::new(DisclosureGroupDisplay {
-                id: "library-track-inspect-sources".into(),
-                label: SharedString::from(INSPECT_SOURCES_LABEL),
-                a11y_label: SharedString::from(INSPECT_SOURCES_A11Y_LABEL),
-            })
-            .collapsed(!open)
-            .on_toggle(cx.listener(|this, _, _, cx| {
-                this.toggle_inspect_sources(cx);
-            })),
-        )
-        .when(open, |el| {
-            el.child(render_inspect_sources_body(
-                frame,
-                track_context,
-                result,
-                pending_id3_edits,
-                cx,
-            ))
-        })
-        .into_any_element()
+    let Some(frame) = library.inspect_sources_frame() else {
+        return div().into_any_element();
+    };
+    let track_context = track_row_to_track_context(&frame.track);
+    let track_context = frame.source_context.as_ref().unwrap_or(&track_context);
+    let result = match &frame.tag_compare {
+        LazyPanel::Loaded(result) => Some(result),
+        LazyPanel::Loading | LazyPanel::Empty(_) | LazyPanel::Hidden => None,
+    };
+    let pending_id3_edits = pending_id3_edits_for_track_detail(frame, track_context, result);
+    render_inspect_sources_body(frame, track_context, result, &pending_id3_edits, cx)
 }
 
-/// The label of the "Inspect sources" disclosure (ADR 0083 Decision 8).
-const INSPECT_SOURCES_LABEL: &str = "Inspect sources";
-const INSPECT_SOURCES_A11Y_LABEL: &str = "Show or hide the source values of this track";
+/// The accessibility label of the source controls of the Inspect Sources sheet.
+const INSPECT_SOURCES_A11Y_LABEL: &str = "Source values of this track";
 
+/// The content of the Inspect Sources sheet (ADR 0083 Decision 8).
 fn render_inspect_sources_body(
     frame: &InspectorFrame,
     track_context: &TrackContext,

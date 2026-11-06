@@ -34,7 +34,11 @@ impl LibraryApp {
                         cx.write_to_clipboard(ClipboardItem::new_string(url));
                     }
                 }
-                TrackPageAction::MusicBrainzLookup => self.show_musicbrainz_lookup(cx),
+                TrackPageAction::MusicBrainzLookup => {
+                    self.show_musicbrainz_lookup(cx);
+                    self.open_inspect_sources_sheet(window, cx);
+                }
+                TrackPageAction::InspectSources => self.open_inspect_sources_sheet(window, cx),
                 TrackPageAction::RemoveTrack => {
                     self.remove_track_after_confirmation(track_id, window, cx);
                 }

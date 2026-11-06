@@ -41,7 +41,7 @@ const INDEX_ACTION_ID_PREFIX: &str = "index-album-page";
 /// The menu item labels of a track row (ADR 0083 task 006, decision D2).
 const TRACK_MENU_ADD_TO_PLAYLIST_LABEL: &str = "Add to playlist";
 const TRACK_MENU_DOWNLOAD_LABEL: &str = "Download";
-const TRACK_MENU_INSPECT_SOURCES_LABEL: &str = "Inspect sources";
+const TRACK_MENU_INSPECT_SOURCES_LABEL: &str = "Inspect Sources";
 const TRACK_MENU_REMOVE_LABEL: &str = "Remove\u{2026}";
 /// The menu item labels of a playlist row and of an Inbox row
 /// (ADR 0083 task 007, decisions D5 to D7).
@@ -345,8 +345,8 @@ pub(crate) enum ReleasePageCommand {
     DownloadTrack(usize),
     /// Remove the track of the row at this index, after a confirmation.
     RemoveTrack(usize),
-    /// Open the track page of the row at this index with its "Inspect
-    /// sources" disclosure open.
+    /// Open the track page of the row at this index with its Inspect
+    /// Sources sheet open.
     InspectSources(usize),
     /// Add the track of the row at this index to the playlist with this id.
     AddTrackToPlaylist(usize, i64),
@@ -823,7 +823,7 @@ impl TrackRowMenuVm {
     }
 }
 
-/// The page that "Inspect sources" of a Library track row opens: the track
+/// The page that "Inspect Sources" of a Library track row opens: the track
 /// page of the track (ADR 0083 task 006, decision D4). A singles group row
 /// opens the track page too, not the release page of its single.
 #[must_use]

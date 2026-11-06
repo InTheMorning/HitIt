@@ -20,8 +20,7 @@ and one album page for the Library and the Index, are complete. Phase 4A, flow a
 Music structure in [ADR 0084](docs/adr/0084-music-column-browser.md).
 
 Phase 4A builds ADR 0084 in the packets of the
-[ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). Music has one navigation stack, one page
-for each item, three columns, the six destinations and Discover.
+[ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). [ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md) replaces its columns, destinations and Discover.
 Stophammer release 0.13.0 delivered request 9 on 2026-10-21, so packets 026 and 029 wait for nothing outside this repository.
 Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). Stophammer release 0.18.1 is deployed on 2026-11-04.
 
@@ -56,7 +55,7 @@ Ready packets include
 [ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
 The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented [ADR 0080 packets 006 to 016](docs/plans/adr-0080-tag-frames-phase-plan.md), the tag frames of the review of 2026-11-04, and [ADR 0076 packet 011](docs/tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md). Packet 006 is complete. The checks of the other packets are open in section 10 of [pending human checks](docs/pending-human-checks.md). [Packet 014](docs/tasks/adr-0080-task-014-reader-keeps-each-frame.md) corrects a reader fault that the walk found. A write of 143 Library files ran on 2026-11-05. The next full write waits for more playlist checks, as the operator decided (open point 3 of the run record). 26 HeyCitizen files hold `TPUB: HeyCitizen`. The operator confirmed that this value is correct. The live HeyCitizen feeds state only `rel="artist"`.
 [ADR 0088](docs/adr/0088-a-feed-move-follows-the-rss-tag.md), the feed move, is Proposed, and its packet waits for the operator.
-[ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md), the shell, is Accepted on 2026-11-05. The [shell run](docs/reviews/orchestrated-run-2026-11-05-shell.md) implements the packets of its [phase plan](docs/plans/adr-0089-shell-phase-plan.md) in sequence. Packet 016, the now-playing panel, waits for ADR 0068. Until each packet lands, the app keeps the part of the three sections, the three columns and Discover of ADR 0084 that the packet replaces.
+[ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md), the shell, is Accepted on 2026-11-05. The [shell run](docs/reviews/orchestrated-run-2026-11-05-shell.md) implemented packets 001 to 015 of its [phase plan](docs/plans/adr-0089-shell-phase-plan.md) on 2026-11-06. Their visual checks and the questions of the run record are open in section 11 of [pending human checks](docs/pending-human-checks.md). Packet 016, the now-playing panel and the row action Play, waits for ADR 0068. The new tokens of the overhaul plan start after the walk.
 
 Known open defects:
 

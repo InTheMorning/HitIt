@@ -1,9 +1,9 @@
 //! Library track page host (ADR 0084 Decision 4, packet 023).
 //!
 //! Copies the Library track facts into the shared track page view model,
-//! and renders the page through the shared track page shell. The "Inspect
-//! sources" disclosure comes from `track_detail_metadata`. Each command
-//! goes to `LibraryApp::run_track_page_command`.
+//! and renders the page through the shared track page shell. Each command
+//! goes to `LibraryApp::run_track_page_command`. The source sheet is not
+//! part of the page (ADR 0089 Decision 8).
 
 #![warn(clippy::pedantic)]
 
@@ -13,10 +13,7 @@ use gpui::{AnyElement, Context, ScrollHandle};
 
 use crate::db;
 use crate::feed_service::track_row_to_track_context;
-use crate::library::{InspectorFrame, LazyPanel, LibraryApp};
-use crate::ui::shells::library::track_detail_metadata::{
-    pending_id3_edits_for_track_detail, render_library_track_detail_metadata,
-};
+use crate::library::{InspectorFrame, LibraryApp};
 use crate::ui::shells::track_page::{render_track_page, TrackPageDispatch, TrackPageImages};
 use crate::view_models::library::LibraryChromeDisplay;
 use crate::view_models::named_feeds::NamedFeed;
@@ -34,10 +31,6 @@ pub(crate) fn render_library_track_detail(
 ) -> AnyElement {
     let context = track_row_to_track_context(&frame.track);
     let context = frame.source_context.as_ref().unwrap_or(&context);
-    let result = match &frame.tag_compare {
-        LazyPanel::Loaded(result) => Some(result),
-        LazyPanel::Loading | LazyPanel::Empty(_) | LazyPanel::Hidden => None,
-    };
     let inspector_display = frame.inspector_display(context.track.description.as_deref());
     let state = LibraryTrackPageState {
         track_id: frame.entity_id,
@@ -61,9 +54,6 @@ pub(crate) fn render_library_track_detail(
         .with_description_state(inspector_display.description_state);
     let vm = track_page_vm(&facts);
 
-    let pending_id3_edits = pending_id3_edits_for_track_detail(frame, context, result);
-    let inspect_sources =
-        render_library_track_detail_metadata(frame, context, result, &pending_id3_edits, cx);
     let entity = cx.entity();
     let dispatch: TrackPageDispatch = Rc::new(move |command, window, cx| {
         entity.update(cx, |this, cx| {
@@ -77,7 +67,6 @@ pub(crate) fn render_library_track_detail(
             scroll_handle: scroll.clone(),
         },
         &dispatch,
-        Some(inspect_sources),
         cx,
     )
 }

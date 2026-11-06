@@ -470,6 +470,11 @@ impl TopApp {
                 LibraryAppEvent::SearchPage(action) => {
                     this.handle_search_page_action(action, window, cx);
                 }
+                LibraryAppEvent::OpenInspectSourcesSheet => {
+                    library.update(cx, |library, cx| {
+                        library.open_inspect_sources_sheet(window, cx);
+                    });
+                }
                 LibraryAppEvent::SidebarRowSelected(row) => {
                     this.open_sidebar_row(*row, window, cx);
                 }
