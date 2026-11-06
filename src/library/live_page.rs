@@ -98,7 +98,7 @@ impl LibraryApp {
                 view: None,
                 letter: None,
                 letter_keys: None,
-                action: None,
+                actions: Vec::new(),
             },
             cx,
         )

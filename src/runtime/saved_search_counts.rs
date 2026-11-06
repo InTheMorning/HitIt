@@ -214,7 +214,7 @@ fn count_saved_search(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::saved_searches::{insert_saved_search, SavedSearchInsert, StoredStartTab};
+    use crate::db::saved_searches::{insert_saved_search, StoredStartTab};
     use crate::db::{upgrades, CURRENT_VERSION};
 
     fn setup_db() -> Connection {
@@ -225,12 +225,7 @@ mod tests {
     }
 
     fn insert_saved(conn: &Connection, query: &str) -> i64 {
-        let SavedSearchInsert::Inserted(id) =
-            insert_saved_search(conn, query, StoredStartTab::Releases, 1).unwrap()
-        else {
-            panic!("the saved search is inserted");
-        };
-        id
+        insert_saved_search(conn, query, StoredStartTab::Releases, 1).unwrap()
     }
 
     fn insert_track(conn: &Connection, item_guid: &str, title: &str) {
@@ -288,6 +283,40 @@ mod tests {
         insert_track(&conn, "item-2", "Ambient Two");
         let second = count_saved_search(&conn, &endpoint(), &request, 0);
         assert_eq!(second, NewResultCount::Count(1));
+    }
+
+    /// ADR 0089 Decision 4 (operator decision of 2026-11-06): two saved
+    /// searches that hold one query keep their own seen sets. Each count
+    /// follows its own id.
+    #[test]
+    fn two_saved_searches_with_one_query_count_separately() {
+        let conn = setup_db();
+        let query = "in:library ambient";
+        let first = insert_saved(&conn, query);
+        let second = insert_saved(&conn, query);
+        insert_track(&conn, "item-1", "Ambient One");
+        let first_request = request_for(first, query);
+        let second_request = request_for(second, query);
+
+        assert_eq!(
+            count_saved_search(&conn, &endpoint(), &first_request, 0),
+            NewResultCount::Count(0)
+        );
+        assert_eq!(
+            count_saved_search(&conn, &endpoint(), &second_request, 0),
+            NewResultCount::Count(0),
+            "the first saved search does not initialise the second one"
+        );
+
+        insert_track(&conn, "item-2", "Ambient Two");
+        assert_eq!(
+            count_saved_search(&conn, &endpoint(), &first_request, 0),
+            NewResultCount::Count(1)
+        );
+        assert_eq!(
+            count_saved_search(&conn, &endpoint(), &second_request, 0),
+            NewResultCount::Count(1)
+        );
     }
 
     #[test]

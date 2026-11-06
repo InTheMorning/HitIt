@@ -575,6 +575,13 @@ pub(crate) enum TrackRowMenuAction {
     /// Copies a public playlist of the Index to My playlists (ADR 0089
     /// packet 010). Only the menu of a public playlist gives it.
     CopyToMyPlaylists,
+    /// Renames a playlist from its row in the My playlists list (ADR 0089
+    /// Decision 6). Only the menu of a playlist row gives it.
+    RenamePlaylist,
+    /// Deletes a playlist from its row, after the confirmation of the
+    /// playlist page (ADR 0089 Decision 6). Only the menu of a playlist row
+    /// gives it.
+    DeletePlaylist,
 }
 
 impl TrackRowMenuAction {
@@ -587,7 +594,9 @@ impl TrackRowMenuAction {
             | Self::MoveUp
             | Self::MoveDown
             | Self::RemoveFromPlaylist
-            | Self::CopyToMyPlaylists => None,
+            | Self::CopyToMyPlaylists
+            | Self::RenamePlaylist
+            | Self::DeletePlaylist => None,
             Self::Download => Some(ReleasePageCommand::DownloadTrack(index)),
             Self::InspectSources => Some(ReleasePageCommand::InspectSources(index)),
             Self::Remove => Some(ReleasePageCommand::RemoveTrack(index)),

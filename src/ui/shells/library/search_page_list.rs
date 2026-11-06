@@ -104,6 +104,7 @@ fn render_saved_search_row(
             label: SharedString::from(row.a11y_label.clone()),
         })
         .selected(row.selected)
+        .marked(row.marked)
         .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
             this.open_saved_search_row(&search, cx);
         }))
@@ -131,7 +132,7 @@ fn render_saved_search_row(
                         .weight(FontWeight::MEDIUM),
                 )
                 .child(
-                    Label::new(row.subtitle)
+                    Label::new(row.subtitle.clone())
                         .size(FontSize::Micro)
                         .color(SemanticColor::TertiaryLabel),
                 )
@@ -151,12 +152,15 @@ fn render_saved_search_row(
 fn saved_search_row_menu(row: &SearchPageRowVm, cx: &mut Context<LibraryApp>) -> AnyElement {
     let entity = cx.entity();
     let search = row.search.clone();
+    // The trigger is the "⋯" icon only, as the track and release rows show it.
     let mut menu = ContextMenu::new(
         SharedString::from(format!("{}-menu", row.element_id)),
         ContextMenuScope::WorkspaceFrame,
-        SharedString::from(format!("Actions for {}", row.label)),
+        SharedString::from(row.menu_a11y_label.clone()),
     )
-    .trigger_icon(IconName::More);
+    .trigger_icon(IconName::More)
+    .trigger_label("")
+    .trigger_tooltip(row.menu_tooltip);
     for entry in &row.menu {
         let item = entry.item;
         let entity = entity.clone();

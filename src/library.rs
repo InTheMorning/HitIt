@@ -414,6 +414,10 @@ pub struct LibraryApp {
     /// The public playlist whose copy runs on the runtime (ADR 0089 packet
     /// 010). One copy runs at a time.
     copying_public_playlist: Option<String>,
+    /// The report of the last copy to My playlists. It shows on the page of
+    /// the copied playlist, until that page closes or the next copy starts.
+    public_playlist_copy_report:
+        Option<crate::view_models::public_playlists::PublicPlaylistCopyReport>,
     /// The saved search whose row shows the rename input.
     saved_search_renaming: Option<crate::view_models::search_results::SavedSearchId>,
     /// The message of the last saved search request, for example a missing

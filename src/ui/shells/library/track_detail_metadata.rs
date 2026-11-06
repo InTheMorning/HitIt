@@ -160,6 +160,7 @@ fn render_inspect_sources_controls(
         let disabled = !action.enabled || !inspector_display.compare_id3_enabled;
         let mut button = action_button(
             ActionButtonDisplay {
+                key: "compare-id3",
                 label: SharedString::from(action.label),
                 a11y_label: SharedString::from(a11y),
             },
@@ -189,6 +190,7 @@ fn render_inspect_sources_controls(
         ));
         let mut staged = vec![action_button(
             ActionButtonDisplay {
+                key: "apply-id3-edits",
                 label: SharedString::from(staged_display.apply_label.clone()),
                 a11y_label: SharedString::from(staged_display.apply_label),
             },
@@ -204,6 +206,7 @@ fn render_inspect_sources_controls(
             staged.push(
                 action_button(
                     ActionButtonDisplay {
+                        key: "discard-id3-edits",
                         label: SharedString::from(staged_display.discard_label),
                         a11y_label: SharedString::from(staged_display.discard_label),
                     },
@@ -277,6 +280,7 @@ fn render_track_compare_panel(
                 .action(
                     action_button(
                         ActionButtonDisplay {
+                            key: "reread-tag-compare",
                             label: SharedString::from(file_actions.reread_label),
                             a11y_label: SharedString::from(file_actions.reread_label),
                         },
@@ -289,6 +293,7 @@ fn render_track_compare_panel(
                 .action(
                     action_button(
                         ActionButtonDisplay {
+                            key: "redownload-tag-compare",
                             label: SharedString::from(file_actions.redownload_label),
                             a11y_label: SharedString::from(file_actions.redownload_label),
                         },

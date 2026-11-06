@@ -2849,7 +2849,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 22;
+pub(crate) const CURRENT_VERSION: i64 = 23;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -2961,6 +2961,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 22,
         name: "saved_search_seen",
         apply: saved_search_seen::apply,
+    },
+    Migration {
+        version: 23,
+        name: "saved_search_names",
+        apply: saved_searches::apply_names,
     },
 ];
 
@@ -3083,7 +3088,9 @@ fn matches_contract(conn: &Connection, version: i64) -> rusqlite::Result<bool> {
 /// each named feed (ADR 0085 Decision 6), migration 20 adds the channel
 /// image of each named feed (ADR 0084 Decision 12), and migration 21 adds
 /// the saved search table (ADR 0084 Decision 3), and migration 22 adds the
-/// saved search name and the seen result table (ADR 0089 Decision 4).
+/// saved search name and the seen result table (ADR 0089 Decision 4), and
+/// migration 23 names each saved search and makes the name unique (operator
+/// decision of 2026-11-06).
 pub(crate) fn schema_contract(
     version: i64,
 ) -> impl Iterator<Item = &'static (&'static str, &'static [&'static str])> {
@@ -5082,7 +5089,7 @@ mod tests {
         );
         assert_eq!(
             applied_migration_versions(&conn)?,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
             "ADR 0016: fresh schema should record all registry migrations"
         );
 
@@ -5423,7 +5430,7 @@ mod tests {
         );
         assert_eq!(
             applied_migration_versions(&conn)?,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
             "cleanup migration should be recorded exactly once"
         );
 

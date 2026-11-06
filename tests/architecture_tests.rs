@@ -2942,12 +2942,12 @@ fn adr_0084_search_list_r10_08_feed_rows_open_the_feed_page() {
     );
 }
 
-/// Situational, ADR 0089 Decision 4 (task 008 Part A): a click on the
-/// "All | In Library" control writes the query field and starts the run by
-/// the path of a typed change. The toolbar path arms the pause through
-/// `start_search_pause`, and the saved-search path arms it through
-/// `start_saved_search_query_pause`. The field text changes without a
-/// `Change` event, so each path must call its pause itself.
+/// Situational, ADR 0089 Decision 4 (task 008 Part A, and the query edit of
+/// 2026-11-06): a click on the "All | In Library" control writes the toolbar
+/// field and starts the run by the path of a typed change. The field text
+/// changes without a `Change` event, so the path must call the pause itself.
+/// A saved-search page writes through the same function, so its live run uses
+/// the same pause.
 #[test]
 fn adr_0089_task_008_scope_click_runs_by_the_typed_change_path() {
     let live = compact_source(&read_source(&manifest_path("src/app/search_live.rs")));
@@ -2961,10 +2961,9 @@ fn adr_0089_task_008_scope_click_runs_by_the_typed_change_path() {
         "src/app/saved_search_query_edit.rs",
     )));
     assert!(
-        edit.contains("with_library_scope(&text,scope)")
-            && edit.contains("self.start_saved_search_query_pause(cx);"),
-        "ADR 0089 Decision 4: `set_saved_search_library_scope` must write the query field with \
-         `with_library_scope`, then call `start_saved_search_query_pause`."
+        edit.contains("self.set_toolbar_library_scope(scope,window,cx);"),
+        "ADR 0089 Decision 4: `set_saved_search_library_scope` must write the toolbar field \
+         through `set_toolbar_library_scope`, the one path of a scope click."
     );
 }
 
@@ -22168,7 +22167,9 @@ fn adr_0084_release_row_actions_r31_06_one_release_row_menu() {
 
 /// R31-07 (ADR 0083 Decision 6, ADR 0084 task 031 decision D2).
 /// Situational: delete this guard when ADR 0083 is superseded. A singles
-/// group row, an Artists row and a Playlists row get no release row menu.
+/// group row and an Artists row get no menu cell. A Playlists row gets its
+/// own playlist menu, not the release row menu (ADR 0089 Decision 6, which
+/// supersedes the Playlists part of task 031 D2).
 #[test]
 fn adr_0084_release_row_actions_r31_07_rows_with_no_menu() {
     let file = "src/ui/shells/library/destination_lists.rs";
@@ -22198,12 +22199,15 @@ fn adr_0084_release_row_actions_r31_07_rows_with_no_menu() {
         "pub(crate) fn render_library_playlists_list(",
         "music_column_tracked_scrollbar(container, scroll, None)",
     );
-    if playlists.contains("menu_cell(") || playlists.contains("release_row_menu") {
+    if !playlists.contains("menu_cell(row_menus.remove(&playlist_id))") {
+        violations.push("a Playlists row must give its playlist menu to its menu cell".to_owned());
+    }
+    if playlists.contains("release_row_menu") {
         violations.push("a Playlists row must have no release row menu".to_owned());
     }
     assert!(
         violations.is_empty(),
-        "ADR 0084 task 031 D2: a group row, an Artists row and a Playlists row keep no menu; their page holds their actions. Fix in {file}:\n{}",
+        "ADR 0084 task 031 D2 and ADR 0089 Decision 6: a group row and an Artists row keep no menu. A Playlists row has the playlist menu. Fix in {file}:\n{}",
         violations.join("\n")
     );
 }
@@ -22527,13 +22531,21 @@ fn adr_0084_music_open_defects_r30_06_playlist_delete_opens_the_confirmation() {
             ));
         }
     }
+    // ADR 0089 Decision 6: a playlist row menu deletes through the same
+    // confirmation. Each call in app_impl.rs must sit in the confirm handler
+    // that follows `open_playlist_delete_dialog(`.
     let app_impl = code_only(production_source(&read_source(&manifest_path(
         "src/library/app_impl.rs",
     ))));
-    if count_matches(&app_impl, ".delete_playlist(") > 0 {
-        violations.push(
-            "src/library/app_impl.rs: calls `delete_playlist(` with no confirmation".to_owned(),
-        );
+    for (index, _) in app_impl.match_indices(".delete_playlist(") {
+        let guarded = app_impl[..index]
+            .rfind("open_playlist_delete_dialog(")
+            .is_some_and(|dialog| index - dialog < 300);
+        if !guarded {
+            violations.push(
+                "src/library/app_impl.rs: calls `delete_playlist(` with no confirmation".to_owned(),
+            );
+        }
     }
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
 

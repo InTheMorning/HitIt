@@ -482,11 +482,45 @@ pub(crate) fn render_hoverable_release_thumb(
         .into_any_element()
 }
 
+/// The inline row of the new playlist: the name input and its "Add" button
+/// (ADR 0084 Decision 2).
+fn render_new_playlist_row(
+    new_playlist_input_id: &'static str,
+    new_playlist_add_button_id: &'static str,
+    new_playlist_add_label: &'static str,
+    new_playlist_input: &gpui::Entity<gpui_component::input::InputState>,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    div()
+        .id(new_playlist_input_id)
+        .px(spacing::MD)
+        .pb(spacing::XS)
+        .flex()
+        .flex_row()
+        .gap(spacing::XS)
+        .items_center()
+        .child(
+            Input::new(new_playlist_input)
+                .cleanable(false)
+                .scaled(Size::Small, cx)
+                .with_primary_selection(new_playlist_input),
+        )
+        .child(
+            UiButton::styled(new_playlist_add_button_id, ControlStyle::Primary)
+                .label(new_playlist_add_label)
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.create_playlist(cx);
+                })),
+        )
+        .into_any_element()
+}
+
 /// Renders the Playlists destination list (ADR 0084 Decision 2; ADR 0089
 /// Decision 5, no sort control): the inline new-playlist input and each
 /// playlist row. The title row holds "New Playlist".
 pub(crate) fn render_library_playlists_list(
     sidebar: PlaylistSidebarVm,
+    mut row_menus: BTreeMap<i64, RowMenu>,
     new_playlist_input: &gpui::Entity<gpui_component::input::InputState>,
     arts: &RowArts,
     scroll: &gpui::ScrollHandle,
@@ -504,30 +538,13 @@ pub(crate) fn render_library_playlists_list(
     let mut items: Vec<AnyElement> = Vec::new();
 
     if creating_playlist {
-        items.push(
-            div()
-                .id(new_playlist_input_id)
-                .px(spacing::MD)
-                .pb(spacing::XS)
-                .flex()
-                .flex_row()
-                .gap(spacing::XS)
-                .items_center()
-                .child(
-                    Input::new(new_playlist_input)
-                        .cleanable(false)
-                        .scaled(Size::Small, cx)
-                        .with_primary_selection(new_playlist_input),
-                )
-                .child(
-                    UiButton::styled(new_playlist_add_button_id, ControlStyle::Primary)
-                        .label(new_playlist_add_label)
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.create_playlist(cx);
-                        })),
-                )
-                .into_any_element(),
-        );
+        items.push(render_new_playlist_row(
+            new_playlist_input_id,
+            new_playlist_add_button_id,
+            new_playlist_add_label,
+            new_playlist_input,
+            cx,
+        ));
     }
 
     // ADR 0083 task 008, D6: a drop uses the add path of the menu item.
@@ -546,6 +563,8 @@ pub(crate) fn render_library_playlists_list(
             selected,
             art: _,
             marked,
+            menu: _,
+            delete_confirmation: _,
         } = row;
         let art = row_art(arts, &element_id, CollectionKind::Playlist);
         let row_a11y_label = format!("Playlist: {name}");
@@ -555,6 +574,8 @@ pub(crate) fn render_library_playlists_list(
             })
             .selected(selected)
             .marked(marked)
+            // ADR 0089 Decision 6: each list row has the item menu cell.
+            .menu_cell(row_menus.remove(&playlist_id))
             .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
                 this.open_page(
                     FrameNavigationEntry::PlaylistDetail(playlist_id),

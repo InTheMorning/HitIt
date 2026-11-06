@@ -277,6 +277,8 @@ impl TopApp {
             return;
         }
 
+        // ADR 0089 Decision 4: a new search ends an open query edit.
+        self.end_saved_search_query_edit_for_new_search(cx);
         if self.tab != AppTab::Music {
             self.select_tab(AppTab::Music, window, cx);
         }

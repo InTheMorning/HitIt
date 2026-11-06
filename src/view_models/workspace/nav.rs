@@ -695,6 +695,16 @@ impl FrameNavigationState {
         })
     }
 
+    /// Returns the feed GUID of the public playlist page of the current
+    /// location, when the path holds one (ADR 0089 packet 009).
+    #[must_use]
+    pub(crate) fn active_public_playlist(&self) -> Option<String> {
+        self.current.entries().find_map(|entry| match entry {
+            FrameNavigationEntry::PublicPlaylist(feed_guid) => Some(feed_guid.clone()),
+            _ => None,
+        })
+    }
+
     /// Returns the current location path, from its destination through the
     /// current page. Only the tests read the whole path, so the app keeps no
     /// production caller of it.

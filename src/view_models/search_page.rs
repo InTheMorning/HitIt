@@ -15,6 +15,7 @@ use crate::view_models::search_results::{
     saved_search_rename_display, NewResultCount, NewResultsText, SavedSearch, SavedSearchId,
     SavedSearchMenuEntry, SavedSearchRenameDisplay, SearchPageActionDisplay,
 };
+use crate::view_models::workspace::FrameNavigationEntry;
 
 /// The four steps of "How to Search" (ADR 0089 Decision 4).
 pub(crate) const HOW_TO_SEARCH_STEPS: [&str; 4] = [
@@ -29,6 +30,10 @@ pub(crate) const HOW_TO_SEARCH_TITLE: &str = "How to Search";
 
 /// The heading of the example queries, so they do not look like saved searches.
 pub(crate) const EXAMPLE_SEARCHES_TITLE: &str = "Example searches";
+
+/// The hover help of the item menu trigger of a saved search row (R-TOOLTIP-1
+/// item 1). It matches the menu of the track and release rows.
+pub(crate) const SAVED_SEARCH_MENU_TOOLTIP: &str = "More actions";
 
 /// A request of the Search page to the top app (ADR 0089 Decision 4). The
 /// top app owns the toolbar field, so the page sends the request and the
@@ -54,16 +59,25 @@ pub(crate) struct SearchPageRowVm {
     pub(crate) search: SavedSearch,
     /// Stable element id.
     pub(crate) element_id: String,
-    /// The visible text: the query of the saved search.
+    /// The visible text: the name of the saved search.
     pub(crate) label: String,
-    /// The subtitle: the Library and the Index (ADR 0084 Decision 3).
-    pub(crate) subtitle: &'static str,
+    /// The subtitle: the query when it differs from the name, else the
+    /// Library and the Index (ADR 0084 Decision 3, operator decision of
+    /// 2026-11-06).
+    pub(crate) subtitle: String,
     /// The accessibility label of the row.
     pub(crate) a11y_label: String,
     /// Whether the row is the open page of the current location.
     pub(crate) selected: bool,
+    /// Whether the row is the page that Back left open (R-NAV-2 item 2).
+    /// A marked row is not the open page, so it has no selected fill.
+    pub(crate) marked: bool,
     /// The item menu of the row, in the sequence of ADR 0089 Decision 4.
     pub(crate) menu: [SavedSearchMenuEntry; 4],
+    /// The hover help of the menu trigger. The trigger is an icon only.
+    pub(crate) menu_tooltip: &'static str,
+    /// The accessibility label of the menu trigger.
+    pub(crate) menu_a11y_label: String,
     /// The inline rename controls of the row.
     pub(crate) rename: SavedSearchRenameDisplay,
     /// The count of new results (ADR 0089 Decision 4). `None` for a zero
@@ -114,11 +128,14 @@ impl SearchPageVm {
             .map(|search| SearchPageRowVm {
                 search: search.clone(),
                 element_id: format!("music-search-saved-search-{}", search.id.0),
-                label: search.display_label().to_owned(),
-                subtitle: SavedSearch::SUBTITLE,
+                label: search.name.clone(),
+                subtitle: search.subtitle().to_owned(),
                 a11y_label: row_a11y_label(search, None),
                 selected: open == Some(search.id),
+                marked: false,
                 menu: saved_search_menu(search),
+                menu_tooltip: SAVED_SEARCH_MENU_TOOLTIP,
+                menu_a11y_label: format!("Actions for {}", search.name),
                 rename: saved_search_rename_display(search),
                 new_results: None,
             })
@@ -145,6 +162,20 @@ impl SearchPageVm {
     #[must_use]
     pub(crate) fn with_message(mut self, message: Option<String>) -> Self {
         self.message = message;
+        self
+    }
+
+    /// The same page with the mark of the page that Back left open (R-NAV-2
+    /// item 2). `entry` is the marked entry of the frame. Only a saved
+    /// search entry marks a row, and it marks the row with the same id.
+    #[must_use]
+    pub(crate) fn with_marked(mut self, entry: Option<&FrameNavigationEntry>) -> Self {
+        for row in &mut self.rows {
+            row.marked = matches!(
+                entry,
+                Some(FrameNavigationEntry::SavedSearch { id, .. }) if *id == row.search.id
+            );
+        }
         self
     }
 
@@ -211,8 +242,8 @@ impl SearchPageVm {
 fn row_a11y_label(search: &SavedSearch, new_results: Option<&NewResultsText>) -> String {
     let base = format!(
         "{}, {}",
-        saved_search_label(&search.query),
-        SavedSearch::SUBTITLE
+        saved_search_label(&search.name),
+        search.subtitle()
     );
     match new_results {
         Some(text) => format!("{base}, {}", text.sentence),
@@ -227,7 +258,7 @@ mod tests {
         SavedSearch {
             id: SavedSearchId(id),
             query: query.to_owned(),
-            name: None,
+            name: query.to_owned(),
         }
     }
 
@@ -252,6 +283,45 @@ mod tests {
             .map(|row| row.label.as_str())
             .collect();
         assert_eq!(selected, ["jazz"]);
+    }
+
+    /// ADR 0089 Decision 4 and R-NAV-2 item 2: after Back, the row of the
+    /// saved search that Back left open is marked, with no selected fill.
+    #[test]
+    fn search_page_marks_the_saved_search_that_back_left_open() {
+        let entry = FrameNavigationEntry::SavedSearch {
+            id: SavedSearchId(4),
+            query: "jazz".to_owned(),
+        };
+        let vm = SearchPageVm::new(&[saved(3, "bluegrass"), saved(4, "jazz")], None)
+            .with_marked(Some(&entry));
+        let marked: Vec<(&str, bool)> = vm
+            .rows()
+            .iter()
+            .map(|row| (row.label.as_str(), row.marked))
+            .collect();
+        assert_eq!(marked, [("bluegrass", false), ("jazz", true)]);
+        assert!(vm.rows().iter().all(|row| !row.selected));
+    }
+
+    /// The mark is for a saved search entry only. Another entry marks no row.
+    #[test]
+    fn search_page_marks_no_row_for_another_entry() {
+        let entry = FrameNavigationEntry::Destination(
+            crate::view_models::workspace::MusicDestination::Releases,
+        );
+        let vm = SearchPageVm::new(&[saved(4, "jazz")], None).with_marked(Some(&entry));
+        assert!(vm.rows().iter().all(|row| !row.marked));
+        let vm = SearchPageVm::new(&[saved(4, "jazz")], None).with_marked(None);
+        assert!(vm.rows().iter().all(|row| !row.marked));
+    }
+
+    #[test]
+    fn search_page_menu_trigger_is_an_icon_with_the_shared_tooltip() {
+        let vm = SearchPageVm::new(&[saved(4, "jazz")], None);
+        let row = &vm.rows()[0];
+        assert_eq!(row.menu_tooltip, "More actions");
+        assert_eq!(row.menu_a11y_label, "Actions for jazz");
     }
 
     #[test]

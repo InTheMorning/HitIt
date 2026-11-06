@@ -1,41 +1,31 @@
-//! The query field of the saved-search page (ADR 0089 Decision 4, ADR 0087
-//! Decisions 4 and 6).
+//! The query edit of the saved-search page (ADR 0089 Decision 4, ADR 0087
+//! Decisions 3, 4 and 6).
 //!
-//! A click on the query, or "Edit Query" of the item menu, opens the field.
-//! Each change of the field text arms the pause of `Motion::SearchPause`. When
-//! the pause ends, the live run of the page runs the typed text. The live run
-//! uses the run owner of `SearchPageSlot::SavedSearch`, the same owner as the
-//! stored run of the page. So the toolbar run does not conflict with it.
+//! "Edit Query" of the item menu, and a click on the query, put the saved
+//! query in the toolbar search field and give that field the focus. While
+//! the edit is open, each change of the toolbar text runs the live query of
+//! the page through the toolbar path (`end_search_pause`). The run uses the
+//! saved-search slot, so the page keeps its place.
 //!
-//! "Save Query" and Enter keep the text through the Library writer. Escape and
-//! "Cancel" run the stored query again. A Back or a destination change ends
-//! the field: the page is dropped, so Back runs the stored query.
+//! "Save Query" and Enter keep the typed text through the Library writer.
+//! "Cancel" and Escape restore the stored text and run it again. Leaving the
+//! page ends the edit with no save. A new search ends it too, and the page
+//! is then mounted again on its next open.
 //!
-//! The field reads no clock and calls no `cx.spawn` (ADR 0040). The timer is
-//! `present_after`, as in `search_live.rs`.
+//! The field reads no clock and calls no `cx.spawn` (ADR 0040).
 
 #![warn(clippy::pedantic)]
 
-use gpui::{
-    div, prelude::*, AnyElement, App, ClickEvent, Context, Entity, FontWeight, SharedString, Window,
-};
-use gpui_component::input::{Escape, Input, InputEvent, InputState};
-use gpui_component::Size;
+use gpui::{div, prelude::*, AnyElement, ClickEvent, Context, FontWeight, SharedString, Window};
 
-use crate::presentation::delayed_presenter::present_after;
 use crate::ui::composites::{ListRow, ListRowA11yLabel};
-use crate::ui::control_styles::ControlStyle;
-use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
-use crate::ui::primitives::{Button as UiButton, Label};
-use crate::ui::sizable_bridge::SizableScaled;
+use crate::ui::primitives::Label;
 use crate::ui::style::spacing;
-use crate::ui::tokens::{FontSize, Motion, SemanticColor};
+use crate::ui::tokens::SemanticColor;
 use crate::view_models::list_page::ListScope;
-use crate::view_models::live_run::PauseTicket;
-use crate::view_models::search_query::with_library_scope;
 use crate::view_models::search_results::{
-    saved_search_query_field, SavedSearch, SavedSearchPage, SavedSearchQueryEdit,
-    SavedSearchQueryFieldDisplay, SavedSearchQueryKeep, SearchRun,
+    SavedSearch, SavedSearchHeaderAction, SavedSearchPage, SavedSearchQueryEdit,
+    SavedSearchQueryKeep, SearchRun,
 };
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
@@ -43,9 +33,9 @@ use super::search_selection::SearchPageSlot;
 use super::TopApp;
 
 impl TopApp {
-    /// Opens the query field of the mounted saved-search page, with its
-    /// stored text, and puts the focus in it. A page with no results opens
-    /// no field.
+    /// Opens the query edit of the mounted saved-search page. The stored
+    /// text goes into the toolbar field, which takes the focus. A page with
+    /// no results opens no edit.
     pub(super) fn begin_saved_search_query_edit(
         &mut self,
         window: &mut Window,
@@ -58,49 +48,41 @@ impl TopApp {
             return;
         }
         let query = page.query.clone();
-        self.saved_search_query_input.update(cx, |input, cx| {
+        self.global_search_input.update(cx, |input, cx| {
             input.set_value(query, window, cx);
             input.focus(window, cx);
         });
         cx.notify();
     }
 
-    /// Writes the scope of the "All | In Library" control into the query
-    /// field of the saved-search page (ADR 0089 Decision 4). The field opens
-    /// when it is closed. The change starts the run by the path of a typed
-    /// change. A page with no results opens no field, so nothing changes.
+    /// Tells if the mounted saved-search page has its query edit open.
+    #[must_use]
+    pub(super) fn saved_search_query_editing(&self) -> bool {
+        self.saved_search_page
+            .as_ref()
+            .is_some_and(|page| page.edit.is_some())
+    }
+
+    /// Writes the scope of the "All | In Library" control into the toolbar
+    /// field (ADR 0089 Decision 4). The edit opens when it is closed. The
+    /// change then runs by the path of a typed change.
     pub(super) fn set_saved_search_library_scope(
         &mut self,
         scope: ListScope,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let is_open = self
-            .saved_search_page
-            .as_ref()
-            .is_some_and(|page| page.edit.is_some());
-        if !is_open {
+        if !self.saved_search_query_editing() {
             self.begin_saved_search_query_edit(window, cx);
         }
-        let open = self
-            .saved_search_page
-            .as_ref()
-            .is_some_and(|page| page.edit.is_some());
-        if !open {
+        if !self.saved_search_query_editing() {
             return;
         }
-        let text = self.saved_search_query_input.read(cx).value().to_string();
-        let next = with_library_scope(&text, scope);
-        if next == text {
-            return;
-        }
-        self.saved_search_query_input
-            .update(cx, |input, cx| input.set_value(next, window, cx));
-        self.start_saved_search_query_pause(cx);
+        self.set_toolbar_library_scope(scope, window, cx);
     }
 
     /// Opens the saved search `search` over the list, and then its query
-    /// field. "Edit Query" and "Duplicate" use it.
+    /// edit. "Edit Query" and "Duplicate" use it.
     pub(super) fn open_saved_search_query_edit(
         &mut self,
         search: &SavedSearch,
@@ -111,43 +93,10 @@ impl TopApp {
         self.begin_saved_search_query_edit(window, cx);
     }
 
-    /// The change of the query field arms the pause. A change while no field
-    /// is open arms nothing.
-    pub(super) fn start_saved_search_query_pause(&mut self, cx: &mut Context<Self>) {
-        if self
-            .saved_search_page
-            .as_ref()
-            .is_none_or(|page| page.edit.is_none())
-        {
-            return;
-        }
-        let ticket = self
-            .search_runs_mut(SearchPageSlot::SavedSearch)
-            .gate
-            .text_changed();
-        present_after(Motion::SearchPause.duration(), cx, move |this, cx| {
-            this.end_saved_search_query_pause(ticket, cx);
-        });
-    }
-
-    /// Runs the typed text when the pause of `ticket` ends, and `ticket` is
-    /// the ticket of the last change.
-    fn end_saved_search_query_pause(&mut self, ticket: PauseTicket, cx: &mut Context<Self>) {
-        if !self
-            .search_runs_mut(SearchPageSlot::SavedSearch)
-            .gate
-            .pause_ended(ticket)
-        {
-            return;
-        }
-        let text = self.saved_search_query_input.read(cx).value().to_string();
-        self.run_saved_search_query_text(&text, cx);
-    }
-
-    /// Records `text` as the typed text, and runs it on the saved-search
-    /// page. A text with no word, phrase or correct field runs nothing, so
-    /// the page keeps its results (ADR 0087 Decision 4).
-    fn run_saved_search_query_text(&mut self, text: &str, cx: &mut Context<Self>) {
+    /// Runs `text`, the typed text of the toolbar field, as the live query of
+    /// the saved-search page. A text with no word, phrase or correct field
+    /// runs nothing, so the page keeps its results (ADR 0087 Decision 4).
+    pub(super) fn run_saved_search_query_text(&mut self, text: &str, cx: &mut Context<Self>) {
         let Some(edit) = self
             .saved_search_page
             .as_mut()
@@ -171,8 +120,8 @@ impl TopApp {
         cx.notify();
     }
 
-    /// "Save Query", or Enter in the field: keeps the typed text (ADR 0087
-    /// Decision 6).
+    /// "Save Query", or Enter in the toolbar field while the edit is open:
+    /// keeps the typed text (ADR 0087 Decision 6).
     pub(super) fn keep_saved_search_query(&mut self, cx: &mut Context<Self>) {
         let Some(id) = self
             .saved_search_page
@@ -182,10 +131,8 @@ impl TopApp {
         else {
             return;
         };
-        let text = self.saved_search_query_input.read(cx).value().to_string();
-        self.search_runs_mut(SearchPageSlot::SavedSearch)
-            .gate
-            .cancel_pause();
+        let text = self.global_search_input.read(cx).value().to_string();
+        self.toolbar_search_runs.gate.cancel_pause();
         if let Some(edit) = self
             .saved_search_page
             .as_mut()
@@ -199,10 +146,10 @@ impl TopApp {
         self.apply_saved_search_query_keep(keep, cx);
     }
 
-    /// Applies the outcome of a keep. A saved text closes the field, changes
-    /// the stored text, and runs the saved query again. A conflict, a blank
-    /// text or an error keeps the field open with its message. A missing row
-    /// shows the deleted page.
+    /// Applies the outcome of a keep. A saved text ends the edit, changes the
+    /// stored text, and runs the saved query again. A conflict, a blank text
+    /// or an error keeps the edit open with its message in the title row. A
+    /// missing row shows the deleted page.
     fn apply_saved_search_query_keep(
         &mut self,
         keep: SavedSearchQueryKeep,
@@ -249,20 +196,26 @@ impl TopApp {
         cx.notify();
     }
 
-    /// Escape and "Cancel": ends the field, and runs the stored query again,
-    /// so the page shows the stored text and its stored results.
-    pub(super) fn cancel_saved_search_query(&mut self, cx: &mut Context<Self>) {
+    /// "Cancel", or Escape in the toolbar field while the edit is open: ends
+    /// the edit, restores the stored text in the toolbar field, and runs the
+    /// stored query again, so the page shows its stored results.
+    pub(super) fn cancel_saved_search_query(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(page) = self.saved_search_page.as_mut() else {
             return;
         };
-        if page.edit.take().is_none() {
+        if !page.cancel_query_edit() {
             return;
         }
         let id = page.id;
         let stored = page.query.clone();
-        self.search_runs_mut(SearchPageSlot::SavedSearch)
-            .gate
-            .cancel_pause();
+        self.toolbar_search_runs.gate.cancel_pause();
+        self.global_search_input.update(cx, |input, cx| {
+            input.set_value(stored.clone(), window, cx);
+        });
         let search = self
             .library
             .read(cx)
@@ -277,54 +230,79 @@ impl TopApp {
         cx.notify();
     }
 
-    /// Ends the open field when the current location is another page. A Back
-    /// or a destination change cancels the edit (ADR 0089 Decision 4). The
-    /// page is dropped, so the next open runs the stored query.
+    /// Ends an open query edit for a new search (ADR 0089 Decision 4). The
+    /// new search sets the toolbar text itself, and the page is dropped, so
+    /// its next open runs the stored query and shows no typed results.
+    pub(super) fn end_saved_search_query_edit_for_new_search(&mut self, cx: &mut Context<Self>) {
+        let ends = self
+            .saved_search_page
+            .as_ref()
+            .is_some_and(SavedSearchPage::query_edit_ends_for_new_search);
+        if !ends {
+            return;
+        }
+        self.toolbar_search_runs.gate.cancel_pause();
+        self.saved_search_page = None;
+        cx.notify();
+    }
+
+    /// Ends an open query edit when the current location is another page.
+    /// A Back, a destination change or a sidebar click ends the edit with no
+    /// save. The toolbar field gets the stored text back, so it does not show
+    /// the query that was not kept. A move to a toolbar search page keeps the
+    /// text that the search gives.
     pub(super) fn discard_saved_search_query_edit_when_left(
         &mut self,
         current: Option<&FrameNavigationEntry>,
-    ) {
-        let Some(page) = self.saved_search_page.as_ref() else {
-            return;
-        };
-        if page.edit.is_none() {
-            return;
-        }
-        let stays = matches!(
-            current,
-            Some(FrameNavigationEntry::SavedSearch { id, .. }) if *id == page.id
-        );
-        if !stays {
-            self.saved_search_page = None;
-        }
-    }
-
-    /// The Enter key of the query field keeps the text.
-    pub(super) fn on_saved_search_query_event(
-        &mut self,
-        _entity: &Entity<InputState>,
-        event: &InputEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        match event {
-            InputEvent::Change => self.start_saved_search_query_pause(cx),
-            InputEvent::PressEnter { .. } => self.keep_saved_search_query(cx),
-            InputEvent::Focus | InputEvent::Blur => {}
+        let Some(page) = self.saved_search_page.as_ref() else {
+            return;
+        };
+        if !page.query_edit_ends_when_left(current) {
+            return;
+        }
+        let stored = page.query.clone();
+        let restores_toolbar = !matches!(current, Some(FrameNavigationEntry::Search(_)));
+        self.toolbar_search_runs.gate.cancel_pause();
+        self.saved_search_page = None;
+        if restores_toolbar {
+            self.global_search_input.update(cx, |input, cx| {
+                input.set_value(stored, window, cx);
+            });
         }
     }
 
-    /// The query line of the saved-search page. Closed, it is the stored text
-    /// as a button that opens the field. Open, it is the field, "Save Query",
-    /// "Cancel" and the message of the last keep. Escape cancels in both
-    /// cases where the page has its field.
-    pub(super) fn render_saved_search_query_bar(&self, cx: &mut Context<Self>) -> AnyElement {
-        let Some(page) = self.saved_search_page.as_ref() else {
-            return div().into_any_element();
-        };
-        let Some(edit) = page.edit.as_ref() else {
-            let query = page.query.clone();
-            return ListRow::new(SharedString::from("music-saved-search-query"))
+    /// Runs one action of the title row of the saved-search page (ADR 0089
+    /// Decision 4).
+    pub(super) fn run_saved_search_header_action(
+        &mut self,
+        action: SavedSearchHeaderAction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match action {
+            SavedSearchHeaderAction::Delete => self.request_saved_search_delete(window, cx),
+            SavedSearchHeaderAction::SaveQuery => self.keep_saved_search_query(cx),
+            SavedSearchHeaderAction::CancelQuery => self.cancel_saved_search_query(window, cx),
+        }
+    }
+
+    /// The query line of the saved-search page while no edit is open: the
+    /// stored text, as a row that opens the edit. An open edit shows its
+    /// controls in the title row, so this line is absent.
+    pub(super) fn render_saved_search_query_bar(
+        &self,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let page = self.saved_search_page.as_ref()?;
+        if page.edit.is_some() {
+            return None;
+        }
+        let query = page.query.clone();
+        Some(
+            ListRow::new(SharedString::from("music-saved-search-query"))
                 .a11y_label(ListRowA11yLabel {
                     label: SharedString::from(format!(
                         "Edit the query \"{query}\" of this saved search"
@@ -345,68 +323,7 @@ impl TopApp {
                                 .weight(FontWeight::MEDIUM),
                         ),
                 )
-                .into_any_element();
-        };
-        let field = saved_search_query_field(edit);
-        render_open_query_field(&field, &self.saved_search_query_input, cx)
-    }
-}
-
-/// The open query field: the input, the two controls and the message.
-/// Escape in the field cancels the edit.
-fn render_open_query_field(
-    field: &SavedSearchQueryFieldDisplay,
-    input: &Entity<InputState>,
-    cx: &mut Context<TopApp>,
-) -> AnyElement {
-    let entity = cx.entity();
-    let save = UiButton::styled(SharedString::from(field.save.id), ControlStyle::Primary)
-        .label(field.save.label)
-        .a11y_label(field.save.a11y_label.clone())
-        .disabled(!field.save.available)
-        .on_click(cx.listener(|this, _: &ClickEvent, _window, cx| {
-            this.keep_saved_search_query(cx);
-        }));
-    let cancel = UiButton::styled(SharedString::from(field.cancel.id), ControlStyle::Primary)
-        .label(field.cancel.label)
-        .a11y_label(field.cancel.a11y_label.clone())
-        .on_click(cx.listener(|this, _: &ClickEvent, _window, cx| {
-            this.cancel_saved_search_query(cx);
-        }));
-    let row = div()
-        .id("music-saved-search-query-field")
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(spacing::SM)
-        .px(spacing::MD)
-        .capture_action(move |_: &Escape, _window, cx: &mut App| {
-            entity.update(cx, TopApp::cancel_saved_search_query);
-        })
-        .child(
-            div().flex_1().min_w_0().child(
-                Input::new(input)
-                    .cleanable(false)
-                    .scaled(Size::Small, cx)
-                    .with_primary_selection(input),
-            ),
+                .into_any_element(),
         )
-        .child(save)
-        .child(cancel);
-    let mut column = div()
-        .flex()
-        .flex_col()
-        .gap(spacing::XXS)
-        .py(spacing::XXS)
-        .child(row);
-    if let Some(message) = field.message.as_deref() {
-        column = column.child(
-            div().px(spacing::MD).child(
-                Label::new(message.to_owned())
-                    .size(FontSize::Micro)
-                    .color(SemanticColor::TertiaryLabel),
-            ),
-        );
     }
-    column.into_any_element()
 }

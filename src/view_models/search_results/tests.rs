@@ -367,7 +367,7 @@ fn adr_0089_search_list_release_kind_is_the_type_tag_of_the_row() {
     let saved = super::SavedSearch {
         id: super::SavedSearchId(1),
         query: "haleen".to_owned(),
-        name: None,
+        name: "haleen".to_owned(),
     };
     let detail = vm.into_saved_search(&saved);
     assert_eq!(

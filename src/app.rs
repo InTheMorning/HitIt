@@ -208,10 +208,6 @@ pub struct TopApp {
     settings: SettingsVm,
     settings_scroll: crate::ui::composites::settings::SettingsScrollHandles,
     _global_search_sub: gpui::Subscription,
-    /// The query field of the saved-search page (ADR 0089 Decision 4). It
-    /// is not the toolbar field.
-    saved_search_query_input: Entity<InputState>,
-    _saved_search_query_sub: gpui::Subscription,
     _library_sub: gpui::Subscription,
     _field_value_sub: gpui::Subscription,
     _appearance_sub: gpui::Subscription,
@@ -371,15 +367,6 @@ impl TopApp {
         });
         let global_search_sub =
             cx.subscribe_in(&global_search_input, window, Self::on_global_search_event);
-        let saved_search_query_input = cx.new(|cx: &mut Context<InputState>| {
-            InputState::new(window, cx)
-                .placeholder(crate::view_models::search_results::SAVED_SEARCH_QUERY_PLACEHOLDER)
-        });
-        let saved_search_query_sub = cx.subscribe_in(
-            &saved_search_query_input,
-            window,
-            Self::on_saved_search_query_event,
-        );
         let library = cx.new(|cx| {
             let mut library = LibraryApp::new(
                 conn.clone(),
@@ -568,8 +555,6 @@ impl TopApp {
             settings: SettingsVm::default(),
             settings_scroll: crate::ui::composites::settings::SettingsScrollHandles::default(),
             _global_search_sub: global_search_sub,
-            saved_search_query_input,
-            _saved_search_query_sub: saved_search_query_sub,
             _library_sub: library_sub,
             _field_value_sub: field_value_sub,
             _appearance_sub: appearance_sub,
@@ -665,10 +650,17 @@ impl TopApp {
         cx: &mut Context<Self>,
     ) {
         // ADR 0087 Decision 4: a change of the text arms the pause, and
-        // Enter runs the search at once.
+        // Enter runs the search at once. While a saved-search query edit is
+        // open, Enter keeps the text instead (ADR 0089 Decision 4).
         match event {
             InputEvent::Change => self.start_search_pause(cx),
-            InputEvent::PressEnter { .. } => self.submit_global_search(window, cx),
+            InputEvent::PressEnter { .. } => {
+                if self.saved_search_query_editing() {
+                    self.keep_saved_search_query(cx);
+                } else {
+                    self.submit_global_search(window, cx);
+                }
+            }
             InputEvent::Focus | InputEvent::Blur => {}
         }
     }
@@ -761,6 +753,7 @@ impl TopApp {
     ) {
         match action {
             SearchPageAction::NewSavedSearch => {
+                self.end_saved_search_query_edit_for_new_search(cx);
                 self.global_search_input
                     .update(cx, |input, cx| input.set_value("", window, cx));
                 self.focus_global_search(window, cx);
@@ -1834,8 +1827,8 @@ impl TopApp {
             .frame_nav(content_frame_id)
             .map(|nav| nav.current().clone());
         // ADR 0089 Decision 4: a Back or a destination change ends the query
-        // field of the saved-search page.
-        self.discard_saved_search_query_edit_when_left(current_nav.as_ref());
+        // edit of the saved-search page.
+        self.discard_saved_search_query_edit_when_left(current_nav.as_ref(), window, cx);
 
         // ADR 0084 packet 018: the detail selection belongs to the open
         // page. A move to another page clears it and sets `Normal`.
@@ -1883,6 +1876,14 @@ impl TopApp {
             .and_then(|nav| nav.marked_entry().cloned());
         self.library.update(cx, |library, _cx| {
             library.set_marked_entry(marked_entry);
+        });
+        // ADR 0089 packet 010: a copy report ends when its playlist page closes.
+        let open_public_playlist = self
+            .workspace_layout
+            .frame_nav(content_frame_id)
+            .and_then(FrameNavigationState::active_public_playlist);
+        self.library.update(cx, |library, _cx| {
+            library.set_open_public_playlist(open_public_playlist.as_deref());
         });
 
         let mut workspace_slots = match &current_nav {

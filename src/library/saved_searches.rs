@@ -18,16 +18,15 @@ use crate::view_models::search_page::HowToSearchDisclosure;
 use super::LibraryApp;
 use crate::db::saved_search_seen;
 use crate::db::saved_searches::{
-    self, SavedSearchCopy, SavedSearchInsert, SavedSearchQueryWrite, SavedSearchWrite,
-    StoredStartTab,
+    self, SavedSearchCopy, SavedSearchQueryWrite, SavedSearchWrite, StoredStartTab,
 };
 use crate::presentation::bridge_watch;
 use crate::runtime::saved_search_counts::{
     self, count_run_due, SavedSearchCountJob, SavedSearchCountRequest, SavedSearchCountsSnapshot,
 };
 use crate::view_models::search_results::{
-    NewResultCount, SavedSearch, SavedSearchId, SavedSearchQueryKeep, SearchResultsTab,
-    SAVED_SEARCH_COPY_CONFLICT_TEXT, SAVED_SEARCH_MISSING_TEXT,
+    is_query_saved, NewResultCount, SavedSearch, SavedSearchId, SavedSearchQueryKeep,
+    SearchResultsTab, SAVED_SEARCH_MISSING_TEXT, SAVED_SEARCH_NAME_TAKEN_TEXT,
 };
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
@@ -55,8 +54,10 @@ impl LibraryApp {
     }
 
     /// Saves `query` with the tab `start_tab`. `created_at` is the time of
-    /// the click, in Unix seconds. A query that is already saved changes
-    /// nothing. The error text names the database error.
+    /// the click, in Unix seconds. A query that a saved search holds already
+    /// changes nothing, so one click cannot save a copy (ADR 0084 Decision
+    /// 3). The table itself accepts a repeated query. The error text names
+    /// the database error.
     pub(crate) fn save_search(
         &mut self,
         query: &str,
@@ -64,6 +65,9 @@ impl LibraryApp {
         created_at: i64,
         cx: &mut Context<Self>,
     ) -> Result<(), String> {
+        if is_query_saved(&self.saved_searches, query) {
+            return Ok(());
+        }
         let inserted = {
             let conn = self.conn.lock().expect("lock db");
             saved_searches::insert_saved_search(
@@ -73,10 +77,7 @@ impl LibraryApp {
                 created_at,
             )
         };
-        let result = match inserted {
-            Ok(SavedSearchInsert::Inserted(_) | SavedSearchInsert::AlreadySaved) => Ok(()),
-            Err(error) => Err(format!("{error:#}")),
-        };
+        let result = inserted.map(|_| ()).map_err(|error| format!("{error:#}"));
         self.reload_saved_searches();
         cx.notify();
         result
@@ -111,7 +112,7 @@ impl LibraryApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let current = search.display_label().to_owned();
+        let current = search.name.clone();
         self.saved_search_renaming = Some(search.id);
         self.saved_search_message = None;
         self.saved_search_rename_input.update(cx, |input, cx| {
@@ -144,6 +145,10 @@ impl LibraryApp {
                 self.saved_search_message = Some(SAVED_SEARCH_MISSING_TEXT.to_owned());
                 self.reload_saved_searches();
             }
+            Ok(SavedSearchWrite::NameTaken) => {
+                // The input stays open, so the curator can choose another name.
+                self.saved_search_message = Some(SAVED_SEARCH_NAME_TAKEN_TEXT.to_owned());
+            }
             Err(error) => {
                 self.saved_search_message = Some(format!(
                     "The app could not rename the saved search: {error:#}"
@@ -173,9 +178,9 @@ impl LibraryApp {
     }
 
     /// Copies the saved search `id` as a new row, in place (ADR 0089
-    /// Decision 4). The new row takes the name of the original with " copy".
-    /// A copy whose text is saved already gives the conflict text. Gives the
-    /// id of the new row, so the caller can open it.
+    /// Decision 4). The new row keeps the query, and it takes the name of the
+    /// original with " copy", or its next free number. Gives the id of the
+    /// new row, so the caller can open it.
     pub(crate) fn duplicate_saved_search_row(
         &mut self,
         id: SavedSearchId,
@@ -190,10 +195,6 @@ impl LibraryApp {
             Ok(SavedSearchCopy::Copied(copy_id)) => {
                 self.saved_search_message = None;
                 Some(SavedSearchId(copy_id))
-            }
-            Ok(SavedSearchCopy::AlreadySaved) => {
-                self.saved_search_message = Some(SAVED_SEARCH_COPY_CONFLICT_TEXT.to_owned());
-                None
             }
             Ok(SavedSearchCopy::Missing) => {
                 self.saved_search_message = Some(SAVED_SEARCH_MISSING_TEXT.to_owned());
@@ -229,7 +230,6 @@ impl LibraryApp {
             Ok(SavedSearchQueryWrite::Written) => {
                 SavedSearchQueryKeep::Saved(query.trim().to_owned())
             }
-            Ok(SavedSearchQueryWrite::AlreadySaved) => SavedSearchQueryKeep::Conflict,
             Ok(SavedSearchQueryWrite::Blank) => SavedSearchQueryKeep::Blank,
             Ok(SavedSearchQueryWrite::Missing) => SavedSearchQueryKeep::Missing,
             Err(error) => SavedSearchQueryKeep::Failed(format!("{error:#}")),

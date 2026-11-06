@@ -5,7 +5,7 @@
 //! Decision 1). The application mark sits at the top of the sidebar.
 
 use gpui::{div, prelude::*, svg, Context, FontWeight, SharedString, Styled, Window};
-use gpui_component::input::Input;
+use gpui_component::input::{Escape, Input};
 use gpui_component::{IconName as InputIconName, Size};
 
 use crate::ui::control_styles::ControlStyle;
@@ -206,6 +206,17 @@ fn render_global_search(
             .with_primary_selection(&app.global_search_input),
     )
     .child(app.search_field_list.clone());
+    // ADR 0089 Decision 4: while a query edit is open, Escape cancels it.
+    // The field list runs first, so its first Escape closes the list.
+    let search_input = if app.saved_search_query_editing() {
+        let entity = cx.entity();
+        search_input.capture_action(move |_: &Escape, window, cx| {
+            entity.update(cx, |this, cx| this.cancel_saved_search_query(window, cx));
+            cx.stop_propagation();
+        })
+    } else {
+        search_input
+    };
 
     let mut toolbar_search = div()
         .id(center_id)
