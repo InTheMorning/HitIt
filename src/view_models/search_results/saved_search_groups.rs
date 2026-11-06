@@ -358,6 +358,7 @@ mod tests {
             id: SavedSearchId(1),
             query: "q".to_owned(),
             start_tab: SearchResultsTab::Releases,
+            name: None,
         }
     }
 

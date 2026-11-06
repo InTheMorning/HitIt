@@ -111,6 +111,20 @@ impl TopApp {
         }
     }
 
+    /// "Delete Saved Search…" of the item menu of a row on the Search page:
+    /// opens the same confirmation as "Delete…" of the saved-search page.
+    pub(super) fn request_saved_search_delete_for(
+        search: &SavedSearch,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let display = delete_saved_search_confirmation(&search.query);
+        let id = search.id;
+        open_saved_search_delete_dialog(window, cx, display, move |this, cx| {
+            this.delete_saved_search(id, cx);
+        });
+    }
+
     /// "Delete…" of the saved-search page: opens the confirmation.
     fn request_saved_search_delete(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(page) = self.saved_search_page.as_ref() else {
@@ -130,7 +144,7 @@ impl TopApp {
     /// changes to Search, as a sidebar click does
     /// (ADR 0084 Decision 9). A failure shows in the status text of the
     /// page, and the location does not change.
-    fn delete_saved_search(&mut self, id: SavedSearchId, cx: &mut Context<Self>) {
+    pub(super) fn delete_saved_search(&mut self, id: SavedSearchId, cx: &mut Context<Self>) {
         let deleted = self
             .library
             .update(cx, |library, cx| library.delete_saved_search(id, cx));

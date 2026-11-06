@@ -13750,6 +13750,7 @@ mod adr_0086_saved_search_groups_tests {
             id: SavedSearchId(1),
             query: "jsmovie".to_owned(),
             start_tab: SearchResultsTab::Releases,
+            name: None,
         };
         let mut page = SearchResultsInspectorPageVm::new("jsmovie").into_saved_search(&search);
         page.replace_index_results(IndexSearchResultRows {

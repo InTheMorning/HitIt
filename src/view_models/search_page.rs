@@ -8,7 +8,11 @@
 #![warn(clippy::pedantic)]
 
 use crate::view_models::search_query::QUERY_FIELDS;
-use crate::view_models::search_results::{saved_search_label, SavedSearch, SavedSearchId};
+use crate::view_models::search_results::{
+    new_saved_search_action, saved_search_label, saved_search_menu, saved_search_rename_display,
+    SavedSearch, SavedSearchId, SavedSearchMenuEntry, SavedSearchRenameDisplay,
+    SearchPageActionDisplay,
+};
 
 /// The four steps of "How to Search" (ADR 0089 Decision 4).
 pub(crate) const HOW_TO_SEARCH_STEPS: [&str; 4] = [
@@ -27,6 +31,8 @@ pub(crate) enum SearchPageAction {
     NewSavedSearch,
     /// Puts the query into the toolbar field and runs it.
     RunQuery(String),
+    /// Opens the delete confirmation of a saved search (ADR 0089 Decision 4).
+    DeleteSavedSearch(SavedSearch),
 }
 
 /// One row of the Search page: one saved search.
@@ -44,6 +50,10 @@ pub(crate) struct SearchPageRowVm {
     pub(crate) a11y_label: String,
     /// Whether the row is the open page of the current location.
     pub(crate) selected: bool,
+    /// The item menu of the row, in the sequence of ADR 0089 Decision 4.
+    pub(crate) menu: [SavedSearchMenuEntry; 4],
+    /// The inline rename controls of the row.
+    pub(crate) rename: SavedSearchRenameDisplay,
 }
 
 /// One example query of "How to Search".
@@ -73,6 +83,8 @@ pub(crate) enum HowToSearchDisclosure {
 pub(crate) struct SearchPageVm {
     rows: Vec<SearchPageRowVm>,
     examples: Vec<SearchExampleVm>,
+    new_action: SearchPageActionDisplay,
+    message: Option<String>,
 }
 
 impl SearchPageVm {
@@ -87,7 +99,7 @@ impl SearchPageVm {
             .map(|search| SearchPageRowVm {
                 search: search.clone(),
                 element_id: format!("music-search-saved-search-{}", search.id.0),
-                label: search.query.clone(),
+                label: search.display_label().to_owned(),
                 subtitle: SavedSearch::SUBTITLE,
                 a11y_label: format!(
                     "{}, {}",
@@ -95,6 +107,8 @@ impl SearchPageVm {
                     SavedSearch::SUBTITLE
                 ),
                 selected: open == Some(search.id),
+                menu: saved_search_menu(search),
+                rename: saved_search_rename_display(search),
             })
             .collect();
         // ADR 0087 Decision 2: the examples are the field table, one for each field.
@@ -106,7 +120,32 @@ impl SearchPageVm {
                 a11y_label: format!("Run the example search {}", info.example),
             })
             .collect();
-        Self { rows, examples }
+        Self {
+            rows,
+            examples,
+            new_action: new_saved_search_action(),
+            message: None,
+        }
+    }
+
+    /// The same page with a message of the last request, for example a
+    /// missing saved search or a copy that already exists.
+    #[must_use]
+    pub(crate) fn with_message(mut self, message: Option<String>) -> Self {
+        self.message = message;
+        self
+    }
+
+    /// The message of the last request, if any.
+    #[must_use]
+    pub(crate) fn message(&self) -> Option<&str> {
+        self.message.as_deref()
+    }
+
+    /// "New Saved Search", a button with typed action state.
+    #[must_use]
+    pub(crate) const fn new_action(&self) -> &SearchPageActionDisplay {
+        &self.new_action
     }
 
     /// The saved searches, one row each.
@@ -145,6 +184,7 @@ mod tests {
             id: SavedSearchId(id),
             query: query.to_owned(),
             start_tab: SearchResultsTab::Releases,
+            name: None,
         }
     }
 

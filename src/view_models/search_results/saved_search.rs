@@ -5,6 +5,7 @@
 //! the results in the detail column with the view model of packet 010.
 //! This module gives the types, the labels, the typed actions, the delete
 //! confirmation and the stale-result rule of the saved-search page.
+//! ADR 0089 Decision 4 adds the display name of a saved search.
 
 #![warn(clippy::pedantic)]
 
@@ -25,6 +26,8 @@ pub(crate) struct SavedSearch {
     pub(crate) query: String,
     /// The tab that was open at the save. The page opens on this tab.
     pub(crate) start_tab: SearchResultsTab,
+    /// The name that the operator gave, or `None` to show the query.
+    pub(crate) name: Option<String>,
 }
 
 impl SavedSearch {
@@ -42,7 +45,15 @@ impl SavedSearch {
             id: SavedSearchId(stored.id),
             query: stored.query,
             start_tab: SearchResultsTab::from(stored.start_tab),
+            name: stored.name,
         }
+    }
+
+    /// The text of the row: the name when there is one, else the query
+    /// (ADR 0089 Decision 4). The query stays visible on the page.
+    #[must_use]
+    pub(crate) fn display_label(&self) -> &str {
+        self.name.as_deref().unwrap_or(&self.query)
     }
 
     /// The navigation entry of this saved search.
@@ -327,6 +338,121 @@ pub(crate) fn saved_search_result_is_current(
     mounted.is_some_and(|page| page.id == id && page.query == query && page.results().is_some())
 }
 
+/// The text that shows when a saved search no longer exists (ADR 0089
+/// Decision 4).
+pub(crate) const SAVED_SEARCH_MISSING_TEXT: &str = "This saved search no longer exists.";
+
+/// The text that shows when a copy has the text of a saved search that
+/// exists already (ADR 0089 Decision 4).
+pub(crate) const SAVED_SEARCH_COPY_CONFLICT_TEXT: &str =
+    "A saved search with this text already exists. Rename it first.";
+
+/// One item of the item menu of a saved search (ADR 0089 Decision 4).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SavedSearchMenuItem {
+    /// "Edit Query": opens the saved search page.
+    EditQuery,
+    /// "Rename…": the name of the row becomes an input.
+    Rename,
+    /// "Duplicate": a new row with " copy" after the name.
+    Duplicate,
+    /// "Delete Saved Search…": the delete confirmation.
+    Delete,
+}
+
+/// One typed item of the item menu of a saved search.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct SavedSearchMenuEntry {
+    pub(crate) item: SavedSearchMenuItem,
+    pub(crate) id: &'static str,
+    pub(crate) label: &'static str,
+    pub(crate) a11y_label: String,
+    pub(crate) available: bool,
+    pub(crate) destructive: bool,
+}
+
+/// The item menu of a saved search, in the sequence of ADR 0089 Decision 4:
+/// Edit Query, Rename, Duplicate and Delete Saved Search. Each item is
+/// available, and only the delete item is destructive.
+#[must_use]
+pub(crate) fn saved_search_menu(search: &SavedSearch) -> [SavedSearchMenuEntry; 4] {
+    let name = search.display_label();
+    [
+        SavedSearchMenuEntry {
+            item: SavedSearchMenuItem::EditQuery,
+            id: "music-saved-search-menu-edit-query",
+            label: "Edit Query",
+            a11y_label: format!("Edit the query of the saved search \"{name}\""),
+            available: true,
+            destructive: false,
+        },
+        SavedSearchMenuEntry {
+            item: SavedSearchMenuItem::Rename,
+            id: "music-saved-search-menu-rename",
+            label: "Rename\u{2026}",
+            a11y_label: format!("Rename the saved search \"{name}\""),
+            available: true,
+            destructive: false,
+        },
+        SavedSearchMenuEntry {
+            item: SavedSearchMenuItem::Duplicate,
+            id: "music-saved-search-menu-duplicate",
+            label: "Duplicate",
+            a11y_label: format!("Duplicate the saved search \"{name}\""),
+            available: true,
+            destructive: false,
+        },
+        SavedSearchMenuEntry {
+            item: SavedSearchMenuItem::Delete,
+            id: "music-saved-search-menu-delete",
+            label: "Delete Saved Search\u{2026}",
+            a11y_label: format!("Delete the saved search \"{name}\""),
+            available: true,
+            destructive: true,
+        },
+    ]
+}
+
+/// The inline rename of a saved search row (ADR 0089 Decision 4).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct SavedSearchRenameDisplay {
+    pub(crate) input_placeholder: &'static str,
+    pub(crate) save_id: &'static str,
+    pub(crate) save_label: &'static str,
+    pub(crate) save_a11y_label: String,
+    pub(crate) cancel_id: &'static str,
+    pub(crate) cancel_label: &'static str,
+    pub(crate) cancel_a11y_label: String,
+}
+
+/// The rename controls of a saved search row.
+#[must_use]
+pub(crate) fn saved_search_rename_display(search: &SavedSearch) -> SavedSearchRenameDisplay {
+    let name = search.display_label();
+    SavedSearchRenameDisplay {
+        input_placeholder: "Saved search name",
+        save_id: "music-saved-search-rename-save",
+        save_label: "Save",
+        save_a11y_label: format!("Save the name of the saved search \"{name}\""),
+        cancel_id: "music-saved-search-rename-cancel",
+        cancel_label: "Cancel",
+        cancel_a11y_label: format!("Cancel the rename of the saved search \"{name}\""),
+    }
+}
+
+/// "New Saved Search" of the Search page (ADR 0089 Decision 4). It is a
+/// button, and it is always available.
+#[must_use]
+pub(crate) fn new_saved_search_action() -> SearchPageActionDisplay {
+    SearchPageActionDisplay {
+        id: "music-search-new-saved-search",
+        label: "New Saved Search",
+        a11y_label: "New Saved Search. Puts the focus in the search field.".to_owned(),
+        available: true,
+        style: SearchPageActionStyle::Plain,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -347,6 +473,7 @@ mod tests {
             id: SavedSearchId(id),
             query: query.to_owned(),
             start_tab,
+            name: None,
         }
     }
 
@@ -614,5 +741,67 @@ mod tests {
             nav.path_entries(),
             vec![FrameNavigationEntry::Destination(MusicDestination::Search)]
         );
+    }
+
+    /// ADR 0089 Decision 4: a row shows its name when it has one, and else
+    /// its query.
+    #[test]
+    fn adr_0089_saved_search_row_shows_the_name_or_the_query() {
+        let mut search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        assert_eq!(search.display_label(), "bluegrass");
+        search.name = Some("Old time".to_owned());
+        assert_eq!(search.display_label(), "Old time");
+        assert_eq!(search.query, "bluegrass", "the query stays stored");
+    }
+
+    /// ADR 0089 Decision 4: the item menu has the four items in the sequence
+    /// Edit Query, Rename, Duplicate and Delete Saved Search. Each item is
+    /// available, and only the delete item is destructive.
+    #[test]
+    fn adr_0089_saved_search_menu_has_the_four_items_in_order() {
+        let search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        let menu = super::saved_search_menu(&search);
+        let labels: Vec<&str> = menu.iter().map(|entry| entry.label).collect();
+        assert_eq!(
+            labels,
+            [
+                "Edit Query",
+                "Rename\u{2026}",
+                "Duplicate",
+                "Delete Saved Search\u{2026}"
+            ]
+        );
+        let items: Vec<super::SavedSearchMenuItem> = menu.iter().map(|entry| entry.item).collect();
+        assert_eq!(
+            items,
+            [
+                super::SavedSearchMenuItem::EditQuery,
+                super::SavedSearchMenuItem::Rename,
+                super::SavedSearchMenuItem::Duplicate,
+                super::SavedSearchMenuItem::Delete,
+            ]
+        );
+        assert!(menu.iter().all(|entry| entry.available));
+        let destructive: Vec<bool> = menu.iter().map(|entry| entry.destructive).collect();
+        assert_eq!(destructive, [false, false, false, true]);
+        assert_eq!(menu[3].a11y_label, "Delete the saved search \"bluegrass\"");
+    }
+
+    /// ADR 0089 Decision 4: the rename controls and the new-search button
+    /// carry their labels and accessibility labels from the view model.
+    #[test]
+    fn adr_0089_saved_search_rename_and_new_button_are_typed() {
+        let mut search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        search.name = Some("Old time".to_owned());
+        let rename = super::saved_search_rename_display(&search);
+        assert_eq!(rename.save_label, "Save");
+        assert_eq!(
+            rename.cancel_a11y_label,
+            "Cancel the rename of the saved search \"Old time\""
+        );
+        let new = super::new_saved_search_action();
+        assert_eq!(new.label, "New Saved Search");
+        assert!(new.available);
+        assert_eq!(new.id, "music-search-new-saved-search");
     }
 }

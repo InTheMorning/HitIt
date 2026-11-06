@@ -349,6 +349,7 @@ fn adr_0084_search_list_release_kind_is_the_first_word_of_the_subtitle() {
         id: super::SavedSearchId(1),
         query: "haleen".to_owned(),
         start_tab: SearchResultsTab::Releases,
+        name: None,
     };
     let detail = vm.into_saved_search(&saved);
     assert_eq!(

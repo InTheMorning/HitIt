@@ -3990,6 +3990,9 @@ fn adr_0084_saved_search_r12_11_one_writer_and_no_ui_reader() {
         "update saved_searches",
         "replace into saved_searches",
         "insert or replace into saved_searches",
+        "insert into saved_search_seen",
+        "insert or ignore into saved_search_seen",
+        "delete from saved_search_seen",
     ];
     let ui_reads = [
         "from saved_searches",

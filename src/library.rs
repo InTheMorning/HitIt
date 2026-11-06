@@ -366,6 +366,14 @@ pub struct LibraryApp {
     /// The state of "How to Search" over a list with saved searches (ADR 0089
     /// Decision 4). The page changes it on each click.
     how_to_search: crate::view_models::search_page::HowToSearchDisclosure,
+    /// The inline rename input of a saved search row (ADR 0089 Decision 4).
+    saved_search_rename_input: Entity<InputState>,
+    _saved_search_rename_sub: gpui::Subscription,
+    /// The saved search whose row shows the rename input.
+    saved_search_renaming: Option<crate::view_models::search_results::SavedSearchId>,
+    /// The message of the last saved search request, for example a missing
+    /// saved search or a copy that already exists.
+    saved_search_message: Option<String>,
     /// The page that Back left open over the current list root, for the
     /// marked row of the Music list (R-NAV-2 item 2). The top app sets it at
     /// each render.
