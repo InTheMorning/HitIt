@@ -102,9 +102,16 @@ pub(super) fn render_toolbar(
 }
 
 /// The width of the center area of the toolbar, with the field and its
-/// button: half of the window, at most `APP_TOOLBAR_SEARCH_MAX_WIDTH`.
-fn toolbar_search_width(toolbar_width: gpui::Pixels) -> gpui::Pixels {
-    (toolbar_width / 2.0).min(layout::APP_TOOLBAR_SEARCH_MAX_WIDTH)
+/// button: half of the content area, at most `APP_TOOLBAR_SEARCH_MAX_WIDTH`.
+/// The sidebar is not part of the toolbar, so its width is not counted. If it
+/// were, the field would leave no space for the page title.
+fn toolbar_search_width(window_width: gpui::Pixels) -> gpui::Pixels {
+    let content_width = if window_width < layout::SHELL_TAB_BAR_BREAKPOINT {
+        window_width
+    } else {
+        window_width - layout::MUSIC_SIDEBAR_WIDTH
+    };
+    (content_width / 2.0).min(layout::APP_TOOLBAR_SEARCH_MAX_WIDTH)
 }
 
 /// The Back and Forward controls and the page title at the left of the
@@ -259,4 +266,23 @@ fn render_global_search_submit_button(
         this.submit_global_search(window, cx);
     }));
     button
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Walk of 2026-11-06: the title "Search" showed as "Se…", because the field
+    /// took half of the window. Fix: count only the content area.
+    #[test]
+    fn the_search_area_takes_half_of_the_content_area() {
+        let wide = toolbar_search_width(gpui::px(1120.0));
+        assert_eq!(wide, (gpui::px(1120.0) - layout::MUSIC_SIDEBAR_WIDTH) / 2.0);
+
+        let narrow = toolbar_search_width(gpui::px(900.0));
+        assert_eq!(narrow, gpui::px(450.0));
+
+        let largest = toolbar_search_width(gpui::px(3000.0));
+        assert_eq!(largest, layout::APP_TOOLBAR_SEARCH_MAX_WIDTH);
+    }
 }

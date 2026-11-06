@@ -161,18 +161,19 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         level: ContrastLevel::NormalText,
         note: "secondary body text on raised surface",
     },
-    // Tertiary / quaternary labels are reserved for large text & UI hints.
+    // A list row uses the tertiary label for its text, so it needs 4.5:1. The
+    // quaternary label is for a UI hint only.
     ContrastPair {
         fg: SemanticColor::TertiaryLabel,
         bg: SemanticColor::SystemBackground,
-        level: ContrastLevel::LargeOrGraphic,
-        note: "tertiary label — large text / UI hint only",
+        level: ContrastLevel::NormalText,
+        note: "tertiary text on canvas",
     },
     ContrastPair {
         fg: SemanticColor::TertiaryLabel,
         bg: SemanticColor::SecondarySystemBackground,
-        level: ContrastLevel::LargeOrGraphic,
-        note: "tertiary label on raised surface",
+        level: ContrastLevel::NormalText,
+        note: "tertiary text on raised surface",
     },
     // Accent text on canvas (links, active labels).
     ContrastPair {
@@ -320,8 +321,8 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     ContrastPair {
         fg: SemanticColor::TertiaryLabel,
         bg: SemanticColor::SidebarBackground,
-        level: ContrastLevel::LargeOrGraphic,
-        note: "tertiary label on sidebar surface — large text / UI hint only",
+        level: ContrastLevel::NormalText,
+        note: "tertiary text on sidebar surface",
     },
     // ADR 0083 Decision 2: each entity color as a small dot against every
     // background tier, including the sidebar surface.
