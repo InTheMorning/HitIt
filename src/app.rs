@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use gpui::{div, prelude::*, App, Context, Entity, Focusable as _, Image, Render, Styled, Window};
+use gpui::{
+    div, prelude::*, App, Context, Div, Entity, Focusable as _, Image, Render, Styled, Window,
+};
 use gpui_component::input::{InputEvent, InputState};
 use rusqlite::Connection;
 
@@ -45,7 +47,7 @@ use crate::view_models::search_page::SearchPageAction;
 use crate::view_models::search_results::{SearchResultsInspectorPageVm, SearchResultsTab};
 use crate::view_models::settings::{SettingsAction, SettingsVm};
 use crate::view_models::show::{EventSectionInput, ShowCommandState, ShowPageVm};
-use crate::view_models::sidebar::SidebarDestination;
+use crate::view_models::sidebar::{ShellForm, SidebarDestination};
 use crate::view_models::workspace::{
     music_focus_moves, music_focus_target, music_page_content, FrameNavigationEntry,
     FrameNavigationState, IndexTrackTarget, MusicColumns, MusicDestination, MusicFocusTarget,
@@ -77,6 +79,7 @@ mod search_field_list;
 mod search_live;
 mod search_selection;
 mod show;
+mod tab_bar;
 mod toolbar;
 
 pub use bootstrap::run_app;
@@ -677,6 +680,29 @@ impl TopApp {
         };
         self.library
             .update(cx, |library, cx| library.focus_sidebar_row(row, window, cx));
+    }
+
+    /// Renders the sidebar column of the sidebar form (ADR 0089 Decision 1).
+    /// It holds the application mark and the sidebar rows.
+    fn render_sidebar_shell(&self, cx: &mut Context<Self>) -> Div {
+        div()
+            .flex()
+            .flex_col()
+            .flex_shrink_0()
+            .w(crate::ui::layouts::MUSIC_SIDEBAR_WIDTH)
+            .h_full()
+            .min_h_0()
+            .overflow_hidden()
+            .bg(crate::ui::style::color::bg_sidebar())
+            .child(render_app_mark(cx))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .child(self.library_sidebar_view.clone()),
+            )
     }
 
     /// Routes a click on a sidebar row (ADR 0089 Decision 1). Show and
@@ -2096,26 +2122,17 @@ impl Render for TopApp {
         };
         let bg_canvas = color(cx, SemanticColor::SystemBackground);
         let text_primary = color(cx, SemanticColor::Label);
-        // ADR 0089 Decision 1: the sidebar sits beside the content on each
-        // mount. The toolbar belongs to the content area (R-TOOLBAR-1).
-        let sidebar_column = div()
-            .flex()
-            .flex_col()
-            .flex_shrink_0()
-            .w(crate::ui::layouts::MUSIC_SIDEBAR_WIDTH)
-            .h_full()
-            .min_h_0()
-            .overflow_hidden()
-            .bg(crate::ui::style::color::bg_sidebar())
-            .child(render_app_mark(cx))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h_0()
-                    .child(self.library_sidebar_view.clone()),
-            );
+        // ADR 0089 Decision 1: a narrow window shows the tab bar at the bottom
+        // of the window, and no sidebar. Otherwise the sidebar sits beside the
+        // content on each mount. The toolbar belongs to the content area
+        // (R-TOOLBAR-1).
+        let shell_form = crate::view_models::sidebar::shell_form(
+            show_window_width,
+            f32::from(crate::ui::layouts::SHELL_TAB_BAR_BREAKPOINT),
+        );
+        let sidebar_column =
+            (shell_form == ShellForm::Sidebar).then(|| self.render_sidebar_shell(cx));
+        let tab_bar = (shell_form == ShellForm::TabBar).then(|| self.render_narrow_tab_bar(cx));
         let content_column = div()
             .flex()
             .flex_col()
@@ -2141,13 +2158,21 @@ impl Render for TopApp {
                     // ADR 0060: workspace render delegates to the active app-section mount.
                     .child(self.render_workspace_content(mount, show_window_width, window, cx)),
             );
+        let body = div()
+            .flex()
+            .flex_row()
+            .flex_1()
+            .min_h_0()
+            .overflow_hidden()
+            .when_some(sidebar_column, gpui::ParentElement::child)
+            .child(content_column);
         div()
             .size_full()
             .bg(bg_canvas)
             .text_color(text_primary)
             .text_sm()
             .flex()
-            .flex_row()
+            .flex_col()
             .overflow_hidden()
             .on_action(cx.listener(TopApp::handle_toggle_playback))
             .on_action(cx.listener(TopApp::handle_skip_playback_next))
@@ -2173,8 +2198,8 @@ impl Render for TopApp {
             .on_action(cx.listener(TopApp::handle_move_selection_end))
             .on_action(cx.listener(TopApp::handle_toggle_focused_selection))
             .on_action(cx.listener(TopApp::handle_select_all_visible))
-            .child(sidebar_column)
-            .child(content_column)
+            .child(body)
+            .when_some(tab_bar, gpui::ParentElement::child)
             .children(render_window_layers(window, cx))
     }
 }

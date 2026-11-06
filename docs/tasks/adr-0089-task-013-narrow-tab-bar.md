@@ -1,6 +1,6 @@
 # ADR 0089 Task 013: The Narrow Tab Bar
 
-Status: Ready - 2026-11-05.
+Status: Implemented - 2026-11-06. V1 to V3 are open. The checks are in section 11 of [pending human checks](../pending-human-checks.md).
 
 Depends on: [packet 011](adr-0089-task-011-live-page.md) and [packet 012](adr-0089-task-012-inbox.md).
 

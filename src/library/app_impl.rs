@@ -63,7 +63,7 @@ use crate::ui::composites::{
     CollectionArtImage, PlaylistOption, PlaylistOptionDisplay, StatusRole, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
-use crate::ui::primitives::Button as UiButton;
+use crate::ui::primitives::{Button as UiButton, ContextMenuItem, ContextMenuItemDisplay};
 use crate::ui::shells::library::content_list::{
     render_library_content_list, ContentListMenuContext,
 };
@@ -2733,7 +2733,7 @@ impl LibraryApp {
         );
     }
 
-    fn check_all_feeds(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn check_all_feeds(&mut self, cx: &mut Context<Self>) {
         if self.vm.feed_update_state().phase != FeedUpdatePhase::Idle {
             return;
         }
@@ -4942,6 +4942,50 @@ impl LibraryApp {
 // ---------------------------------------------------------------------------
 
 impl LibraryApp {
+    /// The sidebar rows for the current selection (ADR 0089 Decision 1). The
+    /// narrow tab bar reads the same rows.
+    pub(crate) fn sidebar_vm(&self) -> crate::view_models::sidebar::SidebarVm {
+        self.vm
+            .sidebar(self.sidebar_selected, self.tag_update_snapshot.as_ref())
+    }
+
+    /// The feed-update action as the menu items of the narrow tab bar (ADR
+    /// 0089 Decision 1). The item keeps the label, the disabled state and the
+    /// status text of the sidebar feed area. The item runs the same command.
+    pub(crate) fn feed_update_menu_items(&self, cx: &mut Context<Self>) -> Vec<ContextMenuItem> {
+        let FeedUpdateDisplay {
+            state_label,
+            status_message,
+            action,
+        } = self.vm.feed_update_display();
+        let description: Vec<String> = state_label
+            .map(str::to_owned)
+            .into_iter()
+            .chain(status_message)
+            .collect();
+        let kind = action.kind;
+        let library = cx.entity();
+        let item = ContextMenuItem::new(ContextMenuItemDisplay {
+            id: action.button_id.into(),
+            label: action.label.clone().into(),
+            a11y_label: action.label.into(),
+            destructive: false,
+            disabled: action.disabled,
+        })
+        .on_select(move |_, cx| {
+            library.update(cx, |library, cx| match kind {
+                FeedUpdateActionKind::ApplyUpdates => library.apply_all_feed_updates(cx),
+                FeedUpdateActionKind::CheckAllFeeds => library.check_all_feeds(cx),
+            });
+        });
+        let item = if description.is_empty() {
+            item
+        } else {
+            item.description(description.join(". "))
+        };
+        vec![item]
+    }
+
     /// Renders the sidebar column (ADR 0089 Decision 1): the rows of
     /// `SidebarVm`, a line, then the feed area. `TopApp::render` places it
     /// beside the toolbar and the content on each mount. The feed-update

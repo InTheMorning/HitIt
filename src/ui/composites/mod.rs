@@ -54,6 +54,7 @@ pub mod show_log_pane;
 pub mod skeleton_inspector;
 pub mod skeleton_track_row;
 pub mod split_pane;
+pub mod tab_bar;
 pub mod tag_badge;
 pub mod thumbnail;
 pub mod track_detail_surface;

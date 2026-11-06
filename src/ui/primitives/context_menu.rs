@@ -133,6 +133,8 @@ pub struct ContextMenu {
     trigger_a11y_label: SharedString,
     items: Vec<ContextMenuItem>,
     handle: Option<ContextMenuHandle>,
+    placement: PopoverPlacement,
+    trigger_style: ControlStyle,
 }
 
 /// Controlled menu at a pointer position. The owner removes it on dismissal.
@@ -311,7 +313,22 @@ impl ContextMenu {
             trigger_a11y_label: trigger_a11y_label.into(),
             items: Vec::new(),
             handle: None,
+            placement: PopoverPlacement::Below,
+            trigger_style: ControlStyle::RowAction,
         }
+    }
+
+    /// Gives the trigger a control style. The default is the row action.
+    pub(crate) fn trigger_style(mut self, style: ControlStyle) -> Self {
+        self.trigger_style = style;
+        self
+    }
+
+    /// Opens the menu above or below its trigger. The default is below. A
+    /// trigger in a bottom bar opens above (ADR 0089 Decision 1).
+    pub(crate) fn placement(mut self, placement: PopoverPlacement) -> Self {
+        self.placement = placement;
+        self
     }
 
     /// Uses the open state that the host holds. Without a handle, the menu
@@ -382,7 +399,7 @@ impl RenderOnce for ContextMenu {
         let open = state.read(cx).open && !self.disabled;
         let items = self.items;
         let trigger_id = SharedString::from(format!("{}-trigger", self.id));
-        let mut trigger = Button::styled(trigger_id, ControlStyle::RowAction)
+        let mut trigger = Button::styled(trigger_id, self.trigger_style)
             .leading_icon(self.trigger_icon)
             .disabled(self.disabled)
             .label(self.trigger_label)
@@ -392,7 +409,7 @@ impl RenderOnce for ContextMenu {
         }
 
         Popover::new(self.id)
-            .placement(PopoverPlacement::Below)
+            .placement(self.placement)
             .alignment(PopoverAlignment::End)
             .surface_padding(Spacing::SM)
             .open(open)

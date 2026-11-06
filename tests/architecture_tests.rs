@@ -359,6 +359,7 @@ const PRESENTATION_GLUE_FILES: &[&str] = &[
     "src/app/playback_bar.rs",
     "src/app/queue_now_playing.rs",
     "src/app/show.rs",
+    "src/app/tab_bar.rs",
     "src/app/toolbar.rs",
     "src/library.rs",
 ];

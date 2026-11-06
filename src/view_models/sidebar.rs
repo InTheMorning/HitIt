@@ -3,8 +3,9 @@
 //! The sidebar is one list with no group labels. It holds the upper
 //! destinations, a separator, then the lower rows: Show, Inbox and Settings.
 //! This module owns the rows, their labels, counts and selected state. It
-//! carries no renderer type. The renderer maps each semantic icon to a named
-//! icon.
+//! also owns the shell form and the narrow tab bar (ADR 0089 Decision 1), which
+//! hold the same rows. It carries no renderer type. The renderer maps each
+//! semantic icon to a named icon.
 
 #![warn(clippy::pedantic)]
 
@@ -171,6 +172,136 @@ impl SidebarVm {
     #[must_use]
     pub(crate) fn entries(&self) -> &[SidebarEntryVm] {
         &self.entries
+    }
+
+    /// The rows in sidebar order, without the separator.
+    pub(crate) fn rows(&self) -> impl Iterator<Item = &SidebarRowVm> {
+        self.entries.iter().filter_map(|entry| match entry {
+            SidebarEntryVm::Row(row) => Some(row),
+            SidebarEntryVm::Separator => None,
+        })
+    }
+}
+
+/// The form of the shell (ADR 0089 Decision 1). A narrow window replaces the
+/// sidebar with the tab bar.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ShellForm {
+    /// The sidebar sits beside the content.
+    Sidebar,
+    /// The tab bar sits at the bottom of the window, and no sidebar shows.
+    TabBar,
+}
+
+/// Gives the shell form of a window width. A width below the breakpoint gives
+/// the tab bar. A width at or above it gives the sidebar.
+#[must_use]
+pub(crate) fn shell_form(width_px: f32, breakpoint_px: f32) -> ShellForm {
+    if width_px < breakpoint_px {
+        ShellForm::TabBar
+    } else {
+        ShellForm::Sidebar
+    }
+}
+
+/// One tab of the narrow tab bar (ADR 0089 Decision 1).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct TabBarItemVm {
+    /// The destination that the tab opens.
+    pub(crate) destination: SidebarDestination,
+    /// Stable element id.
+    pub(crate) element_id: &'static str,
+    /// The tab's icon.
+    pub(crate) icon: SidebarIcon,
+    /// The visible word, with the count when the tab has one.
+    pub(crate) label: String,
+    /// The accessibility label, with the count in words.
+    pub(crate) a11y_label: String,
+    /// Whether the tab is the destination of the current screen.
+    pub(crate) selected: bool,
+}
+
+/// The narrow tab bar view model (ADR 0089 Decision 1). It holds Search,
+/// Releases, Show and Inbox, then More. More opens a menu with the other rows
+/// of the sidebar.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct TabBarVm {
+    items: Vec<TabBarItemVm>,
+    more_rows: Vec<SidebarRowVm>,
+    more_selected: bool,
+}
+
+impl TabBarVm {
+    /// The tabs that stay on the bar, in sidebar order.
+    const TABS: [SidebarDestination; 4] = [
+        SidebarDestination::Search,
+        SidebarDestination::Releases,
+        SidebarDestination::Show,
+        SidebarDestination::Inbox,
+    ];
+
+    /// The rows that the More menu holds, in sidebar order.
+    const MORE: [SidebarDestination; 5] = [
+        SidebarDestination::Artists,
+        SidebarDestination::MyPlaylists,
+        SidebarDestination::PublicPlaylists,
+        SidebarDestination::Live,
+        SidebarDestination::Settings,
+    ];
+
+    /// Gives the tab bar of a sidebar. Each tab and each menu row keeps its
+    /// selected state, and More is selected when a menu row is selected.
+    #[must_use]
+    pub(crate) fn new(sidebar: &SidebarVm) -> Self {
+        let rows: Vec<&SidebarRowVm> = sidebar.rows().collect();
+        let row_of = |destination: SidebarDestination| -> SidebarRowVm {
+            rows.iter()
+                .find(|row| row.destination == destination)
+                .map(|row| (*row).clone())
+                .expect("the sidebar holds every destination")
+        };
+        let items = Self::TABS
+            .into_iter()
+            .map(|destination| {
+                let row = row_of(destination);
+                TabBarItemVm {
+                    destination,
+                    element_id: row.element_id,
+                    icon: row.icon,
+                    label: match row.count {
+                        Some(count) => format!("{} {count}", row.label),
+                        None => row.label.to_owned(),
+                    },
+                    a11y_label: row.a11y_label,
+                    selected: row.selected,
+                }
+            })
+            .collect();
+        let more_rows: Vec<SidebarRowVm> = Self::MORE.into_iter().map(row_of).collect();
+        let more_selected = more_rows.iter().any(|row| row.selected);
+        Self {
+            items,
+            more_rows,
+            more_selected,
+        }
+    }
+
+    /// The tabs of the bar, before More.
+    #[must_use]
+    pub(crate) fn items(&self) -> &[TabBarItemVm] {
+        &self.items
+    }
+
+    /// The rows of the More menu, in sidebar order.
+    #[must_use]
+    pub(crate) fn more_rows(&self) -> &[SidebarRowVm] {
+        &self.more_rows
+    }
+
+    /// Whether More is the selected tab, because a menu row is selected.
+    #[must_use]
+    pub(crate) const fn more_selected(&self) -> bool {
+        self.more_selected
     }
 }
 
@@ -406,5 +537,107 @@ mod tests {
         }
         assert_eq!(SidebarDestination::Show.music_destination(), None);
         assert_eq!(SidebarDestination::Settings.music_destination(), None);
+    }
+
+    /// ADR 0089 Decision 1: the shell form at each side of the breakpoint.
+    #[test]
+    fn shell_form_gives_tab_bar_below_the_breakpoint_and_sidebar_at_or_above_it() {
+        let breakpoint = 940.0;
+        assert_eq!(shell_form(939.0, breakpoint), ShellForm::TabBar);
+        assert_eq!(shell_form(939.9, breakpoint), ShellForm::TabBar);
+        assert_eq!(shell_form(940.0, breakpoint), ShellForm::Sidebar);
+        assert_eq!(shell_form(940.1, breakpoint), ShellForm::Sidebar);
+        assert_eq!(shell_form(1120.0, breakpoint), ShellForm::Sidebar);
+    }
+
+    /// ADR 0089 Decision 1: the tab bar holds Search, Releases, Show and
+    /// Inbox, and More holds the other rows. The union is every sidebar row.
+    #[test]
+    fn tab_bar_tabs_and_more_menu_hold_each_sidebar_row_once() {
+        let sidebar = SidebarVm::new(SidebarCounts::default(), None);
+        let vm = TabBarVm::new(&sidebar);
+        let tabs: Vec<_> = vm.items().iter().map(|item| item.destination).collect();
+        assert_eq!(
+            tabs,
+            [
+                SidebarDestination::Search,
+                SidebarDestination::Releases,
+                SidebarDestination::Show,
+                SidebarDestination::Inbox,
+            ]
+        );
+        let more: Vec<_> = vm.more_rows().iter().map(|row| row.label).collect();
+        assert_eq!(
+            more,
+            [
+                "Artists",
+                "My playlists",
+                "Public playlists",
+                "Live",
+                "Settings",
+            ]
+        );
+        let mut union: Vec<_> = vm
+            .items()
+            .iter()
+            .map(|item| item.destination)
+            .chain(vm.more_rows().iter().map(|row| row.destination))
+            .collect();
+        let mut sidebar_rows: Vec<_> = sidebar.rows().map(|row| row.destination).collect();
+        union.sort_by_key(|destination| *destination as u8);
+        sidebar_rows.sort_by_key(|destination| *destination as u8);
+        assert_eq!(union, sidebar_rows);
+    }
+
+    /// ADR 0089 Decision 1: a tab follows the selected destination, and More
+    /// is selected for a menu destination.
+    #[test]
+    fn tab_bar_selection_follows_the_destination_and_more_takes_menu_rows() {
+        let tab = TabBarVm::new(&SidebarVm::new(
+            SidebarCounts::default(),
+            Some(SidebarDestination::Show),
+        ));
+        let selected: Vec<_> = tab
+            .items()
+            .iter()
+            .filter(|item| item.selected)
+            .map(|item| item.destination)
+            .collect();
+        assert_eq!(selected, [SidebarDestination::Show]);
+        assert!(!tab.more_selected());
+
+        let menu = TabBarVm::new(&SidebarVm::new(
+            SidebarCounts::default(),
+            Some(SidebarDestination::Live),
+        ));
+        assert!(menu.more_selected());
+        assert!(menu.items().iter().all(|item| !item.selected));
+        let marked: Vec<_> = menu
+            .more_rows()
+            .iter()
+            .filter(|row| row.selected)
+            .map(|row| row.destination)
+            .collect();
+        assert_eq!(marked, [SidebarDestination::Live]);
+    }
+
+    /// ADR 0089 Decision 1: the Inbox tab shows its count, and its
+    /// accessibility label names the count in words.
+    #[test]
+    fn tab_bar_inbox_tab_shows_its_count() {
+        let vm = TabBarVm::new(&SidebarVm::new(
+            SidebarCounts {
+                inbox: 3,
+                playlists: 0,
+            },
+            None,
+        ));
+        let inbox = vm
+            .items()
+            .iter()
+            .find(|item| item.destination == SidebarDestination::Inbox)
+            .expect("Inbox tab");
+        assert_eq!(inbox.label, "Inbox 3");
+        assert_eq!(inbox.a11y_label, "Inbox, 3 items need a decision");
     }
 }
