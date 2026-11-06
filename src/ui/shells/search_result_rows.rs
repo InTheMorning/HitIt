@@ -115,13 +115,18 @@ pub(crate) fn render_result_row(
         }
     };
     list_row = list_row.child(result_row_text(&row));
-    if let Some(download_state) = &row.download_state {
-        list_row = list_row.child(render_release_download_state(
-            download_state,
-            format!("{element_id}-download-state"),
-            cx,
-        ));
-    } else if let Some(state_word) = row.state_word.clone() {
+    // ADR 0089 Decision 6: the search rows use the time and library columns
+    // of a Releases row. A search row has no duration.
+    list_row = list_row
+        .time_column(None)
+        .library_column(row.download_state.as_ref().map(|download_state| {
+            render_release_download_state(
+                download_state,
+                format!("{element_id}-download-state"),
+                cx,
+            )
+        }));
+    if let (None, Some(state_word)) = (&row.download_state, row.state_word.clone()) {
         list_row = list_row.child(
             Label::new(state_word)
                 .size(FontSize::Micro)
@@ -205,10 +210,14 @@ pub(crate) fn render_window_group_result_row(
                 .size(FontSize::Micro)
                 .color(SemanticColor::TertiaryLabel),
         );
+    // ADR 0089 Decision 6: a group row has no time and no library state, and
+    // it keeps the two columns of a Releases row.
     list_row = list_row
         .child(render_window_group_row_art(art))
         .child(text)
-        .child(render_window_group_badges(tile, BadgePlace::Last, cx));
+        .child(render_window_group_badges(tile, BadgePlace::Last, cx))
+        .time_column(None)
+        .library_column(None);
     if let Some(handler) = handlers.select.cloned() {
         let row_id = tile.open_row_id.clone();
         list_row = list_row.on_click(move |event: &ClickEvent, window, cx| {

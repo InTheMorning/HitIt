@@ -19,6 +19,7 @@ pub mod content_list_scroll;
 pub mod content_list_state;
 pub mod destination_list_scroll;
 pub mod destination_lists;
+pub mod destination_row_second_line;
 pub mod detail;
 pub mod feed_detail;
 pub mod inbox;

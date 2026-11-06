@@ -39,6 +39,7 @@ use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
 use crate::ui::primitives::{Button as UiButton, Checkbox, CheckboxState, Label};
 use crate::ui::shells::library::destination_list_scroll::render_destination_virtual_list;
+use crate::ui::shells::library::destination_row_second_line::destination_row_second_line;
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
@@ -217,6 +218,7 @@ fn render_singles_group_row(
     let SinglesGroupRowVm {
         element_id,
         label,
+        type_tag,
         secondary_text,
         a11y_label,
         download_state,
@@ -299,21 +301,22 @@ fn render_singles_group_row(
                         .weight(FontWeight::MEDIUM)
                         .truncated(),
                 )
-                .child(
-                    Label::new(secondary_text)
-                        .size(FontSize::Micro)
-                        .color(SemanticColor::TertiaryLabel)
-                        .truncated(),
+                .when_some(
+                    destination_row_second_line(Some(type_tag), secondary_text),
+                    ParentElement::child,
                 ),
         )
         // ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033:
         // the group row's own download-state icon, from the count of
         // its members that are in the Library.
-        .child(render_release_download_state(
+        // ADR 0089 Decision 6: a group row has no time, and its library icon
+        // sits in the same column as the icon of a release row.
+        .time_column(None)
+        .library_column(Some(render_release_download_state(
             &download_state,
             format!("{element_id}-download-state"),
             cx,
-        ))
+        )))
         .into_any_element()
 }
 
@@ -348,6 +351,7 @@ pub(crate) fn render_destination_list_row(
         | DestinationListRowTarget::Publisher(_)
         | DestinationListRowTarget::IndexPublisher(_) => EntityKind::Artist,
     };
+    let type_tag = row.type_tag();
     let target = row.open.clone();
     let thumbnail_href = row.thumbnail_href.clone();
     let thumb_element_id = format!("{}-thumb", row.element_id);
@@ -430,21 +434,19 @@ pub(crate) fn render_destination_list_row(
                         .weight(FontWeight::MEDIUM)
                         .truncated(),
                 )
-                .when(!row.secondary_text.is_empty(), |el| {
-                    el.child(
-                        Label::new(row.secondary_text)
-                            .size(FontSize::Micro)
-                            .color(SemanticColor::TertiaryLabel)
-                            .truncated(),
-                    )
-                }),
+                .when_some(
+                    destination_row_second_line(type_tag, row.secondary_text),
+                    ParentElement::child,
+                ),
         )
-        // ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033: the
-        // download-state icon of a release row. An Artists row carries
-        // none.
-        .when_some(row.download_state, |el, state| {
-            el.trailing(render_release_download_state(&state, download_state_id, cx))
-        })
+        // ADR 0089 Decision 6: the time and the library icon each have one
+        // fixed column, so they align in a list. An Artists row has no time,
+        // and it has no library state.
+        .time_column(row.duration_label.clone().map(SharedString::from))
+        .library_column(row.download_state.map(|state| {
+            // ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033.
+            render_release_download_state(&state, download_state_id, cx)
+        }))
         .into_any_element()
 }
 

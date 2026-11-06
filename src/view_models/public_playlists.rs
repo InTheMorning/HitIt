@@ -118,6 +118,8 @@ fn public_playlist_row(feed: &Feed) -> Option<DestinationListRowVm> {
         open: DestinationListRowTarget::PublicPlaylist(feed_guid.to_owned()),
         selection: RowSelectionVm::none(),
         release_kind: None,
+        duration_label: None,
+        feed_roles: Vec::new(),
         menu: None,
         download_state: None,
         marked: false,

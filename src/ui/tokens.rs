@@ -1030,7 +1030,8 @@ impl SkeletonBlock {
 // -----------------------------------------------------------------------------
 
 /// The fixed trailing columns of a track row (operator finding of
-/// 2026-10-20, ADR 0083 task 006).
+/// 2026-10-20, ADR 0083 task 006). The time and library columns of a list
+/// row (ADR 0089 Decision 6) take their widths from these tokens too.
 ///
 /// Each column starts at the same position on each row of a track list,
 /// also when the slot of the column is empty or hidden.

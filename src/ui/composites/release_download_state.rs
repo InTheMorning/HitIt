@@ -19,18 +19,20 @@ use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::release_download_state::{ReleaseDownloadState, ReleaseDownloadStateVm};
 
 /// The icon and the color role of a release download state (ADR 0083
-/// Decision 6, amended 2026-10-22). `Partial` reads the same quiet icon
-/// as `NotDownloaded`: its count text, not a different icon, tells the
-/// two apart. Only `Downloading` turns.
+/// Decision 6, amended 2026-10-22; ADR 0089 Decision 6). `Partial` reads the
+/// same quiet icon as `NotDownloaded`: its count text, not a different icon,
+/// tells the two apart. Only `Downloading` turns. The icon is muted, except
+/// `Downloading`, which keeps the accent, and `Failed`, which keeps the
+/// danger color.
 const fn icon_role_turning(state: ReleaseDownloadState) -> (IconName, SemanticColor, bool) {
     match state {
         ReleaseDownloadState::NotDownloaded | ReleaseDownloadState::Partial { .. } => {
             (IconName::CloudDownload, SemanticColor::TertiaryLabel, false)
         }
-        ReleaseDownloadState::Queued => (IconName::Queued, SemanticColor::SecondaryLabel, false),
+        ReleaseDownloadState::Queued => (IconName::Queued, SemanticColor::TertiaryLabel, false),
         ReleaseDownloadState::Downloading => (IconName::InProgress, SemanticColor::Accent, true),
         ReleaseDownloadState::Downloaded => {
-            (IconName::CloudCheck, SemanticColor::SuccessLabel, false)
+            (IconName::CloudCheck, SemanticColor::TertiaryLabel, false)
         }
         ReleaseDownloadState::Failed => (IconName::Warning, SemanticColor::DangerLabel, false),
     }
@@ -91,7 +93,7 @@ mod tests {
         );
         assert_eq!(
             icon_role_turning(ReleaseDownloadState::Queued),
-            (IconName::Queued, SemanticColor::SecondaryLabel, false)
+            (IconName::Queued, SemanticColor::TertiaryLabel, false)
         );
         assert_eq!(
             icon_role_turning(ReleaseDownloadState::Downloading),
@@ -99,7 +101,11 @@ mod tests {
         );
         assert_eq!(
             icon_role_turning(ReleaseDownloadState::Downloaded),
-            (IconName::CloudCheck, SemanticColor::SuccessLabel, false)
+            (IconName::CloudCheck, SemanticColor::TertiaryLabel, false)
+        );
+        assert_eq!(
+            icon_role_turning(ReleaseDownloadState::Failed),
+            (IconName::Warning, SemanticColor::DangerLabel, false)
         );
     }
 }

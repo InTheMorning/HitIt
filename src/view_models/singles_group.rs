@@ -29,8 +29,8 @@ use crate::view_models::index_name_list::{
     name_sort_key, IndexListActionDisplay, IndexListStatusRowVm,
 };
 use crate::view_models::library::{
-    tree_name_feed_matches, AlbumNode, ArtistNode, BusyItems, DestinationListRowVm, LibraryTree,
-    TrackRowWork,
+    singles_type_tag, tree_name_feed_matches, AlbumNode, ArtistNode, BusyItems,
+    DestinationListRowVm, LibraryTree, RowTypeTag, TrackRowWork,
 };
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::named_feeds::{index_named_feeds, NamedFeed};
@@ -716,6 +716,8 @@ pub(crate) struct SinglesGroupRowVm {
     /// The checkbox facts of the group row (ADR 0084 Decision 10). The
     /// group's own checkbox, not one for each single.
     pub(crate) selection: RowSelectionVm,
+    /// The type dot and word of the group row (ADR 0089 Decision 6).
+    pub(crate) type_tag: RowTypeTag,
 }
 
 impl SinglesGroupRowVm {
@@ -765,6 +767,7 @@ impl SinglesGroupRowVm {
         );
         Self {
             marked: false,
+            type_tag: singles_type_tag(),
             disclosure_element_id: format!("{element_id}-disclosure"),
             element_id,
             label: group.display_artist.to_owned(),
@@ -2611,6 +2614,8 @@ mod tests {
                 ),
                 selection: RowSelectionVm::none(),
                 release_kind: None,
+                duration_label: None,
+                feed_roles: Vec::new(),
                 menu: None,
                 download_state: None,
             })
@@ -2627,7 +2632,7 @@ mod tests {
                 "Library Undated"
             ]
         );
-        assert_eq!(row.singles[0].secondary_text, "Haleen \u{b7} Single");
+        assert_eq!(row.singles[0].secondary_text, "Haleen");
         assert_eq!(row.singles[2].secondary_text, "Haleen \u{b7} Library");
         assert_eq!(row.single_keys.len(), 5);
         assert_eq!(row.single_keys[0], ReleaseKey::FeedGuid("i-new".to_owned()));
@@ -2683,6 +2688,8 @@ mod tests {
                 ),
                 selection: RowSelectionVm::none(),
                 release_kind: None,
+                duration_label: None,
+                feed_roles: Vec::new(),
                 menu: None,
                 download_state: None,
             })
@@ -2756,7 +2763,7 @@ mod tests {
                 marked: false,
                 element_id: album.name.clone(),
                 label: album.name.clone(),
-                secondary_text: format!("{} \u{b7} Single", artist.name),
+                secondary_text: artist.name.clone(),
                 a11y_label: String::new(),
                 thumbnail_href: None,
                 art: None,
@@ -2765,6 +2772,8 @@ mod tests {
                 ),
                 selection: RowSelectionVm::none(),
                 release_kind: None,
+                duration_label: None,
+                feed_roles: Vec::new(),
                 menu: None,
                 download_state: None,
             })
@@ -2785,7 +2794,7 @@ mod tests {
             "the matched single comes after it"
         );
         assert_eq!(
-            row.singles[1].secondary_text, "Haleen \u{b7} Single \u{b7} Matched by name",
+            row.singles[1].secondary_text, "Haleen \u{b7} Matched by name",
             "the matched single's subtitle marks the inferred relation"
         );
         assert_eq!(
