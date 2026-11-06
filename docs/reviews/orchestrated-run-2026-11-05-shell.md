@@ -57,3 +57,4 @@ Each entry names the step, the decision and the reason.
 - Packet 009: a Public playlists row has no keyboard focus and no Enter action in this run. The rel word of a remote item shows as the response gives it.
 - Packet 010: the copy item is on a row and in the menu of the page. A tile has no menu, and the default view of the page is Tiles. A copy with no readable track still makes an empty playlist, and the report states the counts. The final walk checks each.
 - Packet 010: the copy allows one request for each two seconds to one host, and HTTP 429 stops that host for the copy. Item 34 of the responsiveness list records the database lock.
+- Packet 011: a Live row opens only an `http` or `https` link (`live_link_url`). A row with no feed GUID is dropped.

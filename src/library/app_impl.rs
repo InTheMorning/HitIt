@@ -1161,6 +1161,8 @@ impl LibraryApp {
             public_playlists_tiles_scroll: gpui::ScrollHandle::new(),
             public_playlist_list: IndexNameListPage::default(),
             public_playlist_pages: PublicPlaylistPages::default(),
+            live_list_state: MusicColumnList::new(cx),
+            live_list: IndexNameListPage::default(),
             list_column_focus: cx.focus_handle(),
             selection_removal: SelectionRemovalConfirmationState::new(),
             selection_removal_report: None,
@@ -2587,6 +2589,11 @@ impl LibraryApp {
             // the detail column.
             FrameNavigationEntry::Destination(destination) => {
                 self.show_destination_list(*destination);
+                // ADR 0089 packet 011: the Live list reads again each time
+                // its page shows, so a Back to it starts a new read.
+                if *destination == MusicDestination::Live {
+                    self.reload_live_list(cx);
+                }
                 // ADR 0089 Decision 5: the scope "All" sends its first name
                 // request when the destination shows, once.
                 self.request_default_name_list(cx);
@@ -2660,7 +2667,8 @@ impl LibraryApp {
             | MusicDestination::Releases
             | MusicDestination::Artists
             | MusicDestination::Playlists
-            | MusicDestination::PublicPlaylists => {
+            | MusicDestination::PublicPlaylists
+            | MusicDestination::Live => {
                 // The Discover, Releases, Artists, and Playlists lists read
                 // straight from already-loaded data; they hold no
                 // `ContentListPageVm` state of their own.
@@ -4236,7 +4244,8 @@ impl LibraryApp {
             MusicDestination::Search
             | MusicDestination::Artists
             | MusicDestination::Playlists
-            | MusicDestination::PublicPlaylists => {}
+            | MusicDestination::PublicPlaylists
+            | MusicDestination::Live => {}
         }
     }
 
@@ -4295,7 +4304,8 @@ impl LibraryApp {
             MusicDestination::Search
             | MusicDestination::Artists
             | MusicDestination::Playlists
-            | MusicDestination::PublicPlaylists => {}
+            | MusicDestination::PublicPlaylists
+            | MusicDestination::Live => {}
         }
     }
 
@@ -4321,7 +4331,8 @@ impl LibraryApp {
             MusicDestination::Search
             | MusicDestination::Artists
             | MusicDestination::Playlists
-            | MusicDestination::PublicPlaylists => {}
+            | MusicDestination::PublicPlaylists
+            | MusicDestination::Live => {}
         }
     }
 
@@ -4387,7 +4398,8 @@ impl LibraryApp {
             MusicDestination::Search
             | MusicDestination::Artists
             | MusicDestination::Playlists
-            | MusicDestination::PublicPlaylists => false,
+            | MusicDestination::PublicPlaylists
+            | MusicDestination::Live => false,
         }
     }
 
@@ -4577,7 +4589,8 @@ impl LibraryApp {
             MusicDestination::Search
             | MusicDestination::Artists
             | MusicDestination::Playlists
-            | MusicDestination::PublicPlaylists => {}
+            | MusicDestination::PublicPlaylists
+            | MusicDestination::Live => {}
         }
         cx.notify();
     }
@@ -5146,6 +5159,10 @@ impl LibraryApp {
             MusicDestination::PublicPlaylists => {
                 page_head = Some(self.render_public_playlists_page_head(cx));
                 self.render_public_playlists_pane(window, cx)
+            }
+            MusicDestination::Live => {
+                page_head = Some(self.render_live_page_head(cx));
+                self.render_live_pane(window, cx)
             }
             MusicDestination::Releases => {
                 // ADR 0084 task 037: the rows come from the cache, and the

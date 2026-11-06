@@ -2211,7 +2211,8 @@ pub(crate) fn list_column_header_action(
         MusicDestination::Search
         | MusicDestination::Artists
         | MusicDestination::Playlists
-        | MusicDestination::PublicPlaylists => {
+        | MusicDestination::PublicPlaylists
+        | MusicDestination::Live => {
             return None;
         }
     };

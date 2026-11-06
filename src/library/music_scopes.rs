@@ -88,7 +88,8 @@ impl LibraryApp {
             MusicDestination::Search
             | MusicDestination::NeedsAttention
             | MusicDestination::Playlists
-            | MusicDestination::PublicPlaylists => return,
+            | MusicDestination::PublicPlaylists
+            | MusicDestination::Live => return,
         }
         self.request_default_name_list(cx);
         cx.notify();
@@ -207,7 +208,10 @@ impl LibraryApp {
                 }
                 self.restart_public_playlist_list(from, cx);
             }
-            ListPageKey::MyPlaylists | ListPageKey::Results | ListPageKey::SavedSearch => {}
+            ListPageKey::MyPlaylists
+            | ListPageKey::Live
+            | ListPageKey::Results
+            | ListPageKey::SavedSearch => {}
         }
     }
 
@@ -240,6 +244,7 @@ impl LibraryApp {
             // scroll never reaches it (ADR 0089 packet 009).
             ListPageKey::MyPlaylists
             | ListPageKey::PublicPlaylists
+            | ListPageKey::Live
             | ListPageKey::Results
             | ListPageKey::SavedSearch => {}
         }
@@ -276,9 +281,13 @@ impl LibraryApp {
             MusicDestination::PublicPlaylists => {
                 self.request_public_playlists_first_page(cx);
             }
+            // ADR 0089 packet 011: the Live list reads again when its
+            // destination shows, from the navigation hook, not here. A
+            // Library load does not start a Live read.
             MusicDestination::Search
             | MusicDestination::NeedsAttention
-            | MusicDestination::Playlists => {}
+            | MusicDestination::Playlists
+            | MusicDestination::Live => {}
         }
     }
 

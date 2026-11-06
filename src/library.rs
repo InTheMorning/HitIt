@@ -19,7 +19,7 @@ use rusqlite::Connection;
 use gpui::{Entity, FocusHandle, Image, ScrollHandle};
 use gpui_component::input::InputState;
 
-use crate::api::{ArtistNameRow, Feed};
+use crate::api::{ArtistNameRow, Feed, LiveItem};
 use crate::application::paged_track_list::{PagedTrackListMsg, PagedTrackListSnapshot};
 use crate::application::{ApplicationServices, AsyncCommandRunner};
 use crate::db::{self, TrackRow};
@@ -333,6 +333,11 @@ pub struct LibraryApp {
     public_playlist_list: IndexNameListPage<Feed>,
     /// The item page of the open public playlist (ADR 0089 packet 009).
     public_playlist_pages: PublicPlaylistPages,
+    /// The Live list's virtual list state (ADR 0089 packet 011).
+    live_list_state: MusicColumnList,
+    /// The pages of the Live list (ADR 0089 packet 011). A new read keeps the
+    /// loaded rows on view until its answer comes.
+    live_list: IndexNameListPage<LiveItem>,
     /// The Music list column's own focus handle (ADR 0084 Decision 10).
     /// The selection keyboard actions act only while it, or a row inside
     /// it, carries the keyboard focus.
@@ -439,6 +444,7 @@ mod column_view;
 mod detail_selection;
 mod download_queue;
 mod downloads;
+mod live_page;
 mod music_scopes;
 mod public_playlists;
 mod release_page;

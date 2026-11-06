@@ -22,6 +22,9 @@ pub(crate) enum CollectionKind {
     Artist,
     /// A playlist. It uses the playlist color.
     Playlist,
+    /// A release that has no cover of its own, such as a live item's feed
+    /// (ADR 0089 packet 011). It uses the release color.
+    Release,
 }
 
 /// The art choice of one collection.
@@ -191,6 +194,7 @@ mod tests {
             CollectionKind::SinglesGroup,
             CollectionKind::Artist,
             CollectionKind::Playlist,
+            CollectionKind::Release,
         ] {
             assert_eq!(
                 CollectionArtVm::resolve(None, Vec::<String>::new(), kind),

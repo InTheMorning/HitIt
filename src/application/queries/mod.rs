@@ -9,6 +9,7 @@ pub mod broadcast;
 pub mod feed;
 pub mod images;
 pub mod library;
+pub mod live_page;
 pub mod metadata;
 pub mod name_lists;
 pub mod playback;
