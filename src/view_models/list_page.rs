@@ -18,7 +18,9 @@ use crate::view_models::release_download_state::ReleaseDownloadState;
 use crate::view_models::search_results::SearchPageActionDisplay;
 use crate::view_models::workspace::FrameHeaderActionDisplay;
 
-/// A list page of the Music destinations. Packet 004 has three keys.
+/// A list page. The Music list pages have three keys. The two search keys
+/// hold the sort and the view of the results page and of a saved search
+/// (ADR 0089 Decisions 4 and 5).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ListPageKey {
     /// The Releases list.
@@ -27,6 +29,10 @@ pub(crate) enum ListPageKey {
     Artists,
     /// The playlists of the curator.
     MyPlaylists,
+    /// The results page of the toolbar search.
+    Results,
+    /// The page of a saved search.
+    SavedSearch,
 }
 
 impl ListPageKey {
@@ -37,6 +43,7 @@ impl ListPageKey {
             Self::Releases => "releases",
             Self::Artists => "artists",
             Self::MyPlaylists => "playlists",
+            Self::Results | Self::SavedSearch => "results",
         }
     }
 
@@ -47,17 +54,23 @@ impl ListPageKey {
             Self::Releases => "Releases",
             Self::Artists => "Artists",
             Self::MyPlaylists => "My playlists",
+            Self::Results => "Results",
+            Self::SavedSearch => "Saved search",
         }
     }
 
     /// The views that the page offers, in icon order (ADR 0089 Decision
-    /// 5). Releases offers rows and tiles. Artists and My playlists offer
-    /// rows only, so they show no view icon.
+    /// 5). Releases offers rows and tiles. Artists, My playlists and the
+    /// search keys offer rows only, so they show no view icon. The search
+    /// keys have no tiles because the Releases tiles are tied to the
+    /// Library list (ADR 0089 packet 008 Part C, deviation).
     #[must_use]
     pub(crate) const fn views(self) -> &'static [ListView] {
         match self {
             Self::Releases => &[ListView::Rows, ListView::Tiles],
-            Self::Artists | Self::MyPlaylists => &[ListView::Rows],
+            Self::Artists | Self::MyPlaylists | Self::Results | Self::SavedSearch => {
+                &[ListView::Rows]
+            }
         }
     }
 
@@ -66,7 +79,9 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn sorts(self) -> &'static [ListSort] {
         match self {
-            Self::Releases => &[ListSort::Newest, ListSort::AToZ],
+            Self::Releases | Self::Results | Self::SavedSearch => {
+                &[ListSort::Newest, ListSort::AToZ]
+            }
             Self::Artists => &[ListSort::AToZ],
             Self::MyPlaylists => &[],
         }
@@ -205,6 +220,14 @@ impl ListPageState {
                 scope: None,
                 letter: None,
             },
+            // The query holds the scope of a search page (ADR 0089 Decision
+            // 4), so the page state has none.
+            ListPageKey::Results | ListPageKey::SavedSearch => Self {
+                sort: Some(ListSort::Newest),
+                view: ListView::Rows,
+                scope: None,
+                letter: None,
+            },
         }
     }
 }
@@ -216,6 +239,8 @@ pub(crate) struct ListPages {
     releases: ListPageState,
     artists: ListPageState,
     my_playlists: ListPageState,
+    results: ListPageState,
+    saved_search: ListPageState,
 }
 
 impl Default for ListPages {
@@ -224,6 +249,8 @@ impl Default for ListPages {
             releases: ListPageState::default_for(ListPageKey::Releases),
             artists: ListPageState::default_for(ListPageKey::Artists),
             my_playlists: ListPageState::default_for(ListPageKey::MyPlaylists),
+            results: ListPageState::default_for(ListPageKey::Results),
+            saved_search: ListPageState::default_for(ListPageKey::SavedSearch),
         }
     }
 }
@@ -236,6 +263,8 @@ impl ListPages {
             ListPageKey::Releases => &self.releases,
             ListPageKey::Artists => &self.artists,
             ListPageKey::MyPlaylists => &self.my_playlists,
+            ListPageKey::Results => &self.results,
+            ListPageKey::SavedSearch => &self.saved_search,
         }
     }
 
@@ -245,6 +274,8 @@ impl ListPages {
             ListPageKey::Releases => &mut self.releases,
             ListPageKey::Artists => &mut self.artists,
             ListPageKey::MyPlaylists => &mut self.my_playlists,
+            ListPageKey::Results => &mut self.results,
+            ListPageKey::SavedSearch => &mut self.saved_search,
         }
     }
 
@@ -415,11 +446,14 @@ impl ListPageHeadVm {
     }
 
     /// The title row of a search page (ADR 0089 Decision 4): the title, the
-    /// scope "All | In Library" of the query, and the typed action of the
-    /// page. The scope control shows no count, because the Index gives no
-    /// total. A search page has no sort, no view and no letter bar.
+    /// scope "All | In Library" of the query, the sort of `state`, and the
+    /// typed action of the page. The scope control shows no count, because
+    /// the Index gives no total. A search page has no view icon and no
+    /// letter bar.
     #[must_use]
     pub(crate) fn for_search(
+        key: ListPageKey,
+        state: ListPageState,
         title: String,
         scope: ListScope,
         action: Option<SearchPageActionDisplay>,
@@ -427,8 +461,10 @@ impl ListPageHeadVm {
         Self {
             title,
             scope: Some(search_scope_control(scope)),
-            sort: None,
+            sort: state.sort.map(|sort| sort_button(key, sort)),
             letters: None,
+            // Rows only: the search keys offer no view icon (ADR 0089 packet
+            // 008 Part C, deviation, see `ListPageKey::views`).
             view: None,
             select: None,
             action,
@@ -498,6 +534,11 @@ fn scope_control(
             "music-scope-playlists-all",
             "music-scope-playlists-in-library",
         ),
+        ListPageKey::Results | ListPageKey::SavedSearch => (
+            "music-scope-search",
+            "music-scope-search-all",
+            "music-scope-search-in-library",
+        ),
     };
     ListScopeControlVm {
         control_id,
@@ -535,6 +576,8 @@ fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
         ListPageKey::Releases => "music-list-sort-releases",
         ListPageKey::Artists => "music-list-sort-artists",
         ListPageKey::MyPlaylists => "music-list-sort-playlists",
+        ListPageKey::Results => "music-list-sort-results",
+        ListPageKey::SavedSearch => "music-list-sort-saved-search",
     };
     ListSortButtonVm {
         id,
@@ -595,13 +638,16 @@ mod tests {
             style: SearchPageActionStyle::Plain,
         };
         let head = ListPageHeadVm::for_search(
+            ListPageKey::Results,
+            ListPageState::default_for(ListPageKey::Results),
             "in:library haleen".to_owned(),
             ListScope::InLibrary,
             Some(action.clone()),
         );
         assert_eq!(head.title, "in:library haleen");
         assert_eq!(head.action, Some(action));
-        assert!(head.sort.is_none() && head.view.is_none() && head.letters.is_none());
+        assert_eq!(head.sort.as_ref().map(|sort| sort.label), Some("Newest"));
+        assert!(head.view.is_none() && head.letters.is_none());
         let scope = head.scope.expect("a search page has the scope control");
         assert_eq!(scope.selected, ListScope::InLibrary);
         assert_eq!(scope.control_id, "music-scope-search");
@@ -753,6 +799,25 @@ mod tests {
         .expect("Releases shows view icons");
         assert!(tiles.options[1].selected, "tiles is the current view");
         assert!(!tiles.options[0].selected);
+    }
+
+    /// ADR 0089 packet 008 Part C (deviation): the search keys offer rows
+    /// only, so no view icon shows on the results page or on a saved search,
+    /// on any tab. The search keys offer the sorts Newest and A to Z.
+    #[test]
+    fn adr_0089_task_008_part_c_search_keys_show_no_view_icon() {
+        for key in [ListPageKey::Results, ListPageKey::SavedSearch] {
+            assert_eq!(key.views(), [ListView::Rows], "{key:?}");
+            assert_eq!(key.sorts(), [ListSort::Newest, ListSort::AToZ], "{key:?}");
+            let state = ListPageState::default_for(key);
+            let head = ListPageHeadVm::for_search(key, state, String::new(), ListScope::All, None);
+            assert!(head.view.is_none(), "{key:?}");
+            assert_eq!(
+                head.sort.as_ref().map(|sort| sort.label),
+                Some("Newest"),
+                "{key:?}"
+            );
+        }
     }
 
     /// R-LIST-1 item 1 (ADR 0089 Decision 5): Releases offers Newest and A

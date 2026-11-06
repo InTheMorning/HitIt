@@ -83,7 +83,7 @@ pub use bootstrap::run_app;
 
 use search_dispatch::{RemoteCoverColorState, RemoteDetailThumbnailState};
 use search_field_list::{FieldValueRequest, SearchFieldListView};
-use search_selection::{SearchPageSlot, SearchRowClick};
+use search_selection::{sort_handler, SearchPageSlot, SearchRowClick};
 use settings::render_settings;
 use show::{build_live_status_strip, build_show_screen};
 use toolbar::{render_app_mark, render_toolbar};
@@ -867,6 +867,20 @@ impl TopApp {
         }
     }
 
+    /// Sets the sort of the search page `slot` (ADR 0089 Decision 4). The
+    /// rows follow the sort, and the query does not change.
+    fn set_search_list_sort(
+        &mut self,
+        slot: SearchPageSlot,
+        sort: crate::view_models::list_page::ListSort,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(page) = self.search_page_mut(slot) {
+            page.set_list_sort(sort);
+            cx.notify();
+        }
+    }
+
     fn content_list_frame_id(&self) -> Option<WorkspaceFrameId> {
         self.workspace_layout
             .frames()
@@ -1550,7 +1564,7 @@ impl TopApp {
                 search_results
                     .action_bar(&lookup)
                     .zip(search_results.selection_rows(&lookup)),
-                search_results.thumbnail_hrefs(),
+                search_results.thumbnail_hrefs(&lookup),
                 search_results.save_action(library.saved_searches()),
             )
         };
@@ -1562,6 +1576,7 @@ impl TopApp {
         let failure_entity = entity.clone();
         let save_entity = entity.clone();
         let scope_entity = entity.clone();
+        let sort_entity = entity.clone();
         let inspector_slots = SearchResultsInspectorSlots::new()
             .on_failure_action(move |action, _window, cx| {
                 failure_entity.update(cx, |this, cx| {
@@ -1578,6 +1593,7 @@ impl TopApp {
                     this.set_toolbar_library_scope(scope, window, cx);
                 });
             })
+            .on_sort_select(sort_handler(sort_entity, SearchPageSlot::ToolbarSearch))
             .on_result_select(move |tab, result_id, key, modifiers, window, cx| {
                 select_entity.update(cx, |this, cx| {
                     this.click_search_result_row(

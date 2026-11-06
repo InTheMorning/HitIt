@@ -275,6 +275,7 @@ impl SavedSearchPage {
         };
         if let SavedSearchPageState::Open(current) = &mut self.state {
             let tab = current.tab();
+            let results = results.with_list_state_of(Some(&**current));
             **current = results.into_saved_search_with_tab(entry, tab);
         }
     }

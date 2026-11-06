@@ -217,7 +217,8 @@ impl TopApp {
             Ok(content_list_id) => {
                 let page = self
                     .search_results_detail_for_run(run, cx)
-                    .with_run_generation(run.generation());
+                    .with_run_generation(run.generation())
+                    .with_list_state_of(self.search_results_detail.as_ref());
                 if page.is_newer_than(self.search_results_detail.as_ref()) {
                     self.search_results_detail = Some(page);
                 }

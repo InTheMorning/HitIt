@@ -192,7 +192,7 @@ impl LibraryApp {
                 let intent = self.artist_name_page.begin_from(from);
                 self.send_artist_name_request(intent, cx);
             }
-            ListPageKey::MyPlaylists => {}
+            ListPageKey::MyPlaylists | ListPageKey::Results | ListPageKey::SavedSearch => {}
         }
     }
 
@@ -221,7 +221,7 @@ impl LibraryApp {
                     self.artists_list_state.scroll_to_reveal_item(index);
                 }
             }
-            ListPageKey::MyPlaylists => {}
+            ListPageKey::MyPlaylists | ListPageKey::Results | ListPageKey::SavedSearch => {}
         }
     }
 

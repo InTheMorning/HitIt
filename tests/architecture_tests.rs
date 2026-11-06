@@ -11199,7 +11199,7 @@ fn shared_search_result_rows_accept_resolved_artwork_thumbnails() {
 
     for required in [
         "resolve_search_result_thumbnails(",
-        "search_results.thumbnail_hrefs()",
+        "search_results.thumbnail_hrefs(&lookup)",
         "index_remote_detail_hero_image(&href, cx)",
         ".with_thumbnails(thumbnails)",
     ] {
