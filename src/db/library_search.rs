@@ -127,10 +127,36 @@ impl Parameters {
         format!("?{}", self.values.len())
     }
 
-    /// Adds the escaped `LIKE` pattern of `text` and gives its placeholder.
+    /// Adds the escaped word-start `LIKE` pattern of `text` and gives its
+    /// placeholder (ADR 0087 Decision 2).
     fn bind_pattern(&mut self, text: &str) -> String {
-        self.bind(Value::Text(like_contains_pattern(text)))
+        self.bind(Value::Text(word_start_pattern(text)))
     }
+}
+
+/// The marks that separate two words of a stored text. Each mark counts as a
+/// space. An apostrophe does not separate, so "Citizen's" stays one word. `_`
+/// and `%` stay literal text.
+const WORD_SEPARATORS: [char; 11] = ['(', ')', '[', ']', '-', '/', '&', ',', '.', ':', '"'];
+
+/// The `LIKE` pattern that matches `text` at the start of a word of a text
+/// from [`word_text_sql`]. The Index matches words, so a Library search for
+/// "hey" must not find "They" (walk of 2026-11-06).
+fn word_start_pattern(text: &str) -> String {
+    let words = text.replace(WORD_SEPARATORS, " ");
+    let contains = like_contains_pattern(words.trim());
+    format!("% {}", contains.strip_prefix('%').unwrap_or(&contains))
+}
+
+/// The SQL of `column` as words: a space first, so the first word also starts
+/// after a space, and each separator as a space. An empty column gives one
+/// space, so the condition is never `NULL`.
+fn word_text_sql(column: &str) -> String {
+    let mut sql = format!("COALESCE({column}, '')");
+    for separator in WORD_SEPARATORS {
+        sql = format!("REPLACE({sql}, '{separator}', ' ')");
+    }
+    format!("' ' || {sql}")
 }
 
 /// Builds the SQL text and the parameter list of `search`. `LIMIT` binds
@@ -204,15 +230,15 @@ fn clause_condition(kind: &LibraryClauseKind, parameters: &mut Parameters) -> St
     }
 }
 
-/// One escaped pattern against each column of `columns`, joined with `OR`.
-/// `COALESCE` makes an empty column an empty text, so the condition is
-/// never `NULL`.
+/// One escaped word-start pattern against each column of `columns`, joined
+/// with `OR`.
 fn text_condition(columns: &[&str], text: &str, parameters: &mut Parameters) -> String {
     columns
         .iter()
         .map(|column| {
             format!(
-                "COALESCE({column}, '') LIKE {} ESCAPE '\\'",
+                "{} LIKE {} ESCAPE '\\'",
+                word_text_sql(column),
                 parameters.bind_pattern(text)
             )
         })
@@ -248,13 +274,14 @@ fn track_ids_condition(ids: &[i64], parameters: &mut Parameters) -> String {
     )
 }
 
-/// A track of a playlist whose name holds `text`, without ASCII case
+/// A track of a playlist with a word of its name that starts with `text`, without ASCII case
 /// (packet 002 decision D11).
 fn playlist_condition(text: &str, parameters: &mut Parameters) -> String {
     format!(
         "EXISTS (SELECT 1 FROM playlist_tracks pt
                   JOIN playlists p ON p.id = pt.playlist_id
-                  WHERE pt.track_id = t.id AND p.name LIKE {} ESCAPE '\\')",
+                  WHERE pt.track_id = t.id AND {} LIKE {} ESCAPE '\\')",
+        word_text_sql("p.name"),
         parameters.bind_pattern(text)
     )
 }
@@ -475,6 +502,34 @@ mod tests {
     }
 
     /// R87-2-02: two words must both match. A phrase matches one string.
+    /// Walk of 2026-11-06: a text term matches at the start of a word, as the
+    /// Index does. "hey" must not find "They".
+    #[test]
+    fn adr_0087_library_fields_text_matches_at_the_start_of_a_word() -> Result<()> {
+        let conn = setup_test_db()?;
+        let feed_id = feed(&conn, "Feed")?;
+        let first = track(&conn, feed_id, titled("Hey Mama"))?;
+        let joined = track(&conn, feed_id, titled("HeyCitizen Mix"))?;
+        let later = track(&conn, feed_id, titled("Oh Hey There"))?;
+        let bracket = track(&conn, feed_id, titled("Song (hey version)"))?;
+        let dash = track(&conn, feed_id, titled("Song-Hey"))?;
+        track(&conn, feed_id, titled("Then They Came For Me"))?;
+
+        let found = ids(&conn, vec![clause(LibraryClauseKind::AnyText(text("hey")))])?;
+        assert_eq!(found, vec![first, joined, later, bracket, dash]);
+
+        let phrase = ids(
+            &conn,
+            vec![clause(LibraryClauseKind::AnyText(text("song-hey")))],
+        )?;
+        assert_eq!(
+            phrase,
+            vec![dash],
+            "a term with a mark finds the same words"
+        );
+        Ok(())
+    }
+
     #[test]
     fn adr_0087_library_fields_r87_2_02_each_word_must_match() -> Result<()> {
         let conn = setup_test_db()?;
@@ -865,7 +920,7 @@ mod tests {
         assert!(!sql.contains("DROP"));
         assert!(values
             .iter()
-            .any(|bound| *bound == Value::Text(like_contains_pattern(value))));
+            .any(|bound| *bound == Value::Text(word_start_pattern(value))));
         assert_eq!(sql.matches('?').count(), values.len());
         assert_eq!(values.last(), Some(&Value::Integer(50)));
 

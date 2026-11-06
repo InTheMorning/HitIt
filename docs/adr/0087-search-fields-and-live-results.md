@@ -105,6 +105,7 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 
 - One parser reads the query text. No other code reads field syntax.
 - A Library value goes into SQL only as a bound parameter, with its `LIKE` characters escaped.
+- A Library text term matches at the start of a word, as the Index does. "hey" finds "HeyCitizen" and not "They". The operator decided this on 2026-11-06.
 - No Index request carries field syntax in `q`.
 - Index rows show only when each Index field of the query is applied by Stophammer.
 - A result of an older run never replaces the result of a newer run.
