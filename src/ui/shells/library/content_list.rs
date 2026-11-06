@@ -410,7 +410,10 @@ fn render_content_row_checkbox(
     Some(checkbox.into_any_element())
 }
 
-fn render_content_list_tile_artwork(
+/// The artwork of a content tile: the cover, or the empty cover when no
+/// image loaded. The Releases list tiles share it (ADR 0089 packet 005 Part
+/// C).
+pub(crate) fn render_content_list_tile_artwork(
     thumbnail: Option<Arc<Image>>,
     artwork_size: gpui::Pixels,
     cx: &App,

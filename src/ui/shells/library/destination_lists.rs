@@ -57,7 +57,7 @@ use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 /// Maps the view model's typed check state to the checkbox primitive's own
 /// state (Required correction item 5, 2026-10-18). Only a singles group
 /// row's checkbox can read mixed.
-fn checkbox_state_for(check_state: RowCheckState) -> CheckboxState {
+pub(crate) fn checkbox_state_for(check_state: RowCheckState) -> CheckboxState {
     match check_state {
         RowCheckState::Checked => CheckboxState::Checked,
         RowCheckState::Mixed => CheckboxState::Mixed,

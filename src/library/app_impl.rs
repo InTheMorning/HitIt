@@ -52,13 +52,16 @@ use crate::subscribe_service::{self, SubscribeFeedRequest, SubscribeTrackRequest
 use crate::ui::composites::letter_bar::LetterHandler;
 use crate::ui::composites::list_page_head::{
     list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
+    ListViewHandler,
 };
 use crate::ui::composites::music_column_scroll::{
     music_column_scrollbar, MusicColumnList, ScrollReveal,
 };
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::release_row_menu::ReleaseRowMenuContext;
-use crate::ui::composites::{PlaylistOption, PlaylistOptionDisplay, StatusRole, ThumbnailSize};
+use crate::ui::composites::{
+    CollectionArtImage, PlaylistOption, PlaylistOptionDisplay, StatusRole, ThumbnailSize,
+};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::Button as UiButton;
 use crate::ui::shells::library::content_list::{
@@ -70,6 +73,9 @@ use crate::ui::shells::library::destination_lists::{
 };
 use crate::ui::shells::library::detail::render_library_detail;
 use crate::ui::shells::library::index_list_status::IndexListActions;
+use crate::ui::shells::library::releases_tiles::{
+    render_releases_list_tile, render_releases_tile_grid,
+};
 use crate::ui::shells::library::sidebar::{render_sidebar_row, render_sidebar_separator};
 use crate::ui::shells::library::track_detail_metadata::track_metadata_rows_for_frame;
 use crate::ui::shells::library::views_list::render_library_discover_views_list;
@@ -104,7 +110,7 @@ use crate::view_models::library_removal::{
     SelectionRemovalConfirmationState, SelectionRemovalPendingItem, SelectionRemovalReport,
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
-use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListScope};
+use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListScope, ListView};
 use crate::view_models::list_selection::{FocusStep, ListSelection, SelectionMode, SelectionRow};
 use crate::view_models::name_level_page::NameLevelLibraryRelease;
 use crate::view_models::playlist_option_displays;
@@ -1138,6 +1144,7 @@ impl LibraryApp {
             track_selection: ListSelection::new(),
             track_selection_mode: SelectionMode::Normal,
             releases_list_state: MusicColumnList::new(cx),
+            releases_tiles_scroll: gpui::ScrollHandle::new(),
             releases_list_cache: std::cell::RefCell::default(),
             artists_list_state: MusicColumnList::new(cx),
             list_column_focus: cx.focus_handle(),
@@ -4075,6 +4082,58 @@ impl LibraryApp {
         cx.notify();
     }
 
+    /// A click on a window group row or tile of the Releases list (ADR
+    /// 0086 Decision 3, ADR 0089 packet 005 Part C). It follows the rule
+    /// of [`Self::click_singles_group_row`]: Ctrl+click and a click in
+    /// selection mode toggle each member, and Shift+click extends the
+    /// selection. A plain click in `Normal` mode opens the group page.
+    pub(crate) fn click_releases_window_group(
+        &mut self,
+        row_id: &str,
+        members: &[ReleaseKey],
+        page_key: &WindowGroupKey,
+        modifiers: Modifiers,
+        cx: &mut Context<Self>,
+    ) {
+        let row = SelectionRow::new(ReleasesRowId::Window(row_id.to_owned()), members.to_vec());
+        if primary_modifier_held(modifiers) {
+            self.releases_selection_mode = SelectionMode::Selecting;
+            self.releases_selection.toggle(&row);
+            cx.notify();
+            return;
+        }
+        if modifiers.shift {
+            self.releases_selection_mode = SelectionMode::Selecting;
+            let rows = self.releases_rows();
+            self.releases_selection
+                .extend_to(&row, rows.selection_rows());
+            cx.notify();
+            return;
+        }
+        if self.releases_selection_mode.is_selecting() {
+            self.releases_selection.toggle(&row);
+            cx.notify();
+            return;
+        }
+        self.releases_selection.click(row.id);
+        self.open_window_group(page_key, cx);
+    }
+
+    /// A click on the checkbox of a window group row or tile of the
+    /// Releases list (ADR 0086 Decision 3). It adds or removes each member
+    /// of the group, and never opens the page.
+    pub(crate) fn toggle_releases_window_group(
+        &mut self,
+        row_id: &str,
+        members: &[ReleaseKey],
+        cx: &mut Context<Self>,
+    ) {
+        let row = SelectionRow::new(ReleasesRowId::Window(row_id.to_owned()), members.to_vec());
+        self.releases_selection_mode = SelectionMode::Selecting;
+        self.releases_selection.toggle(&row);
+        cx.notify();
+    }
+
     /// A click on a Tracks or Needs attention row. Ctrl+click and
     /// Shift+click start selection mode and act on the row, as before;
     /// neither opens a page. In `Selecting` mode, a plain click also
@@ -4282,6 +4341,25 @@ impl LibraryApp {
                 }
                 Some(ReleasesRowId::Group(key)) => {
                     self.open_singles_group(&key, cx);
+                    true
+                }
+                Some(ReleasesRowId::Window(row_id)) => {
+                    let page_key =
+                        self.releases_rows()
+                            .items()
+                            .iter()
+                            .find_map(|item| match item {
+                                ReleasesListItemVm::WindowGroup(tile)
+                                    if tile.open_row_id == row_id =>
+                                {
+                                    Some(tile.page_key.clone())
+                                }
+                                _ => None,
+                            });
+                    let Some(page_key) = page_key else {
+                        return false;
+                    };
+                    self.open_window_group(&page_key, cx);
                     true
                 }
                 None => false,
@@ -5054,22 +5132,28 @@ impl LibraryApp {
                 // and its menu in `render_releases_item`.
                 page_head = Some(self.render_releases_page_head(cx));
                 let rows = self.releases_rows();
-                self.releases_list_state.sync(rows.item_ids(), window);
-                // ADR 0084 task 031: the release row menu. The right-click
-                // menu gives the focus back to the list column.
-                let menu = Rc::new(self.release_row_menu_context(
-                    cx.entity().downgrade(),
-                    self.list_column_focus.clone(),
-                ));
-                let item_count = rows.items().len();
-                let pane = render_library_releases_list(
-                    &self.releases_list_state,
-                    item_count,
-                    cx.processor(move |this, index: usize, _window, cx| {
-                        this.render_releases_item(&rows, index, &menu, cx)
-                    }),
-                    cx,
-                );
+                let pane = match self.vm.list_view(ListPageKey::Releases) {
+                    ListView::Rows => {
+                        self.releases_list_state.sync(rows.item_ids(), window);
+                        // ADR 0084 task 031: the release row menu. The
+                        // right-click menu gives the focus back to the list
+                        // column.
+                        let menu = Rc::new(self.release_row_menu_context(
+                            cx.entity().downgrade(),
+                            self.list_column_focus.clone(),
+                        ));
+                        let item_count = rows.items().len();
+                        render_library_releases_list(
+                            &self.releases_list_state,
+                            item_count,
+                            cx.processor(move |this, index: usize, _window, cx| {
+                                this.render_releases_item(&rows, index, &menu, cx)
+                            }),
+                            cx,
+                        )
+                    }
+                    ListView::Tiles => self.render_releases_tiles(&rows, cx),
+                };
                 if let Some(bar) = self.releases_selection_action_bar() {
                     action_bar = Some(self.render_selection_action_bar(
                         bar,
@@ -5183,6 +5267,13 @@ impl LibraryApp {
                 this.set_list_letter(ListPageKey::Releases, Some(letter), cx);
             });
         });
+        let view_entity = entity.clone();
+        let on_view: ListViewHandler = Rc::new(move |view, _window, cx| {
+            let view = *view;
+            view_entity.update(cx, |this, cx| {
+                this.set_list_view(ListPageKey::Releases, view, cx);
+            });
+        });
         let on_select: ListHeadButtonHandler = Rc::new(move |_window, cx| {
             entity.update(cx, Self::toggle_list_column_selection_mode);
         });
@@ -5192,6 +5283,7 @@ impl LibraryApp {
                 scope: Some(on_scope),
                 select: Some(on_select),
                 sort: Some(on_sort),
+                view: Some(on_view),
                 letter: Some(on_letter),
             },
             cx,
@@ -5226,6 +5318,7 @@ impl LibraryApp {
                 scope: Some(on_scope),
                 select: None,
                 sort: Some(on_sort),
+                view: None,
                 letter: Some(on_letter),
             },
             cx,
@@ -5248,6 +5341,26 @@ impl LibraryApp {
         let Some(item) = rows.items().get(index) else {
             return div().into_any_element();
         };
+        let (item, thumbnail, art) = self.releases_item_parts(item, cx);
+        // ADR 0084 packet 016 decision D8: the loading row, the error row
+        // or "Load more" of the scope "Everything".
+        let actions = Self::releases_status_actions();
+        render_releases_list_item(item, thumbnail, art, actions, menu, cx)
+    }
+
+    /// The item of the Releases list with its selection facts and its
+    /// mark, its cover and its collection art (ADR 0084 task 037, Design
+    /// step 10; ADR 0089 packet 005 Part C). A cover loads only when the
+    /// item renders, so an item out of view starts no image request.
+    fn releases_item_parts(
+        &mut self,
+        item: &ReleasesListItemVm,
+        cx: &mut Context<Self>,
+    ) -> (
+        ReleasesListItemVm,
+        Option<Arc<gpui::Image>>,
+        Option<CollectionArtImage>,
+    ) {
         let item = LibraryViewModel::releases_item_with_selection(
             item,
             &self.releases_selection,
@@ -5275,13 +5388,61 @@ impl LibraryApp {
             | ReleasesListItemVm::Single(_)
             | ReleasesListItemVm::TrailingStatus(_) => None,
         };
-        // ADR 0084 packet 016 decision D8: the loading row, the error row
-        // or "Load more" of the scope "Everything".
-        let actions = IndexListActions {
+        (item, thumbnail, art)
+    }
+
+    /// The actions of a status row of the Releases list (ADR 0084 packet
+    /// 016 decision D8).
+    fn releases_status_actions() -> IndexListActions {
+        IndexListActions {
             retry: Self::retry_release_names,
             load_more: Some(Self::load_more_release_names),
-        };
-        render_releases_list_item(item, thumbnail, art, actions, menu, cx)
+        }
+    }
+
+    /// Renders the Tiles view of the Releases list (ADR 0089 packet 005
+    /// Part C). Each item has the tile of its kind. The status rows keep
+    /// their row at the start or at the end of the list.
+    fn render_releases_tiles(
+        &mut self,
+        rows: &ReleasesListRows,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let mut leading = Vec::new();
+        let mut tiles = Vec::new();
+        let mut trailing = Vec::new();
+        for item in rows.items() {
+            let is_leading = matches!(item, ReleasesListItemVm::LeadingStatus(_));
+            let is_status = is_leading || matches!(item, ReleasesListItemVm::TrailingStatus(_));
+            let (item, thumbnail, art) = self.releases_item_parts(item, cx);
+            let element = render_releases_list_tile(
+                item,
+                thumbnail,
+                art,
+                Self::releases_status_actions(),
+                cx,
+            );
+            if is_leading {
+                leading.push(element);
+            } else if is_status {
+                trailing.push(element);
+            } else {
+                tiles.push(element);
+            }
+        }
+        // A status row shows while the list loads (leading), or when more
+        // rows wait for a "Load more" or a retry (trailing).
+        let has_more = !trailing.is_empty();
+        let is_loading = !leading.is_empty();
+        render_releases_tile_grid(
+            &self.releases_tiles_scroll,
+            leading,
+            tiles,
+            trailing,
+            has_more,
+            is_loading,
+            cx,
+        )
     }
 
     /// Renders the item `index` of the Artists `items` (ADR 0084 task 037,

@@ -39,6 +39,7 @@ pub(crate) struct SelectableTile {
     checkbox: Option<AnyElement>,
     selected: bool,
     focused: bool,
+    marked: bool,
     scroll_probe: Option<AnyElement>,
     on_click: Option<ClickHandler>,
     children: Vec<AnyElement>,
@@ -52,6 +53,7 @@ impl SelectableTile {
             checkbox: None,
             selected: false,
             focused: false,
+            marked: false,
             scroll_probe: None,
             on_click: None,
             children: Vec::new(),
@@ -72,6 +74,13 @@ impl SelectableTile {
 
     pub(crate) fn focused(mut self, focused: bool) -> Self {
         self.focused = focused;
+        self
+    }
+
+    /// The mark of the current page (R-NAV-2 item 2). It shows the accent
+    /// outline, unless the tile is selected or focused.
+    pub(crate) fn marked(mut self, marked: bool) -> Self {
+        self.marked = marked;
         self
     }
 
@@ -101,9 +110,9 @@ impl RenderOnce for SelectableTile {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let radius = Radius::MD.scaled(cx);
         let hover_bg = color(cx, SemanticColor::SecondarySystemBackground);
-        let outline = match row_outline(self.selected, self.focused, false) {
-            RowOutline::None | RowOutline::Marked => None,
-            RowOutline::Selected => Some(
+        let outline = match row_outline(self.selected, self.focused, self.marked) {
+            RowOutline::None => None,
+            RowOutline::Selected | RowOutline::Marked => Some(
                 div()
                     .border_1()
                     .border_color(color(cx, SemanticColor::Accent)),

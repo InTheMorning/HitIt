@@ -65,6 +65,12 @@ pub enum IconName {
     Show,
     /// Settings row of the sidebar (ADR 0089 Decision 1).
     Settings,
+    /// The tiles view icon of a list page (ADR 0089 Decision 5, R-LIST-1
+    /// item 3).
+    TilesView,
+    /// The rows view icon of a list page (ADR 0089 Decision 5, R-LIST-1
+    /// item 3).
+    RowsView,
     /// The download button of a track row (ADR 0083 task 006).
     CloudDownload,
     /// A download job that waits in the queue (ADR 0083 task 006).
@@ -118,6 +124,8 @@ impl IconName {
             | Self::Playlist
             | Self::Show
             | Self::Settings
+            | Self::TilesView
+            | Self::RowsView
             | Self::CloudDownload
             | Self::Queued
             | Self::InProgress
@@ -167,6 +175,8 @@ impl IconName {
             | Self::Playlist
             | Self::Show
             | Self::Settings
+            | Self::TilesView
+            | Self::RowsView
             | Self::Dash
             | Self::CloudDownload
             | Self::Queued
@@ -197,6 +207,8 @@ impl IconName {
             // ADR 0089 Decision 1: the Show and Settings rows of the sidebar.
             Self::Show => Some(LucideIconName::RadioTower),
             Self::Settings => Some(LucideIconName::Settings),
+            Self::TilesView => Some(LucideIconName::LayoutGrid),
+            Self::RowsView => Some(LucideIconName::LayoutList),
             // ADR 0084 Decision 10, Operator Correction, 2026-10-18: the
             // mixed mark of a group row checkbox.
             Self::Dash => Some(LucideIconName::Minus),
@@ -263,6 +275,8 @@ impl IconName {
             | Self::Playlist
             | Self::Show
             | Self::Settings
+            | Self::TilesView
+            | Self::RowsView
             | Self::CloudDownload
             | Self::Queued
             | Self::InProgress

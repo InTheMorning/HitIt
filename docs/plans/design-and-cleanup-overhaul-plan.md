@@ -268,6 +268,7 @@ The operator asked on 2026-10-08 for a later phase that tunes how fast the app r
     [ADR 0084 packet 037](../tasks/archive/adr-0084-task-037-releases-everything-frame-time.md) owns items 16 and 31 from 2026-10-24: one cached merge and one virtual list for the Releases list and the Artists list. It is implemented on 2026-10-24. No measurement confirms the new frame time.
 32. 2026-10-24: the app lags while a download runs. The operator saw it in the final walk of the run of 2026-10-24, while the download of the "Haleen · 38 singles" group ran. No measurement confirms the cause (`src/library/download_queue.rs`, `src/library/app_impl.rs`). Owner: [ADR 0084 packet 039](../tasks/adr-0084-task-039-download-queue-host-limit.md), which moves the HTTP GET out of the database lock.
    Result of packet 039, 2026-10-25: the GET of `rss::fetch_feed_document` now runs before the database lock in `src/subscribe_service.rs` (guard R39-13). The download queue also waits for each RSS host (ADR 0084 Decision 10 as amended 2026-10-24). No measurement yet confirms the lag is gone. The item stays open until step 4 of the operator check of packet 039 records a result.
+33. 2026-11-06: the tile view of Releases (ADR 0089 packet 005 Part C) is not a virtual list. It draws each loaded item and starts each cover read at one time, so a long list can be slow. Owner: `src/ui/shells/library/releases_tiles.rs`.
 
 ## Visual Requirements Moved From Pending Checks - 2026-10-07
 

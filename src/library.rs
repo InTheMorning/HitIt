@@ -306,6 +306,10 @@ pub struct LibraryApp {
     /// and task 037), so a keyboard focus move keeps the focused row in
     /// view.
     releases_list_state: MusicColumnList,
+    /// The scroll of the Tiles view of the Releases list (ADR 0089 packet
+    /// 005 Part C). The Library holds it, so the offset survives a change
+    /// of view.
+    releases_tiles_scroll: ScrollHandle,
     /// The last build of the Releases list and its key (ADR 0084 task
     /// 037). `TopApp::render` reads the header action through `&self`, so
     /// the cache needs a `RefCell`.

@@ -8,7 +8,8 @@
 //!
 //! ADR 0089 packet 005, Part A, adds the sort menu and the letter bar
 //! (`LetterBarVm` in `src/view_models/letter_bar.rs`). The sort menu lists
-//! the sorts of the page. The view icons still appear on no page.
+//! the sorts of the page. ADR 0089 packet 005, Part C, adds the tiles view
+//! of the Releases list and its view icons (R-LIST-1 item 3).
 
 #![warn(clippy::pedantic)]
 
@@ -48,12 +49,14 @@ impl ListPageKey {
         }
     }
 
-    /// The views that the page offers. Packet 004 gives each page only the
-    /// rows view, because no page has a tiles renderer yet (packet 005).
+    /// The views that the page offers, in icon order (ADR 0089 Decision
+    /// 5). Releases offers rows and tiles. Artists and My playlists offer
+    /// rows only, so they show no view icon.
     #[must_use]
     pub(crate) const fn views(self) -> &'static [ListView] {
         match self {
-            Self::Releases | Self::Artists | Self::MyPlaylists => &[ListView::Rows],
+            Self::Releases => &[ListView::Rows, ListView::Tiles],
+            Self::Artists | Self::MyPlaylists => &[ListView::Rows],
         }
     }
 
@@ -101,8 +104,30 @@ impl ListSort {
 /// The view of a list page (ADR 0089 Decision 5, R-LIST-1 item 3).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ListView {
-    /// One row for each item. Packet 005 adds the tiles view.
+    /// One row for each item.
     Rows,
+    /// One tile for each item, in a grid.
+    Tiles,
+}
+
+impl ListView {
+    /// The visible label of the view, used by the accessibility label.
+    #[must_use]
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::Rows => "rows",
+            Self::Tiles => "tiles",
+        }
+    }
+
+    /// The stable element id of the view icon button.
+    #[must_use]
+    pub(crate) const fn option_id(self) -> &'static str {
+        match self {
+            Self::Rows => "music-list-view-rows",
+            Self::Tiles => "music-list-view-tiles",
+        }
+    }
 }
 
 /// The scope of a list page (ADR 0089 Decision 5). The control reads
@@ -246,6 +271,15 @@ impl ListPages {
     pub(crate) fn set_letter(&mut self, key: ListPageKey, letter: Option<LetterKey>) {
         self.get_mut(key).letter = letter;
     }
+
+    /// Sets the view of `key` (ADR 0089 Decision 5). A view that the page
+    /// does not offer changes nothing. Each page keeps its own view.
+    pub(crate) fn set_view(&mut self, key: ListPageKey, view: ListView) {
+        if !key.views().contains(&view) {
+            return;
+        }
+        self.get_mut(key).view = view;
+    }
 }
 
 /// One option of the scope control (R-LIST-1 item 2).
@@ -307,6 +341,26 @@ pub(crate) struct ListSortButtonVm {
     pub(crate) options: Vec<ListSortOptionVm>,
 }
 
+/// One view icon of a list page (R-LIST-1 item 3).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ListViewOptionVm {
+    /// Stable element id.
+    pub(crate) id: &'static str,
+    /// The view that the icon selects.
+    pub(crate) view: ListView,
+    /// The accessibility label, for example "Show releases as tiles".
+    pub(crate) a11y_label: String,
+    /// Whether the icon is the current view. The current icon has a tint.
+    pub(crate) selected: bool,
+}
+
+/// The view icons of a list page: one icon button for each view.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ListViewControlVm {
+    /// The view icons, in the order of [`ListPageKey::views`].
+    pub(crate) options: Vec<ListViewOptionVm>,
+}
+
 /// The title row of a list page (ADR 0089 Decision 6, R-LIST-1 item 4):
 /// the title at the left, then the sort, the view icons and Select at the
 /// right. The scope control sits below the title.
@@ -321,9 +375,9 @@ pub(crate) struct ListPageHeadVm {
     /// The letter bar, or `None` unless the sort is A to Z (R-LIST-1 item
     /// 2). It sits below the scope control.
     pub(crate) letters: Option<LetterBarVm>,
-    /// The current view. `None` when the page offers one view only, so no
+    /// The view icons. `None` when the page offers one view only, so no
     /// view icon shows.
-    pub(crate) view: Option<ListView>,
+    pub(crate) view: Option<ListViewControlVm>,
     /// The Select action of the page, or `None` when no item can be
     /// selected.
     pub(crate) select: Option<FrameHeaderActionDisplay>,
@@ -340,7 +394,6 @@ impl ListPageHeadVm {
         library_count: Option<usize>,
         select: Option<FrameHeaderActionDisplay>,
     ) -> Self {
-        let view = (key.views().len() > 1).then_some(state.view);
         Self {
             title: key.title(),
             scope: state
@@ -349,9 +402,24 @@ impl ListPageHeadVm {
             sort: state.sort.map(|sort| sort_button(key, sort)),
             letters: (state.sort == Some(ListSort::AToZ))
                 .then(|| LetterBarVm::new(key, state.letter)),
-            view,
+            view: (key.views().len() > 1).then(|| view_control(key, state.view)),
             select,
         }
+    }
+}
+
+fn view_control(key: ListPageKey, selected: ListView) -> ListViewControlVm {
+    ListViewControlVm {
+        options: key
+            .views()
+            .iter()
+            .map(|&view| ListViewOptionVm {
+                id: view.option_id(),
+                view,
+                a11y_label: format!("Show {} as {}", key.noun(), view.label()),
+                selected: view == selected,
+            })
+            .collect(),
     }
 }
 
@@ -541,10 +609,13 @@ mod tests {
     /// button and no scope.
     #[test]
     fn adr_0089_list_page_head_shows_current_sort_and_no_view_icon() {
+        let artists = ListPageState::default_for(ListPageKey::Artists);
+        let head = ListPageHeadVm::new(ListPageKey::Artists, artists, None, None);
+        assert_eq!(head.view, None, "Artists keeps rows only");
+
         let releases = ListPageState::default_for(ListPageKey::Releases);
         let head = ListPageHeadVm::new(ListPageKey::Releases, releases, None, None);
         assert_eq!(head.title, "Releases");
-        assert_eq!(head.view, None);
         let sort = head.sort.expect("Releases has a sort");
         assert_eq!(sort.label, "Newest");
 
@@ -554,6 +625,49 @@ mod tests {
         assert!(head.sort.is_none());
         assert!(head.scope.is_none());
         assert!(head.letters.is_none());
+    }
+
+    /// R-LIST-1 item 3 (ADR 0089 Decision 5): Releases shows two view
+    /// icons, rows and tiles, and the icon of the current view is selected.
+    /// The default view is rows. A view the page does not offer changes
+    /// nothing, and each page keeps its own view.
+    #[test]
+    fn adr_0089_list_page_view_icons_mark_the_current_view_per_page() {
+        let releases = ListPageState::default_for(ListPageKey::Releases);
+        assert_eq!(releases.view, ListView::Rows, "the default is rows");
+        let views = ListPageHeadVm::new(ListPageKey::Releases, releases, None, None)
+            .view
+            .expect("Releases shows view icons");
+        let shown: Vec<ListView> = views.options.iter().map(|option| option.view).collect();
+        assert_eq!(shown, [ListView::Rows, ListView::Tiles]);
+        let selected: Vec<ListView> = views
+            .options
+            .iter()
+            .filter(|option| option.selected)
+            .map(|option| option.view)
+            .collect();
+        assert_eq!(selected, [ListView::Rows]);
+
+        let mut pages = ListPages::default();
+        pages.set_view(ListPageKey::Releases, ListView::Tiles);
+        assert_eq!(pages.get(ListPageKey::Releases).view, ListView::Tiles);
+        assert_eq!(pages.get(ListPageKey::Artists).view, ListView::Rows);
+        pages.set_view(ListPageKey::Artists, ListView::Tiles);
+        assert_eq!(
+            pages.get(ListPageKey::Artists).view,
+            ListView::Rows,
+            "Artists offers rows only"
+        );
+        let tiles = ListPageHeadVm::new(
+            ListPageKey::Releases,
+            *pages.get(ListPageKey::Releases),
+            None,
+            None,
+        )
+        .view
+        .expect("Releases shows view icons");
+        assert!(tiles.options[1].selected, "tiles is the current view");
+        assert!(!tiles.options[0].selected);
     }
 
     /// R-LIST-1 item 1 (ADR 0089 Decision 5): Releases offers Newest and A

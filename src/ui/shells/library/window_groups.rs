@@ -8,6 +8,8 @@
 
 #![warn(clippy::pedantic)]
 
+use std::rc::Rc;
+
 use gpui::{
     div, prelude::FluentBuilder, AnyElement, App, ClickEvent, Context, FontWeight, IntoElement,
     ParentElement, SharedString, Styled,
@@ -25,7 +27,12 @@ use crate::ui::shells::library::destination_lists::RowArts;
 use crate::ui::tokens::{FontSize, SemanticColor, Size, Spacing};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::library::ContentListSelectionTarget;
-use crate::view_models::window_groups::{WindowGroupStateVm, WindowGroupTileVm};
+use crate::view_models::window_groups::{WindowGroupKey, WindowGroupStateVm, WindowGroupTileVm};
+use crate::view_models::workspace::ReleaseKey;
+
+/// The handler of the checkbox of a group tile or a group row. Each caller
+/// names the selection that the checkbox changes.
+pub(crate) type WindowGroupToggle = Rc<dyn Fn(&mut LibraryApp, &mut Context<LibraryApp>) + 'static>;
 
 /// The loaded art of a group, by its element id. A group with no loaded
 /// state shows the entity color (ADR 0084 Decision 12).
@@ -41,12 +48,12 @@ pub(crate) fn group_art(arts: &RowArts, tile: &WindowGroupTileVm) -> CollectionA
 /// of each member of the window, and never opens the page.
 fn render_window_group_checkbox(
     tile: &WindowGroupTileVm,
+    toggle: WindowGroupToggle,
     cx: &mut Context<LibraryApp>,
 ) -> Option<AnyElement> {
     if !tile.selection.checkbox_visible {
         return None;
     }
-    let open_row_id = tile.open_row_id.clone();
     let checkbox = Checkbox::new(
         SharedString::from(format!("{}-checkbox", tile.element_id)),
         checkbox_state_for(tile.selection.check_state),
@@ -55,9 +62,34 @@ fn render_window_group_checkbox(
     .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
         // Stop the click from also reaching the tile's own handler.
         cx.stop_propagation();
-        this.toggle_window_group_tile(&open_row_id, cx);
+        toggle(this, cx);
     }));
     Some(checkbox.into_any_element())
+}
+
+/// The checkbox handler of a group of the Discover view. It changes the
+/// Discover selection of the group.
+fn discover_group_toggle(open_row_id: &str) -> WindowGroupToggle {
+    let open_row_id = open_row_id.to_owned();
+    Rc::new(move |this, cx| this.toggle_window_group_tile(&open_row_id, cx))
+}
+
+/// The checkbox handler of a group of the Releases list. It selects each
+/// member of the group, the same as a singles group row (ADR 0086 Decision
+/// 3, ADR 0084 Decision 6).
+fn releases_group_toggle(tile: &WindowGroupTileVm) -> WindowGroupToggle {
+    let (row_id, members, _) = releases_group_parts(tile);
+    Rc::new(move |this, cx| this.toggle_releases_window_group(&row_id, &members, cx))
+}
+
+/// The parts that the Releases handlers of a group need: the row id, the
+/// members and the page key.
+fn releases_group_parts(tile: &WindowGroupTileVm) -> (String, Vec<ReleaseKey>, WindowGroupKey) {
+    (
+        tile.open_row_id.clone(),
+        tile.member_keys.clone(),
+        tile.page_key.clone(),
+    )
 }
 
 /// Renders one group tile of New releases (ADR 0086 Decisions 2 and 3).
@@ -72,14 +104,56 @@ pub(crate) fn render_window_group_tile(
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     let open_row_id = tile.open_row_id.clone();
+    render_window_group_tile_with(
+        tile,
+        art,
+        probe,
+        discover_group_toggle(&tile.open_row_id),
+        move |this, event, cx| this.click_window_group_tile(&open_row_id, event.modifiers(), cx),
+        cx,
+    )
+}
+
+/// Renders one group tile of the Releases list in the Tiles view (ADR 0089
+/// packet 005 Part C). Its checkbox and its click follow the Releases
+/// selection rules of a window group row.
+pub(crate) fn render_releases_window_group_tile(
+    tile: &WindowGroupTileVm,
+    art: CollectionArtImage,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    let (row_id, members, page_key) = releases_group_parts(tile);
+    render_window_group_tile_with(
+        tile,
+        art,
+        None,
+        releases_group_toggle(tile),
+        move |this, event, cx| {
+            this.click_releases_window_group(&row_id, &members, &page_key, event.modifiers(), cx);
+        },
+        cx,
+    )
+}
+
+/// The shared body of a group tile. `on_click` runs when the tile is
+/// clicked, and `toggle` when its checkbox is clicked.
+fn render_window_group_tile_with(
+    tile: &WindowGroupTileVm,
+    art: CollectionArtImage,
+    probe: Option<AnyElement>,
+    toggle: WindowGroupToggle,
+    on_click: impl Fn(&mut LibraryApp, &ClickEvent, &mut Context<LibraryApp>) + 'static,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
     let artwork_size = Size::ContentTileArtwork.scaled(cx);
     let artwork =
         CollectionArt::new(art, CollectionKind::SinglesGroup, ThumbnailSize::Xl).into_any_element();
 
     SelectableTile::new(SharedString::from(tile.element_id.clone()), artwork)
-        .checkbox(render_window_group_checkbox(tile, cx))
+        .checkbox(render_window_group_checkbox(tile, toggle, cx))
         .selected(tile.selection.is_marked())
         .focused(tile.selection.focused)
+        .marked(tile.marked)
         .scroll_probe(probe)
         .child(
             div().w(artwork_size).min_w_0().child(
@@ -99,7 +173,7 @@ pub(crate) fn render_window_group_tile(
         )
         .child(render_window_group_badges(tile, BadgePlace::First, cx))
         .on_click(cx.listener(move |this, event: &ClickEvent, _window, cx| {
-            this.click_window_group_tile(&open_row_id, event.modifiers(), cx);
+            on_click(this, event, cx);
         }))
         .into_any_element()
 }
@@ -118,6 +192,7 @@ pub(crate) fn render_window_group_row(
         tile,
         art,
         probe,
+        discover_group_toggle(&tile.open_row_id),
         move |this, event, cx| this.click_window_group_tile(&open_row_id, event.modifiers(), cx),
         cx,
     )
@@ -133,21 +208,26 @@ pub(crate) fn render_releases_window_group_row(
     art: CollectionArtImage,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
-    let page_key = tile.page_key.clone();
+    let (row_id, members, page_key) = releases_group_parts(tile);
     render_window_group_row_with(
         tile,
         art,
         None,
-        move |this, _event, cx| this.open_window_group(&page_key, cx),
+        releases_group_toggle(tile),
+        move |this, event, cx| {
+            this.click_releases_window_group(&row_id, &members, &page_key, event.modifiers(), cx);
+        },
         cx,
     )
 }
 
-/// The shared body of a group row. `on_click` runs when the row is clicked.
+/// The shared body of a group row. `on_click` runs when the row is clicked,
+/// and `toggle` when its checkbox is clicked.
 fn render_window_group_row_with(
     tile: &WindowGroupTileVm,
     art: CollectionArtImage,
     probe: Option<AnyElement>,
+    toggle: WindowGroupToggle,
     on_click: impl Fn(&mut LibraryApp, &ClickEvent, &mut Context<LibraryApp>) + 'static,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -174,7 +254,7 @@ fn render_window_group_row_with(
         .selected(tile.marked || tile.selection.is_marked())
         .focused(tile.selection.focused)
         .scroll_probe(probe);
-    if let Some(checkbox) = render_window_group_checkbox(tile, cx) {
+    if let Some(checkbox) = render_window_group_checkbox(tile, toggle, cx) {
         row = row.checkbox(checkbox);
     }
     row.child(render_window_group_row_art(art))
