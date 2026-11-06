@@ -26,6 +26,9 @@ pub(crate) enum ReleaseDownloadState {
     Partial { downloaded: usize, total: usize },
     /// Each track of the release is downloaded.
     Downloaded,
+    /// The latest download job of the release failed, and no later job
+    /// succeeded (ADR 0089 Decision 5). Session state only.
+    Failed,
 }
 
 impl ReleaseDownloadState {
@@ -53,6 +56,7 @@ impl ReleaseDownloadState {
             Self::Downloading => "Downloading",
             Self::Partial { .. } => "Partly downloaded",
             Self::Downloaded => "Downloaded",
+            Self::Failed => "Failed",
         }
     }
 
@@ -62,7 +66,11 @@ impl ReleaseDownloadState {
     pub(crate) fn count_text(self) -> Option<String> {
         match self {
             Self::Partial { downloaded, total } => Some(format!("{downloaded} of {total}")),
-            Self::NotDownloaded | Self::Queued | Self::Downloading | Self::Downloaded => None,
+            Self::NotDownloaded
+            | Self::Queued
+            | Self::Downloading
+            | Self::Downloaded
+            | Self::Failed => None,
         }
     }
 }
@@ -97,6 +105,32 @@ impl ReleaseDownloadStateVm {
     #[must_use]
     pub(crate) fn downloading() -> Self {
         Self::of_state(ReleaseDownloadState::Downloading)
+    }
+
+    /// The latest download job of the release failed (ADR 0089 Decision 5).
+    #[must_use]
+    pub(crate) fn failed() -> Self {
+        Self::of_state(ReleaseDownloadState::Failed)
+    }
+
+    /// Shows the failed state when `failed` is true and no job of the
+    /// release is queued or running. A running job wins over the failure
+    /// of an earlier job (ADR 0089 Decision 5).
+    #[must_use]
+    pub(crate) fn with_failure(self, failed: bool) -> Self {
+        match self.state {
+            ReleaseDownloadState::Queued | ReleaseDownloadState::Downloading => self,
+            ReleaseDownloadState::NotDownloaded
+            | ReleaseDownloadState::Partial { .. }
+            | ReleaseDownloadState::Downloaded
+            | ReleaseDownloadState::Failed => {
+                if failed {
+                    Self::failed()
+                } else {
+                    self
+                }
+            }
+        }
     }
 
     /// The binary state of a release row with no per-track count and no
@@ -181,6 +215,7 @@ mod tests {
             ReleaseDownloadState::Queued,
             ReleaseDownloadState::Downloading,
             ReleaseDownloadState::Downloaded,
+            ReleaseDownloadState::Failed,
         ] {
             assert_eq!(state.count_text(), None, "{state:?}");
         }
@@ -205,6 +240,30 @@ mod tests {
         let downloading = ReleaseDownloadStateVm::downloading();
         assert_eq!(downloading.state, ReleaseDownloadState::Downloading);
         assert_eq!(downloading.tooltip, "Downloading");
+    }
+
+    /// ADR 0089 Decision 5: a failed job shows the failed state, and a job
+    /// that runs wins over the failure of an earlier job.
+    #[test]
+    fn adr_0089_list_page_with_failure_shows_failed_unless_a_job_runs() {
+        let failed = ReleaseDownloadStateVm::of_tracks(7, 7).with_failure(true);
+        assert_eq!(failed.state, ReleaseDownloadState::Failed);
+        assert_eq!(failed.tooltip, "Failed");
+        assert_eq!(failed.count_text, None);
+
+        let unchanged = ReleaseDownloadStateVm::of_tracks(3, 7).with_failure(false);
+        assert_eq!(
+            unchanged.state,
+            ReleaseDownloadState::Partial {
+                downloaded: 3,
+                total: 7
+            }
+        );
+
+        let running = ReleaseDownloadStateVm::downloading().with_failure(true);
+        assert_eq!(running.state, ReleaseDownloadState::Downloading);
+        let queued = ReleaseDownloadStateVm::queued().with_failure(true);
+        assert_eq!(queued.state, ReleaseDownloadState::Queued);
     }
 
     #[test]

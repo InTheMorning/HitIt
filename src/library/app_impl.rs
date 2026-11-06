@@ -49,6 +49,9 @@ use crate::presentation::delayed_presenter::present_after;
 use crate::presentation::{bridge_watch, present_command};
 use crate::runtime::musicbrainz_feed_saga::{MusicBrainzFeedSagaState, StartFeedLookup};
 use crate::subscribe_service::{self, SubscribeFeedRequest, SubscribeTrackRequest};
+use crate::ui::composites::list_page_head::{
+    list_page_head, ListHeadButtonHandler, ListScopeHandler,
+};
 use crate::ui::composites::music_column_scroll::{
     music_column_scrollbar, MusicColumnList, ScrollReveal,
 };
@@ -82,7 +85,7 @@ use crate::view_models::artist_identity::{ArtistNameDestination, ArtistNameKey, 
 use crate::view_models::collection_art::CollectionArtVm;
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::entity_detail::TrackMetadataActionState;
-use crate::view_models::index_name_list::{IndexNameListPage, MusicListScope};
+use crate::view_models::index_name_list::IndexNameListPage;
 use crate::view_models::library::{
     description_line_count, list_column_header_action, releases_disclosure_step, AlbumNode,
     BroadcastRouteRepairCompletion, BroadcastRouteRepairCompletionStatus, ContentListRowActionKind,
@@ -100,6 +103,7 @@ use crate::view_models::library_removal::{
     SelectionRemovalConfirmationState, SelectionRemovalPendingItem, SelectionRemovalReport,
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
+use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListScope};
 use crate::view_models::list_selection::{FocusStep, ListSelection, SelectionMode, SelectionRow};
 use crate::view_models::name_level_page::NameLevelLibraryRelease;
 use crate::view_models::playlist_option_displays;
@@ -1118,8 +1122,6 @@ impl LibraryApp {
             tag_update_snapshot: None,
             tag_update_request_failed: false,
             recent_music_page: RecentFeedsPageVm::loading(),
-            releases_scope: MusicListScope::default(),
-            artists_scope: MusicListScope::default(),
             artist_name_page: IndexNameListPage::default(),
             release_name_page: IndexNameListPage::default(),
             discover_scroll_reveal: ScrollReveal::new(recent_music_scroll.clone()),
@@ -1483,6 +1485,9 @@ impl LibraryApp {
             |this, result, cx| {
                 this.vm.replace_tree(result.tree);
                 this.vm.finish_library_reload(result.count);
+                // ADR 0089 Decision 5: the scope "All" of the active list
+                // sends its first name request after a Library load, once.
+                this.request_default_name_list(cx);
                 // ADR 0084 Decision 2: the Needs attention count stays
                 // current on each Library load.
                 this.refresh_current_broadcast_readiness_report();
@@ -1589,12 +1594,6 @@ impl LibraryApp {
         frame.suppressed_auto_id3_edits.clear();
         frame.id3_apply_error = None;
         self.load_track_source_context(track, cx);
-    }
-
-    pub(crate) fn cycle_playlist_sort(&mut self, cx: &mut Context<Self>) {
-        self.vm.cycle_playlist_sort();
-        self.vm.sort_loaded_playlists();
-        cx.notify();
     }
 
     /// Asks the top app to open a page in the one Music navigation stack
@@ -2567,6 +2566,9 @@ impl LibraryApp {
             // the detail column.
             FrameNavigationEntry::Destination(destination) => {
                 self.show_destination_list(*destination);
+                // ADR 0089 Decision 5: the scope "All" sends its first name
+                // request when the destination shows, once.
+                self.request_default_name_list(cx);
                 self.clear_detail();
             }
             // ADR 0084 Decision 3: a Discover view becoming the current
@@ -4420,25 +4422,41 @@ impl LibraryApp {
 
     /// The Music list column's header action (ADR 0084 Decision 10
     /// Amendment, 2026-10-19): "Select" in `Normal`, "Done" in
-    /// `Selecting`. Absent for Discover, Artists, Playlists, and an
-    /// empty list.
+    /// `Selecting`, for the Tracks and Needs attention list. Releases and
+    /// Artists show their Select in the title row (ADR 0089 Decision 6).
+    /// Absent for every other destination and for an empty list.
     pub(crate) fn header_action_for_list_column(&self) -> Option<FrameHeaderActionDisplay> {
-        let destination = self.vm.active_destination();
-        let list_has_rows = match destination {
-            MusicDestination::Releases => !self.releases_rows().selection_rows().is_empty(),
-            MusicDestination::NeedsAttention => !self.content_list_visible_rows().is_empty(),
-            MusicDestination::Discover
-            | MusicDestination::Artists
-            | MusicDestination::Playlists => false,
-        };
-        let mode = match destination {
-            MusicDestination::Releases => self.releases_selection_mode,
-            MusicDestination::NeedsAttention => self.track_selection_mode,
-            MusicDestination::Discover
-            | MusicDestination::Artists
-            | MusicDestination::Playlists => SelectionMode::Normal,
-        };
-        list_column_header_action(destination, mode, list_has_rows)
+        if self.vm.active_destination() != MusicDestination::NeedsAttention {
+            return None;
+        }
+        let list_has_rows = !self.content_list_visible_rows().is_empty();
+        list_column_header_action(
+            MusicDestination::NeedsAttention,
+            self.track_selection_mode,
+            list_has_rows,
+        )
+    }
+
+    /// The title row of the Releases list (ADR 0089 Decision 6). Its count
+    /// is the number of Library releases, and the view model shows it only
+    /// in the scope "In Library". Its Select action is the Releases
+    /// selection's "Select" or "Done".
+    pub(crate) fn releases_page_head(&self) -> ListPageHeadVm {
+        let rows = self.releases_rows();
+        let count = Some(self.vm.library_release_count());
+        let select = list_column_header_action(
+            MusicDestination::Releases,
+            self.releases_selection_mode,
+            !rows.selection_rows().is_empty(),
+        );
+        self.vm.list_page_head(ListPageKey::Releases, count, select)
+    }
+
+    /// The title row of the Artists list (ADR 0089 Decision 6). Its count
+    /// shows only in the scope "In Library".
+    pub(crate) fn artists_page_head(&self, library_count: usize) -> ListPageHeadVm {
+        self.vm
+            .list_page_head(ListPageKey::Artists, Some(library_count), None)
     }
 
     /// The header action's click (ADR 0084 Decision 10 Amendment,
@@ -4973,6 +4991,7 @@ impl LibraryApp {
         // current root destination. ADR 0084 Decision 3: Discover shows
         // its views, not the content list.
         let mut action_bar: Option<AnyElement> = None;
+        let mut page_head: Option<AnyElement> = None;
         let content_list_pane = match self.vm.active_destination() {
             MusicDestination::Discover => {
                 let rows = self
@@ -5026,6 +5045,7 @@ impl LibraryApp {
                 // virtual list renders only the items in view. Each item
                 // gets the Releases selection's checkbox facts, its image
                 // and its menu in `render_releases_item`.
+                page_head = Some(self.render_releases_page_head(cx));
                 let rows = self.releases_rows();
                 self.releases_list_state.sync(rows.item_ids(), window);
                 // ADR 0084 task 031: the release row menu. The right-click
@@ -5055,15 +5075,17 @@ impl LibraryApp {
                 pane
             }
             MusicDestination::Artists => {
-                let rows = self
+                let artists_scope = self.vm.list_scope(ListPageKey::Artists);
+                let rows = self.vm.artists_list(artists_scope, &self.artist_name_page);
+                let library_count = self
                     .vm
-                    .artists_list(self.artists_scope, &self.artist_name_page);
+                    .artists_list(ListScope::InLibrary, &self.artist_name_page)
+                    .len();
+                page_head = Some(self.render_artists_page_head(library_count, cx));
                 // ADR 0084 packet 016 decision D8: the loading row, the
-                // error row or "Load more" of the scope "Everything".
-                let status = LibraryViewModel::artists_list_status(
-                    self.artists_scope,
-                    &self.artist_name_page,
-                );
+                // error row or "Load more" of the scope "All".
+                let status =
+                    LibraryViewModel::artists_list_status(artists_scope, &self.artist_name_page);
                 // ADR 0084 task 037, operator answer Q1 option B: the
                 // Artists list is a virtual list with no cache of its
                 // merge. Each item reads its art only when it renders.
@@ -5115,6 +5137,7 @@ impl LibraryApp {
             .min_w_0()
             .overflow_hidden()
             .track_focus(&self.list_column_focus)
+            .children(page_head)
             .child(
                 div()
                     .flex()
@@ -5126,6 +5149,34 @@ impl LibraryApp {
             )
             .children(action_bar)
             .into_any_element()
+    }
+
+    /// Renders the title row of the Releases list (ADR 0089 Decision 6).
+    /// Its scope and its Select action call the view model through the
+    /// handlers of the app.
+    fn render_releases_page_head(&self, cx: &mut Context<Self>) -> AnyElement {
+        let display = self.releases_page_head();
+        let entity = cx.entity();
+        let scope_entity = entity.clone();
+        let on_scope: ListScopeHandler = Rc::new(move |scope, _window, cx| {
+            let scope = *scope;
+            scope_entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
+        });
+        let on_select: ListHeadButtonHandler = Rc::new(move |_window, cx| {
+            entity.update(cx, Self::toggle_list_column_selection_mode);
+        });
+        list_page_head(display, Some(on_scope), Some(on_select), cx)
+    }
+
+    /// Renders the title row of the Artists list (ADR 0089 Decision 6).
+    fn render_artists_page_head(&self, library_count: usize, cx: &mut Context<Self>) -> AnyElement {
+        let display = self.artists_page_head(library_count);
+        let entity = cx.entity();
+        let on_scope: ListScopeHandler = Rc::new(move |scope, _window, cx| {
+            let scope = *scope;
+            entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
+        });
+        list_page_head(display, Some(on_scope), None, cx)
     }
 
     /// Renders the item `index` of the cached Releases `rows` (ADR 0084

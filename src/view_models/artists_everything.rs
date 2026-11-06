@@ -249,9 +249,8 @@ pub(crate) fn everything_rows(
     page: &IndexNameListPage<ArtistNameRow>,
     matches: &NameFeedMatches,
 ) -> Vec<DestinationListRowVm> {
-    if page.first_page_in_flight() {
-        return Vec::new();
-    }
+    // ADR 0089 Decision 5: while page 1 loads, the Library rows show at
+    // once. The page has no row yet, so no `MusicIndex` row shows.
     let library_keys: BTreeSet<(ArtistRowKind, &str)> = library
         .iter()
         .map(|entry| (entry.order.kind, entry.order.key.as_str()))
@@ -466,14 +465,18 @@ mod tests {
         ));
     }
 
-    /// R16-12: while page 1 loads, the list shows no item row. After an
-    /// error on page 1, it shows the Library rows.
+    /// ADR 0089 Decision 5 (replaces R16-12): while page 1 loads, the
+    /// Library rows show at once and no `MusicIndex` row shows. After an
+    /// error on page 1, the Library rows still show.
     #[test]
-    fn adr_0084_scopes_r16_12_first_page_states() {
+    fn adr_0089_list_page_all_artists_show_library_rows_while_page_one_loads() {
         let library = vec![library_row("Zed", ArtistOrderKey::name("zed".to_owned()))];
         let mut page = IndexNameListPage::<ArtistNameRow>::default();
         let intent = page.begin_load(false).unwrap();
-        assert!(everything_rows(library.clone(), &page, &no_match()).is_empty());
+        assert_eq!(
+            everything_rows(library.clone(), &page, &no_match()).len(),
+            1
+        );
 
         page.fail_load("connection refused", intent.generation);
         let rows = everything_rows(library, &page, &no_match());

@@ -1,12 +1,12 @@
-//! The scope "Library" or "Everything" of the Releases list and the
-//! Artists list (ADR 0084 Decision 8, packet 016).
+//! The scope "In Library" or "All" of the Releases list and the Artists
+//! list (ADR 0084 Decision 8, packet 016; ADR 0089 Decision 5).
 //!
 //! `releases_rows` gives the rows of the Releases list from the cache of
 //! ADR 0084 task 037. The list builds again only when one of its inputs
 //! changes.
 //!
-//! `LibraryApp` keeps the scope of each list in memory (decision D3). The
-//! scope "Everything" loads the `MusicIndex` release name pages or artist
+//! `LibraryViewModel` keeps the scope of each list page (ADR 0089
+//! Decision 5). The scope "All" loads the `MusicIndex` release name pages or artist
 //! name pages through `present_command` on the ADR 0040 command runner. A
 //! result of an older request generation changes nothing (decision D10).
 //! Each release page load also reads the `MusicIndex` singles of each new
@@ -35,10 +35,10 @@ use crate::application::CommandContext;
 use crate::presentation::present_command;
 use crate::view_models::index_feed_singles::{finish_release_page, FeedSinglesResult};
 use crate::view_models::index_name_list::{
-    IndexNameListBatch, IndexNameListLoadIntent, IndexNameListPage, MusicListScope,
-    MusicScopeControlDisplay,
+    IndexNameListBatch, IndexNameListLoadIntent, IndexNameListPage,
 };
 use crate::view_models::library::AlbumNode;
+use crate::view_models::list_page::{needs_first_page, ListPageKey, ListScope};
 use crate::view_models::releases_everything::{reset_selection_on_scope_change, ReleasesListRows};
 use crate::view_models::singles_group::{
     group_page_feed_to_read, index_page_feed_to_read, library_page_feed_to_read, SinglesGroupKey,
@@ -47,20 +47,6 @@ use crate::view_models::workspace::MusicDestination;
 use crate::views::FeedView;
 
 impl LibraryApp {
-    /// The scope control of the active destination. Only Releases and
-    /// Artists have one (packet 016 decision D1).
-    pub(crate) fn music_scope_control(&self) -> Option<MusicScopeControlDisplay> {
-        let destination = self.vm.active_destination();
-        let selected = match destination {
-            MusicDestination::Releases => self.releases_scope,
-            MusicDestination::Artists => self.artists_scope,
-            MusicDestination::Discover
-            | MusicDestination::NeedsAttention
-            | MusicDestination::Playlists => return None,
-        };
-        MusicScopeControlDisplay::for_destination(destination, selected)
-    }
-
     /// The rows of the Releases list in its present scope (ADR 0084 task
     /// 037, Design step 5). Each reader of the list calls this. The list
     /// builds again only when one of its inputs changes, so the header
@@ -69,43 +55,66 @@ impl LibraryApp {
     pub(crate) fn releases_rows(&self) -> Rc<ReleasesListRows> {
         self.vm.cached_releases_rows(
             &mut self.releases_list_cache.borrow_mut(),
-            self.releases_scope,
+            self.vm.list_scope(ListPageKey::Releases),
             &self.release_name_page,
             &self.expanded_singles_groups,
         )
     }
 
-    /// Sets the scope of the active destination. The scope "Everything"
-    /// loads page 1 of its name list when no request was sent. A new
-    /// Releases scope clears the Releases selection and ends selection
-    /// mode (decision D15).
-    pub(crate) fn set_music_list_scope(&mut self, scope: MusicListScope, cx: &mut Context<Self>) {
+    /// Sets the scope of the active destination (ADR 0089 Decision 5). The
+    /// scope "All" loads page 1 of its name list when no request was sent.
+    /// A new Releases scope clears the Releases selection and ends
+    /// selection mode (decision D15). Each other page keeps its scope.
+    pub(crate) fn set_music_list_scope(&mut self, scope: ListScope, cx: &mut Context<Self>) {
         match self.vm.active_destination() {
             MusicDestination::Releases => {
                 reset_selection_on_scope_change(
-                    self.releases_scope,
+                    self.vm.list_scope(ListPageKey::Releases),
                     scope,
                     &mut self.releases_selection,
                     &mut self.releases_selection_mode,
                 );
-                self.releases_scope = scope;
-                if scope == MusicListScope::Everything && self.release_name_page.is_not_started() {
+                self.vm.set_list_scope(ListPageKey::Releases, scope);
+            }
+            MusicDestination::Artists => {
+                self.vm.set_list_scope(ListPageKey::Artists, scope);
+            }
+            MusicDestination::Discover
+            | MusicDestination::NeedsAttention
+            | MusicDestination::Playlists => return,
+        }
+        self.request_default_name_list(cx);
+        cx.notify();
+    }
+
+    /// Sends page 1 of the name list of the active destination, when its
+    /// scope is "All" and no request was sent yet (ADR 0089 Decision 5).
+    /// The Library rows show before the answer. Each list sends at most one
+    /// page 1 request, because the request changes the list state.
+    pub(crate) fn request_default_name_list(&mut self, cx: &mut Context<Self>) {
+        match self.vm.active_destination() {
+            MusicDestination::Releases => {
+                if needs_first_page(
+                    self.vm.list_scope(ListPageKey::Releases),
+                    self.release_name_page.is_not_started(),
+                ) {
                     let intent = self.release_name_page.begin_load(false);
                     self.send_release_name_request(intent, cx);
                 }
             }
             MusicDestination::Artists => {
-                self.artists_scope = scope;
-                if scope == MusicListScope::Everything && self.artist_name_page.is_not_started() {
+                if needs_first_page(
+                    self.vm.list_scope(ListPageKey::Artists),
+                    self.artist_name_page.is_not_started(),
+                ) {
                     let intent = self.artist_name_page.begin_load(false);
                     self.send_artist_name_request(intent, cx);
                 }
             }
             MusicDestination::Discover
             | MusicDestination::NeedsAttention
-            | MusicDestination::Playlists => return,
+            | MusicDestination::Playlists => {}
         }
-        cx.notify();
     }
 
     /// "Load more" at the end of the Artists list (packet 016 decision D7).

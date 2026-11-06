@@ -38,7 +38,7 @@ Each fact below was read on 2026-11-05 at commit `5942db3`.
 | [001](../tasks/adr-0089-task-001-one-page-stack.md) | The stack: one page at full width, and no "Select an item" | None | Implemented 2026-11-05. V1 and V2 are open |
 | [002](../tasks/adr-0089-task-002-toolbar-history-and-marked-row.md) | The breadcrumb goes. Back, Forward and the title move to the toolbar. Back keeps the scroll and marks the row | 001 | Implemented 2026-11-05. V1 to V3 are open. |
 | [003](../tasks/adr-0089-task-003-one-sidebar.md) | One sidebar on each mount, no section tabs, the start page Releases, and the destination Tracks goes | 002 | Implemented 2026-11-05. V1 to V3 are open. |
-| [004](../tasks/adr-0089-task-004-list-page-state.md) | The state of each list page, its title row and the scope "All, In Library" | 003 | Ready |
+| [004](../tasks/adr-0089-task-004-list-page-state.md) | The state of each list page, its title row and the scope "All, In Library" | 003 | Implemented 2026-11-05. V1 to V4 are open. |
 | [005](../tasks/adr-0089-task-005-releases-sort.md) | Sort on Releases and Artists, window groups with Newest, the letter bar, and the "New releases" view goes | 004 | Ready |
 | [006](../tasks/adr-0089-task-006-search-page.md) | The Search page lists the saved searches, and Discover goes | 005 | Ready |
 | [007](../tasks/adr-0089-task-007-saved-search-edits-and-new-counts.md) | Edit Query, Rename, Duplicate and the count of new results (migration 22) | 006 | Ready |

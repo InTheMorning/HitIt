@@ -33,7 +33,7 @@ use crate::runtime::actor::ActorHandle;
 use crate::runtime::musicbrainz_feed_saga::MusicBrainzFeedSagaHandle;
 use crate::ui::composites::music_column_scroll::{MusicColumnList, ScrollReveal};
 use crate::view_models::detail_selection::DetailSelection;
-use crate::view_models::index_name_list::{IndexNameListPage, MusicListScope};
+use crate::view_models::index_name_list::IndexNameListPage;
 use crate::view_models::library::{
     description_line_count, AlbumNode, InspectorPanelKind, LibraryTrackInspectorDisplay,
     LibraryTrackInspectorState, LibraryViewModel, ReleasesRowId,
@@ -271,11 +271,6 @@ pub struct LibraryApp {
     /// The scroll of the Playlists list (ADR 0089 Decision 1). The Library
     /// holds it, so the offset survives a page opened over the list.
     playlists_scroll: ScrollHandle,
-    /// The scope of the Releases list and of the Artists list (ADR 0084
-    /// packet 016 decision D3). Each app start uses "Library". The config
-    /// file does not store it.
-    releases_scope: MusicListScope,
-    artists_scope: MusicListScope,
     /// The loaded MusicIndex artist name pages of the Artists scope
     /// "Everything" (packet 016 decision D9). They stay until the app
     /// stops.

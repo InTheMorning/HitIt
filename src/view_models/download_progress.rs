@@ -97,6 +97,9 @@ pub(crate) struct DownloadActivity {
     pub(crate) index_tracks: BTreeSet<(FeedKey, String)>,
     /// The release key and the track GUID of each running Index track job.
     pub(crate) in_flight_index_tracks: BTreeSet<(FeedKey, String)>,
+    /// The key of each release whose latest job failed, until a later job
+    /// of the key succeeds (ADR 0089 Decision 5).
+    pub(crate) failed_keys: BTreeSet<FeedKey>,
 }
 
 impl DownloadActivity {
@@ -112,6 +115,13 @@ impl DownloadActivity {
     #[must_use]
     pub(crate) fn key_phase(&self, key: &FeedKey) -> Option<DownloadPhase> {
         DownloadPhase::of(self.keys.contains(key), self.in_flight_keys.contains(key))
+    }
+
+    /// `true` when the latest job of `key` failed and no later job of the
+    /// key succeeded (ADR 0089 Decision 5).
+    #[must_use]
+    pub(crate) fn key_failed(&self, key: &FeedKey) -> bool {
+        self.failed_keys.contains(key)
     }
 
     /// The phase of the release jobs of `key`.

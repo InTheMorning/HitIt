@@ -32,3 +32,6 @@ Each entry names the step, the decision and the reason.
 - Packet 003, frames: `SourceList` goes. `Detail` stays, because a removal changes `MusicColumns` and the shell widths. A later packet removes it when it is small.
 - Packet 003, icons: Show uses Lucide `RadioTower`, and Settings uses Lucide `Settings`.
 - Packet 003, keyboard: the Show and Settings rows take a click and the section shortcuts, as the old tabs did. A sidebar row has no Enter key action.
+- Packet 004, My playlists: the page has no sort, and its rows stay in name sequence. Decision 5 says that the curator sets the sequence. A sequence needs stored positions and a move control, and ADR 0089 puts the moves of My playlists in Non-Goals. The final walk asks the operator which holds.
+- Packet 004, view icons: no page has two views yet, so the icons are absent until packet 005.
+- Packet 004, the In Library count: it counts each release that the scope holds, so a singles group of five counts five.

@@ -1885,23 +1885,10 @@ impl TopApp {
             workspace_slots = self.with_search_results_list(workspace_slots, content_frame_id, cx);
         } else if matches!(mount, WorkspaceScreenMount::Music) {
             workspace_slots = workspace_slots.content_list(self.library_list_view.clone());
-            // ADR 0084 packet 016 decision D1: the scope control of
-            // Releases and Artists. The view model gives `None` for each
-            // other destination.
-            if let Some(scope_control) = self.library.read(cx).music_scope_control() {
-                let scope_library = self.library.clone();
-                workspace_slots = workspace_slots.content_list_scope_control(
-                    scope_control,
-                    move |scope, _window, cx| {
-                        scope_library.update(cx, |library, cx| {
-                            library.set_music_list_scope(scope, cx);
-                        });
-                    },
-                );
-            }
             // ADR 0084 Decision 10 Amendment, 2026-10-19: the list
-            // column's "Select" and "Done" button, for Releases, Tracks
-            // and Needs attention. The view model gives `None` for every
+            // column's "Select" and "Done" button, for Tracks and Needs
+            // attention. Releases and Artists show it in their title row
+            // (ADR 0089 Decision 6). The view model gives `None` for every
             // other destination and for an empty list.
             if let Some(header_action) = self.library.read(cx).header_action_for_list_column() {
                 let header_action_entity = entity.clone();
