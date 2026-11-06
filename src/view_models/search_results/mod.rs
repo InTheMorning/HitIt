@@ -23,6 +23,7 @@ mod empty_state;
 mod failure;
 mod index_detail;
 mod index_result_note;
+mod new_results;
 mod paged_tab;
 mod results;
 mod rows;
@@ -38,6 +39,7 @@ pub(crate) use empty_state::EmptyStateDisplay;
 pub(crate) use failure::{SearchFailureAction, SearchFailureAvailability};
 pub(crate) use index_detail::{IndexDetailDisplay, IndexDetailKind, IndexSearchResultRows};
 pub(crate) use index_result_note::{IndexResultDiagnostic, IndexResultStopReason};
+pub(crate) use new_results::{new_result_count, new_results_text, NewResultCount, NewResultsText};
 pub(crate) use paged_tab::SearchResultsPagedTab;
 pub(crate) use results::{
     artist_feed_result_display, index_track_row_id, ArtistResultDisplay, ArtistSearchFacts,

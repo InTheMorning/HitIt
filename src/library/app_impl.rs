@@ -1108,6 +1108,9 @@ impl LibraryApp {
             _saved_search_rename_sub: saved_search_rename_sub,
             saved_search_renaming: None,
             saved_search_message: None,
+            saved_search_counts: std::collections::BTreeMap::new(),
+            saved_search_counts_handle: None,
+            saved_search_counts_requested_at: None,
             runtime_host,
             playlist_actor: None,
             musicbrainz_feed_saga: None,
@@ -1198,6 +1201,7 @@ impl LibraryApp {
         self.playlist_rss_snapshot = None;
         self.tag_update.take();
         self.tag_update_snapshot = None;
+        self.saved_search_counts_handle.take();
         self.runtime_host.take();
     }
 
@@ -2562,6 +2566,11 @@ impl LibraryApp {
                 // ADR 0089 Decision 5: the scope "All" sends its first name
                 // request when the destination shows, once.
                 self.request_default_name_list(cx);
+                // ADR 0089 Decision 4, packet 007 Part C: opening the Search
+                // page starts the new-results count, at most once per interval.
+                if *destination == MusicDestination::Search {
+                    self.request_saved_search_counts(cx);
+                }
                 self.clear_detail();
             }
             // ADR 0084 Decision 3, packet 012: a saved search is a page
@@ -5034,7 +5043,8 @@ impl LibraryApp {
         let content_list_pane = match self.vm.active_destination() {
             MusicDestination::Search => {
                 let vm = SearchPageVm::new(&self.saved_searches, self.open_saved_search)
-                    .with_message(self.saved_search_message.clone());
+                    .with_message(self.saved_search_message.clone())
+                    .with_new_counts(&self.saved_search_counts);
                 let rename = SearchPageListRename {
                     renaming: self.saved_search_renaming,
                     input: &self.saved_search_rename_input,

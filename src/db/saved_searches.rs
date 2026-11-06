@@ -5,9 +5,10 @@
 //! that the operator saved: the trimmed query text, the tab that was open
 //! at the save, and the time of the save. Migration 22 adds the optional
 //! name column and the table `saved_search_seen`. The rename and the
-//! duplicate write the name. The seen table has no writer yet.
+//! duplicate write the name. `src/db/saved_search_seen.rs` writes the seen
+//! table.
 //!
-//! This module is the only writer of the table. The caller gives each
+//! This module is the only writer of `saved_searches`. The caller gives each
 //! time, so no function here reads the clock.
 
 #![warn(clippy::pedantic)]

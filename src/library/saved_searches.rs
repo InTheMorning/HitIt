@@ -6,18 +6,27 @@
 
 #![warn(clippy::pedantic)]
 
+use std::collections::BTreeSet;
+use std::path::PathBuf;
+use std::time::Instant;
+
 use gpui::{Context, Entity, Window};
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::view_models::search_page::HowToSearchDisclosure;
 
 use super::LibraryApp;
+use crate::db::saved_search_seen;
 use crate::db::saved_searches::{
     self, SavedSearchCopy, SavedSearchInsert, SavedSearchQueryWrite, SavedSearchWrite,
     StoredStartTab,
 };
+use crate::presentation::bridge_watch;
+use crate::runtime::saved_search_counts::{
+    self, count_run_due, SavedSearchCountJob, SavedSearchCountRequest, SavedSearchCountsSnapshot,
+};
 use crate::view_models::search_results::{
-    SavedSearch, SavedSearchId, SavedSearchQueryKeep, SearchResultsTab,
+    NewResultCount, SavedSearch, SavedSearchId, SavedSearchQueryKeep, SearchResultsTab,
     SAVED_SEARCH_COPY_CONFLICT_TEXT, SAVED_SEARCH_MISSING_TEXT,
 };
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
@@ -228,6 +237,101 @@ impl LibraryApp {
         self.reload_saved_searches();
         cx.notify();
         keep
+    }
+
+    /// Starts the count of new results of every saved search (ADR 0089
+    /// Decision 4, packet 007 Part C). The actor starts at the first call.
+    /// A call within the count interval of the last request sends nothing.
+    pub(crate) fn request_saved_search_counts(&mut self, cx: &mut Context<Self>) {
+        let now = Instant::now();
+        if self.saved_searches.is_empty()
+            || !count_run_due(self.saved_search_counts_requested_at, now)
+        {
+            return;
+        }
+        let Some(host) = self.runtime_host.clone() else {
+            return;
+        };
+        if self.saved_search_counts_handle.is_none() {
+            let db_path = self
+                .conn
+                .lock()
+                .ok()
+                .and_then(|conn| conn.path().map(PathBuf::from));
+            let Some(db_path) = db_path else {
+                return;
+            };
+            let conn = match crate::db::startup::open_existing(&db_path) {
+                Ok(conn) => conn,
+                Err(error) => {
+                    self.vm.set_error_status(format!(
+                        "The app could not open the database for the saved search counts: {}",
+                        error.reason
+                    ));
+                    return;
+                }
+            };
+            let _enter = host.handle().enter();
+            let handle = saved_search_counts::spawn(
+                conn,
+                self.musicindex_endpoint.clone(),
+                self.command_runner.session(),
+            );
+            bridge_watch(
+                handle.subscribe(),
+                |this: &mut Self, snapshot: SavedSearchCountsSnapshot, cx| {
+                    this.saved_search_counts = snapshot.counts;
+                    cx.notify();
+                },
+                cx,
+            );
+            self.saved_search_counts_handle = Some(handle);
+        }
+        let request = SavedSearchCountRequest {
+            jobs: self
+                .saved_searches
+                .iter()
+                .map(|search| SavedSearchCountJob {
+                    id: search.id,
+                    query: search.query.clone(),
+                })
+                .collect(),
+            library: self.vm.library_search_facts(),
+            artists: self.artist_search_facts(),
+        };
+        let sent = self
+            .saved_search_counts_handle
+            .as_ref()
+            .is_some_and(|handle| handle.request(request));
+        if sent {
+            self.saved_search_counts_requested_at = Some(now);
+        }
+    }
+
+    /// Stores the result keys `keys` of the saved search `id` as seen (ADR
+    /// 0089 Decision 4, packet 007 Part C). An open of the saved search and
+    /// each Index result of it call this. The count of the search becomes
+    /// zero, in place. The error text names the database error.
+    pub(crate) fn mark_saved_search_seen(
+        &mut self,
+        id: SavedSearchId,
+        keys: &BTreeSet<String>,
+        cx: &mut Context<Self>,
+    ) {
+        let written = {
+            let conn = self.conn.lock().expect("lock db");
+            saved_search_seen::mark_seen(&conn, id.0, keys)
+        };
+        match written {
+            Ok(()) => {
+                self.saved_search_counts
+                    .insert(id, NewResultCount::Count(0));
+            }
+            Err(error) => self.vm.set_error_status(format!(
+                "The app could not mark the results of the saved search as seen: {error:#}"
+            )),
+        }
+        cx.notify();
     }
 
     /// Shows or hides the steps of "How to Search" (ADR 0089 Decision 4).

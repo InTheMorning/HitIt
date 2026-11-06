@@ -28,6 +28,7 @@ pub mod musicbrainz_feed_saga;
 pub mod paged_list_vm;
 pub mod playback_polling;
 pub mod playlist_rss_check;
+pub(crate) mod saved_search_counts;
 pub(crate) mod tag_update;
 pub mod vm_bus;
 

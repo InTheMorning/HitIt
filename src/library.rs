@@ -374,6 +374,19 @@ pub struct LibraryApp {
     /// The message of the last saved search request, for example a missing
     /// saved search or a copy that already exists.
     saved_search_message: Option<String>,
+    /// The count of new results of each saved search (ADR 0089 Decision 4,
+    /// packet 007 Part C). The actor publishes it, and an open sets zero.
+    saved_search_counts: std::collections::BTreeMap<
+        crate::view_models::search_results::SavedSearchId,
+        crate::view_models::search_results::NewResultCount,
+    >,
+    /// The actor that counts the new results of the saved searches. It is
+    /// started at the first request of the Search page.
+    saved_search_counts_handle:
+        Option<crate::runtime::saved_search_counts::SavedSearchCountsHandle>,
+    /// The start of the last request to the actor, for the interval of
+    /// ADR 0089 Decision 4.
+    saved_search_counts_requested_at: Option<std::time::Instant>,
     /// The page that Back left open over the current list root, for the
     /// marked row of the Music list (R-NAV-2 item 2). The top app sets it at
     /// each render.
