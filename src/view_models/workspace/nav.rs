@@ -29,19 +29,22 @@ pub(crate) enum MusicDestination {
     /// The public playlists of the Index, the musicL feeds (ADR 0089
     /// Decision 1, packet 009).
     PublicPlaylists,
+    /// What is live now on the Index (ADR 0089 Decision 1, packet 011).
+    Live,
 }
 
 impl MusicDestination {
     /// Every destination, in sidebar order (ADR 0084 Decision 2). Tests
     /// walk each destination through this list.
     #[cfg(test)]
-    pub(crate) const ALL: [Self; 6] = [
+    pub(crate) const ALL: [Self; 7] = [
         Self::Search,
         Self::Releases,
         Self::Artists,
         Self::NeedsAttention,
         Self::Playlists,
         Self::PublicPlaylists,
+        Self::Live,
     ];
 
     /// The visible destination name.
@@ -54,6 +57,7 @@ impl MusicDestination {
             Self::NeedsAttention => "Needs attention",
             Self::Playlists => "Playlists",
             Self::PublicPlaylists => "Public playlists",
+            Self::Live => "Live",
         }
     }
 }

@@ -22,6 +22,7 @@ pub mod destination_lists;
 pub mod detail;
 pub mod feed_detail;
 pub mod index_list_status;
+pub mod live_page;
 pub mod playlist_detail;
 pub mod public_playlists;
 pub mod releases_tiles;

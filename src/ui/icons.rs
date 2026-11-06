@@ -62,6 +62,9 @@ pub enum IconName {
     /// Public playlists destination, the playlists of the Index (ADR 0089
     /// Decision 1).
     PublicPlaylist,
+    /// Live destination, what is live now on the Index (ADR 0089 Decision
+    /// 1).
+    Live,
     /// Show row of the sidebar (ADR 0089 Decision 1).
     Show,
     /// Settings row of the sidebar (ADR 0089 Decision 1).
@@ -123,6 +126,7 @@ impl IconName {
             | Self::Track
             | Self::Playlist
             | Self::PublicPlaylist
+            | Self::Live
             | Self::Show
             | Self::Settings
             | Self::TilesView
@@ -174,6 +178,7 @@ impl IconName {
             | Self::Track
             | Self::Playlist
             | Self::PublicPlaylist
+            | Self::Live
             | Self::Show
             | Self::Settings
             | Self::TilesView
@@ -206,6 +211,8 @@ impl IconName {
             Self::Playlist => Some(LucideIconName::ListMusic),
             // ADR 0089 Decision 1: the public playlists row of the sidebar.
             Self::PublicPlaylist => Some(LucideIconName::Globe),
+            // ADR 0089 Decision 1: the Live row of the sidebar.
+            Self::Live => Some(LucideIconName::Radio),
             // ADR 0089 Decision 1: the Show and Settings rows of the sidebar.
             Self::Show => Some(LucideIconName::RadioTower),
             Self::Settings => Some(LucideIconName::Settings),
@@ -275,6 +282,7 @@ impl IconName {
             | Self::Track
             | Self::Playlist
             | Self::PublicPlaylist
+            | Self::Live
             | Self::Show
             | Self::Settings
             | Self::TilesView
@@ -512,6 +520,7 @@ gpui_kit_assets::icon_assets!(
         ScanSearch,
         BadgeCheck,
         RadioTower,
+        Radio,
         Settings
     ]
 );
@@ -608,6 +617,7 @@ mod tests {
         IconName::Track,
         IconName::Playlist,
         IconName::PublicPlaylist,
+        IconName::Live,
         IconName::CloudDownload,
         IconName::Queued,
         IconName::InProgress,
@@ -688,6 +698,7 @@ mod tests {
             IconName::PublicPlaylist.extra_icon(),
             Some(LucideIconName::Globe)
         );
+        assert_eq!(IconName::Live.extra_icon(), Some(LucideIconName::Radio));
         assert_eq!(IconName::Dash.extra_icon(), Some(LucideIconName::Minus));
         assert_eq!(
             IconName::CloudDownload.extra_icon(),

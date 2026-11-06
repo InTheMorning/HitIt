@@ -95,6 +95,10 @@ pub(crate) struct IndexNameListPage<Row> {
     pending: Option<IndexNameListBatch<Row>>,
     /// Each change of the page gives a new revision (ADR 0084 task 037).
     revision: Revision,
+    /// `true` after [`IndexNameListPage::begin_reload`]: the next answer of
+    /// page 1 replaces the loaded rows, and the old rows stay on view until
+    /// then (ADR 0089 packet 011).
+    replace_on_finish: bool,
 }
 
 impl<Row> Default for IndexNameListPage<Row> {
@@ -108,6 +112,7 @@ impl<Row> Default for IndexNameListPage<Row> {
             from: None,
             pending: None,
             revision: Revision::default(),
+            replace_on_finish: false,
         }
     }
 }
@@ -185,6 +190,7 @@ impl<Row> IndexNameListPage<Row> {
         }
         self.generation += 1;
         self.pending = None;
+        self.replace_on_finish = false;
         self.rows.clear();
         self.cursor = None;
         self.has_more = false;
@@ -195,6 +201,25 @@ impl<Row> IndexNameListPage<Row> {
             generation: self.generation,
             from: self.from.clone(),
         })
+    }
+
+    /// Begins a new read of page 1 that keeps the loaded rows on view until
+    /// the answer comes (ADR 0089 packet 011). The answer replaces the rows.
+    /// The result is the request of page 1, from the `from` text of the list.
+    #[must_use]
+    pub(crate) fn begin_reload(&mut self) -> IndexNameListLoadIntent {
+        self.generation += 1;
+        self.pending = None;
+        self.cursor = None;
+        self.has_more = false;
+        self.replace_on_finish = true;
+        self.state = IndexNameListLoadState::Loading { append: false };
+        self.revision.bump();
+        IndexNameListLoadIntent {
+            cursor: None,
+            generation: self.generation,
+            from: self.from.clone(),
+        }
     }
 
     /// Begins the "Try again" of a page whose rows wait (ADR 0084 packet 026
@@ -233,6 +258,9 @@ impl<Row> IndexNameListPage<Row> {
     pub(crate) fn finish_load(&mut self, batch: IndexNameListBatch<Row>, generation: u64) -> bool {
         if generation != self.generation {
             return false;
+        }
+        if std::mem::take(&mut self.replace_on_finish) {
+            self.rows.clear();
         }
         self.rows.extend(batch.rows);
         self.cursor = batch.cursor;
@@ -332,6 +360,9 @@ pub(crate) enum IndexNameList {
     /// `medium=musicL`, for the Public playlists list (ADR 0089 Decision 1,
     /// packet 009).
     PublicPlaylists,
+    /// `GET /v1/live-items` with `view=now`, for the Live list (ADR 0089
+    /// Decision 1, packet 011).
+    Live,
 }
 
 impl IndexNameList {
@@ -340,6 +371,7 @@ impl IndexNameList {
             Self::Releases | Self::RecentReleases => "releases",
             Self::Artists => "artists",
             Self::PublicPlaylists => "playlists",
+            Self::Live => "live items",
         }
     }
 
@@ -348,6 +380,7 @@ impl IndexNameList {
             Self::Releases | Self::RecentReleases => "release",
             Self::Artists => "artist",
             Self::PublicPlaylists => "playlist",
+            Self::Live => "live item",
         }
     }
 
@@ -360,6 +393,7 @@ impl IndexNameList {
             Self::PublicPlaylists => {
                 "GET /v1/feeds/recent or GET /v1/feeds/by-name with medium=musicL"
             }
+            Self::Live => "GET /v1/live-items",
         }
     }
 
@@ -367,6 +401,7 @@ impl IndexNameList {
         match self {
             Self::RecentReleases => format!("music-index-recent-{part}"),
             Self::PublicPlaylists => format!("music-public-playlists-{part}"),
+            Self::Live => format!("music-live-{part}"),
             Self::Releases | Self::Artists => format!("music-index-{}-{part}", self.noun()),
         }
     }
@@ -377,6 +412,7 @@ impl IndexNameList {
             Self::RecentReleases => "Loading recent MusicIndex releases",
             Self::Artists => "Loading MusicIndex artists",
             Self::PublicPlaylists => "Loading public playlists",
+            Self::Live => "Loading live items",
         }
     }
 
@@ -725,5 +761,66 @@ mod tests {
 
         let again = page.begin_load(false).expect("page 1 is requested");
         assert_eq!(again.from, None, "a plain load keeps the text of the list");
+    }
+
+    /// ADR 0089 packet 011: a reload of the Live list keeps the loaded rows
+    /// until its answer comes, and the answer replaces them. An old answer
+    /// changes nothing.
+    #[test]
+    fn adr_0089_live_reload_keeps_rows_until_the_answer() {
+        let mut page: IndexNameListPage<u8> = IndexNameListPage::default();
+        let first = page.begin_load(false).expect("page 1 is requested");
+        assert!(page.finish_load(
+            IndexNameListBatch {
+                rows: vec![1, 2],
+                cursor: None,
+                has_more: false,
+            },
+            first.generation,
+        ));
+
+        let reload = page.begin_reload();
+        assert_eq!(page.rows(), [1, 2], "the old rows stay on view");
+        assert!(!page.finish_load(
+            IndexNameListBatch {
+                rows: vec![9],
+                cursor: None,
+                has_more: false,
+            },
+            first.generation,
+        ));
+        assert!(page.finish_load(
+            IndexNameListBatch {
+                rows: vec![7],
+                cursor: None,
+                has_more: false,
+            },
+            reload.generation,
+        ));
+        assert_eq!(page.rows(), [7], "the answer replaces the old rows");
+    }
+
+    /// ADR 0089 packet 011: the Live list shows its loading row, its error
+    /// row with "Try again", and no "Load more" when the Index has no more.
+    #[test]
+    fn adr_0089_live_status_rows_have_their_labels() {
+        let mut page: IndexNameListPage<u8> = IndexNameListPage::default();
+        let intent = page.begin_load(false).expect("page 1 is requested");
+        let loading = page.status_row(IndexNameList::Live).expect("loading row");
+        assert!(matches!(
+            loading,
+            IndexListStatusRowVm::Loading {
+                label: "Loading live items",
+                ..
+            }
+        ));
+        assert!(page.fail_load("timeout", intent.generation));
+        let failed = page.status_row(IndexNameList::Live).expect("error row");
+        let IndexListStatusRowVm::Failed { detail, retry, .. } = failed else {
+            panic!("a failed page 1 gives the error row");
+        };
+        assert!(detail.starts_with("GET /v1/live-items"));
+        assert_eq!(retry.label, "Try again");
+        assert!(page.begin_retry().is_some());
     }
 }

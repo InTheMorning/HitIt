@@ -45,7 +45,7 @@ Each fact below was read on 2026-11-05 at commit `5942db3`.
 | [008](../tasks/adr-0089-task-008-results-rows.md) | The two rows of the results page: the scope writes the query, and the type tabs show counts | 007 | Implemented 2026-11-06. Parts A to C. V1 to V4 are open. |
 | [009](../tasks/adr-0089-task-009-public-playlists.md) | The Public playlists page and its item page | 008 | Implemented 2026-11-06. V1 to V3 are open. |
 | [010](../tasks/adr-0089-task-010-copy-to-my-playlists.md) | "Copy to My Playlists…" | 009 | Implemented 2026-11-06. V1 to V3 are open. |
-| [011](../tasks/adr-0089-task-011-live-page.md) | The Live page | 008 | Ready |
+| [011](../tasks/adr-0089-task-011-live-page.md) | The Live page | 008 | Implemented 2026-11-06. V1 to V3 are open. |
 | [012](../tasks/adr-0089-task-012-inbox.md) | The Inbox, and Needs attention goes | 008 | Ready |
 | [013](../tasks/adr-0089-task-013-narrow-tab-bar.md) | The tab bar and More in a narrow window | 011, 012 | Ready |
 | [014](../tasks/adr-0089-task-014-row-rules.md) | The rows of Decision 6, apart from Play | 005 | Ready |
@@ -100,3 +100,4 @@ Each packet is one commit. `git revert` of a packet and the packets after it res
 - R-TOOLBAR-1 puts the page title in the toolbar, and R-LIST-1 item 4 gives a list page a title row. Both show, so a list page shows its title twice. The final walk asks the operator about this.
 - 2026-11-06: an open window group page keeps the rows of its key, so a fresh load of the Releases list does not empty it (`WindowGroupSource::Releases` in `src/view_models/window_groups.rs`). No packet owns this.
 - 2026-11-06: 37 comments and strings in `src/` still say "New releases". Packet 006 changes each string that a person sees.
+- 2026-11-06: the other `open::that` sites of `src/` pass a URL with no scheme check. RSS and MusicIndex responses are untrusted input. Only `live_link_url` checks the scheme. No packet owns the other sites.

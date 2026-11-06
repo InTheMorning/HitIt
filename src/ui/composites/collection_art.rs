@@ -78,7 +78,7 @@ fn device_px(width: f32) -> u32 {
 #[must_use]
 pub(crate) const fn collection_entity_kind(kind: CollectionKind) -> EntityKind {
     match kind {
-        CollectionKind::SinglesGroup => EntityKind::Release,
+        CollectionKind::SinglesGroup | CollectionKind::Release => EntityKind::Release,
         CollectionKind::Artist => EntityKind::Artist,
         CollectionKind::Playlist => EntityKind::Playlist,
     }

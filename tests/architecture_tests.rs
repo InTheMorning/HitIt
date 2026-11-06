@@ -19581,6 +19581,20 @@ const CONTRACT_TYPE_MAP: &[ContractTypeMapping] = &[
             status: "200",
         }],
     },
+    // ADR 0089 packet 011: the live items of `GET /v1/live-items`, from the
+    // deployed contract version `0.18.1`.
+    ContractTypeMapping {
+        rust_type: "LiveItem",
+        schemas: &[ContractSchemaRef::Named("LiveItemListResponse")],
+    },
+    ContractTypeMapping {
+        rust_type: "LiveItemsResponse",
+        schemas: &[ContractSchemaRef::Inline {
+            path: "/v1/live-items",
+            method: "get",
+            status: "200",
+        }],
+    },
     ContractTypeMapping {
         rust_type: "Pagination",
         schemas: &[ContractSchemaRef::Named("Pagination")],

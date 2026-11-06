@@ -81,6 +81,7 @@ pub mod library_removal;
 pub(crate) mod library_search_facts;
 pub(crate) mod list_page;
 pub(crate) mod list_selection;
+pub(crate) mod live_page;
 pub(crate) mod live_run;
 pub(crate) mod live_status;
 pub mod metadata;

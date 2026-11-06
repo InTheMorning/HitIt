@@ -81,6 +81,30 @@ pub struct RecentFeedsResponse {
     pub pagination: Pagination,
 }
 
+/// One row of `GET /v1/live-items` (ADR 0089 Decision 1, packet 011). The
+/// row names its feed with `feed_guid`. Each field is untrusted input. The
+/// contract row `LiveItemListResponse` declares every field read here.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct LiveItem {
+    pub feed_guid: Option<String>,
+    pub live_item_guid: Option<String>,
+    pub title: Option<String>,
+    pub feed_title: Option<String>,
+    pub feed_image_url: Option<String>,
+    pub content_link: Option<String>,
+    pub scheduled_start: Option<i64>,
+    pub scheduled_end: Option<i64>,
+}
+
+/// One page of `GET /v1/live-items` (ADR 0089 packet 011).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct LiveItemsResponse {
+    pub data: Vec<LiveItem>,
+    pub pagination: Pagination,
+}
+
 /// One page of `GET /v1/feeds/by-name` (Stophammer ADR 0070, ADR 0084
 /// packet 016). The rows come in the order of their sort key.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1015,6 +1039,22 @@ impl Client {
         self.get_json(&["v1", "feeds", "recent"], &params)
     }
 
+    /// Fetches one page of the live items of the Index that are live now
+    /// (`GET /v1/live-items` with `view=now`, ADR 0089 packet 011). The
+    /// Index gives no upcoming item in this view.
+    ///
+    /// # Errors
+    /// Returns an error when the request fails or the response does not
+    /// decode.
+    pub(crate) fn fetch_live_items(
+        &self,
+        limit: i32,
+        cursor: Option<&str>,
+    ) -> Result<LiveItemsResponse> {
+        let params = live_items_params(limit, cursor);
+        self.get_json(&["v1", "live-items"], &params)
+    }
+
     /// Fetches one page of the music releases that name the feed
     /// `named_feed_guid` at any rank (`GET /v1/feeds/recent` with
     /// `named_feed_guid`, Stophammer ADR 0076 section 2, ADR 0084 packet
@@ -1410,6 +1450,17 @@ fn recent_feeds_params(
     params
 }
 
+/// The query of `GET /v1/live-items` for the live now view (ADR 0089
+/// packet 011). `view=now` is the value the endpoint gives by default, and
+/// it is sent so that the request names its view.
+fn live_items_params(limit: i32, cursor: Option<&str>) -> Vec<(&'static str, String)> {
+    let mut params = vec![("view", "now".to_owned()), ("limit", limit.to_string())];
+    if let Some(cursor) = cursor {
+        params.push(("cursor", cursor.to_string()));
+    }
+    params
+}
+
 /// The query of `GET /v1/feeds/by-name` (ADR 0089 Decision 5 and 6). `from`
 /// starts the list at its first row whose sort key is at or after it, and
 /// the endpoint ignores it when `cursor` is present.
@@ -1555,6 +1606,62 @@ pub(crate) mod tests {
                 .unwrap();
         assert_eq!(plain.label, None);
         assert_eq!(plain.url_scheme_added, None);
+    }
+
+    /// ADR 0089 packet 011: the live items request names the now view, and
+    /// the built URL carries `view=now`, the limit and the cursor.
+    #[test]
+    fn adr_0089_live_items_request_sends_the_now_view() {
+        let client = Client::new();
+        let params = super::live_items_params(20, Some("next"));
+        let url = client
+            .build_url(&["v1", "live-items"], &params)
+            .expect("url");
+        assert_eq!(url.path(), "/v1/live-items");
+        let pairs: Vec<(String, String)> = url.query_pairs().into_owned().collect();
+        assert!(pairs.contains(&("view".to_owned(), "now".to_owned())));
+        assert!(pairs.contains(&("limit".to_owned(), "20".to_owned())));
+        assert!(pairs.contains(&("cursor".to_owned(), "next".to_owned())));
+    }
+
+    /// ADR 0089 packet 011: a live item row of the stored contract decodes
+    /// with a null `content_link`, a null `feed_title` and a null
+    /// `scheduled_end`, and the page carries its pagination.
+    #[test]
+    fn adr_0089_live_items_page_decodes_a_null_content_link() {
+        let page: super::LiveItemsResponse = serde_json::from_str(
+            r#"{
+                "data": [{
+                    "confirming_relay": false,
+                    "content_link": null,
+                    "feed_guid": "feed-guid",
+                    "feed_image_url": null,
+                    "feed_title": null,
+                    "in_now_view": true,
+                    "in_upcoming_view": false,
+                    "link": null,
+                    "link_scheme_added": false,
+                    "live_item_guid": "live-item-guid",
+                    "live_value_protocol": null,
+                    "live_value_uri": null,
+                    "scheduled_end": null,
+                    "scheduled_start": 1710291600,
+                    "status": "live",
+                    "title": "Tonight's Listening Party"
+                }],
+                "meta": {"api_version": "v1", "node_pubkey": "hex-pubkey"},
+                "pagination": {"cursor": "next", "has_more": true}
+            }"#,
+        )
+        .expect("the stored contract row decodes");
+        let row = &page.data[0];
+        assert_eq!(row.feed_guid.as_deref(), Some("feed-guid"));
+        assert_eq!(row.content_link, None);
+        assert_eq!(row.feed_title, None);
+        assert_eq!(row.scheduled_end, None);
+        assert_eq!(row.scheduled_start, Some(1_710_291_600));
+        assert!(page.pagination.has_more);
+        assert_eq!(page.pagination.cursor.as_deref(), Some("next"));
     }
 
     #[test]

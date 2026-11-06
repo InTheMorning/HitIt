@@ -19,6 +19,7 @@ pub(crate) enum SidebarDestination {
     Artists,
     MyPlaylists,
     PublicPlaylists,
+    Live,
     NeedsAttention,
     Show,
     Settings,
@@ -26,12 +27,13 @@ pub(crate) enum SidebarDestination {
 
 impl SidebarDestination {
     /// Every row, in sidebar order.
-    pub(crate) const ALL: [Self; 8] = [
+    pub(crate) const ALL: [Self; 9] = [
         Self::Search,
         Self::Releases,
         Self::Artists,
         Self::MyPlaylists,
         Self::PublicPlaylists,
+        Self::Live,
         Self::NeedsAttention,
         Self::Show,
         Self::Settings,
@@ -47,6 +49,7 @@ impl SidebarDestination {
             Self::Artists => Some(MusicDestination::Artists),
             Self::MyPlaylists => Some(MusicDestination::Playlists),
             Self::PublicPlaylists => Some(MusicDestination::PublicPlaylists),
+            Self::Live => Some(MusicDestination::Live),
             Self::NeedsAttention => Some(MusicDestination::NeedsAttention),
             Self::Show | Self::Settings => None,
         }
@@ -61,6 +64,7 @@ impl SidebarDestination {
             MusicDestination::Artists => Self::Artists,
             MusicDestination::Playlists => Self::MyPlaylists,
             MusicDestination::PublicPlaylists => Self::PublicPlaylists,
+            MusicDestination::Live => Self::Live,
             MusicDestination::NeedsAttention => Self::NeedsAttention,
         }
     }
@@ -75,6 +79,7 @@ pub(crate) enum SidebarIcon {
     Artist,
     Playlist,
     PublicPlaylist,
+    Live,
     Warning,
     Show,
     Settings,
@@ -141,6 +146,7 @@ impl SidebarVm {
             SidebarDestination::Artists,
             SidebarDestination::MyPlaylists,
             SidebarDestination::PublicPlaylists,
+            SidebarDestination::Live,
             SidebarDestination::NeedsAttention,
         ];
         let lower = [SidebarDestination::Show, SidebarDestination::Settings];
@@ -178,6 +184,7 @@ fn row(
         | SidebarDestination::Releases
         | SidebarDestination::Artists
         | SidebarDestination::PublicPlaylists
+        | SidebarDestination::Live
         | SidebarDestination::Show
         | SidebarDestination::Settings => None,
     }
@@ -216,6 +223,7 @@ const fn label(destination: SidebarDestination) -> &'static str {
         SidebarDestination::Artists => "Artists",
         SidebarDestination::MyPlaylists => "My playlists",
         SidebarDestination::PublicPlaylists => "Public playlists",
+        SidebarDestination::Live => "Live",
         SidebarDestination::NeedsAttention => "Needs attention",
         SidebarDestination::Show => "Show",
         SidebarDestination::Settings => "Settings",
@@ -229,6 +237,7 @@ const fn element_id(destination: SidebarDestination) -> &'static str {
         SidebarDestination::Artists => "music-destination-artists",
         SidebarDestination::MyPlaylists => "music-destination-playlists",
         SidebarDestination::PublicPlaylists => "music-destination-public-playlists",
+        SidebarDestination::Live => "music-destination-live",
         SidebarDestination::NeedsAttention => "music-destination-needs-attention",
         SidebarDestination::Show => "sidebar-show",
         SidebarDestination::Settings => "sidebar-settings",
@@ -242,6 +251,7 @@ const fn icon(destination: SidebarDestination) -> SidebarIcon {
         SidebarDestination::Artists => SidebarIcon::Artist,
         SidebarDestination::MyPlaylists => SidebarIcon::Playlist,
         SidebarDestination::PublicPlaylists => SidebarIcon::PublicPlaylist,
+        SidebarDestination::Live => SidebarIcon::Live,
         SidebarDestination::NeedsAttention => SidebarIcon::Warning,
         SidebarDestination::Show => SidebarIcon::Show,
         SidebarDestination::Settings => SidebarIcon::Settings,
@@ -288,6 +298,7 @@ mod tests {
                 "Artists",
                 "My playlists",
                 "Public playlists",
+                "Live",
                 "Needs attention",
                 "---",
                 "Show",
@@ -333,6 +344,7 @@ mod tests {
             MusicDestination::Artists,
             MusicDestination::Playlists,
             MusicDestination::PublicPlaylists,
+            MusicDestination::Live,
             MusicDestination::NeedsAttention,
         ] {
             let row = SidebarDestination::for_music(destination);

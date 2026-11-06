@@ -32,6 +32,9 @@ pub(crate) enum ListPageKey {
     /// The public playlists of the Index, the musicL feeds (ADR 0089
     /// Decision 1, packet 009).
     PublicPlaylists,
+    /// The live items of the Index that are live now (ADR 0089 Decision 1,
+    /// packet 011). It has no scope and no sort.
+    Live,
     /// The results page of the toolbar search.
     Results,
     /// The page of a saved search.
@@ -46,6 +49,7 @@ impl ListPageKey {
             Self::Releases => "releases",
             Self::Artists => "artists",
             Self::MyPlaylists | Self::PublicPlaylists => "playlists",
+            Self::Live => "live items",
             Self::Results | Self::SavedSearch => "results",
         }
     }
@@ -58,6 +62,7 @@ impl ListPageKey {
             Self::Artists => "Artists",
             Self::MyPlaylists => "My playlists",
             Self::PublicPlaylists => "Public playlists",
+            Self::Live => "Live",
             Self::Results => "Results",
             Self::SavedSearch => "Saved search",
         }
@@ -72,7 +77,7 @@ impl ListPageKey {
     pub(crate) const fn views(self) -> &'static [ListView] {
         match self {
             Self::Releases | Self::PublicPlaylists => &[ListView::Rows, ListView::Tiles],
-            Self::Artists | Self::MyPlaylists | Self::Results | Self::SavedSearch => {
+            Self::Artists | Self::MyPlaylists | Self::Live | Self::Results | Self::SavedSearch => {
                 &[ListView::Rows]
             }
         }
@@ -87,7 +92,7 @@ impl ListPageKey {
                 &[ListSort::Newest, ListSort::AToZ]
             }
             Self::Artists => &[ListSort::AToZ],
-            Self::MyPlaylists => &[],
+            Self::MyPlaylists | Self::Live => &[],
         }
     }
 }
@@ -218,7 +223,8 @@ impl ListPageState {
                 scope: Some(ListScope::All),
                 letter: None,
             },
-            ListPageKey::MyPlaylists => Self {
+            // ADR 0089 Decision 5: rows, no sort and no scope.
+            ListPageKey::MyPlaylists | ListPageKey::Live => Self {
                 sort: None,
                 view: ListView::Rows,
                 scope: None,
@@ -251,6 +257,7 @@ pub(crate) struct ListPages {
     artists: ListPageState,
     my_playlists: ListPageState,
     public_playlists: ListPageState,
+    live: ListPageState,
     results: ListPageState,
     saved_search: ListPageState,
 }
@@ -262,6 +269,7 @@ impl Default for ListPages {
             artists: ListPageState::default_for(ListPageKey::Artists),
             my_playlists: ListPageState::default_for(ListPageKey::MyPlaylists),
             public_playlists: ListPageState::default_for(ListPageKey::PublicPlaylists),
+            live: ListPageState::default_for(ListPageKey::Live),
             results: ListPageState::default_for(ListPageKey::Results),
             saved_search: ListPageState::default_for(ListPageKey::SavedSearch),
         }
@@ -277,6 +285,7 @@ impl ListPages {
             ListPageKey::Artists => &self.artists,
             ListPageKey::MyPlaylists => &self.my_playlists,
             ListPageKey::PublicPlaylists => &self.public_playlists,
+            ListPageKey::Live => &self.live,
             ListPageKey::Results => &self.results,
             ListPageKey::SavedSearch => &self.saved_search,
         }
@@ -289,6 +298,7 @@ impl ListPages {
             ListPageKey::Artists => &mut self.artists,
             ListPageKey::MyPlaylists => &mut self.my_playlists,
             ListPageKey::PublicPlaylists => &mut self.public_playlists,
+            ListPageKey::Live => &mut self.live,
             ListPageKey::Results => &mut self.results,
             ListPageKey::SavedSearch => &mut self.saved_search,
         }
@@ -549,8 +559,9 @@ fn scope_control(
             "music-scope-playlists-all",
             "music-scope-playlists-in-library",
         ),
-        // Public playlists has no scope, so no scope control uses these ids.
-        ListPageKey::PublicPlaylists => (
+        // Public playlists and Live have no scope, so no scope control uses
+        // these ids.
+        ListPageKey::Live | ListPageKey::PublicPlaylists => (
             "music-scope-public-playlists",
             "music-scope-public-playlists-all",
             "music-scope-public-playlists-in-library",
@@ -598,6 +609,7 @@ fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
         ListPageKey::Artists => "music-list-sort-artists",
         ListPageKey::MyPlaylists => "music-list-sort-playlists",
         ListPageKey::PublicPlaylists => "music-list-sort-public-playlists",
+        ListPageKey::Live => "music-list-sort-live",
         ListPageKey::Results => "music-list-sort-results",
         ListPageKey::SavedSearch => "music-list-sort-saved-search",
     };
@@ -967,5 +979,24 @@ mod tests {
             None,
         );
         assert!(a_to_z.letters.is_some(), "A to Z shows the letter bar");
+    }
+
+    /// ADR 0089 packet 011: the Live page has rows only, no sort and no
+    /// scope. Its title row has no scope, no select and no sort control.
+    #[test]
+    fn adr_0089_live_page_has_rows_and_no_controls() {
+        let state = ListPageState::default_for(ListPageKey::Live);
+        assert_eq!(state.sort, None);
+        assert_eq!(state.view, ListView::Rows);
+        assert_eq!(state.scope, None);
+        assert_eq!(ListPageKey::Live.views(), [ListView::Rows]);
+        assert!(ListPageKey::Live.sorts().is_empty());
+
+        let head = ListPageHeadVm::new(ListPageKey::Live, state, None, None);
+        assert_eq!(head.title, "Live");
+        assert!(head.scope.is_none());
+        assert!(head.sort.is_none());
+        assert!(head.letters.is_none());
+        assert!(head.view.is_none(), "one view shows no view icon");
     }
 }
