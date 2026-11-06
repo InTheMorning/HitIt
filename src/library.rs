@@ -122,6 +122,9 @@ pub(crate) enum LibraryAppEvent {
         job: DownloadJob,
         outcome: DownloadOutcome,
     },
+    /// A request of the Search page (ADR 0089 Decision 4). The top app owns
+    /// the toolbar field, so it applies the request.
+    SearchPage(crate::view_models::search_page::SearchPageAction),
 }
 
 impl gpui::EventEmitter<LibraryAppEvent> for LibraryApp {}
@@ -259,9 +262,9 @@ pub struct LibraryApp {
     /// The scroll of the Needs attention list (ADR 0089 Decision 1). The
     /// Library holds it, so the offset survives a page opened over the list.
     needs_attention_scroll: ScrollHandle,
-    /// The scroll of the Discover views list (ADR 0089 Decision 1). The
-    /// Library holds it, so the offset survives a page opened over the list.
-    discover_views_scroll: ScrollHandle,
+    /// The scroll of the Search page list (ADR 0089 Decision 4). The Library
+    /// holds it, so the offset survives a page opened over the list.
+    search_page_scroll: ScrollHandle,
     /// The scroll of the Playlists list (ADR 0089 Decision 1). The Library
     /// holds it, so the offset survives a page opened over the list.
     playlists_scroll: ScrollHandle,
@@ -358,8 +361,11 @@ pub struct LibraryApp {
     /// each delete.
     saved_searches: Vec<crate::view_models::search_results::SavedSearch>,
     /// The saved search of the current location, for the open row of the
-    /// Discover column. The top app sets it at each render.
+    /// Search page. The top app sets it at each render.
     open_saved_search: Option<crate::view_models::search_results::SavedSearchId>,
+    /// The state of "How to Search" over a list with saved searches (ADR 0089
+    /// Decision 4). The page changes it on each click.
+    how_to_search: crate::view_models::search_page::HowToSearchDisclosure,
     /// The page that Back left open over the current list root, for the
     /// marked row of the Music list (R-NAV-2 item 2). The top app sets it at
     /// each render.

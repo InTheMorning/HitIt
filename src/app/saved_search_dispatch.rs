@@ -127,7 +127,7 @@ impl TopApp {
     }
 
     /// Deletes the saved search `id`. After the delete, the location
-    /// changes to Discover with "New releases", as a sidebar click does
+    /// changes to Search, as a sidebar click does
     /// (ADR 0084 Decision 9). A failure shows in the status text of the
     /// page, and the location does not change.
     fn delete_saved_search(&mut self, id: SavedSearchId, cx: &mut Context<Self>) {

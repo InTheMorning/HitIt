@@ -1,12 +1,14 @@
 //! The saved searches of the Library (ADR 0084 Decision 3, packet 012).
 //!
-//! `LibraryApp` holds the saved searches for the Discover column. It reads
+//! `LibraryApp` holds the saved searches for the Search page. It reads
 //! them at start, and again after each save and each delete. Only
 //! `src/db/saved_searches.rs` writes the table.
 
 #![warn(clippy::pedantic)]
 
 use gpui::Context;
+
+use crate::view_models::search_page::HowToSearchDisclosure;
 
 use super::LibraryApp;
 use crate::db::saved_searches::{self, SavedSearchInsert, StoredStartTab};
@@ -80,14 +82,23 @@ impl LibraryApp {
         deleted.map(|_| ()).map_err(|error| format!("{error:#}"))
     }
 
-    /// Opens a saved-search row directly under Discover (ADR 0084
+    /// Opens a saved-search row directly under Search (ADR 0084
     /// Decisions 3 and 9), as `open_discover_view` does.
     pub(crate) fn open_saved_search_row(&mut self, search: &SavedSearch, cx: &mut Context<Self>) {
         self.open_page(search.entry(), NavigationPathStart::ListRow, cx);
     }
 
+    /// Shows or hides the steps of "How to Search" (ADR 0089 Decision 4).
+    pub(crate) fn toggle_how_to_search(&mut self, cx: &mut Context<Self>) {
+        self.how_to_search = match self.how_to_search {
+            HowToSearchDisclosure::Hidden => HowToSearchDisclosure::Shown,
+            HowToSearchDisclosure::Shown => HowToSearchDisclosure::Hidden,
+        };
+        cx.notify();
+    }
+
     /// Sets the saved search of the current location, for the open row of
-    /// the Discover column.
+    /// the Search page.
     pub(crate) fn set_open_saved_search(&mut self, id: Option<SavedSearchId>) {
         self.open_saved_search = id;
     }

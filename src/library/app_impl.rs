@@ -76,9 +76,9 @@ use crate::ui::shells::library::index_list_status::IndexListActions;
 use crate::ui::shells::library::releases_tiles::{
     render_releases_list_tile, render_releases_tile_grid,
 };
+use crate::ui::shells::library::search_page_list::render_search_page_list;
 use crate::ui::shells::library::sidebar::{render_sidebar_row, render_sidebar_separator};
 use crate::ui::shells::library::track_detail_metadata::track_metadata_rows_for_frame;
-use crate::ui::shells::library::views_list::render_library_discover_list;
 use crate::ui::shells::library_removal_confirmation::{
     open_library_removal_confirmation_dialog, open_selection_removal_confirmation_dialog,
 };
@@ -123,6 +123,7 @@ use crate::view_models::release_row_actions::{
 };
 use crate::view_models::releases_everything::{ReleasesDownloadPlan, ReleasesListRows};
 use crate::view_models::search_field_values::LibraryFieldValues;
+use crate::view_models::search_page::{HowToSearchDisclosure, SearchPageVm};
 use crate::view_models::search_results::ArtistSearchFacts;
 use crate::view_models::selection_action_bar::{SelectionActionBarVm, SelectionActionKind};
 use crate::view_models::singles_group::{
@@ -1108,7 +1109,7 @@ impl LibraryApp {
             artist_name_page: IndexNameListPage::default(),
             release_name_page: IndexNameListPage::default(),
             needs_attention_scroll,
-            discover_views_scroll: gpui::ScrollHandle::new(),
+            search_page_scroll: gpui::ScrollHandle::new(),
             playlists_scroll: gpui::ScrollHandle::new(),
             expanded_singles_groups: BTreeSet::new(),
             download_queue: super::DownloadQueue::default(),
@@ -1139,6 +1140,7 @@ impl LibraryApp {
             detail_scroll_binding: super::detail_selection::DetailScrollBinding::default(),
             saved_searches: Vec::new(),
             open_saved_search: None,
+            how_to_search: HowToSearchDisclosure::Hidden,
             marked_entry: None,
             music_page_open: false,
             album_identity_backfill_started: false,
@@ -2554,7 +2556,7 @@ impl LibraryApp {
             // ADR 0084 Decision 3, packet 012: a saved search is a page
             // under Discover. The top app renders it in the detail column.
             FrameNavigationEntry::SavedSearch { .. } => {
-                self.vm.set_active_destination(MusicDestination::Discover);
+                self.vm.set_active_destination(MusicDestination::Search);
                 self.clear_detail();
             }
             // ADR 0084 Decision 6: the group page reads the tree at each
@@ -2603,7 +2605,7 @@ impl LibraryApp {
         match destination {
             // ADR 0084 Decision 3, ADR 0089 Decision 2: Discover's list
             // column shows its saved searches, not the content list.
-            MusicDestination::Discover
+            MusicDestination::Search
             | MusicDestination::Releases
             | MusicDestination::Artists
             | MusicDestination::Playlists => {
@@ -4179,9 +4181,7 @@ impl LibraryApp {
                 }
                 cx.notify();
             }
-            MusicDestination::Discover
-            | MusicDestination::Artists
-            | MusicDestination::Playlists => {}
+            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
         }
     }
 
@@ -4237,9 +4237,7 @@ impl LibraryApp {
                 self.track_selection.toggle_focused(&visible);
                 cx.notify();
             }
-            MusicDestination::Discover
-            | MusicDestination::Artists
-            | MusicDestination::Playlists => {}
+            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
         }
     }
 
@@ -4262,9 +4260,7 @@ impl LibraryApp {
                 self.track_selection.select_all(&visible);
                 cx.notify();
             }
-            MusicDestination::Discover
-            | MusicDestination::Artists
-            | MusicDestination::Playlists => {}
+            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
         }
     }
 
@@ -4327,9 +4323,9 @@ impl LibraryApp {
                 );
                 true
             }
-            MusicDestination::Discover
-            | MusicDestination::Artists
-            | MusicDestination::Playlists => false,
+            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {
+                false
+            }
         }
     }
 
@@ -4516,9 +4512,7 @@ impl LibraryApp {
                     }
                 };
             }
-            MusicDestination::Discover
-            | MusicDestination::Artists
-            | MusicDestination::Playlists => {}
+            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
         }
         cx.notify();
     }
@@ -5027,11 +5021,9 @@ impl LibraryApp {
         let mut action_bar: Option<AnyElement> = None;
         let mut page_head: Option<AnyElement> = None;
         let content_list_pane = match self.vm.active_destination() {
-            MusicDestination::Discover => {
-                let rows = self
-                    .vm
-                    .discover_list_rows(&self.saved_searches, self.open_saved_search);
-                render_library_discover_list(&rows, &self.discover_views_scroll, cx)
+            MusicDestination::Search => {
+                let vm = SearchPageVm::new(&self.saved_searches, self.open_saved_search);
+                render_search_page_list(&vm, self.how_to_search, &self.search_page_scroll, cx)
             }
             MusicDestination::NeedsAttention => {
                 let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();

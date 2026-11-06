@@ -8,7 +8,7 @@
 
 #![warn(clippy::pedantic)]
 
-use super::nav::FrameNavigationEntry;
+use super::nav::{FrameNavigationEntry, MusicDestination};
 
 /// Whether the content of a Music page is ready (ADR 0089 Decision 5).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -93,6 +93,9 @@ pub(crate) enum MusicFocusTarget {
     DetailColumn,
     /// The search results list of a search root.
     SearchResults,
+    /// The toolbar search field, which the Search destination opens with the
+    /// focus (ADR 0089 Decision 4).
+    SearchField,
     /// The saved-search page, which holds its own focus.
     SavedSearchPage,
 }
@@ -135,6 +138,11 @@ pub(crate) const fn music_focus_target(
         MusicColumns::ListRoot => {
             if search_results_open {
                 MusicFocusTarget::SearchResults
+            } else if matches!(
+                entry,
+                FrameNavigationEntry::Destination(MusicDestination::Search)
+            ) {
+                MusicFocusTarget::SearchField
             } else {
                 MusicFocusTarget::ListColumn
             }

@@ -1,6 +1,6 @@
 //! Saved searches (ADR 0084 Decision 3, packet 012).
 //!
-//! A saved search is a view of the Discover column, after "New releases".
+//! A saved search is a view of the Search page.
 //! Its page runs its query against the Library and the Index, and shows
 //! the results in the detail column with the view model of packet 010.
 //! This module gives the types, the labels, the typed actions, the delete
@@ -17,7 +17,7 @@ use super::{EmptyStateDisplay, SearchResultsInspectorPageVm, SearchResultsTab};
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub(crate) struct SavedSearchId(pub(crate) i64);
 
-/// One saved search, as Discover shows it.
+/// One saved search, as the Search page shows it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SavedSearch {
     pub(crate) id: SavedSearchId,
@@ -31,7 +31,7 @@ impl SavedSearch {
     /// The frame title of the saved-search page.
     pub(crate) const FRAME_TITLE: &'static str = "Saved search";
 
-    /// The subtitle of a saved-search row of Discover. Each saved search
+    /// The subtitle of a saved-search row of the Search page. Each saved search
     /// runs against the Library and the Index (ADR 0084 Decision 3).
     pub(crate) const SUBTITLE: &'static str = "Library and Index";
 
@@ -55,17 +55,11 @@ impl SavedSearch {
     }
 }
 
-/// The label of a saved search, in Discover and in the toolbar title, for
+/// The label of a saved search, in the Search page and in the toolbar title, for
 /// example "Saved: bluegrass".
 #[must_use]
 pub(crate) fn saved_search_label(query: &str) -> String {
     format!("Saved: {query}")
-}
-
-/// The accessibility label of a saved-search row of Discover.
-#[must_use]
-pub(crate) fn saved_search_row_a11y_label(query: &str) -> String {
-    format!("Saved search: {query}, {}", SavedSearch::SUBTITLE)
 }
 
 impl From<StoredStartTab> for SearchResultsTab {
@@ -126,7 +120,7 @@ pub(crate) fn save_search_action(query: &str, saved: &[SavedSearch]) -> SearchPa
         SearchPageActionDisplay {
             id: "music-search-list-save-search",
             label: "Saved",
-            a11y_label: "This search is saved in Discover".to_owned(),
+            a11y_label: "This search is saved in Search".to_owned(),
             available: false,
             style: SearchPageActionStyle::Plain,
         }
@@ -134,7 +128,7 @@ pub(crate) fn save_search_action(query: &str, saved: &[SavedSearch]) -> SearchPa
         SearchPageActionDisplay {
             id: "music-search-list-save-search",
             label: "Save search",
-            a11y_label: format!("Save the search \"{}\" in Discover", query.trim()),
+            a11y_label: format!("Save the search \"{}\" in Search", query.trim()),
             available: true,
             style: SearchPageActionStyle::Plain,
         }
@@ -183,11 +177,11 @@ pub(crate) fn delete_saved_search_confirmation(query: &str) -> SavedSearchDelete
     }
 }
 
-/// The location after the delete of a saved search: Discover, as a
+/// The location after the delete of a saved search: Search, as a
 /// sidebar click opens it, with "New releases" (ADR 0084 Decision 9).
 #[must_use]
 pub(crate) const fn location_after_saved_search_delete() -> FrameNavigationEntry {
-    FrameNavigationEntry::Destination(MusicDestination::Discover)
+    FrameNavigationEntry::Destination(MusicDestination::Search)
 }
 
 /// The state of the mounted saved-search page.
@@ -377,12 +371,12 @@ mod tests {
         let new = save_search_action("ambient", &list);
         assert_eq!(new.label, "Save search");
         assert!(new.available);
-        assert_eq!(new.a11y_label, "Save the search \"ambient\" in Discover");
+        assert_eq!(new.a11y_label, "Save the search \"ambient\" in Search");
 
         let present = save_search_action("Bluegrass", &list);
         assert_eq!(present.label, "Saved");
         assert!(!present.available);
-        assert_eq!(present.a11y_label, "This search is saved in Discover");
+        assert_eq!(present.a11y_label, "This search is saved in Search");
 
         let vm = SearchResultsInspectorPageVm::new("bluegrass");
         assert_eq!(vm.save_action(&list).label, "Saved");
@@ -551,7 +545,7 @@ mod tests {
         // saved-search function for this move, so the mounted page stays
         // the page of A.
         let mut nav = FrameNavigationState::new_with_page(
-            FrameNavigationEntry::Destination(MusicDestination::Discover),
+            FrameNavigationEntry::Destination(MusicDestination::Search),
             a.entry(),
         );
         nav.start_path(
@@ -589,7 +583,7 @@ mod tests {
     }
 
     /// R12-08 (ADR 0084 Decision 3): the confirmation names the query and
-    /// gives "Delete". After the delete, the location is Discover with
+    /// gives "Delete". After the delete, the location is Search with
     /// "New releases".
     #[test]
     fn adr_0084_saved_search_r12_08_delete_confirmation_and_location() {
@@ -612,15 +606,13 @@ mod tests {
             panic!("the delete opens a destination");
         };
         let mut nav = FrameNavigationState::new_with_page(
-            FrameNavigationEntry::Destination(MusicDestination::Discover),
+            FrameNavigationEntry::Destination(MusicDestination::Search),
             search.entry(),
         );
         nav.start_path(entry.clone(), None);
         assert_eq!(
             nav.path_entries(),
-            vec![FrameNavigationEntry::Destination(
-                MusicDestination::Discover
-            )]
+            vec![FrameNavigationEntry::Destination(MusicDestination::Search)]
         );
     }
 }

@@ -21,7 +21,7 @@ use crate::view_models::window_groups::WindowGroupKey;
 /// column fills with its items. A destination opens no page by itself.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MusicDestination {
-    Discover,
+    Search,
     Releases,
     Artists,
     NeedsAttention,
@@ -33,7 +33,7 @@ impl MusicDestination {
     /// walk each destination through this list.
     #[cfg(test)]
     pub(crate) const ALL: [Self; 5] = [
-        Self::Discover,
+        Self::Search,
         Self::Releases,
         Self::Artists,
         Self::NeedsAttention,
@@ -44,7 +44,7 @@ impl MusicDestination {
     #[must_use]
     pub(crate) const fn label(self) -> &'static str {
         match self {
-            Self::Discover => "Discover",
+            Self::Search => "Search",
             Self::Releases => "Releases",
             Self::Artists => "Artists",
             Self::NeedsAttention => "Needs attention",
@@ -62,7 +62,7 @@ pub(crate) enum FrameNavigationEntry {
     /// A Music destination, the root of a sidebar-started location (ADR
     /// 0084 Decisions 1 and 2, ADR 0089 Decision 1).
     Destination(MusicDestination),
-    /// A saved search, a page under the Discover destination (ADR 0084
+    /// A saved search, a page under the Search destination (ADR 0084
     /// Decision 3, packet 012). The entry holds the query, so the page of
     /// a deleted saved search can still name it.
     SavedSearch { id: SavedSearchId, query: String },
@@ -755,7 +755,7 @@ impl FrameNavigationState {
     #[cfg(test)]
     /// Creates navigation history at an initial location path:
     /// `destination` then `page`, with no back or forward history (ADR
-    /// 0084 Decision 3: Music opens on Discover, then "New releases").
+    /// 0084 Decision 3: Music opens on Search, then Releases).
     #[must_use]
     pub(crate) fn new_with_page(
         destination: FrameNavigationEntry,

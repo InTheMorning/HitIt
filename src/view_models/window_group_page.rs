@@ -38,7 +38,7 @@ use crate::view_models::workspace::ReleaseKey;
 /// The empty state of a window group page whose window has no loaded row
 /// (packet 004 decision D9).
 pub(crate) const WINDOW_GROUP_EMPTY_MESSAGE: &str =
-    "The loaded New releases hold no single of this window.";
+    "The loaded Releases hold no single of this window.";
 
 /// The title of a window group page and its label, for example
 /// "jSmovie · 9 singles" (packet 004 decision D14). No member gives the

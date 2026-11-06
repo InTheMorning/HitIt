@@ -988,7 +988,7 @@ impl<'a> ReleaseDetailVm<'a> {
     #[must_use]
     pub const fn actions_a11y_label(&self) -> &'static str {
         match self.context {
-            EntitySurfaceContext::Discover => "Discover release actions",
+            EntitySurfaceContext::Discover => "Feed release actions",
             EntitySurfaceContext::Library => "Library release actions",
         }
     }
