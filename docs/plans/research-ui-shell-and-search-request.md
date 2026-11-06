@@ -20,6 +20,8 @@ The research examined v4vmm at HEAD `58ce1ab`. The mockups are research
 commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 `10fd7eb` and `e2cd3a3` give the corrections of sections 2 to 4.
 
+[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md), Accepted on 2026-11-05, records sections 1 to 4.
+
 ## The Data
 
 | Data | Path from this repository |

@@ -249,3 +249,10 @@ Open - the packets are implemented, and the mechanical suite is Green. No person
 - [Packet 014](tasks/adr-0080-task-014-reader-keeps-each-frame.md) V1 passed on 2026-11-05. The run record owns the result, and the close of the run removes this line.
 - [Packet 013](tasks/adr-0080-task-013-mp4-date-shares-one-value.md) V1: an MP4 file settles after one write. The run record also asks for the format of the two files of the observation of 2026-10-16.
 - [ADR 0076 packet 011](tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md) V1 and V2: the first Check RSS of a feed reads its full document, and its license reaches the "Update n files" list.
+
+## 11. ADR 0089 The Shell - Run Of 2026-11-05
+
+Open - the [shell run](reviews/orchestrated-run-2026-11-05-shell.md) adds each implemented packet here. No person checked these packets.
+
+- Owner: the "Visual" list of each packet file in `docs/tasks/adr-0089-task-*.md`.
+- ADR 0089 Verification lists the visual criteria of the record, in Light and Dark, at normal and narrow width.

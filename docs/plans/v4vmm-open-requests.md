@@ -31,6 +31,7 @@ The v4vmm operator reviewed each item on 2026-09-24 and 2026-09-25.
 | 10 | Search accepts words, phrases and field filters | Search correction and API parameter additions | Item 1: ADR 0078 and ADR 0080, phrases deployed in release 0.15.0 on 2026-10-25. Items 2 to 7: ADR 0080, deployed in release 0.15.0 on 2026-10-25 |
 | 11 | A feed search hit gives its release date and its named feeds | API field and include additions | Draft - 2026-10-23. Not sent. On 2026-10-25 the v4vmm operator decided to send it after the walk of the saved search checks |
 | 12 | A track gives its season, and the index keeps the license | API field and parser additions | Draft - 2026-11-04. The v4vmm operator agreed on 2026-11-04 that v4vmm writes this request. No v4vmm packet waits for it |
+| 13 | A total for each list of feeds and names | API field addition | Draft - 2026-11-05. Not sent. v4vmm ADR 0089 shows no count for All until a total exists |
 
 ### 1. Album Summary Fields In Each Publisher Relationship Entry
 
@@ -392,6 +393,16 @@ The field names are a proposal. Stophammer selects the names in its own ADR.
 
 **The retention of a publisher resolution.** When an album feed changes or disappears, what happens to its stored back-link resolution and its `publisher_link_observed_at`?
 The v4vmm publisher relationship request asked this for the Stophammer ADR. ADR 0049 does not state it.
+
+### 13. A Total For Each List Of Feeds And Names
+
+**What happens.** On 2026-11-05, the v4vmm orchestrator read the stored contract of release 0.18.1. `Pagination` gives only `cursor` and `has_more`. No route gives the number of feeds or names in a list.
+
+**Why v4vmm needs it.** v4vmm ADR 0089 Decision 5 gives Releases and Artists the scope "All | In Library". The research request gives a count for each of the two. v4vmm can count In Library, but it has no source for All.
+
+The weakest part: the count is useful but not necessary. v4vmm shows no count for All until a total exists.
+
+**Request.** Give a total with `GET /v1/feeds/recent`, `GET /v1/feeds/by-name` and `GET /v1/artist-names`, for the same filters as the list. An approximate total is acceptable if the response says so.
 
 ## Stophammer Answers - 2026-09-25
 

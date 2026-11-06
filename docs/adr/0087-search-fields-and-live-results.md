@@ -8,6 +8,8 @@ The [ADR 0087 phase plan](../plans/adr-0087-search-fields-phase-plan.md) holds i
 It amends [ADR 0084](0084-music-column-browser.md) Decision 2. The toolbar search field shows a field list and reads fields in the query text. It shows results while the curator types. Search stays a toolbar command, never a section (ADR 0060).
 It amends [ADR 0084](0084-music-column-browser.md) Decision 3: a saved search runs its fields against the Library and the Index.
 
+Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): the saved searches move from Discover to the Search page. The toolbar field stays on each page.
+
 Amended 2026-10-24: the operator decided that a live run retains no failed action. Decision 4 now states it. [ADR 0087 task 009](../tasks/adr-0087-task-009-one-error-for-the-latest-text.md) builds it.
 
 ## Context

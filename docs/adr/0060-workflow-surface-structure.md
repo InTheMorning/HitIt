@@ -4,6 +4,8 @@
 
 Accepted - 2026-09-07.
 
+Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): one sidebar replaces the three section tabs, and the Search destination holds the saved searches. The now-playing panel shows while something plays. The invariants below state the result. The sections below them record the earlier design where they differ. The app keeps the earlier behavior until the packets of ADR 0089 land.
+
 Amended 2026-10-08 by [ADR 0084](0084-music-column-browser.md): the Vocabulary adds "Release". The curator sees "Release" for a feed of music, in place of "Album" and "Feed", and each release shows its kind. The scope control has two states, "Library" and "Everything".
 
 Amends ADR 0048 for the app-section tab set. Supersedes the `Broadcast`
@@ -166,12 +168,12 @@ and that decision belongs to a view model, not to a renderer condition.
 
 ## Invariants
 
-- The toolbar exposes exactly three app sections: `Music`, `Show`, `Settings`.
-- Search is a command. No app section is a search destination.
+- The sidebar holds each destination, and the toolbar has no section tabs (ADR 0089 Decision 1).
+- Search is a toolbar command on each page. The Search destination holds the saved searches, not the search (ADR 0089 Decision 4).
 - `Show` is a screen mount. No workspace frame kind is named for broadcasting.
-- Queue and transport render only inside `Show`.
+- Queue and transport render only inside `Show` and the now-playing panel (ADR 0089 Decision 7).
 - Audition renders only inside `Music` and never sets now-playing state.
-- `Music` and `Settings` render no operational surface when no show is active.
+- `Music` and `Settings` render no operational surface while nothing plays and no show is active.
 - The live status strip renders only when a show is active, and it dispatches no
   broadcast command other than opening `Show`.
 - The user-facing words are `Music` and `Library`. The database and the CLI keep

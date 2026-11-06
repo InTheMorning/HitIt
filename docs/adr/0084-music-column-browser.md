@@ -8,6 +8,8 @@ Amended 2026-10-19: the operator found the hidden checkboxes unclear and asked f
 
 Amended 2026-10-25 by operator decision: musicindex ADR 0027 R-SHELL-1 replaces Decision 1. The shell is a stack: a list is a page at full width, and an item opens over it. Its numbers are musicindex numbers. A new v4vmm ADR records the destinations, the start page and the scopes of the [research request](../plans/research-ui-shell-and-search-request.md), which change Decisions 2, 3 and 8.
 
+Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): ADR 0089 supersedes Decisions 2, 3 and 8. The location breadcrumb of Decision 9 goes. The other decisions stay. The app keeps the replaced behavior until the packets of ADR 0089 land.
+
 The first draft left three points open. The operator decided them on the same day:
 
 - the rule for each release kind (Decision 5)
@@ -78,6 +80,8 @@ Each column that can scroll shows a vertical scrollbar. A person can drag it, so
 
 ### 2. The Destinations
 
+Replaced by [ADR 0089](0089-the-shell-destinations-and-list-pages.md) on 2026-11-05. The text below records the replaced decision.
+
 The sidebar lists these destinations, in this order:
 
 1. **Discover** (Decision 3).
@@ -94,6 +98,8 @@ The feed state and "Check all feeds" stay at the bottom of the sidebar until the
 Saved searches are views in the Discover column (Decision 3). The operator decided this on 2026-10-08.
 
 ### 3. Music Opens On Discover
+
+Replaced by [ADR 0089](0089-the-shell-destinations-and-list-pages.md) on 2026-11-05. The text below records the replaced decision.
 
 Discover is the first destination and the default when Music opens. Its list column holds views. The first view is "New releases": the Index releases, newest first, as tiles or rows, with the recency order and the paging of [ADR 0062](0062-music-content-surface.md).
 
@@ -155,6 +161,8 @@ This replaces the Library artist page by name and the Index name match page.
 
 ### 8. Two Scopes
 
+Replaced by [ADR 0089](0089-the-shell-destinations-and-list-pages.md) on 2026-11-05. The text below records the replaced decision.
+
 Releases and Artists have one scope control with two states: "Library" and "Everything". "Everything" adds the Index items, and each Library item keeps its state word. Tracks has no scope control and shows the Library only. Discover and search show everything, with the state word on each Library item.
 
 This replaces the three-state control of [ADR 0062](0062-music-content-surface.md). No control shows Index items only.
@@ -163,7 +171,7 @@ This replaces the three-state control of [ADR 0062](0062-music-content-surface.m
 
 The Music content area has one navigation stack. Each page change goes into it: a sidebar click, a row, a link and a search. Back and Forward always show in the chrome of the detail column.
 
-The breadcrumb shows the location, not the history: the destination, then the path inside it, for example "Playlists › 000 › Tiddies In My Face (Single)".
+[ADR 0089](0089-the-shell-destinations-and-list-pages.md) removes the breadcrumb on 2026-11-05, and this paragraph and the rules for it record the replaced decision. The breadcrumb shows the location, not the history: the destination, then the path inside it, for example "Playlists › 000 › Tiddies In My Face (Single)".
 
 - A page shows in the breadcrumb one time at most. A move to a page that is already in the path cuts the path at that page.
 - A sidebar click starts a new path.
@@ -242,15 +250,14 @@ Negative:
 
 Mechanical criteria, each at the layer that owns it:
 
-- The Music view model exposes the destinations of Decision 2 in that order, and Discover is the default.
 - A release opened from a Library row and from an Index row builds the same page view model, keyed by its feed GUID.
 - The Releases list view model gives one group row for two or more singles of one artist identity, and no group for one single.
 - The artist page view model gives the publisher level only for a publisher feed GUID, and labels the name level.
-- The navigation model has one stack for the Music content area. A breadcrumb holds each page one time at most.
+- The navigation model has one stack for the Music content area.
 - The selection model supports add, range, all and clear, and gives the bar actions with typed availability.
 - The kind of a release follows Decision 5.
 - A guard blocks a second navigation stack in a Music screen.
 
 Visual criteria, for the operator:
 
-- The three columns, the collapsed sidebar, Discover, the singles group, the two artist levels and the logo frame, in Light and Dark, at normal and narrow width.
+- The singles group, the two artist levels and the logo frame, in Light and Dark, at normal and narrow width.
