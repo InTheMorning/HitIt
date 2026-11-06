@@ -4,8 +4,8 @@
 //! Migration 21 creates `saved_searches`. Each row is one toolbar search
 //! that the operator saved: the trimmed query text, the tab that was open
 //! at the save, and the time of the save. Migration 22 adds the optional
-//! name column and the table `saved_search_seen`. No function writes the
-//! name or the seen table yet, so each row reads a null name.
+//! name column and the table `saved_search_seen`. The rename and the
+//! duplicate write the name. The seen table has no writer yet.
 //!
 //! This module is the only writer of the table. The caller gives each
 //! time, so no function here reads the clock.
@@ -155,6 +155,49 @@ pub(crate) enum SavedSearchCopy {
     Missing,
 }
 
+/// The result of a change of the query text of a saved search (ADR 0087
+/// Decision 6, ADR 0089 Decision 4).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SavedSearchQueryWrite {
+    /// The stored text is the trimmed new text.
+    Written,
+    /// Another row holds the new text, without case. The table does not
+    /// change.
+    AlreadySaved,
+    /// No row has this id. The table does not change.
+    Missing,
+    /// The new text is blank. The table does not change.
+    Blank,
+}
+
+/// Sets the query text of the saved search `id`. The text is trimmed. The
+/// row keeps its name, its start tab and its time. A text that another row
+/// holds gives [`SavedSearchQueryWrite::AlreadySaved`], so the unique query
+/// index never panics.
+pub(crate) fn update_saved_search_query(
+    conn: &Connection,
+    id: i64,
+    query: &str,
+) -> Result<SavedSearchQueryWrite> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Ok(SavedSearchQueryWrite::Blank);
+    }
+    match conn.execute(
+        "UPDATE saved_searches SET query = ?2 WHERE id = ?1",
+        params![id, query],
+    ) {
+        Ok(0) => Ok(SavedSearchQueryWrite::Missing),
+        Ok(_) => Ok(SavedSearchQueryWrite::Written),
+        Err(rusqlite::Error::SqliteFailure(error, _))
+            if error.code == ErrorCode::ConstraintViolation =>
+        {
+            Ok(SavedSearchQueryWrite::AlreadySaved)
+        }
+        Err(error) => Err(error).context("Change the query of the saved search"),
+    }
+}
+
 /// Sets the name of the saved search `id`. A blank name clears it, so the
 /// row shows its query text again.
 pub(crate) fn rename_saved_search(
@@ -265,7 +308,8 @@ mod tests {
 
     use super::{
         delete_saved_search, duplicate_saved_search, insert_saved_search, rename_saved_search,
-        saved_searches, SavedSearchCopy, SavedSearchInsert, SavedSearchWrite, StoredStartTab,
+        saved_searches, update_saved_search_query, SavedSearchCopy, SavedSearchInsert,
+        SavedSearchQueryWrite, SavedSearchWrite, StoredStartTab,
     };
     use crate::db::{inspect_schema, upgrades, SchemaCompatibility, CURRENT_VERSION, MIGRATIONS};
 
@@ -540,5 +584,56 @@ mod tests {
             duplicate_saved_search(&conn, 999, 1).unwrap(),
             SavedSearchCopy::Missing
         );
+    }
+
+    /// ADR 0087 Decision 6 (packet 007): the query text of a saved search
+    /// changes in place. The name, the tab and the time stay. A blank text,
+    /// a missing row and a text that another row holds change nothing.
+    #[test]
+    fn adr_0089_saved_search_query_r22_03_update_query_returns_typed_results() {
+        let conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, CURRENT_VERSION).unwrap();
+        let SavedSearchInsert::Inserted(first) =
+            insert_saved_search(&conn, "bluegrass", StoredStartTab::Tracks, 100).unwrap()
+        else {
+            panic!("the first query is inserted");
+        };
+        let SavedSearchInsert::Inserted(second) =
+            insert_saved_search(&conn, "ambient", StoredStartTab::Releases, 200).unwrap()
+        else {
+            panic!("the second query is inserted");
+        };
+        rename_saved_search(&conn, first, "Old time").unwrap();
+
+        assert_eq!(
+            update_saved_search_query(&conn, first, "  bluegrass banjo  ").unwrap(),
+            SavedSearchQueryWrite::Written
+        );
+        let stored = saved_searches(&conn).unwrap();
+        assert_eq!(stored[0].query, "bluegrass banjo", "the text is trimmed");
+        assert_eq!(stored[0].name.as_deref(), Some("Old time"));
+        assert_eq!(stored[0].start_tab, StoredStartTab::Tracks);
+        assert_eq!(stored[0].created_at, 100);
+
+        assert_eq!(
+            update_saved_search_query(&conn, first, "AMBIENT").unwrap(),
+            SavedSearchQueryWrite::AlreadySaved,
+            "another row holds \"ambient\" without case"
+        );
+        assert_eq!(
+            update_saved_search_query(&conn, first, "  ").unwrap(),
+            SavedSearchQueryWrite::Blank
+        );
+        assert_eq!(
+            update_saved_search_query(&conn, 999, "jazz").unwrap(),
+            SavedSearchQueryWrite::Missing
+        );
+        let after = saved_searches(&conn).unwrap();
+        assert_eq!(
+            after[0].query, "bluegrass banjo",
+            "a refused text changes nothing"
+        );
+        assert_eq!(after[1].id, second);
+        assert_eq!(after[1].query, "ambient");
     }
 }

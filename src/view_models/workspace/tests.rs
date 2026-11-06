@@ -10,6 +10,65 @@ use super::{
 use crate::view_models::artist_identity::ArtistNameKey;
 use crate::view_models::search_results::SavedSearchId;
 
+/// A saved-search entry with the text `query`.
+fn saved_entry(id: i64, query: &str) -> FrameNavigationEntry {
+    FrameNavigationEntry::SavedSearch {
+        id: SavedSearchId(id),
+        query: query.to_owned(),
+    }
+}
+
+/// ADR 0089 Decision 4 (review of 2026-11-06): a keep renames the saved
+/// search in every history entry with its id. Back, the current entry and
+/// Forward keep the place of each entry, and an entry of another id does not
+/// change.
+#[test]
+fn adr_0089_saved_search_rename_updates_each_history_entry_by_id() {
+    let mut nav = FrameNavigationState::new(saved_entry(1, "old"));
+    nav.push(FrameNavigationEntry::Destination(
+        MusicDestination::Releases,
+    ));
+    nav.push(saved_entry(2, "other"));
+    assert_eq!(
+        nav.go_back().cloned().ok(),
+        Some(FrameNavigationEntry::Destination(
+            MusicDestination::Releases
+        ))
+    );
+    // Back stack: saved 1 (old). Current: Releases. Forward: saved 2.
+
+    nav.rename_saved_search_entries(SavedSearchId(1), "new");
+
+    assert_eq!(nav.go_back().cloned().ok(), Some(saved_entry(1, "new")));
+    assert_eq!(
+        nav.go_forward().cloned().ok(),
+        Some(FrameNavigationEntry::Destination(
+            MusicDestination::Releases
+        ))
+    );
+    assert_eq!(
+        nav.go_forward().cloned().ok(),
+        Some(saved_entry(2, "other"))
+    );
+}
+
+/// ADR 0089 Decision 4 (review of 2026-11-06): the rename also reaches the
+/// current location, including an ancestor on its path.
+#[test]
+fn adr_0089_saved_search_rename_updates_the_current_path() {
+    let mut nav =
+        FrameNavigationState::new(FrameNavigationEntry::Destination(MusicDestination::Search));
+    nav.push(saved_entry(3, "bluegrass"));
+    nav.rename_saved_search_entries(SavedSearchId(3), "bluegrass banjo");
+    assert_eq!(
+        nav.path_entries(),
+        vec![
+            FrameNavigationEntry::Destination(MusicDestination::Search),
+            saved_entry(3, "bluegrass banjo"),
+        ]
+    );
+}
+
 fn frame(id: u64, kind: WorkspaceFrameKind) -> WorkspaceFrameState {
     WorkspaceFrameState::with_default_title(WorkspaceFrameId::new(id), kind)
 }

@@ -8,7 +8,7 @@
 
 #![warn(clippy::pedantic)]
 
-use gpui::{AnyElement, App, Context, Window};
+use gpui::{div, prelude::*, AnyElement, App, Context, Window};
 
 use crate::ui::shells::saved_search_delete_confirmation::open_saved_search_delete_dialog;
 use crate::ui::shells::search_results_inspector::{
@@ -82,7 +82,7 @@ impl TopApp {
     /// request on the ADR 0040 runtime. The run parses the saved text again
     /// (ADR 0087 Decision 6) and uses the Index entry of the toolbar search
     /// (packet 002 decision D21).
-    fn run_saved_search(&mut self, search: &SavedSearch, cx: &mut Context<Self>) {
+    pub(super) fn run_saved_search(&mut self, search: &SavedSearch, cx: &mut Context<Self>) {
         // ADR 0087 Decision 4: each run of the slot takes a new generation.
         let run = self.next_search_run(SearchPageSlot::SavedSearch, &search.query);
         let results = self
@@ -175,6 +175,7 @@ impl TopApp {
         &mut self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let query_bar = self.render_saved_search_query_bar(cx);
         let current = match self.current_music_entry() {
             Some(FrameNavigationEntry::SavedSearch { id, query }) => Some((id, query)),
             _ => None,
@@ -190,6 +191,7 @@ impl TopApp {
         let Some(delete_action) = page.delete_action() else {
             return render_search_empty_state(&SavedSearchPage::deleted_empty_state(), cx);
         };
+        let hide_header_query = !page.header_shows_query();
         let (items, bar, thumbnail_hrefs) = {
             let library = self.library.read(cx);
             let lookup = library.search_lookup();
@@ -249,6 +251,7 @@ impl TopApp {
             .with_thumbnails(thumbnails)
             .with_arts(arts)
             .with_items(items)
+            .with_header_query_hidden(hide_header_query)
             .with_scroll(self.search_page_scroll(SearchPageSlot::SavedSearch));
         let Some(results) = self.search_page(SearchPageSlot::SavedSearch) else {
             return render_search_empty_state(&SavedSearchPage::deleted_empty_state(), cx);
@@ -258,6 +261,13 @@ impl TopApp {
         let bar = bar.map(|(bar, rows)| {
             self.render_search_action_bar(SearchPageSlot::SavedSearch, bar, &rows, cx)
         });
-        self.render_search_list_frame(SearchPageSlot::SavedSearch, content, bar)
+        let frame = self.render_search_list_frame(SearchPageSlot::SavedSearch, content, bar);
+        div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .child(query_bar)
+            .child(frame)
+            .into_any_element()
     }
 }

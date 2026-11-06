@@ -13,11 +13,12 @@ use crate::view_models::search_page::HowToSearchDisclosure;
 
 use super::LibraryApp;
 use crate::db::saved_searches::{
-    self, SavedSearchCopy, SavedSearchInsert, SavedSearchWrite, StoredStartTab,
+    self, SavedSearchCopy, SavedSearchInsert, SavedSearchQueryWrite, SavedSearchWrite,
+    StoredStartTab,
 };
 use crate::view_models::search_results::{
-    SavedSearch, SavedSearchId, SearchResultsTab, SAVED_SEARCH_COPY_CONFLICT_TEXT,
-    SAVED_SEARCH_MISSING_TEXT,
+    SavedSearch, SavedSearchId, SavedSearchQueryKeep, SearchResultsTab,
+    SAVED_SEARCH_COPY_CONFLICT_TEXT, SAVED_SEARCH_MISSING_TEXT,
 };
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
@@ -164,23 +165,69 @@ impl LibraryApp {
 
     /// Copies the saved search `id` as a new row, in place (ADR 0089
     /// Decision 4). The new row takes the name of the original with " copy".
-    /// A copy whose text is saved already gives the conflict text.
-    pub(crate) fn duplicate_saved_search_row(&mut self, id: SavedSearchId, cx: &mut Context<Self>) {
+    /// A copy whose text is saved already gives the conflict text. Gives the
+    /// id of the new row, so the caller can open it.
+    pub(crate) fn duplicate_saved_search_row(
+        &mut self,
+        id: SavedSearchId,
+        cx: &mut Context<Self>,
+    ) -> Option<SavedSearchId> {
         let created_at = chrono::Utc::now().timestamp();
         let copied = {
             let conn = self.conn.lock().expect("lock db");
             saved_searches::duplicate_saved_search(&conn, id.0, created_at)
         };
-        self.saved_search_message = match copied {
-            Ok(SavedSearchCopy::Copied(_)) => None,
-            Ok(SavedSearchCopy::AlreadySaved) => Some(SAVED_SEARCH_COPY_CONFLICT_TEXT.to_owned()),
-            Ok(SavedSearchCopy::Missing) => Some(SAVED_SEARCH_MISSING_TEXT.to_owned()),
-            Err(error) => Some(format!(
-                "The app could not duplicate the saved search: {error:#}"
-            )),
+        let copy_id = match copied {
+            Ok(SavedSearchCopy::Copied(copy_id)) => {
+                self.saved_search_message = None;
+                Some(SavedSearchId(copy_id))
+            }
+            Ok(SavedSearchCopy::AlreadySaved) => {
+                self.saved_search_message = Some(SAVED_SEARCH_COPY_CONFLICT_TEXT.to_owned());
+                None
+            }
+            Ok(SavedSearchCopy::Missing) => {
+                self.saved_search_message = Some(SAVED_SEARCH_MISSING_TEXT.to_owned());
+                None
+            }
+            Err(error) => {
+                self.saved_search_message = Some(format!(
+                    "The app could not duplicate the saved search: {error:#}"
+                ));
+                None
+            }
         };
         self.reload_saved_searches();
         cx.notify();
+        copy_id
+    }
+
+    /// Saves `query` as the text of the saved search `id` (ADR 0087 Decision
+    /// 6). The text is trimmed. Gives the typed result of the writer, so the
+    /// caller shows a conflict or a blank text. The error text names the
+    /// database error.
+    pub(crate) fn save_saved_search_query(
+        &mut self,
+        id: SavedSearchId,
+        query: &str,
+        cx: &mut Context<Self>,
+    ) -> SavedSearchQueryKeep {
+        let written = {
+            let conn = self.conn.lock().expect("lock db");
+            saved_searches::update_saved_search_query(&conn, id.0, query)
+        };
+        let keep = match written {
+            Ok(SavedSearchQueryWrite::Written) => {
+                SavedSearchQueryKeep::Saved(query.trim().to_owned())
+            }
+            Ok(SavedSearchQueryWrite::AlreadySaved) => SavedSearchQueryKeep::Conflict,
+            Ok(SavedSearchQueryWrite::Blank) => SavedSearchQueryKeep::Blank,
+            Ok(SavedSearchQueryWrite::Missing) => SavedSearchQueryKeep::Missing,
+            Err(error) => SavedSearchQueryKeep::Failed(format!("{error:#}")),
+        };
+        self.reload_saved_searches();
+        cx.notify();
+        keep
     }
 
     /// Shows or hides the steps of "How to Search" (ADR 0089 Decision 4).

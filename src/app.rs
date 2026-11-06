@@ -71,6 +71,7 @@ mod publisher_dispatch;
 mod queue_now_playing;
 mod resize;
 mod saved_search_dispatch;
+mod saved_search_query_edit;
 mod search_dispatch;
 mod search_field_list;
 mod search_live;
@@ -203,6 +204,10 @@ pub struct TopApp {
     settings: SettingsVm,
     settings_scroll: crate::ui::composites::settings::SettingsScrollHandles,
     _global_search_sub: gpui::Subscription,
+    /// The query field of the saved-search page (ADR 0089 Decision 4). It
+    /// is not the toolbar field.
+    saved_search_query_input: Entity<InputState>,
+    _saved_search_query_sub: gpui::Subscription,
     _library_sub: gpui::Subscription,
     _field_value_sub: gpui::Subscription,
     _appearance_sub: gpui::Subscription,
@@ -362,6 +367,15 @@ impl TopApp {
         });
         let global_search_sub =
             cx.subscribe_in(&global_search_input, window, Self::on_global_search_event);
+        let saved_search_query_input = cx.new(|cx: &mut Context<InputState>| {
+            InputState::new(window, cx)
+                .placeholder(crate::view_models::search_results::SAVED_SEARCH_QUERY_PLACEHOLDER)
+        });
+        let saved_search_query_sub = cx.subscribe_in(
+            &saved_search_query_input,
+            window,
+            Self::on_saved_search_query_event,
+        );
         let library = cx.new(|cx| {
             let mut library = LibraryApp::new_with_content_view_mode(
                 conn.clone(),
@@ -543,6 +557,8 @@ impl TopApp {
             settings: SettingsVm::default(),
             settings_scroll: crate::ui::composites::settings::SettingsScrollHandles::default(),
             _global_search_sub: global_search_sub,
+            saved_search_query_input,
+            _saved_search_query_sub: saved_search_query_sub,
             _library_sub: library_sub,
             _field_value_sub: field_value_sub,
             _appearance_sub: appearance_sub,
@@ -717,6 +733,25 @@ impl TopApp {
             }
             SearchPageAction::DeleteSavedSearch(search) => {
                 Self::request_saved_search_delete_for(search, window, cx);
+            }
+            SearchPageAction::EditSavedSearchQuery(search) => {
+                self.open_saved_search_query_edit(search, window, cx);
+            }
+            SearchPageAction::DuplicateSavedSearch(id) => {
+                let copy = self.library.update(cx, |library, cx| {
+                    library.duplicate_saved_search_row(*id, cx)
+                });
+                let search = copy.and_then(|copy| {
+                    self.library
+                        .read(cx)
+                        .saved_searches()
+                        .iter()
+                        .find(|search| search.id == copy)
+                        .cloned()
+                });
+                if let Some(search) = search {
+                    self.open_saved_search_query_edit(&search, window, cx);
+                }
             }
         }
     }
@@ -1731,6 +1766,9 @@ impl TopApp {
             .workspace_layout
             .frame_nav(content_frame_id)
             .map(|nav| nav.current().clone());
+        // ADR 0089 Decision 4: a Back or a destination change ends the query
+        // field of the saved-search page.
+        self.discard_saved_search_query_edit_when_left(current_nav.as_ref());
 
         // ADR 0084 packet 018: the detail selection belongs to the open
         // page. A move to another page clears it and sets `Normal`.

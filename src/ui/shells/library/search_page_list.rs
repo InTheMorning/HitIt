@@ -201,9 +201,15 @@ fn run_saved_search_menu_item(
     cx: &mut Context<LibraryApp>,
 ) {
     match item {
-        SavedSearchMenuItem::EditQuery => this.open_saved_search_row(search, cx),
+        // The top app opens the page with its query field open, and it
+        // copies the row for Duplicate, because it opens the copy.
+        SavedSearchMenuItem::EditQuery => cx.emit(LibraryAppEvent::SearchPage(
+            SearchPageAction::EditSavedSearchQuery(search.clone()),
+        )),
         SavedSearchMenuItem::Rename => this.begin_saved_search_rename(search, window, cx),
-        SavedSearchMenuItem::Duplicate => this.duplicate_saved_search_row(search.id, cx),
+        SavedSearchMenuItem::Duplicate => cx.emit(LibraryAppEvent::SearchPage(
+            SearchPageAction::DuplicateSavedSearch(search.id),
+        )),
         SavedSearchMenuItem::Delete => cx.emit(LibraryAppEvent::SearchPage(
             SearchPageAction::DeleteSavedSearch(search.clone()),
         )),
