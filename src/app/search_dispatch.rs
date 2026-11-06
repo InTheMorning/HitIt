@@ -896,7 +896,7 @@ impl TopApp {
     }
 
     /// Restores the stored release page source for a navigation entry that
-    /// a breadcrumb or a history move (Back or Forward) just restored
+    /// a history move (Back or Forward) just restored
     /// (ADR 0084 Decision 4). Clears the stored source for every other
     /// entry.
     pub(super) fn restore_release_page_source_for_nav(
@@ -1043,7 +1043,7 @@ impl TopApp {
     }
 
     /// Restores the stored track page source for a navigation entry that a
-    /// breadcrumb or a history move (Back or Forward) just restored (ADR
+    /// a history move (Back or Forward) just restored (ADR
     /// 0084 Decision 4). Clears the stored source for every other entry.
     pub(super) fn restore_track_page_source_for_nav(
         &mut self,

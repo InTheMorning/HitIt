@@ -132,7 +132,7 @@ impl TopApp {
     }
 
     /// Restores the publisher page fetch for a navigation entry that a
-    /// breadcrumb or a history move (back or forward) just restored (ADR
+    /// a history move (back or forward) just restored (ADR
     /// 0077 packet 004). Starts no fetch when `entry` is not a publisher
     /// page, or when the mounted page already matches its GUID. Otherwise
     /// fetches with the context this GUID last opened with, so the restore
@@ -506,18 +506,6 @@ impl TopApp {
             on_click_release,
             on_toggle_release,
             menu,
-        }
-    }
-
-    /// The breadcrumb text of the mounted publisher page: the view model
-    /// title (ADR 0077 packet 004, R4-04). `None` when the page has not
-    /// loaded, so the caller falls back to the GUID.
-    pub(super) fn publisher_page_breadcrumb_text(&self) -> Option<String> {
-        match self.publisher_page.as_ref()? {
-            PublisherPageState::Loaded { facts, .. } => {
-                Some(PublisherPageVm::new(facts.as_ref().clone()).title_text())
-            }
-            PublisherPageState::Loading { .. } | PublisherPageState::Failed { .. } => None,
         }
     }
 

@@ -11,7 +11,7 @@ use gpui::Context;
 use super::LibraryApp;
 use crate::db::saved_searches::{self, SavedSearchInsert, StoredStartTab};
 use crate::view_models::search_results::{SavedSearch, SavedSearchId, SearchResultsTab};
-use crate::view_models::workspace::NavigationPathStart;
+use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
 impl LibraryApp {
     /// The saved searches, in `id` order.
@@ -90,5 +90,11 @@ impl LibraryApp {
     /// the Discover column.
     pub(crate) fn set_open_saved_search(&mut self, id: Option<SavedSearchId>) {
         self.open_saved_search = id;
+    }
+
+    /// Sets the page that Back left open over the current list root, for
+    /// the marked row of the Music list (R-NAV-2 item 2).
+    pub(crate) fn set_marked_entry(&mut self, entry: Option<FrameNavigationEntry>) {
+        self.marked_entry = entry;
     }
 }

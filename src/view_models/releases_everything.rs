@@ -139,6 +139,7 @@ pub(crate) fn index_release_row(
         None => kind.to_owned(),
     };
     Some(DestinationListRowVm {
+        marked: false,
         // The element id of a Library row of the same key, so the row
         // keeps its identity when a download adds it to the Library.
         element_id: format!("music-release-row-{}", release_row_slug(&key)),
@@ -592,6 +593,7 @@ pub(crate) mod tests {
         LibraryReleaseEntry {
             order: ReleaseOrderKey::release(label, key.clone()),
             entry: ReleasesListEntryVm::Release(DestinationListRowVm {
+                marked: false,
                 element_id: format!("music-release-row-{}", release_row_slug(&key)),
                 label: label.to_owned(),
                 secondary_text: "Library".to_owned(),

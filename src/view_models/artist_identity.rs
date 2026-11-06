@@ -19,7 +19,7 @@ use std::hash::{Hash, Hasher};
 use crate::view_models::index_name_list::name_sort_key;
 use crate::view_models::named_feeds::{select_artist_feed, ArtistFeed, NamedFeed};
 
-/// The mark of a name row of the Artists list and of the breadcrumb item of
+/// The mark of a name row of the Artists list and of the page of
 /// a name level page (operator decision of 2026-10-18). It tells a name
 /// row from a feed row with the same label. It names the source of the
 /// group, not a confirmation level (ADR 0085 Decision 2).
@@ -61,7 +61,7 @@ impl ArtistIdentity {
 
 /// The key of one name level page, with the label that the operator
 /// clicked (ADR 0084 Decision 7). Equality, order and hash use the key
-/// only. Thus "Haleen" and "haleen" open one page, and the breadcrumb holds
+/// only. Thus "Haleen" and "haleen" open one page, and the page path holds
 /// that page one time.
 #[derive(Clone, Debug)]
 pub(crate) struct ArtistNameKey {

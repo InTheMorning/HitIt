@@ -55,7 +55,7 @@ impl SavedSearch {
     }
 }
 
-/// The label of a saved search, in Discover and in the breadcrumb, for
+/// The label of a saved search, in Discover and in the toolbar title, for
 /// example "Saved: bluegrass".
 #[must_use]
 pub(crate) fn saved_search_label(query: &str) -> String {

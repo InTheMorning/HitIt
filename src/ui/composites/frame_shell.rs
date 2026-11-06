@@ -1,7 +1,8 @@
 //! Shared workspace frame shell composite.
 //!
 //! This composite owns frame chrome for ADR 0046: title, subtitle, status,
-//! history controls, close, action menu, and a caller-supplied content slot.
+//! close, action menu, and a caller-supplied content slot. Back, Forward and
+//! the page title belong to the app toolbar (ADR 0089 Decision 9).
 //! Screens provide content and command callbacks; they do not render frame
 //! chrome locally.
 //!
@@ -20,8 +21,7 @@ use gpui::{
 };
 
 use crate::ui::composites::{
-    view_mode_control, BreadcrumbTrail, Segment, SegmentDisplay, SegmentedControl,
-    ViewModeControlSlots,
+    view_mode_control, Segment, SegmentDisplay, SegmentedControl, ViewModeControlSlots,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
@@ -32,29 +32,24 @@ use crate::ui::tokens::{resolve_color, Appearance, FontSize, SemanticColor, Spac
 use crate::view_models::index_name_list::{MusicListScope, MusicScopeControlDisplay};
 use crate::view_models::workspace::{
     ContentViewMode, ContentViewModeControlDisplay, FrameChromeButtonDisplay,
-    FrameChromeMenuItemDisplay, FrameHeaderActionDisplay, FrameNavigationEntry, FrameShellDisplay,
+    FrameChromeMenuItemDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
 };
 
 type FrameButtonHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 type FrameMenuSelectHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App) + 'static>;
 type FrameViewModeSelectHandler = Rc<dyn Fn(ContentViewMode, &mut Window, &mut App) + 'static>;
 type FrameScopeSelectHandler = Rc<dyn Fn(MusicListScope, &mut Window, &mut App) + 'static>;
-type FrameBreadcrumbSelectHandler =
-    Rc<dyn Fn(FrameNavigationEntry, &mut Window, &mut App) + 'static>;
 
 /// Callback and content slots supplied by a frame-shell caller.
 #[derive(Default)]
 #[must_use]
 pub(crate) struct FrameShellSlots {
     content: Option<AnyElement>,
-    on_back: Option<FrameButtonHandler>,
-    on_forward: Option<FrameButtonHandler>,
     on_close: Option<FrameButtonHandler>,
     on_menu_select: Option<FrameMenuSelectHandler>,
     on_header_action: Option<FrameButtonHandler>,
     on_view_mode_select: Option<FrameViewModeSelectHandler>,
     on_scope_select: Option<FrameScopeSelectHandler>,
-    on_breadcrumb_select: Option<FrameBreadcrumbSelectHandler>,
     appearance: Option<Appearance>,
 }
 
@@ -67,18 +62,6 @@ impl FrameShellSlots {
     /// Supplies the body content rendered inside the frame.
     pub(crate) fn content(mut self, content: impl IntoElement) -> Self {
         self.content = Some(content.into_any_element());
-        self
-    }
-
-    /// Supplies the back-navigation callback.
-    pub(crate) fn on_back(mut self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
-        self.on_back = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the forward-navigation callback.
-    pub(crate) fn on_forward(mut self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
-        self.on_forward = Some(Rc::new(handler));
         self
     }
 
@@ -110,20 +93,10 @@ impl FrameShellSlots {
         self.on_scope_select = Some(Rc::new(handler));
         self
     }
-
-    /// Supplies the frame-local breadcrumb selection callback.
-    pub(crate) fn on_breadcrumb_select(
-        mut self,
-        handler: impl Fn(FrameNavigationEntry, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_breadcrumb_select = Some(Rc::new(handler));
-        self
-    }
 }
 
 /// `on_close` and `on_menu_select` are ADR 0046 frame chrome slots with no
-/// production caller yet: the workspace shell wires only `on_back` and
-/// `on_forward` today. `frame_shell`'s own rendering test needs each builder
+/// production caller yet. `frame_shell`'s own rendering test needs each builder
 /// as a direct helper, so each one stays here, compiled only for tests.
 #[cfg(test)]
 impl FrameShellSlots {
@@ -221,31 +194,12 @@ fn render_chrome(
     let content_slot_id = display.content_slot_id.clone();
     let view_mode_control_display = display.view_mode_control.clone();
     let scope_control_display = display.scope_control;
-    let breadcrumb_display = display.breadcrumb.clone();
     let header_visible = display.header_visible();
     let mut nav = div()
         .flex()
         .flex_row()
         .items_center()
         .gap(Spacing::XXS.scaled(cx));
-
-    let back_shown = display.back_shown();
-    let forward_shown = display.forward_shown();
-    if back_shown {
-        nav = nav.child(chrome_button(
-            display.back,
-            IconName::ChevronLeft,
-            slots.on_back,
-        ));
-    }
-
-    if forward_shown {
-        nav = nav.child(chrome_button(
-            display.forward,
-            IconName::ChevronRight,
-            slots.on_forward,
-        ));
-    }
 
     if let Some(close) = display.close {
         nav = nav.child(chrome_button(close, IconName::Close, slots.on_close));
@@ -332,23 +286,6 @@ fn render_chrome(
             },
             cx,
         ));
-    }
-
-    if let Some(breadcrumb) = breadcrumb_display {
-        let mut breadcrumb_trail =
-            BreadcrumbTrail::new(breadcrumb).appearance(slots.appearance.unwrap_or_default());
-        if let Some(handler) = slots.on_breadcrumb_select {
-            breadcrumb_trail = breadcrumb_trail.on_select(move |entry, window, cx| {
-                handler(entry, window, cx);
-            });
-        }
-        chrome = chrome.child(
-            div()
-                .px(Spacing::MD.scaled(cx))
-                .pb(Spacing::XS.scaled(cx))
-                .child(breadcrumb_trail)
-                .into_any_element(),
-        );
     }
 
     chrome
@@ -534,20 +471,14 @@ mod tests {
     fn slots_accept_callbacks_and_content() {
         let slots = FrameShellSlots::new()
             .content(div())
-            .on_back(|_, _| {})
-            .on_forward(|_, _| {})
             .on_close(|_, _| {})
             .on_menu_select(|_, _, _| {})
-            .on_view_mode_select(|_, _, _| {})
-            .on_breadcrumb_select(|_, _, _| {});
+            .on_view_mode_select(|_, _, _| {});
 
         assert!(slots.content.is_some());
-        assert!(slots.on_back.is_some());
-        assert!(slots.on_forward.is_some());
         assert!(slots.on_close.is_some());
         assert!(slots.on_menu_select.is_some());
         assert!(slots.on_view_mode_select.is_some());
-        assert!(slots.on_breadcrumb_select.is_some());
     }
 
     /// ADR 0084 Decision 10 Amendment: the frame shell accepts the
@@ -564,12 +495,5 @@ mod tests {
         let slots = FrameShellSlots::new().on_view_mode_select(|_, _, _| {});
 
         assert!(slots.on_view_mode_select.is_some());
-    }
-
-    #[test]
-    fn slots_accept_breadcrumb_selection_callback() {
-        let slots = FrameShellSlots::new().on_breadcrumb_select(|_, _, _| {});
-
-        assert!(slots.on_breadcrumb_select.is_some());
     }
 }

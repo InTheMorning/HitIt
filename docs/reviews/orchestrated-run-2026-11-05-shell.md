@@ -25,3 +25,7 @@ Each entry names the step, the decision and the reason.
 - Packet 001, a page with no content: a Library page with no loaded data and no load shows its list root, and a load shows the skeleton. The stack entry stays. A reload with `ResetDetail` thus shows the list root under a page entry, and Back then stays on that list. The final walk checks this.
 - Packet 001, focus: the visible frame takes the keyboard focus when it changes. The toolbar search field keeps the focus for a list root, because a live run changes the list root while the curator types. A page takes the focus from the field.
 - Packet 001, Discover: "New releases" opens as a page, and Back shows the Discover views list. Packet 006 removes this result.
+- Packet 002, Back at the root of a path: `go_back` with no earlier entry moves to the root of the path. This holds R-NAV-2 item 3. Back is thus enabled on each page over a root.
+- Packet 002, scroll: the list scroll stays in long-lived view state (`ListState` or `ScrollHandle`), not in the navigation entry. The packet added handles for My playlists and the Discover views. The mechanical criterion "restored scroll" thus has no model test, and the final walk checks it.
+- Packet 002, marks: a Library track, a name match and an artist by name in search results get no mark, because the row does not hold the data of its page entry. Needs attention rows get no mark, because packet 012 replaces them.
+- Packet 002, Show and Settings: their frames lost Back and Forward, and the toolbar shows each control only when its history exists.

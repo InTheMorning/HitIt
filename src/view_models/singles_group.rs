@@ -700,12 +700,29 @@ pub(crate) struct SinglesGroupRowVm {
     /// Decision 6, amended 2026-10-22). The group row's checkbox toggles
     /// every one of these.
     pub(crate) single_keys: Vec<ReleaseKey>,
+    /// `true` when this row opens the page that Back left open over the
+    /// current list root (R-NAV-2 item 2).
+    pub(crate) marked: bool,
     /// The checkbox facts of the group row (ADR 0084 Decision 10). The
     /// group's own checkbox, not one for each single.
     pub(crate) selection: RowSelectionVm,
 }
 
 impl SinglesGroupRowVm {
+    /// Gives this row its mark: `true` when it opens `entry`, the group page
+    /// that Back left open over the list root (R-NAV-2 item 2).
+    #[must_use]
+    pub(crate) fn with_marked(
+        mut self,
+        entry: Option<&crate::view_models::workspace::FrameNavigationEntry>,
+    ) -> Self {
+        self.marked = matches!(
+            entry,
+            Some(crate::view_models::workspace::FrameNavigationEntry::SinglesGroup(key)) if *key == self.open
+        );
+        self
+    }
+
     /// Builds the group row. `release_row` gives the release row of one
     /// Library single, the same row that a release that is not in a group
     /// gets. A `MusicIndex` single gets the `MusicIndex` release row
@@ -733,6 +750,7 @@ impl SinglesGroupRowVm {
             group.level_label()
         );
         Self {
+            marked: false,
             disclosure_element_id: format!("{element_id}-disclosure"),
             element_id,
             label: group.display_artist.to_owned(),
@@ -1076,7 +1094,7 @@ impl SinglesGroupPageEntryVm {
 /// The page of one singles group (ADR 0084 Decision 6).
 #[derive(Clone, Debug)]
 pub(crate) struct SinglesGroupPageVm {
-    /// "Singles by Haleen". The breadcrumb label is the same text.
+    /// "Singles by Haleen". The page title is the same text.
     pub(crate) title: String,
     /// The same text as the group row, for example "7 singles · By
     /// name". `None` for the empty state. Each row of [`Self::rows`]
@@ -1321,7 +1339,7 @@ fn index_status_row(feed_guid: &str, state: FeedSinglesState<'_>) -> Option<Inde
     }
 }
 
-/// The title of a group page and its breadcrumb label, for example
+/// The title of a group page and its label, for example
 /// "Singles by Haleen".
 #[must_use]
 pub(crate) fn singles_group_title(display_artist: &str) -> String {
@@ -2546,6 +2564,7 @@ mod tests {
         let groups = singles_groups_everything(&tree, &store);
         let library_row = |artist: &ArtistNode, album: &AlbumNode| {
             Some(DestinationListRowVm {
+                marked: false,
                 element_id: album.name.clone(),
                 label: album.name.clone(),
                 secondary_text: format!("{} \u{b7} Library", artist.name),
@@ -2617,6 +2636,7 @@ mod tests {
         let index_key = ReleaseKey::FeedGuid("i-new".to_owned());
         let library_row = |artist: &ArtistNode, album: &AlbumNode| {
             Some(DestinationListRowVm {
+                marked: false,
                 element_id: album.name.clone(),
                 label: album.name.clone(),
                 secondary_text: format!("{} \u{b7} Library", artist.name),
@@ -2690,6 +2710,7 @@ mod tests {
         );
         let library_row = |artist: &ArtistNode, album: &AlbumNode| {
             Some(DestinationListRowVm {
+                marked: false,
                 element_id: album.name.clone(),
                 label: album.name.clone(),
                 secondary_text: format!("{} \u{b7} Single", artist.name),

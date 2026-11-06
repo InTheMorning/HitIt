@@ -261,6 +261,12 @@ pub struct LibraryApp {
     recent_music_page: RecentFeedsPageVm,
     /// Scroll state for default Music recency pagination.
     recent_music_scroll: ScrollHandle,
+    /// The scroll of the Discover views list (ADR 0089 Decision 1). The
+    /// Library holds it, so the offset survives a page opened over the list.
+    discover_views_scroll: ScrollHandle,
+    /// The scroll of the Playlists list (ADR 0089 Decision 1). The Library
+    /// holds it, so the offset survives a page opened over the list.
+    playlists_scroll: ScrollHandle,
     /// The scope of the Releases list and of the Artists list (ADR 0084
     /// packet 016 decision D3). Each app start uses "Library". The config
     /// file does not store it.
@@ -348,6 +354,10 @@ pub struct LibraryApp {
     /// The saved search of the current location, for the open row of the
     /// Discover column. The top app sets it at each render.
     open_saved_search: Option<crate::view_models::search_results::SavedSearchId>,
+    /// The page that Back left open over the current list root, for the
+    /// marked row of the Music list (R-NAV-2 item 2). The top app sets it at
+    /// each render.
+    marked_entry: Option<FrameNavigationEntry>,
     /// `true` when the current Music location shows a page, so the detail
     /// column shows and the list column does not (ADR 0089 Decision 1).
     /// The top app sets it at each render, and the keyboard gates read it.

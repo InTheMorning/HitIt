@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    div, img, prelude::*, Context, Image, ImageFormat, ObjectFit, SharedString, Styled, Window,
+    div, img, prelude::*, Context, FontWeight, Image, ImageFormat, ObjectFit, SharedString, Styled,
+    Window,
 };
 use gpui_component::input::Input;
 use gpui_component::{IconName as InputIconName, Size};
@@ -17,10 +18,11 @@ use crate::ui::sizable_bridge::SizableScaled;
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size as TokenSize, Spacing};
 use crate::view_models::app_toolbar::{
     AppToolbarTabDisplay, AppToolbarTabKey, AppToolbarVm, GlobalSearchDisplay,
+    ToolbarNavigationDisplay,
 };
 
 use super::search_field_list::install_field_list_keys;
-use super::{AppTab, TopApp};
+use super::{AppTab, TopApp, WorkspaceScreenMount};
 
 fn app_logo() -> Arc<Image> {
     Arc::new(Image::from_bytes(
@@ -31,10 +33,12 @@ fn app_logo() -> Arc<Image> {
 
 pub(super) fn render_tab_bar(
     app: &mut TopApp,
+    mount: WorkspaceScreenMount,
     window: &Window,
     cx: &mut Context<TopApp>,
 ) -> gpui::AnyElement {
     let display = AppToolbarVm::new().display();
+    let navigation = app.toolbar_navigation(mount, cx);
     let bg_surface = color(cx, SemanticColor::SecondarySystemBackground);
     let border_subtle = color(cx, SemanticColor::Separator);
     let spacing_xs = Spacing::XS.scaled(cx);
@@ -56,6 +60,7 @@ pub(super) fn render_tab_bar(
         .flex_row()
         .items_center()
         .gap(spacing_xs)
+        .child(render_toolbar_navigation(&navigation, cx))
         .child(
             div()
                 .id(display.leading_id)
@@ -96,6 +101,69 @@ pub(super) fn render_tab_bar(
             cx,
         ))
         .into_any_element()
+}
+
+/// The Back and Forward controls and the page title at the left of the
+/// toolbar (ADR 0089 Decision 9, R-TOOLBAR-1 item 1). Each control renders
+/// from its typed availability; the handlers only move the one navigation
+/// stack.
+fn render_toolbar_navigation(
+    display: &ToolbarNavigationDisplay,
+    cx: &mut Context<TopApp>,
+) -> gpui::AnyElement {
+    let mut controls = div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(Spacing::XXS.scaled(cx))
+        .flex_shrink_0();
+    if let Some(back) = display.back {
+        controls = controls.child(
+            UiButton::styled(back.id, ControlStyle::ToolbarIcon)
+                .leading_icon(IconName::ChevronLeft)
+                .tooltip(back.label)
+                .a11y_label(back.label)
+                .disabled(back.disabled)
+                .on_click(cx.listener(|this, _, _window, cx| {
+                    this.handle_content_list_back_select(cx);
+                })),
+        );
+    }
+    if let Some(forward) = display.forward {
+        controls = controls.child(
+            UiButton::styled(forward.id, ControlStyle::ToolbarIcon)
+                .leading_icon(IconName::ChevronRight)
+                .tooltip(forward.label)
+                .a11y_label(forward.label)
+                .disabled(forward.disabled)
+                .on_click(cx.listener(|this, _, _window, cx| {
+                    this.handle_content_list_forward_select(cx);
+                })),
+        );
+    }
+
+    let mut group = div()
+        .id("app-toolbar-navigation")
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(Spacing::SM.scaled(cx))
+        .min_w_0()
+        .child(controls);
+    if !display.title.is_empty() {
+        group = group.child(
+            div()
+                .id("app-toolbar-title")
+                .min_w_0()
+                .max_w(TokenSize::ColumnTall.scaled(cx))
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .text_size(FontSize::Body.scaled(cx))
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(SharedString::from(display.title.clone())),
+        );
+    }
+    group.into_any_element()
 }
 
 fn render_global_search(

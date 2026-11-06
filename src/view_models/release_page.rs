@@ -823,7 +823,7 @@ pub(crate) struct ReleaseTrackRowVm {
     pub(crate) row_key: Option<DetailRowKey>,
     /// The page that a plain click in `Normal` mode opens.
     pub(crate) open_entry: Option<FrameNavigationEntry>,
-    /// The breadcrumb label of the page that a click opens. `None` when
+    /// The title of the page that a click opens. `None` when
     /// the host reads the label from its own state.
     pub(crate) open_label: Option<String>,
     pub(crate) selection: RowSelectionVm,

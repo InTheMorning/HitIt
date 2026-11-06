@@ -15,7 +15,7 @@ use crate::view_models::index_name_list::name_sort_key;
 use crate::view_models::library::LibraryTrackRowVm;
 use crate::view_models::name_level_page::NameLevelPageVm;
 use crate::view_models::release_kind::ReleaseKind;
-use crate::view_models::workspace::{ReleaseKey, TrackKey};
+use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey, TrackKey};
 use crate::views::FeedView;
 
 use super::paged_tab::SearchRowMergeKey;
@@ -383,6 +383,19 @@ pub(crate) enum SearchResultTarget {
 }
 
 impl SearchResultTarget {
+    /// Returns whether this target opens the page `entry` (R-NAV-2 item 2).
+    /// A release, a track and a feed page each have a page entry with the
+    /// same key. The other targets mark no row.
+    #[must_use]
+    pub(crate) fn opens(&self, entry: &FrameNavigationEntry) -> bool {
+        match (self, entry) {
+            (Self::Release(key), FrameNavigationEntry::Release(open)) => key == open,
+            (Self::Track(key), FrameNavigationEntry::Track(open)) => key == open,
+            (Self::FeedPage(guid), FrameNavigationEntry::PublisherDetail(open)) => guid == open,
+            _ => false,
+        }
+    }
+
     /// The target of the row `id` of the tab `tab`. `None` for an id of
     /// another form.
     #[must_use]

@@ -1,12 +1,11 @@
 use super::{
     music_focus_moves, music_focus_target, music_page_content, release_download_updates_open_page,
     resolve_release_page_source, resolve_track_page_source, track_download_updates_open_page,
-    track_release_download_updates_open_page, BreadcrumbDisplay, BreadcrumbTruncation,
-    ContentViewMode, ContentViewModeControlDisplay, DiscoverView, FrameNavigationEntry,
-    FrameNavigationState, FrameShellDisplay, MusicColumns, MusicDestination, MusicFocusTarget,
-    MusicPageContent, ReleaseKey, ReleasePageSource, TrackKey, TrackPageSource,
-    WorkspaceFrameConfig, WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState,
-    WorkspaceLayout, WorkspaceLayoutConfig, WorkspaceModelError,
+    track_release_download_updates_open_page, ContentViewMode, ContentViewModeControlDisplay,
+    DiscoverView, FrameNavigationEntry, FrameNavigationState, FrameShellDisplay, MusicColumns,
+    MusicDestination, MusicFocusTarget, MusicPageContent, ReleaseKey, ReleasePageSource, TrackKey,
+    TrackPageSource, WorkspaceFrameConfig, WorkspaceFrameId, WorkspaceFrameKind,
+    WorkspaceFrameState, WorkspaceLayout, WorkspaceLayoutConfig, WorkspaceModelError,
 };
 use crate::view_models::artist_identity::ArtistNameKey;
 use crate::view_models::search_results::SavedSearchId;
@@ -152,68 +151,11 @@ fn content_view_mode_control_projects_content_list_options() {
 }
 
 #[test]
-fn frame_shell_display_disables_empty_history_navigation() {
-    let frame = frame(7, WorkspaceFrameKind::Detail);
-    let nav = FrameNavigationState::new(track(42));
-
-    let display = FrameShellDisplay::from_frame(&frame, &nav, true);
-
-    assert!(
-        display.back.disabled,
-        "empty back history should disable frame Back"
-    );
-    assert!(
-        display.forward.disabled,
-        "empty forward history should disable frame Forward"
-    );
-    assert_eq!(
-        display.back.id, "workspace-frame-7-back",
-        "back id should be stable and frame-scoped"
-    );
-    assert_eq!(
-        display.forward.id, "workspace-frame-7-forward",
-        "forward id should be stable and frame-scoped"
-    );
-}
-
-#[test]
-fn frame_shell_display_uses_history_for_navigation_availability() {
-    let frame = frame(7, WorkspaceFrameKind::Detail);
-    let mut nav = FrameNavigationState::new(FrameNavigationEntry::PlaylistDetail(1));
-
-    nav.push(track(42));
-    let with_back = FrameShellDisplay::from_frame(&frame, &nav, true);
-
-    assert!(
-        !with_back.back.disabled,
-        "back history should enable frame Back"
-    );
-    assert!(
-        with_back.forward.disabled,
-        "pushing a new entry should leave frame Forward disabled"
-    );
-
-    nav.go_back()
-        .expect("pushed navigation should allow going back");
-    let with_forward = FrameShellDisplay::from_frame(&frame, &nav, true);
-
-    assert!(
-        with_forward.back.disabled,
-        "after returning to the first entry, frame Back should be disabled"
-    );
-    assert!(
-        !with_forward.forward.disabled,
-        "back navigation should enable frame Forward"
-    );
-}
-
-#[test]
 fn frame_shell_display_hides_close_when_not_allowed() {
     let frame = frame(7, WorkspaceFrameKind::Detail);
-    let nav = FrameNavigationState::new(track(42));
 
-    let fixed_frame = FrameShellDisplay::from_frame(&frame, &nav, false);
-    let closable_frame = FrameShellDisplay::from_frame(&frame, &nav, true);
+    let fixed_frame = FrameShellDisplay::from_frame(&frame, false);
+    let closable_frame = FrameShellDisplay::from_frame(&frame, true);
 
     assert_eq!(
         fixed_frame.close, None,
@@ -235,9 +177,8 @@ fn frame_shell_display_passes_through_header_text_and_slot_id() {
     )
     .with_subtitle("Seven tracks")
     .with_status("Ready");
-    let nav = FrameNavigationState::new(FrameNavigationEntry::PlaylistDetail(1));
 
-    let display = FrameShellDisplay::from_frame(&frame, &nav, true);
+    let display = FrameShellDisplay::from_frame(&frame, true);
 
     assert_eq!(display.frame_id, WorkspaceFrameId::new(7));
     assert_eq!(display.title, "Playlist");
@@ -264,41 +205,19 @@ fn frame_shell_display_passes_through_header_text_and_slot_id() {
         display.view_mode_control, None,
         "view-mode controls are opt-in frame chrome"
     );
-    assert_eq!(
-        display.breadcrumb, None,
-        "breadcrumbs are opt-in frame chrome"
-    );
 }
 
 #[test]
 fn frame_shell_display_accepts_optional_view_mode_control() {
     let frame = frame(7, WorkspaceFrameKind::ContentList);
-    let nav = FrameNavigationState::new(FrameNavigationEntry::PlaylistDetail(1));
     let modes = ContentViewModeControlDisplay::default_for_content_list(ContentViewMode::List);
 
-    let display =
-        FrameShellDisplay::from_frame(&frame, &nav, true).with_view_mode_control(modes.clone());
+    let display = FrameShellDisplay::from_frame(&frame, true).with_view_mode_control(modes.clone());
 
     assert_eq!(
         display.view_mode_control,
         Some(modes),
         "frame shell should carry optional frame-local view modes without applying them"
-    );
-}
-
-#[test]
-fn frame_shell_display_accepts_optional_breadcrumb() {
-    let frame = frame(7, WorkspaceFrameKind::ContentList);
-    let nav = FrameNavigationState::new(FrameNavigationEntry::PlaylistDetail(1));
-    let breadcrumb = BreadcrumbDisplay::project("crumbs", &nav, |_| "Playlist".to_string());
-
-    let display =
-        FrameShellDisplay::from_frame(&frame, &nav, true).with_breadcrumb(breadcrumb.clone());
-
-    assert_eq!(
-        display.breadcrumb,
-        Some(breadcrumb),
-        "frame shell should carry optional frame-local breadcrumbs without routing them"
     );
 }
 
@@ -309,9 +228,8 @@ fn frame_shell_display_hides_header_when_no_header_facts_exist() {
         WorkspaceFrameKind::ContentList,
         "",
     );
-    let nav = FrameNavigationState::new(discover());
 
-    let display = FrameShellDisplay::from_frame(&frame, &nav, false);
+    let display = FrameShellDisplay::from_frame(&frame, false);
 
     assert!(
         !display.header_visible(),
@@ -326,169 +244,13 @@ fn frame_shell_display_shows_header_when_frame_facts_exist() {
         WorkspaceFrameKind::ContentList,
         "Search Results",
     );
-    let nav = FrameNavigationState::new(FrameNavigationEntry::Search("beats".to_string()));
 
-    let display = FrameShellDisplay::from_frame(&frame, &nav, false);
+    let display = FrameShellDisplay::from_frame(&frame, false);
 
     assert!(
         display.header_visible(),
         "Durable ADR 0061 element hierarchy guard: informative frame headers must remain visible"
     );
-}
-
-#[test]
-fn breadcrumb_display_projects_navigation_path() {
-    let mut nav = FrameNavigationState::new(FrameNavigationEntry::PlaylistDetail(7));
-    nav.push(track(42));
-
-    let display =
-        BreadcrumbDisplay::project("library-track-breadcrumb", &nav, |entry| match entry {
-            FrameNavigationEntry::PlaylistDetail(_) => "My Playlist".to_string(),
-            FrameNavigationEntry::Track(_) => "Lantern Tide".to_string(),
-            _ => "Library".to_string(),
-        });
-
-    assert_eq!(display.id, "library-track-breadcrumb");
-    assert_eq!(display.truncation, BreadcrumbTruncation::MiddleEllipsis);
-    assert_eq!(display.segments.len(), 2);
-    assert_eq!(display.segments[0].label, "My Playlist");
-    assert_eq!(
-        display.segments[0].target,
-        Some(FrameNavigationEntry::PlaylistDetail(7))
-    );
-    assert!(
-        !display.segments[0].is_current,
-        "playlist segment should be a selectable parent"
-    );
-    assert_eq!(display.segments[1].label, "Lantern Tide");
-    assert_eq!(display.segments[1].target, None);
-    assert!(
-        display.segments[1].is_current,
-        "track segment should be the current location"
-    );
-}
-
-/// R4-04 (ADR 0077 packet 004): the publisher breadcrumb segment shows the
-/// title that its `label_for` closure supplies (the view model title at the
-/// call site), not the publisher feed GUID.
-#[test]
-fn adr_0077_publisher_navigation_breadcrumb_shows_view_model_title() {
-    let mut nav = FrameNavigationState::new(discover());
-    nav.push(FrameNavigationEntry::PublisherDetail(
-        "publisher-guid".to_string(),
-    ));
-
-    let display = BreadcrumbDisplay::project("publisher-breadcrumb", &nav, |entry| match entry {
-        FrameNavigationEntry::PublisherDetail(_) => "Wavlake Artists".to_string(),
-        _ => "Library".to_string(),
-    });
-
-    assert_eq!(display.segments.len(), 2);
-    assert_eq!(display.segments[1].label, "Wavlake Artists");
-    assert!(display.segments[1].is_current);
-    assert_eq!(display.segments[1].target, None);
-}
-
-#[test]
-fn breadcrumb_display_projects_index_search_drilldown_path() {
-    let mut nav = FrameNavigationState::new(discover());
-    nav.push(FrameNavigationEntry::Search("survival guide".to_string()));
-    nav.push(FrameNavigationEntry::ArtistName(ArtistNameKey::from_text(
-        "Survival Guide",
-    )));
-    nav.push(FrameNavigationEntry::Release(
-        ReleaseKey::from_index_feed_guid("feed-guid"),
-    ));
-
-    let display = BreadcrumbDisplay::project("index-search-breadcrumb", &nav, |entry| {
-        entry.display_label()
-    });
-
-    assert_eq!(
-        display
-            .segments
-            .iter()
-            .map(|segment| segment.label.as_str())
-            .collect::<Vec<_>>(),
-        [
-            "Discover",
-            "Search: survival guide",
-            "Survival Guide \u{b7} by name",
-            // ADR 0084 Decision 4: the entry itself carries no title, so its
-            // fallback label is "Release". The top app supplies the real
-            // title through its own `label_for` closure at the call site.
-            "Release"
-        ]
-    );
-    assert_eq!(
-        display.segments[2].target,
-        Some(FrameNavigationEntry::ArtistName(ArtistNameKey::from_text(
-            "Survival Guide"
-        ))),
-        "the immediate Index parent must stay selectable in the breadcrumb"
-    );
-    assert_eq!(
-        nav.active_search_query(),
-        Some("survival guide"),
-        "Index drill-down entries must keep their search ancestor active"
-    );
-    assert_eq!(
-        nav.path_entries(),
-        vec![
-            discover(),
-            FrameNavigationEntry::Search("survival guide".to_string()),
-            FrameNavigationEntry::ArtistName(ArtistNameKey::from_text("Survival Guide")),
-            FrameNavigationEntry::Release(ReleaseKey::from_index_feed_guid("feed-guid")),
-        ],
-        "breadcrumb labelers need the same full path rendered by frame chrome"
-    );
-}
-
-#[test]
-fn breadcrumb_display_projects_single_segment_as_current() {
-    let nav = FrameNavigationState::new(track(42));
-
-    let display = BreadcrumbDisplay::project("crumbs", &nav, |entry| match entry {
-        FrameNavigationEntry::Track(key) => format!("Track {}", key.item_guid),
-        _ => unreachable!("single-segment test should only project track detail"),
-    });
-
-    assert_eq!(display.id, "crumbs");
-    assert_eq!(display.truncation, BreadcrumbTruncation::MiddleEllipsis);
-    assert_eq!(display.segments.len(), 1);
-    assert_eq!(display.segments[0].label, "Track 42");
-    assert!(display.segments[0].is_current);
-    assert_eq!(display.segments[0].target, None);
-}
-
-#[test]
-fn breadcrumb_display_projects_four_segment_paths_without_ellipsis() {
-    let mut nav = FrameNavigationState::new(discover());
-    nav.push(FrameNavigationEntry::PlaylistDetail(7));
-    nav.push(track(42));
-    nav.push(FrameNavigationEntry::Release(ReleaseKey::LibraryFeed(11)));
-
-    let display = BreadcrumbDisplay::project("crumbs", &nav, |entry| match entry {
-        FrameNavigationEntry::Destination(MusicDestination::Discover) => "Discover".to_string(),
-        FrameNavigationEntry::PlaylistDetail(id) => format!("Playlist {id}"),
-        FrameNavigationEntry::Track(key) => format!("Track {}", key.item_guid),
-        FrameNavigationEntry::Release(ReleaseKey::LibraryFeed(id)) => format!("Album {id}"),
-        _ => unreachable!("long-path test should only project breadcrumb entries"),
-    });
-
-    assert_eq!(display.segments.len(), 4);
-    assert_eq!(display.segments[0].label, "Discover");
-    assert_eq!(display.segments[0].target, Some(discover()));
-    assert_eq!(display.segments[1].label, "Playlist 7");
-    assert_eq!(
-        display.segments[1].target,
-        Some(FrameNavigationEntry::PlaylistDetail(7))
-    );
-    assert_eq!(display.segments[2].label, "Track 42");
-    assert_eq!(display.segments[2].target, Some(track(42)));
-    assert_eq!(display.segments[3].label, "Album 11");
-    assert!(display.segments[3].is_current);
-    assert_eq!(display.segments[3].target, None);
 }
 
 #[test]
@@ -908,35 +670,10 @@ fn navigation_push_pop_round_trip() {
     );
 }
 
-/// R15-01 (ADR 0046 Task 015): the chrome display exposes Forward as
-/// unavailable before a Back press, and as available once a Back press
-/// leaves forward history behind.
-#[test]
-fn adr_0046_forward_chrome_display_enables_forward_after_back() {
-    let frame = frame(7, WorkspaceFrameKind::Detail);
-    let mut nav = FrameNavigationState::new(FrameNavigationEntry::PlaylistDetail(1));
-    nav.push(track(42));
-
-    let before_back = FrameShellDisplay::from_frame(&frame, &nav, true);
-    assert!(
-        before_back.forward.disabled,
-        "Forward must stay unavailable before a Back press"
-    );
-
-    nav.go_back()
-        .expect("pushed navigation should allow going back");
-    let after_back = FrameShellDisplay::from_frame(&frame, &nav, true);
-    assert!(
-        !after_back.forward.disabled,
-        "Forward must become available once a Back press leaves forward history"
-    );
-}
-
 /// R15-03 (ADR 0046 Task 015): a push after a Back clears the forward
 /// history, and the chrome display exposes Forward as unavailable again.
 #[test]
 fn adr_0046_forward_push_after_back_clears_forward_history() {
-    let frame = frame(7, WorkspaceFrameKind::Detail);
     let mut nav = FrameNavigationState::new(FrameNavigationEntry::PlaylistDetail(1));
     nav.push(track(42));
     nav.go_back()
@@ -948,9 +685,8 @@ fn adr_0046_forward_push_after_back_clears_forward_history() {
 
     nav.push(FrameNavigationEntry::Release(ReleaseKey::LibraryFeed(5)));
 
-    let display = FrameShellDisplay::from_frame(&frame, &nav, true);
     assert!(
-        display.forward.disabled,
+        !nav.can_go_forward(),
         "a push after a Back must clear forward history"
     );
 }
@@ -993,13 +729,11 @@ fn adr_0046_forward_pop_nav_forward_restores_entry_back_left() {
         "Forward should restore the entry that Back left"
     );
 
-    let frame = frame(content_list_id.value(), WorkspaceFrameKind::ContentList);
     let nav = layout
         .frame_nav(content_list_id)
         .expect("content-list frame navigation should exist");
-    let display = FrameShellDisplay::from_frame(&frame, nav, true);
     assert!(
-        display.forward.disabled,
+        !nav.can_go_forward(),
         "Forward must become unavailable once its only entry is restored"
     );
 }
@@ -1270,7 +1004,7 @@ fn adr_0084_nav_push_of_path_page_cuts_path_and_back_restores() {
     assert_eq!(
         nav.path_entries(),
         vec![discover()],
-        "a breadcrumb segment must cut the path at that segment"
+        "a page must cut the path at that page"
     );
     assert_eq!(
         nav.go_back().cloned(),
@@ -1391,70 +1125,6 @@ fn adr_0084_nav_search_replaces_in_place_or_adds_one_entry() {
     );
 }
 
-/// N1-06 (ADR 0084 Decision 9): the Music content frame always shows Back
-/// and Forward, each with its typed availability. Other frames show each
-/// control only when it is available.
-#[test]
-fn adr_0084_nav_music_chrome_always_shows_history_controls() {
-    let frame = frame(2, WorkspaceFrameKind::ContentList);
-    let nav = FrameNavigationState::new(discover());
-
-    let other = FrameShellDisplay::from_frame(&frame, &nav, false);
-    assert!(
-        !other.back_shown(),
-        "an unavailable Back stays hidden by default"
-    );
-    assert!(
-        !other.forward_shown(),
-        "an unavailable Forward stays hidden by default"
-    );
-
-    let music =
-        FrameShellDisplay::from_frame(&frame, &nav, false).with_history_controls_always_shown();
-    assert!(music.back_shown(), "Music must always show Back");
-    assert!(music.forward_shown(), "Music must always show Forward");
-    assert!(
-        music.back.disabled,
-        "Back must stay unavailable with no history"
-    );
-    assert!(
-        music.forward.disabled,
-        "Forward must stay unavailable with no forward history"
-    );
-    assert!(
-        music.header_visible(),
-        "the header must show for the history controls"
-    );
-}
-
-/// N1-07 (ADR 0084 Decision 9): the breadcrumb projects the location path,
-/// not the history.
-#[test]
-fn adr_0084_nav_breadcrumb_projects_location_not_history() {
-    let mut nav = FrameNavigationState::new(discover());
-    nav.start_path(discover(), Some(FrameNavigationEntry::PlaylistDetail(0)));
-    nav.push(track(7));
-    nav.push(FrameNavigationEntry::PlaylistDetail(0));
-    nav.push(track(7));
-
-    let display = BreadcrumbDisplay::project("crumbs", &nav, FrameNavigationEntry::display_label);
-    let ids: Vec<_> = display
-        .segments
-        .iter()
-        .map(|segment| segment.id.as_str())
-        .collect();
-
-    assert_eq!(
-        ids,
-        vec!["destination-discover", "playlist-0", "track-7"],
-        "the breadcrumb must not repeat the playlist or the track"
-    );
-    assert!(
-        nav.has_location_path(),
-        "a path with a page has a location path"
-    );
-}
-
 /// R2-01 (ADR 0084 Decision 4): the release key of a Library album with a
 /// feed GUID equals the release key of an Index row with the same feed
 /// GUID.
@@ -1523,18 +1193,6 @@ fn adr_0084_release_path_holds_one_release_opened_from_both_origins() {
         ],
         "the Index open must cut the path at the earlier Library open of the same release"
     );
-}
-
-/// R2-05 (ADR 0084 Decision 4): the breadcrumb label of a release entry
-/// with no known title is "Release".
-#[test]
-fn adr_0084_release_breadcrumb_label_with_no_known_title_is_release() {
-    let nav = FrameNavigationState::new(FrameNavigationEntry::Release(ReleaseKey::LibraryFeed(5)));
-
-    let display = BreadcrumbDisplay::project("crumbs", &nav, FrameNavigationEntry::display_label);
-
-    assert_eq!(display.segments.len(), 1);
-    assert_eq!(display.segments[0].label, "Release");
 }
 
 /// Returns the page that a Back press would show, without a change to
@@ -1819,42 +1477,6 @@ fn adr_0089_focus_target_follows_the_visible_frame() {
     );
 }
 
-/// C4-03: the Detail frame chrome shows Back and Forward always, with each
-/// control's typed availability still visible through `back`/`forward`.
-#[test]
-fn adr_0084_columns_c4_03_detail_frame_shows_history_controls_always() {
-    let frame = frame(3, WorkspaceFrameKind::Detail);
-    let nav = FrameNavigationState::new(discover());
-    let display =
-        FrameShellDisplay::from_frame(&frame, &nav, false).with_history_controls_always_shown();
-
-    assert!(display.back_shown());
-    assert!(display.forward_shown());
-    assert!(display.back.disabled, "no back history exists yet");
-}
-
-/// C4-04: the breadcrumb attaches to the Detail frame's display, not to a
-/// `ContentList` display built from the same navigation state.
-#[test]
-fn adr_0084_columns_c4_04_breadcrumb_attaches_to_detail_not_content_list() {
-    let mut nav = FrameNavigationState::new(discover());
-    nav.push(track(1));
-    let breadcrumb = BreadcrumbDisplay::project(
-        "detail-breadcrumb",
-        &nav,
-        FrameNavigationEntry::display_label,
-    );
-
-    let detail_frame = frame(3, WorkspaceFrameKind::Detail);
-    let detail_display =
-        FrameShellDisplay::from_frame(&detail_frame, &nav, false).with_breadcrumb(breadcrumb);
-    assert!(detail_display.breadcrumb.is_some());
-
-    let content_list_frame = frame(2, WorkspaceFrameKind::ContentList);
-    let content_list_display = FrameShellDisplay::from_frame(&content_list_frame, &nav, false);
-    assert!(content_list_display.breadcrumb.is_none());
-}
-
 /// C4-02 (ADR 0084 Decisions 1 and 2): a list root opens no detail page, so
 /// the narrow layout keeps the list column for it.
 #[test]
@@ -1906,40 +1528,6 @@ fn adr_0084_destinations_d5_02_sidebar_click_starts_a_path_a_row_extends_it() {
     );
 }
 
-/// ADR 0084 task 015, operator fix 2026-10-17: `set_frame_title` renames
-/// the named frame and leaves every other frame title untouched. An
-/// unknown frame id gives `FrameNotFound`.
-#[test]
-fn adr_0084_singles_group_set_frame_title_renames_one_frame() {
-    let mut layout = WorkspaceLayout::new(
-        vec![
-            frame(1, WorkspaceFrameKind::ContentList),
-            frame(2, WorkspaceFrameKind::Detail),
-        ],
-        None,
-    )
-    .expect("two distinct frame ids make a valid layout");
-
-    layout
-        .set_frame_title(WorkspaceFrameId::new(2), "Singles by Haleen")
-        .expect("frame 2 exists in this layout");
-
-    assert_eq!(layout.frames()[1].title(), "Singles by Haleen");
-    assert_eq!(
-        layout.frames()[0].title(),
-        WorkspaceFrameKind::ContentList.default_title(),
-        "set_frame_title must leave the other frame title untouched"
-    );
-
-    assert_eq!(
-        layout.set_frame_title(WorkspaceFrameId::new(99), "x"),
-        Err(WorkspaceModelError::FrameNotFound(WorkspaceFrameId::new(
-            99
-        ))),
-        "an unknown frame id must give FrameNotFound"
-    );
-}
-
 /// D5-03 (ADR 0084 Decision 3): Music opens on `Destination(Discover)`,
 /// the default navigation entry of each Music frame kind.
 #[test]
@@ -1971,35 +1559,11 @@ fn adr_0084_singles_group_r15_10_group_entry_opens_a_detail_page() {
     assert_eq!(entry.display_label(), "Singles");
 }
 
-/// R17-13 (ADR 0084 Decision 7, packet 017): two labels of one name key
-/// are one page, so a path that opens both holds one breadcrumb item. R17-08:
-/// the entry label is "<label> · by name".
-#[test]
-fn adr_0084_name_level_r17_13_one_breadcrumb_item_for_one_key() {
-    let mut nav =
-        FrameNavigationState::new(FrameNavigationEntry::Destination(MusicDestination::Artists));
-    let first = FrameNavigationEntry::ArtistName(ArtistNameKey::new("haleen", "Haleen"));
-    nav.push(first.clone());
-    nav.push(track(7));
-    nav.push(FrameNavigationEntry::ArtistName(ArtistNameKey::new(
-        "haleen", "HALEEN",
-    )));
-    assert_eq!(
-        nav.path_entries(),
-        vec![
-            FrameNavigationEntry::Destination(MusicDestination::Artists),
-            first.clone(),
-        ]
-    );
-    assert_eq!(first.display_label(), "Haleen \u{b7} by name");
-    assert!(first.opens_detail_page());
-}
-
 /// R12-05 (ADR 0084 Decision 3, packet 012): the `SavedSearch` entry gives
-/// the breadcrumb label "Saved: bluegrass" and the breadcrumb id
-/// `saved-search-<id>`. Its frame title is "Saved search".
+/// the label "Saved: bluegrass". It opens a page, and its frame title is
+/// "Saved search". The toolbar title shows the label (ADR 0089 Decision 9).
 #[test]
-fn adr_0084_saved_search_r12_05_breadcrumb_and_frame_title() {
+fn adr_0084_saved_search_r12_05_label_and_frame_title() {
     use crate::view_models::search_results::{SavedSearch, SavedSearchId};
 
     let entry = FrameNavigationEntry::SavedSearch {
@@ -2013,18 +1577,6 @@ fn adr_0084_saved_search_r12_05_breadcrumb_and_frame_title() {
         FrameNavigationEntry::Destination(MusicDestination::Discover),
         entry.clone(),
     );
-    let display = BreadcrumbDisplay::project(
-        "music-breadcrumb",
-        &nav,
-        FrameNavigationEntry::display_label,
-    );
-    let labels: Vec<_> = display
-        .segments
-        .iter()
-        .map(|segment| segment.label.as_str())
-        .collect();
-    assert_eq!(labels, vec!["Discover", "Saved: bluegrass"]);
-    assert_eq!(display.segments[1].id, "saved-search-7");
     assert_eq!(nav.active_saved_search(), Some(SavedSearchId(7)));
     assert_eq!(SavedSearch::FRAME_TITLE, "Saved search");
 }
@@ -2047,8 +1599,8 @@ fn adr_0084_music_open_defects_r30_09_restored_toolbar_text() {
     }
 }
 
-/// R30-10 (ADR 0084 task 030, decision D5). Back, Forward and a
-/// breadcrumb segment restore an entry through one function. That function
+/// R30-10 (ADR 0084 task 030, decision D5). Back and Forward
+/// restore an entry through one function. That function
 /// records the query of a search entry. A render takes the text one time.
 /// The guard `adr_0084_music_open_defects_r30_10_each_restore_records_the_toolbar_text`
 /// proves that each restore path records it.
@@ -2071,7 +1623,7 @@ fn adr_0084_music_open_defects_r30_10_pending_toolbar_text_is_taken_once() {
     pending.record(nav.current());
     assert_eq!(pending.take(), None);
 
-    // A breadcrumb segment of a search page restores it.
+    // A history move to a search page restores it.
     let mut crumbs = FrameNavigationState::new(FrameNavigationEntry::Search("haleen".to_owned()));
     crumbs.push(track(2));
     crumbs.push(FrameNavigationEntry::Search("haleen".to_owned()));
@@ -2209,4 +1761,88 @@ fn adr_0089_list_root_does_not_take_the_focus_from_the_search_field() {
     assert!(music_focus_moves(MusicFocusTarget::DetailColumn, true));
     assert!(music_focus_moves(MusicFocusTarget::SavedSearchPage, true));
     assert!(music_focus_moves(MusicFocusTarget::SearchResults, false));
+}
+
+/// R-NAV-2 items 2 and 4 (ADR 0089 Decision 9): Back to a list root marks
+/// the page that was open over it. The next row click clears the mark.
+#[test]
+fn adr_0089_nav_back_marks_the_page_open_over_the_list_root() {
+    let release = FrameNavigationEntry::Release(ReleaseKey::FeedGuid("guid-a".to_owned()));
+    let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+        MusicDestination::Releases,
+    ));
+    nav.open_list_row(release.clone());
+    assert_eq!(nav.marked_entry(), None, "a new open marks nothing");
+
+    nav.go_back()
+        .expect("a page opened from its list can go back");
+    assert_eq!(
+        nav.current(),
+        &FrameNavigationEntry::Destination(MusicDestination::Releases)
+    );
+    assert_eq!(nav.marked_entry(), Some(&release));
+
+    nav.open_list_row(FrameNavigationEntry::Release(ReleaseKey::FeedGuid(
+        "guid-b".to_owned(),
+    )));
+    assert_eq!(
+        nav.marked_entry(),
+        None,
+        "the next row click clears the mark"
+    );
+}
+
+/// R-NAV-2 item 4 (ADR 0089 Decision 9): Forward has no subsequent page
+/// after its only page is restored, and a Back move enables it.
+#[test]
+fn adr_0089_nav_forward_is_unavailable_without_a_subsequent_page() {
+    let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+        MusicDestination::Releases,
+    ));
+    nav.open_list_row(track(3));
+    assert!(!nav.can_go_forward(), "a new open has no subsequent page");
+
+    nav.go_back().expect("the opened page can go back");
+    assert!(nav.can_go_forward(), "Back enables Forward");
+
+    nav.go_forward().expect("Forward restores the page");
+    assert!(!nav.can_go_forward(), "the restored page is the last page");
+    assert_eq!(nav.marked_entry(), None, "a Forward move marks nothing");
+}
+
+/// R-NAV-2 item 3 (ADR 0089 Decision 9): a path that opens an item starts at
+/// the destination that holds it. With no earlier page, Back opens that
+/// list and marks the item.
+#[test]
+fn adr_0089_nav_item_path_goes_back_to_its_holding_list() {
+    let cases = [
+        (
+            MusicDestination::Releases,
+            FrameNavigationEntry::Release(ReleaseKey::FeedGuid("guid-a".to_owned())),
+        ),
+        (MusicDestination::Tracks, track(7)),
+        (
+            MusicDestination::Playlists,
+            FrameNavigationEntry::PlaylistDetail(4),
+        ),
+    ];
+    for (destination, item) in cases {
+        let mut nav = FrameNavigationState::new_with_page(
+            FrameNavigationEntry::Destination(destination),
+            item.clone(),
+        );
+        assert_eq!(
+            nav.root(),
+            &FrameNavigationEntry::Destination(destination),
+            "the path starts at the holding list"
+        );
+        assert!(nav.can_go_back(), "Back is available with no earlier page");
+
+        nav.go_back().expect("Back opens the holding list");
+        assert_eq!(
+            nav.current(),
+            &FrameNavigationEntry::Destination(destination)
+        );
+        assert_eq!(nav.marked_entry(), Some(&item), "the item is marked");
+    }
 }

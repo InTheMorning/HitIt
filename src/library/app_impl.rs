@@ -1161,6 +1161,8 @@ impl LibraryApp {
             release_name_page: IndexNameListPage::default(),
             discover_scroll_reveal: ScrollReveal::new(recent_music_scroll.clone()),
             recent_music_scroll,
+            discover_views_scroll: gpui::ScrollHandle::new(),
+            playlists_scroll: gpui::ScrollHandle::new(),
             expanded_singles_groups: BTreeSet::new(),
             download_queue: super::DownloadQueue::default(),
             releases_selection: ListSelection::new(),
@@ -1182,6 +1184,7 @@ impl LibraryApp {
             detail_scroll_binding: super::detail_selection::DetailScrollBinding::default(),
             saved_searches: Vec::new(),
             open_saved_search: None,
+            marked_entry: None,
             music_page_open: false,
             album_identity_backfill_started: false,
             album_identity_backfill_queue: VecDeque::new(),
@@ -2901,8 +2904,8 @@ impl LibraryApp {
             .unwrap_or_default()
     }
 
-    /// The breadcrumb label of a Library page (ADR 0084 Decision 9). The
-    /// top app owns the breadcrumb. The Library gives only the names it has.
+    /// The title of a Library page (ADR 0084 Decision 9). The
+    /// top app owns the page title. The Library gives only the names it has.
     pub(crate) fn navigation_label(&self, entry: &FrameNavigationEntry) -> String {
         match entry {
             FrameNavigationEntry::PlaylistDetail(playlist_id) => self
@@ -2912,19 +2915,19 @@ impl LibraryApp {
             FrameNavigationEntry::Release(key) => self
                 .release_label(key)
                 .unwrap_or_else(|| "Release".to_string()),
-            // ADR 0084 Decision 6: the breadcrumb label is the page title.
+            // ADR 0084 Decision 6: the page title is the label.
             FrameNavigationEntry::SinglesGroup(key) => {
                 let page = self.singles_group_page(key);
                 page.title
             }
-            // ADR 0086 Decision 4: the breadcrumb label is the page title.
+            // ADR 0086 Decision 4: the page title is the label.
             FrameNavigationEntry::WindowGroup(key) => self.vm.window_group_page(key).title,
             _ => entry.display_label(),
         }
     }
 
     /// The Library album name of a release key, when the Library holds that
-    /// release (ADR 0084 Decision 4). The breadcrumb labels each release
+    /// release (ADR 0084 Decision 4). The label of each release
     /// segment by its own key.
     pub(crate) fn release_label(&self, key: &ReleaseKey) -> Option<String> {
         match key {
@@ -2943,7 +2946,7 @@ impl LibraryApp {
     }
 
     /// The Library track title of a track key, when the Library holds that
-    /// track (ADR 0084 Decision 4). The breadcrumb labels each track
+    /// track (ADR 0084 Decision 4). The label of each track
     /// segment by its own key.
     pub(crate) fn track_label(&self, key: &TrackKey) -> Option<String> {
         self.vm
@@ -4989,7 +4992,7 @@ impl LibraryApp {
                 let rows = self
                     .vm
                     .discover_view_rows(&self.saved_searches, self.open_saved_search);
-                render_library_discover_views_list(&rows, cx)
+                render_library_discover_views_list(&rows, &self.discover_views_scroll, cx)
             }
             MusicDestination::Tracks | MusicDestination::NeedsAttention => {
                 let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();
@@ -5095,13 +5098,22 @@ impl LibraryApp {
                 )
             }
             MusicDestination::Playlists => {
-                let sidebar = self.vm.playlist_sidebar();
+                let sidebar = self
+                    .vm
+                    .playlist_sidebar()
+                    .with_marked(self.marked_entry.as_ref());
                 let mut arts = RowArts::new();
                 for row in &sidebar.rows {
                     let image = collection_art_image(self, &row.art, ThumbnailSize::Sm, cx);
                     arts.insert(row.element_id.clone(), image);
                 }
-                render_library_playlists_list(sidebar, &self.new_playlist_input, &arts, cx)
+                render_library_playlists_list(
+                    sidebar,
+                    &self.new_playlist_input,
+                    &arts,
+                    &self.playlists_scroll,
+                    cx,
+                )
             }
         };
 
@@ -5150,7 +5162,8 @@ impl LibraryApp {
             item,
             &self.releases_selection,
             self.releases_selection_mode,
-        );
+        )
+        .with_marked(self.marked_entry.as_ref());
         let thumbnail = item.thumbnail_href().and_then(|href| {
             let animated = self.vm.hovered_thumb_url() == Some(href);
             self.thumbnail_for_url(Some(href), animated, cx)
@@ -5190,7 +5203,8 @@ impl LibraryApp {
         let Some(item) = items.get(index) else {
             return div().into_any_element();
         };
-        let art = match item {
+        let item = item.clone().with_marked(self.marked_entry.as_ref());
+        let art = match &item {
             ArtistsListItemVm::Row(row) => row
                 .art
                 .as_ref()
@@ -5201,7 +5215,7 @@ impl LibraryApp {
             retry: Self::retry_artist_names,
             load_more: Some(Self::load_more_artist_names),
         };
-        render_artists_list_item(item.clone(), art, actions, cx)
+        render_artists_list_item(item, art, actions, cx)
     }
 
     /// Builds the action bar composite of a selection (ADR 0084 Decision

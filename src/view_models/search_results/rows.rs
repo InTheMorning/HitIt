@@ -17,7 +17,7 @@ use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::role_words::{capitalize_first, role_list_text};
 use crate::view_models::singles_group::SinglesGroupKey;
 use crate::view_models::window_groups::WindowLength;
-use crate::view_models::workspace::{ReleaseKey, TrackKey};
+use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey, TrackKey};
 
 use super::{
     ArtistResultDisplay, FeedResultDisplay, SearchResultTarget, SearchResultsTab,
@@ -198,6 +198,26 @@ pub(crate) struct SearchResultRowVm {
     pub(crate) selection: RowSelectionVm,
     /// The selection key of the row. `None` for a row with no checkbox.
     pub(crate) key: Option<DetailRowKey>,
+    /// `true` when this row opens the page that Back left open over the
+    /// search results list (R-NAV-2 item 2).
+    pub(crate) marked: bool,
+}
+
+impl SearchResultRowVm {
+    /// Gives this row its mark: `true` when its target opens `entry`, the
+    /// page that Back left open (R-NAV-2 item 2). A row id of another form
+    /// carries no mark.
+    #[must_use]
+    pub(crate) fn with_marked(
+        mut self,
+        tab: SearchResultsTab,
+        entry: Option<&FrameNavigationEntry>,
+    ) -> Self {
+        self.marked = entry.is_some_and(|entry| {
+            SearchResultTarget::from_row_id(tab, &self.id).is_some_and(|target| target.opens(entry))
+        });
+        self
+    }
 }
 
 /// The logo frame of a search row: the art and the kind of its frame (ADR
@@ -239,6 +259,7 @@ pub(super) fn release_row_vm(
         None => ReleaseDownloadStateVm::in_library(false),
     });
     SearchResultRowVm {
+        marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
         secondary_text,
@@ -277,6 +298,7 @@ pub(super) fn track_row_vm(
     let library = row.key.as_ref().and_then(|key| lookup.track(key));
     let key = row.key.clone().map(DetailRowKey::Track);
     SearchResultRowVm {
+        marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
         secondary_text: row.secondary_text.clone(),
@@ -311,6 +333,7 @@ pub(super) fn artist_row_vm(
         None => row.a11y_label.clone(),
     };
     SearchResultRowVm {
+        marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
         secondary_text: row.secondary_text.clone(),

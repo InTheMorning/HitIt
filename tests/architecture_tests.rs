@@ -314,7 +314,7 @@ const SCREEN_CONTRIBUTOR_PANEL_FORBIDDEN_PATTERNS: &[&str] = &[
 
 const SCREEN_FILES: &[&str] = &[
     "src/app.rs",
-    "src/app/breadcrumb.rs",
+    "src/app/page_title.rs",
     "src/app/detail_selection.rs",
     "src/app/search_selection.rs",
     "src/app/startup.rs",
@@ -871,15 +871,10 @@ fn workspace_frame_shell_display_contract_lives_in_workspace_vm() {
         "pub(crate) title: String",
         "pub(crate) subtitle: Option<String>",
         "pub(crate) status: Option<String>",
-        "pub(crate) back: FrameChromeButtonDisplay",
-        "pub(crate) forward: FrameChromeButtonDisplay",
         "pub(crate) close: Option<FrameChromeButtonDisplay>",
         "pub(crate) action_menu_items: Vec<FrameChromeMenuItemDisplay>",
-        "pub(crate) breadcrumb: Option<BreadcrumbDisplay>",
         "pub(crate) content_slot_id: String",
         "pub(crate) fn from_frame(",
-        "nav.can_go_back()",
-        "nav.can_go_forward()",
         "allow_close.then",
     ] {
         if !source.contains(required) {
@@ -896,9 +891,10 @@ fn workspace_frame_shell_display_contract_lives_in_workspace_vm() {
     );
 }
 
-/// R15-05 (ADR 0046 Task 015, ADR 0081 Decision 3): `go_forward` and
-/// `FrameShellSlots::on_forward` must have a production caller, so neither
-/// one stays behind a `#[cfg(test)]` block.
+/// R15-05 (ADR 0046 Task 015, ADR 0081 Decision 3, ADR 0089 Decision 9):
+/// `go_forward` must have a production caller, so it stays out of a
+/// `#[cfg(test)]` block. Forward is a toolbar command, so the toolbar calls
+/// it through the app's Forward handler.
 #[test]
 fn adr_0046_forward_go_forward_and_on_forward_have_production_callers() {
     let nav_source = read_source(&manifest_path("src/view_models/workspace/nav.rs"));
@@ -906,8 +902,15 @@ fn adr_0046_forward_go_forward_and_on_forward_have_production_callers() {
         nav_source.contains("pub(crate) fn go_forward"),
         "ADR 0046 Task 015: src/view_models/workspace/nav.rs must declare go_forward"
     );
+    // The text between the end of the previous method and `go_forward` must
+    // not carry a `#[cfg(test)]` attribute, which would gate `go_forward`.
+    let go_forward_at = nav_source
+        .find("pub(crate) fn go_forward")
+        .expect("go_forward is declared");
+    let before_go_forward = &nav_source[..go_forward_at];
+    let method_start = before_go_forward.rfind("\n    }\n").unwrap_or(0);
     assert!(
-        !nav_source.contains("#[cfg(test)]"),
+        !before_go_forward[method_start..].contains("#[cfg(test)]"),
         "ADR 0046 Task 015: src/view_models/workspace/nav.rs must not gate go_forward behind #[cfg(test)]"
     );
 
@@ -918,34 +921,14 @@ fn adr_0046_forward_go_forward_and_on_forward_have_production_callers() {
         "ADR 0046 Task 015: WorkspaceModelError::CannotNavigateForward must not stay test-only"
     );
 
-    let frame_shell_source = read_source(&manifest_path("src/ui/composites/frame_shell.rs"));
-    let production_frame_shell = frame_shell_source
-        .split("#[cfg(test)]")
-        .next()
-        .unwrap_or(frame_shell_source.as_str());
+    let tab_bar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
     assert!(
-        production_frame_shell.contains("pub(crate) fn on_forward"),
-        "ADR 0046 Task 015: FrameShellSlots::on_forward must have a production caller outside #[cfg(test)]"
+        tab_bar_source.contains("this.handle_content_list_forward_select(cx)"),
+        "ADR 0089 Decision 9: the toolbar Forward control must call `handle_content_list_forward_select`"
     );
 
-    let workspace_shell_source = read_source(&manifest_path("src/ui/shells/workspace.rs"));
-    for required in [
-        "on_content_list_forward_select",
-        "forward_select_handler_for",
-        "shell_slots.on_forward(",
-    ] {
-        assert!(
-            workspace_shell_source.contains(required),
-            "ADR 0046 Task 015: src/ui/shells/workspace.rs must wire `{required}`"
-        );
-    }
-
     let app_source = read_source(&manifest_path("src/app.rs"));
-    for required in [
-        "fn handle_content_list_forward_select",
-        "pop_nav_forward",
-        "on_content_list_forward_select",
-    ] {
+    for required in ["fn handle_content_list_forward_select", "pop_nav_forward"] {
         assert!(
             app_source.contains(required),
             "ADR 0046 Task 015: src/app.rs must wire `{required}`"
@@ -1490,8 +1473,6 @@ fn workspace_frame_shell_composite_owns_shared_frame_chrome() {
         "FrameChromeButtonDisplay",
         "FrameChromeMenuItemDisplay",
         "ContextMenuScope::WorkspaceFrame",
-        "IconName::ChevronLeft",
-        "IconName::ChevronRight",
         "IconName::Close",
         "content.into_any_element()",
     ] {
@@ -3246,7 +3227,6 @@ fn adr_0049_inspector_source_ownership_is_guarded() {
     ));
     let search_results_shell_source =
         read_source(&manifest_path("src/ui/shells/search_results_inspector.rs"));
-    let workspace_shell_source = read_source(&manifest_path("src/ui/shells/workspace.rs"));
     // ADR 0084 packet 021 moved the Library release rows into the one
     // release page view model, and the Index page into its shell.
     let release_page_vm_source = read_source(&manifest_path("src/view_models/release_page.rs"));
@@ -3262,7 +3242,6 @@ fn adr_0049_inspector_source_ownership_is_guarded() {
         "FrameNavigationEntry::ArtistName(",
         "FrameNavigationEntry::Track(",
         "render_index_detail_display(",
-        "content_list_breadcrumb_labeler(",
         "self.render_index_release_page(feed, cx)",
         "hero_image: self.index_feed_hero_image(feed, cx)",
         "fn index_feed_hero_image(",
@@ -3410,18 +3389,6 @@ fn adr_0049_inspector_source_ownership_is_guarded() {
             "src/ui/shells/search_results_inspector.rs: ADR 0077 packet 006 retired SearchResultsHeaderMode::Scoped; it must not return"
                 .to_string(),
         );
-    }
-
-    for required in [
-        "content_list_breadcrumb_labeler:",
-        "fn breadcrumb_labeler_for(",
-        "BreadcrumbDisplay::project(breadcrumb_id, navigation, |entry| labeler(entry))",
-    ] {
-        if !workspace_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/shells/workspace.rs: ADR 0049 breadcrumb label ownership missing `{required}`"
-            ));
-        }
     }
 
     // ADR 0084 Decisions 4 and 8 (operator decision of 2026-10-16): the
@@ -3816,8 +3783,6 @@ fn adr_0047_task_012_frame_navigation_is_workspace_vm_owned() {
         "pub(crate) fn push_nav(",
         "pub(crate) fn pop_nav(&mut self, id: WorkspaceFrameId) -> Option<FrameNavigationEntry>",
         "fn default_navigation_entry(kind: WorkspaceFrameKind) -> FrameNavigationEntry",
-        "BreadcrumbTruncation::MiddleEllipsis",
-        "breadcrumb-ellipsis",
     ] {
         if !workspace_source.contains(required) {
             violations.push(format!(
@@ -3846,91 +3811,6 @@ fn adr_0047_task_012_frame_navigation_is_workspace_vm_owned() {
 }
 
 #[test]
-fn adr_0047_task_013_frame_shell_renders_breadcrumb_chrome() {
-    let workspace_source = workspace_vm_source();
-    let frame_shell_source = read_source(&manifest_path("src/ui/composites/frame_shell.rs"));
-    let mut violations = Vec::new();
-
-    for required in [
-        "pub(crate) breadcrumb: Option<BreadcrumbDisplay>",
-        "breadcrumb: None",
-        "pub(crate) fn with_breadcrumb(mut self, display: BreadcrumbDisplay) -> Self",
-    ] {
-        if !workspace_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/workspace/mod.rs: ADR 0047 Task 013 frame-shell breadcrumb display contract missing `{required}`"
-            ));
-        }
-    }
-
-    for required in [
-        "type FrameBreadcrumbSelectHandler",
-        "on_breadcrumb_select: Option<FrameBreadcrumbSelectHandler>",
-        "pub(crate) fn on_breadcrumb_select(",
-        "let breadcrumb_display = display.breadcrumb.clone();",
-        "BreadcrumbTrail::new(breadcrumb)",
-        ".appearance(",
-        ".on_select(move |entry, window, cx",
-        "px(Spacing::MD.scaled(cx))",
-        "pb(Spacing::XS.scaled(cx))",
-    ] {
-        if !frame_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/composites/frame_shell.rs: ADR 0047 Task 013 breadcrumb chrome missing `{required}`"
-            ));
-        }
-    }
-
-    for forbidden in [
-        "crate::library",
-        "crate::search",
-        "crate::app",
-        "crate::db",
-        "gpui::rgb(",
-        "gpui::px(",
-        ".absolute()",
-        ".fixed()",
-        ".z_index(",
-    ] {
-        if frame_shell_source.contains(forbidden) {
-            violations.push(format!(
-                "src/ui/composites/frame_shell.rs: ADR 0047 Task 013 frame shell must not use `{forbidden}`"
-            ));
-        }
-    }
-
-    assert!(
-        violations.is_empty(),
-        "ADR 0047 Task 013 frame-shell breadcrumb violations:\n{}",
-        violations.join("\n")
-    );
-}
-
-#[test]
-fn adr_0047_breadcrumb_unification_guards_frame_shell_helpers_removed() {
-    let frame_shell_source = read_source(&manifest_path("src/ui/composites/frame_shell.rs"));
-    let mut violations = Vec::new();
-
-    for forbidden_fn in [
-        "fn frame_breadcrumb_row",
-        "fn frame_breadcrumb_segment",
-        "fn frame_breadcrumb_separator",
-    ] {
-        if frame_shell_source.contains(forbidden_fn) {
-            violations.push(format!(
-                "src/ui/composites/frame_shell.rs: breadcrumb unification must remove `{forbidden_fn}` hand-rolled helper"
-            ));
-        }
-    }
-
-    assert!(
-        violations.is_empty(),
-        "ADR 0047 breadcrumb unification violations:\n{}",
-        violations.join("\n")
-    );
-}
-
-#[test]
 fn adr_0047_task_014_search_results_inspector_shell_contract() {
     let shell_source = read_source(&manifest_path("src/ui/shells/search_results_inspector.rs"));
     let row_shell_source = read_source(&manifest_path("src/ui/shells/search_result_rows.rs"));
@@ -3954,7 +3834,7 @@ fn adr_0047_task_014_search_results_inspector_shell_contract() {
         // Packet 028 D3: the row takes its thumbnail or its logo frame.
         // ADR 0084 task 033: the row takes `cx`, to render its
         // download-state icon through the shared composite.
-        "render_result_row(tab, row.clone(), leading, handlers, cx)",
+        "render_result_row(tab, row, leading, handlers, cx)",
     ] {
         if !shell_source.contains(required) {
             violations.push(format!(
@@ -4034,7 +3914,6 @@ fn adr_0047_task_015_search_submit_commands() {
     let app_source = read_source(&manifest_path("src/app.rs"));
     let search_dispatch_source = read_source(&manifest_path("src/app/search_dispatch.rs"));
     let workspace_source = workspace_vm_source();
-    let workspace_shell_source = read_source(&manifest_path("src/ui/shells/workspace.rs"));
     let mut violations = Vec::new();
 
     for required in [
@@ -4092,23 +3971,6 @@ fn adr_0047_task_015_search_submit_commands() {
         if app_source.contains(forbidden) {
             violations.push(format!(
                 "src/app.rs: ADR 0047 Task 015 must not route toolbar submit through the legacy Search tab; found `{forbidden}`"
-            ));
-        }
-    }
-
-    for required in [
-        ".frame_nav(frame.id())",
-        "BreadcrumbDisplay::project(",
-        "FrameNavigationEntry::display_label",
-        "fn should_render_breadcrumb(",
-        "matches!(kind, WorkspaceFrameKind::ContentList)",
-        "nav.has_location_path()",
-        "FrameNavigationEntry::Search(_)",
-        ".on_back(move |window, cx|",
-    ] {
-        if !workspace_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/shells/workspace.rs: ADR 0048 ContentList breadcrumb/back projection missing `{required}`"
             ));
         }
     }
@@ -5508,7 +5370,7 @@ fn adr_0084_discover_selection_r20_07_selectable_tile_uses_named_tokens() {
         "SemanticColor::Accent",
         "SemanticColor::SelectedContent",
         "SemanticColor::Focus",
-        "row_outline(self.selected, self.focused)",
+        "row_outline(self.selected, self.focused, false)",
     ] {
         if !source.contains(required) {
             violations.push(format!("{file}: missing `{required}`."));
@@ -6465,7 +6327,6 @@ fn composites_do_not_reintroduce_raw_color_or_numeric_px_literals() {
 fn adr_0042_composite_call_site_reconciliation_is_current() {
     let adr = read_source(&manifest_path("docs/adr/0042-layer-consolidation.md"));
     let audit = read_source(&manifest_path("docs/research/composite-audit-adr-0042.md"));
-    let frame_shell = read_source(&manifest_path("src/ui/composites/frame_shell.rs"));
     let entity_shell = read_source(&manifest_path("src/ui/shells/entity.rs"));
     let library_metadata = read_source(&manifest_path(
         "src/ui/shells/library/track_detail_metadata.rs",
@@ -6475,11 +6336,6 @@ fn adr_0042_composite_call_site_reconciliation_is_current() {
     // files; `adr_0060_discover_surface_stays_deleted` checks that those
     // files stay gone.
 
-    // ADR 0084 Decision 9: the frame shell is the one breadcrumb caller.
-    assert!(
-        frame_shell.contains("BreadcrumbTrail::new(breadcrumb)"),
-        "BreadcrumbTrail must keep its frame-shell caller"
-    );
     assert!(
         library_metadata.contains("MusicBrainzPanel::new(vm)"),
         "MusicBrainzPanel must keep its Library metadata caller"
@@ -10091,19 +9947,6 @@ fn source_fact_placeholder_and_breadcrumb_regressions_are_guarded() {
         "Track detail download must run the real SubscribeTrack path, not a membership-only toggle"
     );
 
-    let track_detail_source = read_source(&manifest_path("src/ui/shells/library/track_detail.rs"));
-    assert!(
-        !track_detail_source.contains("BreadcrumbTrail"),
-        "ADR 0084 Decision 9: the track page keeps no breadcrumb of its own. The frame chrome shows the location breadcrumb"
-    );
-    let track_detail_metadata_source = read_source(&manifest_path(
-        "src/ui/shells/library/track_detail_metadata.rs",
-    ));
-    assert!(
-        !track_detail_metadata_source.contains("BreadcrumbTrail"),
-        "Breadcrumb navigation must not return as an inspector action-row control"
-    );
-
     let agent_source = read_source(&manifest_path("AGENTS.md"));
     // AGENTS.md wraps its prose, so this rule can break across two lines.
     // Compare the text with its whitespace collapsed.
@@ -11037,7 +10880,6 @@ fn workspace_vm_source() -> String {
         "src/view_models/workspace/frame.rs",
         "src/view_models/workspace/chrome.rs",
         "src/view_models/workspace/nav.rs",
-        "src/view_models/workspace/breadcrumb.rs",
     ]
     .into_iter()
     .map(|file| read_source(&manifest_path(file)))
@@ -11543,20 +11385,24 @@ fn adr_0048_library_settings_tabs_drive_content_list_nav() {
 
 #[test]
 fn adr_0048_content_list_frame_back_is_wired() {
+    // ADR 0089 Decision 9: the toolbar owns Back, so the toolbar calls the
+    // app's Back handler.
     let app_source = read_source(&manifest_path("src/app.rs"));
-    let workspace_shell_source = read_source(&manifest_path("src/ui/shells/workspace.rs"));
+    let tab_bar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
 
     for required in [
         "fn handle_content_list_back_select(",
         "self.workspace_layout.pop_nav(content_list_id)",
-        "on_content_list_back_select",
-        ".on_back(move |window, cx|",
     ] {
         assert!(
-            app_source.contains(required) || workspace_shell_source.contains(required),
-            "ContentList frame back must be wired through workspace shell; missing `{required}`"
+            app_source.contains(required),
+            "ContentList frame back must restore through the app; missing `{required}`"
         );
     }
+    assert!(
+        tab_bar_source.contains("this.handle_content_list_back_select(cx)"),
+        "ADR 0089 Decision 9: the toolbar Back control must call `handle_content_list_back_select`"
+    );
 }
 
 #[test]
@@ -11643,30 +11489,7 @@ fn adr_0048_index_search_is_async_and_vm_owned() {
 }
 
 #[test]
-fn breadcrumb_pop_syncs_library_detail() {
-    let breadcrumb_source = read_source(&manifest_path("src/app/breadcrumb.rs"));
-
-    let app_source = read_source(&manifest_path("src/app.rs"));
-    let restore = source_between(
-        &app_source,
-        "fn restore_content_list_nav_entry(",
-        "pub(super) fn focus_global_search(",
-    );
-
-    // Guard: a breadcrumb selection restores the page through the function
-    // that Back and Forward use (ADR 0084 Decision 9), and that function
-    // syncs the LibraryApp detail.
-    assert!(
-        breadcrumb_source.contains("fn handle_content_list_breadcrumb_select(")
-            && breadcrumb_source.contains("self.restore_content_list_nav_entry(")
-            && restore.contains("hydrate_detail_from_nav"),
-        "handle_content_list_breadcrumb_select must restore through restore_content_list_nav_entry, which calls hydrate_detail_from_nav"
-    );
-}
-
-#[test]
 fn search_results_detail_syncs_with_search_nav_flow() {
-    let breadcrumb_source = read_source(&manifest_path("src/app/breadcrumb.rs"));
     let search_dispatch_source = read_source(&manifest_path("src/app/search_dispatch.rs"));
 
     // Guard: sync_search_results_detail_with_nav must exist and be called.
@@ -11675,7 +11498,7 @@ fn search_results_detail_syncs_with_search_nav_flow() {
         "src/app/search_dispatch.rs must define sync_search_results_detail_with_nav helper"
     );
 
-    // Guard: the breadcrumb restore path calls it (ADR 0084 Decision 9).
+    // Guard: the restore path calls it (ADR 0084 Decision 9, ADR 0089).
     let app_source = read_source(&manifest_path("src/app.rs"));
     let restore = source_between(
         &app_source,
@@ -11683,9 +11506,8 @@ fn search_results_detail_syncs_with_search_nav_flow() {
         "pub(super) fn focus_global_search(",
     );
     assert!(
-        breadcrumb_source.contains("self.restore_content_list_nav_entry(")
-            && restore.contains("self.sync_search_results_detail_with_nav("),
-        "sync_search_results_detail_with_nav must be called from the breadcrumb restore path"
+        restore.contains("self.sync_search_results_detail_with_nav("),
+        "sync_search_results_detail_with_nav must be called from the restore path"
     );
 
     // Guard: it must be called from handle_search_result_selected
@@ -11693,7 +11515,7 @@ fn search_results_detail_syncs_with_search_nav_flow() {
         search_dispatch_source.contains("fn handle_search_result_selected(")
             && count_matches(&search_dispatch_source, "self.sync_search_results_detail_with_nav(")
                 >= 2,
-        "sync_search_results_detail_with_nav must be called from both breadcrumb and result-select handlers"
+        "sync_search_results_detail_with_nav must be called from the restore path and the result-select handler"
     );
 }
 
@@ -14284,7 +14106,6 @@ fn adr_0061_root_content_frame_header_omits_redundant_section_title() {
     for required in [
         "pub(crate) fn header_visible(&self) -> bool",
         "!self.title.is_empty()",
-        "|| self.back_shown()",
     ] {
         if !workspace_vm_source.contains(required) {
             violations.push(format!(
@@ -21655,8 +21476,6 @@ fn adr_0084_nav_library_screens_keep_no_navigation_stack() {
         for forbidden in [
             "WorkspaceLayout",
             "FrameNavigationState",
-            "BreadcrumbDisplay",
-            "BreadcrumbTrail",
             "push_nav(",
             "reset_nav(",
         ] {
@@ -22670,7 +22489,7 @@ fn adr_0084_release_row_actions_r31_07_rows_with_no_menu() {
     let playlists = source_between(
         &lists,
         "pub(crate) fn render_library_playlists_list(",
-        "music_column_scrollbar(container,",
+        "music_column_tracked_scrollbar(container, scroll, None)",
     );
     if playlists.contains("menu_cell(") || playlists.contains("release_row_menu") {
         violations.push("a Playlists row must have no release row menu".to_owned());
@@ -23023,14 +22842,11 @@ fn adr_0084_music_open_defects_r30_06_playlist_delete_opens_the_confirmation() {
 /// superseded.
 #[test]
 fn adr_0084_music_open_defects_r30_10_each_restore_records_the_toolbar_text() {
-    const FIX: &str = "ADR 0084 task 030 D5, review of 2026-10-21: only a history move (Back, Forward, a breadcrumb segment) shows a restored query in the toolbar field.\nCall `self.pending_toolbar_search.record(&entry)` in each history-move handler. `restore_content_list_nav_entry`, `open_music_page` and `open_search_results_in_content_list` must not touch `pending_toolbar_search`. `apply_pending_toolbar_search` must compare `input.value().trim()`.";
+    const FIX: &str = "ADR 0084 task 030 D5, review of 2026-10-21: only a history move (Back, Forward) shows a restored query in the toolbar field.\nCall `self.pending_toolbar_search.record(&entry)` in each history-move handler. `restore_content_list_nav_entry`, `open_music_page` and `open_search_results_in_content_list` must not touch `pending_toolbar_search`. `apply_pending_toolbar_search` must compare `input.value().trim()`.";
     let app = code_only(&read_source(&manifest_path("src/app.rs")));
-    let breadcrumb = code_only(&read_source(&manifest_path("src/app/breadcrumb.rs")));
     let dispatch = code_only(&read_source(&manifest_path("src/app/search_dispatch.rs")));
     let mut violations = Vec::new();
     let app_body = |name: &str| music_open_defects_fn_body(&app, name).unwrap_or_default();
-    let breadcrumb_body =
-        |name: &str| music_open_defects_fn_body(&breadcrumb, name).unwrap_or_default();
     let dispatch_body =
         |name: &str| music_open_defects_fn_body(&dispatch, name).unwrap_or_default();
 
@@ -23049,15 +22865,6 @@ fn adr_0084_music_open_defects_r30_10_each_restore_records_the_toolbar_text() {
                 "src/app.rs: `{name}` must restore through `restore_content_list_nav_entry`"
             ));
         }
-    }
-    let crumb_body = breadcrumb_body("handle_content_list_breadcrumb_select");
-    if !crumb_body.contains("self.pending_toolbar_search.record(") {
-        violations.push(
-            "src/app/breadcrumb.rs: a breadcrumb segment must record the toolbar text of the restored entry".to_owned(),
-        );
-    }
-    if !crumb_body.contains("self.restore_content_list_nav_entry(") {
-        violations.push("src/app/breadcrumb.rs: a breadcrumb segment must restore through `restore_content_list_nav_entry`".to_owned());
     }
     if app_body("restore_content_list_nav_entry").contains("pending_toolbar_search") {
         violations.push(
@@ -23085,6 +22892,25 @@ fn adr_0084_music_open_defects_r30_10_each_restore_records_the_toolbar_text() {
         );
     }
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
+}
+
+/// Situational, ADR 0089 Decision 9 (the location breadcrumb goes). No view
+/// model exposes a breadcrumb. The page title and the history controls
+/// belong to the app toolbar. Delete this guard when ADR 0089 is superseded.
+#[test]
+fn adr_0089_no_view_model_exposes_a_breadcrumb() {
+    let mut violations = Vec::new();
+    for file in rust_files_under("src/view_models") {
+        let source = production_source(&read_source(&file)).to_ascii_lowercase();
+        if source.contains("breadcrumb") {
+            violations.push(format!("{}: contains `breadcrumb`", file.display()));
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ADR 0089 Decision 9: a view model must not expose a breadcrumb. The page title and the Back and Forward controls are toolbar facts. Move the value into `NavigationTitle` or `ToolbarNavigationDisplay` in src/view_models/app_toolbar.rs.\n{}",
+        violations.join("\n")
+    );
 }
 
 /// Situational, ADR 0084 packet 018 and Decision 9 amended on 2026-10-21

@@ -183,6 +183,7 @@ pub(crate) fn index_artist_row(row: &ArtistNameRow) -> DestinationListRowVm {
     let no_covers = std::iter::empty::<&str>();
     match row.kind {
         ArtistNameKind::Name => DestinationListRowVm {
+            marked: false,
             element_id: format!(
                 "music-artist-row-index-name:{}",
                 release_row_slug_text(&row.key)
@@ -208,6 +209,7 @@ pub(crate) fn index_artist_row(row: &ArtistNameRow) -> DestinationListRowVm {
         ArtistNameKind::Publisher | ArtistNameKind::Unknown => {
             let feed_guid = row.feed_guid.clone().unwrap_or_else(|| row.key.clone());
             DestinationListRowVm {
+                marked: false,
                 element_id: format!("music-artist-row-index-publisher:{feed_guid}"),
                 label: row.name.clone(),
                 secondary_text: NOT_IN_LIBRARY.to_owned(),
@@ -331,6 +333,7 @@ mod tests {
         LibraryArtistRow {
             order,
             row: DestinationListRowVm {
+                marked: false,
                 element_id: format!("library:{label}"),
                 label: label.to_owned(),
                 secondary_text: "1 in Library".to_owned(),
