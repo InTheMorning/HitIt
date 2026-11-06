@@ -17,20 +17,19 @@ use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::primitives::Label;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor};
-use crate::view_models::library::{DiscoverViewIcon, DiscoverViewRowTarget, DiscoverViewRowVm};
+use crate::view_models::library::{DiscoverListIcon, DiscoverListRowTarget, DiscoverListRowVm};
 
 /// Maps the semantic icon of a Discover view row to a named icon.
-const fn icon_name(icon: DiscoverViewIcon) -> IconName {
+const fn icon_name(icon: DiscoverListIcon) -> IconName {
     match icon {
-        DiscoverViewIcon::NewReleases => IconName::Discover,
-        DiscoverViewIcon::SavedSearch => IconName::Search,
+        DiscoverListIcon::SavedSearch => IconName::Search,
     }
 }
 
-/// Renders the Discover views list column (ADR 0084 Decision 3): "New
-/// releases", then the saved searches.
-pub(crate) fn render_library_discover_views_list(
-    rows: &[DiscoverViewRowVm],
+/// Renders the Discover list column (ADR 0084 Decision 3): the saved
+/// searches. The saved searches list goes to packet 006 (ADR 0089).
+pub(crate) fn render_library_discover_list(
+    rows: &[DiscoverListRowVm],
     scroll: &gpui::ScrollHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -46,12 +45,12 @@ pub(crate) fn render_library_discover_views_list(
         .child(
             page_scroll_content(cx)
                 .gap(spacing::XXS)
-                .children(rows.iter().map(|row| render_discover_view_row(row, cx))),
+                .children(rows.iter().map(|row| render_discover_list_row(row, cx))),
         );
     music_column_tracked_scrollbar(container, scroll, None)
 }
 
-fn render_discover_view_row(row: &DiscoverViewRowVm, cx: &mut Context<LibraryApp>) -> AnyElement {
+fn render_discover_list_row(row: &DiscoverListRowVm, cx: &mut Context<LibraryApp>) -> AnyElement {
     let target = row.target.clone();
 
     ListRow::new(SharedString::from(row.element_id.clone()))
@@ -61,8 +60,7 @@ fn render_discover_view_row(row: &DiscoverViewRowVm, cx: &mut Context<LibraryApp
         .selected(row.selected)
         .on_click(
             cx.listener(move |this, _: &ClickEvent, _window, cx| match &target {
-                DiscoverViewRowTarget::View(view) => this.open_discover_view(*view, cx),
-                DiscoverViewRowTarget::SavedSearch(search) => {
+                DiscoverListRowTarget::SavedSearch(search) => {
                     this.open_saved_search_row(search, cx);
                 }
             }),

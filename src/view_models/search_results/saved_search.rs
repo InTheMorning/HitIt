@@ -346,9 +346,8 @@ mod tests {
     };
     use crate::view_models::selection_action_bar::SelectionActionKind;
     use crate::view_models::workspace::{
-        DiscoverView, FrameNavigationEntry, FrameNavigationState, MusicDestination,
+        FrameNavigationEntry, FrameNavigationState, MusicDestination,
     };
-
     fn saved(id: i64, query: &str, start_tab: SearchResultsTab) -> SavedSearch {
         SavedSearch {
             id: SavedSearchId(id),
@@ -446,106 +445,6 @@ mod tests {
         ));
     }
 
-    /// Review correction (2026-10-21): before this fix, a late Index reply
-    /// for the open saved search A was dropped once the current location
-    /// path no longer held the entry of A, for example after a move to
-    /// "New releases". The page then stayed "loading" for good, because
-    /// Back gave `Keep` with no rows to show.
-    ///
-    /// A reply for A now matches as long as the mounted page still holds
-    /// the id and the query of A. A move away to "New releases" or to a
-    /// toolbar search does not touch the mounted saved-search page, so the
-    /// reply still writes it, and Back shows the rows, not a stuck loading
-    /// state.
-    #[test]
-    fn adr_0084_saved_search_late_reply_after_leaving_the_path_is_not_stuck_loading() {
-        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
-        let mut page = open_page(&a);
-        page.results_mut()
-            .expect("an open page has results")
-            .mark_index_loading();
-
-        // Leave to "New releases", a path that holds no entry for A,
-        // before the reply arrives. The production code calls no
-        // saved-search function for this move, so the mounted page stays
-        // the page of A.
-        let mut nav = FrameNavigationState::new_with_page(
-            FrameNavigationEntry::Destination(MusicDestination::Discover),
-            a.entry(),
-        );
-        nav.start_path(
-            FrameNavigationEntry::Destination(MusicDestination::Discover),
-            Some(FrameNavigationEntry::DiscoverView(
-                DiscoverView::NewReleases,
-            )),
-        );
-        assert!(
-            !nav.path_entries().contains(&a.entry()),
-            "the path no longer holds the entry of A"
-        );
-
-        // The late reply for A still matches, because the mounted page is
-        // still the page of A.
-        assert!(saved_search_result_is_current(Some(&page), a.id, &a.query));
-        let wrote = page
-            .results_mut()
-            .expect("an open page has results")
-            .replace_index_results_for_query(
-                &a.query,
-                IndexSearchResultRows {
-                    feeds: vec![index_release(2_000_000_000, "g-index", "Index Release")],
-                    ..IndexSearchResultRows::default()
-                },
-            );
-        assert!(wrote, "the reply writes the page of A");
-
-        // Back restores A: Keep, because the mounted page already holds
-        // the rows of A.
-        assert_eq!(
-            saved_search_restore(Some(&page), a.id, &a.query, std::slice::from_ref(&a)),
-            SavedSearchRestore::Keep
-        );
-        let results = page.results().expect("an open page has results");
-        assert!(!results.is_index_loading(), "the page is not stuck loading");
-    }
-
-    /// R12-08 (ADR 0084 Decision 3): the confirmation names the query and
-    /// gives "Delete". After the delete, the location is Discover with
-    /// "New releases".
-    #[test]
-    fn adr_0084_saved_search_r12_08_delete_confirmation_and_location() {
-        let confirmation = delete_saved_search_confirmation("bluegrass");
-        assert_eq!(
-            confirmation.message,
-            "Delete the saved search \"bluegrass\"? The Library and the downloads do not change."
-        );
-        assert_eq!(confirmation.confirm_label, "Delete");
-
-        let search = saved(3, "bluegrass", SearchResultsTab::Releases);
-        let action = open_page(&search)
-            .delete_action()
-            .expect("an open page gives Delete");
-        assert_eq!(action.label, "Delete\u{2026}");
-        assert!(action.available);
-
-        let entry = location_after_saved_search_delete();
-        let FrameNavigationEntry::Destination(destination) = &entry else {
-            panic!("the delete opens a destination");
-        };
-        let mut nav = FrameNavigationState::new_with_page(
-            FrameNavigationEntry::Destination(MusicDestination::Discover),
-            search.entry(),
-        );
-        nav.start_path(entry.clone(), destination.default_child_page());
-        assert_eq!(
-            nav.path_entries(),
-            vec![
-                FrameNavigationEntry::Destination(MusicDestination::Discover),
-                FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases),
-            ]
-        );
-    }
-
     /// R12-09 (ADR 0084 Decision 3): the entry of a deleted saved search
     /// gives the empty state, and the restore starts no query.
     #[test]
@@ -627,6 +526,101 @@ mod tests {
             results.selection().entry(),
             Some(&search.entry()),
             "a tab change keeps the selection on the saved-search entry"
+        );
+    }
+
+    /// Review correction (2026-10-21): a late Index reply for the open
+    /// saved search A must not be dropped after the current location path
+    /// no longer holds the entry of A. The page then stayed "loading",
+    /// because Back gave `Keep` with no rows to show.
+    ///
+    /// A reply for A still matches while the mounted page holds the id and
+    /// the query of A. A move to the Releases destination does not touch
+    /// the mounted saved-search page, so the reply writes it, and Back
+    /// shows the rows, not a stuck loading state.
+    #[test]
+    fn adr_0084_saved_search_late_reply_after_leaving_the_path_is_not_stuck_loading() {
+        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let mut page = open_page(&a);
+        page.results_mut()
+            .expect("an open page has results")
+            .mark_index_loading();
+
+        // Leave to the Releases destination, a path that holds no entry
+        // for A, before the reply arrives. The production code calls no
+        // saved-search function for this move, so the mounted page stays
+        // the page of A.
+        let mut nav = FrameNavigationState::new_with_page(
+            FrameNavigationEntry::Destination(MusicDestination::Discover),
+            a.entry(),
+        );
+        nav.start_path(
+            FrameNavigationEntry::Destination(MusicDestination::Releases),
+            None,
+        );
+        assert!(
+            !nav.path_entries().contains(&a.entry()),
+            "the path no longer holds the entry of A"
+        );
+
+        // The late reply for A still matches, because the mounted page is
+        // still the page of A.
+        assert!(saved_search_result_is_current(Some(&page), a.id, &a.query));
+        let wrote = page
+            .results_mut()
+            .expect("an open page has results")
+            .replace_index_results_for_query(
+                &a.query,
+                IndexSearchResultRows {
+                    feeds: vec![index_release(2_000_000_000, "g-index", "Index Release")],
+                    ..IndexSearchResultRows::default()
+                },
+            );
+        assert!(wrote, "the reply writes the page of A");
+
+        // Back restores A: Keep, because the mounted page already holds
+        // the rows of A.
+        assert_eq!(
+            saved_search_restore(Some(&page), a.id, &a.query, std::slice::from_ref(&a)),
+            SavedSearchRestore::Keep
+        );
+        let results = page.results().expect("an open page has results");
+        assert!(!results.is_index_loading(), "the page is not stuck loading");
+    }
+
+    /// R12-08 (ADR 0084 Decision 3): the confirmation names the query and
+    /// gives "Delete". After the delete, the location is Discover with
+    /// "New releases".
+    #[test]
+    fn adr_0084_saved_search_r12_08_delete_confirmation_and_location() {
+        let confirmation = delete_saved_search_confirmation("bluegrass");
+        assert_eq!(
+            confirmation.message,
+            "Delete the saved search \"bluegrass\"? The Library and the downloads do not change."
+        );
+        assert_eq!(confirmation.confirm_label, "Delete");
+
+        let search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        let action = open_page(&search)
+            .delete_action()
+            .expect("an open page gives Delete");
+        assert_eq!(action.label, "Delete\u{2026}");
+        assert!(action.available);
+
+        let entry = location_after_saved_search_delete();
+        let FrameNavigationEntry::Destination(_) = &entry else {
+            panic!("the delete opens a destination");
+        };
+        let mut nav = FrameNavigationState::new_with_page(
+            FrameNavigationEntry::Destination(MusicDestination::Discover),
+            search.entry(),
+        );
+        nav.start_path(entry.clone(), None);
+        assert_eq!(
+            nav.path_entries(),
+            vec![FrameNavigationEntry::Destination(
+                MusicDestination::Discover
+            )]
         );
     }
 }

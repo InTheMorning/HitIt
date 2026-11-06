@@ -18,24 +18,12 @@ pub(crate) fn render_content_list_state(
     cx: &App,
 ) -> AnyElement {
     match display {
-        ContentListPageStateDisplay::Loading(display) => div()
-            .text_center()
-            .p(Spacing::LG.scaled(cx))
-            .child(
-                Label::new(display.label)
-                    .size(FontSize::Caption)
-                    .color(SemanticColor::TertiaryLabel),
-            )
-            .into_any_element(),
         ContentListPageStateDisplay::Empty(display) => render_content_list_message(
             display.title,
             display.secondary,
             SemanticColor::TertiaryLabel,
             cx,
         ),
-        ContentListPageStateDisplay::Failed(display) => {
-            render_content_list_message(display.title, display.detail, SemanticColor::Danger, cx)
-        }
     }
 }
 

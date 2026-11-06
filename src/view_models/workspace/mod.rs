@@ -21,8 +21,8 @@ mod nav;
 mod tests;
 
 pub(crate) use chrome::{
-    ContentViewMode, ContentViewModeControlDisplay, FrameChromeButtonDisplay,
-    FrameChromeMenuItemDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
+    ContentViewMode, FrameChromeButtonDisplay, FrameChromeMenuItemDisplay,
+    FrameHeaderActionDisplay, FrameShellDisplay,
 };
 pub(crate) use columns::{
     music_focus_moves, music_focus_target, music_page_content, MusicColumns, MusicFocusTarget,
@@ -32,7 +32,7 @@ pub(crate) use frame::{WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState
 pub(crate) use nav::{
     release_download_updates_open_page, resolve_release_page_source, resolve_track_page_source,
     track_download_updates_open_page, track_release_download_updates_open_page, DetailScrollTarget,
-    DiscoverView, FrameNavigationEntry, FrameNavigationState, IndexTrackTarget, MusicDestination,
+    FrameNavigationEntry, FrameNavigationState, IndexTrackTarget, MusicDestination,
     NavigationLocationId, NavigationPathStart, PendingToolbarSearchText, ReleaseKey,
     ReleasePageSource, TrackKey, TrackPageSource,
 };

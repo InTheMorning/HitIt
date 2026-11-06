@@ -62,7 +62,6 @@ pub mod track_header;
 pub mod track_metadata_grid;
 pub mod track_row;
 pub(crate) mod track_row_menu;
-pub mod view_mode_control;
 
 pub use action_button::{action_button, ActionButtonDisplay};
 pub use action_row::{
@@ -123,7 +122,6 @@ pub use track_metadata_grid::{
 };
 pub use track_row::TrackRow;
 pub(crate) use track_row_menu::TrackRowMenuHandlers;
-pub(crate) use view_mode_control::{view_mode_control, ViewModeControlSlots};
 
 pub(crate) mod maintenance_forms;
 pub(crate) mod maintenance_page;

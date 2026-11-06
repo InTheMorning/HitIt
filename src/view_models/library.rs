@@ -42,9 +42,7 @@ use crate::view_models::artist_identity::{
 };
 use crate::view_models::artists_everything::{self, ArtistOrderKey, LibraryArtistRow};
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
-use crate::view_models::detail_selection::{
-    discover_grouped_release_rows, DetailPageRows, LibraryReleaseFacts, ReleaseDownloaded,
-};
+use crate::view_models::detail_selection::{LibraryReleaseFacts, ReleaseDownloaded};
 use crate::view_models::download_progress::{DownloadActivity, DownloadPhase, FeedKey};
 use crate::view_models::entity_detail::{
     EntityActionTarget, EntityActionVm, ReleaseMembershipState, TrackActionState,
@@ -74,9 +72,7 @@ use crate::view_models::name_level_page::NameLevelLibraryRelease;
 use crate::view_models::named_feeds::{FeedImages, NamedFeed};
 use crate::view_models::pagination::pending_skeleton_count;
 use crate::view_models::playlist_detail::PlaylistDetailPageVm;
-use crate::view_models::recent_feeds::{
-    RecentFeedResultRow, RecentFeedsPageState, RecentFeedsPageVm,
-};
+use crate::view_models::recent_feeds::{RecentFeedResultRow, RecentFeedsPageVm};
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::release_page::{
@@ -113,8 +109,8 @@ use crate::view_models::window_groups::{
     WindowGroupKey, WindowGroupSource, WindowGroupTileVm, WindowLength,
 };
 use crate::view_models::workspace::{
-    ContentViewMode, ContentViewModeControlDisplay, DiscoverView, FrameHeaderActionDisplay,
-    FrameNavigationEntry, MusicDestination, NavigationPathStart, ReleaseKey, TrackKey,
+    ContentViewMode, FrameHeaderActionDisplay, FrameNavigationEntry, MusicDestination,
+    NavigationPathStart, ReleaseKey, TrackKey,
 };
 use crate::view_models::ActionStatusMessageDisplay;
 use crate::views::{FeedMetadataFacts, LocalIdentityFacts, TrackRef};
@@ -1368,8 +1364,6 @@ pub(crate) fn release_kind_of_feed_result(display: &FeedResultDisplay) -> Releas
 pub(crate) enum ContentListSelectionTarget {
     /// The Tracks or Needs attention list of the list column.
     ListColumn,
-    /// The Discover "New releases" view of the detail column.
-    DetailColumn,
 }
 
 /// Display row cached by the GPUI-free content-list page VM.
@@ -1555,16 +1549,6 @@ impl ContentListRowDisplay {
         self.activation.accepts_click()
     }
 
-    /// The feed GUID of a Discover release row, from its `index-feed:` row
-    /// id (ADR 0084 packet 020). `None` for each other row and for an
-    /// empty GUID.
-    #[must_use]
-    pub(crate) fn index_feed_guid(&self) -> Option<&str> {
-        self.id
-            .strip_prefix(ContentListPageVm::INDEX_FEED_PREFIX)
-            .filter(|guid| !guid.is_empty())
-    }
-
     fn from_kind(kind: ContentListRowKind) -> Self {
         let source = kind.source();
         let entity_badge = ContentListEntityBadgeDisplay::for_kind(&kind);
@@ -1745,14 +1729,6 @@ impl ContentListEmptyStateDisplay {
         }
     }
 
-    #[must_use]
-    const fn for_recent_music() -> Self {
-        Self {
-            title: "No recent music",
-            secondary: "MusicIndex did not return recent music.",
-        }
-    }
-
     const fn for_broadcast_readiness() -> Self {
         Self {
             title: "No readiness issues",
@@ -1766,8 +1742,6 @@ impl ContentListEmptyStateDisplay {
 pub(crate) enum ContentListPageSource {
     /// Rows projected from the local source tree.
     Tree,
-    /// Rows projected from the Recent Feeds index query.
-    RecentMusic,
     /// Rows projected from the broadcast readiness report.
     BroadcastReadiness,
 }
@@ -1775,19 +1749,10 @@ pub(crate) enum ContentListPageSource {
 /// Load state for the content-list frame.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ContentListPageLoadState {
-    /// The first recency page is loading.
-    Loading,
     /// Rows are available.
     Loaded,
     /// The active source returned no rows.
     Empty,
-    /// The active source failed.
-    Failed {
-        /// Short operator-facing failure summary.
-        message: String,
-        /// Specific failure detail from the command layer.
-        detail: String,
-    },
 }
 
 /// Loading display for the content-list frame.
@@ -1799,24 +1764,11 @@ pub(crate) struct ContentListLoadingStateDisplay {
     pub(crate) skeleton_count: usize,
 }
 
-/// Failed-state display for the content-list frame.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ContentListFailedStateDisplay {
-    /// Short operator-facing failure summary.
-    pub(crate) title: String,
-    /// Specific failure detail from the command layer.
-    pub(crate) detail: String,
-}
-
 /// Current page-state display for the content-list frame.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ContentListPageStateDisplay {
-    /// The content list is loading.
-    Loading(ContentListLoadingStateDisplay),
     /// The content list has no rows to show.
     Empty(ContentListEmptyStateDisplay),
-    /// The content list failed to load.
-    Failed(ContentListFailedStateDisplay),
 }
 
 /// Load-more control display for the content-list frame.
@@ -1830,9 +1782,6 @@ pub(crate) struct ContentListLoadMoreDisplay {
     pub(crate) a11y_label: &'static str,
     /// Whether the action is currently unavailable.
     pub(crate) disabled: bool,
-    /// The notice of a failed older page (ADR 0086 Decision 5). It shows
-    /// above the button.
-    pub(crate) failure: Option<ContentListFailedStateDisplay>,
 }
 
 /// Index feed activation selected from the Music content list.
@@ -2531,9 +2480,7 @@ fn artist_feed_row(
 /// The page that a row of the Discover views list column opens (ADR 0084
 /// Decision 3).
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum DiscoverViewRowTarget {
-    /// A built-in view, for example "New releases".
-    View(DiscoverView),
+pub(crate) enum DiscoverListRowTarget {
     /// A saved search (packet 012).
     SavedSearch(SavedSearch),
 }
@@ -2541,9 +2488,7 @@ pub(crate) enum DiscoverViewRowTarget {
 /// The semantic icon of a Discover view row. The renderer maps it to a
 /// named icon.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum DiscoverViewIcon {
-    /// "New releases": the icon of the Discover destination.
-    NewReleases,
+pub(crate) enum DiscoverListIcon {
     /// A saved search: the search icon (packet 012).
     SavedSearch,
 }
@@ -2551,9 +2496,9 @@ pub(crate) enum DiscoverViewIcon {
 /// One row of the Discover views list column (ADR 0084 Decision 3): "New
 /// releases" first, then one row for each saved search (packet 012).
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct DiscoverViewRowVm {
+pub(crate) struct DiscoverListRowVm {
     /// The page this row opens.
-    pub(crate) target: DiscoverViewRowTarget,
+    pub(crate) target: DiscoverListRowTarget,
     /// Stable element id.
     pub(crate) element_id: String,
     /// The visible view name.
@@ -2561,7 +2506,7 @@ pub(crate) struct DiscoverViewRowVm {
     /// The view's subtitle.
     pub(crate) subtitle: String,
     /// The semantic icon of the row.
-    pub(crate) icon: DiscoverViewIcon,
+    pub(crate) icon: DiscoverListIcon,
     /// The accessibility label for the row.
     pub(crate) a11y_label: String,
     /// Whether this view is the open page of the current location.
@@ -2579,15 +2524,9 @@ pub(crate) struct ContentListPageVm {
     load_state: ContentListPageLoadState,
     loading: bool,
     has_more: bool,
-    /// The detail of a failed older page of the recent music pager.
-    older_pages_failure: Option<String>,
 }
 
 impl ContentListPageVm {
-    /// The title of the notice of a failed older page (ADR 0086 Decision
-    /// 5).
-    pub(crate) const OLDER_PAGES_FAILED_TITLE: &'static str =
-        "Older releases did not load from MusicIndex";
     const PAGE_ID: &'static str = "music-content-list-page";
     const ROWS_ID: &'static str = "music-content-list-rows";
     const TILES_ID: &'static str = "music-content-list-tiles";
@@ -2615,7 +2554,6 @@ impl ContentListPageVm {
             load_state,
             loading: false,
             has_more: false,
-            older_pages_failure: None,
         }
     }
 
@@ -2629,47 +2567,6 @@ impl ContentListPageVm {
                 .map(ContentListRowDisplay::from_track)
                 .collect(),
         )
-    }
-
-    /// Marks the content-list frame as loading recent music.
-    pub(crate) fn begin_recent_music_load(&mut self, append: bool) {
-        self.source = ContentListPageSource::RecentMusic;
-        self.loading = true;
-        if !append {
-            self.cached_rows.clear();
-            self.has_more = false;
-            self.load_state = ContentListPageLoadState::Loading;
-        }
-    }
-
-    /// Projects the current Recent Feeds page into Music content rows.
-    pub(crate) fn replace_recent_feeds_page(&mut self, page: &RecentFeedsPageVm) {
-        self.source = ContentListPageSource::RecentMusic;
-        self.loading = page.is_loading();
-        self.has_more = page.has_more();
-        self.older_pages_failure = page.older_pages_failure().map(str::to_owned);
-        match page.state() {
-            RecentFeedsPageState::Loading => {
-                if self.cached_rows.is_empty() {
-                    self.load_state = ContentListPageLoadState::Loading;
-                }
-            }
-            RecentFeedsPageState::Loaded(rows) => {
-                self.cached_rows = content_list_rows_from_recent_feeds(rows);
-                self.load_state = if self.cached_rows.is_empty() {
-                    ContentListPageLoadState::Empty
-                } else {
-                    ContentListPageLoadState::Loaded
-                };
-            }
-            RecentFeedsPageState::Error { message, detail } => {
-                self.cached_rows.clear();
-                self.load_state = ContentListPageLoadState::Failed {
-                    message: message.clone(),
-                    detail: detail.clone(),
-                };
-            }
-        }
     }
 
     /// Replaces tree-derived rows when the tree source is active.
@@ -2705,12 +2602,6 @@ impl ContentListPageVm {
     /// Sets the selected content presentation mode.
     pub(crate) fn set_view_mode(&mut self, view_mode: ContentViewMode) {
         self.view_mode = view_mode;
-    }
-
-    /// Returns the frame-local content-list view-mode control display.
-    #[must_use]
-    pub(crate) fn view_mode_control_display(&self) -> ContentViewModeControlDisplay {
-        ContentViewModeControlDisplay::default_for_content_list(self.view_mode)
     }
 
     /// Replaces the cached rows while preserving the frame-local filter.
@@ -2824,34 +2715,18 @@ impl ContentListPageVm {
     #[must_use]
     pub(crate) fn page_state_display(&self) -> Option<ContentListPageStateDisplay> {
         match &self.load_state {
-            ContentListPageLoadState::Failed { message, detail } => Some(
-                ContentListPageStateDisplay::Failed(ContentListFailedStateDisplay {
-                    title: message.clone(),
-                    detail: detail.clone(),
-                }),
-            ),
-            ContentListPageLoadState::Loading
-                if self.visible_rows().is_empty() && self.is_loading() =>
-            {
-                self.loading_display()
-                    .map(ContentListPageStateDisplay::Loading)
+            ContentListPageLoadState::Loaded | ContentListPageLoadState::Empty => {
+                self.visible_rows().is_empty().then(|| {
+                    let empty = if self.source == ContentListPageSource::BroadcastReadiness
+                        && self.cached_rows.is_empty()
+                    {
+                        ContentListEmptyStateDisplay::for_broadcast_readiness()
+                    } else {
+                        ContentListEmptyStateDisplay::for_no_rows()
+                    };
+                    ContentListPageStateDisplay::Empty(empty)
+                })
             }
-            ContentListPageLoadState::Loaded
-            | ContentListPageLoadState::Empty
-            | ContentListPageLoadState::Loading => self.visible_rows().is_empty().then(|| {
-                let empty = if self.source == ContentListPageSource::BroadcastReadiness
-                    && self.cached_rows.is_empty()
-                {
-                    ContentListEmptyStateDisplay::for_broadcast_readiness()
-                } else if self.cached_rows.is_empty()
-                    && self.source == ContentListPageSource::RecentMusic
-                {
-                    ContentListEmptyStateDisplay::for_recent_music()
-                } else {
-                    ContentListEmptyStateDisplay::for_no_rows()
-                };
-                ContentListPageStateDisplay::Empty(empty)
-            }),
         }
     }
 
@@ -2864,12 +2739,6 @@ impl ContentListPageVm {
                 label: Self::LOAD_MORE_LABEL,
                 a11y_label: Self::LOAD_MORE_A11Y_LABEL,
                 disabled: self.loading,
-                failure: self.older_pages_failure.as_ref().map(|detail| {
-                    ContentListFailedStateDisplay {
-                        title: Self::OLDER_PAGES_FAILED_TITLE.to_owned(),
-                        detail: detail.clone(),
-                    }
-                }),
             })
         } else {
             None
@@ -2883,19 +2752,6 @@ impl ContentListPageVm {
         let mut seen_ids = BTreeSet::new();
         Self::push_thumbnail_sources(&mut sources, &mut seen_ids, &self.cached_rows);
         sources
-    }
-
-    /// Marks each Index release row whose feed GUID the Library holds as
-    /// "In library" (ADR 0084 Decision 8). Such a row is not "New".
-    pub(crate) fn mark_library_releases(&mut self, library_feed_guids: &BTreeSet<String>) {
-        for row in &mut self.cached_rows {
-            let Some(feed_guid) = row.id.strip_prefix(Self::INDEX_FEED_PREFIX) else {
-                continue;
-            };
-            if library_feed_guids.contains(feed_guid) {
-                row.mark_in_library();
-            }
-        }
     }
 
     fn push_thumbnail_sources<'a>(
@@ -3159,10 +3015,6 @@ pub(crate) struct LibraryViewModel {
     /// request of the group page or of the single page for each feed
     /// (ADR 0084 packet 026). They stay until the app stops.
     index_feed_singles: IndexFeedSingles,
-    /// The window groups of New releases (ADR 0086 Decisions 1 and 2).
-    /// `refresh_new_releases_layout` makes it again after each change of the
-    /// rows, the tree or the window length.
-    new_releases_layout: NewReleasesLayout,
     /// The window length of the New releases groups (ADR 0086 Decision 7).
     window_length: WindowLength,
     in_flight_broadcast_route_repairs: BTreeSet<i64>,
@@ -3202,7 +3054,6 @@ impl LibraryViewModel {
             busy: BusyItems::default(),
             releases_revision: Revision::default(),
             index_feed_singles: IndexFeedSingles::default(),
-            new_releases_layout: NewReleasesLayout::default(),
             window_length: WindowLength::DEFAULT,
             in_flight_broadcast_route_repairs: BTreeSet::new(),
             library_removal: LibraryRemovalConfirmationState::new(),
@@ -3247,8 +3098,6 @@ impl LibraryViewModel {
         self.snapshot.tree = tree;
         self.releases_revision.bump();
         self.rebuild_field_values();
-        self.mark_recent_library_releases();
-        self.refresh_new_releases_layout();
     }
 
     /// Builds the values of the field list again from the tree and the
@@ -3267,22 +3116,6 @@ impl LibraryViewModel {
         Arc::clone(&self.field_values)
     }
 
-    /// Makes the window groups of New releases again (ADR 0086 Decisions 1
-    /// and 2, packet 002 decision D11). Each method that changes the New
-    /// releases rows, the tree or the window length calls it last. When the
-    /// content list shows no New releases rows, the layout is empty.
-    ///
-    /// When the content list has no more pages, each window is closed
-    /// (ADR 0086 Decision 5).
-    fn refresh_new_releases_layout(&mut self) {
-        self.new_releases_layout = NewReleasesLayout::for_list(
-            &self.content_list_page.visible_rows(),
-            &self.snapshot.tree,
-            self.window_length,
-            self.content_list_page.has_more(),
-        );
-    }
-
     /// True when a group of the loaded rows and the staged rows of `page`
     /// has an open window (ADR 0086 Decision 5). It reads the pager rows,
     /// not the content list, so it gives the same answer in each view.
@@ -3298,51 +3131,11 @@ impl LibraryViewModel {
             .any_window_open()
     }
 
-    /// Shows the rows of `page` in the content list when the content list
-    /// shows New releases (packet 003 decision D5). Else it gives `false`
-    /// and changes nothing. The pager keeps the rows, and
-    /// `show_discover_view` shows them later.
-    pub(crate) fn apply_recent_music_page(&mut self, page: &RecentFeedsPageVm) -> bool {
-        if self.content_list_page.source != ContentListPageSource::RecentMusic {
-            return false;
-        }
-        self.replace_recent_music_content(page);
-        true
-    }
-
-    /// The window groups of New releases (ADR 0086 Decision 2). The render
-    /// and the handlers read this layout.
-    #[must_use]
-    pub(crate) fn new_releases_layout(&self) -> &NewReleasesLayout {
-        &self.new_releases_layout
-    }
-
     /// The window length of the New releases groups (ADR 0086 Decision 7).
     /// A saved search groups by the same length (packet 005 decision D13).
     #[must_use]
     pub(crate) const fn window_length(&self) -> WindowLength {
         self.window_length
-    }
-
-    /// Sets the window length and makes the groups again in the mounted
-    /// view (ADR 0086 Decision 7).
-    #[cfg(test)]
-    pub(crate) fn set_window_length(&mut self, length: WindowLength) {
-        self.window_length = length;
-        self.refresh_new_releases_layout();
-    }
-
-    /// The selectable rows of the Discover "New releases" view (packet 004
-    /// decision D11). The rows hold each shown release and each member of
-    /// each group. The tiles hold one selection row for each shown item,
-    /// so a group tile acts as one tile in both modes.
-    #[must_use]
-    pub(crate) fn discover_page_rows(&self) -> DetailPageRows {
-        discover_grouped_release_rows(
-            &self.new_releases_layout,
-            &self.content_list_page.visible_rows(),
-            |key| self.library_release_facts(key),
-        )
     }
 
     /// The page of the window `key` (ADR 0086 Decision 4). It reads the
@@ -3358,10 +3151,6 @@ impl LibraryViewModel {
         let saved_search_page;
         let releases_layout;
         let (layout, rows): (&NewReleasesLayout, Vec<&ContentListRowDisplay>) = match &key.source {
-            WindowGroupSource::NewReleases => (
-                &self.new_releases_layout,
-                self.content_list_page.visible_rows(),
-            ),
             WindowGroupSource::SavedSearch(rows) => {
                 saved_search_page = saved_search_window_page(rows, &self.search_lookup());
                 (&saved_search_page.0, saved_search_page.1.iter().collect())
@@ -3387,20 +3176,6 @@ impl LibraryViewModel {
         )
     }
 
-    /// Gives each "New releases" row that the Library holds its state word
-    /// (ADR 0084 Decision 8).
-    fn mark_recent_library_releases(&mut self) {
-        let feed_guids: BTreeSet<String> = self
-            .snapshot
-            .tree
-            .artists
-            .iter()
-            .flat_map(|artist| &artist.albums)
-            .filter_map(|album| album.feed_guid.clone())
-            .collect();
-        self.content_list_page.mark_library_releases(&feed_guids);
-    }
-
     /// The destination whose list the list column currently shows (ADR
     /// 0084 Decision 2).
     #[must_use]
@@ -3422,7 +3197,6 @@ impl LibraryViewModel {
         self.ready_track_ids = Some(ready_track_ids(report));
         self.content_list_page
             .replace_broadcast_readiness_rows(self.broadcast_readiness_rows(report));
-        self.refresh_new_releases_layout();
     }
 
     /// Keeps the Needs attention count current at the ADR 0084 Decision 2
@@ -3437,7 +3211,6 @@ impl LibraryViewModel {
             self.content_list_page
                 .replace_broadcast_readiness_rows(self.broadcast_readiness_rows(report));
         }
-        self.refresh_new_releases_layout();
     }
 
     /// The Library search facts of one run (ADR 0087 packet 002): the facts
@@ -3703,11 +3476,6 @@ impl LibraryViewModel {
     }
 
     #[must_use]
-    pub(crate) fn content_view_mode_control(&self) -> ContentViewModeControlDisplay {
-        self.content_list_page.view_mode_control_display()
-    }
-
-    #[must_use]
     pub(crate) const fn content_list_page(&self) -> &ContentListPageVm {
         &self.content_list_page
     }
@@ -3715,17 +3483,6 @@ impl LibraryViewModel {
     #[must_use]
     pub(crate) fn shows_broadcast_readiness_list(&self) -> bool {
         self.content_list_page.source == ContentListPageSource::BroadcastReadiness
-    }
-
-    pub(crate) fn begin_recent_music_content_load(&mut self, append: bool) {
-        self.content_list_page.begin_recent_music_load(append);
-        self.refresh_new_releases_layout();
-    }
-
-    pub(crate) fn replace_recent_music_content(&mut self, page: &RecentFeedsPageVm) {
-        self.content_list_page.replace_recent_feeds_page(page);
-        self.mark_recent_library_releases();
-        self.refresh_new_releases_layout();
     }
 
     #[must_use]
@@ -5006,42 +4763,35 @@ impl LibraryViewModel {
         )
     }
 
-    /// Rows of the Discover views list column, in list order (ADR 0084
-    /// Decision 3): "New releases" first, then one row for each saved
-    /// search in `id` order (packet 012). `open_saved_search` is the saved
-    /// search of the current location. When it is `None`, "New releases"
-    /// is the open view.
+    /// Rows of the Discover list column (ADR 0084 Decision 3, ADR 0089
+    /// Decision 2): one row for each saved search in `id` order (packet
+    /// 012). `open_saved_search` is the saved search of the current
+    /// location. The saved searches list goes to the saved searches
+    /// packet (packet 006).
+    #[must_use]
     #[expect(
         clippy::unused_self,
-        reason = "kept as an instance method so a later view's selected state travels with the VM"
+        reason = "kept as an instance method so the saved searches list reads the VM at each call"
     )]
-    #[must_use]
-    pub(crate) fn discover_view_rows(
+    pub(crate) fn discover_list_rows(
         &self,
         saved: &[SavedSearch],
         open_saved_search: Option<SavedSearchId>,
-    ) -> Vec<DiscoverViewRowVm> {
+    ) -> Vec<DiscoverListRowVm> {
         let mut saved_in_order: Vec<&SavedSearch> = saved.iter().collect();
         saved_in_order.sort_by_key(|search| search.id);
-        let views = DiscoverView::ALL.into_iter().map(|view| DiscoverViewRowVm {
-            target: DiscoverViewRowTarget::View(view),
-            element_id: discover_view_element_id(view),
-            label: view.label().to_owned(),
-            subtitle: view.subtitle().to_owned(),
-            icon: DiscoverViewIcon::NewReleases,
-            a11y_label: format!("{}, {}", view.label(), view.subtitle()),
-            selected: open_saved_search.is_none(),
-        });
-        let searches = saved_in_order.into_iter().map(|search| DiscoverViewRowVm {
-            target: DiscoverViewRowTarget::SavedSearch(search.clone()),
-            element_id: format!("music-discover-saved-search-{}", search.id.0),
-            label: saved_search_label(&search.query),
-            subtitle: SavedSearch::SUBTITLE.to_owned(),
-            icon: DiscoverViewIcon::SavedSearch,
-            a11y_label: saved_search_row_a11y_label(&search.query),
-            selected: open_saved_search == Some(search.id),
-        });
-        views.chain(searches).collect()
+        saved_in_order
+            .into_iter()
+            .map(|search| DiscoverListRowVm {
+                target: DiscoverListRowTarget::SavedSearch(search.clone()),
+                element_id: format!("music-discover-saved-search-{}", search.id.0),
+                label: saved_search_label(&search.query),
+                subtitle: SavedSearch::SUBTITLE.to_owned(),
+                icon: DiscoverListIcon::SavedSearch,
+                a11y_label: saved_search_row_a11y_label(&search.query),
+                selected: open_saved_search == Some(search.id),
+            })
+            .collect()
     }
 
     #[must_use]
@@ -5837,10 +5587,6 @@ fn content_list_rows_from_tree(tree: &LibraryTree) -> Vec<ContentListRowDisplay>
         .collect()
 }
 
-fn content_list_rows_from_recent_feeds(rows: &[RecentFeedResultRow]) -> Vec<ContentListRowDisplay> {
-    rows.iter().map(content_list_row_from_recent_feed).collect()
-}
-
 fn content_list_row_from_recent_feed((_id, row): &RecentFeedResultRow) -> ContentListRowDisplay {
     ContentListRowDisplay::from_release_result(row.clone())
 }
@@ -5865,14 +5611,6 @@ pub(crate) fn release_row_slug_text(value: &str) -> String {
             }
         })
         .collect()
-}
-
-/// The list-row element id of a Discover view (ADR 0084 Decision 3).
-fn discover_view_element_id(view: DiscoverView) -> String {
-    let slug = match view {
-        DiscoverView::NewReleases => "new-releases",
-    };
-    format!("music-discover-view-{slug}")
 }
 
 /// The track key of a content-list track row, keyed by the Library track
@@ -6534,8 +6272,17 @@ mod album_node_release_key_tests {
         }
     }
 
-    /// R2-01: the release key of a Library album with a feed GUID equals
-    /// the release key of an Index row with the same feed GUID.
+    /// R2-02: the release key of a Library album with no feed GUID is
+    /// `LibraryFeed` with its feed id.
+    #[test]
+    fn adr_0084_release_key_of_album_with_no_feed_guid_uses_its_feed_id() {
+        let key = album(Some(20), None).release_key();
+
+        assert_eq!(key, Some(ReleaseKey::LibraryFeed(20)));
+    }
+
+    /// A Library album with a feed GUID has the same release key as the
+    /// Index row with that GUID.
     #[test]
     fn adr_0084_release_key_of_album_with_feed_guid_matches_the_index_key() {
         let key = album(Some(10), Some("saw-guid")).release_key();
@@ -6545,15 +6292,6 @@ mod album_node_release_key_tests {
             Some(ReleaseKey::from_index_feed_guid("saw-guid")),
             "a Library album with a feed GUID must key the same as an Index row with that GUID"
         );
-    }
-
-    /// R2-02: the release key of a Library album with no feed GUID is
-    /// `LibraryFeed` with its feed id.
-    #[test]
-    fn adr_0084_release_key_of_album_with_no_feed_guid_uses_its_feed_id() {
-        let key = album(Some(20), None).release_key();
-
-        assert_eq!(key, Some(ReleaseKey::LibraryFeed(20)));
     }
 
     /// An album with neither a feed GUID nor a feed id has no release key.
@@ -7230,28 +6968,6 @@ mod tests {
         TrackResultDisplay::new(id, label, origin).with_secondary_text("Artist")
     }
 
-    fn recent_feed_batch(
-        rows: Vec<(&str, &str)>,
-        cursor: Option<&str>,
-        has_more: bool,
-    ) -> crate::view_models::recent_feeds::RecentFeedsPageBatch {
-        crate::view_models::recent_feeds::RecentFeedsPageBatch {
-            rows: rows
-                .into_iter()
-                .enumerate()
-                .map(|(index, (id, label))| {
-                    (
-                        index as crate::view_models::search_results::SearchResultItemId,
-                        release_result(id, label, SearchResultOrigin::Index)
-                            .with_thumbnail_href(format!("https://example.test/{index}.jpg")),
-                    )
-                })
-                .collect(),
-            cursor: cursor.map(str::to_string),
-            has_more,
-        }
-    }
-
     #[test]
     fn content_list_row_projects_release_result_contract() {
         let row = ContentListRowDisplay::from_release_result(release_result(
@@ -7382,28 +7098,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             [("library", None), ("index", Some("New"))],
             "every row should show with VM-owned state labels"
-        );
-    }
-
-    #[test]
-    fn content_list_page_vm_defaults_to_tiles_view_mode() {
-        let page = ContentListPageVm::new(Vec::new());
-        let display = page.view_mode_control_display();
-
-        assert_eq!(
-            page.view_mode(),
-            ContentViewMode::Tiles,
-            "Situational ADR 0062 content-list view mode guard: Music content should default to tiles"
-        );
-        assert_eq!(
-            display.selected,
-            ContentViewMode::Tiles,
-            "Situational ADR 0062 content-list view mode guard: control display should mirror page selection"
-        );
-        assert_eq!(
-            display.options.map(|option| option.mode),
-            [ContentViewMode::Tiles, ContentViewMode::List],
-            "Situational ADR 0062 content-list view mode guard: control should expose tile and list options"
         );
     }
 
@@ -7577,201 +7271,6 @@ mod tests {
             album.release_track_rows().len(),
             2,
             "the release page must show every track, library and index alike"
-        );
-    }
-
-    /// ADR 0084 Decision 8: a New releases row that the Library holds
-    /// shows "In library" and no "New" mark.
-    #[test]
-    fn adr_0084_discover_new_release_in_library_shows_its_state() {
-        let mut recent = RecentFeedsPageVm::loading();
-        recent.load_recorded_page(
-            recent_feed_batch(
-                vec![
-                    ("index-feed:held", "Held Release"),
-                    ("index-feed:fresh", "Fresh Release"),
-                ],
-                None,
-                true,
-            ),
-            false,
-        );
-        let mut page = ContentListPageVm::new(Vec::new());
-        page.replace_recent_feeds_page(&recent);
-
-        page.mark_library_releases(&BTreeSet::from(["held".to_string()]));
-
-        let rows = page.visible_rows();
-        assert_eq!(
-            rows[0].library_badge.state,
-            ContentListLibraryBadgeState::InLibrary,
-            "a release in the Library must show its Library state"
-        );
-        assert_eq!(
-            rows[0].state_label, None,
-            "a release in the Library is not New"
-        );
-        assert_eq!(
-            rows[1].library_badge.state,
-            ContentListLibraryBadgeState::NotInLibrary,
-            "a release outside the Library keeps its Index state"
-        );
-        assert_eq!(
-            rows[1].library_badge.label, None,
-            "ADR 0084 Decision 8: an Index item shows no state word"
-        );
-        assert!(
-            rows[1].state_label.is_some(),
-            "a release outside the Library stays New"
-        );
-    }
-
-    #[test]
-    fn content_list_page_vm_projects_first_recent_music_page() {
-        let mut recent = RecentFeedsPageVm::loading();
-        recent.load_recorded_page(
-            recent_feed_batch(
-                vec![
-                    ("index-feed:newest", "Newest Release"),
-                    ("index-feed:older", "Older Release"),
-                ],
-                Some("next"),
-                true,
-            ),
-            false,
-        );
-        let mut page =
-            ContentListPageVm::new(vec![content_row("local", ContentListRowSource::Library)]);
-
-        page.replace_recent_feeds_page(&recent);
-
-        assert_eq!(page.source(), ContentListPageSource::RecentMusic);
-        assert_eq!(
-            page.visible_row_ids(),
-            ["index-feed:newest", "index-feed:older"],
-            "ADR 0084 Decision 3: New releases shows the Index releases only, newest first, with no Library track"
-        );
-        assert_eq!(
-            page.visible_rows()[0].entity_kind(),
-            ContentListEntityKind::Release,
-            "Recent Feeds rows project as release content rows"
-        );
-        assert_eq!(
-            page.visible_rows()[0].source,
-            ContentListRowSource::Index,
-            "Recent Feeds rows remain index-sourced"
-        );
-        assert_eq!(
-            page.thumbnail_sources(),
-            [
-                (
-                    "index-feed:newest".to_string(),
-                    "https://example.test/0.jpg".to_string()
-                ),
-                (
-                    "index-feed:older".to_string(),
-                    "https://example.test/1.jpg".to_string()
-                )
-            ],
-            "content-list thumbnail sources should be keyed by row id"
-        );
-        assert_eq!(
-            page.load_more_display(),
-            Some(ContentListLoadMoreDisplay {
-                button_id: "music-content-list-load-more",
-                label: "Load more",
-                a11y_label: "Load more recent music",
-                disabled: false,
-                failure: None,
-            }),
-            "has_more should expose a VM-owned load-more display without a cursor"
-        );
-        assert_eq!(page.page_state_display(), None);
-    }
-
-    #[test]
-    fn content_list_page_vm_appends_recent_music_pages() {
-        let mut recent = RecentFeedsPageVm::loading();
-        recent.load_recorded_page(
-            recent_feed_batch(
-                vec![("index-feed:first", "First Release")],
-                Some("next"),
-                true,
-            ),
-            false,
-        );
-        recent.load_recorded_page(
-            recent_feed_batch(vec![("index-feed:second", "Second Release")], None, false),
-            true,
-        );
-        let mut page = ContentListPageVm::new(Vec::new());
-
-        page.replace_recent_feeds_page(&recent);
-
-        assert_eq!(
-            page.visible_row_ids(),
-            ["index-feed:first", "index-feed:second"],
-            "appended recent music pages should extend the same content-list row set"
-        );
-        assert!(!page.has_more());
-    }
-
-    #[test]
-    fn content_list_page_vm_hides_load_more_when_recent_music_has_no_more_pages() {
-        let mut recent = RecentFeedsPageVm::loading();
-        recent.load_recorded_page(
-            recent_feed_batch(vec![("index-feed:only", "Only Release")], None, false),
-            false,
-        );
-        let mut page = ContentListPageVm::new(Vec::new());
-
-        page.replace_recent_feeds_page(&recent);
-
-        assert_eq!(page.load_more_display(), None);
-        assert!(!page.has_more());
-    }
-
-    #[test]
-    fn content_list_page_vm_projects_empty_recent_music_result() {
-        let mut recent = RecentFeedsPageVm::loading();
-        recent.load_recorded_page(recent_feed_batch(Vec::new(), None, false), false);
-        let mut page = ContentListPageVm::new(Vec::new());
-
-        page.replace_recent_feeds_page(&recent);
-
-        assert_eq!(
-            page.page_state_display(),
-            Some(ContentListPageStateDisplay::Empty(
-                ContentListEmptyStateDisplay {
-                    title: "No recent music",
-                    secondary: "MusicIndex did not return recent music.",
-                }
-            )),
-            "empty Recent Feeds results should use the recency empty display"
-        );
-    }
-
-    #[test]
-    fn content_list_page_vm_projects_failed_recent_music_load() {
-        let mut recent = RecentFeedsPageVm::loading();
-        let generation = recent
-            .begin_load(false)
-            .expect("a fresh load starts")
-            .generation();
-        assert!(recent.fail_page(generation, "Recent music unavailable", "network failed"));
-        let mut page = ContentListPageVm::new(Vec::new());
-
-        page.replace_recent_feeds_page(&recent);
-
-        assert_eq!(
-            page.page_state_display(),
-            Some(ContentListPageStateDisplay::Failed(
-                ContentListFailedStateDisplay {
-                    title: "Recent music unavailable".to_string(),
-                    detail: "network failed".to_string(),
-                }
-            )),
-            "failed recency loads should expose VM-owned failure copy"
         );
     }
 
@@ -9434,30 +8933,6 @@ mod tests {
     }
 
     #[test]
-    fn library_view_model_content_view_mode_uses_content_list_page_vm() {
-        let mut vm = LibraryViewModel::new();
-
-        assert_eq!(
-            vm.content_view_mode(),
-            ContentViewMode::Tiles,
-            "Situational ADR 0062 content-list view mode guard: LibraryViewModel should expose the page VM default"
-        );
-
-        vm.set_content_view_mode(ContentViewMode::List);
-
-        assert_eq!(
-            vm.content_view_mode(),
-            ContentViewMode::List,
-            "Situational ADR 0062 content-list view mode guard: LibraryViewModel should update the page VM mode"
-        );
-        assert_eq!(
-            vm.content_view_mode_control().selected,
-            ContentViewMode::List,
-            "Situational ADR 0062 content-list view mode guard: LibraryViewModel should project the selected mode into chrome display"
-        );
-    }
-
-    #[test]
     fn library_view_model_replaces_and_sorts_playlists_by_active_sort() {
         let mut vm = LibraryViewModel::new();
         let mut alpha = playlist("Alpha");
@@ -10409,43 +9884,6 @@ mod tests {
         assert_eq!(needs_attention.a11y_label, "Select tracks");
     }
 
-    /// D5-04: the Releases destination list gives one row for each Library
-    /// release, by name, keyed so a row opens its release page.
-    #[test]
-    fn adr_0084_destinations_d5_04_releases_list_is_sorted_by_name_with_release_targets() {
-        let mut vm = LibraryViewModel::new();
-        vm.replace_tree(library_tree());
-
-        let rows = release_rows(vm.releases_list(
-            ListScope::InLibrary,
-            &IndexNameListPage::default(),
-            &IndexFeedSingles::default(),
-            &BTreeSet::new(),
-        ));
-
-        assert_eq!(
-            rows.iter()
-                .map(|row| row.label.as_str())
-                .collect::<Vec<_>>(),
-            vec!["Selected Ambient Works", "Tri Repetae", "Windowlicker"],
-            "releases must sort by name"
-        );
-        // ADR 0084 Decision 5: "Selected Ambient Works" has two tracks and
-        // no stated kind, which resolves to Album.
-        assert_eq!(rows[0].secondary_text, "Aphex Twin · Album");
-        assert_eq!(rows[0].thumbnail_href, Some("saw.jpg".to_string()));
-        assert_eq!(
-            rows[0].open,
-            DestinationListRowTarget::Release(ReleaseKey::from_index_feed_guid("saw-guid")),
-            "a release with a feed GUID must key by it, like the Index route"
-        );
-        assert_eq!(
-            rows[2].open,
-            DestinationListRowTarget::Release(ReleaseKey::LibraryFeed(20)),
-            "a release with no feed GUID must key by its Library feed id"
-        );
-    }
-
     /// R7-04 (ADR 0084 Decision 5): the Releases list names the kind after
     /// the artist. "Windowlicker" has one track and no stated kind, which
     /// resolves to Single.
@@ -11356,67 +10794,6 @@ mod tests {
             everything[2].open,
             DestinationListRowTarget::IndexPublisher("other-guid".to_owned())
         );
-    }
-
-    /// R6-01 (ADR 0084 Decision 3): the Discover views view model gives
-    /// "New releases" first, with its subtitle and its open entry.
-    #[test]
-    fn adr_0084_discover_r6_01_discover_view_rows_give_new_releases_first() {
-        let vm = LibraryViewModel::new();
-
-        let rows = vm.discover_view_rows(&[], None);
-
-        assert_eq!(rows.len(), 1, "Discover has one built-in view");
-        assert_eq!(
-            rows[0].target,
-            DiscoverViewRowTarget::View(DiscoverView::NewReleases)
-        );
-        assert_eq!(rows[0].label, "New releases");
-        assert_eq!(rows[0].subtitle, "Newest first, from the Index");
-        assert!(
-            rows[0].selected,
-            "New releases is always the open view of the Discover location"
-        );
-    }
-
-    /// R12-04 (ADR 0084 Decision 3, packet 012): the Discover views list
-    /// gives "New releases" first, then "Saved: <query>" for each saved
-    /// search in `id` order, with the subtitle and the accessibility label.
-    #[test]
-    fn adr_0084_saved_search_r12_04_discover_rows_follow_new_releases() {
-        use crate::view_models::search_results::{SavedSearch, SavedSearchId, SearchResultsTab};
-        let saved = |id, query: &str| SavedSearch {
-            id: SavedSearchId(id),
-            query: query.to_owned(),
-            start_tab: SearchResultsTab::Releases,
-        };
-        let vm = LibraryViewModel::new();
-        let list = [saved(9, "jazz"), saved(2, "bluegrass")];
-
-        let rows = vm.discover_view_rows(&list, Some(SavedSearchId(9)));
-
-        assert_eq!(
-            rows.iter()
-                .map(|row| row.label.as_str())
-                .collect::<Vec<_>>(),
-            vec!["New releases", "Saved: bluegrass", "Saved: jazz"]
-        );
-        assert_eq!(rows[1].subtitle, "Library and Index");
-        assert_eq!(
-            rows[1].a11y_label,
-            "Saved search: bluegrass, Library and Index"
-        );
-        assert_eq!(rows[1].icon, DiscoverViewIcon::SavedSearch);
-        assert_eq!(
-            rows[2].target,
-            DiscoverViewRowTarget::SavedSearch(saved(9, "jazz"))
-        );
-        assert_eq!(
-            rows.iter().map(|row| row.selected).collect::<Vec<_>>(),
-            vec![false, false, true],
-            "the saved search of the location is the open row"
-        );
-        assert!(vm.discover_view_rows(&list, None)[0].selected);
     }
 
     #[test]
@@ -13636,6 +13013,27 @@ mod tests {
         assert!(playlist_accepts_drop(None, 7));
     }
 
+    /// ADR 0083 task 008: a spring load of a destination opens one new
+    /// path. Back returns to the release that the drag started from.
+    #[test]
+    fn adr_0083_track_drag_r83_8_14_spring_load_is_one_navigation() {
+        use crate::view_models::workspace::FrameNavigationState;
+        let release = FrameNavigationEntry::Release(ReleaseKey::from_index_feed_guid("saw-guid"));
+        let mut nav = FrameNavigationState::new_with_page(
+            FrameNavigationEntry::Destination(MusicDestination::Releases),
+            release.clone(),
+        );
+        let (entry, start) = spring_load_navigation(MusicDestination::Playlists);
+        assert_eq!(
+            entry,
+            FrameNavigationEntry::Destination(MusicDestination::Playlists)
+        );
+        assert_eq!(start, NavigationPathStart::NewPath);
+        nav.start_path(entry.clone(), None);
+        assert_eq!(nav.path_entries(), vec![entry]);
+        assert_eq!(nav.go_back().ok().cloned(), Some(release));
+    }
+
     /// R83-8-11 (decision D4): a Tracks list row of a Library track in
     /// `Normal` gives its drag fact. A Needs attention row, a row with no
     /// track key and each row in `Selecting` give none.
@@ -13806,31 +13204,6 @@ mod tests {
                 "{destination:?}"
             );
         }
-    }
-
-    /// R83-8-14 (decision D1, ADR 0084 Decision 9): the spring-load open is
-    /// one `Destination(Playlists)` entry that starts a new path. After it,
-    /// Back gives the location before the spring-load.
-    #[test]
-    fn adr_0083_track_drag_r83_8_14_spring_load_is_one_navigation() {
-        use crate::view_models::workspace::FrameNavigationState;
-        let release = FrameNavigationEntry::Release(ReleaseKey::from_index_feed_guid("saw-guid"));
-        let mut nav = FrameNavigationState::new_with_page(
-            FrameNavigationEntry::Destination(MusicDestination::Releases),
-            release.clone(),
-        );
-        let (entry, start) = spring_load_navigation(MusicDestination::Playlists);
-        assert_eq!(
-            entry,
-            FrameNavigationEntry::Destination(MusicDestination::Playlists)
-        );
-        assert_eq!(start, NavigationPathStart::NewPath);
-        // The host gives a new path the default page of its destination.
-        // Playlists has none, so the path holds the destination only.
-        assert_eq!(MusicDestination::Playlists.default_child_page(), None);
-        nav.start_path(entry.clone(), None);
-        assert_eq!(nav.path_entries(), vec![entry]);
-        assert_eq!(nav.go_back().ok().cloned(), Some(release));
     }
 
     // ADR 0084 task 037: the cache of the Releases list and its flat items.
@@ -14303,1071 +13676,42 @@ mod tests {
         assert!(!first_page);
         assert_eq!(retry.label, "Try again");
     }
-}
 
-/// The window groups of New releases in the view model (ADR 0086 packet
-/// 002).
-#[cfg(test)]
-mod adr_0086_window_groups_tests {
-    use super::*;
-    use crate::view_models::detail_selection::{
-        discover_items_with_selection, DetailRowKey, DetailSelection,
-    };
-    use crate::view_models::list_selection::FocusStep;
-    use crate::view_models::named_feeds::NamedFeed;
-    use crate::view_models::recent_feeds::{RecentFeedsPageBatch, RecentFeedsPageStep};
-    use crate::view_models::window_groups::{
-        ContentListItemVm, NewReleasesLayoutItem, WindowGroupTileVm,
-    };
-    use crate::view_models::workspace::{DiscoverView, FrameNavigationEntry};
-    use crate::views::FeedView;
-
-    /// The UTC midnight of `date` in October 2026.
-    fn oct(date: u32) -> i64 {
-        chrono::NaiveDate::from_ymd_opt(2026, 10, date)
-            .and_then(|day| day.and_hms_opt(0, 0, 0))
-            .expect("a valid date")
-            .and_utc()
-            .timestamp()
-    }
-
-    fn artist_feed() -> NamedFeed {
-        NamedFeed {
-            feed_guid: "feed-jsmovie".to_owned(),
-            title: Some("jSmovie".to_owned()),
-            position: Some(0),
-            role: Some("artist".to_owned()),
-            role_agreement: Some("both".to_owned()),
-            feed_rel: None,
-            album_rel: None,
-            confirmed: true,
-            image_url: None,
-        }
-    }
-
-    /// One jSmovie single of New releases, as the detail read gives it.
-    fn single(guid: &str, date: i64) -> RecentFeedResultRow {
-        let feed = FeedView {
-            feed_guid: Some(guid.to_owned()),
-            artist: Some("jSmovie".to_owned()),
-            release_kind: Some("single".to_owned()),
-            named_feeds: vec![artist_feed()],
-            ..FeedView::default()
-        };
-        (
-            0,
-            FeedResultDisplay::new(
-                format!("index-feed:{guid}"),
-                format!("Single {guid}"),
-                SearchResultOrigin::Index,
-            )
-            .with_remote_feed(feed)
-            .with_newest_item_at(Some(date)),
-        )
-    }
-
-    /// One album of a different artist.
-    fn album(guid: &str, date: i64) -> RecentFeedResultRow {
-        let feed = FeedView {
-            feed_guid: Some(guid.to_owned()),
-            artist: Some("Rain".to_owned()),
-            release_kind: Some("album".to_owned()),
-            ..FeedView::default()
-        };
-        (
-            0,
-            FeedResultDisplay::new(
-                format!("index-feed:{guid}"),
-                format!("Album {guid}"),
-                SearchResultOrigin::Index,
-            )
-            .with_remote_feed(feed)
-            .with_newest_item_at(Some(date)),
-        )
-    }
-
-    fn batch(rows: Vec<RecentFeedResultRow>, has_more: bool) -> RecentFeedsPageBatch {
-        RecentFeedsPageBatch {
-            rows,
-            cursor: has_more.then(|| "next".to_owned()),
-            has_more,
-        }
-    }
-
-    /// A view model that shows New releases with `rows`.
-    fn view_model(
-        rows: Vec<RecentFeedResultRow>,
-        has_more: bool,
-    ) -> (LibraryViewModel, RecentFeedsPageVm) {
+    /// D5-04: the Releases destination list gives one row for each Library
+    /// release, by name, keyed so a row opens its release page.
+    #[test]
+    fn adr_0084_destinations_d5_04_releases_list_is_sorted_by_name_with_release_targets() {
         let mut vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        vm.begin_recent_music_content_load(false);
-        page.load_recorded_page(batch(rows, has_more), false);
-        vm.replace_recent_music_content(&page);
-        (vm, page)
-    }
+        vm.replace_tree(library_tree());
 
-    fn group_counts(vm: &LibraryViewModel) -> Vec<usize> {
-        vm.new_releases_layout()
-            .items()
-            .iter()
-            .filter_map(|item| match item {
-                NewReleasesLayoutItem::WindowGroup(tile) => Some(tile.count),
-                NewReleasesLayoutItem::Release { .. } => None,
-            })
-            .collect()
-    }
-
-    fn ids(rows: &[&ContentListRowDisplay]) -> Vec<String> {
-        rows.iter().map(|row| row.id.clone()).collect()
-    }
-
-    /// The rows of R86-2-01 with an album between them.
-    fn r01_rows() -> Vec<RecentFeedResultRow> {
-        vec![
-            single("a", oct(20)),
-            album("rain", oct(18)),
-            single("b", oct(15)),
-            single("c", oct(8)),
-            single("d", oct(1)),
-        ]
-    }
-
-    /// R86-2-23, moved to `discover_page_rows` by packet 004 decision
-    /// D11: `open_row_id` is the anchor row. The selection rows are each
-    /// plain row and each group tile, in item order.
-    #[test]
-    fn adr_0086_window_groups_r23_selection_rows_are_the_items() {
-        let (vm, _) = view_model(r01_rows(), false);
-        let layout = vm.new_releases_layout();
-        let NewReleasesLayoutItem::WindowGroup(tile) = &layout.items()[0] else {
-            panic!("the first item is the group");
-        };
-        assert_eq!(tile.open_row_id, "index-feed:a");
-        let tile_ids: Vec<DetailRowKey> = vm
-            .discover_page_rows()
-            .selection_rows()
-            .into_iter()
-            .map(|row| row.id)
-            .collect();
-        let key = |guid: &str| DetailRowKey::Release(ReleaseKey::FeedGuid(guid.to_owned()));
-        assert_eq!(tile_ids, [key("a"), key("rain"), key("d")]);
-        assert_eq!(
-            layout.shown_row_ids(),
-            ["index-feed:a", "index-feed:rain", "index-feed:d"]
-        );
-    }
-
-    /// R86-2-28: an appended page that adds a single to a window changes
-    /// the group, with no other call.
-    #[test]
-    fn adr_0086_window_groups_r28_appended_page_changes_the_group() {
-        let (mut vm, mut page) = view_model(vec![single("a", oct(20))], true);
-        assert!(group_counts(&vm).is_empty());
-
-        vm.begin_recent_music_content_load(true);
-        page.load_recorded_page(batch(vec![single("b", oct(15))], false), true);
-        vm.replace_recent_music_content(&page);
-        assert_eq!(group_counts(&vm), [2]);
-    }
-
-    /// R86-2-29: a tree that holds one member changes the Library
-    /// count, with no other call.
-    #[test]
-    fn adr_0086_window_groups_r29_tree_changes_the_library_count() {
-        let (mut vm, _) = view_model(r01_rows(), false);
-        let state = |vm: &LibraryViewModel| match &vm.new_releases_layout().items()[0] {
-            NewReleasesLayoutItem::WindowGroup(tile) => tile.state,
-            NewReleasesLayoutItem::Release { .. } => panic!("the first item is the group"),
-        };
-        assert_eq!(state(&vm).count_text(), None);
-
-        vm.replace_tree(LibraryTree {
-            artists: vec![ArtistNode {
-                name: "jSmovie".to_owned(),
-                albums: vec![AlbumNode {
-                    name: "Single b".to_owned(),
-                    feed_id: Some(7),
-                    feed_guid: Some("b".to_owned()),
-                    feed_url: None,
-                    language: None,
-                    description: None,
-                    image_href: None,
-                    named_feeds: vec![artist_feed()],
-                    identity_facts: LocalIdentityFacts::default(),
-                    metadata_facts: Box::new(FeedMetadataFacts::default()),
-                    stored_values: None,
-                    tracks: vec![TrackRow {
-                        pub_date: Some(oct(15)),
-                        is_in_library: true,
-                        ..TrackRow::default()
-                    }],
-                }],
-            }],
-        });
-        assert_eq!(state(&vm).count_text().as_deref(), Some("1 in library"));
-    }
-
-    /// R86-2-30: a window of 7 days divides the group of R86-2-01. Oct 20
-    /// and Oct 15 make one group. Oct 8 and Oct 1, 7 days apart,
-    /// make a second group.
-    #[test]
-    fn adr_0086_window_groups_r30_set_window_length_divides_the_group() {
-        let (mut vm, _) = view_model(r01_rows(), false);
-        assert_eq!(vm.window_length(), WindowLength::DEFAULT);
-        assert_eq!(group_counts(&vm), [3]);
-
-        let week = WindowLength::from_days(7).expect("7 is in the range");
-        vm.set_window_length(week);
-        assert_eq!(vm.window_length(), week);
-        assert_eq!(group_counts(&vm), [2, 2]);
-    }
-
-    /// The items of `vm` with the facts of `selection`.
-    fn items(vm: &LibraryViewModel, selection: &DetailSelection) -> Vec<ContentListItemVm> {
-        discover_items_with_selection(
-            vm.content_list_page()
-                .visible_rows()
-                .into_iter()
-                .cloned()
-                .collect(),
-            vm.new_releases_layout(),
-            selection,
-        )
-    }
-
-    fn discover_selection() -> DetailSelection {
-        let mut selection = DetailSelection::new();
-        selection.bind(&FrameNavigationEntry::DiscoverView(
-            DiscoverView::NewReleases,
-        ));
-        selection
-    }
-
-    /// The id of each item: the row id, or the element id of a group.
-    fn item_ids(items: &[ContentListItemVm]) -> Vec<String> {
-        items
-            .iter()
-            .map(|item| match item {
-                ContentListItemVm::Row(row) => row.id.clone(),
-                ContentListItemVm::WindowGroup(tile) => tile.element_id.clone(),
-            })
-            .collect()
-    }
-
-    /// R86-2-25: in `Normal`, the items give the groups. A group tile is
-    /// focused when its anchor key has the focus, and it has no visible
-    /// checkbox.
-    #[test]
-    fn adr_0086_window_groups_r25_group_tile_takes_the_anchor_focus() {
-        let (vm, _) = view_model(r01_rows(), false);
-        let mut selection = discover_selection();
-        let rows = vm.discover_page_rows();
-        let focused = selection.move_focus(FocusStep::Down, &rows.selection_rows());
-        assert_eq!(
-            focused,
-            Some(DetailRowKey::Release(ReleaseKey::FeedGuid("a".to_owned())))
-        );
-
-        let items = items(&vm, &selection);
-        assert_eq!(
-            item_ids(&items),
-            [
-                "music-window-group-index-feed:a",
-                "index-feed:rain",
-                "index-feed:d"
-            ]
-        );
-        let ContentListItemVm::WindowGroup(tile) = &items[0] else {
-            panic!("the first item is the group");
-        };
-        assert!(tile.selection.focused);
-        assert!(!tile.selection.checkbox_visible);
-    }
-
-    /// R86-2-26: the Tiles mode and the List mode give the same items.
-    #[test]
-    fn adr_0086_window_groups_r26_tiles_and_list_give_the_same_items() {
-        let (mut vm, _) = view_model(r01_rows(), false);
-        let selection = discover_selection();
-        vm.set_content_view_mode(ContentViewMode::Tiles);
-        let tiles = item_ids(&items(&vm, &selection));
-        vm.set_content_view_mode(ContentViewMode::List);
-        let list = item_ids(&items(&vm, &selection));
-        assert_eq!(tiles, list);
-        assert_eq!(tiles.len(), 3);
-    }
-
-    /// Runs one page request as the app does (packet 003 decision D1).
-    /// Each page of `pages` arrives in turn until the pager gives
-    /// `Finished`. Gives the number of pages that the request read.
-    fn run_request(
-        vm: &mut LibraryViewModel,
-        page: &mut RecentFeedsPageVm,
-        append: bool,
-        pages: Vec<RecentFeedsPageBatch>,
-    ) -> usize {
-        let generation = page
-            .begin_load(append)
-            .expect("the page request starts")
-            .generation();
-        vm.begin_recent_music_content_load(append);
-        vm.replace_recent_music_content(page);
-        for (read, batch) in pages.into_iter().enumerate() {
-            assert!(page.receive_page(generation, batch));
-            let windows_open = vm.recent_music_windows_open(page);
-            if page.next_step(windows_open) == RecentFeedsPageStep::Finished {
-                vm.apply_recent_music_page(page);
-                return read + 1;
-            }
-        }
-        panic!("the page request needs more recorded pages");
-    }
-
-    /// The group tiles of the layout of `vm`.
-    fn group_tiles(vm: &LibraryViewModel) -> Vec<&WindowGroupTileVm> {
-        vm.new_releases_layout()
-            .items()
-            .iter()
-            .filter_map(|item| match item {
-                NewReleasesLayoutItem::WindowGroup(tile) => Some(tile.as_ref()),
-                NewReleasesLayoutItem::Release { .. } => None,
-            })
-            .collect()
-    }
-
-    /// The singles of jSmovie on each day of `days`, newest first.
-    fn singles_on(days: std::ops::RangeInclusive<u32>) -> Vec<RecentFeedResultRow> {
-        days.rev()
-            .map(|day| single(&format!("s{day}"), oct(day)))
-            .collect()
-    }
-
-    /// A view model and a pager after the request of R86-3-15: 13 singles
-    /// from Oct 20 to Oct 8 in six pages, and the cap stops the chain.
-    fn capped_thirteen_singles() -> (LibraryViewModel, RecentFeedsPageVm) {
-        let mut vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        let mut pages = vec![batch(singles_on(18..=20), true)];
-        for start in [16, 14, 12, 10, 8] {
-            pages.push(batch(singles_on(start..=start + 1), true));
-        }
-        assert_eq!(run_request(&mut vm, &mut page, false, pages), 6);
-        (vm, page)
-    }
-
-    /// R86-3-08: a projection during the chain shows only the earlier rows,
-    /// with the loading display and a disabled "Load more".
-    #[test]
-    fn adr_0086_pager_windows_r08_projection_during_the_chain() {
-        let (mut vm, mut page) = view_model(vec![album("first", oct(20))], true);
-        let generation = page
-            .begin_load(true)
-            .expect("an append starts")
-            .generation();
-        vm.begin_recent_music_content_load(true);
-        assert!(page.receive_page(
-            generation,
-            batch(vec![single("a", oct(19)), single("b", oct(18))], true)
-        ));
-        assert!(matches!(
-            page.next_step(vm.recent_music_windows_open(&page)),
-            RecentFeedsPageStep::LoadExtra(_)
+        let rows = release_rows(vm.releases_list(
+            ListScope::InLibrary,
+            &IndexNameListPage::default(),
+            &IndexFeedSingles::default(),
+            &BTreeSet::new(),
         ));
 
-        vm.replace_recent_music_content(&page);
-        let list = vm.content_list_page();
-        assert_eq!(list.visible_row_ids(), ["index-feed:first"]);
-        assert!(list.loading_display().is_some());
-        assert!(list
-            .load_more_display()
-            .is_some_and(|display| display.disabled));
-    }
-
-    /// R86-3-10: two singles with no closing row give an open window. A
-    /// later row closes it.
-    #[test]
-    fn adr_0086_pager_windows_r10_group_window_opens_and_closes() {
-        let vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        page.load_recorded_page(
-            batch(vec![single("a", oct(20)), single("b", oct(19))], true),
-            false,
-        );
-        assert!(vm.recent_music_windows_open(&page));
-
-        page.load_recorded_page(batch(vec![album("old", oct(1))], true), true);
-        assert!(!vm.recent_music_windows_open(&page));
-    }
-
-    /// R86-3-11: the window of one single asks for no extra page.
-    #[test]
-    fn adr_0086_pager_windows_r11_one_single_is_not_a_group() {
-        let vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        page.load_recorded_page(batch(vec![single("a", oct(20))], true), false);
-        assert!(!vm.recent_music_windows_open(&page));
-    }
-
-    /// R86-3-12: the answer reads the pager rows, also after the Library tree loads.
-    #[test]
-    fn adr_0086_pager_windows_r12_windows_read_the_pager_rows() {
-        let (mut vm, page) = view_model(vec![single("a", oct(20)), single("b", oct(19))], true);
-        assert!(vm.recent_music_windows_open(&page));
-        vm.content_list_page
-            .replace_rows(content_list_rows_from_tree(&LibraryTree::default()));
-        assert!(vm.recent_music_windows_open(&page));
-    }
-
-    /// R86-3-15: the cap stops the chain with an open group of 13 singles.
-    #[test]
-    fn adr_0086_pager_windows_r15_cap_leaves_the_plus() {
-        let (vm, page) = capped_thirteen_singles();
-        assert!(!page.is_loading());
-        let tiles = group_tiles(&vm);
-        assert_eq!(tiles.len(), 1);
-        assert_eq!(tiles[0].count, 13);
-        assert_eq!(tiles[0].kind_badge, "13+ Singles");
-        assert!(!tiles[0].window_closed);
-    }
-
-    /// R86-3-16: the next request adds two singles of the window and a row
-    /// before the window start. The count grows in place, and the "+"
-    /// goes.
-    #[test]
-    fn adr_0086_pager_windows_r16_next_request_closes_the_window() {
-        let (mut vm, mut page) = capped_thirteen_singles();
-        let element_id = group_tiles(&vm)[0].element_id.clone();
-        let mut rows = singles_on(6..=7);
-        rows.push(album("old", oct(1)));
         assert_eq!(
-            run_request(&mut vm, &mut page, true, vec![batch(rows, true)]),
-            1
-        );
-
-        let tiles = group_tiles(&vm);
-        assert_eq!(tiles[0].element_id, element_id);
-        assert_eq!(tiles[0].count, 15);
-        assert_eq!(tiles[0].kind_badge, "15 Singles");
-        assert!(tiles[0].window_closed);
-    }
-
-    /// R86-3-17: a next request that the cap stops again keeps the "+".
-    #[test]
-    fn adr_0086_pager_windows_r17_cap_again_keeps_the_plus() {
-        let (mut vm, mut page) = capped_thirteen_singles();
-        let mut pages = vec![batch(singles_on(6..=7), true)];
-        for extra in 0..5 {
-            pages.push(batch(vec![album(&format!("x{extra}"), oct(6))], true));
-        }
-        assert_eq!(run_request(&mut vm, &mut page, true, pages), 6);
-        let tiles = group_tiles(&vm);
-        assert_eq!(tiles[0].count, 15);
-        assert_eq!(tiles[0].kind_badge, "15+ Singles");
-    }
-
-    /// R86-3-18: a later page that adds a single to the window of a single
-    /// tile gives a group at the place of that single.
-    #[test]
-    fn adr_0086_pager_windows_r18_single_becomes_a_group_in_place() {
-        let mut vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        let first = vec![album("rain", oct(21)), single("a", oct(20))];
-        assert_eq!(
-            run_request(&mut vm, &mut page, false, vec![batch(first, true)]),
-            1
-        );
-        assert!(matches!(
-            &vm.new_releases_layout().items()[1],
-            NewReleasesLayoutItem::Release { row_id } if row_id == "index-feed:a"
-        ));
-
-        let next = vec![single("b", oct(15))];
-        assert_eq!(
-            run_request(&mut vm, &mut page, true, vec![batch(next, false)]),
-            1
-        );
-        let NewReleasesLayoutItem::WindowGroup(tile) = &vm.new_releases_layout().items()[1] else {
-            panic!("the group takes the place of the single");
-        };
-        assert_eq!(tile.open_row_id, "index-feed:a");
-        assert_eq!(tile.count, 2);
-    }
-
-    /// R86-3-19: at the end of the list, each window is closed.
-    #[test]
-    fn adr_0086_pager_windows_r19_list_end_closes_each_window() {
-        let mut vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        let rows = vec![
-            single("a", oct(20)),
-            single("b", oct(19)),
-            album("rain", oct(18)),
-        ];
-        run_request(&mut vm, &mut page, false, vec![batch(rows, false)]);
-        let tiles = group_tiles(&vm);
-        assert_eq!(tiles.len(), 1);
-        assert!(tiles.iter().all(|tile| tile.window_closed));
-        assert_eq!(tiles[0].kind_badge, "2 Singles");
-        assert!(!vm.new_releases_layout().any_window_open());
-    }
-
-    /// R86-3-22: a result that arrives while the Library tree shows changes
-    /// nothing. A later projection shows the rows.
-    #[test]
-    fn adr_0086_pager_windows_r22_result_waits_for_new_releases() {
-        let (mut vm, mut page) = view_model(vec![album("first", oct(20))], true);
-        page.load_recorded_page(batch(vec![album("second", oct(19))], false), true);
-
-        vm.content_list_page
-            .replace_rows(content_list_rows_from_tree(&LibraryTree::default()));
-        let tracks = ids(&vm.content_list_page().visible_rows());
-        assert!(!vm.apply_recent_music_page(&page));
-        assert_eq!(vm.content_list_page().source(), ContentListPageSource::Tree);
-        assert_eq!(ids(&vm.content_list_page().visible_rows()), tracks);
-
-        vm.content_list_page
-            .replace_broadcast_readiness_rows(Vec::new());
-        assert!(!vm.apply_recent_music_page(&page));
-        assert_eq!(
-            vm.content_list_page().source(),
-            ContentListPageSource::BroadcastReadiness
-        );
-        assert!(vm.content_list_page().cached_rows().is_empty());
-
-        vm.replace_recent_music_content(&page);
-        assert_eq!(
-            vm.content_list_page().visible_row_ids(),
-            ["index-feed:first", "index-feed:second"]
-        );
-    }
-
-    /// R86-3-24: a failed extra page gives the notice above an enabled
-    /// "Load more". The next page request clears it.
-    #[test]
-    fn adr_0086_pager_windows_r24_failed_extra_page_notice() {
-        let mut vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        let generation = page
-            .begin_load(false)
-            .expect("a fresh load starts")
-            .generation();
-        vm.begin_recent_music_content_load(false);
-        assert!(page.receive_page(
-            generation,
-            batch(vec![single("a", oct(20)), single("b", oct(19))], true)
-        ));
-        assert!(matches!(
-            page.next_step(vm.recent_music_windows_open(&page)),
-            RecentFeedsPageStep::LoadExtra(_)
-        ));
-        assert!(page.fail_page(generation, "Recent music unavailable", "timeout"));
-        assert!(vm.apply_recent_music_page(&page));
-
-        let display = vm
-            .content_list_page()
-            .load_more_display()
-            .expect("the list has more pages");
-        assert!(!display.disabled);
-        assert_eq!(
-            display.failure,
-            Some(ContentListFailedStateDisplay {
-                title: "Older releases did not load from MusicIndex".to_owned(),
-                detail: "timeout".to_owned(),
-            })
-        );
-        assert_eq!(group_tiles(&vm)[0].kind_badge, "2+ Singles");
-
-        let _ = page.begin_load(true);
-        vm.replace_recent_music_content(&page);
-        let display = vm
-            .content_list_page()
-            .load_more_display()
-            .expect("the list has more pages");
-        assert_eq!(display.failure, None);
-    }
-
-    /// R86-3-28: a failed first page of a fresh load keeps the error of
-    /// today, with no notice of older pages.
-    #[test]
-    fn adr_0086_pager_windows_r28_failed_first_page_keeps_the_error() {
-        let mut vm = LibraryViewModel::new();
-        let mut page = RecentFeedsPageVm::loading();
-        let generation = page
-            .begin_load(false)
-            .expect("a fresh load starts")
-            .generation();
-        vm.begin_recent_music_content_load(false);
-        assert!(page.fail_page(generation, "Recent music unavailable", "network failed"));
-        assert!(vm.apply_recent_music_page(&page));
-        assert_eq!(
-            vm.content_list_page().page_state_display(),
-            Some(ContentListPageStateDisplay::Failed(
-                ContentListFailedStateDisplay {
-                    title: "Recent music unavailable".to_owned(),
-                    detail: "network failed".to_owned(),
-                }
-            ))
-        );
-        assert_eq!(vm.content_list_page().load_more_display(), None);
-    }
-
-    /// The window group page (ADR 0086 packet 004).
-    mod window_group_page {
-        use super::*;
-        use crate::view_models::album_page::AlbumNameLinkTarget;
-        use crate::view_models::detail_selection::{DetailPageRows, DetailRowClick};
-        use crate::view_models::download_progress::{DownloadActivity, FeedKey};
-        use crate::view_models::list_selection::RowCheckState;
-        use crate::view_models::singles_group::{
-            SinglesGroupAction, SinglesGroupActionVm, SinglesGroupPageEntryVm,
-        };
-        use crate::view_models::window_group_page::{
-            window_group_title, WINDOW_GROUP_EMPTY_MESSAGE,
-        };
-        use crate::view_models::window_groups::WindowGroupKey;
-        use crate::view_models::workspace::FrameNavigationState;
-
-        /// A Library single of jSmovie with the Library feed id `feed_id`
-        /// and one track on `date`.
-        fn library_single(guid: &str, feed_id: i64, date: i64, downloaded: bool) -> AlbumNode {
-            AlbumNode {
-                name: format!("Single {guid}"),
-                feed_id: Some(feed_id),
-                feed_guid: Some(guid.to_owned()),
-                feed_url: None,
-                language: None,
-                description: None,
-                image_href: None,
-                named_feeds: vec![artist_feed()],
-                identity_facts: LocalIdentityFacts::default(),
-                metadata_facts: Box::new(FeedMetadataFacts::default()),
-                stored_values: None,
-                tracks: vec![TrackRow {
-                    id: feed_id * 10,
-                    feed_id,
-                    pub_date: Some(date),
-                    is_in_library: downloaded,
-                    ..TrackRow::default()
-                }],
-            }
-        }
-
-        fn jsmovie_tree(albums: Vec<AlbumNode>) -> LibraryTree {
-            LibraryTree {
-                artists: vec![ArtistNode {
-                    name: "jSmovie".to_owned(),
-                    albums,
-                }],
-            }
-        }
-
-        /// The page key of the first group tile of `vm`.
-        fn first_key(vm: &LibraryViewModel) -> WindowGroupKey {
-            group_tiles(vm)
-                .first()
-                .expect("the layout has a group")
-                .page_key
-                .clone()
-        }
-
-        fn release(guid: &str) -> ReleaseKey {
-            ReleaseKey::FeedGuid(guid.to_owned())
-        }
-
-        fn detail_key(guid: &str) -> DetailRowKey {
-            DetailRowKey::Release(release(guid))
-        }
-
-        fn row_kinds(rows: &[SinglesGroupPageEntryVm]) -> Vec<(ReleaseKey, &'static str)> {
             rows.iter()
-                .map(|row| {
-                    let kind = match row {
-                        SinglesGroupPageEntryVm::Library(_) => "library",
-                        SinglesGroupPageEntryVm::Index(_) => "index",
-                    };
-                    (row.key().clone(), kind)
-                })
-                .collect()
-        }
-
-        fn main_action(vm: &LibraryViewModel) -> SinglesGroupActionVm {
-            vm.window_group_page(&first_key(vm))
-                .main_action
-                .expect("the page has members")
-        }
-
-        /// The selection facts of the first item, the group tile.
-        fn tile_selection(vm: &LibraryViewModel, selection: &DetailSelection) -> RowSelectionVm {
-            match &items(vm, selection)[0] {
-                ContentListItemVm::WindowGroup(tile) => tile.selection.clone(),
-                ContentListItemVm::Row(_) => panic!("the first item is the group"),
-            }
-        }
-
-        /// R86-4-05: the rows are newest first. A Library member gives
-        /// `Library`, and an Index member gives `Index`.
-        #[test]
-        fn adr_0086_window_group_page_r05_rows_newest_first() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            vm.replace_tree(jsmovie_tree(vec![library_single("b", 2, oct(15), false)]));
-            let page = vm.window_group_page(&first_key(&vm));
-            assert_eq!(
-                row_kinds(&page.rows),
-                [
-                    (release("a"), "index"),
-                    (release("b"), "library"),
-                    (release("c"), "index")
-                ]
-            );
-            assert_eq!(page.date_span.as_deref(), Some("Oct 8 to Oct 20"));
-            assert_eq!(page.empty_message, None);
-        }
-
-        /// R86-4-06: a member that a name joins to the feed comes last,
-        /// under "Matched by name".
-        #[test]
-        fn adr_0086_window_group_page_r06_matched_by_name_comes_last() {
-            let (_, named) = single("n", oct(18));
-            let mut named = named;
-            if let Some(feed) = named.remote_feed.as_mut() {
-                feed.named_feeds.clear();
-            }
-            let rows = vec![
-                single("a", oct(20)),
-                (0, named),
-                single("b", oct(15)),
-                single("c", oct(8)),
-            ];
-            let (mut vm, _) = view_model(rows, false);
-            vm.replace_tree(jsmovie_tree(vec![library_single("lib", 9, oct(1), true)]));
-            let page = vm.window_group_page(&first_key(&vm));
-            let keys: Vec<ReleaseKey> = page.rows.iter().map(|row| row.key().clone()).collect();
-            assert_eq!(
-                keys,
-                [release("a"), release("b"), release("c"), release("n")]
-            );
-            assert_eq!(page.matched_by_name.map(|heading| heading.count), Some(1));
-            assert_eq!(page.title, "jSmovie · 4 singles");
-        }
-
-        /// R86-4-07: one Index member gives "Download 1 single", with its
-        /// feed GUID and its title.
-        #[test]
-        fn adr_0086_window_group_page_r07_one_index_member_downloads() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            vm.replace_tree(jsmovie_tree(vec![
-                library_single("a", 1, oct(20), true),
-                library_single("b", 2, oct(15), true),
-            ]));
-            let action = main_action(&vm);
-            assert_eq!(action.label, "Download 1 single");
-            let SinglesGroupAction::DownloadSingles(plan) = action.action else {
-                panic!("the download action");
-            };
-            assert!(plan.library_feed_ids.is_empty());
-            assert_eq!(
-                plan.index_releases,
-                [("c".to_owned(), Some("Single c".to_owned()))]
-            );
-        }
-
-        /// R86-4-08: two Library members that are not downloaded and one
-        /// Index member give "Download 3 singles".
-        #[test]
-        fn adr_0086_window_group_page_r08_three_singles_to_download() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            vm.replace_tree(jsmovie_tree(vec![
-                library_single("a", 1, oct(20), false),
-                library_single("b", 2, oct(15), false),
-            ]));
-            let action = main_action(&vm);
-            assert_eq!(action.label, "Download 3 singles");
-            assert!(action.available);
-            let SinglesGroupAction::DownloadSingles(plan) = action.action else {
-                panic!("the download action");
-            };
-            assert_eq!(plan.library_feed_ids, [1, 2]);
-            assert_eq!(plan.index_releases.len(), 1);
-        }
-
-        /// R86-4-09: each member in the Library gives "Add to playlist"
-        /// with the Library feed id of each member.
-        #[test]
-        fn adr_0086_window_group_page_r09_each_member_in_library() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            vm.replace_tree(jsmovie_tree(vec![
-                library_single("a", 1, oct(20), true),
-                library_single("b", 2, oct(15), true),
-                library_single("c", 3, oct(8), true),
-            ]));
-            let action = main_action(&vm);
-            assert_eq!(action.label, "Add to playlist");
-            assert_eq!(
-                action.action,
-                SinglesGroupAction::AddToPlaylist(vec![1, 2, 3])
-            );
-        }
-
-        /// R86-4-10: while one member downloads, the main action is not
-        /// available.
-        #[test]
-        fn adr_0086_window_group_page_r10_busy_member_disables_the_action() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            assert!(main_action(&vm).available);
-            vm.set_download_activity(DownloadActivity {
-                keys: BTreeSet::from([FeedKey::Guid("c".to_owned())]),
-                ..DownloadActivity::default()
-            });
-            assert!(!main_action(&vm).available);
-        }
-
-        /// R86-4-11: a group of 23 singles that holds each member gives
-        /// "All 23 singles".
-        #[test]
-        fn adr_0086_window_group_page_r11_link_to_the_group_of_23() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            let mut albums = vec![
-                library_single("a", 1, oct(20), true),
-                library_single("b", 2, oct(15), true),
-                library_single("c", 3, oct(8), true),
-            ];
-            for index in 0..20 {
-                albums.push(library_single(
-                    &format!("older-{index}"),
-                    100 + index,
-                    oct(1),
-                    true,
-                ));
-            }
-            vm.replace_tree(jsmovie_tree(albums));
-            let key = first_key(&vm);
-            let link = vm
-                .window_group_page(&key)
-                .all_singles_link
-                .expect("the group holds each member");
-            assert_eq!(link.label, "All 23 singles");
-            assert_eq!(link.target, AlbumNameLinkTarget::SinglesGroup(key.group));
-        }
-
-        /// R86-4-12: no link when the group does not hold each member, and
-        /// no link when no group has the key.
-        #[test]
-        fn adr_0086_window_group_page_r12_no_link_without_each_member() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            assert!(vm
-                .window_group_page(&first_key(&vm))
-                .all_singles_link
-                .is_none());
-            vm.replace_tree(jsmovie_tree(vec![
-                library_single("x", 7, oct(2), true),
-                library_single("y", 8, oct(3), true),
-            ]));
-            assert!(vm
-                .window_group_page(&first_key(&vm))
-                .all_singles_link
-                .is_none());
-        }
-
-        /// R86-4-13: the title has the artist and the count.
-        #[test]
-        fn adr_0086_window_group_page_r13_title_has_the_count() {
-            assert_eq!(window_group_title("jSmovie", 9), "jSmovie · 9 singles");
-            assert_eq!(window_group_title("jSmovie", 1), "jSmovie · 1 single");
-            assert_eq!(window_group_title("jSmovie", 0), "jSmovie");
-        }
-
-        /// R86-4-14: the labels of the path to the page.
-        #[test]
-        fn adr_0086_window_group_page_r14_path_labels() {
-            let (vm, _) = view_model(singles_on(12..=20), false);
-            let key = first_key(&vm);
-            let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
-                MusicDestination::Discover,
-            ));
-            nav.push(FrameNavigationEntry::DiscoverView(
-                DiscoverView::NewReleases,
-            ));
-            nav.push(FrameNavigationEntry::WindowGroup(key));
-            let labels: Vec<String> = nav
-                .path_entries()
-                .iter()
-                .map(|entry| match entry {
-                    FrameNavigationEntry::WindowGroup(key) => vm.window_group_page(key).title,
-                    other => other.display_label(),
-                })
-                .collect();
-            assert_eq!(labels, ["Discover", "New releases", "jSmovie · 9 singles"]);
-        }
-
-        /// R86-4-15: Back and Forward between a member page and the window
-        /// group page.
-        #[test]
-        fn adr_0086_window_group_page_r15_back_and_forward() {
-            let (vm, _) = view_model(r01_rows(), false);
-            let window = FrameNavigationEntry::WindowGroup(first_key(&vm));
-            let member = FrameNavigationEntry::Release(release("b"));
-            let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
-                MusicDestination::Discover,
-            ));
-            nav.push(FrameNavigationEntry::DiscoverView(
-                DiscoverView::NewReleases,
-            ));
-            nav.push(window.clone());
-            nav.push(member.clone());
-            assert_eq!(nav.go_back().ok(), Some(&window));
-            assert_eq!(nav.go_forward().ok(), Some(&member));
-            assert_eq!(nav.go_back().ok(), Some(&window));
-        }
-
-        /// R86-4-16: a newer single moves the anchor of the tile. The old
-        /// key still gives the three members of R86-2-01.
-        #[test]
-        fn adr_0086_window_group_page_r16_old_key_keeps_its_window() {
-            let (mut vm, mut page) = view_model(r01_rows(), true);
-            let old_key = first_key(&vm);
-            vm.begin_recent_music_content_load(true);
-            page.load_recorded_page(batch(vec![single("z", oct(22))], false), true);
-            vm.replace_recent_music_content(&page);
-            assert_eq!(first_key(&vm).anchor, release("z"));
-            let keys: Vec<ReleaseKey> = vm
-                .window_group_page(&old_key)
-                .rows
-                .iter()
-                .map(|row| row.key().clone())
-                .collect();
-            assert_eq!(keys, [release("a"), release("b"), release("c")]);
-        }
-
-        /// R86-4-17: a first load with no row of the window gives the
-        /// empty state.
-        #[test]
-        fn adr_0086_window_group_page_r17_gone_window_is_empty() {
-            let (mut vm, mut page) = view_model(r01_rows(), false);
-            let key = first_key(&vm);
-            vm.begin_recent_music_content_load(false);
-            page.load_recorded_page(batch(vec![album("rain", oct(18))], false), false);
-            vm.replace_recent_music_content(&page);
-            let page = vm.window_group_page(&key);
-            assert_eq!(page.empty_message, Some(WINDOW_GROUP_EMPTY_MESSAGE));
-            assert!(page.main_action.is_none());
-            assert!(page.rows.is_empty());
-            assert_eq!(page.title, key.artist);
-        }
-
-        /// R86-4-18: the rows of the Discover view hold each member, and
-        /// the tiles hold one row for each shown item.
-        #[test]
-        fn adr_0086_window_group_page_r18_grouped_release_rows() {
-            let (vm, _) = view_model(r01_rows(), false);
-            let rows = vm.discover_page_rows();
-            let DetailPageRows::GroupedReleases { tiles, .. } = &rows else {
-                panic!("the Discover view gives grouped rows");
-            };
-            assert_eq!(tiles.len(), 3);
-            assert_eq!(tiles[0].id, detail_key("a"));
-            assert_eq!(
-                tiles[0].members,
-                [detail_key("a"), detail_key("b"), detail_key("c")]
-            );
-            assert_eq!(tiles[1].members, [detail_key("rain")]);
-            assert_eq!(
-                rows.members(),
-                [
-                    detail_key("a"),
-                    detail_key("b"),
-                    detail_key("c"),
-                    detail_key("rain"),
-                    detail_key("d")
-                ]
-            );
-        }
-
-        /// R86-4-19: in `Selecting`, the group tile stays and shows a
-        /// checkbox (packet 002 decision D9 is replaced).
-        #[test]
-        fn adr_0086_window_group_page_r19_selecting_keeps_the_tile() {
-            let (vm, _) = view_model(r01_rows(), false);
-            let mut selection = discover_selection();
-            selection.toggle_mode();
-            let items = items(&vm, &selection);
-            assert_eq!(items.len(), 3);
-            let ContentListItemVm::WindowGroup(tile) = &items[0] else {
-                panic!("the first item is the group");
-            };
-            assert!(tile.selection.checkbox_visible);
-        }
-
-        /// R86-4-20: a toggle of the tile selects each member. One selected
-        /// member makes the tile mixed, with no selected mark.
-        #[test]
-        fn adr_0086_window_group_page_r20_tile_toggle_and_mixed() {
-            let (vm, _) = view_model(r01_rows(), false);
-            let tiles = vm.discover_page_rows().selection_rows();
-            let mut selection = discover_selection();
-            selection.toggle_selection_row(&tiles[0]);
-            assert_eq!(selection.selected_count(), 3);
-            assert_eq!(
-                tile_selection(&vm, &selection).check_state,
-                RowCheckState::Checked
-            );
-
-            let mut selection = discover_selection();
-            selection.toggle_row(&detail_key("b"));
-            let mixed = tile_selection(&vm, &selection);
-            assert_eq!(mixed.check_state, RowCheckState::Mixed);
-            assert!(!mixed.is_marked());
-        }
-
-        /// R86-4-21: a toggle of a mixed tile selects each member. A toggle
-        /// of a checked tile clears each member.
-        #[test]
-        fn adr_0086_window_group_page_r21_mixed_then_checked_then_clear() {
-            let (vm, _) = view_model(r01_rows(), false);
-            let tiles = vm.discover_page_rows().selection_rows();
-            let mut selection = discover_selection();
-            selection.toggle_row(&detail_key("c"));
-            assert!(!selection.click(&detail_key("a"), DetailRowClick::Toggle, &tiles));
-            assert_eq!(selection.selected_count(), 3);
-            assert_eq!(
-                tile_selection(&vm, &selection).check_state,
-                RowCheckState::Checked
-            );
-            selection.toggle_selection_row(&tiles[0]);
-            assert_eq!(selection.selected_count(), 0);
-            assert_eq!(
-                tile_selection(&vm, &selection).check_state,
-                RowCheckState::Clear
-            );
-        }
-
-        /// R86-4-22: Ctrl+A selects each member, and the bar counts each
-        /// member.
-        #[test]
-        fn adr_0086_window_group_page_r22_select_all_counts_each_member() {
-            let (vm, _) = view_model(r01_rows(), false);
-            let rows = vm.discover_page_rows();
-            let mut selection = discover_selection();
-            selection.select_all(&rows.selection_rows());
-            let bar = rows.action_bar(&selection).expect("Selecting shows a bar");
-            assert_eq!(bar.count_label, "5 releases selected");
-        }
-
-        /// R86-4-23: a tree that now holds an Index member changes its row
-        /// and the main action in place.
-        #[test]
-        fn adr_0086_window_group_page_r23_tree_changes_the_page_in_place() {
-            let (mut vm, _) = view_model(r01_rows(), false);
-            let key = first_key(&vm);
-            assert_eq!(main_action(&vm).label, "Download 3 singles");
-            vm.replace_tree(jsmovie_tree(vec![library_single("c", 3, oct(8), true)]));
-            let page = vm.window_group_page(&key);
-            assert!(matches!(page.rows[2], SinglesGroupPageEntryVm::Library(_)));
-            assert_eq!(
-                page.main_action.map(|action| action.label).as_deref(),
-                Some("Download 2 singles")
-            );
-        }
+                .map(|row| row.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Selected Ambient Works", "Tri Repetae", "Windowlicker"],
+            "releases must sort by name"
+        );
+        // ADR 0084 Decision 5: "Selected Ambient Works" has two tracks and
+        // no stated kind, which resolves to Album.
+        assert_eq!(rows[0].secondary_text, "Aphex Twin · Album");
+        assert_eq!(rows[0].thumbnail_href, Some("saw.jpg".to_string()));
+        assert_eq!(
+            rows[0].open,
+            DestinationListRowTarget::Release(ReleaseKey::from_index_feed_guid("saw-guid")),
+            "a release with a feed GUID must key by it, like the Index route"
+        );
+        assert_eq!(
+            rows[2].open,
+            DestinationListRowTarget::Release(ReleaseKey::LibraryFeed(20)),
+            "a release with no feed GUID must key by its Library feed id"
+        );
     }
 }
 
@@ -15534,5 +13878,1174 @@ mod marked_row_tests {
             !release_row("guid-b").with_marked(None).marked,
             "no marked page marks no row"
         );
+    }
+}
+
+/// ADR 0086 rules of the Releases list in the sort Newest (ADR 0089
+/// Decision 5). The rules are proved through `releases_list_rows` in the
+/// scope All, and through the window group page that a row opens.
+#[cfg(test)]
+mod adr_0086_newest_tests {
+    use super::*;
+    use crate::view_models::album_page::AlbumNameLinkTarget;
+    use crate::view_models::download_progress::{DownloadActivity, FeedKey};
+    use crate::view_models::list_selection::{
+        FocusStep, ListSelection, RowCheckState, RowSelectionVm, SelectionMode, SelectionRow,
+    };
+    use crate::view_models::named_feeds::NamedFeed;
+    use crate::view_models::recent_feeds::{RecentFeedsPageBatch, RecentFeedsPageStep};
+    use crate::view_models::search_results::{FeedResultDisplay, SearchResultOrigin};
+    use crate::view_models::selection_action_bar::SelectionActionKind;
+    use crate::view_models::singles_group::{
+        SinglesGroupAction, SinglesGroupActionVm, SinglesGroupPageEntryVm,
+    };
+    use crate::view_models::window_group_page::{window_group_title, WindowGroupPageVm};
+    use crate::view_models::window_groups::{WindowGroupKey, WindowGroupTileVm};
+    use crate::view_models::workspace::{
+        FrameNavigationEntry, FrameNavigationState, MusicDestination,
+    };
+    use crate::views::{FeedMetadataFacts, FeedView, LocalIdentityFacts};
+
+    /// The UTC midnight of `date` in October 2026.
+    fn oct(date: u32) -> i64 {
+        chrono::NaiveDate::from_ymd_opt(2026, 10, date)
+            .and_then(|day| day.and_hms_opt(0, 0, 0))
+            .expect("a valid date")
+            .and_utc()
+            .timestamp()
+    }
+
+    fn release(guid: &str) -> ReleaseKey {
+        ReleaseKey::FeedGuid(guid.to_owned())
+    }
+
+    fn artist_feed() -> NamedFeed {
+        NamedFeed {
+            feed_guid: "feed-jsmovie".to_owned(),
+            title: Some("jSmovie".to_owned()),
+            position: Some(0),
+            role: Some("artist".to_owned()),
+            role_agreement: Some("both".to_owned()),
+            feed_rel: None,
+            album_rel: None,
+            confirmed: true,
+            image_url: None,
+        }
+    }
+
+    /// One jSmovie single of the recent pager, as the detail read gives it.
+    fn single(guid: &str, date: i64) -> RecentFeedResultRow {
+        let feed = FeedView {
+            feed_guid: Some(guid.to_owned()),
+            artist: Some("jSmovie".to_owned()),
+            release_kind: Some("single".to_owned()),
+            named_feeds: vec![artist_feed()],
+            ..FeedView::default()
+        };
+        (
+            0,
+            FeedResultDisplay::new(
+                format!("index-feed:{guid}"),
+                format!("Single {guid}"),
+                SearchResultOrigin::Index,
+            )
+            .with_release_key(ReleaseKey::FeedGuid(guid.to_owned()), ReleaseKind::Single)
+            .with_remote_feed(feed)
+            .with_newest_item_at(Some(date)),
+        )
+    }
+
+    /// One album of a different artist, as the recent pager gives it.
+    fn album(guid: &str, date: i64) -> RecentFeedResultRow {
+        let feed = FeedView {
+            feed_guid: Some(guid.to_owned()),
+            artist: Some("Rain".to_owned()),
+            release_kind: Some("album".to_owned()),
+            ..FeedView::default()
+        };
+        (
+            0,
+            FeedResultDisplay::new(
+                format!("index-feed:{guid}"),
+                format!("Album {guid}"),
+                SearchResultOrigin::Index,
+            )
+            .with_release_key(ReleaseKey::FeedGuid(guid.to_owned()), ReleaseKind::Album)
+            .with_remote_feed(feed)
+            .with_newest_item_at(Some(date)),
+        )
+    }
+
+    fn batch(rows: Vec<RecentFeedResultRow>, has_more: bool) -> RecentFeedsPageBatch {
+        RecentFeedsPageBatch {
+            rows,
+            cursor: has_more.then(|| "next".to_owned()),
+            has_more,
+        }
+    }
+
+    /// A pager with one loaded page of `rows`.
+    fn loaded_pager(rows: Vec<RecentFeedResultRow>, has_more: bool) -> RecentFeedsPageVm {
+        let mut page = RecentFeedsPageVm::loading();
+        page.load_recorded_page(batch(rows, has_more), false);
+        page
+    }
+
+    /// A view model with no Library and a pager of `rows`.
+    fn view_model(
+        rows: Vec<RecentFeedResultRow>,
+        has_more: bool,
+    ) -> (LibraryViewModel, RecentFeedsPageVm) {
+        (LibraryViewModel::new(), loaded_pager(rows, has_more))
+    }
+
+    /// The rows of the sort Newest in the scope All, from `page`.
+    fn newest_rows(vm: &LibraryViewModel, page: &RecentFeedsPageVm) -> ReleasesListRows {
+        vm.releases_list_rows(
+            ListScope::All,
+            ListSort::Newest,
+            &IndexNameListPage::default(),
+            page,
+            &BTreeSet::new(),
+        )
+    }
+
+    fn tiles(rows: &ReleasesListRows) -> Vec<&WindowGroupTileVm> {
+        rows.items()
+            .iter()
+            .filter_map(|item| match item {
+                ReleasesListItemVm::WindowGroup(tile) => Some(tile.as_ref()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn group_counts(rows: &ReleasesListRows) -> Vec<usize> {
+        tiles(rows).iter().map(|tile| tile.count).collect()
+    }
+
+    /// The release key of each plain release row, in order.
+    fn release_keys(rows: &ReleasesListRows) -> Vec<ReleaseKey> {
+        rows.items()
+            .iter()
+            .filter_map(|item| match item {
+                ReleasesListItemVm::Release(row) => match &row.open {
+                    DestinationListRowTarget::Release(key) => Some(key.clone()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The page key of the first group tile of `rows`.
+    fn first_key(rows: &ReleasesListRows) -> WindowGroupKey {
+        tiles(rows)
+            .first()
+            .expect("the list has a group")
+            .page_key
+            .clone()
+    }
+
+    /// The window group page of the first group tile of `rows`.
+    fn group_page(vm: &LibraryViewModel, page: &RecentFeedsPageVm) -> WindowGroupPageVm {
+        vm.window_group_page(&first_key(&newest_rows(vm, page)))
+    }
+
+    fn main_action(vm: &LibraryViewModel, page: &RecentFeedsPageVm) -> SinglesGroupActionVm {
+        group_page(vm, page)
+            .main_action
+            .expect("the page has members")
+    }
+
+    /// One request of the pager. Each page of `pages` arrives until the
+    /// chain stops. Gives the number of pages read.
+    fn run_request(
+        vm: &LibraryViewModel,
+        page: &mut RecentFeedsPageVm,
+        append: bool,
+        pages: Vec<RecentFeedsPageBatch>,
+    ) -> usize {
+        let generation = page
+            .begin_load(append)
+            .expect("the page request starts")
+            .generation();
+        for (read, batch) in pages.into_iter().enumerate() {
+            assert!(page.receive_page(generation, batch));
+            let windows_open = vm.recent_music_windows_open(page);
+            if page.next_step(windows_open) == RecentFeedsPageStep::Finished {
+                return read + 1;
+            }
+        }
+        panic!("the page request needs more recorded pages");
+    }
+
+    /// The jSmovie singles on each day of `days`, newest first.
+    fn singles_on(days: std::ops::RangeInclusive<u32>) -> Vec<RecentFeedResultRow> {
+        days.rev()
+            .map(|day| single(&format!("s{day}"), oct(day)))
+            .collect()
+    }
+
+    /// The rows of R86-2-01 with an album between them: a, rain, b, c, d.
+    fn r01_rows() -> Vec<RecentFeedResultRow> {
+        vec![
+            single("a", oct(20)),
+            album("rain", oct(18)),
+            single("b", oct(15)),
+            single("c", oct(8)),
+            single("d", oct(1)),
+        ]
+    }
+
+    /// A pager after the request of R86-3-15: 13 singles from Oct 20 to
+    /// Oct 8 in six pages, and the cap stops the chain.
+    fn capped_thirteen_singles() -> (LibraryViewModel, RecentFeedsPageVm) {
+        let vm = LibraryViewModel::new();
+        let mut page = RecentFeedsPageVm::loading();
+        let mut pages = vec![batch(singles_on(18..=20), true)];
+        for start in [16, 14, 12, 10, 8] {
+            pages.push(batch(singles_on(start..=start + 1), true));
+        }
+        assert_eq!(run_request(&vm, &mut page, false, pages), 6);
+        (vm, page)
+    }
+
+    /// A Library single of jSmovie with the Library feed id `feed_id` and
+    /// one track on `date`.
+    fn library_single(guid: &str, feed_id: i64, date: i64, downloaded: bool) -> AlbumNode {
+        AlbumNode {
+            name: format!("Single {guid}"),
+            feed_id: Some(feed_id),
+            feed_guid: Some(guid.to_owned()),
+            feed_url: None,
+            language: None,
+            description: None,
+            image_href: None,
+            named_feeds: vec![artist_feed()],
+            identity_facts: LocalIdentityFacts::default(),
+            metadata_facts: Box::new(FeedMetadataFacts::default()),
+            stored_values: None,
+            tracks: vec![TrackRow {
+                id: feed_id * 10,
+                feed_id,
+                pub_date: Some(date),
+                is_in_library: downloaded,
+                ..TrackRow::default()
+            }],
+        }
+    }
+
+    fn jsmovie_tree(albums: Vec<AlbumNode>) -> LibraryTree {
+        LibraryTree {
+            artists: vec![ArtistNode {
+                name: "jSmovie".to_owned(),
+                albums,
+            }],
+        }
+    }
+
+    fn row_kinds(rows: &[SinglesGroupPageEntryVm]) -> Vec<(ReleaseKey, &'static str)> {
+        rows.iter()
+            .map(|row| {
+                let kind = match row {
+                    SinglesGroupPageEntryVm::Library(_) => "library",
+                    SinglesGroupPageEntryVm::Index(_) => "index",
+                };
+                (row.key().clone(), kind)
+            })
+            .collect()
+    }
+
+    fn new_selection() -> ListSelection<ReleaseKey, ReleasesRowId> {
+        ListSelection::new()
+    }
+
+    /// The selection facts of the first item of `rows`, the group tile.
+    fn tile_selection(
+        rows: &ReleasesListRows,
+        selection: &ListSelection<ReleaseKey, ReleasesRowId>,
+    ) -> RowSelectionVm {
+        match LibraryViewModel::releases_item_with_selection(
+            &rows.items()[0],
+            selection,
+            SelectionMode::Selecting,
+        ) {
+            ReleasesListItemVm::WindowGroup(tile) => tile.selection.clone(),
+            _ => panic!("the first item is the group"),
+        }
+    }
+
+    /// R86-3-08: a projection during the chain shows only the loaded rows,
+    /// with a disabled "Load more".
+    #[test]
+    fn adr_0086_pager_windows_r08_projection_during_the_chain() {
+        let (vm, mut page) = view_model(vec![album("first", oct(20))], true);
+        let generation = page
+            .begin_load(true)
+            .expect("an append starts")
+            .generation();
+        assert!(page.receive_page(
+            generation,
+            batch(vec![single("a", oct(19)), single("b", oct(18))], true)
+        ));
+        assert!(matches!(
+            page.next_step(vm.recent_music_windows_open(&page)),
+            RecentFeedsPageStep::LoadExtra(_)
+        ));
+
+        let rows = newest_rows(&vm, &page);
+        assert_eq!(release_keys(&rows), [release("first")]);
+        assert!(matches!(
+            rows.items().last(),
+            Some(ReleasesListItemVm::TrailingStatus(
+                IndexListStatusRowVm::LoadMore(action)
+            )) if !action.available
+        ));
+    }
+
+    /// R86-3-10: a group window is open while a loaded row is in it. It
+    /// closes when an older row arrives.
+    #[test]
+    fn adr_0086_pager_windows_r10_group_window_opens_and_closes() {
+        let vm = LibraryViewModel::new();
+        let mut page = loaded_pager(vec![single("a", oct(20)), single("b", oct(19))], true);
+        assert!(vm.recent_music_windows_open(&page));
+
+        page.load_recorded_page(batch(vec![album("old", oct(1))], true), true);
+        assert!(!vm.recent_music_windows_open(&page));
+    }
+
+    /// R86-3-11: one single is not a group, so no window is open.
+    #[test]
+    fn adr_0086_pager_windows_r11_one_single_is_not_a_group() {
+        let vm = LibraryViewModel::new();
+        let page = loaded_pager(vec![single("a", oct(20))], true);
+        assert!(!vm.recent_music_windows_open(&page));
+    }
+
+    /// R86-3-12: the windows read the pager rows, not the Library tree.
+    #[test]
+    fn adr_0086_pager_windows_r12_windows_read_the_pager_rows() {
+        let (mut vm, page) = view_model(vec![single("a", oct(20)), single("b", oct(19))], true);
+        assert!(vm.recent_music_windows_open(&page));
+        vm.replace_tree(LibraryTree::default());
+        assert!(vm.recent_music_windows_open(&page));
+    }
+
+    /// R86-3-15: the cap leaves the plus of an open group.
+    #[test]
+    fn adr_0086_pager_windows_r15_cap_leaves_the_plus() {
+        let (vm, page) = capped_thirteen_singles();
+        assert!(!page.is_loading());
+        let rows = newest_rows(&vm, &page);
+        let tiles = tiles(&rows);
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].count, 13);
+        assert_eq!(tiles[0].kind_badge, "13+ Singles");
+        assert!(!tiles[0].window_closed);
+    }
+
+    /// R86-3-16: the next request closes the window, and the count grows
+    /// in place.
+    #[test]
+    fn adr_0086_pager_windows_r16_next_request_closes_the_window() {
+        let (vm, mut page) = capped_thirteen_singles();
+        let element_id = tiles(&newest_rows(&vm, &page))[0].element_id.clone();
+        let mut rows = singles_on(6..=7);
+        rows.push(album("old", oct(1)));
+        assert_eq!(
+            run_request(&vm, &mut page, true, vec![batch(rows, true)]),
+            1
+        );
+
+        let rows = newest_rows(&vm, &page);
+        let tiles = tiles(&rows);
+        assert_eq!(tiles[0].element_id, element_id);
+        assert_eq!(tiles[0].count, 15);
+        assert_eq!(tiles[0].kind_badge, "15 Singles");
+        assert!(tiles[0].window_closed);
+    }
+
+    /// R86-3-17: a cap again keeps the plus.
+    #[test]
+    fn adr_0086_pager_windows_r17_cap_again_keeps_the_plus() {
+        let (vm, mut page) = capped_thirteen_singles();
+        let mut pages = vec![batch(singles_on(6..=7), true)];
+        for extra in 0..5 {
+            pages.push(batch(vec![album(&format!("x{extra}"), oct(6))], true));
+        }
+        assert_eq!(run_request(&vm, &mut page, true, pages), 6);
+        let rows = newest_rows(&vm, &page);
+        assert_eq!(tiles(&rows)[0].count, 15);
+        assert_eq!(tiles(&rows)[0].kind_badge, "15+ Singles");
+    }
+
+    /// R86-3-18: a single becomes a group in place when a later page adds
+    /// a single to its window.
+    #[test]
+    fn adr_0086_pager_windows_r18_single_becomes_a_group_in_place() {
+        let vm = LibraryViewModel::new();
+        let mut page = RecentFeedsPageVm::loading();
+        let first = vec![album("rain", oct(21)), single("a", oct(20))];
+        assert_eq!(
+            run_request(&vm, &mut page, false, vec![batch(first, true)]),
+            1
+        );
+        let rows = newest_rows(&vm, &page);
+        assert!(matches!(
+            &rows.items()[1],
+            ReleasesListItemVm::Release(row)
+                if row.open == DestinationListRowTarget::Release(release("a"))
+        ));
+
+        let next = vec![single("b", oct(15))];
+        assert_eq!(
+            run_request(&vm, &mut page, true, vec![batch(next, false)]),
+            1
+        );
+        let rows = newest_rows(&vm, &page);
+        let ReleasesListItemVm::WindowGroup(tile) = &rows.items()[1] else {
+            panic!("the group takes the place of the single");
+        };
+        assert_eq!(
+            tile.member_keys[0],
+            release("a"),
+            "the anchor is the single a"
+        );
+        assert_eq!(tile.count, 2);
+    }
+
+    /// R86-3-19: the end of the list closes each window.
+    #[test]
+    fn adr_0086_pager_windows_r19_list_end_closes_each_window() {
+        let vm = LibraryViewModel::new();
+        let mut page = RecentFeedsPageVm::loading();
+        let rows = vec![
+            single("a", oct(20)),
+            single("b", oct(19)),
+            album("rain", oct(18)),
+        ];
+        run_request(&vm, &mut page, false, vec![batch(rows, false)]);
+        let rows = newest_rows(&vm, &page);
+        let tiles = tiles(&rows);
+        assert_eq!(tiles.len(), 1);
+        assert!(tiles.iter().all(|tile| tile.window_closed));
+        assert_eq!(tiles[0].kind_badge, "2 Singles");
+    }
+
+    /// R86-3-22: a loaded page waits for the chain. The rows show when the
+    /// chain stops.
+    #[test]
+    fn adr_0086_pager_windows_r22_result_waits_for_new_releases() {
+        let (vm, mut page) = view_model(vec![album("first", oct(20))], true);
+        let generation = page
+            .begin_load(true)
+            .expect("an append starts")
+            .generation();
+        assert!(page.receive_page(generation, batch(vec![album("second", oct(19))], false)));
+        assert_eq!(release_keys(&newest_rows(&vm, &page)), [release("first")]);
+
+        assert_eq!(page.next_step(false), RecentFeedsPageStep::Finished);
+        assert_eq!(
+            release_keys(&newest_rows(&vm, &page)),
+            [release("first"), release("second")]
+        );
+    }
+
+    /// R86-3-24: a failed extra page keeps the loaded rows and names the
+    /// failure. The next request clears the failure.
+    #[test]
+    fn adr_0086_pager_windows_r24_failed_extra_page_notice() {
+        let vm = LibraryViewModel::new();
+        let mut page = RecentFeedsPageVm::loading();
+        let generation = page
+            .begin_load(false)
+            .expect("a fresh load starts")
+            .generation();
+        assert!(page.receive_page(
+            generation,
+            batch(vec![single("a", oct(20)), single("b", oct(19))], true)
+        ));
+        assert!(matches!(
+            page.next_step(vm.recent_music_windows_open(&page)),
+            RecentFeedsPageStep::LoadExtra(_)
+        ));
+        assert!(page.fail_page(generation, "Recent music unavailable", "timeout"));
+
+        let rows = newest_rows(&vm, &page);
+        assert!(matches!(
+            rows.items().last(),
+            Some(ReleasesListItemVm::TrailingStatus(
+                IndexListStatusRowVm::Failed { first_page: false, detail, .. }
+            )) if detail.contains("timeout")
+        ));
+        assert_eq!(tiles(&rows)[0].kind_badge, "2+ Singles");
+
+        let _ = page.begin_load(true);
+        let rows = newest_rows(&vm, &page);
+        assert!(matches!(
+            rows.items().last(),
+            Some(ReleasesListItemVm::TrailingStatus(
+                IndexListStatusRowVm::LoadMore(_)
+            ))
+        ));
+    }
+
+    /// R86-3-28: a failed first page leads the list with the error. The
+    /// message and the detail reach the curator, and no "Load more" shows.
+    #[test]
+    fn adr_0086_pager_windows_r28_failed_first_page_keeps_the_error() {
+        let vm = LibraryViewModel::new();
+        let mut page = RecentFeedsPageVm::loading();
+        let generation = page
+            .begin_load(false)
+            .expect("a fresh load starts")
+            .generation();
+        assert!(page.fail_page(generation, "Recent music unavailable", "network failed"));
+
+        let rows = newest_rows(&vm, &page);
+        let Some(ReleasesListItemVm::LeadingStatus(IndexListStatusRowVm::Failed {
+            first_page: true,
+            detail,
+            ..
+        })) = rows.items().first()
+        else {
+            panic!("the error row leads the list");
+        };
+        assert!(detail.contains("Recent music unavailable"));
+        assert!(detail.contains("network failed"));
+        assert!(!rows
+            .items()
+            .iter()
+            .any(|item| matches!(item, ReleasesListItemVm::TrailingStatus(_))));
+    }
+
+    /// R86-4-05: the rows are newest first. A Library member gives
+    /// `Library`, and an Index member gives `Index`.
+    #[test]
+    fn adr_0086_window_group_page_r05_rows_newest_first() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        vm.replace_tree(jsmovie_tree(vec![library_single("b", 2, oct(15), false)]));
+        let page_vm = group_page(&vm, &page);
+        assert_eq!(
+            row_kinds(&page_vm.rows),
+            [
+                (release("a"), "index"),
+                (release("b"), "library"),
+                (release("c"), "index")
+            ]
+        );
+        assert_eq!(page_vm.date_span.as_deref(), Some("Oct 8 to Oct 20"));
+        assert_eq!(page_vm.empty_message, None);
+    }
+
+    /// R86-4-06: a member matched by name comes after the other rows.
+    #[test]
+    fn adr_0086_window_group_page_r06_matched_by_name_comes_last() {
+        let mut named = single("n", oct(18));
+        if let Some(feed) = named.1.remote_feed.as_mut() {
+            feed.named_feeds.clear();
+        }
+        let rows = vec![
+            single("a", oct(20)),
+            named,
+            single("b", oct(15)),
+            single("c", oct(8)),
+        ];
+        let (mut vm, page) = view_model(rows, false);
+        vm.replace_tree(jsmovie_tree(vec![library_single("lib", 9, oct(1), true)]));
+        let page_vm = group_page(&vm, &page);
+        let keys: Vec<ReleaseKey> = page_vm.rows.iter().map(|row| row.key().clone()).collect();
+        assert_eq!(
+            keys,
+            [release("a"), release("b"), release("c"), release("n")]
+        );
+        assert_eq!(
+            page_vm.matched_by_name.map(|heading| heading.count),
+            Some(1)
+        );
+        assert_eq!(page_vm.title, "jSmovie · 4 singles");
+    }
+
+    /// R86-4-07: one Index member downloads, and the action names it.
+    #[test]
+    fn adr_0086_window_group_page_r07_one_index_member_downloads() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        vm.replace_tree(jsmovie_tree(vec![
+            library_single("a", 1, oct(20), true),
+            library_single("b", 2, oct(15), true),
+        ]));
+        let action = main_action(&vm, &page);
+        assert_eq!(action.label, "Download 1 single");
+        let SinglesGroupAction::DownloadSingles(plan) = action.action else {
+            panic!("the download action");
+        };
+        assert!(plan.library_feed_ids.is_empty());
+        assert_eq!(
+            plan.index_releases,
+            [("c".to_owned(), Some("Single c".to_owned()))]
+        );
+    }
+
+    /// R86-4-08: three singles are to download.
+    #[test]
+    fn adr_0086_window_group_page_r08_three_singles_to_download() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        vm.replace_tree(jsmovie_tree(vec![
+            library_single("a", 1, oct(20), false),
+            library_single("b", 2, oct(15), false),
+        ]));
+        let action = main_action(&vm, &page);
+        assert_eq!(action.label, "Download 3 singles");
+        assert!(action.available);
+        let SinglesGroupAction::DownloadSingles(plan) = action.action else {
+            panic!("the download action");
+        };
+        assert_eq!(plan.library_feed_ids, [1, 2]);
+        assert_eq!(plan.index_releases.len(), 1);
+    }
+
+    /// R86-4-09: each member is in the Library, so the action adds them to
+    /// a playlist.
+    #[test]
+    fn adr_0086_window_group_page_r09_each_member_in_library() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        vm.replace_tree(jsmovie_tree(vec![
+            library_single("a", 1, oct(20), true),
+            library_single("b", 2, oct(15), true),
+            library_single("c", 3, oct(8), true),
+        ]));
+        let action = main_action(&vm, &page);
+        assert_eq!(action.label, "Add to playlist");
+        assert_eq!(
+            action.action,
+            SinglesGroupAction::AddToPlaylist(vec![1, 2, 3])
+        );
+    }
+
+    /// R86-4-10: a busy member disables the main action.
+    #[test]
+    fn adr_0086_window_group_page_r10_busy_member_disables_the_action() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        assert!(main_action(&vm, &page).available);
+        vm.set_download_activity(DownloadActivity {
+            keys: BTreeSet::from([FeedKey::Guid("c".to_owned())]),
+            ..DownloadActivity::default()
+        });
+        assert!(!main_action(&vm, &page).available);
+    }
+
+    /// R86-4-11: the link goes to the group of the artist when each member
+    /// is in that group.
+    #[test]
+    fn adr_0086_window_group_page_r11_link_to_the_group_of_23() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        let mut albums = vec![
+            library_single("a", 1, oct(20), true),
+            library_single("b", 2, oct(15), true),
+            library_single("c", 3, oct(8), true),
+        ];
+        for index in 0..20 {
+            albums.push(library_single(
+                &format!("older-{index}"),
+                100 + index,
+                oct(1),
+                true,
+            ));
+        }
+        vm.replace_tree(jsmovie_tree(albums));
+        let rows = newest_rows(&vm, &page);
+        let key = first_key(&rows);
+        let link = vm
+            .window_group_page(&key)
+            .all_singles_link
+            .expect("the group holds each member");
+        assert_eq!(link.label, "All 23 singles");
+        assert_eq!(link.target, AlbumNameLinkTarget::SinglesGroup(key.group));
+    }
+
+    /// R86-4-12: no link shows without each member in the group.
+    #[test]
+    fn adr_0086_window_group_page_r12_no_link_without_each_member() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        assert!(group_page(&vm, &page).all_singles_link.is_none());
+        vm.replace_tree(jsmovie_tree(vec![
+            library_single("x", 7, oct(2), true),
+            library_single("y", 8, oct(3), true),
+        ]));
+        assert!(group_page(&vm, &page).all_singles_link.is_none());
+    }
+
+    /// R86-4-13: the title has the count.
+    #[test]
+    fn adr_0086_window_group_page_r13_title_has_the_count() {
+        assert_eq!(window_group_title("jSmovie", 9), "jSmovie · 9 singles");
+        assert_eq!(window_group_title("jSmovie", 1), "jSmovie · 1 single");
+        assert_eq!(window_group_title("jSmovie", 0), "jSmovie");
+    }
+
+    /// R86-4-14: the breadcrumb path names the destination and the page.
+    #[test]
+    fn adr_0086_window_group_page_r14_path_labels() {
+        let (vm, page) = view_model(singles_on(12..=20), false);
+        let key = first_key(&newest_rows(&vm, &page));
+        let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+            MusicDestination::Releases,
+        ));
+        nav.push(FrameNavigationEntry::WindowGroup(key));
+        let labels: Vec<String> = nav
+            .path_entries()
+            .iter()
+            .map(|entry| match entry {
+                FrameNavigationEntry::WindowGroup(key) => vm.window_group_page(key).title,
+                other => other.display_label(),
+            })
+            .collect();
+        assert_eq!(labels, ["Releases", "jSmovie · 9 singles"]);
+    }
+
+    /// R86-4-15: back and forward move between the page and its members.
+    #[test]
+    fn adr_0086_window_group_page_r15_back_and_forward() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let window = FrameNavigationEntry::WindowGroup(first_key(&newest_rows(&vm, &page)));
+        let member = FrameNavigationEntry::Release(release("b"));
+        let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+            MusicDestination::Releases,
+        ));
+        nav.push(window.clone());
+        nav.push(member.clone());
+        assert_eq!(nav.go_back().ok(), Some(&window));
+        assert_eq!(nav.go_forward().ok(), Some(&member));
+        assert_eq!(nav.go_back().ok(), Some(&window));
+    }
+
+    /// R86-4-16: an old page key keeps its window when a later page adds
+    /// a single.
+    #[test]
+    fn adr_0086_window_group_page_r16_old_key_keeps_its_window() {
+        let (vm, mut page) = view_model(r01_rows(), true);
+        let old_key = first_key(&newest_rows(&vm, &page));
+        page.load_recorded_page(batch(vec![single("z", oct(22))], false), true);
+        assert_eq!(first_key(&newest_rows(&vm, &page)).anchor, release("z"));
+        let keys: Vec<ReleaseKey> = vm
+            .window_group_page(&old_key)
+            .rows
+            .iter()
+            .map(|row| row.key().clone())
+            .collect();
+        assert_eq!(keys, [release("a"), release("b"), release("c")]);
+    }
+
+    /// R86-4-18: the grouped release rows. A group row has its members, and
+    /// the release rows have their own key.
+    #[test]
+    fn adr_0086_window_group_page_r18_grouped_release_rows() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        let selection = rows.selection_rows();
+        assert_eq!(selection.len(), 3);
+        assert_eq!(
+            selection[0].id,
+            ReleasesRowId::Window(tiles(&rows)[0].open_row_id.clone())
+        );
+        assert_eq!(
+            selection[0].members,
+            [release("a"), release("b"), release("c")]
+        );
+        assert_eq!(selection[1].members, [release("rain")]);
+        let members: Vec<ReleaseKey> = selection
+            .iter()
+            .flat_map(|row| row.members.iter().cloned())
+            .collect();
+        assert_eq!(
+            members,
+            [
+                release("a"),
+                release("b"),
+                release("c"),
+                release("rain"),
+                release("d")
+            ]
+        );
+    }
+
+    /// R86-4-19: selecting keeps the group tile, with its checkbox.
+    #[test]
+    fn adr_0086_window_group_page_r19_selecting_keeps_the_tile() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        assert_eq!(rows.items().len(), 3);
+        let selection = new_selection();
+        let ReleasesListItemVm::WindowGroup(tile) = LibraryViewModel::releases_item_with_selection(
+            &rows.items()[0],
+            &selection,
+            SelectionMode::Selecting,
+        ) else {
+            panic!("the first item is the group");
+        };
+        assert!(tile.selection.checkbox_visible);
+    }
+
+    /// R86-4-20: the group checkbox selects each member, and it reads
+    /// mixed when one member is selected.
+    #[test]
+    fn adr_0086_window_group_page_r20_tile_toggle_and_mixed() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        let mut selection = new_selection();
+        selection.toggle(&rows.selection_rows()[0]);
+        assert_eq!(selection.selected_count(), 3);
+        assert_eq!(
+            tile_selection(&rows, &selection).check_state,
+            RowCheckState::Checked
+        );
+
+        let mut selection = new_selection();
+        selection.toggle(&SelectionRow::new(
+            ReleasesRowId::Release(release("b")),
+            vec![release("b")],
+        ));
+        let mixed = tile_selection(&rows, &selection);
+        assert_eq!(mixed.check_state, RowCheckState::Mixed);
+        assert!(!mixed.is_marked());
+    }
+
+    /// R86-4-21: a mixed group, then checked, then clear.
+    #[test]
+    fn adr_0086_window_group_page_r21_mixed_then_checked_then_clear() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        let mut selection = new_selection();
+        selection.toggle(&SelectionRow::new(
+            ReleasesRowId::Release(release("c")),
+            vec![release("c")],
+        ));
+        selection.toggle(&rows.selection_rows()[0]);
+        assert_eq!(selection.selected_count(), 3);
+        assert_eq!(
+            tile_selection(&rows, &selection).check_state,
+            RowCheckState::Checked
+        );
+        selection.toggle(&rows.selection_rows()[0]);
+        assert_eq!(selection.selected_count(), 0);
+        assert_eq!(
+            tile_selection(&rows, &selection).check_state,
+            RowCheckState::Clear
+        );
+    }
+
+    /// R86-4-22: select all counts each member once.
+    #[test]
+    fn adr_0086_window_group_page_r22_select_all_counts_each_member() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        let mut selection = new_selection();
+        selection.select_all(rows.selection_rows());
+        assert_eq!(selection.selected_count(), 5);
+        let bar = vm
+            .releases_selection_action_bar(&selection, SelectionMode::Selecting, &rows)
+            .expect("Selecting shows a bar");
+        assert_eq!(bar.count_label, "5 releases selected");
+    }
+
+    /// R86-4-23: a change of the Library tree changes the page in place.
+    #[test]
+    fn adr_0086_window_group_page_r23_tree_changes_the_page_in_place() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        let key = first_key(&newest_rows(&vm, &page));
+        assert_eq!(main_action(&vm, &page).label, "Download 3 singles");
+        vm.replace_tree(jsmovie_tree(vec![library_single("c", 3, oct(8), true)]));
+        let page_vm = vm.window_group_page(&key);
+        assert!(matches!(
+            page_vm.rows[2],
+            SinglesGroupPageEntryVm::Library(_)
+        ));
+        assert_eq!(
+            page_vm.main_action.map(|action| action.label).as_deref(),
+            Some("Download 2 singles")
+        );
+    }
+
+    /// R86-2-23 and R86-3-29: the selection rows are the items. The group
+    /// has its anchor row, and each plain release has its own row.
+    #[test]
+    fn adr_0086_window_groups_r23_selection_rows_are_the_items() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        let ids: Vec<ReleasesRowId> = rows
+            .selection_rows()
+            .iter()
+            .map(|row| row.id.clone())
+            .collect();
+        let anchor = tiles(&rows)[0].open_row_id.clone();
+        assert_eq!(
+            ids,
+            [
+                ReleasesRowId::Window(anchor.clone()),
+                ReleasesRowId::Release(release("rain")),
+                ReleasesRowId::Release(release("d")),
+            ]
+        );
+    }
+
+    /// R86-2-28: a page that a later request appends changes the group.
+    #[test]
+    fn adr_0086_window_groups_r28_appended_page_changes_the_group() {
+        let (vm, mut page) = view_model(vec![single("a", oct(20))], true);
+        assert!(group_counts(&newest_rows(&vm, &page)).is_empty());
+
+        page.load_recorded_page(batch(vec![single("b", oct(15))], false), true);
+        assert_eq!(group_counts(&newest_rows(&vm, &page)), [2]);
+    }
+
+    /// R86-2-29: a Library track change moves the Library count of a group.
+    #[test]
+    fn adr_0086_window_groups_r29_tree_changes_the_library_count() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        let state = |vm: &LibraryViewModel| tiles(&newest_rows(vm, &page))[0].state.count_text();
+        assert_eq!(state(&vm), None);
+
+        vm.replace_tree(jsmovie_tree(vec![library_single("b", 2, oct(15), true)]));
+        assert_eq!(state(&vm).as_deref(), Some("1 in library"));
+    }
+
+    /// R86-2-30: the window length divides a group. The length is a
+    /// field of the view model, and the Settings value has no setter yet.
+    #[test]
+    fn adr_0086_window_groups_r30_set_window_length_divides_the_group() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        assert_eq!(vm.window_length(), WindowLength::DEFAULT);
+        assert_eq!(group_counts(&newest_rows(&vm, &page)), [3]);
+
+        let week = WindowLength::from_days(7).expect("7 is in the range");
+        vm.window_length = week;
+        assert_eq!(vm.window_length(), week);
+        assert_eq!(group_counts(&newest_rows(&vm, &page)), [2, 2]);
+    }
+
+    /// R86-2-25: a group tile takes the focus of its anchor row. In
+    /// `Normal` it has no visible checkbox.
+    #[test]
+    fn adr_0086_window_groups_r25_group_tile_takes_the_anchor_focus() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        let mut selection = new_selection();
+        let focused = selection.move_focus(FocusStep::Down, rows.selection_rows());
+        let anchor = tiles(&rows)[0].open_row_id.clone();
+        assert_eq!(focused, Some(ReleasesRowId::Window(anchor)));
+
+        let items: Vec<ReleasesListItemVm> = rows
+            .items()
+            .iter()
+            .map(|item| {
+                LibraryViewModel::releases_item_with_selection(
+                    item,
+                    &selection,
+                    SelectionMode::Normal,
+                )
+            })
+            .collect();
+        assert_eq!(items.len(), 3);
+        let ReleasesListItemVm::WindowGroup(tile) = &items[0] else {
+            panic!("the first item is the group");
+        };
+        assert!(tile.selection.focused);
+        assert!(!tile.selection.checkbox_visible);
+    }
+
+    /// R86-2-26: the tiles and the rows of one key give the same items.
+    /// The view mode does not change the build, so one build serves both.
+    #[test]
+    fn adr_0086_window_groups_r26_tiles_and_list_give_the_same_items() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let mut cache = ReleasesListCache::default();
+        let expanded = BTreeSet::new();
+        // One page of the Index names, so both reads have one key.
+        let names = IndexNameListPage::default();
+        let rows = vm.cached_releases_rows(
+            &mut cache,
+            ListScope::All,
+            ListSort::Newest,
+            &names,
+            &page,
+            &expanded,
+        );
+        let tiles_view = vm.cached_releases_rows(
+            &mut cache,
+            ListScope::All,
+            ListSort::Newest,
+            &names,
+            &page,
+            &expanded,
+        );
+        assert_eq!(cache.builds(), 1);
+        assert_eq!(rows.item_ids(), tiles_view.item_ids());
+        assert_eq!(rows.item_ids().len(), 3);
+    }
+
+    /// ADR 0084 Decision 10 on the Releases list: an Index row gives its
+    /// feed GUID as its selection key. Its checkbox holds that one key.
+    /// A row with an empty GUID is not covered here, because the Index
+    /// always gives a GUID or an entity id.
+    /// ADR 0089 packet 005 Part D: the Tiles view reveals the item of the
+    /// focused row, by its element id. The view model makes the choice, and
+    /// an unknown row gives none.
+    #[test]
+    fn adr_0089_task_005_part_d_tile_reveal_target_is_the_item() {
+        let (vm, page) = view_model(r01_rows(), false);
+        let rows = newest_rows(&vm, &page);
+        let group = &tiles(&rows)[0];
+        assert_eq!(
+            rows.item_element_of_selection(&ReleasesRowId::Window(group.open_row_id.clone())),
+            Some(group.element_id.as_str())
+        );
+        let rain = rows
+            .item_element_of_selection(&ReleasesRowId::Release(release("rain")))
+            .expect("the album row is an item");
+        assert!(rain.starts_with("music-release-row-"), "{rain}");
+        assert_eq!(rows.item_element_at(1), Some(rain));
+        assert_eq!(
+            rows.item_element_of_selection(&ReleasesRowId::Release(release("missing"))),
+            None
+        );
+    }
+
+    #[test]
+    fn adr_0084_discover_selection_r20_02_only_an_index_feed_row_gives_a_key() {
+        let page = loaded_pager(vec![single("face-pale", oct(20))], false);
+        let rows = newest_rows(&LibraryViewModel::new(), &page);
+        assert_eq!(rows.selection_rows().len(), 1);
+        assert_eq!(
+            rows.selection_rows()[0].id,
+            ReleasesRowId::Release(release("face-pale"))
+        );
+        assert_eq!(rows.selection_rows()[0].members, [release("face-pale")]);
+    }
+
+    /// ADR 0084 Decision 10 (packet 018): the action bar counts follow the
+    /// state of each selected release. An Index release downloads, a
+    /// downloaded Library release adds and removes, and a partial Library
+    /// release downloads and adds.
+    #[test]
+    fn adr_0084_discover_selection_r20_03_bar_counts_follow_packet_018() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(jsmovie_tree(vec![
+            library_single("downloaded", 9, oct(19), true),
+            library_single("partial", 10, oct(1), false),
+        ]));
+        let page = loaded_pager(
+            vec![
+                album("index-only", oct(20)),
+                single("downloaded", oct(19)),
+                single("partial", oct(1)),
+            ],
+            false,
+        );
+        let rows = newest_rows(&vm, &page);
+        let mut selection = new_selection();
+        selection.select_all(rows.selection_rows());
+
+        let bar = vm
+            .releases_selection_action_bar(&selection, SelectionMode::Selecting, &rows)
+            .expect("Selecting shows a bar");
+        assert_eq!(bar.count_label, "3 releases selected");
+        let label = |kind| bar.action(kind).map(|action| action.label.clone());
+        assert_eq!(
+            label(SelectionActionKind::Download).as_deref(),
+            Some("Download 2 releases")
+        );
+        assert_eq!(
+            label(SelectionActionKind::AddToPlaylist).as_deref(),
+            Some("Add 2 releases to playlist")
+        );
+        assert_eq!(
+            label(SelectionActionKind::Remove).as_deref(),
+            Some("Remove 1 release\u{2026}")
+        );
+    }
+
+    /// ADR 0084 Decision 10 (packet 018 amendment): the checkbox shows only
+    /// in `Selecting`, on each row that has a key.
+    #[test]
+    fn adr_0084_discover_selection_r20_04_checkbox_follows_the_mode() {
+        let page = loaded_pager(vec![album("a", oct(20)), album("b", oct(19))], false);
+        let rows = newest_rows(&LibraryViewModel::new(), &page);
+        let selection = new_selection();
+        let shown = |mode| -> Vec<bool> {
+            rows.items()
+                .iter()
+                .filter_map(|item| {
+                    match LibraryViewModel::releases_item_with_selection(item, &selection, mode) {
+                        ReleasesListItemVm::Release(row) => Some(row.selection.checkbox_visible),
+                        _ => None,
+                    }
+                })
+                .collect()
+        };
+        assert_eq!(shown(SelectionMode::Normal), [false, false]);
+        assert_eq!(shown(SelectionMode::Selecting), [true, true]);
+    }
+
+    /// ADR 0084 Decision 10 (keyboard): the focus moves in the line of the
+    /// selection rows, and stops at the first and the last row. The list
+    /// has no Left or Right step, so a tile grid maps its arrows to these
+    /// steps in the renderer.
+    #[test]
+    fn adr_0084_discover_selection_r20_05_tile_focus_moves_in_a_line() {
+        let page = loaded_pager(
+            vec![
+                album("a", oct(20)),
+                album("b", oct(19)),
+                album("c", oct(18)),
+            ],
+            false,
+        );
+        let rows = newest_rows(&LibraryViewModel::new(), &page);
+        let visible = rows.selection_rows();
+        let key = |guid: &str| Some(ReleasesRowId::Release(release(guid)));
+        let mut selection = new_selection();
+
+        let mut step = |step: FocusStep| selection.move_focus(step, visible);
+        assert_eq!(step(FocusStep::Down), key("a"));
+        assert_eq!(step(FocusStep::Down), key("b"));
+        assert_eq!(step(FocusStep::Down), key("c"));
+        assert_eq!(step(FocusStep::Down), key("c"), "stops at the last row");
+        assert_eq!(step(FocusStep::Up), key("b"));
+        assert_eq!(step(FocusStep::Up), key("a"));
+        assert_eq!(step(FocusStep::Up), key("a"), "stops at the first row");
+        assert_eq!(step(FocusStep::End), key("c"));
+        assert_eq!(step(FocusStep::Home), key("a"));
+    }
+
+    /// ADR 0084 Decision 3 (Discover, now Releases): a Library row of the
+    /// sort Newest keeps its Library state, and it is not listed twice.
+    #[test]
+    fn adr_0084_discover_new_release_in_library_shows_its_state() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(jsmovie_tree(vec![library_single("held", 1, oct(19), true)]));
+        let page = loaded_pager(
+            vec![single("held", oct(19)), album("fresh", oct(18))],
+            false,
+        );
+        let rows = newest_rows(&vm, &page);
+        let held_rows = rows
+            .items()
+            .iter()
+            .filter(|item| {
+                matches!(item, ReleasesListItemVm::Release(row)
+                    if row.open == DestinationListRowTarget::Release(release("held")))
+            })
+            .count();
+        assert_eq!(held_rows, 1, "the Library row is listed once");
+        assert!(matches!(
+            rows.row_state(&release("held")),
+            Some(ReleaseRowState::Library(_))
+        ));
+        assert!(matches!(
+            rows.row_state(&release("fresh")),
+            Some(ReleaseRowState::Index { .. })
+        ));
     }
 }

@@ -47,7 +47,7 @@ use crate::view_models::releases_everything::ReleasesListCache;
 use crate::view_models::singles_group::SinglesGroupKey;
 use crate::view_models::window_groups::WindowGroupKey;
 use crate::view_models::workspace::{
-    ContentViewMode, DiscoverView, FrameNavigationEntry, NavigationPathStart, ReleaseKey, TrackKey,
+    FrameNavigationEntry, NavigationPathStart, ReleaseKey, TrackKey,
 };
 use download_queue::DownloadQueue;
 
@@ -61,9 +61,6 @@ pub(crate) enum LibraryDetail {
     Album(AlbumNode),
     Track(Box<InspectorFrame>),
     Playlist(PlaylistDetail),
-    /// A view of the Discover column is open in the detail column (ADR
-    /// 0084 Decision 3).
-    Discover(DiscoverView),
     /// The page of one Library singles group (ADR 0084 Decision 6). The
     /// page reads the current tree at each render, so a download or a
     /// removal updates it in place.
@@ -86,10 +83,6 @@ pub(crate) enum LibraryAppEvent {
         playlist_id: i64,
         playlist_position: i64,
     },
-    /// Requests a content view-mode change, from the Discover detail
-    /// header (ADR 0084 Decision 3). The top app owns the mutation and
-    /// its config persistence (ADR 0062).
-    SetContentViewMode(ContentViewMode),
     OpenIndexFeedDetail {
         feed_guid: String,
         label: String,
@@ -263,8 +256,9 @@ pub struct LibraryApp {
     tag_update_request_failed: bool,
     /// Existing Recent Feeds pager consumed by the default Music content region.
     recent_music_page: RecentFeedsPageVm,
-    /// Scroll state for default Music recency pagination.
-    recent_music_scroll: ScrollHandle,
+    /// The scroll of the Needs attention list (ADR 0089 Decision 1). The
+    /// Library holds it, so the offset survives a page opened over the list.
+    needs_attention_scroll: ScrollHandle,
     /// The scroll of the Discover views list (ADR 0089 Decision 1). The
     /// Library holds it, so the offset survives a page opened over the list.
     discover_views_scroll: ScrollHandle,
@@ -310,6 +304,12 @@ pub struct LibraryApp {
     /// 005 Part C). The Library holds it, so the offset survives a change
     /// of view.
     releases_tiles_scroll: ScrollHandle,
+    /// The reveal of the Tiles view of the Releases list (ADR 0084 Decision
+    /// 10, ADR 0089 packet 005 Part D). It scrolls the Tiles grid, not the
+    /// rows list.
+    releases_tile_reveal: ScrollReveal,
+    /// The element id of the item that the next reveal shows.
+    releases_tile_target: Option<String>,
     /// The last build of the Releases list and its key (ADR 0084 task
     /// 037). `TopApp::render` reads the header action through `&self`, so
     /// the cache needs a `RefCell`.
@@ -353,9 +353,6 @@ pub struct LibraryApp {
     detail_scroll_binding: detail_selection::DetailScrollBinding,
     /// The request to keep the focused detail row in view (packet 018).
     detail_scroll_reveal: ScrollReveal,
-    /// The request to keep the focused Discover row or tile in view
-    /// (packet 020). The Discover view scrolls with `recent_music_scroll`.
-    discover_scroll_reveal: ScrollReveal,
     /// The saved searches, in `id` order (ADR 0084 Decision 3, packet
     /// 012). The app reads them at start, and again after each save and
     /// each delete.

@@ -27,7 +27,6 @@ pub(crate) struct PageTitleFacts {
 pub(crate) fn page_type_title(entry: &FrameNavigationEntry) -> String {
     match entry {
         FrameNavigationEntry::Destination(_) | FrameNavigationEntry::Settings => String::new(),
-        FrameNavigationEntry::DiscoverView(view) => view.label().to_string(),
         FrameNavigationEntry::SavedSearch { .. } => {
             crate::view_models::search_results::SavedSearch::FRAME_TITLE.to_string()
         }

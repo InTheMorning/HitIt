@@ -65,7 +65,7 @@ use crate::ui::composites::{
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::Button as UiButton;
 use crate::ui::shells::library::content_list::{
-    render_discover_new_releases_detail, render_library_content_list, ContentListMenuContext,
+    render_library_content_list, ContentListMenuContext,
 };
 use crate::ui::shells::library::destination_lists::{
     render_artists_list_item, render_library_destination_rows, render_library_playlists_list,
@@ -78,7 +78,7 @@ use crate::ui::shells::library::releases_tiles::{
 };
 use crate::ui::shells::library::sidebar::{render_sidebar_row, render_sidebar_separator};
 use crate::ui::shells::library::track_detail_metadata::track_metadata_rows_for_frame;
-use crate::ui::shells::library::views_list::render_library_discover_views_list;
+use crate::ui::shells::library::views_list::render_library_discover_list;
 use crate::ui::shells::library_removal_confirmation::{
     open_library_removal_confirmation_dialog, open_selection_removal_confirmation_dialog,
 };
@@ -89,7 +89,6 @@ use crate::ui::style::color;
 use crate::ui::style::spacing;
 use crate::ui::tokens::Motion;
 use crate::view_models::artist_identity::{ArtistNameDestination, ArtistNameKey, NameFeedMatches};
-use crate::view_models::collection_art::CollectionArtVm;
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::entity_detail::TrackMetadataActionState;
 use crate::view_models::index_name_list::IndexNameListPage;
@@ -130,12 +129,10 @@ use crate::view_models::singles_group::{
     SinglesGroupKey, SinglesGroupPageEntryVm, SinglesGroupPageVm,
 };
 use crate::view_models::track_detail::TrackNameLinkTarget;
-use crate::view_models::window_groups::{
-    ContentListItemVm, NewReleasesLayoutItem, WindowGroupKey, WindowGroupSource,
-};
+use crate::view_models::window_groups::WindowGroupKey;
 use crate::view_models::workspace::{
-    ContentViewMode, DiscoverView, FrameHeaderActionDisplay, FrameNavigationEntry,
-    MusicDestination, NavigationPathStart, ReleaseKey, TrackKey,
+    ContentViewMode, FrameHeaderActionDisplay, FrameNavigationEntry, MusicDestination,
+    NavigationPathStart, ReleaseKey, TrackKey,
 };
 use crate::views::{EntityIdentityLinks, LocalIdentityFacts};
 use gpui::{
@@ -144,6 +141,10 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, InputState};
 use rusqlite::Connection;
+
+/// The message of a failed Recent music page (ADR 0086 Decision 5). The
+/// Releases list shows it with the detail of the failure.
+const RECENT_MUSIC_FAILED: &str = "Recent music unavailable";
 
 impl InspectorFrame {
     fn for_track(track: TrackRow, image: Option<Arc<Image>>) -> Self {
@@ -476,18 +477,6 @@ impl LibraryApp {
         cx.notify();
     }
 
-    /// Requests a content view-mode change from the Discover detail
-    /// header (ADR 0084 Decision 3). The top app owns the mutation and
-    /// its config persistence, the same path the content-list frame
-    /// chrome uses for Tracks (ADR 0062).
-    pub(crate) fn request_content_view_mode(
-        &mut self,
-        view_mode: ContentViewMode,
-        cx: &mut Context<Self>,
-    ) {
-        cx.emit(super::LibraryAppEvent::SetContentViewMode(view_mode));
-    }
-
     /// Starts one page request of New releases: the fresh load, one "Load
     /// more" click or one scroll probe (ADR 0086 Decision 5, packet 003
     /// decision D2).
@@ -496,9 +485,6 @@ impl LibraryApp {
             return;
         };
 
-        self.vm.begin_recent_music_content_load(append);
-        self.vm
-            .replace_recent_music_content(&self.recent_music_page);
         cx.notify();
         self.dispatch_recent_music_page(intent, cx);
     }
@@ -532,18 +518,16 @@ impl LibraryApp {
                     RecentFeedsPageStep::LoadExtra(intent) => {
                         this.dispatch_recent_music_page(intent, cx);
                     }
-                    RecentFeedsPageStep::Finished => {
-                        this.vm.apply_recent_music_page(&this.recent_music_page);
-                    }
+                    RecentFeedsPageStep::Finished => cx.notify(),
                 }
             },
-            move |this, error, _cx| {
-                if this.recent_music_page.fail_page(
-                    generation,
-                    "Recent music unavailable",
-                    command_error_detail(error),
-                ) {
-                    this.vm.apply_recent_music_page(&this.recent_music_page);
+            move |this, error, cx| {
+                let detail = command_error_detail(error);
+                if this
+                    .recent_music_page
+                    .fail_page(generation, RECENT_MUSIC_FAILED, detail)
+                {
+                    cx.notify();
                 }
             },
         );
@@ -598,17 +582,6 @@ impl LibraryApp {
             }
         };
         self.open_page(entry, NavigationPathStart::ListRow, cx);
-    }
-
-    /// Opens a Discover view row directly under Discover (ADR 0084
-    /// Decisions 3 and 9). The row the operator clicked already names the view the list
-    /// shows, so this always lands in the Discover location.
-    pub(crate) fn open_discover_view(&mut self, view: DiscoverView, cx: &mut Context<Self>) {
-        self.open_page(
-            FrameNavigationEntry::DiscoverView(view),
-            NavigationPathStart::ListRow,
-            cx,
-        );
     }
 
     /// The destination whose list the list column currently shows (ADR
@@ -1101,7 +1074,8 @@ impl LibraryApp {
         let mut vm = LibraryViewModel::new();
         vm.set_content_view_mode(content_view_mode);
         let detail_column_scroll = gpui::ScrollHandle::new();
-        let recent_music_scroll = gpui::ScrollHandle::new();
+        let needs_attention_scroll = gpui::ScrollHandle::new();
+        let releases_tiles_scroll = gpui::ScrollHandle::new();
         let mut app = Self {
             playback_availability: Err(
                 crate::application::capability::ExecutionUnavailable::configured(
@@ -1133,8 +1107,7 @@ impl LibraryApp {
             recent_music_page: RecentFeedsPageVm::loading(),
             artist_name_page: IndexNameListPage::default(),
             release_name_page: IndexNameListPage::default(),
-            discover_scroll_reveal: ScrollReveal::new(recent_music_scroll.clone()),
-            recent_music_scroll,
+            needs_attention_scroll,
             discover_views_scroll: gpui::ScrollHandle::new(),
             playlists_scroll: gpui::ScrollHandle::new(),
             expanded_singles_groups: BTreeSet::new(),
@@ -1144,7 +1117,9 @@ impl LibraryApp {
             track_selection: ListSelection::new(),
             track_selection_mode: SelectionMode::Normal,
             releases_list_state: MusicColumnList::new(cx),
-            releases_tiles_scroll: gpui::ScrollHandle::new(),
+            releases_tile_reveal: ScrollReveal::new(releases_tiles_scroll.clone()),
+            releases_tile_target: None,
+            releases_tiles_scroll,
             releases_list_cache: std::cell::RefCell::default(),
             artists_list_state: MusicColumnList::new(cx),
             list_column_focus: cx.focus_handle(),
@@ -1177,10 +1152,6 @@ impl LibraryApp {
         app.maybe_start_tag_update(cx);
         app.start_async_reload(cx);
         app.start_recent_music_load(false, cx);
-        // ADR 0084 Decision 3: Music opens on Discover, then "New
-        // releases". The detail column reads `self.detail`, so the
-        // first render needs it set, not only the navigation path.
-        app.show_discover_view(DiscoverView::NewReleases);
         app
     }
 
@@ -1552,7 +1523,6 @@ impl LibraryApp {
             LibraryDetail::None
             | LibraryDetail::Album(_)
             | LibraryDetail::Track(_)
-            | LibraryDetail::Discover(_)
             | LibraryDetail::SinglesGroup(_)
             | LibraryDetail::WindowGroup(_) => None,
         };
@@ -2581,11 +2551,6 @@ impl LibraryApp {
                 self.request_default_name_list(cx);
                 self.clear_detail();
             }
-            // ADR 0084 Decision 3: a Discover view becoming the current
-            // location fills the detail column with that view.
-            FrameNavigationEntry::DiscoverView(view) => {
-                self.show_discover_view(*view);
-            }
             // ADR 0084 Decision 3, packet 012: a saved search is a page
             // under Discover. The top app renders it in the detail column.
             FrameNavigationEntry::SavedSearch { .. } => {
@@ -2600,19 +2565,10 @@ impl LibraryApp {
                 self.detail = LibraryDetail::SinglesGroup(key.clone());
                 self.request_singles_group_feed(key, cx);
             }
-            // ADR 0086 Decision 4: the window group page reads the loaded
-            // New releases rows through the cached layout. The rows stay
-            // loaded after another destination (packet 004 "The page in
-            // the path"). Each open reads the MusicIndex singles of the
+            // ADR 0086 Decision 4: the window group page reads its rows
+            // from its key. Each open reads the MusicIndex singles of the
             // feed, so the link to the group page can show.
             FrameNavigationEntry::WindowGroup(key) => {
-                // A group of New releases belongs to Discover. A group of
-                // the Releases list keeps its destination.
-                if matches!(key.source, WindowGroupSource::NewReleases) {
-                    self.vm.set_active_destination(MusicDestination::Discover);
-                    self.vm
-                        .replace_recent_music_content(&self.recent_music_page);
-                }
                 self.vm.clear_library_selection();
                 self.detail = LibraryDetail::WindowGroup(key.clone());
                 self.request_singles_group_feed(&key.group, cx);
@@ -2645,33 +2601,18 @@ impl LibraryApp {
         self.releases_selection_mode = SelectionMode::Normal;
         self.track_selection_mode = SelectionMode::Normal;
         match destination {
-            // ADR 0084 Decision 3: Discover's list column shows its views,
-            // not the content list. `show_discover_view` fills the
-            // detail column with the open view, from the navigation path.
+            // ADR 0084 Decision 3, ADR 0089 Decision 2: Discover's list
+            // column shows its saved searches, not the content list.
             MusicDestination::Discover
             | MusicDestination::Releases
             | MusicDestination::Artists
             | MusicDestination::Playlists => {
-                // The Discover views, Releases, Artists, and Playlists
-                // lists read straight from already-loaded data; they hold
-                // no `ContentListPageVm` state of their own.
+                // The Discover, Releases, Artists, and Playlists lists read
+                // straight from already-loaded data; they hold no
+                // `ContentListPageVm` state of their own.
             }
             MusicDestination::NeedsAttention => {
                 self.open_needs_attention_destination();
-            }
-        }
-    }
-
-    /// Fills the detail column with a Discover view (ADR 0084 Decision
-    /// 3). The root of this page's path is always Discover.
-    fn show_discover_view(&mut self, view: DiscoverView) {
-        self.vm.set_active_destination(MusicDestination::Discover);
-        self.vm.clear_library_selection();
-        match view {
-            DiscoverView::NewReleases => {
-                self.detail = LibraryDetail::Discover(view);
-                self.vm
-                    .replace_recent_music_content(&self.recent_music_page);
             }
         }
     }
@@ -3383,7 +3324,6 @@ impl LibraryApp {
             LibraryDetail::None
             | LibraryDetail::Album(_)
             | LibraryDetail::Playlist(_)
-            | LibraryDetail::Discover(_)
             | LibraryDetail::SinglesGroup(_)
             | LibraryDetail::WindowGroup(_) => None,
         }
@@ -4194,6 +4134,16 @@ impl LibraryApp {
     /// correction item 6: the Releases list gives the group row and
     /// each single row of an open group its own focus stop, the same as
     /// a release row.
+    /// Asks the Tiles grid of the Releases list to show the item `element`
+    /// at the next layout (ADR 0089 packet 005 Part D). The item carries the
+    /// reveal probe, and the probe scrolls the grid by the least distance.
+    pub(crate) fn reveal_releases_tile(&mut self, element: Option<&str>) {
+        self.releases_tile_target = element.map(str::to_owned);
+        if self.releases_tile_target.is_some() {
+            self.releases_tile_reveal.request();
+        }
+    }
+
     pub(crate) fn move_selection_focus(
         &mut self,
         step: FocusStep,
@@ -4211,7 +4161,9 @@ impl LibraryApp {
                 // list (ADR 0084 packet 016 decision D8, task 037).
                 let leading = rows.leading();
                 if let Some(focused) = self.releases_selection.move_focus(step, visible) {
-                    if let Some(index) = visible.iter().position(|row| row.id == focused) {
+                    if matches!(self.vm.list_view(ListPageKey::Releases), ListView::Tiles) {
+                        self.reveal_releases_tile(rows.item_element_of_selection(&focused));
+                    } else if let Some(index) = visible.iter().position(|row| row.id == focused) {
                         self.releases_list_state
                             .scroll_to_reveal_item(index + leading);
                     }
@@ -4222,7 +4174,7 @@ impl LibraryApp {
                 let visible = self.content_list_visible_rows();
                 if let Some(focused) = self.track_selection.move_focus(step, &visible) {
                     if let Some(index) = visible.iter().position(|row| row.id == focused) {
-                        self.recent_music_scroll.scroll_to_item(index);
+                        self.needs_attention_scroll.scroll_to_item(index);
                     }
                 }
                 cx.notify();
@@ -4475,9 +4427,6 @@ impl LibraryApp {
     /// checked here, so an Index release or track is checked by its caller.
     pub(crate) fn detail_shows_page(&self, entry: &FrameNavigationEntry) -> bool {
         match (entry, &self.detail) {
-            (FrameNavigationEntry::DiscoverView(view), LibraryDetail::Discover(shown)) => {
-                view == shown
-            }
             (FrameNavigationEntry::PlaylistDetail(id), LibraryDetail::Playlist(detail)) => {
                 detail.playlist.id == *id
             }
@@ -5081,8 +5030,8 @@ impl LibraryApp {
             MusicDestination::Discover => {
                 let rows = self
                     .vm
-                    .discover_view_rows(&self.saved_searches, self.open_saved_search);
-                render_library_discover_views_list(&rows, &self.discover_views_scroll, cx)
+                    .discover_list_rows(&self.saved_searches, self.open_saved_search);
+                render_library_discover_list(&rows, &self.discover_views_scroll, cx)
             }
             MusicDestination::NeedsAttention => {
                 let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();
@@ -5104,12 +5053,12 @@ impl LibraryApp {
                 };
                 // ADR 0086 packet 002: the list column shows no window
                 // group, so each of its rows is one item.
-                let items = rows.into_iter().map(ContentListItemVm::Row).collect();
+                let items = rows.into_iter().collect();
                 let pane = render_library_content_list(
                     self.vm.content_list_page(),
                     items,
-                    (&content_row_thumbs, &RowArts::new()),
-                    &self.recent_music_scroll,
+                    &content_row_thumbs,
+                    &self.needs_attention_scroll,
                     (ContentListSelectionTarget::ListColumn, None),
                     Some(menu),
                     cx,
@@ -5411,17 +5360,25 @@ impl LibraryApp {
         let mut leading = Vec::new();
         let mut tiles = Vec::new();
         let mut trailing = Vec::new();
-        for item in rows.items() {
+        for (index, item) in rows.items().iter().enumerate() {
             let is_leading = matches!(item, ReleasesListItemVm::LeadingStatus(_));
             let is_status = is_leading || matches!(item, ReleasesListItemVm::TrailingStatus(_));
             let (item, thumbnail, art) = self.releases_item_parts(item, cx);
-            let element = render_releases_list_tile(
+            let mut element = render_releases_list_tile(
                 item,
                 thumbnail,
                 art,
                 Self::releases_status_actions(),
                 cx,
             );
+            // The reveal target carries the probe, so the grid scrolls to it.
+            if self.releases_tile_target.as_deref() == rows.item_element_at(index) {
+                element = div()
+                    .relative()
+                    .child(element)
+                    .child(self.releases_tile_reveal.probe())
+                    .into_any_element();
+            }
             if is_leading {
                 leading.push(element);
             } else if is_status {
@@ -5516,21 +5473,15 @@ impl LibraryApp {
             .into_any_element()
     }
 
-    /// Renders the Music detail column (ADR 0084 Decision 1). It shows a
-    /// Discover view (ADR 0084 Decision 3), the Library page when a page
-    /// is open, or else the empty state that `render_library_detail`
-    /// gives from `LibraryChromeDisplay`.
+    /// Renders the Music detail column (ADR 0084 Decision 1). It shows the
+    /// Library page when a page is open, or else the empty state that
+    /// `render_library_detail` gives from `LibraryChromeDisplay`.
     pub(crate) fn render_detail_column(
         &mut self,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let detail_pane = if let LibraryDetail::Discover(view) = &self.detail {
-            let view = *view;
-            self.render_discover_view_detail(view, cx)
-        } else {
-            self.render_library_detail_pane(cx)
-        };
+        let detail_pane = self.render_library_detail_pane(cx);
 
         div()
             .size_full()
@@ -5545,58 +5496,6 @@ impl LibraryApp {
             .overflow_hidden()
             .child(detail_pane)
             .into_any_element()
-    }
-
-    /// Renders the open Discover view in the detail column (ADR 0084
-    /// Decision 3).
-    fn render_discover_view_detail(
-        &mut self,
-        view: DiscoverView,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        match view {
-            DiscoverView::NewReleases => {
-                let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();
-                for (row_id, url) in self.vm.content_list_thumbnail_sources() {
-                    let img = self.thumbnail_for_url(Some(&url), false, cx);
-                    content_row_thumbs.insert(row_id, img);
-                }
-                // ADR 0086 Decision 3, packet 002 decision D12: the art of
-                // each group is the anchor cover, in the size of the mode.
-                let art_size = match self.vm.content_view_mode() {
-                    ContentViewMode::Tiles => ThumbnailSize::Xl,
-                    ContentViewMode::List => ThumbnailSize::Sm,
-                };
-                let group_arts: Vec<(String, CollectionArtVm)> = self
-                    .vm
-                    .new_releases_layout()
-                    .items()
-                    .iter()
-                    .filter_map(|item| match item {
-                        NewReleasesLayoutItem::WindowGroup(tile) => {
-                            Some((tile.element_id.clone(), tile.art.clone()))
-                        }
-                        NewReleasesLayoutItem::Release { .. } => None,
-                    })
-                    .collect();
-                let mut arts = RowArts::new();
-                for (element_id, art) in group_arts {
-                    let image = collection_art_image(self, &art, art_size, cx);
-                    arts.insert(element_id, image);
-                }
-                let view_mode_display = self.vm.content_view_mode_control();
-                let probe = self.detail_scroll_reveal().probe();
-                render_discover_new_releases_detail(
-                    self.vm.content_list_page(),
-                    self.vm.new_releases_layout(),
-                    (&self.detail_selection, probe),
-                    view_mode_display,
-                    (&content_row_thumbs, &arts),
-                    &self.recent_music_scroll,
-                    cx,
-                )
-            }
-        }
     }
 
     /// Renders the Library release, track, artist and playlist pages, and

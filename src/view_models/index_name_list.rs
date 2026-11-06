@@ -407,11 +407,11 @@ pub(crate) fn recent_releases_status_row(page: &RecentFeedsPageVm) -> Option<Ind
             element_id: list.element_id("loading"),
             label: list.loading_label(),
         }),
-        RecentFeedsPageState::Error { message: _, detail } => Some(IndexListStatusRowVm::Failed {
+        RecentFeedsPageState::Error { message, detail } => Some(IndexListStatusRowVm::Failed {
             element_id: list.element_id("error"),
             first_page: true,
             message: list.failure_message(false),
-            detail: format!("{}: {detail}", list.request()),
+            detail: format!("{message}. {}: {detail}", list.request()),
             retry: IndexListActionDisplay {
                 id: list.element_id("retry"),
                 label: "Try again",
@@ -422,6 +422,21 @@ pub(crate) fn recent_releases_status_row(page: &RecentFeedsPageVm) -> Option<Ind
         RecentFeedsPageState::Loaded(_) => {
             if page.is_loading() {
                 Some(list.load_more_row(false))
+            } else if let Some(detail) = page.older_pages_failure() {
+                // ADR 0086 Decision 5: a failed extra page keeps the loaded
+                // rows and names the failure. "Try again" asks for it again.
+                Some(IndexListStatusRowVm::Failed {
+                    element_id: list.element_id("error"),
+                    first_page: false,
+                    message: list.failure_message(true),
+                    detail: format!("{}: {detail}", list.request()),
+                    retry: IndexListActionDisplay {
+                        id: list.element_id("retry"),
+                        label: "Try again",
+                        a11y_label: list.retry_a11y_label(),
+                        available: true,
+                    },
+                })
             } else {
                 page.has_more().then(|| list.load_more_row(true))
             }
