@@ -23,24 +23,14 @@ use crate::ui::composites::{
     EntityKind, ListRow, ListRowA11yLabel, TagBadge, TagBadgeDisplay, ThumbnailSize,
 };
 use crate::ui::primitives::{Checkbox, Label};
-use crate::ui::shells::library::destination_lists::RowArts;
 use crate::ui::tokens::{FontSize, SemanticColor, Size, Spacing};
 use crate::view_models::collection_art::CollectionKind;
-use crate::view_models::library::ContentListSelectionTarget;
 use crate::view_models::window_groups::{WindowGroupKey, WindowGroupStateVm, WindowGroupTileVm};
 use crate::view_models::workspace::ReleaseKey;
 
 /// The handler of the checkbox of a group tile or a group row. Each caller
 /// names the selection that the checkbox changes.
 pub(crate) type WindowGroupToggle = Rc<dyn Fn(&mut LibraryApp, &mut Context<LibraryApp>) + 'static>;
-
-/// The loaded art of a group, by its element id. A group with no loaded
-/// state shows the entity color (ADR 0084 Decision 12).
-pub(crate) fn group_art(arts: &RowArts, tile: &WindowGroupTileVm) -> CollectionArtImage {
-    arts.get(&tile.element_id)
-        .cloned()
-        .unwrap_or(CollectionArtImage::EntityColor)
-}
 
 /// The checkbox of a group tile or a group row, or `None` outside
 /// selection mode (ADR 0086 packet 004 decision D12). The view model gives
@@ -67,13 +57,6 @@ fn render_window_group_checkbox(
     Some(checkbox.into_any_element())
 }
 
-/// The checkbox handler of a group of the Discover view. It changes the
-/// Discover selection of the group.
-fn discover_group_toggle(open_row_id: &str) -> WindowGroupToggle {
-    let open_row_id = open_row_id.to_owned();
-    Rc::new(move |this, cx| this.toggle_window_group_tile(&open_row_id, cx))
-}
-
 /// The checkbox handler of a group of the Releases list. It selects each
 /// member of the group, the same as a singles group row (ADR 0086 Decision
 /// 3, ADR 0084 Decision 6).
@@ -89,28 +72,6 @@ fn releases_group_parts(tile: &WindowGroupTileVm) -> (String, Vec<ReleaseKey>, W
         tile.open_row_id.clone(),
         tile.member_keys.clone(),
         tile.page_key.clone(),
-    )
-}
-
-/// Renders one group tile of New releases (ADR 0086 Decisions 2 and 3).
-/// It has the size, the colors and the text places of a release tile. A
-/// click opens the window group page. Ctrl+click and Shift+click select
-/// each member of the window (packet 004 decision D10). In selection mode,
-/// the tile shows a checkbox (decision D11).
-pub(crate) fn render_window_group_tile(
-    tile: &WindowGroupTileVm,
-    art: CollectionArtImage,
-    (_target, probe): (ContentListSelectionTarget, Option<AnyElement>),
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let open_row_id = tile.open_row_id.clone();
-    render_window_group_tile_with(
-        tile,
-        art,
-        probe,
-        discover_group_toggle(&tile.open_row_id),
-        move |this, event, cx| this.click_window_group_tile(&open_row_id, event.modifiers(), cx),
-        cx,
     )
 }
 
@@ -176,26 +137,6 @@ fn render_window_group_tile_with(
             on_click(this, event, cx);
         }))
         .into_any_element()
-}
-
-/// Renders one group row of New releases in the List mode (ADR 0086
-/// Decision 3). The art, the title and the badges have the places of a
-/// release row. The row acts as the group tile (packet 004).
-pub(crate) fn render_window_group_row(
-    tile: &WindowGroupTileVm,
-    art: CollectionArtImage,
-    (_target, probe): (ContentListSelectionTarget, Option<AnyElement>),
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let open_row_id = tile.open_row_id.clone();
-    render_window_group_row_with(
-        tile,
-        art,
-        probe,
-        discover_group_toggle(&tile.open_row_id),
-        move |this, event, cx| this.click_window_group_tile(&open_row_id, event.modifiers(), cx),
-        cx,
-    )
 }
 
 /// Renders one group row of the Releases list in the sort Newest (ADR

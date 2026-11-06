@@ -80,7 +80,8 @@ pub(crate) enum RecentFeedsPageState {
     Loading,
     /// Recent feed rows loaded from the remote Index.
     Loaded(Vec<RecentFeedResultRow>),
-    /// The remote Index returned an error.
+    /// The remote Index returned an error. `message` names the failure,
+    /// and `detail` gives the cause.
     Error { message: String, detail: String },
 }
 
@@ -217,7 +218,8 @@ impl RecentFeedsPageVm {
     /// Records a failed page. Gives `false` and changes nothing when
     /// `generation` is old or no request is in flight.
     ///
-    /// - A failed first page of a fresh load gives `Error`.
+    /// - A failed first page of a fresh load gives `Error` with `message`
+    ///   and `detail`.
     /// - Else the staged rows become loaded rows, and the pager keeps
     ///   `detail` as the failure of the older pages. The cursor and
     ///   `has_more` of the last page stay, so the next append requests the
@@ -277,18 +279,19 @@ impl RecentFeedsPageVm {
         loaded.iter().chain(&self.staged)
     }
 
+    /// The detail of the last failed older page, until the next page
+    /// request (ADR 0086 Decision 5).
+    #[must_use]
+    pub(crate) fn older_pages_failure(&self) -> Option<&str> {
+        self.older_pages_failure.as_deref()
+    }
+
     /// The number of extra pages of the current page request. Only the
     /// pager compares it with the cap.
     #[must_use]
     #[cfg(test)]
     pub(crate) const fn extra_pages(&self) -> usize {
         self.extra_pages
-    }
-
-    /// The detail of a failed older page. The next page request clears it.
-    #[must_use]
-    pub(crate) fn older_pages_failure(&self) -> Option<&str> {
-        self.older_pages_failure.as_deref()
     }
 
     /// Returns whether a request is currently in flight.
@@ -379,25 +382,6 @@ mod tests {
         assert!(!vm.is_loading());
         assert!(!vm.has_more());
         assert!(vm.begin_load(true).is_none());
-    }
-
-    #[test]
-    fn error_state_owns_display_copy() {
-        let mut vm = RecentFeedsPageVm::loading();
-        let intent = vm.begin_load(false).expect("a fresh load starts");
-
-        assert!(vm.fail_page(
-            intent.generation(),
-            "Recent Feeds unavailable",
-            "network failed"
-        ));
-
-        assert!(matches!(
-            vm.state(),
-            RecentFeedsPageState::Error { message, detail }
-                if message == "Recent Feeds unavailable" && detail == "network failed"
-        ));
-        assert_eq!(vm.older_pages_failure(), None);
     }
 
     /// The pager after a fresh load whose first page holds `ids`, with
@@ -544,8 +528,9 @@ mod tests {
         );
     }
 
-    /// R86-3-21: a fresh load during a chain gives a new generation. A
-    /// result of the old generation changes no row.
+    /// R86-3-21: a fresh load while the chain runs stops the old chain.
+    /// The late pages and the late failure of the old request change
+    /// nothing.
     #[test]
     fn adr_0086_pager_windows_r21_fresh_load_stops_the_old_chain() {
         let (mut vm, old) = first_page_received(&["a"], true);
@@ -566,8 +551,9 @@ mod tests {
         assert_eq!(vm.older_pages_failure(), None);
     }
 
-    /// R86-3-23: a failed extra page keeps the first page. The next
-    /// append uses the cursor of that page.
+    /// R86-3-23: a failed extra page keeps the first page. The failure is
+    /// kept until the next append, and that append requests the same
+    /// cursor.
     #[test]
     fn adr_0086_pager_windows_r23_failed_extra_page_keeps_the_first_page() {
         let (mut vm, generation) = first_page_received(&["a"], true);
@@ -586,8 +572,8 @@ mod tests {
         assert_eq!(vm.older_pages_failure(), None);
     }
 
-    /// R86-3-28 (the pager part): a failed first page of a fresh load
-    /// gives `Error`.
+    /// R86-3-28: a failed first page gives the error state with its
+    /// message and its detail, and no older-page failure.
     #[test]
     fn adr_0086_pager_windows_r28_failed_first_page_gives_error() {
         let mut vm = RecentFeedsPageVm::loading();
@@ -598,7 +584,8 @@ mod tests {
         assert!(vm.fail_page(generation, "Recent music unavailable", "network failed"));
         assert!(matches!(
             vm.state(),
-            RecentFeedsPageState::Error { message, .. } if message == "Recent music unavailable"
+            RecentFeedsPageState::Error { message, detail }
+                if message == "Recent music unavailable" && detail == "network failed"
         ));
         assert_eq!(vm.older_pages_failure(), None);
         assert!(!vm.is_loading());

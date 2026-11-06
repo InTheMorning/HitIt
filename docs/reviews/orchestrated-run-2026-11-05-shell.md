@@ -41,3 +41,7 @@ Each entry names the step, the decision and the reason.
 - Packet 005 Part B: a Library release older than the loaded recent page sits at the end of Newest in All, and a later page goes before it. The merge sorts by date at each page, so the sequence stays correct.
 - Packet 005 Part B: the window group page of Releases rebuilds its layout at each render, as the page of a saved search does. Nobody measured it on a large list, and the final walk checks it.
 - Packet 005 Part C: the tile grid of Releases is not a virtual list, as the Discover grid was not. Item 33 of the responsiveness list records this.
+- Packet 005 Part D, tests: the first pass deleted the tests of ADR 0086 rules that stay. The orchestrator sent the work back, and a second agent ported them to the Releases path. The unit count went from 2682 to 2665. The rest belong to the deleted view.
+- Packet 005 Part D, open finding: a window group page reads the rows that its key held when it opened. A fresh load of the list does not empty an open page (ADR 0086 packet 004 rule r17). No packet owns this. The phase plan records it.
+- Packet 005 Part D: `set_window_length` had no production caller, so the agent deleted it. [ADR 0086 task 006](../tasks/adr-0086-task-006-window-length-setting.md) owns the setting.
+- Packet 005 Part D: the Index always gives a key from the GUID or the entity ID, so the old rule on an empty GUID has no test. Tile focus has Up, Down, Home and End in the model. The renderer owns Left and Right.

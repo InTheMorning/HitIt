@@ -204,7 +204,11 @@ impl LibraryApp {
                 let rows = self.releases_rows();
                 let labels = rows.items().iter().map(ReleasesListItemVm::label);
                 if let Some(index) = first_letter_index(labels, letter) {
-                    self.releases_list_state.scroll_to_reveal_item(index);
+                    if matches!(self.vm.list_view(ListPageKey::Releases), ListView::Tiles) {
+                        self.reveal_releases_tile(rows.item_element_at(index));
+                    } else {
+                        self.releases_list_state.scroll_to_reveal_item(index);
+                    }
                 }
             }
             ListPageKey::Artists => {

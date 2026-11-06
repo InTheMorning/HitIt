@@ -7,10 +7,9 @@
 //! ([`NewReleasesLayout`]). The chain reads no tree and no row type, so a
 //! saved search can use it (ADR 0086 packet 005).
 //!
-//! `LibraryViewModel::refresh_new_releases_layout` makes the layout one
-//! time for each change of the rows, the tree or the window length. The
-//! render and the handlers read that layout. They do not make the groups
-//! again.
+//! `NewReleasesLayout::for_list` makes the layout of one list. Each caller
+//! makes it one time for each change of the rows, the tree or the window
+//! length, and the render and the handlers read that layout.
 
 #![warn(clippy::pedantic)]
 
@@ -212,8 +211,6 @@ impl PartialEq for WindowGroupKey {
 /// Decisions 4 and 6).
 #[derive(Clone, Debug)]
 pub(crate) enum WindowGroupSource {
-    /// The loaded New releases rows, through the cached layout.
-    NewReleases,
     /// A group row of a saved search page (ADR 0086 packet 005). The rows
     /// are the release rows of each member when the curator clicked the
     /// group row. The page reads the Library facts of these rows at each
@@ -469,7 +466,10 @@ impl WindowGroupTileVm {
             anchor_date: group.anchor_date,
             window_start: group.window_start,
             artist: title.to_owned(),
-            source: WindowGroupSource::NewReleases,
+            source: WindowGroupSource::Releases(Rc::new(ReleasesWindowRows {
+                rows: Vec::new(),
+                closed: false,
+            })),
         };
         Self {
             element_id: format!("{WINDOW_GROUP_ELEMENT_PREFIX}{anchor_row_id}"),
@@ -600,6 +600,13 @@ impl NewReleasesLayout {
         if !has_more {
             layout.mark_list_end();
         }
+        // Each group key names the list that holds its rows (ADR 0089
+        // Decision 5).
+        let source = WindowGroupSource::Releases(Rc::new(ReleasesWindowRows {
+            rows: rows.iter().map(|row| (*row).clone()).collect(),
+            closed: !has_more,
+        }));
+        layout.attach_source(&source);
         layout
     }
 
@@ -661,38 +668,10 @@ impl NewReleasesLayout {
             .is_some_and(|position| self.joined_by_name.contains(&position))
     }
 
-    /// The group tile whose anchor is `anchor`. `None` for a single that
-    /// is not the anchor of a tile.
-    #[must_use]
-    pub(crate) fn group_tile_for_anchor(&self, anchor: &ReleaseKey) -> Option<&WindowGroupTileVm> {
-        self.items.iter().find_map(|item| match item {
-            NewReleasesLayoutItem::WindowGroup(tile) if &tile.page_key.anchor == anchor => {
-                Some(tile.as_ref())
-            }
-            NewReleasesLayoutItem::WindowGroup(_) | NewReleasesLayoutItem::Release { .. } => None,
-        })
-    }
-
     /// The items, in the order of the list.
     #[must_use]
     pub(crate) fn items(&self) -> &[NewReleasesLayoutItem] {
         &self.items
-    }
-
-    /// The row id of each item: the row of a plain item and the anchor row
-    /// of a group, in item order. No production code calls it since
-    /// packet 004, which gives the selection rows through
-    /// `discover_grouped_release_rows`.
-    #[must_use]
-    #[cfg(test)]
-    pub(crate) fn shown_row_ids(&self) -> Vec<&str> {
-        self.items
-            .iter()
-            .map(|item| match item {
-                NewReleasesLayoutItem::Release { row_id } => row_id.as_str(),
-                NewReleasesLayoutItem::WindowGroup(tile) => tile.open_row_id.as_str(),
-            })
-            .collect()
     }
 
     /// One or more groups have a window that the loaded rows do not close
@@ -716,21 +695,6 @@ impl NewReleasesLayout {
             }
         }
     }
-}
-
-/// One item of a content list: a row, or a group tile of New releases
-/// (ADR 0086 Decision 2). The Tiles mode and the List mode show the same
-/// items.
-#[derive(Clone, Debug)]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "a content list holds one item for each row, and a row was never boxed in that list"
-)]
-pub(crate) enum ContentListItemVm {
-    /// One row or tile.
-    Row(ContentListRowDisplay),
-    /// One group tile or group row.
-    WindowGroup(Box<WindowGroupTileVm>),
 }
 
 /// The window entry of one row, with the artist name of its key.
@@ -879,6 +843,17 @@ pub(crate) fn group_key(
 
 #[cfg(test)]
 mod tests {
+    fn tiles(layout: &NewReleasesLayout) -> Vec<&WindowGroupTileVm> {
+        layout
+            .items()
+            .iter()
+            .filter_map(|item| match item {
+                NewReleasesLayoutItem::WindowGroup(tile) => Some(tile.as_ref()),
+                NewReleasesLayoutItem::Release { .. } => None,
+            })
+            .collect()
+    }
+
     use super::*;
     use crate::db::TrackRow;
     use crate::view_models::named_feeds::NamedFeed;
@@ -985,61 +960,6 @@ mod tests {
         )
     }
 
-    fn in_library(mut row: ContentListRowDisplay) -> ContentListRowDisplay {
-        row.library_badge.state = ContentListLibraryBadgeState::InLibrary;
-        row
-    }
-
-    /// A Library album of artist `artist` with one track for each date.
-    fn library_album(guid: &str, dates: &[i64], named_feed: Option<NamedFeed>) -> AlbumNode {
-        AlbumNode {
-            name: format!("Release {guid}"),
-            feed_id: Some(1),
-            feed_guid: Some(guid.to_owned()),
-            feed_url: None,
-            language: None,
-            description: None,
-            image_href: None,
-            named_feeds: named_feed.into_iter().collect(),
-            identity_facts: LocalIdentityFacts::default(),
-            metadata_facts: Box::new(FeedMetadataFacts::default()),
-            stored_values: None,
-            tracks: dates
-                .iter()
-                .map(|date| TrackRow {
-                    pub_date: Some(*date),
-                    is_in_library: true,
-                    ..TrackRow::default()
-                })
-                .collect(),
-        }
-    }
-
-    fn tree(artist: &str, albums: Vec<AlbumNode>) -> LibraryTree {
-        LibraryTree {
-            artists: vec![ArtistNode {
-                name: artist.to_owned(),
-                albums,
-            }],
-        }
-    }
-
-    fn layout(rows: &[ContentListRowDisplay], tree: &LibraryTree) -> NewReleasesLayout {
-        let rows: Vec<&ContentListRowDisplay> = rows.iter().collect();
-        NewReleasesLayout::build(&rows, tree, WindowLength::DEFAULT)
-    }
-
-    fn tiles(layout: &NewReleasesLayout) -> Vec<&WindowGroupTileVm> {
-        layout
-            .items()
-            .iter()
-            .filter_map(|item| match item {
-                NewReleasesLayoutItem::WindowGroup(tile) => Some(tile.as_ref()),
-                NewReleasesLayoutItem::Release { .. } => None,
-            })
-            .collect()
-    }
-
     /// R86-2-01: singles on Oct 20, Oct 15, Oct 8 and Oct 1 give one group
     /// of three and one single.
     #[test]
@@ -1109,46 +1029,6 @@ mod tests {
             .map(|group| group.anchor_date)
             .collect();
         assert_eq!(anchors, [oct(20), oct(1)]);
-    }
-
-    /// R86-2-06: one single is plain. The layout gives its row as
-    /// `Release`, and its kind badge stays "Single".
-    #[test]
-    fn adr_0086_window_groups_r06_one_single_stays_a_release() {
-        assert_eq!(
-            window_groups(&singles(&[oct(20)]), WindowLength::DEFAULT),
-            [WindowItem::Plain(0)]
-        );
-        let rows = [jsmovie_single("a", oct(20))];
-        let layout = layout(&rows, &LibraryTree::default());
-        assert!(matches!(
-            layout.items(),
-            [NewReleasesLayoutItem::Release { row_id }] if row_id == "index-feed:a"
-        ));
-        assert_eq!(rows[0].entity_badge.label, "Single");
-    }
-
-    /// R86-2-07: an album and an EP of the key have no group key. They
-    /// stay plain at their positions, and the two singles make one group.
-    #[test]
-    fn adr_0086_window_groups_r07_albums_and_eps_never_join() {
-        let feed = || Some(artist_feed("feed-jsmovie", "jSmovie"));
-        let rows = [
-            jsmovie_single("a", oct(20)),
-            index_row("album", "jSmovie", "album", Some(oct(18)), feed()),
-            index_row("ep", "jSmovie", "ep", Some(oct(16)), feed()),
-            jsmovie_single("b", oct(14)),
-        ];
-        let entries = window_entries(&rows.iter().collect::<Vec<_>>(), &LibraryTree::default());
-        assert_eq!(entries[1].entry.group_key, None);
-        assert_eq!(entries[2].entry.group_key, None);
-
-        let layout = layout(&rows, &LibraryTree::default());
-        assert_eq!(
-            layout.shown_row_ids(),
-            ["index-feed:a", "index-feed:album", "index-feed:ep"]
-        );
-        assert_eq!(tiles(&layout)[0].count, 2);
     }
 
     /// R86-2-08: a single with no release date never anchors and never
@@ -1241,110 +1121,6 @@ mod tests {
         assert_eq!(facts[0].title, "jSmovie");
     }
 
-    /// R86-2-14: a name that matches one Library artist feed joins the
-    /// group of that feed. A name that matches two feeds keeps its name
-    /// key.
-    #[test]
-    fn adr_0086_window_groups_r14_matched_by_name() {
-        let rows = [
-            jsmovie_single("a", oct(20)),
-            index_row("b", "jSmovie", "single", Some(oct(19)), None),
-        ];
-        let one_feed = tree(
-            "jSmovie",
-            vec![library_album(
-                "library",
-                &[day(1, 1)],
-                Some(artist_feed("feed-jsmovie", "jSmovie")),
-            )],
-        );
-        assert_eq!(tiles(&layout(&rows, &one_feed)).len(), 1);
-
-        let two_feeds = tree(
-            "jSmovie",
-            vec![
-                library_album("one", &[day(1, 1)], Some(artist_feed("feed-1", "x"))),
-                library_album("two", &[day(1, 1)], Some(artist_feed("feed-2", "y"))),
-            ],
-        );
-        let facts = window_entries(&rows.iter().collect::<Vec<_>>(), &two_feeds);
-        assert_eq!(
-            facts[1].entry.group_key,
-            Some(SinglesGroupKey(ArtistIdentity::Name("jsmovie".to_owned())))
-        );
-        assert!(tiles(&layout(&rows, &two_feeds)).is_empty());
-    }
-
-    /// R86-2-15: a Library row takes the latest track `pub_date`, not
-    /// `newest_item_at`.
-    #[test]
-    fn adr_0086_window_groups_r15_library_row_takes_the_track_date() {
-        let rows = [
-            jsmovie_single("anchor", oct(20)),
-            in_library(jsmovie_single("library", oct(19))),
-        ];
-        let library = tree(
-            "jSmovie",
-            vec![library_album(
-                "library",
-                &[oct(1)],
-                Some(artist_feed("feed-jsmovie", "jSmovie")),
-            )],
-        );
-        let facts = window_entries(&rows.iter().collect::<Vec<_>>(), &library);
-        assert_eq!(facts[1].entry.release_date, Some(oct(1)));
-        assert_eq!(facts[1].entry.order_date, Some(oct(19)));
-        assert!(tiles(&layout(&rows, &library)).is_empty());
-    }
-
-    /// R86-2-16: an empty artist, "Unknown Artist" and no feed GUID give
-    /// plain rows.
-    #[test]
-    fn adr_0086_window_groups_r16_rows_with_no_artist_stay_plain() {
-        let mut no_guid = index_row("x", "Rain", "single", Some(oct(18)), None);
-        if let ContentListRowKind::Release(display) = &mut no_guid.kind {
-            if let Some(feed) = display.remote_feed.as_mut() {
-                feed.feed_guid = None;
-            }
-        }
-        let rows = [
-            index_row("a", "", "single", Some(oct(20)), None),
-            index_row("b", "", "single", Some(oct(20)), None),
-            index_row("c", "Unknown Artist", "single", Some(oct(19)), None),
-            index_row("d", "Unknown Artist", "single", Some(oct(19)), None),
-            no_guid.clone(),
-            no_guid,
-        ];
-        let facts = window_entries(&rows.iter().collect::<Vec<_>>(), &LibraryTree::default());
-        assert!(facts.iter().all(|fact| fact.entry.group_key.is_none()));
-        assert!(tiles(&layout(&rows, &LibraryTree::default())).is_empty());
-    }
-
-    /// R86-2-17: the tile of R86-2-01 gives the title, the span, the badge
-    /// and the count.
-    #[test]
-    fn adr_0086_window_groups_r17_tile_facts() {
-        let rows = [
-            jsmovie_single("a", oct(20)),
-            jsmovie_single("b", oct(15)),
-            jsmovie_single("c", oct(8)),
-            jsmovie_single("d", oct(1)),
-        ];
-        let layout = layout(&rows, &LibraryTree::default());
-        let tile = tiles(&layout)[0];
-        assert_eq!(tile.title, "jSmovie");
-        assert_eq!(tile.date_span, "Oct 8 to Oct 20");
-        assert_eq!(tile.kind_badge, "3 Singles");
-        assert_eq!(tile.count, 3);
-        assert_eq!(tile.key, publisher("feed-jsmovie"));
-        assert_eq!(
-            tile.member_keys,
-            ["a", "b", "c"].map(|guid| ReleaseKey::FeedGuid(guid.to_owned()))
-        );
-        assert_eq!(tile.open_row_id, "index-feed:a");
-        assert_eq!(layout.shown_row_ids(), ["index-feed:a", "index-feed:d"]);
-    }
-
     /// The tile of nine singles, the first `library` of them in the
     /// Library.
     fn nine_singles(library: usize) -> WindowGroupTileVm {
@@ -1378,84 +1154,12 @@ mod tests {
         assert_eq!(none.state.count_text(), None);
     }
 
-    /// R86-2-20: the accessibility label and the element id. The album of
-    /// Oct 1 closes the window (R86-3-29).
-    #[test]
-    fn adr_0086_window_groups_r20_a11y_label_and_element_id() {
-        let rows = [
-            in_library(jsmovie_single("a", oct(20))),
-            jsmovie_single("b", oct(15)),
-            jsmovie_single("c", oct(8)),
-            index_row("old", "Rain", "album", Some(oct(1)), None),
-        ];
-        let layout = layout(&rows, &LibraryTree::default());
-        let tile = tiles(&layout)[0];
-        assert_eq!(
-            tile.a11y_label,
-            "jSmovie: 3 singles, Oct 8 to Oct 20, New, 1 in library"
-        );
-        assert!(tile.element_id.starts_with(WINDOW_GROUP_ELEMENT_PREFIX));
-        assert_eq!(tile.element_id, "music-window-group-index-feed:a");
-    }
-
     /// R86-3-13: the count badge of an open window and of a closed window.
     #[test]
     fn adr_0086_pager_windows_r13_count_badge() {
         assert_eq!(window_group_count_badge(13, false), "13+ Singles");
         assert_eq!(window_group_count_badge(13, true), "13 Singles");
         assert_eq!(OPEN_COUNT_SUFFIX, "+");
-    }
-
-    /// The rows of 13 jSmovie singles from Oct 20 to Oct 8, the first in
-    /// the Library.
-    fn thirteen_singles() -> Vec<ContentListRowDisplay> {
-        let mut rows: Vec<ContentListRowDisplay> = (0..13)
-            .map(|n| jsmovie_single(&format!("s{n}"), oct(20 - n)))
-            .collect();
-        rows[0] = in_library(rows[0].clone());
-        rows
-    }
-
-    /// R86-3-14: an open group says "or more" in its accessibility label.
-    /// A closed group keeps the label of R86-2-20.
-    #[test]
-    fn adr_0086_pager_windows_r14_open_a11y_label() {
-        let mut rows = thirteen_singles();
-        let open = layout(&rows, &LibraryTree::default());
-        let tile = tiles(&open)[0];
-        assert!(!tile.window_closed);
-        assert_eq!(
-            tile.a11y_label,
-            "jSmovie: 13 or more singles, Oct 8 to Oct 20, New, 1 in library"
-        );
-
-        rows.push(index_row("old", "Rain", "album", Some(oct(1)), None));
-        let closed = layout(&rows, &LibraryTree::default());
-        assert_eq!(
-            tiles(&closed)[0].a11y_label,
-            "jSmovie: 13 singles, Oct 8 to Oct 20, New, 1 in library"
-        );
-    }
-
-    /// R86-3-20: `set_window_closed` sets the badge and the label
-    /// together.
-    #[test]
-    fn adr_0086_pager_windows_r20_set_window_closed() {
-        let mut rows = thirteen_singles();
-        rows.push(index_row("old", "Rain", "album", Some(oct(1)), None));
-        let layout = layout(&rows, &LibraryTree::default());
-        let mut tile = tiles(&layout)[0].clone();
-        assert!(tile.window_closed);
-
-        tile.set_window_closed(false);
-        assert!(!tile.window_closed);
-        assert_eq!(tile.kind_badge, "13+ Singles");
-        assert!(tile.a11y_label.contains("13 or more singles"));
-
-        tile.set_window_closed(true);
-        assert!(tile.window_closed);
-        assert_eq!(tile.kind_badge, "13 Singles");
-        assert!(!tile.a11y_label.contains("or more"));
     }
 
     /// R86-2-21: the art is the anchor cover as a square, or the entity
@@ -1502,22 +1206,6 @@ mod tests {
         assert_eq!(WindowLength::default(), WindowLength::DEFAULT);
     }
 
-    /// Packet 003 reads `any_window_open`: a group with no older row is
-    /// open.
-    #[test]
-    fn adr_0086_window_groups_any_window_open_reads_the_tiles() {
-        let open = [jsmovie_single("a", oct(20)), jsmovie_single("b", oct(19))];
-        assert!(layout(&open, &LibraryTree::default()).any_window_open());
-        let closed = [
-            jsmovie_single("a", oct(20)),
-            jsmovie_single("b", oct(19)),
-            index_row("old", "Rain", "album", Some(oct(1)), None),
-        ];
-        let closed = layout(&closed, &LibraryTree::default());
-        assert!(!closed.any_window_open());
-        assert!(tiles(&closed)[0].window_closed);
-    }
-
     /// The key of the window of R86-2-01: Oct 20 back to Oct 6.
     fn r01_key(artist: &str) -> WindowGroupKey {
         WindowGroupKey {
@@ -1526,7 +1214,10 @@ mod tests {
             anchor_date: oct(20),
             window_start: oct(20) - WindowLength::DEFAULT.seconds(),
             artist: artist.to_owned(),
-            source: WindowGroupSource::NewReleases,
+            source: WindowGroupSource::Releases(Rc::new(ReleasesWindowRows {
+                rows: Vec::new(),
+                closed: false,
+            })),
         }
     }
 
@@ -1569,6 +1260,315 @@ mod tests {
         assert_ne!(key, other);
     }
 
+    /// R86-4-26: the default label of the entry is the artist of the key,
+    /// and the page has release rows.
+    #[test]
+    fn adr_0086_window_group_page_r26_entry_label_and_list_kind() {
+        use crate::view_models::detail_selection::DetailListKind;
+        use crate::view_models::workspace::FrameNavigationEntry;
+        let entry = FrameNavigationEntry::WindowGroup(r01_key("jSmovie"));
+        assert_eq!(entry.display_label(), "jSmovie");
+        assert!(entry.opens_detail_page());
+        assert_eq!(
+            DetailListKind::for_entry(&entry),
+            Some(DetailListKind::Releases)
+        );
+    }
+
+    fn layout(rows: &[ContentListRowDisplay], tree: &LibraryTree) -> NewReleasesLayout {
+        let rows: Vec<&ContentListRowDisplay> = rows.iter().collect();
+        NewReleasesLayout::build(&rows, tree, WindowLength::DEFAULT)
+    }
+    /// R86-2-06: one single is plain. The layout gives its row as
+    /// `Release`, and its kind badge stays "Single".
+    #[test]
+    fn adr_0086_window_groups_r06_one_single_stays_a_release() {
+        assert_eq!(
+            window_groups(&singles(&[oct(20)]), WindowLength::DEFAULT),
+            [WindowItem::Plain(0)]
+        );
+        let rows = [jsmovie_single("a", oct(20))];
+        let layout = layout(&rows, &LibraryTree::default());
+        assert!(matches!(
+            layout.items(),
+            [NewReleasesLayoutItem::Release { row_id }] if row_id == "index-feed:a"
+        ));
+        assert_eq!(rows[0].entity_badge.label, "Single");
+    }
+
+    fn in_library(mut row: ContentListRowDisplay) -> ContentListRowDisplay {
+        row.library_badge.state = ContentListLibraryBadgeState::InLibrary;
+        row
+    }
+    /// A Library album of artist `artist` with one track for each date.
+    fn library_album(guid: &str, dates: &[i64], named_feed: Option<NamedFeed>) -> AlbumNode {
+        AlbumNode {
+            name: format!("Release {guid}"),
+            feed_id: Some(1),
+            feed_guid: Some(guid.to_owned()),
+            feed_url: None,
+            language: None,
+            description: None,
+            image_href: None,
+            named_feeds: named_feed.into_iter().collect(),
+            identity_facts: LocalIdentityFacts::default(),
+            metadata_facts: Box::new(FeedMetadataFacts::default()),
+            stored_values: None,
+            tracks: dates
+                .iter()
+                .map(|date| TrackRow {
+                    pub_date: Some(*date),
+                    is_in_library: true,
+                    ..TrackRow::default()
+                })
+                .collect(),
+        }
+    }
+    fn tree(artist: &str, albums: Vec<AlbumNode>) -> LibraryTree {
+        LibraryTree {
+            artists: vec![ArtistNode {
+                name: artist.to_owned(),
+                albums,
+            }],
+        }
+    }
+    /// R86-2-14: a name that matches one Library artist feed joins the
+    /// group of that feed. A name that matches two feeds keeps its name
+    /// key.
+    #[test]
+    fn adr_0086_window_groups_r14_matched_by_name() {
+        let rows = [
+            jsmovie_single("a", oct(20)),
+            index_row("b", "jSmovie", "single", Some(oct(19)), None),
+        ];
+        let one_feed = tree(
+            "jSmovie",
+            vec![library_album(
+                "library",
+                &[day(1, 1)],
+                Some(artist_feed("feed-jsmovie", "jSmovie")),
+            )],
+        );
+        assert_eq!(tiles(&layout(&rows, &one_feed)).len(), 1);
+
+        let two_feeds = tree(
+            "jSmovie",
+            vec![
+                library_album("one", &[day(1, 1)], Some(artist_feed("feed-1", "x"))),
+                library_album("two", &[day(1, 1)], Some(artist_feed("feed-2", "y"))),
+            ],
+        );
+        let facts = window_entries(&rows.iter().collect::<Vec<_>>(), &two_feeds);
+        assert_eq!(
+            facts[1].entry.group_key,
+            Some(SinglesGroupKey(ArtistIdentity::Name("jsmovie".to_owned())))
+        );
+        assert!(tiles(&layout(&rows, &two_feeds)).is_empty());
+    }
+    /// R86-2-15: a Library row takes the latest track `pub_date`, not
+    /// `newest_item_at`.
+    #[test]
+    fn adr_0086_window_groups_r15_library_row_takes_the_track_date() {
+        let rows = [
+            jsmovie_single("anchor", oct(20)),
+            in_library(jsmovie_single("library", oct(19))),
+        ];
+        let library = tree(
+            "jSmovie",
+            vec![library_album(
+                "library",
+                &[oct(1)],
+                Some(artist_feed("feed-jsmovie", "jSmovie")),
+            )],
+        );
+        let facts = window_entries(&rows.iter().collect::<Vec<_>>(), &library);
+        assert_eq!(facts[1].entry.release_date, Some(oct(1)));
+        assert_eq!(facts[1].entry.order_date, Some(oct(19)));
+        assert!(tiles(&layout(&rows, &library)).is_empty());
+    }
+    /// R86-2-16: an empty artist, "Unknown Artist" and no feed GUID give
+    /// plain rows.
+    #[test]
+    fn adr_0086_window_groups_r16_rows_with_no_artist_stay_plain() {
+        let mut no_guid = index_row("x", "Rain", "single", Some(oct(18)), None);
+        if let ContentListRowKind::Release(display) = &mut no_guid.kind {
+            if let Some(feed) = display.remote_feed.as_mut() {
+                feed.feed_guid = None;
+            }
+        }
+        let rows = [
+            index_row("a", "", "single", Some(oct(20)), None),
+            index_row("b", "", "single", Some(oct(20)), None),
+            index_row("c", "Unknown Artist", "single", Some(oct(19)), None),
+            index_row("d", "Unknown Artist", "single", Some(oct(19)), None),
+            no_guid.clone(),
+            no_guid,
+        ];
+        let facts = window_entries(&rows.iter().collect::<Vec<_>>(), &LibraryTree::default());
+        assert!(facts.iter().all(|fact| fact.entry.group_key.is_none()));
+        assert!(tiles(&layout(&rows, &LibraryTree::default())).is_empty());
+    }
+    /// R86-2-20: the accessibility label and the element id. The album of
+    /// Oct 1 closes the window (R86-3-29).
+    #[test]
+    fn adr_0086_window_groups_r20_a11y_label_and_element_id() {
+        let rows = [
+            in_library(jsmovie_single("a", oct(20))),
+            jsmovie_single("b", oct(15)),
+            jsmovie_single("c", oct(8)),
+            index_row("old", "Rain", "album", Some(oct(1)), None),
+        ];
+        let layout = layout(&rows, &LibraryTree::default());
+        let tile = tiles(&layout)[0];
+        assert_eq!(
+            tile.a11y_label,
+            "jSmovie: 3 singles, Oct 8 to Oct 20, New, 1 in library"
+        );
+        assert!(tile.element_id.starts_with(WINDOW_GROUP_ELEMENT_PREFIX));
+        assert_eq!(tile.element_id, "music-window-group-index-feed:a");
+    }
+    /// The rows of 13 jSmovie singles from Oct 20 to Oct 8, the first in
+    /// the Library.
+    fn thirteen_singles() -> Vec<ContentListRowDisplay> {
+        let mut rows: Vec<ContentListRowDisplay> = (0..13)
+            .map(|n| jsmovie_single(&format!("s{n}"), oct(20 - n)))
+            .collect();
+        rows[0] = in_library(rows[0].clone());
+        rows
+    }
+    /// R86-3-14: an open group says "or more" in its accessibility label.
+    /// A closed group keeps the label of R86-2-20.
+    #[test]
+    fn adr_0086_pager_windows_r14_open_a11y_label() {
+        let mut rows = thirteen_singles();
+        let open = layout(&rows, &LibraryTree::default());
+        let tile = tiles(&open)[0];
+        assert!(!tile.window_closed);
+        assert_eq!(
+            tile.a11y_label,
+            "jSmovie: 13 or more singles, Oct 8 to Oct 20, New, 1 in library"
+        );
+
+        rows.push(index_row("old", "Rain", "album", Some(oct(1)), None));
+        let closed = layout(&rows, &LibraryTree::default());
+        assert_eq!(
+            tiles(&closed)[0].a11y_label,
+            "jSmovie: 13 singles, Oct 8 to Oct 20, New, 1 in library"
+        );
+    }
+    /// R86-3-20: `set_window_closed` sets the badge and the label
+    /// together.
+    #[test]
+    fn adr_0086_pager_windows_r20_set_window_closed() {
+        let mut rows = thirteen_singles();
+        rows.push(index_row("old", "Rain", "album", Some(oct(1)), None));
+        let layout = layout(&rows, &LibraryTree::default());
+        let mut tile = tiles(&layout)[0].clone();
+        assert!(tile.window_closed);
+
+        tile.set_window_closed(false);
+        assert!(!tile.window_closed);
+        assert_eq!(tile.kind_badge, "13+ Singles");
+        assert!(tile.a11y_label.contains("13 or more singles"));
+
+        tile.set_window_closed(true);
+        assert!(tile.window_closed);
+        assert_eq!(tile.kind_badge, "13 Singles");
+        assert!(!tile.a11y_label.contains("or more"));
+    }
+    /// Packet 003 reads `any_window_open`: a group with no older row is
+    /// open.
+    #[test]
+    fn adr_0086_window_groups_any_window_open_reads_the_tiles() {
+        let open = [jsmovie_single("a", oct(20)), jsmovie_single("b", oct(19))];
+        assert!(layout(&open, &LibraryTree::default()).any_window_open());
+        let closed = [
+            jsmovie_single("a", oct(20)),
+            jsmovie_single("b", oct(19)),
+            index_row("old", "Rain", "album", Some(oct(1)), None),
+        ];
+        let closed = layout(&closed, &LibraryTree::default());
+        assert!(!closed.any_window_open());
+        assert!(tiles(&closed)[0].window_closed);
+    }
+    /// The row id of each item of `layout`: the row id of a release, or the
+    /// anchor row of a group.
+    fn shown_row_ids(layout: &NewReleasesLayout) -> Vec<String> {
+        layout
+            .items()
+            .iter()
+            .map(|item| match item {
+                NewReleasesLayoutItem::Release { row_id } => row_id.clone(),
+                NewReleasesLayoutItem::WindowGroup(tile) => tile.open_row_id.clone(),
+            })
+            .collect()
+    }
+
+    /// R86-2-07: albums and EPs never join a group, and they do not break
+    /// the window of the singles.
+    #[test]
+    fn adr_0086_window_groups_r07_albums_and_eps_never_join() {
+        let feed = || Some(artist_feed("feed-jsmovie", "jSmovie"));
+        let rows = [
+            jsmovie_single("a", oct(20)),
+            index_row("album", "jSmovie", "album", Some(oct(18)), feed()),
+            index_row("ep", "jSmovie", "ep", Some(oct(16)), feed()),
+            jsmovie_single("b", oct(14)),
+        ];
+        let entries = window_entries(&rows.iter().collect::<Vec<_>>(), &LibraryTree::default());
+        assert_eq!(entries[1].entry.group_key, None);
+        assert_eq!(entries[2].entry.group_key, None);
+
+        let layout = layout(&rows, &LibraryTree::default());
+        assert_eq!(
+            shown_row_ids(&layout),
+            ["index-feed:a", "index-feed:album", "index-feed:ep"]
+        );
+        assert_eq!(tiles(&layout)[0].count, 2);
+    }
+
+    /// R86-2-17: the tile shows the artist, the date span, the count and
+    /// the key of its group. Its members are the window only.
+    #[test]
+    fn adr_0086_window_groups_r17_tile_facts() {
+        let rows = [
+            jsmovie_single("a", oct(20)),
+            jsmovie_single("b", oct(15)),
+            jsmovie_single("c", oct(8)),
+            jsmovie_single("d", oct(1)),
+        ];
+        let layout = layout(&rows, &LibraryTree::default());
+        let tile = tiles(&layout)[0];
+        assert_eq!(tile.title, "jSmovie");
+        assert_eq!(tile.date_span, "Oct 8 to Oct 20");
+        assert_eq!(tile.kind_badge, "3 Singles");
+        assert_eq!(tile.count, 3);
+        assert_eq!(tile.key, publisher("feed-jsmovie"));
+        assert_eq!(
+            tile.member_keys,
+            ["a", "b", "c"].map(|guid| ReleaseKey::FeedGuid(guid.to_owned()))
+        );
+        assert_eq!(tile.open_row_id, "index-feed:a");
+        assert_eq!(shown_row_ids(&layout), ["index-feed:a", "index-feed:d"]);
+    }
+
+    /// R86-4-25: the group tile of an anchor is the tile that opens at that
+    /// anchor. A single that is not an anchor gives no tile.
+    #[test]
+    fn adr_0086_window_group_page_r25_group_tile_for_anchor() {
+        let rows = [jsmovie_single("a", oct(20)), jsmovie_single("b", oct(15))];
+        let layout = layout(&rows, &LibraryTree::default());
+        let tile_for = |guid: &str| {
+            let anchor = ReleaseKey::FeedGuid(guid.to_owned());
+            tiles(&layout)
+                .into_iter()
+                .find(|tile| tile.page_key.anchor == anchor)
+                .map(|tile| tile.open_row_id.as_str())
+        };
+        assert_eq!(tile_for("a"), Some("index-feed:a"));
+        assert_eq!(tile_for("b"), None);
+    }
+
     /// R86-4-04: the tile gives the page key of its group.
     #[test]
     fn adr_0086_window_group_page_r04_tile_gives_the_page_key() {
@@ -1590,39 +1590,6 @@ mod tests {
         assert_eq!(
             layout.window_member_row_ids(&tile.page_key),
             ["index-feed:a", "index-feed:b", "index-feed:c"]
-        );
-    }
-
-    /// R86-4-25: `group_tile_for_anchor` gives the tile of the anchor key
-    /// only.
-    #[test]
-    fn adr_0086_window_group_page_r25_group_tile_for_anchor() {
-        let rows = [jsmovie_single("a", oct(20)), jsmovie_single("b", oct(15))];
-        let layout = layout(&rows, &LibraryTree::default());
-        let anchor = ReleaseKey::FeedGuid("a".to_owned());
-        assert_eq!(
-            layout
-                .group_tile_for_anchor(&anchor)
-                .map(|tile| tile.open_row_id.as_str()),
-            Some("index-feed:a")
-        );
-        assert!(layout
-            .group_tile_for_anchor(&ReleaseKey::FeedGuid("b".to_owned()))
-            .is_none());
-    }
-
-    /// R86-4-26: the default label of the entry is the artist of the key,
-    /// and the page has release rows.
-    #[test]
-    fn adr_0086_window_group_page_r26_entry_label_and_list_kind() {
-        use crate::view_models::detail_selection::DetailListKind;
-        use crate::view_models::workspace::FrameNavigationEntry;
-        let entry = FrameNavigationEntry::WindowGroup(r01_key("jSmovie"));
-        assert_eq!(entry.display_label(), "jSmovie");
-        assert!(entry.opens_detail_page());
-        assert_eq!(
-            DetailListKind::for_entry(&entry),
-            Some(DetailListKind::Releases)
         );
     }
 }

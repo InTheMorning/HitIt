@@ -1043,12 +1043,6 @@ fn adr_0047_phase_b_view_model_contracts_are_gpui_free_and_shared() {
 
     // ADR 0084 Decision 8, packet 010: the content filter is deleted.
     // `adr_0084_search_list_filter_chips_are_deleted` guards it.
-    if !workspace_source.contains("fn default_for_content_list") {
-        violations.push(
-            "src/view_models/workspace/mod.rs: ADR 0047 Phase B view-mode contract missing `fn default_for_content_list`"
-                .to_string(),
-        );
-    }
 
     for required in [
         "pub(crate) enum InspectorPanelKind",
@@ -4019,7 +4013,7 @@ fn adr_0084_saved_search_r12_11_one_writer_and_no_ui_reader() {
             for read in ui_reads {
                 if source.contains(read) {
                     violations.push(format!(
-                        "{rel}: found `{read}`. ADR 0084 Decision 3, packet 012: a renderer does not read the saved_searches table. Read the rows from `DiscoverViewRowVm` or the search view model."
+                        "{rel}: found `{read}`. ADR 0084 Decision 3, packet 012: a renderer does not read the saved_searches table. Read the rows from `DiscoverListRowVm` or the search view model."
                     ));
                 }
             }
@@ -4780,11 +4774,7 @@ fn adr_0084_selection_r9_10_new_selection_actions_are_key_binding_specs() {
 #[test]
 fn adr_0084_selection_r9_08_destination_change_clears_both_selections() {
     let source = read_source(&manifest_path("src/library/app_impl.rs"));
-    let body = source_between(
-        &source,
-        "fn show_destination_list(",
-        "fn show_discover_view(",
-    );
+    let body = source_between(&source, "fn show_destination_list(", "fn clear_detail(");
 
     for required in [
         "self.releases_selection = ListSelection::new();",
@@ -4869,11 +4859,7 @@ back to `Normal`."
     }
 
     // A change of destination resets both modes to `Normal`.
-    let destination_body = source_between(
-        &source,
-        "fn show_destination_list(",
-        "fn show_discover_view(",
-    );
+    let destination_body = source_between(&source, "fn show_destination_list(", "fn clear_detail(");
     for required in [
         "self.releases_selection_mode = SelectionMode::Normal;",
         "self.track_selection_mode = SelectionMode::Normal;",
@@ -5246,99 +5232,6 @@ fn adr_0084_walk_fix_group_row_starts_the_path_at_its_destination() {
         "ADR 0084 Decision 9: `open_singles_group` in src/library/app_impl.rs opens the group page \
 from a list row, so it must use `NavigationPathStart::ListRow`. The \"All n singles\" link of a \
 single page uses its own `CurrentPath` call and must not call this function."
-    );
-}
-
-/// Situational ADR 0084 Decision 10 (packet 020 review, 2026-10-20): the
-/// key scroll of a page that opens from Discover moves that page. Before
-/// this fix, `detail_scroll_handle` read only `LibraryDetail::Discover`, and
-/// a release page opened from Discover scrolled the hidden Discover list.
-#[test]
-fn adr_0084_discover_selection_a_page_from_discover_scrolls_its_own_handle() {
-    let source = read_source(&manifest_path("src/library/detail_selection.rs"));
-    let body = adr_0084_detail_selection_fn_body(&source, "pub(crate) fn detail_scroll_handle(");
-    assert!(
-        body.contains("self.discover_is_open()") && !body.contains("LibraryDetail::Discover(_) =>"),
-        "ADR 0084 Decision 10: `detail_scroll_handle` in src/library/detail_selection.rs must \
-choose the handle with `self.discover_is_open()`, as `detail_scroll_reveal` does. A page that \
-opens from Discover keeps `LibraryDetail::Discover`, so the detail kind alone picks the wrong handle."
-    );
-}
-
-/// R20-06, situational ADR 0084 Decision 10 (packet 020): the Discover
-/// rows and tiles send each click through
-/// `ContentListSelectionTarget::DetailColumn` to the detail selection of
-/// packet 018. The list column keeps its own selection methods.
-#[test]
-fn adr_0084_discover_selection_r20_06_discover_clicks_go_to_the_detail_column() {
-    let mut violations = Vec::new();
-    let shell = "src/ui/shells/library/content_list.rs";
-    let source = read_source(&manifest_path(shell));
-    let click = "this.click_content_row(target, &row_id, event.modifiers(), cx);";
-    for (start, end, required) in [
-        (
-            "pub(crate) fn render_discover_new_releases_detail(",
-            "fn render_content_list_rows(",
-            "let routing = (ContentListSelectionTarget::DetailColumn, Some(probe));",
-        ),
-        (
-            "fn render_content_list_row(",
-            "fn render_content_list_tile(",
-            click,
-        ),
-        (
-            "fn render_content_list_tile(",
-            "fn render_content_row_checkbox(",
-            click,
-        ),
-        (
-            "fn render_content_row_checkbox(",
-            "fn render_content_list_tile_artwork(",
-            "this.toggle_content_row(target, &row_id, cx);",
-        ),
-    ] {
-        if !source_between(&source, start, end).contains(required) {
-            violations.push(format!("{shell}: `{start}` must contain `{required}`."));
-        }
-    }
-    let renderers = source_between(
-        &source,
-        "fn render_content_list_row(",
-        "fn render_content_list_tile_artwork(",
-    );
-    for forbidden in [
-        "this.open_content_list_row(",
-        "this.click_content_list_row(",
-        "this.toggle_content_list_row_selection(",
-    ] {
-        if renderers.contains(forbidden) {
-            violations.push(format!(
-                "{shell}: a row or tile renderer must not call `{forbidden}` directly. \
-Send the click through `click_content_row` or `toggle_content_row` with its target."
-            ));
-        }
-    }
-    let library = "src/library/detail_selection.rs";
-    let detail = read_source(&manifest_path(library));
-    for (signature, required) in [
-        (
-            "pub(crate) fn click_content_row(",
-            "ContentListSelectionTarget::DetailColumn => {\n                self.click_discover_row(row_id, modifiers, cx);",
-        ),
-        (
-            "pub(crate) fn toggle_content_row(",
-            "ContentListSelectionTarget::DetailColumn => self.toggle_discover_row(row_id, cx)",
-        ),
-    ] {
-        if !adr_0084_detail_selection_fn_body(&detail, signature).contains(required) {
-            violations.push(format!("{library}: `{signature}` must contain `{required}`."));
-        }
-    }
-    assert!(
-        violations.is_empty(),
-        "ADR 0084 Decision 10 (packet 020): send each Discover click through \
-`ContentListSelectionTarget::DetailColumn` to the detail selection methods.\n{}",
-        violations.join("\n")
     );
 }
 
@@ -15167,101 +15060,6 @@ fn adr_0062_mixed_entity_row_contract_is_kind_backed() {
     );
 }
 
-/// Situational ADR 0062: Music opens on recent content rows.
-#[test]
-fn adr_0062_music_default_content_projects_recent_music_rows() {
-    let library_vm_source = read_source(&manifest_path("src/view_models/library.rs"));
-    let library_source = read_source(&manifest_path("src/library.rs"));
-    let library_app_source = read_source(&manifest_path("src/library/app_impl.rs"));
-    let content_shell_source = read_source(&manifest_path("src/ui/shells/library/content_list.rs"));
-    // ADR 0084 Decision 1 replaces the two-pane no-selection branch: the
-    // Library list column always renders the content list, in its own
-    // function, with no detail branch beside it.
-    let list_column = source_between(
-        &library_app_source,
-        "pub(crate) fn render_list_column(",
-        "pub(crate) fn render_detail_column(",
-    );
-    let mut violations = Vec::new();
-
-    for required in [
-        "pub(crate) enum ContentListPageSource",
-        "RecentMusic",
-        "pub(crate) fn begin_recent_music_load(&mut self, append: bool)",
-        "pub(crate) fn replace_recent_feeds_page(&mut self, page: &RecentFeedsPageVm)",
-        "fn content_list_rows_from_recent_feeds(",
-        "ContentListRowDisplay::from_release_result(row.clone())",
-        "pub(crate) fn page_state_display(&self) -> Option<ContentListPageStateDisplay>",
-        "pub(crate) fn load_more_display(&self) -> Option<ContentListLoadMoreDisplay>",
-    ] {
-        if !library_vm_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/library.rs: Situational ADR 0062 Music default content must project Recent Feeds into ContentList rows; missing `{required}`. Fix: project the recency source through ContentListPageVm before rendering."
-            ));
-        }
-    }
-
-    for required in [
-        "recent_music_page: RecentFeedsPageVm",
-        "recent_music_scroll: ScrollHandle",
-    ] {
-        if !library_source.contains(required) {
-            violations.push(format!(
-                "src/library.rs: Situational ADR 0062 Music default content must own the existing Recent Feeds pager instance; missing `{required}`. Fix: store RecentFeedsPageVm on LibraryApp, not a new pager type."
-            ));
-        }
-    }
-
-    for required in [
-        "app.start_recent_music_load(false, cx);",
-        "render_library_content_list(",
-        "self.vm.content_list_page()",
-        "&self.recent_music_scroll",
-    ] {
-        if !library_app_source.contains(required) {
-            violations.push(format!(
-                "src/library/app_impl.rs: Situational ADR 0062 Music default content must render recent rows in the content region; missing `{required}`. Fix: mount render_library_content_list in the no-selection Music content branch."
-            ));
-        }
-    }
-
-    // ADR 0084 Decision 1: the list column is its own function and always
-    // renders the content list, so it needs no "keep the tree separate"
-    // check against a detail branch that no longer exists beside it.
-    if !list_column.contains("render_library_content_list(") {
-        violations.push(
-            "src/library/app_impl.rs: ADR 0084 Decision 1 Music list column must render the content list; missing `render_library_content_list(`"
-                .to_string(),
-        );
-    }
-
-    for required in [
-        "page.visible_rows()",
-        "page.page_state_display()",
-        "page.load_more_display()",
-        "render_content_list_row(",
-    ] {
-        if !content_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/shells/library/content_list.rs: Situational ADR 0062 Music content renderer must consume ContentListPageVm rows and displays; missing `{required}`. Fix: render the VM row/status/load-more projections, not the source tree."
-            ));
-        }
-    }
-
-    if content_shell_source.contains("render_library_sidebar") {
-        violations.push(
-            "src/ui/shells/library/content_list.rs: Situational ADR 0062 Music content renderer must not render the navigation tree. Fix: keep source-list rendering in the source pane."
-                .to_string(),
-        );
-    }
-
-    assert!(
-        violations.is_empty(),
-        "Situational ADR 0062 Music default content violations:\n{}",
-        violations.join("\n")
-    );
-}
-
 /// Situational ADR 0062: Music recency rows reuse the Recent Feeds pager.
 #[test]
 fn adr_0062_music_default_content_reuses_recent_feeds_pager() {
@@ -15290,10 +15088,8 @@ fn adr_0062_music_default_content_reuses_recent_feeds_pager() {
         "self.recent_music_page.begin_load(append)",
         "this.recent_music_page.receive_page(generation, batch)",
         "this.recent_music_page.next_step(windows_open)",
-        "this.recent_music_page.fail_page(",
+        ".fail_page(generation, RECENT_MUSIC_FAILED, detail)",
         "intent.resume_after()",
-        "replace_recent_music_content(&self.recent_music_page)",
-        "apply_recent_music_page(&this.recent_music_page)",
     ] {
         if !library_source.contains(required) && !library_app_source.contains(required) {
             violations.push(format!(
@@ -15552,193 +15348,6 @@ fn adr_0084_discover_library_rows_still_merge_into_recent_music() {
     assert!(
         violations.is_empty(),
         "ADR 0084 Decision 8 recent-music data-source violations:\n{}",
-        violations.join("\n")
-    );
-}
-
-/// Situational ADR 0062: Music content uses one persisted tile/list mode over one row contract.
-#[test]
-fn adr_0062_music_content_tile_and_list_modes_share_row_contract() {
-    let workspace_chrome_source =
-        read_source(&manifest_path("src/view_models/workspace/chrome.rs"));
-    let library_vm_source = read_source(&manifest_path("src/view_models/library.rs"));
-    let content_shell_source = read_source(&manifest_path("src/ui/shells/library/content_list.rs"));
-    let view_mode_control_source =
-        read_source(&manifest_path("src/ui/composites/view_mode_control.rs"));
-    let config_source = read_source(&manifest_path("src/config.rs"));
-    let tokens_source = read_source(&manifest_path("src/ui/tokens.rs"));
-    let app_source = read_source(&manifest_path("src/app.rs"));
-    let resize_source = read_source(&manifest_path("src/app/resize.rs"));
-    let mut violations = Vec::new();
-
-    let content_view_mode_enum_count = rust_files_under("src")
-        .into_iter()
-        .map(|path| read_source(&path))
-        .filter(|source| source.contains("enum ContentViewMode"))
-        .count();
-    if content_view_mode_enum_count != 1 {
-        violations.push(format!(
-            "Situational ADR 0062 content view-mode guard expects exactly one ContentViewMode enum; found {content_view_mode_enum_count}. Fix: promote the existing mode enum instead of defining another."
-        ));
-    }
-    if rust_files_under("src")
-        .into_iter()
-        .map(|path| read_source(&path))
-        .any(|source| source.contains("enum RecentFeedsViewMode"))
-    {
-        violations.push(
-            "Situational ADR 0062 content view-mode guard forbids a RecentFeedsViewMode enum. Fix: keep Music content on the shared ContentViewMode enum."
-                .to_string(),
-        );
-    }
-
-    for required in [
-        "pub(crate) enum ContentViewMode",
-        "#[serde(rename_all = \"snake_case\")]",
-        "Tiles",
-        "List",
-        "pub(crate) struct ContentViewModeControlDisplay",
-        "pub(crate) struct ContentViewModeOptionDisplay",
-        "default_for_content_list(selected: ContentViewMode)",
-        "options: [ContentViewModeOptionDisplay; 2]",
-        "content_list_a11y_label",
-    ] {
-        if !workspace_chrome_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/workspace/chrome.rs: Situational ADR 0062 content view-mode contract missing `{required}`. Fix: keep labels, options, and accessibility in the VM layer."
-            ));
-        }
-    }
-
-    for required in [
-        "view_mode: ContentViewMode",
-        "pub(crate) const fn view_mode(&self) -> ContentViewMode",
-        "pub(crate) fn set_view_mode(&mut self, view_mode: ContentViewMode)",
-        "pub(crate) fn view_mode_control_display(&self) -> ContentViewModeControlDisplay",
-        "ContentViewModeControlDisplay::default_for_content_list(self.view_mode)",
-        "pub(crate) const fn content_view_mode(&self) -> ContentViewMode",
-        "pub(crate) fn set_content_view_mode(&mut self, view_mode: ContentViewMode)",
-        "pub(crate) fn content_view_mode_control(&self) -> ContentViewModeControlDisplay",
-    ] {
-        if !library_vm_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/library.rs: Situational ADR 0062 content view-mode projection missing `{required}`. Fix: own Music content mode in ContentListPageVm and expose it through LibraryViewModel."
-            ));
-        }
-    }
-
-    for required in [
-        "fn content_list_rows_from_tree(tree: &LibraryTree) -> Vec<ContentListRowDisplay>",
-        "let album_image_href = album.image_href.as_deref();",
-        "ContentListRowDisplay::from_track_with_album_image(",
-        "pub(crate) fn from_track_with_album_image(",
-        ".or_else(|| album_image_href.map(str::to_owned))",
-        "display = display.with_thumbnail_href(thumbnail_href);",
-    ] {
-        if !library_vm_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/library.rs: Situational ADR 0062 tree artwork projection missing `{required}`. Fix: carry AlbumNode image_href into tree-derived ContentListRowDisplay thumbnails."
-            ));
-        }
-    }
-
-    for required in [
-        "match page.view_mode()",
-        "ContentViewMode::List =>",
-        "render_content_list_rows(page, render_state, thumbnails, scroll_handle, cx)",
-        "ContentViewMode::Tiles =>",
-        "render_content_list_tiles(page, render_state, thumbnails, scroll_handle, cx)",
-        "fn render_content_list_rows(",
-        "fn render_content_list_tiles(",
-        "fn render_content_list_tile(",
-        "fn render_empty_content_tile_artwork(",
-        "row.entity_badge.label",
-        "row.library_badge.label",
-        "ImagePrimitive::new(image)",
-        "ContentListPageVm::skeleton_tile_id(index)",
-    ] {
-        if !content_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/shells/library/content_list.rs: Situational ADR 0062 tile/list renderer contract missing `{required}`. Fix: have both presentations render the same ContentListRowDisplay fields."
-            ));
-        }
-    }
-
-    for forbidden in [
-        "layout::SEARCH_TILE_WIDTH",
-        "layout::THUMBNAIL_XL",
-        "gpui::px(",
-        ".emoji()",
-    ] {
-        if content_shell_source.contains(forbidden) {
-            violations.push(format!(
-                "src/ui/shells/library/content_list.rs: Situational ADR 0062 tile geometry and empty artwork must use tokens and explicit VM data; found `{forbidden}`."
-            ));
-        }
-    }
-
-    for required in ["ContentTileWidth", "ContentTileArtwork"] {
-        if !tokens_source.contains(required) {
-            violations.push(format!(
-                "src/ui/tokens.rs: Situational ADR 0062 content tile geometry token missing `{required}`. Fix: keep Music tile dimensions in named tokens."
-            ));
-        }
-    }
-
-    for required in [
-        "pub(crate) fn view_mode_control(",
-        "ContentViewModeControlDisplay",
-        "SegmentedControl::new(selected)",
-        ".filter_style()",
-        "label: SharedString::from(option.label)",
-        "a11y_label: SharedString::from(option.a11y_label)",
-    ] {
-        if !view_mode_control_source.contains(required) {
-            violations.push(format!(
-                "src/ui/composites/view_mode_control.rs: Situational ADR 0062 view-mode composite missing `{required}`. Fix: adapt the VM display contract without renderer-owned labels."
-            ));
-        }
-    }
-
-    for required in [
-        "content_list_view_mode: Option<ContentViewMode>",
-        "#[serde(default, skip_serializing_if = \"Option::is_none\")]",
-        "mode.id_suffix().to_string()",
-    ] {
-        if !config_source.contains(required) {
-            violations.push(format!(
-                "src/config.rs: Situational ADR 0062 content view-mode persistence missing `{required}`. Fix: persist the selected Music content mode while keeping old configs loadable."
-            ));
-        }
-    }
-
-    for required in [
-        "Self::initial_content_list_view_mode(workspace_layout_prefs)",
-        "fn set_content_list_view_mode(",
-        "persist_content_list_view_mode(view_mode)",
-    ] {
-        if !app_source.contains(required) {
-            violations.push(format!(
-                "src/app.rs: Situational ADR 0062 content view-mode app wiring missing `{required}`. Fix: route the frame chrome selection back through TopApp."
-            ));
-        }
-    }
-
-    for required in [
-        "pub(super) fn initial_content_list_view_mode(",
-        "content_list_view_mode: Some(content_list_view_mode)",
-        "pub(super) fn persist_content_list_view_mode(",
-    ] {
-        if !resize_source.contains(required) {
-            violations.push(format!(
-                "src/app/resize.rs: Situational ADR 0062 content view-mode persistence bridge missing `{required}`. Fix: save pane width and content mode together."
-            ));
-        }
-    }
-
-    assert!(
-        violations.is_empty(),
-        "Situational ADR 0062 Music content tile/list mode violations:\n{}",
         violations.join("\n")
     );
 }
@@ -16765,7 +16374,7 @@ fn adr_0069_settings_group_ownership() {
     assert!(app.contains("settings_scroll: crate::ui::composites::settings::SettingsScrollHandles"));
     assert!(screen.contains("app.settings_scroll.handle(app.settings.selected())"));
     assert!(!form.contains("truncate()"));
-    let select = source_between(&app, "fn select_tab(", "fn set_content_list_view_mode(");
+    let select = source_between(&app, "fn select_tab(", "fn restore_content_list_page(");
     let navigation = source_between(select, "AppTab::Settings => {", "AppTab::Music => {");
     assert!(navigation.contains("self.settings.dispatch(SettingsAction::Open)"));
     for forbidden in [
@@ -23403,7 +23012,6 @@ fn window_groups_built_once_violations(library: &str, files: &[(String, String)]
         ));
     }
     let callers = [
-        "refresh_new_releases_layout",
         "newest_releases_rows",
         "window_group_page",
         "recent_music_windows_open",
@@ -23413,7 +23021,7 @@ fn window_groups_built_once_violations(library: &str, files: &[(String, String)]
     });
     if library.matches(SHARED).count() != callers.len() || !callers_call {
         violations.push(format!(
-            "src/view_models/library.rs: only `fn refresh_new_releases_layout`, `fn newest_releases_rows`, `fn window_group_page` and `fn recent_music_windows_open` call `{SHARED}`"
+            "src/view_models/library.rs: only `fn newest_releases_rows`, `fn window_group_page` and `fn recent_music_windows_open` call `{SHARED}`"
         ));
     }
     for (file, source) in files {
@@ -23441,7 +23049,7 @@ fn window_groups_built_once_violations(library: &str, files: &[(String, String)]
 /// guard when ADR 0086 Decision 2 is superseded.
 #[test]
 fn adr_0086_window_groups_built_once_in_the_view_model() {
-    const FIX: &str = "ADR 0089 packet 005 part B: the window groups are built only by `NewReleasesLayout::for_list`, called from `refresh_new_releases_layout`, `newest_releases_rows`, `window_group_page` and `recent_music_windows_open` in `LibraryViewModel`.\nRead `LibraryViewModel::new_releases_layout()` or the cached Releases rows in the render and in each handler. Do not build the groups again.";
+    const FIX: &str = "ADR 0089 packet 005 part B: the window groups are built only by `NewReleasesLayout::for_list`, called from `newest_releases_rows`, `window_group_page` and `recent_music_windows_open` in `LibraryViewModel`.\nRead the cached Releases rows in the render and in each handler. Do not build the groups again.";
     let library = read_source(&manifest_path("src/view_models/library.rs"));
     let files: Vec<(String, String)> = rust_files_under("src")
         .into_iter()
@@ -23501,12 +23109,7 @@ fn pager_extra_loads_violations(app: &str, files: &[(String, String)]) -> Vec<St
     }
     match music_open_defects_fn_body(app, "dispatch_recent_music_page") {
         Some(body) => {
-            for call in [
-                "receive_page(",
-                "next_step(",
-                "fail_page(",
-                "apply_recent_music_page(",
-            ] {
+            for call in ["receive_page(", "next_step(", "fail_page("] {
                 if !body.contains(call) {
                     violations.push(format!(
                         "src/library/app_impl.rs: `fn dispatch_recent_music_page` must call `{call}`"
@@ -23528,11 +23131,11 @@ fn pager_extra_loads_violations(app: &str, files: &[(String, String)]) -> Vec<St
 
 /// R86-3-25 (ADR 0086 Task 003) situational guard: the pager view model
 /// decides each extra page of New releases, and a page result reaches the
-/// content list only through `apply_recent_music_page`. Delete this guard
+/// Releases list only through the pager read at each render. Delete this guard
 /// when ADR 0086 Decision 5 is superseded.
 #[test]
 fn adr_0086_pager_extra_loads_in_the_view_model() {
-    const FIX: &str = "ADR 0086 §5 The Pager Loads Until Each Window Closes, Up To A Cap: `RecentFeedsPageVm::next_step` decides each extra page, and a page result reaches the content list only through `LibraryViewModel::apply_recent_music_page`.\nCall `receive_page`, `next_step` and `apply_recent_music_page` in `dispatch_recent_music_page`. Do not count pages in the app, and do not call `replace_recent_music_content` in a result callback.";
+    const FIX: &str = "ADR 0086 §5 The Pager Loads Until Each Window Closes, Up To A Cap: `RecentFeedsPageVm::next_step` decides each extra page, and a page result reaches the Releases list only through the pager read at each render.\nCall `receive_page`, `next_step` and `apply_recent_music_page` in `dispatch_recent_music_page`. Do not count pages in the app, and do not call `replace_recent_music_content` in a result callback.";
     let app = read_source(&manifest_path("src/library/app_impl.rs"));
     let files: Vec<(String, String)> = rust_files_under("src")
         .into_iter()
@@ -23547,13 +23150,6 @@ fn adr_0086_pager_extra_loads_in_the_view_model() {
     );
     assert!(!pager_extra_loads_violations(&counts, &files).is_empty());
     // A copy of app_impl.rs that projects a result in a callback fails.
-    let projects = app.replacen(
-        "this.vm.apply_recent_music_page(&this.recent_music_page);",
-        "this.vm.replace_recent_music_content(&this.recent_music_page);",
-        1,
-    );
-    assert_ne!(projects, app);
-    assert!(!pager_extra_loads_violations(&projects, &files).is_empty());
 }
 
 /// The violations of the rule that only `LibraryViewModel::window_group_page`
@@ -24597,4 +24193,44 @@ fn adr_0087_one_index_error_r87_9_07_retain_follows_the_step() {
             .any(|violation| violation.contains("before index_result_step(")),
         "a retain before the result step must fail"
     );
+}
+
+/// Situational ADR 0089 Decision 2 (packet 005 Part D): the "New releases"
+/// view of Discover is deleted. Releases shows the same items, with the
+/// window groups of ADR 0086. This guard names the deleted symbols, so a
+/// later change cannot bring the Discover view back. Delete this guard
+/// when ADR 0089 Decision 2 is superseded.
+#[test]
+fn adr_0089_new_releases_view_stays_deleted() {
+    const FIX: &str = "ADR 0089 Decision 2: the \"New releases\" view of Discover is deleted, and Releases shows its items with the window groups of ADR 0086. Do not add a Discover view. Add a row, a tile or a group to the Releases list page, in `src/view_models/library.rs` and `src/library/app_impl.rs`.";
+    const DELETED: [&str; 7] = [
+        "DiscoverView",
+        "default_child_page",
+        "discover_page_rows",
+        "render_discover_new_releases_detail",
+        "LibraryDetail::Discover",
+        "show_discover_view",
+        "move_discover_tile_focus",
+    ];
+    let mut violations = Vec::new();
+    for path in rust_files_under("src") {
+        let source = read_source(&path);
+        for (line_number, line) in code_lines(&source) {
+            for name in DELETED {
+                let found = line.match_indices(name).any(|(at, _)| {
+                    let before = line[..at].chars().next_back();
+                    let after = line[at + name.len()..].chars().next();
+                    let is_ident = |c: char| c.is_alphanumeric() || c == '_';
+                    !before.is_some_and(is_ident) && !after.is_some_and(is_ident)
+                });
+                if found {
+                    violations.push(format!(
+                        "{}:{line_number}: `{name}` in `{line}`",
+                        rel_path(&path)
+                    ));
+                }
+            }
+        }
+    }
+    assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
 }

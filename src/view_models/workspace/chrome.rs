@@ -18,83 +18,12 @@ pub(crate) enum ContentViewMode {
 }
 
 impl ContentViewMode {
-    /// Returns the visible segment label.
-    #[must_use]
-    pub(crate) const fn label(self) -> &'static str {
-        match self {
-            Self::Tiles => "Tiles",
-            Self::List => "List",
-        }
-    }
-
     /// Returns the stable segment id suffix.
     #[must_use]
     pub(crate) const fn id_suffix(self) -> &'static str {
         match self {
             Self::Tiles => "tiles",
             Self::List => "list",
-        }
-    }
-
-    const fn content_list_a11y_label(self) -> &'static str {
-        match self {
-            Self::Tiles => "Show Music content as tiles",
-            Self::List => "Show Music content as a list",
-        }
-    }
-}
-
-/// Display data for one content view-mode segment.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct ContentViewModeOptionDisplay {
-    /// Presentation mode selected by the segment.
-    pub(crate) mode: ContentViewMode,
-    /// Stable segment identifier.
-    pub(crate) id: &'static str,
-    /// Visible segment label.
-    pub(crate) label: &'static str,
-    /// Accessibility label for assistive technologies and tooltips.
-    pub(crate) a11y_label: &'static str,
-}
-
-/// Display contract for selecting a content view mode.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ContentViewModeControlDisplay {
-    /// Stable control identifier.
-    pub(crate) id: &'static str,
-    /// Currently selected mode.
-    pub(crate) selected: ContentViewMode,
-    /// Ordered mode options.
-    pub(crate) options: [ContentViewModeOptionDisplay; 2],
-}
-
-impl ContentViewModeControlDisplay {
-    const CONTENT_LIST_ID: &'static str = "workspace-content-list-view-mode";
-    const CONTENT_LIST_TILES_ID: &'static str = "workspace-content-list-view-mode-tiles";
-    const CONTENT_LIST_LIST_ID: &'static str = "workspace-content-list-view-mode-list";
-
-    /// Creates the default content-list view-mode display.
-    #[must_use]
-    pub(crate) const fn default_for_content_list(selected: ContentViewMode) -> Self {
-        Self {
-            id: Self::CONTENT_LIST_ID,
-            selected,
-            options: [
-                Self::content_list_option(ContentViewMode::Tiles),
-                Self::content_list_option(ContentViewMode::List),
-            ],
-        }
-    }
-
-    const fn content_list_option(mode: ContentViewMode) -> ContentViewModeOptionDisplay {
-        ContentViewModeOptionDisplay {
-            mode,
-            id: match mode {
-                ContentViewMode::Tiles => Self::CONTENT_LIST_TILES_ID,
-                ContentViewMode::List => Self::CONTENT_LIST_LIST_ID,
-            },
-            label: mode.label(),
-            a11y_label: mode.content_list_a11y_label(),
         }
     }
 }

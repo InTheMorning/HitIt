@@ -486,6 +486,25 @@ impl ReleasesListRows {
         &self.item_ids
     }
 
+    /// The element id of the item that holds the selection row `id`. The
+    /// Tiles view reveals this item when the keyboard focus moves (ADR 0089
+    /// packet 005 Part D). `None` when no item holds `id`.
+    #[must_use]
+    pub(crate) fn item_element_of_selection(&self, id: &ReleasesRowId) -> Option<&str> {
+        self.items
+            .iter()
+            .zip(&self.item_ids)
+            .find(|(item, _)| item_selection_id(item).as_ref() == Some(id))
+            .map(|(_, element)| element.as_str())
+    }
+
+    /// The element id of the item at `index`. The Tiles view reveals this
+    /// item for a letter of the In Library list (ADR 0089 packet 005 Part D).
+    #[must_use]
+    pub(crate) fn item_element_at(&self, index: usize) -> Option<&str> {
+        self.item_ids.get(index).map(String::as_str)
+    }
+
     /// The selection rows, in their render order (ADR 0084 Decision 10).
     #[must_use]
     pub(crate) fn selection_rows(&self) -> &[SelectionRow<ReleasesRowId, ReleaseKey>] {
@@ -506,6 +525,25 @@ impl ReleasesListRows {
             self.items.first(),
             Some(ReleasesListItemVm::LeadingStatus(_))
         ))
+    }
+}
+
+/// The selection row that an item holds, if any (ADR 0084 Decision 10, ADR
+/// 0086 Decision 3). A single of an open group holds the row of its release.
+/// A status row holds none.
+fn item_selection_id(item: &ReleasesListItemVm) -> Option<ReleasesRowId> {
+    match item {
+        ReleasesListItemVm::Release(row) | ReleasesListItemVm::Single(row) => match &row.open {
+            DestinationListRowTarget::Release(key) => Some(ReleasesRowId::Release(key.clone())),
+            DestinationListRowTarget::ArtistName(_)
+            | DestinationListRowTarget::Publisher(_)
+            | DestinationListRowTarget::IndexPublisher(_) => None,
+        },
+        ReleasesListItemVm::Group(group) => Some(ReleasesRowId::Group(group.open.clone())),
+        ReleasesListItemVm::WindowGroup(tile) => {
+            Some(ReleasesRowId::Window(tile.open_row_id.clone()))
+        }
+        ReleasesListItemVm::LeadingStatus(_) | ReleasesListItemVm::TrailingStatus(_) => None,
     }
 }
 

@@ -1,11 +1,11 @@
 use super::{
     music_focus_moves, music_focus_target, music_page_content, release_download_updates_open_page,
     resolve_release_page_source, resolve_track_page_source, track_download_updates_open_page,
-    track_release_download_updates_open_page, ContentViewMode, ContentViewModeControlDisplay,
-    DiscoverView, FrameNavigationEntry, FrameNavigationState, FrameShellDisplay, MusicColumns,
-    MusicDestination, MusicFocusTarget, MusicPageContent, ReleaseKey, ReleasePageSource, TrackKey,
-    TrackPageSource, WorkspaceFrameConfig, WorkspaceFrameId, WorkspaceFrameKind,
-    WorkspaceFrameState, WorkspaceLayout, WorkspaceLayoutConfig, WorkspaceModelError,
+    track_release_download_updates_open_page, FrameNavigationEntry, FrameNavigationState,
+    FrameShellDisplay, MusicColumns, MusicDestination, MusicFocusTarget, MusicPageContent,
+    ReleaseKey, ReleasePageSource, TrackKey, TrackPageSource, WorkspaceFrameConfig,
+    WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,
+    WorkspaceLayoutConfig, WorkspaceModelError,
 };
 use crate::view_models::artist_identity::ArtistNameKey;
 use crate::view_models::search_results::SavedSearchId;
@@ -23,106 +23,6 @@ const fn discover() -> FrameNavigationEntry {
 /// GUID. Distinct `id` values give distinct, comparable entries.
 fn track(id: i64) -> FrameNavigationEntry {
     FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, id.to_string()))
-}
-
-/// R6-02 (ADR 0084 Decision 3): a sidebar click on Discover gives the
-/// same path as the Music opening path. `MusicDestination::default_child_page`
-/// is the one place both the opening path and the sidebar click read.
-#[test]
-fn adr_0084_discover_r6_02_discover_sidebar_click_opens_new_releases() {
-    let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
-        MusicDestination::Releases,
-    ));
-
-    nav.start_path(discover(), MusicDestination::Discover.default_child_page());
-
-    assert_eq!(
-        nav.path_entries(),
-        vec![
-            discover(),
-            FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases),
-        ],
-        "a sidebar click on Discover must give Destination(Discover), then DiscoverView(NewReleases)"
-    );
-}
-
-/// R6-02: a destination with no default child page starts a path with
-/// only its destination.
-#[test]
-fn adr_0084_discover_r6_02_other_destinations_have_no_default_child_page() {
-    for destination in [
-        MusicDestination::Releases,
-        MusicDestination::Artists,
-        MusicDestination::NeedsAttention,
-        MusicDestination::Playlists,
-    ] {
-        assert_eq!(
-            destination.default_child_page(),
-            None,
-            "{destination:?} must open no page under it by default"
-        );
-    }
-}
-
-/// R6-03 (ADR 0084 Decision 3): a release opened from "New releases"
-/// gives a path with `Destination(Discover)`, `DiscoverView(NewReleases)`
-/// and the release, and Back returns to `DiscoverView(NewReleases)`.
-#[test]
-fn adr_0084_discover_r6_03_release_opens_under_new_releases_and_back_returns() {
-    let new_releases = FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases);
-    let mut nav = FrameNavigationState::new_with_page(discover(), new_releases.clone());
-    let release = FrameNavigationEntry::Release(ReleaseKey::LibraryFeed(42));
-
-    nav.push(release.clone());
-    assert_eq!(
-        nav.path_entries(),
-        vec![discover(), new_releases.clone(), release],
-        "a release opened from New releases must give the full Discover path"
-    );
-
-    let current = nav
-        .go_back()
-        .expect("New releases is one back-history entry away");
-    assert_eq!(
-        *current, new_releases,
-        "Back from a release must return to New releases"
-    );
-}
-
-/// R6-04 (ADR 0084 Decision 3): `DiscoverView` opens a detail page, so
-/// the narrow layout shows it.
-#[test]
-fn adr_0084_discover_r6_04_discover_view_opens_a_detail_page() {
-    assert!(
-        FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases).opens_detail_page(),
-        "DiscoverView must open a detail page, so the narrow layout shows it"
-    );
-}
-
-#[test]
-fn content_view_mode_control_projects_content_list_options() {
-    let display = ContentViewModeControlDisplay::default_for_content_list(ContentViewMode::List);
-
-    assert_eq!(
-        display.selected,
-        ContentViewMode::List,
-        "Situational ADR 0062 content-list view mode guard: selected mode should pass through"
-    );
-    assert_eq!(
-        display.options.map(|option| option.mode),
-        [ContentViewMode::Tiles, ContentViewMode::List],
-        "Situational ADR 0062 content-list view mode guard: content mode control should expose tile and list options"
-    );
-    assert_eq!(
-        display.options.map(|option| option.label),
-        ["Tiles", "List"],
-        "Situational ADR 0062 content-list view mode guard: mode labels should be VM-owned"
-    );
-    assert_eq!(
-        display.options.map(|option| option.a11y_label),
-        ["Show Music content as tiles", "Show Music content as a list"],
-        "Situational ADR 0062 content-list view mode guard: content mode accessibility labels should be VM-owned"
-    );
 }
 
 #[test]
@@ -1325,36 +1225,6 @@ fn detail_frame_id(layout: &WorkspaceLayout) -> WorkspaceFrameId {
 // ADR 0084 Decision 1: the three-column Music shell (task 004).
 // ---------------------------------------------------------------------------
 
-/// ADR 0089 Decision 1 and Decision 5: each navigation entry shows one
-/// Music frame. A list root shows the list frame, and a loaded page shows the
-/// detail frame. The entry and its content state decide this, not the width.
-#[test]
-fn adr_0089_one_page_stack_shows_one_frame_for_each_entry() {
-    let list_roots = [
-        FrameNavigationEntry::Destination(MusicDestination::Releases),
-        FrameNavigationEntry::Destination(MusicDestination::Discover),
-        FrameNavigationEntry::Search("drums".to_string()),
-    ];
-    let pages = [
-        FrameNavigationEntry::PlaylistDetail(1),
-        FrameNavigationEntry::Release(ReleaseKey::FeedGuid("feed".to_string())),
-        FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, "1".to_string())),
-        FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases),
-    ];
-    for entry in &list_roots {
-        let columns = MusicColumns::for_entry(entry, MusicPageContent::Loaded);
-        assert_eq!(columns, MusicColumns::ListRoot, "{entry:?}");
-        assert!(columns.shows_list(), "{entry:?}");
-        assert!(!columns.shows_detail(), "{entry:?}");
-    }
-    for entry in &pages {
-        let columns = MusicColumns::for_entry(entry, MusicPageContent::Loaded);
-        assert_eq!(columns, MusicColumns::Page, "{entry:?}");
-        assert!(!columns.shows_list(), "{entry:?}");
-        assert!(columns.shows_detail(), "{entry:?}");
-    }
-}
-
 /// ADR 0089 Decision 5: a page with no content and nothing loading shows its
 /// list root, and a loading page shows the detail frame with its loading
 /// state. The content state, not the entry alone, decides this.
@@ -1560,28 +1430,6 @@ fn adr_0084_singles_group_r15_10_group_entry_opens_a_detail_page() {
 
     assert!(entry.opens_detail_page());
     assert_eq!(entry.display_label(), "Singles");
-}
-
-/// R12-05 (ADR 0084 Decision 3, packet 012): the `SavedSearch` entry gives
-/// the label "Saved: bluegrass". It opens a page, and its frame title is
-/// "Saved search". The toolbar title shows the label (ADR 0089 Decision 9).
-#[test]
-fn adr_0084_saved_search_r12_05_label_and_frame_title() {
-    use crate::view_models::search_results::{SavedSearch, SavedSearchId};
-
-    let entry = FrameNavigationEntry::SavedSearch {
-        id: SavedSearchId(7),
-        query: "bluegrass".to_owned(),
-    };
-    assert_eq!(entry.display_label(), "Saved: bluegrass");
-    assert!(entry.opens_detail_page());
-
-    let nav = FrameNavigationState::new_with_page(
-        FrameNavigationEntry::Destination(MusicDestination::Discover),
-        entry.clone(),
-    );
-    assert_eq!(nav.active_saved_search(), Some(SavedSearchId(7)));
-    assert_eq!(SavedSearch::FRAME_TITLE, "Saved search");
 }
 
 /// R30-09 (ADR 0084 task 030, decision D5): one pure function gives the
@@ -1848,4 +1696,55 @@ fn adr_0089_nav_item_path_goes_back_to_its_holding_list() {
         );
         assert_eq!(nav.marked_entry(), Some(&item), "the item is marked");
     }
+}
+
+/// ADR 0089 Decision 1 and Decision 5: each navigation entry shows one
+/// Music frame. A list root shows the list frame, and a loaded page shows the
+/// detail frame. The entry and its content state decide this, not the width.
+#[test]
+fn adr_0089_one_page_stack_shows_one_frame_for_each_entry() {
+    let list_roots = [
+        FrameNavigationEntry::Destination(MusicDestination::Releases),
+        FrameNavigationEntry::Destination(MusicDestination::Discover),
+        FrameNavigationEntry::Search("drums".to_string()),
+    ];
+    let pages = [
+        FrameNavigationEntry::PlaylistDetail(1),
+        FrameNavigationEntry::Release(ReleaseKey::FeedGuid("feed".to_string())),
+        FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, "1".to_string())),
+    ];
+    for entry in &list_roots {
+        let columns = MusicColumns::for_entry(entry, MusicPageContent::Loaded);
+        assert_eq!(columns, MusicColumns::ListRoot, "{entry:?}");
+        assert!(columns.shows_list(), "{entry:?}");
+        assert!(!columns.shows_detail(), "{entry:?}");
+    }
+    for entry in &pages {
+        let columns = MusicColumns::for_entry(entry, MusicPageContent::Loaded);
+        assert_eq!(columns, MusicColumns::Page, "{entry:?}");
+        assert!(!columns.shows_list(), "{entry:?}");
+        assert!(columns.shows_detail(), "{entry:?}");
+    }
+}
+
+/// R12-05 (ADR 0084 Decision 3, packet 012): the `SavedSearch` entry gives
+/// the label "Saved: bluegrass". It opens a page, and its frame title is
+/// "Saved search". The toolbar title shows the label (ADR 0089 Decision 9).
+#[test]
+fn adr_0084_saved_search_r12_05_label_and_frame_title() {
+    use crate::view_models::search_results::{SavedSearch, SavedSearchId};
+
+    let entry = FrameNavigationEntry::SavedSearch {
+        id: SavedSearchId(7),
+        query: "bluegrass".to_owned(),
+    };
+    assert_eq!(entry.display_label(), "Saved: bluegrass");
+    assert!(entry.opens_detail_page());
+
+    let nav = FrameNavigationState::new_with_page(
+        FrameNavigationEntry::Destination(MusicDestination::Discover),
+        entry.clone(),
+    );
+    assert_eq!(nav.active_saved_search(), Some(SavedSearchId(7)));
+    assert_eq!(SavedSearch::FRAME_TITLE, "Saved search");
 }

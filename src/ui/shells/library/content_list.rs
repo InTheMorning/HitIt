@@ -23,8 +23,8 @@ use crate::library::LibraryApp;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::selectable_tile::SelectableTile;
 use crate::ui::composites::{
-    view_mode_control, EntityKind, ListRow, ListRowA11yLabel, SkeletonTrackRow, TagBadge,
-    TagBadgeDisplay, Thumbnail, ThumbnailSize, ViewModeControlSlots,
+    EntityKind, ListRow, ListRowA11yLabel, SkeletonTrackRow, TagBadge, TagBadgeDisplay, Thumbnail,
+    ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{
@@ -37,26 +37,19 @@ use crate::ui::shells::library::content_list_row_actions::{
 };
 use crate::ui::shells::library::content_list_scroll::attach_content_list_scroll;
 use crate::ui::shells::library::content_list_state::render_content_list_state;
-use crate::ui::shells::library::destination_lists::RowArts;
-use crate::ui::shells::library::window_groups::{
-    group_art, render_window_group_row, render_window_group_tile,
-};
 use crate::ui::tokens::{color, ArtworkShadow, FontSize, Radius, SemanticColor, Size, Spacing};
-use crate::view_models::detail_selection::{discover_items_with_selection, DetailSelection};
 use crate::view_models::library::{
     ContentListEntityKind, ContentListLoadMoreDisplay, ContentListLoadingStateDisplay,
     ContentListPageStateDisplay, ContentListPageVm, ContentListRowDisplay,
     ContentListSelectionTarget,
 };
-use crate::view_models::window_groups::{ContentListItemVm, NewReleasesLayout};
-use crate::view_models::workspace::{ContentViewMode, ContentViewModeControlDisplay};
+use crate::view_models::workspace::ContentViewMode;
 
-/// The images of a content list: the cover of each row by row id, and the
-/// collection art of each group by element id (ADR 0086 Decision 3).
-pub(crate) type ContentListImages<'a> = (&'a BTreeMap<String, Option<Arc<Image>>>, &'a RowArts);
+/// The images of a content list: the cover of each row by row id.
+pub(crate) type ContentListImages<'a> = &'a BTreeMap<String, Option<Arc<Image>>>;
 
 struct ContentListRenderState {
-    items: Vec<ContentListItemVm>,
+    items: Vec<ContentListRowDisplay>,
     menu: Option<ContentListMenuContext>,
     loading_display: Option<ContentListLoadingStateDisplay>,
     state_display: Option<ContentListPageStateDisplay>,
@@ -72,7 +65,7 @@ struct ContentListRenderState {
 /// menu cell.
 pub(crate) fn render_library_content_list(
     page: &ContentListPageVm,
-    items: Vec<ContentListItemVm>,
+    items: Vec<ContentListRowDisplay>,
     thumbnails: ContentListImages<'_>,
     scroll_handle: &ScrollHandle,
     routing: (ContentListSelectionTarget, Option<AnyElement>),
@@ -108,62 +101,10 @@ pub(crate) fn render_library_content_list(
         .into_any_element()
 }
 
-/// Renders the Discover "New releases" view in the detail column (ADR
-/// 0084 Decision 3). The view-mode control sits in the view's own
-/// header: ADR 0081 Decision 4 keeps a new Detail filter strip out of
-/// the frame chrome, and a view-mode control is not a filter, but this
-/// packet adds no new frame-chrome slot either. The content list below
-/// keeps its own scroll handle, so Back to this view keeps its scroll
-/// position. The rows carry the facts of the detail `selection`, and the
-/// focused row carries `probe` (packet 020). `layout` gives the window
-/// groups, and `images` gives the art of each group (ADR 0086 Decision 2).
-pub(crate) fn render_discover_new_releases_detail(
-    page: &ContentListPageVm,
-    layout: &NewReleasesLayout,
-    (selection, probe): (&DetailSelection, AnyElement),
-    view_mode: ContentViewModeControlDisplay,
-    images: ContentListImages<'_>,
-    scroll_handle: &ScrollHandle,
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let entity = cx.entity();
-    let view_mode_slots = ViewModeControlSlots::new().on_select(move |mode, _window, cx| {
-        entity.update(cx, |this, cx| {
-            this.request_content_view_mode(mode, cx);
-        });
-    });
-    let items = discover_items_with_selection(
-        page.visible_rows().into_iter().cloned().collect(),
-        layout,
-        selection,
-    );
-    let routing = (ContentListSelectionTarget::DetailColumn, Some(probe));
-    let body = render_library_content_list(page, items, images, scroll_handle, routing, None, cx);
-
-    div()
-        .flex()
-        .flex_col()
-        .flex_1()
-        .min_h_0()
-        .min_w_0()
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .flex_shrink_0()
-                .justify_end()
-                .px(Spacing::MD.scaled(cx))
-                .py(Spacing::XS.scaled(cx))
-                .child(view_mode_control(view_mode, view_mode_slots)),
-        )
-        .child(body)
-        .into_any_element()
-}
-
 fn render_content_list_rows(
     page: &ContentListPageVm,
     render_state: ContentListRenderState,
-    (thumbnails, arts): ContentListImages<'_>,
+    thumbnails: ContentListImages<'_>,
     scroll_handle: &ScrollHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -183,22 +124,16 @@ fn render_content_list_rows(
         .gap(Spacing::XXS.scaled(cx))
         .px(Spacing::MD.scaled(cx))
         .pb(Spacing::MD.scaled(cx))
-        .children(render_state.items.into_iter().map(|item| match item {
-            ContentListItemVm::Row(row) => {
-                let thumbnail = thumbnails.get(&row.id).cloned().flatten();
-                let probe = probe.take_if(|_| row.selection.focused);
-                render_content_list_row(
-                    &row,
-                    thumbnail,
-                    (target, probe),
-                    render_state.menu.as_ref(),
-                    cx,
-                )
-            }
-            ContentListItemVm::WindowGroup(tile) => {
-                let probe = probe.take_if(|_| tile.selection.focused);
-                render_window_group_row(&tile, group_art(arts, &tile), (target, probe), cx)
-            }
+        .children(render_state.items.into_iter().map(|row| {
+            let thumbnail = thumbnails.get(&row.id).cloned().flatten();
+            let probe = probe.take_if(|_| row.selection.focused);
+            render_content_list_row(
+                &row,
+                thumbnail,
+                (target, probe),
+                render_state.menu.as_ref(),
+                cx,
+            )
         }))
         .children((0..pending_rows).map(|index| {
             SkeletonTrackRow::new(ContentListPageVm::skeleton_row_id(index))
@@ -209,7 +144,7 @@ fn render_content_list_rows(
         content = content.child(render_content_list_state(display, cx));
     }
     if let Some(display) = render_state.load_more_display {
-        content = content.child(render_content_list_load_more(display, cx));
+        content = content.child(render_content_list_load_more(&display, cx));
     }
 
     attach_content_list_scroll(
@@ -224,7 +159,7 @@ fn render_content_list_rows(
 fn render_content_list_tiles(
     page: &ContentListPageVm,
     render_state: ContentListRenderState,
-    (thumbnails, arts): ContentListImages<'_>,
+    thumbnails: ContentListImages<'_>,
     scroll_handle: &ScrollHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -244,16 +179,10 @@ fn render_content_list_tiles(
             .flex_row()
             .flex_wrap()
             .gap(Spacing::MD.scaled(cx))
-            .children(render_state.items.into_iter().map(|item| match item {
-                ContentListItemVm::Row(row) => {
-                    let thumbnail = thumbnails.get(&row.id).cloned().flatten();
-                    let probe = probe.take_if(|_| row.selection.focused);
-                    render_content_list_tile(&row, thumbnail, (target, probe), cx)
-                }
-                ContentListItemVm::WindowGroup(tile) => {
-                    let probe = probe.take_if(|_| tile.selection.focused);
-                    render_window_group_tile(&tile, group_art(arts, &tile), (target, probe), cx)
-                }
+            .children(render_state.items.into_iter().map(|row| {
+                let thumbnail = thumbnails.get(&row.id).cloned().flatten();
+                let probe = probe.take_if(|_| row.selection.focused);
+                render_content_list_tile(&row, thumbnail, (target, probe), cx)
             }))
             .children((0..pending_tiles).map(|index| render_pending_content_tile(index, cx))),
     );
@@ -261,7 +190,7 @@ fn render_content_list_tiles(
         content = content.child(render_content_list_state(display, cx));
     }
     if let Some(display) = render_state.load_more_display {
-        content = content.child(render_content_list_load_more(display, cx));
+        content = content.child(render_content_list_load_more(&display, cx));
     }
 
     let container = div()
@@ -558,14 +487,11 @@ fn render_content_list_row_text(
 /// The "Load more" button. A failed older page shows its notice above
 /// the button, in the style of the failed state (ADR 0086 Decision 5).
 fn render_content_list_load_more(
-    display: ContentListLoadMoreDisplay,
+    display: &ContentListLoadMoreDisplay,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     div()
         .pt(Spacing::SM.scaled(cx))
-        .children(display.failure.map(|failure| {
-            render_content_list_state(ContentListPageStateDisplay::Failed(failure), cx)
-        }))
         .child(
             UiButton::styled(display.button_id, ControlStyle::Ghost)
                 .label(display.label)

@@ -20,14 +20,13 @@ use crate::library::{index_track_job, index_track_job_by_key, playlist_options, 
 use crate::ui::composites::{SelectionActionBar, SelectionActionBarPlaylists};
 use crate::view_models::detail_selection::{
     detail_header_action, feed_page_release_rows, index_release_track_rows, DetailListKind,
-    DetailPageRows, DetailRowKey, DetailSelection, TileArrow,
+    DetailPageRows, DetailRowKey, DetailSelection,
 };
 use crate::view_models::list_selection::FocusStep;
 use crate::view_models::search_results::IndexDetailDisplay;
 use crate::view_models::selection_action_bar::{SelectionActionBarVm, SelectionActionKind};
 use crate::view_models::workspace::{
-    FrameHeaderActionDisplay, FrameNavigationEntry, NavigationPathStart, ReleasePageSource,
-    TrackKey,
+    FrameHeaderActionDisplay, FrameNavigationEntry, ReleasePageSource, TrackKey,
 };
 use crate::views::FeedView;
 
@@ -97,7 +96,6 @@ impl TopApp {
             },
             FrameNavigationEntry::SinglesGroup(_)
             | FrameNavigationEntry::WindowGroup(_)
-            | FrameNavigationEntry::DiscoverView(_)
             | FrameNavigationEntry::PlaylistDetail(_) => library.library_detail_page_rows(),
             FrameNavigationEntry::PublisherDetail(_) => {
                 let (vm, _) = self.publisher_page_vm(cx)?;
@@ -212,23 +210,6 @@ impl TopApp {
         });
     }
 
-    /// Left and Right, for the Discover tiles (packet 020). The tile focus
-    /// moves in a line, the same as Up and Down. Each other page ignores
-    /// these keys.
-    pub(super) fn move_discover_tile_focus(
-        &mut self,
-        arrow: TileArrow,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if matches!(
-            self.current_music_entry(),
-            Some(FrameNavigationEntry::DiscoverView(_))
-        ) {
-            self.move_detail_selection_focus(arrow.focus_step(), window, cx);
-        }
-    }
-
     /// Space, for the detail column.
     pub(super) fn toggle_focused_detail_row(
         &mut self,
@@ -255,12 +236,6 @@ impl TopApp {
         let Some(key) = self.library.read(cx).focused_detail_row(window, cx) else {
             return;
         };
-        // ADR 0086 Decision 4: Enter on a group tile opens its window
-        // group page in the current path (packet 004 decision D10).
-        if let Some(entry) = self.library.read(cx).window_group_entry_for(&key) {
-            self.open_music_page(&entry, NavigationPathStart::CurrentPath, cx);
-            return;
-        }
         let label = self
             .detail_page_rows(cx)
             .and_then(|rows| rows.title_of(&key).map(str::to_owned))

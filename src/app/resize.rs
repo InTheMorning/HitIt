@@ -39,19 +39,6 @@ impl TopApp {
         )
     }
 
-    pub(super) fn persist_content_list_view_mode(
-        &self,
-        content_list_view_mode: ContentViewMode,
-    ) -> anyhow::Result<()> {
-        config::save_workspace_layout_prefs(
-            &self.cfg_path,
-            &config::WorkspaceLayoutPrefs {
-                content_pane_width: Some(f32::from(self.content_pane_width)),
-                content_list_view_mode: Some(content_list_view_mode),
-            },
-        )
-    }
-
     fn clamped_content_pane_width(width: f32) -> f32 {
         width
             .max(f32::from(layout::CONTENT_PANE_MIN_WIDTH))

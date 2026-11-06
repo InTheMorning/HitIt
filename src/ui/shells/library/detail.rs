@@ -62,7 +62,7 @@ pub(crate) fn render_library_detail(
         // open Discover view before it reaches this dispatcher. If a later
         // path reaches this arm, it shows no content. The render path never
         // panics.
-        LibraryDetail::None | LibraryDetail::Discover(_) => div().size_full().into_any_element(),
+        LibraryDetail::None => div().size_full().into_any_element(),
 
         LibraryDetail::Album(album) => render_library_feed_detail(
             album,

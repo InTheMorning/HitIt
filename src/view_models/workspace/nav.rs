@@ -51,48 +51,6 @@ impl MusicDestination {
             Self::Playlists => "Playlists",
         }
     }
-
-    /// The page this destination opens under it, the first time its root
-    /// becomes the current location (ADR 0084 Decision 3). A sidebar
-    /// click and the Music opening path both use this. Only Discover
-    /// opens one: "New releases".
-    #[must_use]
-    pub(crate) const fn default_child_page(self) -> Option<FrameNavigationEntry> {
-        match self {
-            Self::Discover => Some(FrameNavigationEntry::DiscoverView(
-                DiscoverView::NewReleases,
-            )),
-            Self::Releases | Self::Artists | Self::NeedsAttention | Self::Playlists => None,
-        }
-    }
-}
-
-/// A view of the Discover list column (ADR 0084 Decision 3). Discover is
-/// the only destination with views: "New releases" is the first one.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum DiscoverView {
-    NewReleases,
-}
-
-impl DiscoverView {
-    /// Every Discover view, in list order (ADR 0084 Decision 3).
-    pub(crate) const ALL: [Self; 1] = [Self::NewReleases];
-
-    /// The visible view name.
-    #[must_use]
-    pub(crate) const fn label(self) -> &'static str {
-        match self {
-            Self::NewReleases => "New releases",
-        }
-    }
-
-    /// The view's list-row subtitle (ADR 0084 Decision 3).
-    #[must_use]
-    pub(crate) const fn subtitle(self) -> &'static str {
-        match self {
-            Self::NewReleases => "Newest first, from the Index",
-        }
-    }
 }
 
 /// Navigation target stored in a frame's history.
@@ -104,9 +62,6 @@ pub(crate) enum FrameNavigationEntry {
     /// A Music destination, the root of a sidebar-started location (ADR
     /// 0084 Decisions 1 and 2, ADR 0089 Decision 1).
     Destination(MusicDestination),
-    /// A view of the Discover column, a page under the Discover
-    /// destination (ADR 0084 Decision 3).
-    DiscoverView(DiscoverView),
     /// A saved search, a page under the Discover destination (ADR 0084
     /// Decision 3, packet 012). The entry holds the query, so the page of
     /// a deleted saved search can still name it.
@@ -159,7 +114,6 @@ impl FrameNavigationEntry {
     pub(crate) fn display_label(&self) -> String {
         match self {
             Self::Destination(destination) => destination.label().to_string(),
-            Self::DiscoverView(view) => view.label().to_string(),
             Self::SavedSearch { query, .. } => saved_search_label(query),
             Self::PlaylistDetail(id) => format!("Playlist {id}"),
             // The top app gives the real title from the resolved data
@@ -670,23 +624,6 @@ impl FrameNavigationState {
         }
     }
 
-    /// Creates navigation history at an initial location path:
-    /// `destination` then `page`, with no back or forward history (ADR
-    /// 0084 Decision 3: Music opens on Discover, then "New releases").
-    #[must_use]
-    pub(crate) fn new_with_page(
-        destination: FrameNavigationEntry,
-        page: FrameNavigationEntry,
-    ) -> Self {
-        Self {
-            back_stack: Vec::new(),
-            current: FrameLocation::new(destination).with_page(page),
-            forward_stack: Vec::new(),
-            arrival: NotCompared(NavigationArrival::Open),
-            marked: NotCompared(None),
-        }
-    }
-
     /// Returns the current page.
     #[must_use]
     pub(crate) const fn current(&self) -> &FrameNavigationEntry {
@@ -813,6 +750,24 @@ impl FrameNavigationState {
             None => root,
         };
         self.move_to(location);
+    }
+
+    #[cfg(test)]
+    /// Creates navigation history at an initial location path:
+    /// `destination` then `page`, with no back or forward history (ADR
+    /// 0084 Decision 3: Music opens on Discover, then "New releases").
+    #[must_use]
+    pub(crate) fn new_with_page(
+        destination: FrameNavigationEntry,
+        page: FrameNavigationEntry,
+    ) -> Self {
+        Self {
+            back_stack: Vec::new(),
+            current: FrameLocation::new(destination).with_page(page),
+            forward_stack: Vec::new(),
+            arrival: NotCompared(NavigationArrival::Open),
+            marked: NotCompared(None),
+        }
     }
 
     /// Replaces current navigation and clears history.
