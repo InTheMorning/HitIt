@@ -15,7 +15,7 @@ use crate::ui::shells::release_page::click_modifiers;
 use crate::view_models::release_page::{inspect_sources_entry, ReleasePageCommand};
 use crate::view_models::releases_everything::ReleasesDownloadPlan;
 use crate::view_models::singles_group::SinglesGroupPageEntryVm;
-use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart, ReleaseKey};
+use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey};
 
 impl LibraryApp {
     /// Runs one command of the open Library release page or singles group
@@ -41,17 +41,11 @@ impl LibraryApp {
                     cx.notify();
                 }
             }
-            // ADR 0083 task 006, decision D4: open the track page of the
-            // row. The track page opens its "Inspect sources" disclosure
-            // when it mounts.
+            // ADR 0083 task 006, decision D4, and ADR 0089 Decision 8: open
+            // the track page of the row, then its Inspect Sources sheet.
             ReleasePageCommand::InspectSources(row) => {
                 if let Some((track, _)) = self.release_page_row(row) {
-                    self.request_inspect_sources(track.id);
-                    self.open_page(
-                        inspect_sources_entry(&track),
-                        NavigationPathStart::CurrentPath,
-                        cx,
-                    );
+                    self.open_inspect_sources(track.id, inspect_sources_entry(&track), cx);
                 }
             }
             ReleasePageCommand::AddTrackToPlaylist(row, playlist_id) => {

@@ -126,6 +126,9 @@ pub(crate) enum LibraryAppEvent {
     /// A request of the Search page (ADR 0089 Decision 4). The top app owns
     /// the toolbar field, so it applies the request.
     SearchPage(crate::view_models::search_page::SearchPageAction),
+    /// Opens the Inspect Sources sheet of the open track page (ADR 0089
+    /// Decision 8). The top app owns the window, so it opens the sheet.
+    OpenInspectSourcesSheet,
     /// The repair action of a Setup item of the Inbox (ADR 0089 Decision
     /// 3). The top app runs it through its capability actions (ADR 0066).
     InboxSetupAction(crate::application::capability::CapabilityAction),
@@ -363,8 +366,8 @@ pub struct LibraryApp {
     /// The sidebar row of the current screen (ADR 0089 Decision 1). The
     /// top app sets it at each render.
     sidebar_selected: Option<crate::view_models::sidebar::SidebarDestination>,
-    /// The Library track whose track page opens its "Inspect sources"
-    /// disclosure when it mounts (ADR 0083 task 006, decision D4).
+    /// The Library track whose track page opens its Inspect Sources sheet
+    /// when it mounts (ADR 0083 task 006, decision D4; ADR 0089 Decision 8).
     pending_inspect_sources: Option<i64>,
     /// The spring-load timer of the sidebar row "My playlists" (ADR 0083
     /// task 008, decision D1).

@@ -376,8 +376,8 @@ pub(crate) enum InspectorPanelKind {
     CompareId3,
     /// `MusicBrainz` lookup result panel.
     MusicBrainz,
-    /// The "Inspect sources" disclosure of the track page (ADR 0083
-    /// Decision 8). It is closed by default.
+    /// The Inspect Sources sheet of the track page (ADR 0089 Decision 8,
+    /// ADR 0083 Decision 8). It is closed by default.
     Sources,
 }
 
@@ -463,6 +463,18 @@ impl Default for LibraryTrackInspectorState {
     }
 }
 
+/// Takes the pending Inspect Sources request when `track_id` mounts. It
+/// returns `true` once, for the track of the request (ADR 0089 Decision 8).
+#[must_use]
+pub(crate) fn take_inspect_sources_request(pending: &mut Option<i64>, track_id: i64) -> bool {
+    if *pending == Some(track_id) {
+        *pending = None;
+        true
+    } else {
+        false
+    }
+}
+
 /// Display contract for track-inspector disclosure and panel availability.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct LibraryTrackInspectorDisplay {
@@ -491,7 +503,8 @@ impl LibraryTrackInspectorDisplay {
                 .contains(&InspectorPanelKind::MusicBrainz)
     }
 
-    /// Returns whether the "Inspect sources" disclosure is open.
+    /// Returns whether the Inspect Sources sheet is open (ADR 0089
+    /// Decision 8).
     #[must_use]
     pub(crate) fn inspect_sources_open(&self) -> bool {
         self.inspector_expanded_panels
@@ -7548,16 +7561,36 @@ mod tests {
         assert_eq!(state.description_state, DescriptionState::AutoExpanded);
     }
 
-    /// R83-46: "Inspect sources" is closed by default, and a toggle opens
-    /// and closes it.
+    /// R83-46 and ADR 0089 Decision 8: the Inspect Sources sheet is closed
+    /// by default. It opens, stays open through an update of the track
+    /// state, and closes.
+    /// ADR 0089 Decision 8: a pending request opens the sheet once, when its
+    /// own track mounts.
     #[test]
-    fn adr_0083_r83_46_inspect_sources_starts_closed_and_toggles() {
+    fn inspect_sources_request_opens_the_sheet_once_on_its_mount() {
+        let mut pending = Some(5);
+        assert!(!take_inspect_sources_request(&mut pending, 6));
+        assert_eq!(pending, Some(5));
+        assert!(take_inspect_sources_request(&mut pending, 5));
+        assert_eq!(pending, None);
+        assert!(!take_inspect_sources_request(&mut pending, 5));
+    }
+
+    #[test]
+    fn inspect_sources_sheet_opens_closes_and_stays_open_on_update() {
         let mut state = LibraryTrackInspectorState::default();
         assert!(!state.display(true).inspect_sources_open());
 
-        state.toggle_panel(InspectorPanelKind::Sources);
+        state.expand_panel(InspectorPanelKind::Sources);
         assert!(state.display(true).inspect_sources_open());
-        state.toggle_panel(InspectorPanelKind::Sources);
+
+        // An update of the track state while the sheet is open keeps it open.
+        state.toggle_description();
+        state.project_description(4);
+        state.expand_panel(InspectorPanelKind::MusicBrainz);
+        assert!(state.display(true).inspect_sources_open());
+
+        state.collapse_panel(InspectorPanelKind::Sources);
         assert!(!state.display(true).inspect_sources_open());
     }
 
@@ -8441,7 +8474,7 @@ mod tests {
             labels,
             vec![
                 "Add to playlist",
-                "Inspect sources",
+                "Inspect Sources",
                 "Move up",
                 "Move down",
                 "Remove from playlist",

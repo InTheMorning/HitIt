@@ -1118,6 +1118,56 @@ fn adr_0047_phase_b_view_model_contracts_are_gpui_free_and_shared() {
     );
 }
 
+/// ADR 0089 Decision 8: "Inspect Sources" is a sheet over the track page.
+/// The track page builds no Inspect Sources group, its menu item opens the
+/// sheet, and the sheet opens through the shared composite.
+#[test]
+fn adr_0089_decision_8_inspect_sources_is_a_sheet() {
+    let track_detail = read_source(&manifest_path("src/ui/shells/library/track_detail.rs"));
+    let app_shell = read_source(&manifest_path("src/app.rs"));
+    let library_app = read_source(&manifest_path("src/library/app_impl.rs"));
+    let mut violations = Vec::new();
+
+    for forbidden in [
+        "render_library_track_detail_metadata",
+        "DisclosureGroup",
+        "pending_id3_edits_for_track_detail",
+        "Inspect sources",
+        "Inspect Sources",
+    ] {
+        if track_detail.contains(forbidden) {
+            violations.push(format!(
+                "src/ui/shells/library/track_detail.rs: ADR 0089 Decision 8: the track page builds no Inspect Sources group, found `{forbidden}`. Move the content into `render_library_inspect_sources_sheet_body` and open it with `InspectSourcesSheet`."
+            ));
+        }
+    }
+
+    for required in ["LibraryAppEvent::OpenInspectSourcesSheet"] {
+        if !app_shell.contains(required) {
+            violations.push(format!(
+                "src/app.rs: ADR 0089 Decision 8: the top app opens the sheet after the page mounts, missing `{required}`"
+            ));
+        }
+    }
+
+    for required in [
+        "InspectSourcesSheet {",
+        "render_library_inspect_sources_sheet_body",
+    ] {
+        if !library_app.contains(required) {
+            violations.push(format!(
+                "src/library/app_impl.rs: ADR 0089 Decision 8: the Library opens the sheet through the shared composite, missing `{required}`"
+            ));
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "ADR 0089 Decision 8 violations:\n{}",
+        violations.join("\n")
+    );
+}
+
 #[test]
 fn adr_0047_phase_c_inspector_rewire_uses_vm_state_and_shared_disclosures() {
     let library_struct_source = read_source(&manifest_path("src/library.rs"));

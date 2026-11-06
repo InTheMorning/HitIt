@@ -3,9 +3,9 @@
 //!
 //! `render_track_page` renders the whole track page for both origins, from
 //! `view_models::track_page`. The host entity gives the view model, the
-//! resolved images, one dispatch function and, for a Library page, the
-//! "Inspect sources" disclosure. This shell sends each command through the
-//! dispatch function. It holds no state.
+//! resolved images and one dispatch function. This shell sends each command
+//! through the dispatch function. It holds no state. The Inspect Sources
+//! sheet is not part of the page (ADR 0089 Decision 8).
 
 #![warn(clippy::pedantic)]
 
@@ -49,13 +49,11 @@ pub(crate) struct TrackPageImages {
     pub(crate) scroll_handle: ScrollHandle,
 }
 
-/// Renders the track page of `vm` for each origin. `inspect_sources` shows
-/// below the surface only when `vm.inspect_sources` is true.
+/// Renders the track page of `vm` for each origin.
 pub(crate) fn render_track_page(
     vm: &TrackPageVm<'_>,
     images: TrackPageImages,
     dispatch: &TrackPageDispatch,
-    inspect_sources: Option<AnyElement>,
     cx: &mut App,
 ) -> AnyElement {
     let TrackPageImages {
@@ -74,7 +72,7 @@ pub(crate) fn render_track_page(
         hero_image,
         name_links,
         primary_actions: vec![TrackSurfaceElement::from_element(
-            render_track_page_actions(&vm.actions, dispatch),
+            render_track_page_actions(&vm.actions, vm.inspect_sources, dispatch),
         )],
         external_links: render_track_page_identity_actions(&vm.page),
         description_panel: vm.description.as_ref().map(|description| {
@@ -86,16 +84,6 @@ pub(crate) fn render_track_page(
         slots.section_elements.push(feed_identity);
     }
     let surface = build_track_detail_surface(&vm.page, slots).into_any_element();
-    let content = match inspect_sources.filter(|_| vm.inspect_sources) {
-        Some(inspect_sources) => div()
-            .flex()
-            .flex_col()
-            .gap(Spacing::LG.scaled(cx))
-            .child(surface)
-            .child(inspect_sources)
-            .into_any_element(),
-        None => surface,
-    };
     // ADR 0084 packet 023, decision 14: one padding for both origins,
     // scaled with the interface scale.
     let container = div()
@@ -106,7 +94,7 @@ pub(crate) fn render_track_page(
         .min_h_0()
         .min_w_0()
         .p(Spacing::LG.scaled(cx))
-        .child(page_scroll_content(cx).child(content));
+        .child(page_scroll_content(cx).child(surface));
     // ADR 0084 packet 018: the keys of the detail column scroll the page
     // through its held scroll handle.
     music_column_tracked_scrollbar(container, &scroll_handle, None)
@@ -117,6 +105,7 @@ pub(crate) fn render_track_page(
 /// below the row when a message exists.
 fn render_track_page_actions(
     actions: &TrackPageActionRowVm,
+    inspect_sources: bool,
     dispatch: &TrackPageDispatch,
 ) -> AnyElement {
     let mut controls = vec![render_track_page_button(
@@ -129,7 +118,7 @@ fn render_track_page_actions(
         render_track_page_button(action, ControlStyle::Secondary, actions, dispatch)
     }));
     if !actions.menu.is_empty() {
-        controls.push(render_track_page_menu(actions, dispatch));
+        controls.push(render_track_page_menu(actions, inspect_sources, dispatch));
     }
     let mut row = ActionRow::new(ActionRowDisplay {
         a11y_label: SharedString::from(actions.a11y_label),
@@ -201,28 +190,35 @@ fn render_track_page_button(
 /// the destructive item.
 fn render_track_page_menu(
     actions: &TrackPageActionRowVm,
+    inspect_sources: bool,
     dispatch: &TrackPageDispatch,
 ) -> AnyElement {
-    let menu_items = actions.menu.iter().map(|action| {
-        let mut item = ContextMenuItem::new(ContextMenuItemDisplay {
-            id: SharedString::from(action.id.clone()),
-            label: SharedString::from(action.label.clone()),
-            a11y_label: SharedString::from(action.a11y_label.clone()),
-            destructive: action.destructive,
-            disabled: !action.available,
-        });
-        if let Some(reason) = action.reason {
-            item = item.description(reason);
-        }
-        if action.available {
-            let dispatch = Rc::clone(dispatch);
-            let command = action.action;
-            item = item.on_select(move |window, cx| {
-                dispatch(TrackPageCommand::Action(command), window, cx);
+    // The "Inspect Sources" item shows only when the page has the fact
+    // (ADR 0089 Decision 8).
+    let menu_items = actions
+        .menu
+        .iter()
+        .filter(|action| inspect_sources || action.action != TrackPageAction::InspectSources)
+        .map(|action| {
+            let mut item = ContextMenuItem::new(ContextMenuItemDisplay {
+                id: SharedString::from(action.id.clone()),
+                label: SharedString::from(action.label.clone()),
+                a11y_label: SharedString::from(action.a11y_label.clone()),
+                destructive: action.destructive,
+                disabled: !action.available,
             });
-        }
-        item
-    });
+            if let Some(reason) = action.reason {
+                item = item.description(reason);
+            }
+            if action.available {
+                let dispatch = Rc::clone(dispatch);
+                let command = action.action;
+                item = item.on_select(move |window, cx| {
+                    dispatch(TrackPageCommand::Action(command), window, cx);
+                });
+            }
+            item
+        });
     ContextMenu::new(
         SharedString::from(actions.menu_id.clone()),
         ContextMenuScope::TrackList,

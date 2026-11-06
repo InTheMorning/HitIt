@@ -313,8 +313,8 @@ pub(crate) struct TrackPageVm<'a> {
     pub(crate) page: TrackDetailPageVm<'a>,
     pub(crate) actions: TrackPageActionRowVm,
     pub(crate) description: Option<TrackPageDescriptionVm>,
-    /// The page shows "Inspect sources" (ADR 0083 Decision 8). Only a
-    /// page with Library inspection facts shows it (decision 9).
+    /// The page has the "Inspect Sources" menu item (ADR 0089 Decision 8).
+    /// Only a page with Library inspection facts has it.
     pub(crate) inspect_sources: bool,
     /// The element id of the page container.
     pub(crate) container_id: &'static str,
@@ -339,12 +339,31 @@ pub(crate) fn track_page_vm(facts: &TrackPageFacts) -> TrackPageVm<'_> {
     if let TrackPageOrigin::Index(work) = facts.origin {
         detail = detail.with_index_download_busy(work.queue_word().is_some());
     }
-    let actions = track_page_action_row(facts, &detail);
+    let mut actions = track_page_action_row(facts, &detail);
     let description = track_page_description(facts, &detail);
     let (inspect_sources, container_id) = match &facts.origin {
         TrackPageOrigin::Library(state) => (true, state.container_id),
         TrackPageOrigin::Index(_) => (false, INDEX_CONTAINER_ID),
     };
+    if inspect_sources {
+        // The item goes before "MusicBrainz lookup" or the destructive item.
+        let item = track_page_action_vm(
+            TrackPageActionDisplay::new(TrackPageAction::InspectSources, true),
+            "track-page-menu",
+            None,
+        );
+        let position = actions
+            .menu
+            .iter()
+            .position(|menu| {
+                matches!(
+                    menu.action,
+                    TrackPageAction::MusicBrainzLookup | TrackPageAction::RemoveTrack
+                )
+            })
+            .unwrap_or(actions.menu.len());
+        actions.menu.insert(position, item);
+    }
     TrackPageVm {
         page: detail.page(),
         actions,
@@ -735,10 +754,32 @@ mod tests {
         assert_eq!(library_description.display, index_description.display);
         assert_eq!(library_description.label, index_description.label);
 
+        assert_ne!(library_description.id, index_description.id);
         assert!(library_vm.inspect_sources);
         assert!(!index_vm.inspect_sources);
-        assert_ne!(library_description.id, index_description.id);
         assert_ne!(library_vm.actions, index_vm.actions);
+    }
+
+    /// R23-09: `inspect_sources` is true for Library facts and false for
+    /// Index facts. Only the Library page has the "Inspect Sources" item.
+    #[test]
+    fn adr_0084_track_page_r23_09_only_library_facts_inspect_sources() {
+        let library_facts = library_facts(None);
+        let index_facts = index_facts(None);
+        let library = track_page_vm(&library_facts);
+        let index = track_page_vm(&index_facts);
+        assert!(library.inspect_sources);
+        assert!(!index.inspect_sources);
+        assert!(library
+            .actions
+            .menu
+            .iter()
+            .any(|item| item.action == TrackPageAction::InspectSources));
+        assert!(!index
+            .actions
+            .menu
+            .iter()
+            .any(|item| item.action == TrackPageAction::InspectSources));
     }
 
     /// R23-07: for each Library state, the Library action row gives the
@@ -792,7 +833,14 @@ mod tests {
                 "filled action of {action_state:?}"
             );
             assert_eq!(actual(&row.plain), ids(&expected.plain, "action"));
-            assert_eq!(actual(&row.menu), ids(&expected.menu, "menu"));
+            // ADR 0089 Decision 8: the page adds "Inspect Sources" to the menu.
+            let shared_menu: Vec<_> = row
+                .menu
+                .iter()
+                .filter(|item| item.action != TrackPageAction::InspectSources)
+                .cloned()
+                .collect();
+            assert_eq!(actual(&shared_menu), ids(&expected.menu, "menu"));
             assert_eq!(row.menu_id, format!("track-page-menu-{TRACK_ID}"));
             assert_eq!(row.a11y_label, "Track actions");
             assert_eq!(row.menu_a11y_label, "More actions for this track");
@@ -849,14 +897,6 @@ mod tests {
         assert_eq!(row.filled.action, TrackPageAction::DownloadAlbum);
         assert!(!row.filled.available);
         assert!(row.menu.is_empty());
-    }
-
-    /// R23-09: `inspect_sources` is true for Library facts and false for
-    /// Index facts.
-    #[test]
-    fn adr_0084_track_page_r23_09_only_library_facts_inspect_sources() {
-        assert!(track_page_vm(&library_facts(None)).inspect_sources);
-        assert!(!track_page_vm(&index_facts(None)).inspect_sources);
     }
 
     /// R23-10: the album name link is a data rule. A Library album feed id

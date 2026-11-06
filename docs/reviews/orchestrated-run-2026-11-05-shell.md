@@ -2,7 +2,7 @@
 
 ## Status
 
-Open - 2026-11-05. The run implements the [ADR 0089 phase plan](../plans/adr-0089-shell-phase-plan.md), packets 001 to 015. Packet 016 waits for the operator decision on ADR 0068.
+Open - 2026-11-06. The run implemented the [ADR 0089 phase plan](../plans/adr-0089-shell-phase-plan.md), packets 001 to 015, and each packet is committed. Packet 016 waits for the operator decision on ADR 0068. The final walk is open.
 
 This record is advisory. It states no rule. Each rule stays in its ADR or its packet.
 
@@ -61,3 +61,21 @@ Each entry names the step, the decision and the reason.
 - Packet 012, Setup: the section holds the capabilities that the Show cards map to: Playback, Producer, LibraryPaths, Publisher and Encoder. The words "needs attention" stay in three status labels of the startup report, the live status and a Show card, because they are not the destination.
 - Packet 012, source playlist: `LibraryApp` reads the source playlist of the session through its own connection. The view mode config field goes, and an old `config.toml` still loads.
 - Packet 013: below 940 px, "Check All Feeds" and the feed state are in the More menu. The tag update button and the report text stay in the sidebar, so they are not reachable in a narrow window. The Inbox Updates section holds the tag update action there. A Show or Settings shortcut in a narrow window has no sidebar row to focus. The final walk checks each.
+- Packet 015: the "…" menu of a Library track page has "Inspect Sources", and an Index track page has no such item. A request for a track that is not mounted opens the sheet one time, when the track mounts.
+- Gate: `adr_0066_converter_preserves_flac_first_and_existing_ffmpeg_fallback` failed one time in a full run on 2026-11-06, and it passed three times alone and in the next full run. An agent saw `adr_0066_converter_timeout_reaps_child` fail one time under load. Both are in code that this run did not change. No packet owns the two timing results.
+
+## Questions For The Final Walk
+
+The operator answers these after the walk. The orchestrator did not decide them.
+
+1. A list page shows its title in the toolbar and in its title row (R-TOOLBAR-1 and R-LIST-1). Is this correct, or does one go?
+2. My playlists stays in name sequence. Decision 5 says that the curator sets the sequence, and the Non-Goals put the moves of My playlists later. Which holds?
+3. The results page has no tile view and no letter bar. The title row shows the query, and the mockup shows the word "Results". Is this correct?
+4. A tile of a public playlist has no menu, and Tiles is the default view. Is the menu on the page enough for "Copy to My Playlists…"?
+5. A copy with no readable track makes an empty playlist. Must it make nothing?
+6. In a narrow window, the tag update button is only in the Inbox. Is this correct?
+7. A reload that clears an open Library page shows its list root, with the page entry still on the stack. Is this correct?
+
+## Result
+
+Packets 001 to 015 are implemented and committed. Packet 016 waits for ADR 0068. The mechanical gate is Green at 2782 unit tests and 399 guards. No person has walked a visual check of this run.

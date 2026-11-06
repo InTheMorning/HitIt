@@ -876,6 +876,8 @@ pub enum TrackPageAction {
     CopyFeedUrl,
     /// Look up the downloaded file in `MusicBrainz`.
     MusicBrainzLookup,
+    /// Open the Inspect Sources sheet of a Library track (ADR 0089 Decision 8).
+    InspectSources,
     /// Remove the track from the Library, after a confirmation.
     RemoveTrack,
 }
@@ -898,6 +900,7 @@ impl TrackPageAction {
             Self::AddToPlaylist => "Add to playlist".to_string(),
             Self::CopyFeedUrl => "Copy feed URL".to_string(),
             Self::MusicBrainzLookup => "MusicBrainz lookup".to_string(),
+            Self::InspectSources => "Inspect Sources".to_string(),
             Self::RemoveTrack => "Remove track…".to_string(),
         }
     }
@@ -915,6 +918,7 @@ impl TrackPageAction {
             Self::AddToPlaylist => "Add this track to a playlist".to_string(),
             Self::CopyFeedUrl => "Copy the feed URL of this track".to_string(),
             Self::MusicBrainzLookup => "Look up this track in MusicBrainz".to_string(),
+            Self::InspectSources => "Inspect the sources of this track".to_string(),
             Self::RemoveTrack => "Remove this track from the Library".to_string(),
         }
     }

@@ -250,9 +250,26 @@ Open - the packets are implemented, and the mechanical suite is Green. No person
 - [Packet 013](tasks/adr-0080-task-013-mp4-date-shares-one-value.md) V1: an MP4 file settles after one write. The run record also asks for the format of the two files of the observation of 2026-10-16.
 - [ADR 0076 packet 011](tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md) V1 and V2: the first Check RSS of a feed reads its full document, and its license reaches the "Update n files" list.
 
-## 11. ADR 0089 The Shell - Run Of 2026-11-05
+## 11. ADR 0089 The Shell - Implemented 2026-11-06
 
-Open - the [shell run](reviews/orchestrated-run-2026-11-05-shell.md) adds each implemented packet here. No person checked these packets.
+Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No person checked these packets. The [run record](reviews/orchestrated-run-2026-11-05-shell.md) lists the decisions and seven questions for the operator.
 
-- Owner: the "Visual" list of each packet file in `docs/tasks/adr-0089-task-*.md`.
-- ADR 0089 Verification lists the visual criteria of the record, in Light and Dark, at normal and narrow width.
+- Owner: the "Visual" list of each packet file in `docs/tasks/adr-0089-task-*.md`. Each check runs in Light and Dark, at normal width and below 940 px.
+- Build: run `cargo build --bin v4vmm` first, then open `target/debug/v4vmm` in a desktop session. The checks change no stored data, apart from migration 22, the checks of packets 006, 007 and 010, and their cleanup in those packets. Back up the database before migration 22, because a return to an older build needs the backup.
+- `~/.claude/scripts/v4vmm-shots.sh` holds click points of the old layout, so its scenarios need new points before use.
+- [Packet 001](tasks/adr-0089-task-001-one-page-stack.md) V1 and V2: one page at full width, and no empty pane.
+- [Packet 002](tasks/adr-0089-task-002-toolbar-history-and-marked-row.md) V1 to V3: the toolbar, the scroll and the mark after Back, and Forward.
+- [Packet 003](tasks/adr-0089-task-003-one-sidebar.md) V1 to V3: the start page, the sidebar on each mount, and the shortcuts.
+- [Packet 004](tasks/adr-0089-task-004-list-page-state.md) V1 to V4: the scope, the title row, the state of each page and a failed download.
+- [Packet 005](tasks/adr-0089-task-005-releases-sort.md) V1 to V5: window groups, the letter bar, tiles, Load more and smooth scroll.
+- [Packet 006](tasks/adr-0089-task-006-search-page.md) V1 to V4: the Search page.
+- [Packet 007](tasks/adr-0089-task-007-saved-search-edits-and-new-counts.md) V1 to V4: the menu, the query field and the counts.
+- [Packet 008](tasks/adr-0089-task-008-results-rows.md) V1 to V4: the rows of the results page.
+- [Packet 009](tasks/adr-0089-task-009-public-playlists.md) V1 to V3: Public playlists.
+- [Packet 010](tasks/adr-0089-task-010-copy-to-my-playlists.md) V1 to V3: the copy. Delete the test playlist after the check.
+- [Packet 011](tasks/adr-0089-task-011-live-page.md) V1 to V3: Live.
+- [Packet 012](tasks/adr-0089-task-012-inbox.md) V1 to V4: the Inbox.
+- [Packet 013](tasks/adr-0089-task-013-narrow-tab-bar.md) V1 to V3: the tab bar.
+- [Packet 014](tasks/adr-0089-task-014-row-rules.md) V1 to V4: the rows.
+- [Packet 015](tasks/adr-0089-task-015-inspect-sources-sheet.md) V1 to V4: the sheet.
+- Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.

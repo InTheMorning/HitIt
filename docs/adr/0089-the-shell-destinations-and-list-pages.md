@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in the [research request](../plans/research-ui-shell-and-search-request.md), and lifted its hold on 2026-10-25. The operator asked for this record, answered its five questions and accepted it on 2026-11-05 (see [Operator Answers](#operator-answers---2026-11-05)). No code is built. A phase plan comes next.
+Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in the [research request](../plans/research-ui-shell-and-search-request.md), and lifted its hold on 2026-10-25. The operator asked for this record, answered its five questions and accepted it on 2026-11-05 (see [Operator Answers](#operator-answers---2026-11-05)). Packets 001 to 015 of the [phase plan](../plans/adr-0089-shell-phase-plan.md) are implemented on 2026-11-06, and their visual checks are open. Packet 016, the panel and the row action Play, waits for ADR 0068.
 
 This record makes these changes:
 
