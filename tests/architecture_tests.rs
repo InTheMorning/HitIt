@@ -15443,7 +15443,7 @@ fn adr_0062_recent_feeds_destination_is_retired() {
         (
             "src/application/queries/feed.rs",
             &feed_query_source,
-            "fetch_recent_feeds(Some(crate::api::PAGE_LIMIT), cursor)",
+            "client.fetch_recent_feeds(",
         ),
         (
             "src/library.rs",

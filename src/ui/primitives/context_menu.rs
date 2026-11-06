@@ -117,6 +117,7 @@ pub struct ContextMenuItem {
     display: ContextMenuItemDisplay,
     on_select: Option<SelectHandler>,
     level: Option<MenuLevelBuilder>,
+    checked: bool,
 }
 
 /// Shared context-menu surface.
@@ -262,7 +263,15 @@ impl ContextMenuItem {
             description: None,
             on_select: None,
             level: None,
+            checked: false,
         }
+    }
+
+    /// Marks the item with a check mark. A checked item is the current
+    /// choice of a menu of choices, such as the sort of a list page.
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = checked;
+        self
     }
 
     /// Gives the item a second level. A selection of the item shows that
@@ -499,6 +508,9 @@ fn build_menu_content(
 
         if let Some(description) = item.description {
             button = button.description(description);
+        }
+        if item.checked {
+            button = button.leading_icon(IconName::Check);
         }
         if !display.disabled && item.level.is_some() {
             // An item with a second level shows that level. The menu stays

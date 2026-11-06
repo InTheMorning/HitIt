@@ -149,6 +149,8 @@ fn fetch_name_level_releases(
             NAME_LEVEL_PAGE_LIMIT,
             cursor.as_deref(),
             Some(key),
+            None,
+            crate::api::FeedMedium::Music,
             &crate::application::request_profiles::INDEX_NAME_LEVEL_RELEASES,
         )?;
         releases.extend(response.data.into_iter().filter_map(|feed| {
@@ -2041,7 +2043,7 @@ mod adr_0084_name_level_query_tests {
         let requests = requests.lock().unwrap().clone();
         assert_eq!(
             requests,
-            ["/v1/feeds/by-name?artist_key=sir+seat+sitter&limit=200"],
+            ["/v1/feeds/by-name?artist_key=sir+seat+sitter&limit=200&medium=music"],
             "one request, with no include"
         );
     }

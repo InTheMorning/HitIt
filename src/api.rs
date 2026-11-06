@@ -977,15 +977,19 @@ impl Client {
         self.get_json(&["v1", "search"], &params)
     }
 
-    pub fn fetch_recent_feeds(
+    /// Fetches one page of the newest feeds of `medium` (`GET
+    /// /v1/feeds/recent`, ADR 0089 Decision 5 and The Contract).
+    ///
+    /// # Errors
+    /// Returns an error when the request fails or the response does not
+    /// decode.
+    pub(crate) fn fetch_recent_feeds(
         &self,
         limit: Option<i32>,
         cursor: Option<&str>,
+        medium: FeedMedium,
     ) -> Result<RecentFeedsResponse> {
-        let mut params = vec![("limit", limit.unwrap_or(PAGE_LIMIT).to_string())];
-        if let Some(cursor) = cursor {
-            params.push(("cursor", cursor.to_string()));
-        }
+        let params = recent_feeds_params(limit.unwrap_or(PAGE_LIMIT), cursor, medium);
         self.get_json(&["v1", "feeds", "recent"], &params)
     }
 
@@ -1056,6 +1060,8 @@ impl Client {
         limit: i32,
         cursor: Option<&str>,
         artist_key: Option<&str>,
+        from: Option<&str>,
+        medium: FeedMedium,
         profile: &RequestProfile,
     ) -> Result<FeedNamesResponse> {
         debug_assert_eq!(
@@ -1063,10 +1069,7 @@ impl Client {
             RequestPathShape::FeedNameList,
             "ADR 0084 packet 016: {profile:?} must name the release name list path shape"
         );
-        let mut params = name_list_params(limit, cursor, profile);
-        if let Some(artist_key) = artist_key {
-            params.insert(0, ("artist_key", artist_key.to_string()));
-        }
+        let params = feeds_by_name_params(limit, cursor, artist_key, from, medium, profile);
         self.get_json(&["v1", "feeds", "by-name"], &params)
     }
 
@@ -1346,6 +1349,63 @@ fn name_list_params(
     params
 }
 
+/// The medium filter of a feed list request (the `medium` query value of
+/// `GET /v1/feeds/recent` and `GET /v1/feeds/by-name`). The endpoint
+/// default is `music`. Each caller of this client names its medium.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum FeedMedium {
+    /// Music releases, the default of the endpoint.
+    Music,
+}
+
+impl FeedMedium {
+    /// The value of the `medium` query parameter.
+    #[must_use]
+    pub(crate) const fn query_value(self) -> &'static str {
+        match self {
+            Self::Music => "music",
+        }
+    }
+}
+
+/// The query of `GET /v1/feeds/recent` (ADR 0089 Decision 5).
+fn recent_feeds_params(
+    limit: i32,
+    cursor: Option<&str>,
+    medium: FeedMedium,
+) -> Vec<(&'static str, String)> {
+    let mut params = vec![
+        ("limit", limit.to_string()),
+        ("medium", medium.query_value().to_owned()),
+    ];
+    if let Some(cursor) = cursor {
+        params.push(("cursor", cursor.to_string()));
+    }
+    params
+}
+
+/// The query of `GET /v1/feeds/by-name` (ADR 0089 Decision 5 and 6). `from`
+/// starts the list at its first row whose sort key is at or after it, and
+/// the endpoint ignores it when `cursor` is present.
+fn feeds_by_name_params(
+    limit: i32,
+    cursor: Option<&str>,
+    artist_key: Option<&str>,
+    from: Option<&str>,
+    medium: FeedMedium,
+    profile: &RequestProfile,
+) -> Vec<(&'static str, String)> {
+    let mut params = name_list_params(limit, cursor, profile);
+    params.push(("medium", medium.query_value().to_owned()));
+    if let Some(from) = from {
+        params.push(("from", from.to_string()));
+    }
+    if let Some(artist_key) = artist_key {
+        params.insert(0, ("artist_key", artist_key.to_string()));
+    }
+    params
+}
+
 fn sanitize_api_path_segment(value: &str) -> Result<String> {
     let sanitized = sanitize_api_query_value(value);
     if sanitized.is_empty() {
@@ -1511,6 +1571,62 @@ pub(crate) mod tests {
             None,
             "an L0 profile must send no include parameter"
         );
+    }
+
+    /// ADR 0089 Decision 5 and 6: each feed list request names its medium,
+    /// and a by-name request sends `from` when a letter sets it.
+    #[test]
+    fn adr_0089_feed_list_urls_name_the_medium_and_from() {
+        use super::{feeds_by_name_params, recent_feeds_params, FeedMedium};
+        let client = Client::new();
+        let recent = client
+            .build_url(
+                &["v1", "feeds", "recent"],
+                &recent_feeds_params(20, None, FeedMedium::Music),
+            )
+            .expect("url");
+        let pairs: Vec<(String, String)> = recent
+            .query_pairs()
+            .map(|(key, value)| (key.into_owned(), value.into_owned()))
+            .collect();
+        assert!(pairs.contains(&("medium".to_owned(), "music".to_owned())));
+        assert_eq!(recent.path(), "/v1/feeds/recent");
+
+        let by_name = client
+            .build_url(
+                &["v1", "feeds", "by-name"],
+                &feeds_by_name_params(
+                    50,
+                    None,
+                    None,
+                    Some("b"),
+                    FeedMedium::Music,
+                    &crate::application::request_profiles::INDEX_RELEASE_NAME_LIST,
+                ),
+            )
+            .expect("url");
+        let pairs: Vec<(String, String)> = by_name
+            .query_pairs()
+            .map(|(key, value)| (key.into_owned(), value.into_owned()))
+            .collect();
+        assert!(pairs.contains(&("medium".to_owned(), "music".to_owned())));
+        assert!(pairs.contains(&("from".to_owned(), "b".to_owned())));
+        assert!(!pairs.iter().any(|(key, _)| key == "cursor"));
+
+        let first_page = client
+            .build_url(
+                &["v1", "feeds", "by-name"],
+                &feeds_by_name_params(
+                    50,
+                    None,
+                    None,
+                    None,
+                    FeedMedium::Music,
+                    &crate::application::request_profiles::INDEX_RELEASE_NAME_LIST,
+                ),
+            )
+            .expect("url");
+        assert!(!first_page.query_pairs().any(|(key, _)| key == "from"));
     }
 
     #[test]

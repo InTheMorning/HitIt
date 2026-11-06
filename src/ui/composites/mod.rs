@@ -31,6 +31,7 @@ pub mod download_status_item;
 pub mod file_header;
 pub mod frame_shell;
 pub mod identity_action;
+pub mod letter_bar;
 pub mod list_page_head;
 pub mod list_row;
 pub mod live_status_strip;
