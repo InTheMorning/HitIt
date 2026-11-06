@@ -48,9 +48,9 @@ pub(crate) use rows::{
 };
 pub(crate) use saved_search::{
     delete_saved_search_confirmation, location_after_saved_search_delete, save_search_action,
-    saved_search_label, saved_search_restore, saved_search_result_is_current,
-    saved_search_row_a11y_label, SavedSearch, SavedSearchDeleteConfirmation, SavedSearchId,
-    SavedSearchPage, SavedSearchRestore, SearchPageActionDisplay, SearchPageActionStyle,
+    saved_search_label, saved_search_restore, saved_search_result_is_current, SavedSearch,
+    SavedSearchDeleteConfirmation, SavedSearchId, SavedSearchPage, SavedSearchRestore,
+    SearchPageActionDisplay, SearchPageActionStyle,
 };
 pub(crate) use saved_search_groups::{saved_search_window_page, SearchResultItemVm};
 pub(crate) use search_run::{

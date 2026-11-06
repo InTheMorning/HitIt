@@ -87,9 +87,9 @@ use crate::view_models::releases_everything::{
 };
 use crate::view_models::search_field_values::LibraryFieldValues;
 use crate::view_models::search_results::{
-    saved_search_label, saved_search_row_a11y_label, saved_search_window_page, FeedResultDisplay,
-    IndexDetailDisplay, SavedSearch, SavedSearchId, SearchLibraryLookup, SearchLibraryRelease,
-    SearchLibraryTrack, SearchReleaseWindowFacts, SearchResultOrigin, TrackResultDisplay,
+    saved_search_window_page, FeedResultDisplay, IndexDetailDisplay, SearchLibraryLookup,
+    SearchLibraryRelease, SearchLibraryTrack, SearchReleaseWindowFacts, SearchResultOrigin,
+    TrackResultDisplay,
 };
 use crate::view_models::selection_action_bar::{
     SelectionActionBarInput, SelectionActionBarVm, SelectionActionCounts,
@@ -2200,7 +2200,7 @@ pub(crate) fn list_column_header_action(
     let (element_id, noun) = match destination {
         MusicDestination::Releases => ("music-list-column-select-releases", "releases"),
         MusicDestination::NeedsAttention => ("music-list-column-select-needs-attention", "tracks"),
-        MusicDestination::Discover | MusicDestination::Artists | MusicDestination::Playlists => {
+        MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {
             return None;
         }
     };
@@ -2475,42 +2475,6 @@ fn artist_feed_row(
             download_state: None,
         },
     }
-}
-
-/// The page that a row of the Discover views list column opens (ADR 0084
-/// Decision 3).
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum DiscoverListRowTarget {
-    /// A saved search (packet 012).
-    SavedSearch(SavedSearch),
-}
-
-/// The semantic icon of a Discover view row. The renderer maps it to a
-/// named icon.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum DiscoverListIcon {
-    /// A saved search: the search icon (packet 012).
-    SavedSearch,
-}
-
-/// One row of the Discover views list column (ADR 0084 Decision 3): "New
-/// releases" first, then one row for each saved search (packet 012).
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct DiscoverListRowVm {
-    /// The page this row opens.
-    pub(crate) target: DiscoverListRowTarget,
-    /// Stable element id.
-    pub(crate) element_id: String,
-    /// The visible view name.
-    pub(crate) label: String,
-    /// The view's subtitle.
-    pub(crate) subtitle: String,
-    /// The semantic icon of the row.
-    pub(crate) icon: DiscoverListIcon,
-    /// The accessibility label for the row.
-    pub(crate) a11y_label: String,
-    /// Whether this view is the open page of the current location.
-    pub(crate) selected: bool,
 }
 
 /// GPUI-free page VM for a workspace content-list frame.
@@ -3043,7 +3007,7 @@ impl LibraryViewModel {
             snapshot: LibrarySnapshot::default(),
             content_list_page: ContentListPageVm::new(Vec::new()),
             list_pages: ListPages::default(),
-            active_destination: MusicDestination::Discover,
+            active_destination: MusicDestination::Search,
             needs_attention_count: 0,
             ready_track_ids: None,
             album_description_states: BTreeMap::new(),
@@ -4761,37 +4725,6 @@ impl LibraryViewModel {
             },
             selected,
         )
-    }
-
-    /// Rows of the Discover list column (ADR 0084 Decision 3, ADR 0089
-    /// Decision 2): one row for each saved search in `id` order (packet
-    /// 012). `open_saved_search` is the saved search of the current
-    /// location. The saved searches list goes to the saved searches
-    /// packet (packet 006).
-    #[must_use]
-    #[expect(
-        clippy::unused_self,
-        reason = "kept as an instance method so the saved searches list reads the VM at each call"
-    )]
-    pub(crate) fn discover_list_rows(
-        &self,
-        saved: &[SavedSearch],
-        open_saved_search: Option<SavedSearchId>,
-    ) -> Vec<DiscoverListRowVm> {
-        let mut saved_in_order: Vec<&SavedSearch> = saved.iter().collect();
-        saved_in_order.sort_by_key(|search| search.id);
-        saved_in_order
-            .into_iter()
-            .map(|search| DiscoverListRowVm {
-                target: DiscoverListRowTarget::SavedSearch(search.clone()),
-                element_id: format!("music-discover-saved-search-{}", search.id.0),
-                label: saved_search_label(&search.query),
-                subtitle: SavedSearch::SUBTITLE.to_owned(),
-                icon: DiscoverListIcon::SavedSearch,
-                a11y_label: saved_search_row_a11y_label(&search.query),
-                selected: open_saved_search == Some(search.id),
-            })
-            .collect()
     }
 
     #[must_use]
@@ -13721,7 +13654,8 @@ mod tests {
 mod adr_0086_saved_search_groups_tests {
     use super::*;
     use crate::view_models::search_results::{
-        IndexSearchResultRows, SearchResultsInspectorPageVm, SearchResultsTab,
+        IndexSearchResultRows, SavedSearch, SavedSearchId, SearchResultsInspectorPageVm,
+        SearchResultsTab,
     };
     use crate::view_models::window_groups::WindowGroupSource;
 

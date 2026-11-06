@@ -14,7 +14,7 @@ use super::workspace::MusicDestination;
 /// `MusicDestination` values.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum SidebarDestination {
-    Discover,
+    Search,
     Releases,
     Artists,
     MyPlaylists,
@@ -26,7 +26,7 @@ pub(crate) enum SidebarDestination {
 impl SidebarDestination {
     /// Every row, in sidebar order.
     pub(crate) const ALL: [Self; 7] = [
-        Self::Discover,
+        Self::Search,
         Self::Releases,
         Self::Artists,
         Self::MyPlaylists,
@@ -40,7 +40,7 @@ impl SidebarDestination {
     #[must_use]
     pub(crate) const fn music_destination(self) -> Option<MusicDestination> {
         match self {
-            Self::Discover => Some(MusicDestination::Discover),
+            Self::Search => Some(MusicDestination::Search),
             Self::Releases => Some(MusicDestination::Releases),
             Self::Artists => Some(MusicDestination::Artists),
             Self::MyPlaylists => Some(MusicDestination::Playlists),
@@ -53,7 +53,7 @@ impl SidebarDestination {
     #[must_use]
     pub(crate) const fn for_music(destination: MusicDestination) -> Self {
         match destination {
-            MusicDestination::Discover => Self::Discover,
+            MusicDestination::Search => Self::Search,
             MusicDestination::Releases => Self::Releases,
             MusicDestination::Artists => Self::Artists,
             MusicDestination::Playlists => Self::MyPlaylists,
@@ -66,7 +66,7 @@ impl SidebarDestination {
 /// Decision 1). The renderer maps each name to a named `IconName`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum SidebarIcon {
-    Discover,
+    Search,
     Release,
     Artist,
     Playlist,
@@ -131,7 +131,7 @@ impl SidebarVm {
     #[must_use]
     pub(crate) fn new(counts: SidebarCounts, selected: Option<SidebarDestination>) -> Self {
         let upper = [
-            SidebarDestination::Discover,
+            SidebarDestination::Search,
             SidebarDestination::Releases,
             SidebarDestination::Artists,
             SidebarDestination::MyPlaylists,
@@ -168,7 +168,7 @@ fn row(
     let count = match destination {
         SidebarDestination::NeedsAttention => Some(counts.needs_attention),
         SidebarDestination::MyPlaylists => Some(counts.playlists),
-        SidebarDestination::Discover
+        SidebarDestination::Search
         | SidebarDestination::Releases
         | SidebarDestination::Artists
         | SidebarDestination::Show
@@ -204,7 +204,7 @@ fn row(
 
 const fn label(destination: SidebarDestination) -> &'static str {
     match destination {
-        SidebarDestination::Discover => "Discover",
+        SidebarDestination::Search => "Search",
         SidebarDestination::Releases => "Releases",
         SidebarDestination::Artists => "Artists",
         SidebarDestination::MyPlaylists => "My playlists",
@@ -216,7 +216,7 @@ const fn label(destination: SidebarDestination) -> &'static str {
 
 const fn element_id(destination: SidebarDestination) -> &'static str {
     match destination {
-        SidebarDestination::Discover => "music-destination-discover",
+        SidebarDestination::Search => "music-destination-search",
         SidebarDestination::Releases => "music-destination-releases",
         SidebarDestination::Artists => "music-destination-artists",
         SidebarDestination::MyPlaylists => "music-destination-playlists",
@@ -228,7 +228,7 @@ const fn element_id(destination: SidebarDestination) -> &'static str {
 
 const fn icon(destination: SidebarDestination) -> SidebarIcon {
     match destination {
-        SidebarDestination::Discover => SidebarIcon::Discover,
+        SidebarDestination::Search => SidebarIcon::Search,
         SidebarDestination::Releases => SidebarIcon::Release,
         SidebarDestination::Artists => SidebarIcon::Artist,
         SidebarDestination::MyPlaylists => SidebarIcon::Playlist,
@@ -273,7 +273,7 @@ mod tests {
         assert_eq!(
             labels(&vm),
             [
-                "Discover",
+                "Search",
                 "Releases",
                 "Artists",
                 "My playlists",
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn sidebar_destination_round_trips_music_destinations() {
         for destination in [
-            MusicDestination::Discover,
+            MusicDestination::Search,
             MusicDestination::Releases,
             MusicDestination::Artists,
             MusicDestination::Playlists,

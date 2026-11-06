@@ -41,6 +41,7 @@ use crate::view_models::app_toolbar::AppToolbarVm;
 use crate::view_models::cached_files::CachedFilesVm;
 use crate::view_models::library::DescriptionState;
 use crate::view_models::publisher_page::PublisherPageContext;
+use crate::view_models::search_page::SearchPageAction;
 use crate::view_models::search_results::{SearchResultsInspectorPageVm, SearchResultsTab};
 use crate::view_models::settings::{SettingsAction, SettingsVm};
 use crate::view_models::show::{EventSectionInput, ShowCommandState, ShowPageVm};
@@ -450,6 +451,9 @@ impl TopApp {
                 LibraryAppEvent::OpenPage { entry, start } => {
                     this.open_music_page(entry, *start, cx);
                 }
+                LibraryAppEvent::SearchPage(action) => {
+                    this.handle_search_page_action(action, window, cx);
+                }
                 LibraryAppEvent::SidebarRowSelected(row) => {
                     this.open_sidebar_row(*row, window, cx);
                 }
@@ -681,7 +685,35 @@ impl TopApp {
                             cx,
                         );
                     });
+                    // ADR 0089 Decision 4: a click on Search puts the focus in the
+                    // toolbar field.
+                    if destination == MusicDestination::Search {
+                        self.focus_global_search(window, cx);
+                    }
                 }
+            }
+        }
+    }
+
+    /// Applies a request of the Search page to the toolbar field (ADR 0089
+    /// Decision 4). The field keeps the focus after each request.
+    fn handle_search_page_action(
+        &mut self,
+        action: &SearchPageAction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match action {
+            SearchPageAction::NewSavedSearch => {
+                self.global_search_input
+                    .update(cx, |input, cx| input.set_value("", window, cx));
+                self.focus_global_search(window, cx);
+            }
+            SearchPageAction::RunQuery(query) => {
+                let text = query.clone();
+                self.global_search_input
+                    .update(cx, |input, cx| input.set_value(text, window, cx));
+                self.open_search_results_in_content_list(query, window, cx);
             }
         }
     }
@@ -741,7 +773,7 @@ impl TopApp {
                 if restoring_from_settings {
                     let nav = self.last_music_content_nav.clone().unwrap_or_else(|| {
                         FrameNavigationState::new(FrameNavigationEntry::Destination(
-                            MusicDestination::Discover,
+                            MusicDestination::Search,
                         ))
                     });
                     if let Err(error) = self.workspace_layout.replace_nav(content_list_id, nav) {
@@ -751,7 +783,7 @@ impl TopApp {
 
                 self.sync_search_results_detail_with_nav(content_list_id, cx);
                 let entry = self.workspace_layout.frame_nav(content_list_id).map_or(
-                    FrameNavigationEntry::Destination(MusicDestination::Discover),
+                    FrameNavigationEntry::Destination(MusicDestination::Search),
                     |nav| nav.current().clone(),
                 );
                 self.library.update(cx, |library, cx| {
@@ -842,7 +874,7 @@ impl TopApp {
     /// Opens a Music page in the one navigation stack (ADR 0084 Decision 9).
     /// A new path starts at `entry` itself, a destination
     /// (ADR 0084 Decision 2). A destination with a default child page
-    /// (ADR 0084 Decision 3: Discover opens "New releases") opens that
+    /// (ADR 0089 Decision 4: the Search page lists the saved searches) opens that
     /// page under it, in the same path start. The page restores through
     /// the function that Back and Forward use.
     fn open_music_page(
@@ -1657,6 +1689,7 @@ impl TopApp {
             MusicFocusTarget::SearchResults => self
                 .search_page_focus(SearchPageSlot::ToolbarSearch)
                 .clone(),
+            MusicFocusTarget::SearchField => self.global_search_input.read(cx).focus_handle(cx),
             MusicFocusTarget::SavedSearchPage => {
                 self.search_page_focus(SearchPageSlot::SavedSearch).clone()
             }
@@ -1725,7 +1758,7 @@ impl TopApp {
         self.library.update(cx, |library, _cx| {
             library.set_music_page_open(music_columns.shows_detail());
         });
-        // ADR 0084 Decision 3, packet 012: the Discover column marks the
+        // ADR 0084 Decision 3, packet 012: the Search page marks the
         // saved search of the current location as its open row.
         let open_saved_search = self
             .workspace_layout

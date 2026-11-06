@@ -85,7 +85,7 @@ impl LibraryApp {
             MusicDestination::Artists => {
                 self.vm.set_list_scope(ListPageKey::Artists, scope);
             }
-            MusicDestination::Discover
+            MusicDestination::Search
             | MusicDestination::NeedsAttention
             | MusicDestination::Playlists => return,
         }
@@ -253,7 +253,7 @@ impl LibraryApp {
                     self.send_artist_name_request(intent, cx);
                 }
             }
-            MusicDestination::Discover
+            MusicDestination::Search
             | MusicDestination::NeedsAttention
             | MusicDestination::Playlists => {}
         }

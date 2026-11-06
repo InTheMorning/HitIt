@@ -51,8 +51,6 @@ pub enum IconName {
     DragHandle,
     NotAllowed,
     Warning,
-    /// Discover destination (ADR 0084 Decision 1).
-    Discover,
     /// Release destination and release rows (ADR 0084 Decision 1).
     Release,
     /// Artist destination (ADR 0084 Decision 1).
@@ -117,7 +115,6 @@ impl IconName {
             | Self::DragHandle
             | Self::NotAllowed
             | Self::Warning
-            | Self::Discover
             | Self::Release
             | Self::Artist
             | Self::Track
@@ -168,7 +165,6 @@ impl IconName {
             | Self::Next
             | Self::DragHandle
             | Self::NotAllowed
-            | Self::Discover
             | Self::Release
             | Self::Artist
             | Self::Track
@@ -199,7 +195,6 @@ impl IconName {
             Self::DragHandle => Some(LucideIconName::GripVertical),
             Self::NotAllowed => Some(LucideIconName::Ban),
             // ADR 0084 Decision 1: the destination icons.
-            Self::Discover => Some(LucideIconName::Compass),
             Self::Release => Some(LucideIconName::Disc),
             Self::Artist => Some(LucideIconName::Users),
             Self::Track => Some(LucideIconName::Music),
@@ -268,7 +263,6 @@ impl IconName {
             | Self::DragHandle
             | Self::NotAllowed
             | Self::Warning
-            | Self::Discover
             | Self::Release
             | Self::Artist
             | Self::Track
@@ -601,7 +595,6 @@ mod tests {
         IconName::DragHandle,
         IconName::NotAllowed,
         IconName::Warning,
-        IconName::Discover,
         IconName::Release,
         IconName::Artist,
         IconName::Track,
@@ -675,10 +668,6 @@ mod tests {
             Some(LucideIconName::GripVertical)
         );
         assert_eq!(IconName::NotAllowed.extra_icon(), Some(LucideIconName::Ban));
-        assert_eq!(
-            IconName::Discover.extra_icon(),
-            Some(LucideIconName::Compass)
-        );
         assert_eq!(IconName::Release.extra_icon(), Some(LucideIconName::Disc));
         assert_eq!(IconName::Artist.extra_icon(), Some(LucideIconName::Users));
         assert_eq!(IconName::Track.extra_icon(), Some(LucideIconName::Music));

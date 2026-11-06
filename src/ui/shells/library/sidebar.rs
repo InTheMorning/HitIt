@@ -26,7 +26,7 @@ use crate::view_models::sidebar::{SidebarIcon, SidebarRowVm};
 /// icon.
 const fn icon_name(icon: SidebarIcon) -> IconName {
     match icon {
-        SidebarIcon::Discover => IconName::Discover,
+        SidebarIcon::Search => IconName::Search,
         SidebarIcon::Release => IconName::Release,
         SidebarIcon::Artist => IconName::Artist,
         SidebarIcon::Playlist => IconName::Playlist,

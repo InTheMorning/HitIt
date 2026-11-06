@@ -16,7 +16,7 @@ fn frame(id: u64, kind: WorkspaceFrameKind) -> WorkspaceFrameState {
 
 /// Test helper: the default Music destination root, as a navigation entry.
 const fn discover() -> FrameNavigationEntry {
-    FrameNavigationEntry::Destination(MusicDestination::Discover)
+    FrameNavigationEntry::Destination(MusicDestination::Search)
 }
 
 /// Test helper: a `Track` entry with no release, keyed by `id` as its item
@@ -1297,6 +1297,14 @@ fn adr_0089_focus_target_follows_the_visible_frame() {
         music_focus_target(MusicColumns::ListRoot, &search, true),
         MusicFocusTarget::SearchResults
     );
+    assert_eq!(
+        music_focus_target(
+            MusicColumns::ListRoot,
+            &FrameNavigationEntry::Destination(MusicDestination::Search),
+            false
+        ),
+        MusicFocusTarget::SearchField
+    );
 }
 
 /// C4-02 (ADR 0084 Decisions 1 and 2): a list root opens no detail page, so
@@ -1304,7 +1312,7 @@ fn adr_0089_focus_target_follows_the_visible_frame() {
 #[test]
 fn adr_0084_columns_list_roots_open_no_detail_page() {
     for root in [
-        FrameNavigationEntry::Destination(MusicDestination::Discover),
+        FrameNavigationEntry::Destination(MusicDestination::Search),
         FrameNavigationEntry::Search("drums".to_string()),
         FrameNavigationEntry::Destination(MusicDestination::NeedsAttention),
     ] {
@@ -1705,7 +1713,7 @@ fn adr_0089_nav_item_path_goes_back_to_its_holding_list() {
 fn adr_0089_one_page_stack_shows_one_frame_for_each_entry() {
     let list_roots = [
         FrameNavigationEntry::Destination(MusicDestination::Releases),
-        FrameNavigationEntry::Destination(MusicDestination::Discover),
+        FrameNavigationEntry::Destination(MusicDestination::Search),
         FrameNavigationEntry::Search("drums".to_string()),
     ];
     let pages = [
@@ -1742,7 +1750,7 @@ fn adr_0084_saved_search_r12_05_label_and_frame_title() {
     assert!(entry.opens_detail_page());
 
     let nav = FrameNavigationState::new_with_page(
-        FrameNavigationEntry::Destination(MusicDestination::Discover),
+        FrameNavigationEntry::Destination(MusicDestination::Search),
         entry.clone(),
     );
     assert_eq!(nav.active_saved_search(), Some(SavedSearchId(7)));
