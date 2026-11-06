@@ -41,6 +41,7 @@ use crate::ui::shells::library::destination_list_scroll::render_destination_virt
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
+use crate::ui::shells::library::window_groups::render_releases_window_group_row;
 use crate::ui::sizable_bridge::SizableScaled;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor};
@@ -165,6 +166,11 @@ pub(crate) fn render_releases_list_item(
             cx,
         ),
         ReleasesListItemVm::Group(group) => render_singles_group_row(group, art, cx),
+        ReleasesListItemVm::WindowGroup(tile) => render_releases_window_group_row(
+            &tile,
+            art.unwrap_or(CollectionArtImage::EntityColor),
+            cx,
+        ),
         ReleasesListItemVm::Single(row) => render_destination_list_row(
             row,
             RowArt::Cover(thumbnail),

@@ -114,6 +114,43 @@ pub(crate) fn render_window_group_row(
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     let open_row_id = tile.open_row_id.clone();
+    render_window_group_row_with(
+        tile,
+        art,
+        probe,
+        move |this, event, cx| this.click_window_group_tile(&open_row_id, event.modifiers(), cx),
+        cx,
+    )
+}
+
+/// Renders one group row of the Releases list in the sort Newest (ADR
+/// 0086 Decision 3, ADR 0089 Decision 5). The row has the place of
+/// [`render_window_group_row`]. A click opens the group page of the tile
+/// (ADR 0086 Decision 4), because the Releases list has no detail column
+/// selection.
+pub(crate) fn render_releases_window_group_row(
+    tile: &WindowGroupTileVm,
+    art: CollectionArtImage,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    let page_key = tile.page_key.clone();
+    render_window_group_row_with(
+        tile,
+        art,
+        None,
+        move |this, _event, cx| this.open_window_group(&page_key, cx),
+        cx,
+    )
+}
+
+/// The shared body of a group row. `on_click` runs when the row is clicked.
+fn render_window_group_row_with(
+    tile: &WindowGroupTileVm,
+    art: CollectionArtImage,
+    probe: Option<AnyElement>,
+    on_click: impl Fn(&mut LibraryApp, &ClickEvent, &mut Context<LibraryApp>) + 'static,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
     let text = div()
         .flex_1()
         .min_w_0()
@@ -134,7 +171,7 @@ pub(crate) fn render_window_group_row(
         .a11y_label(ListRowA11yLabel {
             label: SharedString::from(tile.a11y_label.clone()),
         })
-        .selected(tile.selection.is_marked())
+        .selected(tile.marked || tile.selection.is_marked())
         .focused(tile.selection.focused)
         .scroll_probe(probe);
     if let Some(checkbox) = render_window_group_checkbox(tile, cx) {
@@ -143,7 +180,7 @@ pub(crate) fn render_window_group_row(
     row.child(render_window_group_row_art(art))
         .child(text)
         .on_click(cx.listener(move |this, event: &ClickEvent, _window, cx| {
-            this.click_window_group_tile(&open_row_id, event.modifiers(), cx);
+            on_click(this, event, cx);
         }))
         .into_any_element()
 }

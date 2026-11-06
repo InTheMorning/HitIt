@@ -11,6 +11,7 @@
 
 #![warn(clippy::pedantic)]
 
+use crate::view_models::releases_everything::Revision;
 use crate::view_models::search_results::{FeedResultDisplay, SearchResultItemId};
 
 /// The largest number of extra pages for one page request (ADR 0086
@@ -100,12 +101,16 @@ pub(crate) struct RecentFeedsPageVm {
     extra_pages: usize,
     /// The detail of a failed older page, until the next page request.
     older_pages_failure: Option<String>,
+    /// The revision of the loaded rows and of the load state. Each change
+    /// of either one gives a new revision (ADR 0089 Decision 5, the
+    /// Releases list key).
+    revision: Revision,
 }
 
 impl RecentFeedsPageVm {
     /// Creates a loading Recent Feeds page.
     #[must_use]
-    pub(crate) const fn loading() -> Self {
+    pub(crate) fn loading() -> Self {
         Self {
             state: RecentFeedsPageState::Loading,
             cursor: None,
@@ -116,6 +121,28 @@ impl RecentFeedsPageVm {
             staged: Vec::new(),
             extra_pages: 0,
             older_pages_failure: None,
+            revision: Revision::default(),
+        }
+    }
+
+    /// The revision of the loaded rows and of the load state.
+    #[must_use]
+    pub(crate) const fn revision(&self) -> Revision {
+        self.revision
+    }
+
+    /// True before the first page request of this pager.
+    #[must_use]
+    pub(crate) const fn is_not_started(&self) -> bool {
+        self.generation == 0
+    }
+
+    /// The loaded rows. The staged rows of a chain show when the chain
+    /// stops, so they are not in this list.
+    pub(crate) fn loaded_rows(&self) -> &[RecentFeedResultRow] {
+        match &self.state {
+            RecentFeedsPageState::Loaded(rows) => rows,
+            RecentFeedsPageState::Loading | RecentFeedsPageState::Error { .. } => &[],
         }
     }
 
@@ -130,6 +157,7 @@ impl RecentFeedsPageVm {
         if append && (self.loading || !self.has_more) {
             return None;
         }
+        self.revision.bump();
 
         if !append {
             self.generation = self.generation.wrapping_add(1);
@@ -157,6 +185,7 @@ impl RecentFeedsPageVm {
         if !self.accepts(generation) {
             return false;
         }
+        self.revision.bump();
         self.staged.extend(batch.rows);
         self.cursor = batch.cursor;
         self.has_more = batch.has_more;
@@ -202,6 +231,7 @@ impl RecentFeedsPageVm {
         if !self.accepts(generation) {
             return false;
         }
+        self.revision.bump();
         if !self.append && self.extra_pages == 0 {
             self.loading = false;
             self.staged.clear();
@@ -225,6 +255,7 @@ impl RecentFeedsPageVm {
     /// Moves the staged rows into the loaded rows and stops the loading
     /// state.
     fn finish_chain(&mut self) {
+        self.revision.bump();
         self.loading = false;
         let staged = std::mem::take(&mut self.staged);
         match &mut self.state {

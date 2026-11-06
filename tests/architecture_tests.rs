@@ -23393,24 +23393,27 @@ fn adr_0086_parallel_reads_r86_1_06_feed_detail_reads_use_the_shared_limit() {
 /// `src/`, by its relative path.
 fn window_groups_built_once_violations(library: &str, files: &[(String, String)]) -> Vec<String> {
     const BUILD: &str = "NewReleasesLayout::build(";
-    const LAYOUT_OF_ROWS: &str = "layout_of_rows(";
+    const SHARED: &str = "NewReleasesLayout::for_list(";
     let mut violations = Vec::new();
-    let layout_of_rows = music_open_defects_fn_body(library, "layout_of_rows");
-    if library.matches(BUILD).count() != 1
-        || !layout_of_rows.is_some_and(|body| body.contains(BUILD))
-    {
+    // ADR 0089 packet 005 part B, requirement 3: the one build site is
+    // `NewReleasesLayout::for_list`, which Discover and the Releases list share.
+    if library.contains(BUILD) {
         violations.push(format!(
-            "src/view_models/library.rs: call `{BUILD}` one time, in `fn layout_of_rows`"
+            "src/view_models/library.rs: call `{BUILD}` through `NewReleasesLayout::for_list`"
         ));
     }
-    // ADR 0086 packet 003 decision D12: one definition and two callers.
-    let callers = ["refresh_new_releases_layout", "recent_music_windows_open"];
+    let callers = [
+        "refresh_new_releases_layout",
+        "newest_releases_rows",
+        "window_group_page",
+        "recent_music_windows_open",
+    ];
     let callers_call = callers.iter().all(|name| {
-        music_open_defects_fn_body(library, name).is_some_and(|body| body.contains(LAYOUT_OF_ROWS))
+        music_open_defects_fn_body(library, name).is_some_and(|body| body.contains(SHARED))
     });
-    if library.matches(LAYOUT_OF_ROWS).count() != 1 + callers.len() || !callers_call {
+    if library.matches(SHARED).count() != callers.len() || !callers_call {
         violations.push(format!(
-            "src/view_models/library.rs: only `fn refresh_new_releases_layout` and `fn recent_music_windows_open` call `{LAYOUT_OF_ROWS}`"
+            "src/view_models/library.rs: only `fn refresh_new_releases_layout`, `fn newest_releases_rows`, `fn window_group_page` and `fn recent_music_windows_open` call `{SHARED}`"
         ));
     }
     for (file, source) in files {
@@ -23418,7 +23421,7 @@ fn window_groups_built_once_violations(library: &str, files: &[(String, String)]
             .iter()
             .any(|prefix| file.starts_with(prefix));
         if shell_or_app {
-            for call in ["window_groups(", BUILD] {
+            for call in ["window_groups(", BUILD, SHARED] {
                 if source.contains(call) {
                     violations.push(format!("{file}: calls `{call}`"));
                 }
@@ -23438,7 +23441,7 @@ fn window_groups_built_once_violations(library: &str, files: &[(String, String)]
 /// guard when ADR 0086 Decision 2 is superseded.
 #[test]
 fn adr_0086_window_groups_built_once_in_the_view_model() {
-    const FIX: &str = "ADR 0086 §2 A Group Tile Takes The Place Of Its Newest Single: the New releases window groups are built only in `LibraryViewModel::layout_of_rows`, which only `refresh_new_releases_layout` and `recent_music_windows_open` call.\nRead `LibraryViewModel::new_releases_layout()` in the render and in each handler. Do not build the groups again.";
+    const FIX: &str = "ADR 0089 packet 005 part B: the window groups are built only by `NewReleasesLayout::for_list`, called from `refresh_new_releases_layout`, `newest_releases_rows`, `window_group_page` and `recent_music_windows_open` in `LibraryViewModel`.\nRead `LibraryViewModel::new_releases_layout()` or the cached Releases rows in the render and in each handler. Do not build the groups again.";
     let library = read_source(&manifest_path("src/view_models/library.rs"));
     let files: Vec<(String, String)> = rust_files_under("src")
         .into_iter()
@@ -23448,22 +23451,14 @@ fn adr_0086_window_groups_built_once_in_the_view_model() {
     let violations = window_groups_built_once_violations(&library, &files);
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
 
-    // A copy of library.rs that makes the groups two times fails.
+    // A copy of library.rs that calls the build function itself fails.
     let twice = format!(
         "{library}\nfn build_again(rows: &[&Row], tree: &LibraryTree) {{ let _ = NewReleasesLayout::build(rows, tree, WindowLength::DEFAULT); }}\n"
     );
     assert!(!window_groups_built_once_violations(&twice, &files).is_empty());
-    // A copy of library.rs that builds the groups outside `fn layout_of_rows` fails (R86-3-27).
-    let outside = library.replacen(
-        "NewReleasesLayout::build(rows,",
-        "NewReleasesLayout::default(); let _ = (rows,",
-        1,
-    ) + "\nfn refresh_elsewhere(rows: &[&Row], tree: &LibraryTree) { let _ = NewReleasesLayout::build(rows, tree, WindowLength::DEFAULT); }\n";
-    assert_ne!(outside, library);
-    assert!(!window_groups_built_once_violations(&outside, &files).is_empty());
-    // A third caller of `layout_of_rows` fails.
-    let third = format!("{library}\nfn third(&self) {{ let _ = self.layout_of_rows(&[]); }}\n");
-    assert!(!window_groups_built_once_violations(&third, &files).is_empty());
+    // A fourth caller of the shared build fails.
+    let fourth = format!("{library}\nfn refresh_elsewhere(rows: &[&Row], tree: &LibraryTree) {{ let _ = NewReleasesLayout::for_list(rows, tree, WindowLength::DEFAULT, false); }}\n");
+    assert!(!window_groups_built_once_violations(&fourth, &files).is_empty());
     // A shell that makes the groups fails.
     let mut shell = files.clone();
     shell.push((

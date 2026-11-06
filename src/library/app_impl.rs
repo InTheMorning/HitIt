@@ -124,7 +124,9 @@ use crate::view_models::singles_group::{
     SinglesGroupKey, SinglesGroupPageEntryVm, SinglesGroupPageVm,
 };
 use crate::view_models::track_detail::TrackNameLinkTarget;
-use crate::view_models::window_groups::{ContentListItemVm, NewReleasesLayoutItem, WindowGroupKey};
+use crate::view_models::window_groups::{
+    ContentListItemVm, NewReleasesLayoutItem, WindowGroupKey, WindowGroupSource,
+};
 use crate::view_models::workspace::{
     ContentViewMode, DiscoverView, FrameHeaderActionDisplay, FrameNavigationEntry,
     MusicDestination, NavigationPathStart, ReleaseKey, TrackKey,
@@ -2597,10 +2599,14 @@ impl LibraryApp {
             // the path"). Each open reads the MusicIndex singles of the
             // feed, so the link to the group page can show.
             FrameNavigationEntry::WindowGroup(key) => {
-                self.vm.set_active_destination(MusicDestination::Discover);
+                // A group of New releases belongs to Discover. A group of
+                // the Releases list keeps its destination.
+                if matches!(key.source, WindowGroupSource::NewReleases) {
+                    self.vm.set_active_destination(MusicDestination::Discover);
+                    self.vm
+                        .replace_recent_music_content(&self.recent_music_page);
+                }
                 self.vm.clear_library_selection();
-                self.vm
-                    .replace_recent_music_content(&self.recent_music_page);
                 self.detail = LibraryDetail::WindowGroup(key.clone());
                 self.request_singles_group_feed(&key.group, cx);
             }
@@ -5261,6 +5267,9 @@ impl LibraryApp {
                 ThumbnailSize::Sm,
                 cx,
             )),
+            ReleasesListItemVm::WindowGroup(tile) => {
+                Some(collection_art_image(self, &tile.art, ThumbnailSize::Sm, cx))
+            }
             ReleasesListItemVm::LeadingStatus(_)
             | ReleasesListItemVm::Release(_)
             | ReleasesListItemVm::Single(_)

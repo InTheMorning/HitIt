@@ -8,6 +8,7 @@
 
 #![warn(clippy::pedantic)]
 
+use crate::view_models::recent_feeds::{RecentFeedsPageState, RecentFeedsPageVm};
 use crate::view_models::releases_everything::Revision;
 
 /// The sort key of a name (Stophammer ADR 0070 §1, ADR 0084 Decision 7).
@@ -324,19 +325,22 @@ pub(crate) enum IndexNameList {
     Releases,
     /// `GET /v1/artist-names`, for the Artists list.
     Artists,
+    /// `GET /v1/feeds/recent`, for the Releases list in the sort Newest
+    /// (ADR 0089 Decision 5).
+    RecentReleases,
 }
 
 impl IndexNameList {
     const fn noun(self) -> &'static str {
         match self {
-            Self::Releases => "releases",
+            Self::Releases | Self::RecentReleases => "releases",
             Self::Artists => "artists",
         }
     }
 
     const fn singular(self) -> &'static str {
         match self {
-            Self::Releases => "release",
+            Self::Releases | Self::RecentReleases => "release",
             Self::Artists => "artist",
         }
     }
@@ -345,17 +349,22 @@ impl IndexNameList {
     const fn request(self) -> &'static str {
         match self {
             Self::Releases => "GET /v1/feeds/by-name",
+            Self::RecentReleases => "GET /v1/feeds/recent",
             Self::Artists => "GET /v1/artist-names",
         }
     }
 
     fn element_id(self, part: &str) -> String {
-        format!("music-index-{}-{part}", self.noun())
+        match self {
+            Self::RecentReleases => format!("music-index-recent-{part}"),
+            Self::Releases | Self::Artists => format!("music-index-{}-{part}", self.noun()),
+        }
     }
 
     const fn loading_label(self) -> &'static str {
         match self {
             Self::Releases => "Loading MusicIndex releases",
+            Self::RecentReleases => "Loading recent MusicIndex releases",
             Self::Artists => "Loading MusicIndex artists",
         }
     }
@@ -384,6 +393,39 @@ impl IndexNameList {
             a11y_label: format!("Load more MusicIndex {}", self.noun()),
             available,
         })
+    }
+}
+
+/// The status row of the Releases list in the sort Newest (ADR 0089
+/// Decision 5). It reads the recent pager: the loading row of page 1, the
+/// error row of page 1, or "Load more" when the Index has more pages.
+#[must_use]
+pub(crate) fn recent_releases_status_row(page: &RecentFeedsPageVm) -> Option<IndexListStatusRowVm> {
+    let list = IndexNameList::RecentReleases;
+    match page.state() {
+        RecentFeedsPageState::Loading => page.is_loading().then(|| IndexListStatusRowVm::Loading {
+            element_id: list.element_id("loading"),
+            label: list.loading_label(),
+        }),
+        RecentFeedsPageState::Error { message: _, detail } => Some(IndexListStatusRowVm::Failed {
+            element_id: list.element_id("error"),
+            first_page: true,
+            message: list.failure_message(false),
+            detail: format!("{}: {detail}", list.request()),
+            retry: IndexListActionDisplay {
+                id: list.element_id("retry"),
+                label: "Try again",
+                a11y_label: list.retry_a11y_label(),
+                available: true,
+            },
+        }),
+        RecentFeedsPageState::Loaded(_) => {
+            if page.is_loading() {
+                Some(list.load_more_row(false))
+            } else {
+                page.has_more().then(|| list.load_more_row(true))
+            }
+        }
     }
 }
 

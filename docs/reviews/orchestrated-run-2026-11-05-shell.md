@@ -38,3 +38,5 @@ Each entry names the step, the decision and the reason.
 - Packet 005: the orchestrator divided it into Parts A to D, because the first agent stopped on its size before any edit.
 - Packet 005, Artists: Artists has one sort, A to Z. The packet states the evidence.
 - Packet 005 Part A: a first letter outside ASCII counts as "#". A later rule for sort keys can change this.
+- Packet 005 Part B: a Library release older than the loaded recent page sits at the end of Newest in All, and a later page goes before it. The merge sorts by date at each page, so the sequence stays correct.
+- Packet 005 Part B: the window group page of Releases rebuilds its layout at each render, as the page of a saved search does. Nobody measured it on a large list, and the final walk checks it.
