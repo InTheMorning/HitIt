@@ -145,7 +145,11 @@ impl TopApp {
     }
 
     /// "Delete…" of the saved-search page: opens the confirmation.
-    fn request_saved_search_delete(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn request_saved_search_delete(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(page) = self.saved_search_page.as_ref() else {
             return;
         };
@@ -190,6 +194,10 @@ impl TopApp {
     /// Renders the saved-search page of the detail column: the view model
     /// and the renderer of packet 010, with "Delete…" in its header and the
     /// bar at the bottom of the column.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the page reads the library, the thumbnails and the title row slots in one pass"
+    )]
     pub(super) fn render_saved_search_page_content(
         &mut self,
         cx: &mut Context<Self>,
@@ -207,10 +215,9 @@ impl TopApp {
         let Some(page) = mounted else {
             return render_search_empty_state(&SavedSearchPage::loading_empty_state(), cx);
         };
-        let Some(delete_action) = page.delete_action() else {
-            return render_search_empty_state(&SavedSearchPage::deleted_empty_state(), cx);
-        };
-        let hide_header_query = !page.header_shows_query();
+        let header_title = page.header_title();
+        let header_status = page.header_status().map(str::to_owned);
+        let header_actions = page.header_actions();
         let (items, bar, thumbnail_hrefs) = {
             let library = self.library.read(cx);
             let lookup = library.search_lookup();
@@ -233,8 +240,8 @@ impl TopApp {
         let toggle_entity = entity.clone();
         let failure_entity = entity.clone();
         let scope_entity = entity.clone();
-        let delete_entity = entity.clone();
-        let slots = SearchResultsInspectorSlots::new()
+        let action_entity = entity.clone();
+        let mut slots = SearchResultsInspectorSlots::new()
             .on_failure_action(move |action, _window, cx: &mut App| {
                 failure_entity.update(cx, |this, cx| {
                     this.handle_search_failure_action(SearchPageSlot::SavedSearch, action, cx);
@@ -271,14 +278,20 @@ impl TopApp {
                     this.set_saved_search_library_scope(scope, window, cx);
                 });
             })
-            .header_action(delete_action, move |window, cx: &mut App| {
-                delete_entity.update(cx, |this, cx| this.request_saved_search_delete(window, cx));
-            })
+            .with_header_title(header_title)
+            .with_header_status(header_status)
             .with_thumbnails(thumbnails)
             .with_arts(arts)
             .with_items(items)
-            .with_header_query_hidden(hide_header_query)
             .with_scroll(self.search_page_scroll(SearchPageSlot::SavedSearch));
+        for (action, display) in header_actions {
+            let action_entity = action_entity.clone();
+            slots = slots.header_action(display, move |window, cx: &mut App| {
+                action_entity.update(cx, |this, cx| {
+                    this.run_saved_search_header_action(action, window, cx);
+                });
+            });
+        }
         let Some(results) = self.search_page(SearchPageSlot::SavedSearch) else {
             return render_search_empty_state(&SavedSearchPage::deleted_empty_state(), cx);
         };
@@ -291,7 +304,7 @@ impl TopApp {
             .size_full()
             .flex()
             .flex_col()
-            .child(query_bar)
+            .children(query_bar)
             .child(frame)
             .into_any_element()
     }

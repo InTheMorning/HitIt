@@ -50,8 +50,9 @@ use crate::view_models::library::DestinationListRowTarget;
 use crate::view_models::list_page::{ListPageKey, ListSort, ListView};
 use crate::view_models::public_playlists::{
     public_playlist_copy_menu, public_playlist_copy_report, public_playlist_list_items,
-    PublicPlaylistCopyDialogVm, PublicPlaylistCopyName, PublicPlaylistListItemVm,
-    PublicPlaylistLoadState, PublicPlaylistRowVm, COPYING_TEXT, PUBLIC_PLAYLIST_NO_READABLE_TRACKS,
+    PublicPlaylistCopyDialogVm, PublicPlaylistCopyName, PublicPlaylistCopyReport,
+    PublicPlaylistListItemVm, PublicPlaylistLoadState, PublicPlaylistRowVm, COPYING_TEXT,
+    PUBLIC_PLAYLIST_NO_READABLE_TRACKS,
 };
 use crate::view_models::release_page::TrackRowMenuAction;
 
@@ -200,6 +201,19 @@ impl LibraryApp {
         }
     }
 
+    /// Sets the public playlist of the open page, or `None` when no such page
+    /// is open. A copy report ends when its page closes (ADR 0089 packet
+    /// 010), so the report is kept only on the page that it names.
+    pub(crate) fn set_open_public_playlist(&mut self, open: Option<&str>) {
+        let kept = self
+            .public_playlist_copy_report
+            .as_ref()
+            .is_some_and(|report| report.text_on_page(open).is_some());
+        if !kept {
+            self.public_playlist_copy_report = None;
+        }
+    }
+
     /// The loaded title of the public playlist `feed_guid`, or `None` before
     /// it loads (ADR 0089 Decision 9).
     #[must_use]
@@ -249,7 +263,7 @@ impl LibraryApp {
                 view: Some(on_view),
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
-                action: None,
+                actions: Vec::new(),
             },
             cx,
         )
@@ -359,6 +373,8 @@ impl LibraryApp {
     /// updates My playlists in place.
     fn run_public_playlist_copy(&mut self, feed_guid: &str, name: String, cx: &mut Context<Self>) {
         self.copying_public_playlist = Some(feed_guid.to_owned());
+        // A new copy ends the report of the last copy (ADR 0089 packet 010).
+        self.public_playlist_copy_report = None;
         cx.notify();
         let command = CopyPublicPlaylistToMyPlaylists::new(
             Arc::clone(&self.conn),
@@ -366,6 +382,7 @@ impl LibraryApp {
             feed_guid,
             name,
         );
+        let report_guid = feed_guid.to_owned();
         present_command(
             &self.command_runner,
             command,
@@ -373,24 +390,23 @@ impl LibraryApp {
             cx,
             move |this, result, cx| {
                 this.copying_public_playlist = None;
-                match result {
+                let text = match result {
                     CopyPublicPlaylistResult::Copied(outcome) => {
                         this.reload_playlists();
-                        this.vm.set_status(public_playlist_copy_report(
-                            &outcome.name,
-                            outcome.copied,
-                            outcome.total,
-                        ));
+                        public_playlist_copy_report(&outcome.name, outcome.copied, outcome.total)
                     }
                     CopyPublicPlaylistResult::NameTaken(name) => {
-                        let message = PublicPlaylistCopyName::Taken(name).message();
-                        this.vm.set_status(message.unwrap_or_default());
+                        PublicPlaylistCopyName::Taken(name)
+                            .message()
+                            .unwrap_or_default()
                     }
                     CopyPublicPlaylistResult::NoReadableTracks => {
-                        this.vm
-                            .set_status(PUBLIC_PLAYLIST_NO_READABLE_TRACKS.to_owned());
+                        PUBLIC_PLAYLIST_NO_READABLE_TRACKS.to_owned()
                     }
-                }
+                };
+                this.vm.set_status(text.clone());
+                this.public_playlist_copy_report =
+                    Some(PublicPlaylistCopyReport::new(&report_guid, text));
                 cx.notify();
             },
             move |this, error, cx| {
@@ -616,13 +632,24 @@ impl LibraryApp {
                     self.public_playlist_menu_of(menu, feed_guid.to_owned(), page.title.clone(), cx)
                 });
                 let (menu_cell, _root) = row_menu_parts(menu, menu_cell(cx), true, window, cx);
-                let status = (self.copying_public_playlist.as_deref() == Some(feed_guid))
-                    .then_some(COPYING_TEXT);
+                // The copy text shows while the copy runs. Then the report of
+                // the copy shows in place, next to the title (ADR 0089 packet 010).
+                let copying = self.copying_public_playlist.as_deref() == Some(feed_guid);
+                let report = self
+                    .public_playlist_copy_report
+                    .as_ref()
+                    .and_then(|report| report.text_on_page(Some(feed_guid)))
+                    .map(str::to_owned);
+                let status = if copying {
+                    Some(COPYING_TEXT.to_owned())
+                } else {
+                    report
+                };
                 render_public_playlist_page_body(
                     &page,
                     header_art,
                     menu_cell.into_any_element(),
-                    status,
+                    status.as_deref(),
                     rows,
                     cx,
                 )

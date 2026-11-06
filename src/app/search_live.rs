@@ -189,6 +189,12 @@ impl TopApp {
             return;
         }
         let text = self.global_search_input.read(cx).value().to_string();
+        // ADR 0089 Decision 4: while a query edit is open, the toolbar text
+        // is the live query of the saved-search page. The page keeps its place.
+        if self.saved_search_query_editing() {
+            self.run_saved_search_query_text(&text, cx);
+            return;
+        }
         let mounted_query = self
             .content_list_frame_id()
             .and_then(|content_list_id| self.workspace_layout.frame_nav(content_list_id))

@@ -13,7 +13,7 @@
 use crate::db::saved_searches::{StoredSavedSearch, StoredStartTab};
 use crate::view_models::workspace::{FrameNavigationEntry, MusicDestination};
 
-use super::saved_search_query::SavedSearchQueryEdit;
+use super::saved_search_query::{saved_search_query_controls, SavedSearchQueryEdit};
 use super::{EmptyStateDisplay, SearchResultsInspectorPageVm, SearchResultsTab};
 
 /// The identity of one saved search: its `saved_searches` row id.
@@ -26,16 +26,18 @@ pub(crate) struct SavedSearch {
     pub(crate) id: SavedSearchId,
     /// The trimmed query text.
     pub(crate) query: String,
-    /// The name that the operator gave, or `None` to show the query.
-    pub(crate) name: Option<String>,
+    /// The name of the saved search. It is unique without case, and it is
+    /// the key of the saved search (operator decision of 2026-11-06).
+    pub(crate) name: String,
 }
 
 impl SavedSearch {
     /// The frame title of the saved-search page.
     pub(crate) const FRAME_TITLE: &'static str = "Saved search";
 
-    /// The subtitle of a saved-search row of the Search page. Each saved search
-    /// runs against the Library and the Index (ADR 0084 Decision 3).
+    /// The subtitle of a saved-search row of the Search page, when the name
+    /// is the query. Each saved search runs against the Library and the Index
+    /// (ADR 0084 Decision 3).
     pub(crate) const SUBTITLE: &'static str = "Library and Index";
 
     /// A saved search from its stored row.
@@ -48,11 +50,15 @@ impl SavedSearch {
         }
     }
 
-    /// The text of the row: the name when there is one, else the query
-    /// (ADR 0089 Decision 4). The query stays visible on the page.
+    /// The subtitle of the row: the query when it differs from the name, else
+    /// `SUBTITLE` (operator decision of 2026-11-06).
     #[must_use]
-    pub(crate) fn display_label(&self) -> &str {
-        self.name.as_deref().unwrap_or(&self.query)
+    pub(crate) fn subtitle(&self) -> &str {
+        if self.query == self.name {
+            Self::SUBTITLE
+        } else {
+            &self.query
+        }
     }
 
     /// The navigation entry of this saved search.
@@ -210,8 +216,22 @@ pub(crate) struct SavedSearchPage {
     pub(crate) id: SavedSearchId,
     pub(crate) query: String,
     pub(crate) state: SavedSearchPageState,
-    /// The open query field, or `None` when the page shows its stored text.
+    /// The open query edit, or `None` when the page shows its stored text.
     pub(crate) edit: Option<SavedSearchQueryEdit>,
+    /// The name of the saved search, or its query when it has no name. The
+    /// title row of an open edit shows it.
+    pub(crate) label: String,
+}
+
+/// An action of the title row of a saved-search page (ADR 0089 Decision 4).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SavedSearchHeaderAction {
+    /// "Delete…": opens the delete confirmation.
+    Delete,
+    /// "Save Query": keeps the typed query.
+    SaveQuery,
+    /// "Cancel": restores the stored query.
+    CancelQuery,
 }
 
 impl SavedSearchPage {
@@ -230,15 +250,18 @@ impl SavedSearchPage {
             query: search.query.clone(),
             state: SavedSearchPageState::Open(Box::new(results.into_saved_search(search))),
             edit: None,
+            label: search.name.clone(),
         }
     }
 
     /// The page of a deleted saved search.
     #[must_use]
     pub(crate) fn deleted(id: SavedSearchId, query: impl Into<String>) -> Self {
+        let query = query.into();
         Self {
             id,
-            query: query.into(),
+            label: query.clone(),
+            query,
             state: SavedSearchPageState::Deleted,
             edit: None,
         }
@@ -253,11 +276,72 @@ impl SavedSearchPage {
             .map_or(self.query.as_str(), SavedSearchQueryEdit::live_query)
     }
 
-    /// Tells if the header shows the query as its headline. The header shows
-    /// the query, or the query field, never both (ADR 0089 Decision 4).
+    /// The title row text. An open edit shows "Editing: " and the name of the
+    /// saved search. Otherwise the title row shows the stored query (ADR 0089
+    /// Decision 4).
     #[must_use]
-    pub(crate) fn header_shows_query(&self) -> bool {
-        self.edit.is_none()
+    pub(crate) fn header_title(&self) -> String {
+        match &self.edit {
+            Some(_) => format!("Editing: {}", self.label),
+            None => self.query.clone(),
+        }
+    }
+
+    /// The status text under the title row: the message of the last keep of
+    /// an open edit.
+    #[must_use]
+    pub(crate) fn header_status(&self) -> Option<&str> {
+        self.edit.as_ref().and_then(SavedSearchQueryEdit::message)
+    }
+
+    /// The actions of the title row, in their order. An open edit shows
+    /// "Save Query" and "Cancel". Otherwise the page shows "Delete…". A
+    /// deleted saved search shows no action (ADR 0089 Decision 4).
+    #[must_use]
+    pub(crate) fn header_actions(&self) -> Vec<(SavedSearchHeaderAction, SearchPageActionDisplay)> {
+        if self.results().is_none() {
+            return Vec::new();
+        }
+        match &self.edit {
+            Some(edit) => {
+                let controls = saved_search_query_controls(edit);
+                vec![
+                    (SavedSearchHeaderAction::SaveQuery, controls.save),
+                    (SavedSearchHeaderAction::CancelQuery, controls.cancel),
+                ]
+            }
+            None => self
+                .delete_action()
+                .map(|display| (SavedSearchHeaderAction::Delete, display))
+                .into_iter()
+                .collect(),
+        }
+    }
+
+    /// Tells if a new search ends the open query edit. Every new search ends
+    /// it, whatever its text, so a search never waits for the edit (ADR 0089
+    /// Decision 4).
+    #[must_use]
+    pub(crate) fn query_edit_ends_for_new_search(&self) -> bool {
+        self.edit.is_some()
+    }
+
+    /// Ends the open query edit. It gives `true` when an edit was open. The
+    /// results of the stored text stay, so the caller runs the stored query.
+    pub(crate) fn cancel_query_edit(&mut self) -> bool {
+        self.edit.take().is_some()
+    }
+
+    /// Tells if the open query edit ends, because the current location is
+    /// not this page. A Back, a sidebar click or another page ends the edit
+    /// (ADR 0089 Decision 4).
+    #[must_use]
+    pub(crate) fn query_edit_ends_when_left(&self, current: Option<&FrameNavigationEntry>) -> bool {
+        self.edit.is_some()
+            && !matches!(
+                current,
+                Some(FrameNavigationEntry::SavedSearch { id, .. }) if *id == self.id
+            )
     }
 
     /// Opens the query field over the open page. Gives `false` for a deleted
@@ -386,10 +470,10 @@ pub(crate) fn saved_search_result_is_current(
 /// Decision 4).
 pub(crate) const SAVED_SEARCH_MISSING_TEXT: &str = "This saved search no longer exists.";
 
-/// The text that shows when a copy has the text of a saved search that
-/// exists already (ADR 0089 Decision 4).
-pub(crate) const SAVED_SEARCH_COPY_CONFLICT_TEXT: &str =
-    "A saved search with this text already exists. Rename it first.";
+/// The text that shows when a rename gives a name that another saved search
+/// holds, without case (operator decision of 2026-11-06).
+pub(crate) const SAVED_SEARCH_NAME_TAKEN_TEXT: &str =
+    "Another saved search has this name. Choose another name.";
 
 /// One item of the item menu of a saved search (ADR 0089 Decision 4).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -398,7 +482,7 @@ pub(crate) enum SavedSearchMenuItem {
     EditQuery,
     /// "Rename…": the name of the row becomes an input.
     Rename,
-    /// "Duplicate": a new row with " copy" after the name.
+    /// "Duplicate": a new row with the same query, and " copy" after the name.
     Duplicate,
     /// "Delete Saved Search…": the delete confirmation.
     Delete,
@@ -420,7 +504,7 @@ pub(crate) struct SavedSearchMenuEntry {
 /// available, and only the delete item is destructive.
 #[must_use]
 pub(crate) fn saved_search_menu(search: &SavedSearch) -> [SavedSearchMenuEntry; 4] {
-    let name = search.display_label();
+    let name = search.name.as_str();
     [
         SavedSearchMenuEntry {
             item: SavedSearchMenuItem::EditQuery,
@@ -472,7 +556,7 @@ pub(crate) struct SavedSearchRenameDisplay {
 /// The rename controls of a saved search row.
 #[must_use]
 pub(crate) fn saved_search_rename_display(search: &SavedSearch) -> SavedSearchRenameDisplay {
-    let name = search.display_label();
+    let name = search.name.as_str();
     SavedSearchRenameDisplay {
         input_placeholder: "Saved search name",
         save_id: "music-saved-search-rename-save",
@@ -501,8 +585,11 @@ pub(crate) fn new_saved_search_action() -> SearchPageActionDisplay {
 mod tests {
     use super::{
         delete_saved_search_confirmation, location_after_saved_search_delete, save_search_action,
-        saved_search_restore, saved_search_result_is_current, SavedSearch, SavedSearchId,
-        SavedSearchPage, SavedSearchRestore, SearchPageActionStyle,
+        saved_search_restore, saved_search_result_is_current, SavedSearch, SavedSearchHeaderAction,
+        SavedSearchId, SavedSearchPage, SavedSearchRestore, SearchPageActionStyle,
+    };
+    use crate::view_models::search_results::saved_search_query::{
+        SavedSearchQueryKeep, SAVED_SEARCH_QUERY_BLANK_TEXT,
     };
     use crate::view_models::search_results::tests::{index_release, index_track, RecordedLibrary};
     use crate::view_models::search_results::{
@@ -516,7 +603,7 @@ mod tests {
         SavedSearch {
             id: SavedSearchId(id),
             query: query.to_owned(),
-            name: None,
+            name: query.to_owned(),
         }
     }
 
@@ -553,6 +640,20 @@ mod tests {
         let vm = SearchResultsInspectorPageVm::new("bluegrass");
         assert_eq!(vm.save_action(&list).label, "Saved");
         assert_eq!(vm.save_action(&[]).label, "Save search");
+    }
+
+    /// ADR 0084 Decision 3 (operator decision of 2026-11-06): the save
+    /// action is a rule of the action, not of the table. Two saved searches
+    /// that hold one query keep "Saved", so one click cannot save a copy.
+    #[test]
+    fn adr_0089_saved_search_r23_06_save_action_keeps_saved_for_a_shared_query() {
+        let mut second = saved(2, "bluegrass");
+        second.name = "bluegrass 2".to_owned();
+        let list = [saved(1, "bluegrass"), second];
+        assert!(super::is_query_saved(&list, " BLUEGRASS "));
+        let present = save_search_action("bluegrass", &list);
+        assert_eq!(present.label, "Saved");
+        assert!(!present.available);
     }
 
     /// R12-06 (ADR 0084 Decision 3, ADR 0089 Decision 4): the page opens on
@@ -789,14 +890,14 @@ mod tests {
         );
     }
 
-    /// ADR 0089 Decision 4: a row shows its name when it has one, and else
-    /// its query.
+    /// ADR 0089 Decision 4 (operator decision of 2026-11-06): a row shows
+    /// its name. The name is required, and the query stays stored beside it.
     #[test]
-    fn adr_0089_saved_search_row_shows_the_name_or_the_query() {
+    fn adr_0089_saved_search_row_shows_the_name_and_keeps_the_query() {
         let mut search = saved(3, "bluegrass");
-        assert_eq!(search.display_label(), "bluegrass");
-        search.name = Some("Old time".to_owned());
-        assert_eq!(search.display_label(), "Old time");
+        assert_eq!(search.name, "bluegrass");
+        search.name = "Old time".to_owned();
+        assert_eq!(search.name, "Old time");
         assert_eq!(search.query, "bluegrass", "the query stays stored");
     }
 
@@ -838,7 +939,7 @@ mod tests {
     #[test]
     fn adr_0089_saved_search_rename_and_new_button_are_typed() {
         let mut search = saved(3, "bluegrass");
-        search.name = Some("Old time".to_owned());
+        search.name = "Old time".to_owned();
         let rename = super::saved_search_rename_display(&search);
         assert_eq!(rename.save_label, "Save");
         assert_eq!(
@@ -919,19 +1020,89 @@ mod tests {
         assert_eq!(page.live_query(), "bluegrass");
     }
 
-    /// ADR 0089 Decision 4 (review of 2026-11-06): the header shows the query,
-    /// or the query field, never both. The page gives that fact.
+    /// ADR 0089 Decision 4: an open edit shows "Editing: <name>" in the title
+    /// row, with "Save Query" and "Cancel" in place of "Delete…". Cancel ends
+    /// the edit, and the title row shows the stored query again.
     #[test]
-    fn adr_0089_saved_search_query_edit_header_shows_the_query_or_the_field() {
+    fn adr_0089_saved_search_query_edit_title_and_actions_follow_the_edit() {
         let a = saved(1, "bluegrass");
         let mut page = open_page(&a);
-        assert!(page.header_shows_query());
+        assert_eq!(page.header_title(), "bluegrass");
+        let closed: Vec<SavedSearchHeaderAction> = page
+            .header_actions()
+            .into_iter()
+            .map(|(action, _)| action)
+            .collect();
+        assert_eq!(closed, [SavedSearchHeaderAction::Delete]);
+
         assert!(page.begin_query_edit());
-        assert!(
-            !page.header_shows_query(),
-            "the field replaces the headline"
+        assert_eq!(page.header_title(), "Editing: bluegrass");
+        let open: Vec<(SavedSearchHeaderAction, &str)> = page
+            .header_actions()
+            .into_iter()
+            .map(|(action, display)| (action, display.label))
+            .collect();
+        assert_eq!(
+            open,
+            [
+                (SavedSearchHeaderAction::SaveQuery, "Save Query"),
+                (SavedSearchHeaderAction::CancelQuery, "Cancel"),
+            ]
         );
-        page.edit = None;
-        assert!(page.header_shows_query());
+
+        assert!(page.cancel_query_edit());
+        assert!(!page.cancel_query_edit(), "a second cancel changes nothing");
+        assert_eq!(page.header_title(), "bluegrass");
+        assert!(page.header_status().is_none());
+    }
+
+    /// ADR 0089 Decision 4: the edit title uses the name of a named saved
+    /// search. A keep message shows under the title row.
+    #[test]
+    fn adr_0089_saved_search_query_edit_title_uses_the_name_and_shows_the_keep_message() {
+        let mut a = saved(1, "bluegrass");
+        a.name = "Old time".to_owned();
+        let mut page = open_page(&a);
+        assert!(page.begin_query_edit());
+        assert_eq!(page.header_title(), "Editing: Old time");
+        page.edit
+            .as_mut()
+            .expect("the edit is open")
+            .apply_keep(SavedSearchQueryKeep::Blank);
+        assert_eq!(page.header_status(), Some(SAVED_SEARCH_QUERY_BLANK_TEXT));
+    }
+
+    /// ADR 0089 Decision 4: leaving the page ends an open edit. A move to
+    /// another entry, or to the same page, does not end it. A deleted page
+    /// has no action, so it has no Save Query.
+    #[test]
+    fn adr_0089_saved_search_query_edit_ends_when_the_page_is_left() {
+        let a = saved(1, "bluegrass");
+        let mut page = open_page(&a);
+        assert!(!page.query_edit_ends_when_left(None), "no edit is open");
+        assert!(page.begin_query_edit());
+        assert!(page.query_edit_ends_when_left(None));
+        assert!(
+            page.query_edit_ends_when_left(Some(&FrameNavigationEntry::Search("jazz".to_owned())))
+        );
+        assert!(!page.query_edit_ends_when_left(Some(&a.entry())));
+
+        let deleted = SavedSearchPage::deleted(SavedSearchId(1), "bluegrass");
+        assert!(deleted.header_actions().is_empty());
+    }
+
+    /// ADR 0089 Decision 4: a new search ends an open edit, also when the
+    /// typed text is blank. A closed edit has nothing to end.
+    #[test]
+    fn adr_0089_saved_search_query_edit_ends_for_a_new_search_whatever_the_text() {
+        let a = saved(1, "bluegrass");
+        let mut page = open_page(&a);
+        assert!(!page.query_edit_ends_for_new_search());
+        assert!(page.begin_query_edit());
+        page.edit
+            .as_mut()
+            .expect("the edit is open")
+            .set_typed("   ");
+        assert!(page.query_edit_ends_for_new_search());
     }
 }

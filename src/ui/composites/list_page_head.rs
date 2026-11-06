@@ -62,9 +62,10 @@ pub(crate) struct ListPageHeadHandlers {
     pub(crate) letter: Option<LetterHandler>,
     /// The keyboard side of the letter bar.
     pub(crate) letter_keys: Option<LetterBarKeys>,
-    /// The click of the typed action of a search page (ADR 0089 Decision 4).
-    /// The handler runs only when the action is available.
-    pub(crate) action: Option<ListHeadButtonHandler>,
+    /// The clicks of the typed actions of a search page (ADR 0089 Decision
+    /// 4), one for each action of the view model, in the same order. A
+    /// handler runs only when its action is available.
+    pub(crate) actions: Vec<ListHeadButtonHandler>,
 }
 
 /// Renders the title row of a list page.
@@ -103,8 +104,8 @@ pub(crate) fn list_page_head(
         trailing = trailing.child(button);
     }
 
-    if let Some(action) = display.action {
-        trailing = trailing.child(title_action(action, handlers.action.as_ref()));
+    for (index, action) in display.actions.into_iter().enumerate() {
+        trailing = trailing.child(title_action(action, handlers.actions.get(index)));
     }
 
     // Column text does not call `truncate()` (ADR 0063). A query title wraps.

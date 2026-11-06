@@ -78,7 +78,8 @@ use crate::view_models::recent_feeds::{RecentFeedResultRow, RecentFeedsPageVm};
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::release_page::{
-    LibraryTrackMenuAvailability, TrackRowMenuFacts, TrackRowMenuVm, TrackRowRemoveLabel,
+    LibraryTrackMenuAvailability, TrackRowMenuAction, TrackRowMenuFacts, TrackRowMenuItemVm,
+    TrackRowMenuVm, TrackRowRemoveLabel, TRACK_ROW_PLAYLIST_LEVEL,
 };
 use crate::view_models::release_row_actions::{
     release_row_menu, ReleaseActionCounts, ReleaseRowActionFacts, ReleaseRowMenuVm, ReleaseRowState,
@@ -650,6 +651,11 @@ impl PlaylistSidebarVm {
                 entry,
                 Some(FrameNavigationEntry::PlaylistDetail(id)) if *id == row.id
             );
+            // R-NAV-2 item 2: the page that Back left open is marked, not
+            // selected. The list is the open page now, so only the mark shows.
+            if row.marked {
+                row.selected = false;
+            }
         }
         self
     }
@@ -670,6 +676,48 @@ pub(crate) struct PlaylistSidebarRowVm {
     /// `true` when this row opens the page that Back left open over the
     /// Playlists list (R-NAV-2 item 2).
     pub(crate) marked: bool,
+    /// The item menu of the row: Rename and Delete (ADR 0089 Decision 6).
+    pub(crate) menu: TrackRowMenuVm,
+    /// The delete confirmation of the playlist page. "Delete…" in the menu
+    /// opens the same one (ADR 0083 Decision 5).
+    pub(crate) delete_confirmation: PlaylistDeleteConfirmation,
+}
+
+/// The item menu of a playlist row of the My playlists list (ADR 0089
+/// Decision 6). Its items are the page actions Rename and Delete, in that
+/// order. A destructive item is last.
+#[must_use]
+pub(crate) fn playlist_row_menu(playlist_id: i64, name: &str) -> TrackRowMenuVm {
+    let item =
+        |action, id: &str, label: &str, a11y_label: String, destructive| TrackRowMenuItemVm {
+            action,
+            id: format!("playlist-row-{playlist_id}-{id}"),
+            label: label.to_owned(),
+            a11y_label,
+            destructive,
+        };
+    TrackRowMenuVm {
+        id: format!("playlist-row-{playlist_id}-menu"),
+        trigger_tooltip: "More actions",
+        trigger_a11y_label: format!("More actions for {name}"),
+        items: vec![
+            item(
+                TrackRowMenuAction::RenamePlaylist,
+                "rename",
+                "Rename",
+                format!("Rename the playlist \"{name}\""),
+                false,
+            ),
+            item(
+                TrackRowMenuAction::DeletePlaylist,
+                "delete",
+                "Delete…",
+                format!("Delete the playlist \"{name}\""),
+                true,
+            ),
+        ],
+        playlist_level: TRACK_ROW_PLAYLIST_LEVEL,
+    }
 }
 
 /// The drag fact of a track row (ADR 0083 Decision 6, task 008). A row
@@ -3706,6 +3754,11 @@ impl LibraryViewModel {
                     },
                     selected: self.selected_playlist_id == Some(playlist.id),
                     marked: false,
+                    menu: playlist_row_menu(playlist.id, &playlist.name),
+                    delete_confirmation: playlist_delete_confirmation(
+                        &playlist.name,
+                        usize::try_from(playlist.track_count).unwrap_or(0),
+                    ),
                     art: CollectionArtVm::resolve(
                         None,
                         self.snapshot
@@ -9212,6 +9265,65 @@ mod tests {
         );
     }
 
+    /// ADR 0089 Decision 6: each playlist row has the item menu with Rename
+    /// and Delete, and its delete confirmation is the one of the page.
+    #[test]
+    fn adr_0089_playlist_row_menu_gives_rename_and_delete_with_the_page_confirmation() {
+        let mut vm = LibraryViewModel::new();
+        let mut alpha = playlist("Alpha");
+        alpha.id = 10;
+        alpha.track_count = 3;
+        vm.replace_playlists(vec![alpha]);
+        let row = &vm.playlist_sidebar().rows[0];
+
+        let actions: Vec<TrackRowMenuAction> =
+            row.menu.items.iter().map(|item| item.action).collect();
+        assert_eq!(
+            actions,
+            [
+                TrackRowMenuAction::RenamePlaylist,
+                TrackRowMenuAction::DeletePlaylist
+            ]
+        );
+        assert!(
+            row.menu.items.last().is_some_and(|item| item.destructive),
+            "Delete is the destructive item, and it is last"
+        );
+        assert_eq!(
+            row.delete_confirmation,
+            playlist_delete_confirmation("Alpha", 3),
+            "the row confirms with the text of the playlist page"
+        );
+    }
+
+    /// ADR 0089 Decision 6 and R-NAV-2 item 2: after Back, the playlist page
+    /// that Back left open is marked, and its row shows no selected fill.
+    #[test]
+    fn adr_0089_playlist_row_left_open_by_back_is_marked_not_selected() {
+        let mut vm = LibraryViewModel::new();
+        let mut alpha = playlist("Alpha");
+        alpha.id = 10;
+        let mut zed = playlist("zed");
+        zed.id = 20;
+        vm.replace_playlists(vec![alpha, zed]);
+        vm.select_playlist(10);
+
+        let entry = FrameNavigationEntry::PlaylistDetail(10);
+        let sidebar = vm.playlist_sidebar().with_marked(Some(&entry));
+        let shown: Vec<(i64, bool, bool)> = sidebar
+            .rows
+            .iter()
+            .map(|row| (row.id, row.selected, row.marked))
+            .collect();
+        assert_eq!(shown, [(10, false, true), (20, false, false)]);
+
+        let open = vm.playlist_sidebar().with_marked(None);
+        assert!(
+            open.rows[0].selected,
+            "without a mark, the open playlist keeps its selected fill"
+        );
+    }
+
     #[test]
     fn library_view_model_playlist_sidebar_projects_rows_and_header_state() {
         let mut vm = LibraryViewModel::new();
@@ -14103,7 +14215,7 @@ mod adr_0086_saved_search_groups_tests {
         let search = SavedSearch {
             id: SavedSearchId(1),
             query: "jsmovie".to_owned(),
-            name: None,
+            name: "jsmovie".to_owned(),
         };
         let mut page = SearchResultsInspectorPageVm::new("jsmovie").into_saved_search(&search);
         page.replace_index_results(IndexSearchResultRows {

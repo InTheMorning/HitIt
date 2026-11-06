@@ -63,7 +63,7 @@ pub(crate) struct SearchResultsInspectorSlots {
     result_select: Option<SearchResultSelectHandler>,
     row_toggle: Option<SearchResultToggleHandler>,
     failure_action: Option<FailureHandler>,
-    header_action: Option<(SearchPageActionDisplay, HeaderActionHandler)>,
+    header_actions: Vec<(SearchPageActionDisplay, HeaderActionHandler)>,
     thumbnails: BTreeMap<String, Option<Arc<Image>>>,
     items: Vec<SearchResultItemVm>,
     arts: BTreeMap<String, CollectionArtImage>,
@@ -71,9 +71,12 @@ pub(crate) struct SearchResultsInspectorSlots {
     /// The page that Back left open over the search results list (R-NAV-2
     /// item 2). `None` for a page that has no list root.
     marked_entry: Option<FrameNavigationEntry>,
-    /// `true` when the page shows its query field, so the header gives no
-    /// query headline (ADR 0089 Decision 4).
-    hide_header_query: bool,
+    /// The title row text, when the page gives one in place of its query
+    /// (ADR 0089 Decision 4). `None` shows the query.
+    header_title: Option<String>,
+    /// The status text of the header, when the page gives one in place of
+    /// the status of the results. `None` shows the status of the results.
+    header_status: Option<String>,
 }
 
 impl SearchResultsInspectorSlots {
@@ -82,10 +85,17 @@ impl SearchResultsInspectorSlots {
         Self::default()
     }
 
-    /// Hides the query headline of the header, when the page shows its query
-    /// field. The view model gives the fact.
-    pub(crate) fn with_header_query_hidden(mut self, hidden: bool) -> Self {
-        self.hide_header_query = hidden;
+    /// Gives the title row text in place of the query. The view model gives
+    /// the text (ADR 0089 Decision 4).
+    pub(crate) fn with_header_title(mut self, title: String) -> Self {
+        self.header_title = Some(title);
+        self
+    }
+
+    /// Gives the status text of the header in place of the status of the
+    /// results. The view model gives the text (ADR 0089 Decision 4).
+    pub(crate) fn with_header_status(mut self, status: Option<String>) -> Self {
+        self.header_status = status;
         self
     }
 
@@ -156,15 +166,16 @@ impl SearchResultsInspectorSlots {
         self
     }
 
-    /// Supplies the typed action of the header, for example "Save search"
-    /// or "Delete…" (packet 012), and its click handler. The handler runs
-    /// only when the view model makes the action available.
+    /// Adds a typed action to the header, for example "Save search" or
+    /// "Delete…" (packet 012), with its click handler. The actions show in
+    /// the order they are added. The handler runs only when the view model
+    /// makes the action available.
     pub(crate) fn header_action(
         mut self,
         display: SearchPageActionDisplay,
         handler: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
-        self.header_action = Some((display, Rc::new(handler)));
+        self.header_actions.push((display, Rc::new(handler)));
         self
     }
 
@@ -220,21 +231,17 @@ pub(crate) fn render_search_results_inspector(
     let tab = vm.tab();
     let header = render_inspector_header(
         InspectorHeader {
-            title: if slots.hide_header_query {
-                ""
-            } else {
-                vm.query()
-            },
+            title: slots.header_title.as_deref().unwrap_or_else(|| vm.query()),
             scope: vm.library_scope(),
             list_key: vm.list_key(),
             list_state: vm.list_state(),
             sort_select: slots.sort_select.as_ref(),
-            status_text: vm.status_text(),
+            status_text: slots.header_status.as_deref().or_else(|| vm.status_text()),
             selected: tab,
             counts: vm.tab_counts(),
             tab_select: slots.tab_select.as_ref(),
             scope_select: slots.scope_select.as_ref(),
-            action: slots.header_action.as_ref(),
+            actions: &slots.header_actions,
         },
         cx,
     );
@@ -338,8 +345,8 @@ pub(crate) fn render_index_detail_display(display: &IndexDetailDisplay, cx: &App
 /// The parts of the header of a search page.
 #[derive(Clone, Copy)]
 struct InspectorHeader<'a> {
-    /// The title row text: the query, or an empty text when the page shows
-    /// its query field (ADR 0089 Decision 4).
+    /// The title row text: the query, or the title that the page gives
+    /// (ADR 0089 Decision 4).
     title: &'a str,
     /// The "All | In Library" scope of the query.
     scope: ListScope,
@@ -354,7 +361,7 @@ struct InspectorHeader<'a> {
     counts: [SearchTabCount; 5],
     tab_select: Option<&'a TabSelectHandler>,
     scope_select: Option<&'a ListScopeHandler>,
-    action: Option<&'a (SearchPageActionDisplay, HeaderActionHandler)>,
+    actions: &'a [(SearchPageActionDisplay, HeaderActionHandler)],
 }
 
 /// The header at the width of the list column (ADR 0089 Decision 4). The
@@ -368,12 +375,20 @@ fn render_inspector_header(header: InspectorHeader<'_>, cx: &App) -> AnyElement 
         header.list_state,
         header.title.to_owned(),
         header.scope,
-        header.action.map(|(display, _)| display.clone()),
+        header
+            .actions
+            .iter()
+            .map(|(display, _)| display.clone())
+            .collect(),
     );
     let handlers = ListPageHeadHandlers {
         scope: header.scope_select.cloned(),
         sort: header.sort_select.cloned(),
-        action: header.action.map(|(_, handler)| Rc::clone(handler)),
+        actions: header
+            .actions
+            .iter()
+            .map(|(_, handler)| Rc::clone(handler))
+            .collect(),
         ..ListPageHeadHandlers::default()
     };
     let mut column = div()

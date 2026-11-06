@@ -1,10 +1,12 @@
 //! The query field of a saved-search page (ADR 0089 Decision 4, ADR 0087
 //! Decisions 4 and 6).
 //!
-//! A click on the query makes it a field. Each typed text is the live query
-//! of the page, and its results change while the curator types. "Save
-//! Query" or Enter keeps the text through the writer of the Library. Escape
-//! cancels it. A saved search keeps its text until a keep saves a new one.
+//! "Edit Query" puts the saved query in the toolbar search field. Each typed
+//! text is the live query of the page, and its results change while the
+//! curator types. "Save Query" or Enter keeps the text through the writer of
+//! the Library. "Cancel" or Escape restores the stored text. A saved search
+//! keeps its text until a keep saves a new one (ADR 0089 Decision 4, ADR 0087
+//! Decision 3).
 //!
 //! [`SavedSearchQueryEdit`] is a pure state machine. It holds no GPUI type
 //! and calls no writer. The host gives it the outcome of each keep.
@@ -13,16 +15,9 @@
 
 use super::{SavedSearchId, SearchPageActionDisplay, SearchPageActionStyle};
 
-/// The text that shows when another saved search has the typed text.
-pub(crate) const SAVED_SEARCH_QUERY_CONFLICT_TEXT: &str =
-    "Another saved search has this text. Change the text, or press Escape to cancel.";
-
 /// The text that shows when the typed text is blank.
 pub(crate) const SAVED_SEARCH_QUERY_BLANK_TEXT: &str =
     "A saved search needs a query. Type a word, a phrase or a field.";
-
-/// The placeholder of the query field.
-pub(crate) const SAVED_SEARCH_QUERY_PLACEHOLDER: &str = "Saved search query";
 
 /// The open query field of a saved search.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -42,8 +37,6 @@ pub(crate) enum SavedSearchQueryKeep {
     /// The text is saved. The field closes, and the stored text is this
     /// trimmed text.
     Saved(String),
-    /// Another saved search has the text. The field stays open.
-    Conflict,
     /// The text is blank. The field stays open.
     Blank,
     /// The saved search no longer exists. The field closes.
@@ -121,10 +114,6 @@ impl SavedSearchQueryEdit {
                 self.message = None;
                 true
             }
-            SavedSearchQueryKeep::Conflict => {
-                self.message = Some(SAVED_SEARCH_QUERY_CONFLICT_TEXT.to_owned());
-                false
-            }
             SavedSearchQueryKeep::Blank => {
                 self.message = Some(SAVED_SEARCH_QUERY_BLANK_TEXT.to_owned());
                 false
@@ -137,26 +126,22 @@ impl SavedSearchQueryEdit {
     }
 }
 
-/// The controls of the open query field: "Save Query" and "Cancel", and the
-/// message of the last keep.
+/// The controls of the open query edit: "Save Query" and "Cancel" in the
+/// title row, and the message of the last keep under the title.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct SavedSearchQueryFieldDisplay {
-    pub(crate) placeholder: &'static str,
+pub(crate) struct SavedSearchQueryControls {
     pub(crate) save: SearchPageActionDisplay,
     pub(crate) cancel: SearchPageActionDisplay,
     pub(crate) message: Option<String>,
 }
 
-/// The display of the open query field. "Save Query" is available when the
+/// The controls of the open query edit. "Save Query" is available when the
 /// typed text is not blank.
 #[must_use]
-pub(crate) fn saved_search_query_field(
-    edit: &SavedSearchQueryEdit,
-) -> SavedSearchQueryFieldDisplay {
+pub(crate) fn saved_search_query_controls(edit: &SavedSearchQueryEdit) -> SavedSearchQueryControls {
     let typed = edit.live_query();
     let available = !typed.is_empty();
-    SavedSearchQueryFieldDisplay {
-        placeholder: SAVED_SEARCH_QUERY_PLACEHOLDER,
+    SavedSearchQueryControls {
         save: SearchPageActionDisplay {
             id: "music-saved-search-query-save",
             label: "Save Query",
@@ -217,23 +202,6 @@ mod tests {
         assert_eq!(edit.message(), None);
     }
 
-    /// ADR 0087 Decision 6: a unique conflict keeps the field open with the
-    /// typed text and the conflict message. The stored text stays.
-    #[test]
-    fn adr_0089_query_edit_conflict_keeps_the_field_open() {
-        let mut edit = SavedSearchQueryEdit::open(id(), "bluegrass");
-        edit.set_typed("ambient");
-        let closed = edit.apply_keep(SavedSearchQueryKeep::Conflict);
-        assert!(!closed, "the field stays open");
-        assert_eq!(edit.message(), Some(SAVED_SEARCH_QUERY_CONFLICT_TEXT));
-        assert_eq!(edit.typed(), "ambient", "the typed text stays");
-        assert_eq!(
-            edit.stored(),
-            "bluegrass",
-            "the stored text does not change"
-        );
-    }
-
     /// ADR 0089 Decision 4: a blank text and a database error keep the field
     /// open with a message. Neither changes the stored text.
     #[test]
@@ -265,7 +233,7 @@ mod tests {
     #[test]
     fn adr_0089_query_edit_typing_clears_the_message() {
         let mut edit = SavedSearchQueryEdit::open(id(), "bluegrass");
-        edit.apply_keep(SavedSearchQueryKeep::Conflict);
+        edit.apply_keep(SavedSearchQueryKeep::Blank);
         edit.set_typed("ambient banjo");
         assert_eq!(edit.message(), None);
         assert_eq!(edit.typed(), "ambient banjo");
@@ -277,20 +245,31 @@ mod tests {
     #[test]
     fn adr_0089_query_edit_display_gives_typed_controls() {
         let mut edit = SavedSearchQueryEdit::open(id(), "bluegrass");
-        let display = saved_search_query_field(&edit);
+        let display = saved_search_query_controls(&edit);
         assert_eq!(display.save.label, "Save Query");
         assert!(display.save.available);
         assert_eq!(display.cancel.label, "Cancel");
         assert_eq!(display.message, None);
 
         edit.set_typed("  ");
-        assert!(!saved_search_query_field(&edit).save.available);
+        assert!(!saved_search_query_controls(&edit).save.available);
 
-        edit.set_typed("ambient");
-        edit.apply_keep(SavedSearchQueryKeep::Conflict);
+        edit.set_typed("  ");
+        edit.apply_keep(SavedSearchQueryKeep::Blank);
         assert_eq!(
-            saved_search_query_field(&edit).message.as_deref(),
-            Some(SAVED_SEARCH_QUERY_CONFLICT_TEXT)
+            saved_search_query_controls(&edit).message.as_deref(),
+            Some(SAVED_SEARCH_QUERY_BLANK_TEXT)
         );
+    }
+
+    /// ADR 0089 Decision 4: "Cancel" keeps the stored text in its label
+    /// description, and it is always available.
+    #[test]
+    fn adr_0089_query_edit_cancel_is_always_available_and_names_the_stored_text() {
+        let mut edit = SavedSearchQueryEdit::open(id(), "bluegrass");
+        edit.set_typed("  ");
+        let cancel = saved_search_query_controls(&edit).cancel;
+        assert!(cancel.available);
+        assert!(cancel.a11y_label.contains("bluegrass"));
     }
 }

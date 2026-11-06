@@ -97,7 +97,9 @@ Until Stophammer supports a filter, a query with that field shows no Index rows.
 
 ### 6. A Saved Search Keeps Its Text
 
-A saved search stores the query text, as today. Each run parses the text again. Migration 21 does not change.
+A saved search stores the query text, as today. Each run parses the text again.
+
+Migration 21 added a unique index of the query. Migration 23 drops that index. The operator decided on 2026-11-06 that a saved search is keyed by its name. The row id stays the primary key and the navigation key. Two saved searches may hold one query. The save action does not save a second copy of a query that a saved search holds. A query edit that gives the text of another saved search is accepted. The name of a saved search follows the query only when the name equals the old query text, without case. A name that the operator gave does not change. ADR 0089 Decision 4 owns the rules of the name.
 
 ## Invariants
 

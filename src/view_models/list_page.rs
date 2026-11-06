@@ -439,10 +439,10 @@ pub(crate) struct ListPageHeadVm {
     /// The Select action of the page, or `None` when no item can be
     /// selected.
     pub(crate) select: Option<FrameHeaderActionDisplay>,
-    /// The typed action of a search page, for example "Save search" or
-    /// "Delete…" (ADR 0089 Decision 4). It sits at the right of the title
-    /// row. `None` for a Music list page.
-    pub(crate) action: Option<SearchPageActionDisplay>,
+    /// The typed actions of a search page, for example "Save Query" and
+    /// "Cancel", or "Delete…" (ADR 0089 Decision 4). They sit at the right
+    /// of the title row, in this order. Empty for a Music list page.
+    pub(crate) actions: Vec<SearchPageActionDisplay>,
 }
 
 impl ListPageHeadVm {
@@ -466,7 +466,7 @@ impl ListPageHeadVm {
                 .then(|| LetterBarVm::new(key, state.letter)),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
             select,
-            action: None,
+            actions: Vec::new(),
         }
     }
 
@@ -481,7 +481,7 @@ impl ListPageHeadVm {
             letters: None,
             view: None,
             select: None,
-            action,
+            actions: action.into_iter().collect(),
         }
     }
 
@@ -496,7 +496,7 @@ impl ListPageHeadVm {
         state: ListPageState,
         title: String,
         scope: ListScope,
-        action: Option<SearchPageActionDisplay>,
+        actions: Vec<SearchPageActionDisplay>,
     ) -> Self {
         Self {
             title,
@@ -507,7 +507,7 @@ impl ListPageHeadVm {
             // 008 Part C, deviation, see `ListPageKey::views`).
             view: None,
             select: None,
-            action,
+            actions,
         }
     }
 }
@@ -691,10 +691,10 @@ mod tests {
             ListPageState::default_for(ListPageKey::Results),
             "in:library haleen".to_owned(),
             ListScope::InLibrary,
-            Some(action.clone()),
+            vec![action.clone()],
         );
         assert_eq!(head.title, "in:library haleen");
-        assert_eq!(head.action, Some(action));
+        assert_eq!(head.actions, vec![action]);
         assert_eq!(head.sort.as_ref().map(|sort| sort.label), Some("Newest"));
         assert!(head.view.is_none() && head.letters.is_none());
         let scope = head.scope.expect("a search page has the scope control");
@@ -859,7 +859,8 @@ mod tests {
             assert_eq!(key.views(), [ListView::Rows], "{key:?}");
             assert_eq!(key.sorts(), [ListSort::Newest, ListSort::AToZ], "{key:?}");
             let state = ListPageState::default_for(key);
-            let head = ListPageHeadVm::for_search(key, state, String::new(), ListScope::All, None);
+            let head =
+                ListPageHeadVm::for_search(key, state, String::new(), ListScope::All, Vec::new());
             assert!(head.view.is_none(), "{key:?}");
             assert_eq!(
                 head.sort.as_ref().map(|sort| sort.label),

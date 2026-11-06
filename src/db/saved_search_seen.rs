@@ -75,8 +75,34 @@ pub(super) const EXTENDED_COLUMNS: &[(&str, &[&str])] = &[(
 pub(super) const COLUMNS: &[(&str, &[&str])] =
     &[("saved_search_seen", &["saved_search_id", "result_key"])];
 
-const DDL: &str = r"
-ALTER TABLE saved_searches ADD COLUMN name TEXT NULL;
+/// Migration 23 keeps the seen rows across the rebuild of `saved_searches`.
+/// It sets the rows aside in `saved_search_seen_kept`, then restores them.
+/// This module writes the table, so the migration calls these functions.
+pub(super) fn set_aside_for_rebuild(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE saved_search_seen_kept AS
+             SELECT saved_search_id, result_key FROM saved_search_seen;
+         DROP TABLE saved_search_seen;",
+    )
+    .context("Set aside the seen results of the saved searches")
+}
+
+/// Creates `saved_search_seen` again and restores the rows that
+/// `set_aside_for_rebuild` kept.
+pub(super) fn restore_after_rebuild(conn: &Connection) -> Result<()> {
+    conn.execute_batch(TABLE_DDL)
+        .context("Create the seen result table")?;
+    conn.execute_batch(
+        "INSERT INTO saved_search_seen (saved_search_id, result_key)
+             SELECT saved_search_id, result_key FROM saved_search_seen_kept;
+         DROP TABLE saved_search_seen_kept;",
+    )
+    .context("Restore the seen results of the saved searches")
+}
+
+/// The table `saved_search_seen`. Migration 22 creates it, and migration 23
+/// creates it again after the rebuild of `saved_searches`.
+const TABLE_DDL: &str = r"
 CREATE TABLE saved_search_seen (
     saved_search_id INTEGER NOT NULL REFERENCES saved_searches(id) ON DELETE CASCADE,
     result_key TEXT NOT NULL,
@@ -86,7 +112,8 @@ CREATE TABLE saved_search_seen (
 
 /// Migration 22 (ADR 0016 registry, ADR 0089 Decision 4).
 pub(super) fn apply(conn: &Connection) -> Result<()> {
-    conn.execute_batch(DDL)
+    conn.execute_batch("ALTER TABLE saved_searches ADD COLUMN name TEXT NULL;")
+        .and_then(|()| conn.execute_batch(TABLE_DDL))
         .context("Add the saved search name and the seen result table")
 }
 
@@ -97,9 +124,7 @@ mod tests {
     use rusqlite::Connection;
 
     use super::{mark_seen, read_seen, SEEN_INITIALISED_MARKER};
-    use crate::db::saved_searches::{
-        delete_saved_search, insert_saved_search, SavedSearchInsert, StoredStartTab,
-    };
+    use crate::db::saved_searches::{delete_saved_search, insert_saved_search, StoredStartTab};
     use crate::db::{upgrades, CURRENT_VERSION};
 
     /// A database with one saved search. Gives the connection and its id.
@@ -107,11 +132,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         upgrades::create_fixture(&conn, CURRENT_VERSION).unwrap();
-        let SavedSearchInsert::Inserted(id) =
-            insert_saved_search(&conn, "jazz", StoredStartTab::Releases, 1).unwrap()
-        else {
-            panic!("the first saved search is inserted");
-        };
+        let id = insert_saved_search(&conn, "jazz", StoredStartTab::Releases, 1).unwrap();
         (conn, id)
     }
 
@@ -158,6 +179,27 @@ mod tests {
         let (conn, id) = setup_db();
         mark_seen(&conn, id, &BTreeSet::new()).unwrap();
         assert!(read_seen(&conn, id).unwrap().is_some());
+    }
+
+    /// ADR 0089 Decision 4 (operator decision of 2026-11-06): two saved
+    /// searches that hold one query keep their own seen rows. A key that one
+    /// of them stores does not appear for the other.
+    #[test]
+    fn two_saved_searches_with_one_query_keep_separate_seen_rows() {
+        let (conn, first) = setup_db();
+        let second = insert_saved_search(&conn, "jazz", StoredStartTab::Releases, 2).unwrap();
+        assert_ne!(first, second);
+
+        mark_seen(&conn, first, &keys(&["artist:a"])).unwrap();
+        assert_eq!(read_seen(&conn, second).unwrap(), None);
+        mark_seen(&conn, second, &keys(&["artist:b"])).unwrap();
+
+        let first_keys = read_seen(&conn, first).unwrap().expect("initialised");
+        let second_keys = read_seen(&conn, second).unwrap().expect("initialised");
+        assert!(first_keys.contains("artist:a"));
+        assert!(!first_keys.contains("artist:b"));
+        assert!(second_keys.contains("artist:b"));
+        assert!(!second_keys.contains("artist:a"));
     }
 
     /// Deleting a saved search removes its seen rows (ON DELETE CASCADE).

@@ -176,7 +176,9 @@ impl ReleaseRowCommand {
             | TrackRowMenuAction::MoveUp
             | TrackRowMenuAction::MoveDown
             | TrackRowMenuAction::RemoveFromPlaylist
-            | TrackRowMenuAction::CopyToMyPlaylists => None,
+            | TrackRowMenuAction::CopyToMyPlaylists
+            | TrackRowMenuAction::RenamePlaylist
+            | TrackRowMenuAction::DeletePlaylist => None,
         }
     }
 }

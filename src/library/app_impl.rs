@@ -56,11 +56,14 @@ use crate::ui::composites::list_page_head::{
     list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
     ListViewHandler,
 };
+use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::music_column_scroll::{
     music_column_scrollbar, MusicColumnList, ScrollReveal,
 };
 use crate::ui::composites::page_scroll_content::page_scroll_content;
+use crate::ui::composites::playlist_popover::{CreateHandler, SelectHandler};
 use crate::ui::composites::release_row_menu::ReleaseRowMenuContext;
+use crate::ui::composites::track_row_menu::{MenuActionHandler, TrackRowMenuHandlers};
 use crate::ui::composites::{
     CollectionArtImage, PlaylistOption, PlaylistOptionDisplay, StatusRole, ThumbnailSize,
 };
@@ -87,6 +90,7 @@ use crate::ui::shells::library::track_detail_metadata::{
 use crate::ui::shells::library_removal_confirmation::{
     open_library_removal_confirmation_dialog, open_selection_removal_confirmation_dialog,
 };
+use crate::ui::shells::playlist_delete_confirmation::open_playlist_delete_dialog;
 use crate::ui::shells::tag_update_confirmation::{
     open_tag_update_confirmation_dialog, render_tag_update_button, render_tag_update_report,
 };
@@ -112,6 +116,7 @@ use crate::view_models::library::{
     name_level_art, spring_load_navigation, take_inspect_sources_request, ArtistsListItemVm,
     SpringLoadGeneration,
 };
+use crate::view_models::library::{PlaylistDeleteConfirmation, PlaylistSidebarVm};
 use crate::view_models::library_removal::{
     SelectionRemovalConfirmationState, SelectionRemovalPendingItem, SelectionRemovalReport,
 };
@@ -891,7 +896,9 @@ impl LibraryApp {
             | TrackRowMenuAction::Download
             | TrackRowMenuAction::InspectSources
             | TrackRowMenuAction::Remove
-            | TrackRowMenuAction::CopyToMyPlaylists => {
+            | TrackRowMenuAction::CopyToMyPlaylists
+            | TrackRowMenuAction::RenamePlaylist
+            | TrackRowMenuAction::DeletePlaylist => {
                 self.run_track_row_menu_action(track_id, action, window, cx);
             }
         }
@@ -924,7 +931,9 @@ impl LibraryApp {
             | TrackRowMenuAction::MoveUp
             | TrackRowMenuAction::MoveDown
             | TrackRowMenuAction::RemoveFromPlaylist
-            | TrackRowMenuAction::CopyToMyPlaylists => return,
+            | TrackRowMenuAction::CopyToMyPlaylists
+            | TrackRowMenuAction::RenamePlaylist
+            | TrackRowMenuAction::DeletePlaylist => return,
         }
         cx.notify();
     }
@@ -1155,6 +1164,7 @@ impl LibraryApp {
             _public_playlist_copy_input_sub: public_playlist_copy_sub,
             public_playlist_copy: None,
             copying_public_playlist: None,
+            public_playlist_copy_report: None,
             saved_search_renaming: None,
             saved_search_message: None,
             saved_search_counts: std::collections::BTreeMap::new(),
@@ -1889,6 +1899,92 @@ impl LibraryApp {
         }
         self.vm.cancel_playlist_rename();
         self.rename_playlist(playlist_id, name, cx);
+        cx.notify();
+    }
+
+    /// The item menu of each playlist row of the My playlists list, by
+    /// playlist id (ADR 0089 Decision 6). Each menu runs the page actions of
+    /// its row.
+    pub(crate) fn playlist_row_menus(
+        &self,
+        sidebar: &PlaylistSidebarVm,
+        cx: &mut Context<Self>,
+    ) -> BTreeMap<i64, RowMenu> {
+        sidebar
+            .rows
+            .iter()
+            .map(|row| {
+                let entity = cx.weak_entity();
+                let id = row.id;
+                let name = row.name.clone();
+                let confirmation = row.delete_confirmation.clone();
+                let action: MenuActionHandler = Rc::new(
+                    move |action: TrackRowMenuAction, window: &mut Window, cx: &mut App| {
+                        let _ = entity.update(cx, |this, cx| {
+                            this.run_playlist_row_menu_command(
+                                id,
+                                &name,
+                                &confirmation,
+                                action,
+                                window,
+                                cx,
+                            );
+                        });
+                    },
+                );
+                let select_playlist: SelectHandler =
+                    Rc::new(|_: &i64, _: &mut Window, _: &mut App| {});
+                let create_playlist: CreateHandler =
+                    Rc::new(|_: &String, _: &mut Window, _: &mut App| {});
+                let menu = RowMenu {
+                    menu: row.menu.clone(),
+                    playlists: Rc::new(Vec::new()),
+                    handlers: TrackRowMenuHandlers {
+                        action,
+                        select_playlist,
+                        create_playlist,
+                    },
+                    return_focus: self.list_column_focus.clone(),
+                };
+                (row.id, menu)
+            })
+            .collect()
+    }
+
+    /// Runs one item of the menu of a playlist row. "Rename" opens the
+    /// playlist page with its rename input. "Delete" opens the confirmation
+    /// of the playlist page, and only its confirm deletes the playlist.
+    fn run_playlist_row_menu_command(
+        &mut self,
+        playlist_id: i64,
+        name: &str,
+        confirmation: &PlaylistDeleteConfirmation,
+        action: TrackRowMenuAction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match action {
+            TrackRowMenuAction::RenamePlaylist => {
+                self.open_page(
+                    FrameNavigationEntry::PlaylistDetail(playlist_id),
+                    NavigationPathStart::CurrentPath,
+                    cx,
+                );
+                self.begin_playlist_rename(
+                    playlist_id,
+                    name.to_owned(),
+                    PlaylistDetailActionsDisplay::RENAME_INPUT_PLACEHOLDER,
+                    window,
+                    cx,
+                );
+            }
+            TrackRowMenuAction::DeletePlaylist => {
+                open_playlist_delete_dialog(window, cx, confirmation.clone(), move |this, cx| {
+                    this.delete_playlist(playlist_id, cx);
+                });
+            }
+            _ => return,
+        }
         cx.notify();
     }
 
@@ -5288,6 +5384,7 @@ impl LibraryApp {
         let content_list_pane = match self.vm.active_destination() {
             MusicDestination::Search => {
                 let vm = SearchPageVm::new(&self.saved_searches, self.open_saved_search)
+                    .with_marked(self.marked_entry.as_ref())
                     .with_message(self.saved_search_message.clone())
                     .with_new_counts(&self.saved_search_counts);
                 let entity = cx.entity();
@@ -5484,7 +5581,7 @@ impl LibraryApp {
                         label: sidebar.add_label,
                         a11y_label: sidebar.add_label.to_owned(),
                         available: true,
-                        style: SearchPageActionStyle::Plain,
+                        style: SearchPageActionStyle::Action,
                     }),
                     move |_window, cx| {
                         entity.update(cx, LibraryApp::toggle_creating_playlist);
@@ -5496,8 +5593,10 @@ impl LibraryApp {
                     let image = collection_art_image(self, &row.art, ThumbnailSize::Sm, cx);
                     arts.insert(row.element_id.clone(), image);
                 }
+                let row_menus = self.playlist_row_menus(&sidebar, cx);
                 render_library_playlists_list(
                     sidebar,
+                    row_menus,
                     &self.new_playlist_input,
                     &arts,
                     &self.playlists_scroll,
@@ -5549,7 +5648,7 @@ impl LibraryApp {
         list_page_head(
             ListPageHeadVm::titled(title, action),
             ListPageHeadHandlers {
-                action: Some(Rc::new(on_action)),
+                actions: vec![Rc::new(on_action)],
                 ..ListPageHeadHandlers::default()
             },
             cx,
@@ -5659,7 +5758,7 @@ impl LibraryApp {
                 view: Some(on_view),
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
-                action: None,
+                actions: Vec::new(),
             },
             cx,
         )
@@ -5697,7 +5796,7 @@ impl LibraryApp {
                 view: None,
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
-                action: None,
+                actions: Vec::new(),
             },
             cx,
         )

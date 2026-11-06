@@ -373,7 +373,7 @@ mod tests {
         SavedSearch {
             id: SavedSearchId(1),
             query: "q".to_owned(),
-            name: None,
+            name: "q".to_owned(),
         }
     }
 

@@ -66,10 +66,13 @@ The Inbox lists each track that a show cannot use as it is. The tracks of the sh
 
 One search field stays in the toolbar on each page (R-TOOLBAR-1, ADR 0087). A click on the Search destination opens the Search page and puts the focus in that field.
 
-- The page lists each saved search, with its query and the count of its new results. "New Saved Search" makes one.
+- The page lists each saved search, with its name and the count of its new results. The query is the subtitle when it differs from the name. "New Saved Search" makes one.
 - "How to Search" gives four steps and example queries. The steps show when no search is saved.
-- A saved search opens over the list, with the same results as the results page. A click on its query makes it a field, and the results change while the curator types. "Save Query" or Enter keeps the change. Escape cancels it.
+- A saved search opens over the list, with the same results as the results page. "Edit Query", or a click on its query, puts the saved query in the toolbar search field and gives that field the focus (R-TOOLBAR-1 item 2). The results change while the curator types. The title row shows "Editing: " and the name of the saved search, with "Save Query" and "Cancel". "Save Query" or Enter keeps the change. "Cancel" or Escape restores the stored query. Leaving the page, or a new search, ends the edit with no save.
 - The item menu of a saved search has Edit Query, Rename…, Duplicate and Delete Saved Search…. A saved search keeps its text (ADR 0087 Decision 6).
+- A saved search is keyed by its name. Its row id stays the primary key and the navigation key (operator decision of 2026-11-06). Migration 23 gives each saved search a required name, unique without case. A name that another saved search holds is taken, and the new name gets " 2", " 3" and so on.
+- "Duplicate" makes a new row with the same query. Its name is the name of the original followed by " copy". A later copy takes " copy 2" and so on. The copy opens in edit mode with its query in the toolbar field.
+- "Rename…" refuses a name that another saved search holds, and nothing changes. A blank name becomes the query text, or its first free form.
 
 The results page has two rows below its title:
 

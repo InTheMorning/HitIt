@@ -6,7 +6,7 @@ Depends on: [packet 006](adr-0089-task-006-search-page.md).
 
 ## Goal
 
-A saved search has the item menu Edit Query, Rename…, Duplicate and Delete Saved Search…. A click on its query makes the query a field, and the results change while the curator types. "Save Query" or Enter keeps the change, and Escape cancels it (ADR 0089 Decision 4). The Search page shows the count of the new results of each saved search. A saved search keeps its text (ADR 0087 Decision 6).
+A saved search has the item menu Edit Query, Rename…, Duplicate and Delete Saved Search…. "Edit Query" or a click on its query puts the query in the toolbar search field, and the results change while the curator types. "Save Query" or Enter keeps the change, and "Cancel" or Escape restores the stored query (ADR 0089 Decision 4, R-TOOLBAR-1 item 2). The Search page shows the count of the new results of each saved search. A saved search keeps its text (ADR 0087 Decision 6).
 
 ## Files To Inspect
 
@@ -17,7 +17,7 @@ A saved search has the item menu Edit Query, Rename…, Duplicate and Delete Sav
 1. Migration 22 in `src/db/saved_search_seen.rs`, through the ADR 0016 registry. It adds the nullable column `saved_searches.name` and the table `saved_search_seen(saved_search_id, result_key)`, with a foreign key and `ON DELETE CASCADE`. Follow the test pattern of migration 21: upgrade, failed migration, and contract.
 2. A row shows the name when it has one, and else the query (`saved_search_label`). The query stays visible on the page.
 3. `update_saved_search_query`, `rename_saved_search` and `duplicate_saved_search` are the new writers. The unique index on the query stays. A duplicate takes the text "name copy", and the query field opens so the curator changes it. A write that hits the unique index gives a typed result, and the view model shows a message. It never panics.
-4. The query field is a toolbar-independent input on the saved search page. It uses the live run of ADR 0087 Decision 4. Escape restores the stored text and the stored results. The focus and Escape order follow ADR 0087.
+4. The query edit uses the toolbar search field, so the field list and its autocomplete work as in ADR 0087 Decision 3. The toolbar text is the live query of the saved search page, with the live run of ADR 0087 Decision 4. Escape restores the stored text and the stored results. The focus and Escape order follow ADR 0087.
 5. The count of new results: a result key is the identity of a row: a release key, a track key or an artist key. When the curator opens a saved search, the run of that page stores each key of its results as seen, and the count becomes zero.
 6. On the Search page, one runtime actor (ADR 0040) runs each saved search in sequence, with the first page only. It compares the keys with the seen table and gives a count. It runs when the page opens, at most one time for each 10 minutes. It uses a named constant. A failure gives no count, not a zero. A query that needs the Index waits behind the rate limits of the present request owner.
 7. A first run of a saved search with no seen row stores its keys and gives zero. Thus an upgrade shows no false count.

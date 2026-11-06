@@ -260,6 +260,33 @@ pub(crate) fn public_playlist_copy_report(name: &str, copied: usize, total: usiz
     )
 }
 
+/// The report of the last copy of a public playlist to My playlists (ADR
+/// 0089 packet 010). The report shows on the page of the playlist that was
+/// copied. It ends when that page closes or when the next copy starts.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PublicPlaylistCopyReport {
+    feed_guid: String,
+    text: String,
+}
+
+impl PublicPlaylistCopyReport {
+    /// The report of the copy of the playlist `feed_guid`, with its text.
+    #[must_use]
+    pub(crate) fn new(feed_guid: &str, text: impl Into<String>) -> Self {
+        Self {
+            feed_guid: feed_guid.to_owned(),
+            text: text.into(),
+        }
+    }
+
+    /// The text, when the open page is the playlist that was copied. It
+    /// gives `None` for any other open page, and for no open page.
+    #[must_use]
+    pub(crate) fn text_on_page(&self, open_feed_guid: Option<&str>) -> Option<&str> {
+        (open_feed_guid == Some(self.feed_guid.as_str())).then_some(self.text.as_str())
+    }
+}
+
 /// One entry of a public playlist page (ADR 0089 packet 009).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PublicPlaylistItemVm {
@@ -830,5 +857,28 @@ mod tests {
             public_playlist_copy_report("Solo", 1, 1),
             "Copied 1 of 1 track to Solo. 0 could not be read."
         );
+    }
+
+    /// ADR 0089 packet 010: the copy report shows on the page of the copied
+    /// playlist only. Another page, or no page, shows no report.
+    #[test]
+    fn adr_0089_copy_report_shows_on_the_copied_playlist_page_only() {
+        let report = PublicPlaylistCopyReport::new("feed-a", "Copied 1 of 1 track to Solo.");
+        assert_eq!(
+            report.text_on_page(Some("feed-a")),
+            Some("Copied 1 of 1 track to Solo.")
+        );
+        assert_eq!(report.text_on_page(Some("feed-b")), None);
+        assert_eq!(report.text_on_page(None), None);
+    }
+
+    /// ADR 0089 packet 010: each copy outcome has a visible text. A name
+    /// that is taken and a playlist with no readable track both have one.
+    #[test]
+    fn adr_0089_copy_outcomes_each_give_a_report_text() {
+        assert!(PublicPlaylistCopyName::Taken("Road Trip".to_owned())
+            .message()
+            .is_some_and(|text| text.contains("Road Trip")));
+        assert!(!PUBLIC_PLAYLIST_NO_READABLE_TRACKS.is_empty());
     }
 }
