@@ -1807,6 +1807,8 @@ pub(crate) enum DestinationListRowTarget {
     /// (ADR 0084 packet 016 decision D14). The row opens the feed page
     /// with the `MusicIndex` context.
     IndexPublisher(String),
+    /// A public playlist of the Index, by feed GUID (ADR 0089 packet 009).
+    PublicPlaylist(String),
 }
 
 /// One row of the Releases or Artists destination list (ADR 0084 Decision
@@ -1874,6 +1876,9 @@ impl DestinationListRowTarget {
                 Self::Publisher(guid) | Self::IndexPublisher(guid),
                 FrameNavigationEntry::PublisherDetail(open),
             ) => guid == open,
+            (Self::PublicPlaylist(guid), FrameNavigationEntry::PublicPlaylist(open)) => {
+                guid == open
+            }
             _ => false,
         }
     }
@@ -2077,7 +2082,8 @@ pub(crate) fn newest_selection_rows(
                 )),
                 DestinationListRowTarget::ArtistName(_)
                 | DestinationListRowTarget::Publisher(_)
-                | DestinationListRowTarget::IndexPublisher(_) => None,
+                | DestinationListRowTarget::IndexPublisher(_)
+                | DestinationListRowTarget::PublicPlaylist(_) => None,
             },
             ReleasesListItemVm::WindowGroup(tile) => Some(SelectionRow::new(
                 ReleasesRowId::Window(tile.open_row_id.clone()),
@@ -2110,7 +2116,8 @@ pub(crate) fn releases_selection_rows(
                 )],
                 DestinationListRowTarget::ArtistName(_)
                 | DestinationListRowTarget::Publisher(_)
-                | DestinationListRowTarget::IndexPublisher(_) => Vec::new(),
+                | DestinationListRowTarget::IndexPublisher(_)
+                | DestinationListRowTarget::PublicPlaylist(_) => Vec::new(),
             },
             ReleasesListEntryVm::SinglesGroup(group) => {
                 let mut group_rows = vec![SelectionRow::new(
@@ -2125,7 +2132,8 @@ pub(crate) fn releases_selection_rows(
                         )),
                         DestinationListRowTarget::ArtistName(_)
                         | DestinationListRowTarget::Publisher(_)
-                        | DestinationListRowTarget::IndexPublisher(_) => None,
+                        | DestinationListRowTarget::IndexPublisher(_)
+                        | DestinationListRowTarget::PublicPlaylist(_) => None,
                     }
                 }));
                 group_rows
@@ -2200,7 +2208,10 @@ pub(crate) fn list_column_header_action(
     let (element_id, noun) = match destination {
         MusicDestination::Releases => ("music-list-column-select-releases", "releases"),
         MusicDestination::NeedsAttention => ("music-list-column-select-needs-attention", "tracks"),
-        MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {
+        MusicDestination::Search
+        | MusicDestination::Artists
+        | MusicDestination::Playlists
+        | MusicDestination::PublicPlaylists => {
             return None;
         }
     };
@@ -3632,7 +3643,8 @@ impl LibraryViewModel {
                 DestinationListRowTarget::Release(_)
                 | DestinationListRowTarget::ArtistName(_)
                 | DestinationListRowTarget::Publisher(_)
-                | DestinationListRowTarget::IndexPublisher(_) => None,
+                | DestinationListRowTarget::IndexPublisher(_)
+                | DestinationListRowTarget::PublicPlaylist(_) => None,
             })
             // ADR 0089 Decision 5: the scope decides which Library rows show.
             .filter(|entry| match &entry.entry {

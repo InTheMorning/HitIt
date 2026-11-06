@@ -87,7 +87,8 @@ impl LibraryApp {
             }
             MusicDestination::Search
             | MusicDestination::NeedsAttention
-            | MusicDestination::Playlists => return,
+            | MusicDestination::Playlists
+            | MusicDestination::PublicPlaylists => return,
         }
         self.request_default_name_list(cx);
         cx.notify();
@@ -112,6 +113,14 @@ impl LibraryApp {
         cx: &mut Context<Self>,
     ) {
         if self.vm.list_sort(key) == Some(sort) {
+            return;
+        }
+        // ADR 0089 packet 009: the Public playlists list reads another
+        // endpoint in each sort, so a new sort starts its list again.
+        if key == ListPageKey::PublicPlaylists {
+            self.vm.set_list_sort(key, sort);
+            self.restart_public_playlist_list(None, cx);
+            cx.notify();
             return;
         }
         // The by-name list starts again at its first page. The sort Newest
@@ -192,6 +201,12 @@ impl LibraryApp {
                 let intent = self.artist_name_page.begin_from(from);
                 self.send_artist_name_request(intent, cx);
             }
+            ListPageKey::PublicPlaylists => {
+                if self.public_playlist_list.from() == from.as_deref() {
+                    return;
+                }
+                self.restart_public_playlist_list(from, cx);
+            }
             ListPageKey::MyPlaylists | ListPageKey::Results | ListPageKey::SavedSearch => {}
         }
     }
@@ -221,7 +236,12 @@ impl LibraryApp {
                     self.artists_list_state.scroll_to_reveal_item(index);
                 }
             }
-            ListPageKey::MyPlaylists | ListPageKey::Results | ListPageKey::SavedSearch => {}
+            // The Public playlists list has no scope, so the In Library
+            // scroll never reaches it (ADR 0089 packet 009).
+            ListPageKey::MyPlaylists
+            | ListPageKey::PublicPlaylists
+            | ListPageKey::Results
+            | ListPageKey::SavedSearch => {}
         }
     }
 
@@ -252,6 +272,9 @@ impl LibraryApp {
                     let intent = self.artist_name_page.begin_load(false);
                     self.send_artist_name_request(intent, cx);
                 }
+            }
+            MusicDestination::PublicPlaylists => {
+                self.request_public_playlists_first_page(cx);
             }
             MusicDestination::Search
             | MusicDestination::NeedsAttention

@@ -537,7 +537,8 @@ fn item_selection_id(item: &ReleasesListItemVm) -> Option<ReleasesRowId> {
             DestinationListRowTarget::Release(key) => Some(ReleasesRowId::Release(key.clone())),
             DestinationListRowTarget::ArtistName(_)
             | DestinationListRowTarget::Publisher(_)
-            | DestinationListRowTarget::IndexPublisher(_) => None,
+            | DestinationListRowTarget::IndexPublisher(_)
+            | DestinationListRowTarget::PublicPlaylist(_) => None,
         },
         ReleasesListItemVm::Group(group) => Some(ReleasesRowId::Group(group.open.clone())),
         ReleasesListItemVm::WindowGroup(tile) => {

@@ -59,6 +59,9 @@ pub enum IconName {
     Track,
     /// Playlist destination (ADR 0084 Decision 1).
     Playlist,
+    /// Public playlists destination, the playlists of the Index (ADR 0089
+    /// Decision 1).
+    PublicPlaylist,
     /// Show row of the sidebar (ADR 0089 Decision 1).
     Show,
     /// Settings row of the sidebar (ADR 0089 Decision 1).
@@ -119,6 +122,7 @@ impl IconName {
             | Self::Artist
             | Self::Track
             | Self::Playlist
+            | Self::PublicPlaylist
             | Self::Show
             | Self::Settings
             | Self::TilesView
@@ -169,6 +173,7 @@ impl IconName {
             | Self::Artist
             | Self::Track
             | Self::Playlist
+            | Self::PublicPlaylist
             | Self::Show
             | Self::Settings
             | Self::TilesView
@@ -199,6 +204,8 @@ impl IconName {
             Self::Artist => Some(LucideIconName::Users),
             Self::Track => Some(LucideIconName::Music),
             Self::Playlist => Some(LucideIconName::ListMusic),
+            // ADR 0089 Decision 1: the public playlists row of the sidebar.
+            Self::PublicPlaylist => Some(LucideIconName::Globe),
             // ADR 0089 Decision 1: the Show and Settings rows of the sidebar.
             Self::Show => Some(LucideIconName::RadioTower),
             Self::Settings => Some(LucideIconName::Settings),
@@ -267,6 +274,7 @@ impl IconName {
             | Self::Artist
             | Self::Track
             | Self::Playlist
+            | Self::PublicPlaylist
             | Self::Show
             | Self::Settings
             | Self::TilesView
@@ -599,6 +607,7 @@ mod tests {
         IconName::Artist,
         IconName::Track,
         IconName::Playlist,
+        IconName::PublicPlaylist,
         IconName::CloudDownload,
         IconName::Queued,
         IconName::InProgress,
@@ -674,6 +683,10 @@ mod tests {
         assert_eq!(
             IconName::Playlist.extra_icon(),
             Some(LucideIconName::ListMusic)
+        );
+        assert_eq!(
+            IconName::PublicPlaylist.extra_icon(),
+            Some(LucideIconName::Globe)
         );
         assert_eq!(IconName::Dash.extra_icon(), Some(LucideIconName::Minus));
         assert_eq!(

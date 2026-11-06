@@ -43,7 +43,7 @@ Each fact below was read on 2026-11-05 at commit `5942db3`.
 | [006](../tasks/adr-0089-task-006-search-page.md) | The Search page lists the saved searches, and Discover goes | 005 | Implemented 2026-11-06. V1 to V4 are open. |
 | [007](../tasks/adr-0089-task-007-saved-search-edits-and-new-counts.md) | Edit Query, Rename, Duplicate and the count of new results (migration 22) | 006 | Implemented 2026-11-06. Parts A to C. V1 to V4 are open. |
 | [008](../tasks/adr-0089-task-008-results-rows.md) | The two rows of the results page: the scope writes the query, and the type tabs show counts | 007 | Implemented 2026-11-06. Parts A to C. V1 to V4 are open. |
-| [009](../tasks/adr-0089-task-009-public-playlists.md) | The Public playlists page and its item page | 008 | Ready |
+| [009](../tasks/adr-0089-task-009-public-playlists.md) | The Public playlists page and its item page | 008 | Implemented 2026-11-06. V1 to V3 are open. |
 | [010](../tasks/adr-0089-task-010-copy-to-my-playlists.md) | "Copy to My Playlists…" | 009 | Ready |
 | [011](../tasks/adr-0089-task-011-live-page.md) | The Live page | 008 | Ready |
 | [012](../tasks/adr-0089-task-012-inbox.md) | The Inbox, and Needs attention goes | 008 | Ready |

@@ -51,6 +51,7 @@ use crate::view_models::library::{
     PlaylistSidebarVm, ReleasesListItemVm,
 };
 use crate::view_models::list_selection::RowCheckState;
+use crate::view_models::public_playlists::PublicPlaylistListItemVm;
 use crate::view_models::singles_group::SinglesGroupRowVm;
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
@@ -104,6 +105,24 @@ pub(crate) fn render_library_destination_rows(
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     render_destination_virtual_list(list_state, item_count, "artists", render_item, cx)
+}
+
+/// Renders one item of the Public playlists list in the Rows view (ADR 0089
+/// packet 009): a playlist row with the logo frame `art`, or the status row
+/// of the page. A row opens its playlist page, and it has no menu.
+pub(crate) fn render_public_playlist_list_item(
+    item: PublicPlaylistListItemVm,
+    art: Option<CollectionArtImage>,
+    actions: IndexListActions,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    match item {
+        PublicPlaylistListItemVm::Row(row) => {
+            let art = RowArt::Collection(collection_art(art, CollectionKind::Playlist));
+            render_destination_list_row(row, art, LeadingDisclosure::None, None, cx)
+        }
+        PublicPlaylistListItemVm::Status(row) => render_index_list_status_row(row, actions, cx),
+    }
 }
 
 /// Renders one item of the Artists list: a row with the logo frame
@@ -318,6 +337,7 @@ fn render_destination_list_row(
 ) -> AnyElement {
     let entity_kind = match &row.open {
         DestinationListRowTarget::Release(_) => EntityKind::Release,
+        DestinationListRowTarget::PublicPlaylist(_) => EntityKind::Playlist,
         DestinationListRowTarget::ArtistName(_)
         | DestinationListRowTarget::Publisher(_)
         | DestinationListRowTarget::IndexPublisher(_) => EntityKind::Artist,

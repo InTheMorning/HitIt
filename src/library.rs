@@ -42,6 +42,7 @@ use crate::view_models::library_removal::{
     SelectionRemovalConfirmationState, SelectionRemovalReport,
 };
 use crate::view_models::list_selection::{ListSelection, SelectionMode};
+use crate::view_models::public_playlists::PublicPlaylistPages;
 use crate::view_models::recent_feeds::RecentFeedsPageVm;
 use crate::view_models::releases_everything::ReleasesListCache;
 use crate::view_models::singles_group::SinglesGroupKey;
@@ -320,6 +321,18 @@ pub struct LibraryApp {
     /// The Artists list's virtual list state (ADR 0084 task 037, operator
     /// answer Q1 option B). The Artists list keeps no cache of its merge.
     artists_list_state: MusicColumnList,
+    /// The Public playlists list's virtual list state (ADR 0089 packet 009).
+    public_playlists_list_state: MusicColumnList,
+    /// The scroll of the Tiles view of the Public playlists list (ADR 0089
+    /// packet 009). The Library holds it, so the offset survives a change
+    /// of view.
+    public_playlists_tiles_scroll: ScrollHandle,
+    /// The pages of the Public playlists list, one for each sort (ADR 0089
+    /// packet 009). The Index gives its rows in order, so the list keeps
+    /// the request state of its current sort.
+    public_playlist_list: IndexNameListPage<Feed>,
+    /// The item page of the open public playlist (ADR 0089 packet 009).
+    public_playlist_pages: PublicPlaylistPages,
     /// The Music list column's own focus handle (ADR 0084 Decision 10).
     /// The selection keyboard actions act only while it, or a row inside
     /// it, carries the keyboard focus.
@@ -418,6 +431,7 @@ mod detail_selection;
 mod download_queue;
 mod downloads;
 mod music_scopes;
+mod public_playlists;
 mod release_page;
 mod saved_searches;
 mod track_page;

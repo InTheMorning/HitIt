@@ -1270,7 +1270,11 @@ impl TopApp {
                 crate::view_models::search_results::SavedSearch::FRAME_TITLE.to_string()
             }
             FrameNavigationEntry::Search(_) => "Search Results".to_string(),
-            FrameNavigationEntry::PlaylistDetail(_) => "Playlist".to_string(),
+            // ADR 0089 packet 009: a public playlist shows its loaded title,
+            // and this type title shows before it loads.
+            FrameNavigationEntry::PlaylistDetail(_) | FrameNavigationEntry::PublicPlaylist(_) => {
+                "Playlist".to_string()
+            }
             // ADR 0084 Decision 4/5: the curator sees "Track" for a track
             // and "Release" for a feed of music, whatever its origin.
             FrameNavigationEntry::Track(_) => "Track".to_string(),
@@ -1921,6 +1925,19 @@ impl TopApp {
             // fetch, independent of the Library tree and the Index results.
             Some(FrameNavigationEntry::PublisherDetail(_)) => {
                 let detail_content = self.render_publisher_page_content(cx);
+                if fills_detail {
+                    WorkspaceSlots::new().detail_slot(detail_content)
+                } else {
+                    WorkspaceSlots::new().content_list(detail_content)
+                }
+            }
+            // ADR 0089 packet 009: the item page of a public playlist reads
+            // its own state in the Library.
+            Some(FrameNavigationEntry::PublicPlaylist(feed_guid)) => {
+                let feed_guid = feed_guid.clone();
+                let detail_content = self.library.update(cx, |library, cx| {
+                    library.render_public_playlist_page(&feed_guid, cx)
+                });
                 if fills_detail {
                     WorkspaceSlots::new().detail_slot(detail_content)
                 } else {

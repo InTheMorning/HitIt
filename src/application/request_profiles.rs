@@ -171,6 +171,20 @@ pub(crate) const INDEX_PUBLISHER_SEARCH: RequestProfile =
 pub(crate) const INDEX_FEED_SINGLES: RequestProfile =
     RequestProfile::new(RequestPathShape::RecentFeedList, Some("named_feeds"));
 
+/// Public playlist list, one page (ADR 0089 Decision 1, packet 009). The
+/// one request of each page of the Public playlists list in the sort A to
+/// Z: `GET /v1/feeds/by-name` with `medium=musicL`. It sends no include, so
+/// each row is a feed row. Owner: `public_playlists::FetchPublicPlaylistPage`.
+pub(crate) const INDEX_PUBLIC_PLAYLIST_LIST: RequestProfile =
+    RequestProfile::new(RequestPathShape::FeedNameList, None);
+
+/// Public playlist detail. The one request of the item page of a public
+/// playlist (ADR 0089 packet 009). It reads `GET /v1/feeds/{guid}` with
+/// `include=remote_items`, so each entry of the playlist comes with it.
+/// Owner: `public_playlists::FetchPublicPlaylist`.
+pub(crate) const INDEX_PUBLIC_PLAYLIST_DETAIL: RequestProfile =
+    RequestProfile::new(RequestPathShape::Feed, Some("remote_items"));
+
 /// MusicIndex artist names of the field list. The one request of the
 /// `artist:` values after each pause of the toolbar search field (ADR 0087
 /// Decision 3, packet 005). It sends `from` and `limit=20`. The include

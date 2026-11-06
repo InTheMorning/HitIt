@@ -29,6 +29,31 @@ pub(crate) fn attach_content_list_scroll<E>(
 where
     E: StatefulInteractiveElement + Styled + IntoElement + 'static,
 {
+    attach_list_scroll_with(
+        container,
+        has_more,
+        is_loading,
+        scroll_handle,
+        |this, cx| this.start_recent_music_load(true, cx),
+        cx,
+    )
+}
+
+/// Makes `container` a scrolling area that runs `load_more` near its end
+/// (ADR 0089 packet 009). The Public playlists list pages its own rows, so
+/// it gives its own action. [`attach_content_list_scroll`] runs the recent
+/// Releases load.
+pub(crate) fn attach_list_scroll_with<E>(
+    container: E,
+    has_more: bool,
+    is_loading: bool,
+    scroll_handle: &ScrollHandle,
+    load_more: fn(&mut LibraryApp, &mut Context<LibraryApp>),
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement
+where
+    E: StatefulInteractiveElement + Styled + IntoElement + 'static,
+{
     let probe_scroll = scroll_handle.clone();
     let owner = cx.weak_entity();
     let probe = canvas(
@@ -43,9 +68,7 @@ where
                 has_more,
                 is_loading,
             ) {
-                let _ = owner.update(cx, |this, cx| {
-                    this.start_recent_music_load(true, cx);
-                });
+                let _ = owner.update(cx, load_more);
             }
         },
         |_, (), _, _| {},

@@ -13,6 +13,7 @@ pub mod metadata;
 pub mod name_lists;
 pub mod playback;
 pub mod playlist;
+pub mod public_playlists;
 pub mod search;
 pub mod stored_values;
 pub mod tag_update;
