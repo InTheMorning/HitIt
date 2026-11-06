@@ -276,3 +276,24 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - The keyboard focus (ADR 0089 Decision 9): Tab reaches the sidebar rows and the list. A row shows the focus when the list gets it. A mouse click shows no ring.
 - The letter bar (ADR 0089 Decision 9): Tab stops once at the bar. Left, Right, Home and End move the cursor with no request. Enter or Space runs the letter.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
+
+## 12. Button Shape, Roles And Selection - Implemented 2026-11-06
+
+Open - the code follows musicindex ADR 0020 R-ACT-1 to R-ACT-3 and ADR 0042. The mechanical suite is Green. No person checked the result. Do each check in Light and Dark.
+
+- Setup: do `cargo build --bin v4vmm`, then open `target/debug/v4vmm` in a desktop session. The checks change no stored data.
+- Pills: a button with a label is a pill on Releases, a search results page, Settings and a confirmation sheet.
+- Circles: each icon button is a circle, such as Back, Forward and the view icons of a list page.
+- Search: the toolbar Search command is a gray pill.
+- Gray pills: "Newest", "Select", "In Library", "Cancel", "Website" and "Show more" have the gray fill.
+- Action: "Save search" and "Check all feeds" have the accent label on the accent tint.
+- No fill: a letter that is not selected, a narrow-window tab that is not selected, and an artist link on a track page.
+- Selection: the selected sidebar row, filter, letter and narrow-window tab have a tint and an outline. None has a fill.
+- Destructive: a destructive button has a red label on a red tint.
+- Settings: use the largest UI scale in a narrow window. The Settings header keeps its menus in view. A selected item has no fill.
+- Incorrect results:
+  - A button has a square corner.
+  - An icon button is an oval.
+  - A label touches the edge of a pill.
+  - A control moves when it becomes selected.
+  - A menu item has pill ends.

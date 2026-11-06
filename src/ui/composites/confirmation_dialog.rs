@@ -112,7 +112,7 @@ pub fn confirmation_dialog(
                         .justify_end()
                         .gap(Spacing::SM.scaled(cx))
                         .child(
-                            Button::styled(display.cancel_button_id, ControlStyle::Secondary)
+                            Button::styled(display.cancel_button_id, ControlStyle::Neutral)
                                 .size(ButtonSize::Md)
                                 .label(display.cancel_label)
                                 .a11y_label(display.cancel_a11y_label)

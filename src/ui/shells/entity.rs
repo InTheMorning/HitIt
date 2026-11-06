@@ -329,7 +329,7 @@ pub fn render_album_name_links(
             } = link;
             let button = Button::styled(
                 SharedString::from(format!("album-name-link-{index}")),
-                ControlStyle::Ghost,
+                ControlStyle::Unfilled,
             )
             .label(label)
             .a11y_label(a11y_label)

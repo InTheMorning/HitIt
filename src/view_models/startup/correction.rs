@@ -29,6 +29,16 @@ pub(crate) enum CorrectionAction {
     CopyReport,
 }
 
+impl CorrectionAction {
+    /// Whether the command writes stored data. The renderer maps the result
+    /// to a role through `ControlStyle::by_result` (musicindex ADR 0042
+    /// R-ACT-4).
+    #[must_use]
+    pub(crate) const fn changes_stored_data(self) -> bool {
+        matches!(self, Self::Save | Self::EndSession)
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct CorrectionActionDisplay {
     pub(crate) action: CorrectionAction,
@@ -478,6 +488,14 @@ fn append_issues(message: &mut String, snapshot: &ConfigSnapshot) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Musicindex ADR 0042 R-ACT-4: Save and End session write data. A check
+    /// writes nothing.
+    #[test]
+    fn adr_0042_correction_save_changes_stored_data_and_validate_does_not() {
+        assert!(CorrectionAction::Save.changes_stored_data());
+        assert!(!CorrectionAction::Validate.changes_stored_data());
+    }
 
     fn loaded() -> (tempfile::TempDir, PathBuf, CorrectionVm) {
         let temp = tempfile::tempdir().unwrap();

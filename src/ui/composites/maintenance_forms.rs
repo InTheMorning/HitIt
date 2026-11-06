@@ -200,7 +200,7 @@ fn correction_button(
     let action = display.action;
     Button::styled(
         gpui::SharedString::from(format!("correction-{action:?}")),
-        ControlStyle::Secondary,
+        ControlStyle::by_result(action.changes_stored_data()),
     )
     .label(display.label)
     .a11y_label(display.a11y_label)
@@ -273,7 +273,7 @@ fn session_button(display: SessionActionDisplay, callback: SessionCallback) -> B
     let action = display.action;
     Button::styled(
         gpui::SharedString::from(format!("session-{action:?}")),
-        ControlStyle::Secondary,
+        ControlStyle::by_result(action.changes_stored_data()),
     )
     .label(display.label)
     .a11y_label(display.a11y_label)
@@ -355,7 +355,7 @@ pub(crate) fn database_tools(
                 if display.destructive {
                     ControlStyle::Destructive
                 } else {
-                    ControlStyle::Secondary
+                    ControlStyle::by_result(display.action.changes_stored_data())
                 },
             )
             .label(display.label)

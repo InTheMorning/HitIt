@@ -53,6 +53,16 @@ pub(crate) enum InboxUpdateKind {
     TagUpdates,
 }
 
+impl InboxUpdateKind {
+    /// Whether the command writes stored data. The renderer maps the result
+    /// to a role through `ControlStyle::by_result` (musicindex ADR 0042
+    /// R-ACT-4).
+    #[must_use]
+    pub(crate) const fn changes_stored_data(self) -> bool {
+        matches!(self, Self::FeedUpdates)
+    }
+}
+
 /// One item of the Updates section. Its count is the number of feeds or
 /// files that it names.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -220,6 +230,14 @@ pub(crate) fn order_problem_tracks<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Musicindex ADR 0042 R-ACT-4: applying feed updates writes data. The
+    /// tag update opens a confirmation first.
+    #[test]
+    fn adr_0042_feed_updates_change_stored_data_and_tag_updates_do_not() {
+        assert!(InboxUpdateKind::FeedUpdates.changes_stored_data());
+        assert!(!InboxUpdateKind::TagUpdates.changes_stored_data());
+    }
     use crate::application::queries::broadcast::BroadcastReadinessState;
 
     fn track(track_id: i64, title: &str) -> BroadcastReadinessTrack {

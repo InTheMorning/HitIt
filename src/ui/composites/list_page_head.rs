@@ -90,7 +90,7 @@ pub(crate) fn list_page_head(
 
     if let Some(select) = display.select {
         let a11y_label = select.a11y_label.clone();
-        let mut button = Button::styled(SharedString::from(select.id), ControlStyle::Ghost)
+        let mut button = Button::styled(SharedString::from(select.id), ControlStyle::Neutral)
             .label(select.label)
             .a11y_label(a11y_label.clone())
             .tooltip(a11y_label);
@@ -157,7 +157,8 @@ fn title_action(
     on_click: Option<&ListHeadButtonHandler>,
 ) -> AnyElement {
     let style = match display.style {
-        SearchPageActionStyle::Plain => ControlStyle::Secondary,
+        SearchPageActionStyle::Action => ControlStyle::Secondary,
+        SearchPageActionStyle::Plain => ControlStyle::Neutral,
         SearchPageActionStyle::Destructive => ControlStyle::Destructive,
     };
     let button = Button::styled(SharedString::from(display.id), style)
@@ -185,6 +186,7 @@ fn sort_menu(display: ListSortButtonVm, on_sort: Option<&ListSortHandler>) -> An
         SharedString::from(display.a11y_label),
     )
     .trigger_label(SharedString::from(display.label))
+    .trigger_style(ControlStyle::Neutral)
     .trigger_icon(IconName::ChevronDown);
     for option in display.options {
         let sort = option.sort;

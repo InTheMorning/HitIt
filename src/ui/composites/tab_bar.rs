@@ -68,9 +68,9 @@ pub(crate) fn render_tab_bar(
         let destination = item.destination;
         let on_select = Rc::clone(&on_select);
         let style = if item.selected {
-            ControlStyle::Secondary
+            ControlStyle::SelectedTab
         } else {
-            ControlStyle::Ghost
+            ControlStyle::Unfilled
         };
         bar = bar.child(
             Button::styled(item.element_id, style)
@@ -98,9 +98,9 @@ pub(crate) fn render_tab_bar(
         })
         .chain(feed_items);
     let more_style = if vm.more_selected() {
-        ControlStyle::Secondary
+        ControlStyle::SelectedTab
     } else {
-        ControlStyle::Ghost
+        ControlStyle::Unfilled
     };
     bar.child(
         ContextMenu::new(MORE_MENU_ID, ContextMenuScope::WorkspaceFrame, "More")

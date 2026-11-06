@@ -212,7 +212,7 @@ fn render_open_show_button(
     open_show: LiveStatusOpenShowActionDisplay,
     handler: Option<LiveStatusClickHandler>,
 ) -> UiButton {
-    let mut button = UiButton::styled(open_show.id, ControlStyle::Secondary)
+    let mut button = UiButton::styled(open_show.id, ControlStyle::Neutral)
         .leading_icon(IconName::Play)
         .label(open_show.label)
         .a11y_label(open_show.a11y_label)

@@ -319,7 +319,7 @@ fn render_content_list_load_more(
     div()
         .pt(Spacing::SM.scaled(cx))
         .child(
-            UiButton::styled(display.button_id, ControlStyle::Ghost)
+            UiButton::styled(display.button_id, ControlStyle::Neutral)
                 .label(display.label)
                 .a11y_label(display.a11y_label)
                 .disabled(display.disabled)

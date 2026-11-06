@@ -145,10 +145,14 @@ pub(crate) fn settings_actions(
         .children(actions.into_iter().map(|display| {
             let callback = Rc::clone(callback);
             let action = display.action;
-            let style = if display.selected || action == SettingsAction::Save {
+            let style = if action == SettingsAction::Save {
                 ControlStyle::Primary
+            } else if display.selected {
+                ControlStyle::SelectedTab
+            } else if action == SettingsAction::UseDefaults {
+                ControlStyle::Secondary
             } else {
-                ControlStyle::Ghost
+                ControlStyle::Neutral
             };
             let mut button = Button::styled(SharedString::from(display.id), style)
                 .label(display.label)

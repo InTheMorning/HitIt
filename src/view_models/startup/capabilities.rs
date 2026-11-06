@@ -22,6 +22,17 @@ pub struct CapabilityActionDisplay {
     pub availability: StartupAvailability,
 }
 
+impl CapabilityAction {
+    /// Whether the command writes stored data. Only "Run original action"
+    /// (and its other `run_label` labels) does. The renderer maps the result
+    /// to a role through `ControlStyle::by_result` (musicindex ADR 0042
+    /// R-ACT-4).
+    #[must_use]
+    pub const fn changes_stored_data(self) -> bool {
+        matches!(self, Self::Retry(_))
+    }
+}
+
 pub struct CapabilityRowDisplay {
     pub label: String,
     pub help: Option<String>,
@@ -798,6 +809,14 @@ fn run_help(action: &RecoveryAction) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Musicindex ADR 0042 R-ACT-4: the original action of a pending entry
+    /// writes data. Copy report writes nothing.
+    #[test]
+    fn adr_0042_capability_retry_changes_stored_data_and_copy_report_does_not() {
+        assert!(CapabilityAction::Retry(1).changes_stored_data());
+        assert!(!CapabilityAction::CopyReport.changes_stored_data());
+    }
     use std::io;
     use std::time::{Duration, SystemTime};
 

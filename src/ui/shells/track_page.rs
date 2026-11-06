@@ -114,9 +114,11 @@ fn render_track_page_actions(
         actions,
         dispatch,
     )];
-    controls.extend(actions.plain.iter().map(|action| {
-        render_track_page_button(action, ControlStyle::Secondary, actions, dispatch)
-    }));
+    controls.extend(
+        actions.plain.iter().map(|action| {
+            render_track_page_button(action, ControlStyle::Neutral, actions, dispatch)
+        }),
+    );
     if !actions.menu.is_empty() {
         controls.push(render_track_page_menu(actions, inspect_sources, dispatch));
     }

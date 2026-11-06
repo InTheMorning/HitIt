@@ -2,25 +2,36 @@
 //!
 //! Screens choose product intent (`MetadataAction`, `RowAction`, ...). The
 //! design system owns the concrete native button variant, size, typography,
-//! border, and token choices.
+//! border, and token choices. The shape of a button is not a role choice:
+//! the primitive owns it (musicindex ADR 0020 R-ACT-2).
 
 #![warn(clippy::pedantic)]
 
 use crate::ui::primitives::{ButtonSize, ButtonVariant};
-use crate::ui::tokens::{FontSize, Radius, SemanticColor};
+use crate::ui::tokens::{FontSize, SemanticColor};
 
 /// Reusable button/action roles admitted by ADR 0025.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ControlStyle {
     Primary,
+    /// The role Action of musicindex ADR 0042 R-ACT-4: the command adds or
+    /// changes something.
     Secondary,
-    Ghost,
+    /// The command changes no stored data (R-ACT-4 item 1).
+    Neutral,
+    /// A text label with no fill: a letter of the letter bar, an item of the
+    /// narrow tab bar, or a link in text (R-ACT-6 item 2).
+    Unfilled,
+    /// `Secondary` at the size of a row.
+    CompactAction,
     Destructive,
     ToolbarIcon,
     RowAction,
     DestructiveRowAction,
     MetadataAction,
-    Pill,
+    /// A selected tab, segment or letter. It has a tint and an outline, and
+    /// no fill (musicindex ADR 0020 R-ACT-1 item 3).
+    SelectedTab,
 }
 
 /// Pure style mapping consumed by the native [`crate::ui::primitives::Button`].
@@ -29,7 +40,6 @@ pub struct ControlStyleSpec {
     pub variant: ButtonVariant,
     pub size: ButtonSize,
     pub font_size: FontSize,
-    pub radius: Radius,
     pub foreground: Option<SemanticColor>,
     pub border: Option<SemanticColor>,
 }
@@ -43,7 +53,6 @@ impl ControlStyle {
                 variant: ButtonVariant::Filled,
                 size: ButtonSize::Md,
                 font_size: FontSize::Body,
-                radius: Radius::MD,
                 foreground: None,
                 border: None,
             },
@@ -51,23 +60,28 @@ impl ControlStyle {
                 variant: ButtonVariant::Tinted,
                 size: ButtonSize::Md,
                 font_size: FontSize::Body,
-                radius: Radius::MD,
                 foreground: None,
                 border: None,
             },
-            Self::Ghost => ControlStyleSpec {
+            // The primitive gives `Plain` with a text label the neutral fill.
+            Self::Neutral | Self::Unfilled => ControlStyleSpec {
                 variant: ButtonVariant::Plain,
                 size: ButtonSize::Md,
                 font_size: FontSize::Body,
-                radius: Radius::MD,
-                foreground: Some(SemanticColor::Accent),
+                foreground: None,
+                border: None,
+            },
+            Self::CompactAction => ControlStyleSpec {
+                variant: ButtonVariant::Tinted,
+                size: ButtonSize::Sm,
+                font_size: FontSize::Caption,
+                foreground: None,
                 border: None,
             },
             Self::Destructive => ControlStyleSpec {
                 variant: ButtonVariant::Destructive,
                 size: ButtonSize::Md,
                 font_size: FontSize::Body,
-                radius: Radius::MD,
                 foreground: None,
                 border: None,
             },
@@ -75,15 +89,13 @@ impl ControlStyle {
                 variant: ButtonVariant::Plain,
                 size: ButtonSize::Sm,
                 font_size: FontSize::Caption,
-                radius: Radius::SM,
-                foreground: Some(SemanticColor::Accent),
+                foreground: None,
                 border: None,
             },
             Self::DestructiveRowAction => ControlStyleSpec {
                 variant: ButtonVariant::Plain,
                 size: ButtonSize::Sm,
                 font_size: FontSize::Caption,
-                radius: Radius::SM,
                 foreground: Some(SemanticColor::DangerLabel),
                 border: None,
             },
@@ -91,18 +103,26 @@ impl ControlStyle {
                 variant: ButtonVariant::Plain,
                 size: ButtonSize::Sm,
                 font_size: FontSize::Micro,
-                radius: Radius::SM,
-                foreground: Some(SemanticColor::Accent),
-                border: Some(SemanticColor::Accent),
-            },
-            Self::Pill => ControlStyleSpec {
-                variant: ButtonVariant::Tinted,
-                size: ButtonSize::Sm,
-                font_size: FontSize::Micro,
-                radius: Radius::Full,
                 foreground: None,
                 border: None,
             },
+            Self::SelectedTab => ControlStyleSpec {
+                variant: ButtonVariant::Tinted,
+                size: ButtonSize::Md,
+                font_size: FontSize::Body,
+                foreground: None,
+                border: Some(SemanticColor::AccentOutline),
+            },
+        }
+    }
+
+    /// The role of a command by its result (musicindex ADR 0042 R-ACT-4 item 3).
+    #[must_use]
+    pub const fn by_result(changes_stored_data: bool) -> Self {
+        if changes_stored_data {
+            Self::Secondary
+        } else {
+            Self::Neutral
         }
     }
 
@@ -121,14 +141,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn metadata_action_is_accent_bordered_plain_button() {
+    fn metadata_action_is_compact_plain_button() {
         let spec = ControlStyle::MetadataAction.spec();
         assert_eq!(spec.variant, ButtonVariant::Plain);
         assert_eq!(spec.size, ButtonSize::Sm);
         assert_eq!(spec.font_size, FontSize::Micro);
-        assert_eq!(spec.radius, Radius::SM);
-        assert_eq!(spec.foreground, Some(SemanticColor::Accent));
-        assert_eq!(spec.border, Some(SemanticColor::Accent));
+        assert!(spec.foreground.is_none());
+        assert!(spec.border.is_none());
     }
 
     #[test]
@@ -154,7 +173,6 @@ mod tests {
         assert_eq!(spec.variant, ButtonVariant::Plain);
         assert_eq!(spec.size, ButtonSize::Sm);
         assert_eq!(spec.font_size, FontSize::Caption);
-        assert_eq!(spec.radius, Radius::SM);
         assert_eq!(spec.foreground, Some(SemanticColor::DangerLabel));
         assert!(spec.border.is_none());
     }
@@ -165,14 +183,16 @@ mod tests {
         assert!(ControlStyle::RowAction.prefers_tooltip());
         assert!(ControlStyle::DestructiveRowAction.prefers_tooltip());
         assert!(!ControlStyle::Primary.prefers_tooltip());
-        assert!(!ControlStyle::Ghost.prefers_tooltip());
+        assert!(!ControlStyle::Neutral.prefers_tooltip());
     }
 
+    /// musicindex ADR 0020 R-ACT-1 item 3: a selected tab has a tint and an
+    /// outline, and no fill.
     #[test]
-    fn pill_uses_tinted_button_foreground_contract() {
-        let spec = ControlStyle::Pill.spec();
+    fn selected_tab_has_a_tint_and_an_outline() {
+        let spec = ControlStyle::SelectedTab.spec();
 
         assert_eq!(spec.variant, ButtonVariant::Tinted);
-        assert!(spec.foreground.is_none());
+        assert_eq!(spec.border, Some(SemanticColor::AccentOutline));
     }
 }

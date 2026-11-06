@@ -305,7 +305,7 @@ fn render_playlist_actions(
         .child(apply_click_handler(
             UiButton::styled(
                 SharedString::from(actions.rename_button_id),
-                ControlStyle::Ghost,
+                ControlStyle::Neutral,
             )
             .label(actions.rename_label)
             .a11y_label(actions.rename_a11y_label),
@@ -323,7 +323,7 @@ fn render_playlist_actions(
         .child(apply_click_handler(
             UiButton::styled(
                 SharedString::from(actions.check_rss.button_id),
-                ControlStyle::Ghost,
+                ControlStyle::Secondary,
             )
             .label(actions.check_rss.label)
             .a11y_label(actions.check_rss.a11y_label)
@@ -421,7 +421,7 @@ fn render_podping_link(
     // the accessibility label and the availability. The click puts the
     // feed URL on the clipboard through GPUI.
     let copy_target = copy.enabled.then_some(copy.feed_url).flatten();
-    let copy_button = UiButton::styled(SharedString::from(copy.button_id), ControlStyle::Ghost)
+    let copy_button = UiButton::styled(SharedString::from(copy.button_id), ControlStyle::Neutral)
         .label(copy.label)
         .a11y_label(copy.a11y_label.clone())
         .tooltip(copy.a11y_label)
@@ -453,7 +453,7 @@ fn render_podping_link(
                 .child(
                     UiButton::styled(
                         SharedString::from(format!("{}-open", link.id)),
-                        ControlStyle::Ghost,
+                        ControlStyle::Neutral,
                     )
                     .label(link.label)
                     .a11y_label(link.a11y_label.clone())
@@ -484,11 +484,14 @@ fn render_rss_difference_row(
                 click_slot(move |_, window, cx| handler(track_id, window, cx))
             });
         apply_click_handler(
-            UiButton::styled(SharedString::from(download.button_id), ControlStyle::Ghost)
-                .label(download.label)
-                .a11y_label(download.a11y_label.clone())
-                .tooltip(download.a11y_label)
-                .disabled(!download.enabled),
+            UiButton::styled(
+                SharedString::from(download.button_id),
+                ControlStyle::Secondary,
+            )
+            .label(download.label)
+            .a11y_label(download.a11y_label.clone())
+            .tooltip(download.a11y_label)
+            .disabled(!download.enabled),
             handler,
         )
     });
@@ -560,7 +563,7 @@ fn render_playlist_rename_editor(
         .child(apply_click_handler(
             UiButton::styled(
                 SharedString::from(actions.rename_cancel_button_id),
-                ControlStyle::Ghost,
+                ControlStyle::Neutral,
             )
             .label(actions.rename_cancel_label)
             .a11y_label(actions.rename_cancel_a11y_label),
@@ -982,10 +985,16 @@ fn render_playlist_track_controls(
     // ADR 0083 Decision 10: `Play` draws the Play icon alone; `label()`
     // gives `None` for it. `RepairPlayback` draws its word instead, with
     // no icon, because the control offers a different action.
-    let play_button = UiButton::styled(SharedString::from(play_button_id), ControlStyle::RowAction)
+    let play_word = play_affordance.label();
+    let play_style = if play_word.is_some() {
+        ControlStyle::CompactAction
+    } else {
+        ControlStyle::RowAction
+    };
+    let play_button = UiButton::styled(SharedString::from(play_button_id), play_style)
         .a11y_label(play_a11y_label)
         .disabled(!play_enabled);
-    let play_button = match play_affordance.label() {
+    let play_button = match play_word {
         Some(label) => play_button.label(label),
         None => play_button.leading_icon(IconName::Play),
     };
@@ -1178,10 +1187,13 @@ fn render_removed_track_action(
     handler: Option<PlaylistClickHandler>,
 ) -> UiButton {
     let disabled = action.availability.disabled();
-    let button = UiButton::styled(SharedString::from(action.id), ControlStyle::RowAction)
-        .label(action.label)
-        .a11y_label(action.a11y_label)
-        .disabled(disabled);
+    let button = UiButton::styled(
+        SharedString::from(action.id),
+        ControlStyle::DestructiveRowAction,
+    )
+    .label(action.label)
+    .a11y_label(action.a11y_label)
+    .disabled(disabled);
     if disabled {
         button
     } else {

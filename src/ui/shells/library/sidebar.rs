@@ -18,9 +18,10 @@ use crate::ui::composites::tab_bar::sidebar_icon_name as icon_name;
 use crate::ui::composites::track_drag::{PlaylistTrackDragPayload, TrackDragPayload};
 use crate::ui::focus_ring::focus_ring_shows;
 use crate::ui::icons::{Icon, IconName, IconSize};
+use crate::ui::layouts as layout;
 use crate::ui::primitives::Label;
 use crate::ui::style::{color, spacing};
-use crate::ui::tokens::{resolve_color, SemanticColor};
+use crate::ui::tokens::{resolve_color, Radius, SemanticColor};
 use crate::view_models::sidebar::SidebarRowVm;
 
 /// Renders the separator line that follows the upper rows (ADR 0089
@@ -62,16 +63,25 @@ pub(crate) fn render_sidebar_row(
         .items_center()
         .w_full()
         .gap(spacing::SM)
-        .px(spacing::SM)
-        .py(spacing::XXS)
-        // The border always takes its space, so the focus ring moves no row.
-        .border_2()
+        // The border always takes its space. The focus ring is one pixel wider
+        // than the outline, and the padding gives that pixel back, so no row moves.
+        .when(focused, |el| el.border_2().px(spacing::SM).py(spacing::XXS))
+        .when(!focused, |el| {
+            el.border_1()
+                .px(spacing::SM + layout::SIDEBAR_ROW_OUTLINE_WIDTH)
+                .py(spacing::XXS + layout::SIDEBAR_ROW_OUTLINE_WIDTH)
+        })
         .border_color(gpui::transparent_black())
         .cursor_pointer()
-        .rounded(spacing::XS)
-        .when(selected, |el| el.bg(color::bg_selected()))
+        .rounded(Radius::LG.scaled(cx))
+        // musicindex ADR 0020 R-ACT-1 item 3: navigation has a tint and an
+        // outline, and no fill.
+        .when(selected, |el| {
+            el.bg(resolve_color(cx, SemanticColor::AccentTint, None))
+                .border_color(resolve_color(cx, SemanticColor::AccentOutline, None))
+        })
         .when(focused, |el| el.border_color(focus_color))
-        .hover(|el| el.bg(color::bg_surface_hi()))
+        .when(!selected, |el| el.hover(|el| el.bg(color::bg_surface_hi())))
         .on_click(cx.listener(move |_this, _: &ClickEvent, _window, cx| {
             cx.emit(LibraryAppEvent::SidebarRowSelected(destination));
         }));

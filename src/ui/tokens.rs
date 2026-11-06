@@ -111,6 +111,18 @@ pub enum SemanticColor {
     AccentPressed,
     OnAccent,
     Focus,
+    /// The fill of an Action button and of a selected tab (`accent-tint` in
+    /// the shared copy at `src/assets/tokens.json`).
+    AccentTint,
+    /// The outline of a selected tab or sidebar item (musicindex ADR 0020
+    /// R-ACT-1 item 3). The value is the Studio token `--gloss-edge`.
+    AccentOutline,
+    /// The fill of a destructive button (musicindex ADR 0020 R-TOKEN-1).
+    DangerTint,
+    /// The fill of a Neutral button (musicindex ADR 0042 R-ACT-5).
+    ButtonFill,
+    /// The fill of a Neutral button with the pointer on it.
+    ButtonFillHover,
 
     // Status — system colors (HIG fidelity, used as fills / large text).
     Success,
@@ -231,6 +243,11 @@ impl SemanticColor {
             // Derived: reuses AccentHover so the focus ring stays clearly
             // visible against the canvas.
             Self::Focus => hex(0x57_95ff),
+            Self::AccentTint => hex_alpha(0x2d_7bff, 0.18),
+            Self::AccentOutline => hex_alpha(0x2d_7bff, 0.34),
+            Self::DangerTint => hex_alpha(0xff_6961, 0.16),
+            Self::ButtonFill => hex_alpha(0x76_7680, 0.24),
+            Self::ButtonFillHover => hex_alpha(0xff_ffff, 0.12),
 
             Self::Success => hex(0x7d_d67d),
             // ADR 0083 Decision 2: orange, not gold, so gold is free for the
@@ -330,6 +347,11 @@ impl SemanticColor {
             // Derived: reuses AccentHover so the focus ring stays clearly
             // visible against the canvas.
             Self::Focus => hex(0x3b_7cde),
+            Self::AccentTint => hex_alpha(0x0a_5bd6, 0.12),
+            Self::AccentOutline => hex_alpha(0x0a_5bd6, 0.40),
+            Self::DangerTint => hex_alpha(0xc4_1e3a, 0.10),
+            Self::ButtonFill => hex_alpha(0x78_7880, 0.14),
+            Self::ButtonFillHover => hex_alpha(0x78_7880, 0.18),
 
             Self::Success => hex(0x34_c759),
             Self::Warning => hex(0xff_9500),
@@ -488,13 +510,13 @@ impl Spacing {
 pub enum Radius {
     /// 4 px — chips, badges.
     SM,
-    /// 6 px — buttons, inputs.
+    /// 6 px — inputs.
     MD,
     /// 10 px — popovers, sheets.
     LG,
     /// 14 px — large overlays.
     XL,
-    /// Pill shape (999 px).
+    /// Pill shape (999 px) — each button (musicindex ADR 0020 R-ACT-2).
     Full,
 }
 
@@ -1397,6 +1419,38 @@ mod tests {
         assert!((c.g - 0.501_960_8).abs() < 1e-4);
         assert!((c.b - 0.250_980_4).abs() < 1e-4);
         assert!((c.a - 1.0).abs() < f32::EPSILON);
+    }
+
+    /// musicindex ADR 0032 R-DOT-2: the button tints and fills match the shared copy in
+    /// `src/assets/tokens.json`. Fix: copy the value from that file.
+    #[test]
+    fn button_tints_match_the_shared_tokens() {
+        let shared: serde_json::Value =
+            serde_json::from_str(include_str!("../assets/tokens.json")).expect("valid JSON");
+        for (appearance, key) in [(Appearance::Dark, "dark"), (Appearance::Light, "light")] {
+            for (token, name) in [
+                (SemanticColor::AccentTint, "accent-tint"),
+                (SemanticColor::DangerTint, "danger-tint"),
+                (SemanticColor::ButtonFill, "button-fill"),
+                (SemanticColor::ButtonFillHover, "button-fill-hover"),
+            ] {
+                let color = token.resolve(appearance);
+                let channel = |value: f32| (value * 255.0).round();
+                let alpha = format!("{:.2}", color.a);
+                let alpha = alpha.trim_end_matches('0').trim_start_matches('0');
+                let expected = format!(
+                    "rgba({}, {}, {}, {alpha})",
+                    channel(color.r),
+                    channel(color.g),
+                    channel(color.b),
+                );
+                assert_eq!(
+                    shared["color"][key][name].as_str(),
+                    Some(expected.as_str()),
+                    "{name} in {key}"
+                );
+            }
+        }
     }
 
     #[test]

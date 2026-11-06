@@ -23,6 +23,7 @@ use crate::ui::composites::{
     action_button, ActionButtonDisplay, ActionRow, ActionRowDisplay, ActionRowMessage, FileHeader,
     MusicBrainzPanel,
 };
+use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::LoadingMessage;
 use crate::ui::style::spacing;
 use crate::view_models::entity_detail::{
@@ -193,6 +194,7 @@ fn render_inspect_sources_controls(
             },
             cx,
         )
+        .control_style(ControlStyle::CompactAction)
         .disabled(!staged_display.apply_enabled)
         .on_click(cx.listener(|this, _, _, cx| {
             this.apply_pending_id3_edits(cx);

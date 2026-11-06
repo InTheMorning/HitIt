@@ -648,7 +648,7 @@ mod tests {
     use super::*;
     use crate::theme_profile::ThemeProfile;
     use crate::ui::icons::IconName;
-    use crate::ui::primitives::button::{TINTED_BUTTON_BG_ALPHA, TINTED_BUTTON_HOVER_BG_ALPHA};
+    use crate::ui::primitives::button::TINT_HOVER_ALPHA_STEP;
     use crate::ui::theme_profiles::resolve_profile_color;
     use crate::ui::tokens::{Appearance, SemanticColor};
 
@@ -730,9 +730,14 @@ mod tests {
         );
     }
 
-    fn tinted_button_background(profile: ThemeProfile, surface: SemanticColor, alpha: f32) -> Rgba {
-        let mut tint = resolve_profile_color(profile, SemanticColor::Accent);
-        tint.a = alpha;
+    fn tinted_button_background(
+        profile: ThemeProfile,
+        surface: SemanticColor,
+        tint: SemanticColor,
+        hover_step: f32,
+    ) -> Rgba {
+        let mut tint = resolve_profile_color(profile, tint);
+        tint.a += hover_step;
         composite_over(tint, resolve_profile_color(profile, surface))
     }
 
@@ -754,19 +759,13 @@ mod tests {
 
         for profile in profiles {
             let accent = resolve_profile_color(profile, SemanticColor::Accent);
+            let label = resolve_profile_color(profile, SemanticColor::Label);
             let on_accent = resolve_profile_color(profile, SemanticColor::OnAccent);
-            let danger = resolve_profile_color(profile, SemanticColor::Danger);
-            let on_danger = resolve_profile_color(profile, SemanticColor::OnDanger);
+            let danger_label = resolve_profile_color(profile, SemanticColor::DangerLabel);
             let actual = ratio(on_accent, accent);
             if actual + 0.005 < required {
                 failures.push(format!(
                     "{profile:?}: filled button OnAccent on Accent = {actual:.2}:1; need {required:.2}:1"
-                ));
-            }
-            let actual = ratio(on_danger, danger);
-            if actual + 0.005 < required {
-                failures.push(format!(
-                    "{profile:?}: destructive button OnDanger on Danger = {actual:.2}:1; need {required:.2}:1"
                 ));
             }
 
@@ -779,21 +778,31 @@ mod tests {
                     ));
                 }
 
-                let tinted_bg = tinted_button_background(profile, surface, TINTED_BUTTON_BG_ALPHA);
-                let actual = ratio(accent, tinted_bg);
-                if actual + 0.005 < required {
-                    failures.push(format!(
-                        "{profile:?}: tinted button Accent on tinted {surface:?} = {actual:.2}:1; need {required:.2}:1"
-                    ));
+                // musicindex ADR 0042 R-ACT-5 item 4: the Neutral label has 4.5:1.
+                for fill in [SemanticColor::ButtonFill, SemanticColor::ButtonFillHover] {
+                    let background =
+                        composite_over(resolve_profile_color(profile, fill), surface_color);
+                    let actual = ratio(label, background);
+                    if actual + 0.005 < ContrastLevel::NormalText.min_ratio() {
+                        failures.push(format!(
+                            "{profile:?}: Neutral button Label on {fill:?} over {surface:?} = {actual:.2}:1; need 4.5:1"
+                        ));
+                    }
                 }
 
-                let tinted_hover_bg =
-                    tinted_button_background(profile, surface, TINTED_BUTTON_HOVER_BG_ALPHA);
-                let actual = ratio(accent, tinted_hover_bg);
-                if actual + 0.005 < required {
-                    failures.push(format!(
-                        "{profile:?}: tinted hover button Accent on tinted {surface:?} = {actual:.2}:1; need {required:.2}:1"
-                    ));
+                for (name, foreground, tint) in [
+                    ("tinted", accent, SemanticColor::AccentTint),
+                    ("destructive", danger_label, SemanticColor::DangerTint),
+                ] {
+                    for (state, step) in [("rest", 0.0), ("hover", TINT_HOVER_ALPHA_STEP)] {
+                        let background = tinted_button_background(profile, surface, tint, step);
+                        let actual = ratio(foreground, background);
+                        if actual + 0.005 < required {
+                            failures.push(format!(
+                                "{profile:?}: {name} button at {state} on {surface:?} = {actual:.2}:1; need {required:.2}:1"
+                            ));
+                        }
+                    }
                 }
             }
         }

@@ -57,6 +57,8 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 [ADR 0088](docs/adr/0088-a-feed-move-follows-the-rss-tag.md), the feed move, is Proposed, and its packet waits for the operator.
 [ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md), the shell, is Accepted on 2026-11-05. The [shell run](docs/reviews/orchestrated-run-2026-11-05-shell.md) implemented packets 001 to 015 of its [phase plan](docs/plans/adr-0089-shell-phase-plan.md) on 2026-11-06. Their visual checks and the questions of the run record are open in section 11 of [pending human checks](docs/pending-human-checks.md). Packet 016, the now-playing panel and the row action Play, waits for ADR 0068. The new tokens of the overhaul plan start after the walk.
 
+[musicindex ADR 0042](../musicindex/docs/adr/0042-a-button-with-a-label-has-a-fill.md), the neutral button, is implemented here on 2026-11-06 in the [run record](docs/reviews/orchestrated-run-2026-11-06-neutral-button.md). Its check is open in section 12 of [pending human checks](docs/pending-human-checks.md).
+
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for

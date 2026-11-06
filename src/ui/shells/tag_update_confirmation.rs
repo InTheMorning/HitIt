@@ -27,7 +27,7 @@ pub(crate) fn render_tag_update_button(
     display: TagUpdateButtonDisplay,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
-    Button::styled(display.button_id, ControlStyle::Secondary)
+    Button::styled(display.button_id, ControlStyle::Neutral)
         .label(display.label)
         .a11y_label(display.a11y_label)
         .disabled(!display.enabled)

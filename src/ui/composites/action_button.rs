@@ -23,7 +23,8 @@ pub struct ActionButtonDisplay {
     pub a11y_label: SharedString,
 }
 
-/// Build a metadata-action button with the standard accent-bordered style.
+/// Build a metadata-action button. It has the neutral fill. A command that writes
+/// data replaces the role with `ControlStyle::CompactAction` (musicindex ADR 0042).
 pub fn action_button(display: ActionButtonDisplay, _cx: &App) -> Button {
     let ActionButtonDisplay { label, a11y_label } = display;
     Button::styled(

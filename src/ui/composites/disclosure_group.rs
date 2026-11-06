@@ -289,7 +289,7 @@ impl RenderOnce for DisclosureTextPanel {
 
         if let Some((label, a11y_label)) = self.display.show_more {
             let show_more_id = ElementId::NamedChild(Arc::new(panel_id), "show-more".into());
-            let mut show_more = Button::styled(show_more_id, ControlStyle::Ghost)
+            let mut show_more = Button::styled(show_more_id, ControlStyle::Neutral)
                 .label(label)
                 .a11y_label(a11y_label);
             if let Some(handler) = self.on_toggle {

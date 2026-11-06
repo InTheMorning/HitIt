@@ -88,18 +88,21 @@ fn render_updates_section(
                         .weight(FontWeight::MEDIUM),
                 )
                 .child(
-                    UiButton::styled(button_id, ControlStyle::Secondary)
-                        .label(item.button_label.clone())
-                        .a11y_label(item.a11y_label.clone())
-                        .disabled(item.disabled)
-                        .on_click(cx.listener(
-                            move |this, _: &ClickEvent, window, cx| match kind {
-                                InboxUpdateKind::FeedUpdates => this.apply_all_feed_updates(cx),
-                                InboxUpdateKind::TagUpdates => {
-                                    this.open_tag_update_popup(window, cx);
-                                }
-                            },
-                        )),
+                    UiButton::styled(
+                        button_id,
+                        ControlStyle::by_result(kind.changes_stored_data()),
+                    )
+                    .label(item.button_label.clone())
+                    .a11y_label(item.a11y_label.clone())
+                    .disabled(item.disabled)
+                    .on_click(cx.listener(
+                        move |this, _: &ClickEvent, window, cx| match kind {
+                            InboxUpdateKind::FeedUpdates => this.apply_all_feed_updates(cx),
+                            InboxUpdateKind::TagUpdates => {
+                                this.open_tag_update_popup(window, cx);
+                            }
+                        },
+                    )),
                 )
                 .into_any_element()
         }))
@@ -131,13 +134,18 @@ fn render_setup_section(
                         .color(SemanticColor::SecondaryLabel),
                 )
                 .child(
-                    UiButton::styled(button_id, ControlStyle::Secondary)
-                        .label(action.label)
-                        .a11y_label(action.a11y_label.clone())
-                        .disabled(disabled)
-                        .on_click(cx.listener(move |_, _: &ClickEvent, _window, cx| {
+                    UiButton::styled(
+                        button_id,
+                        ControlStyle::by_result(action.action.changes_stored_data()),
+                    )
+                    .label(action.label)
+                    .a11y_label(action.a11y_label.clone())
+                    .disabled(disabled)
+                    .on_click(cx.listener(
+                        move |_, _: &ClickEvent, _window, cx| {
                             cx.emit(LibraryAppEvent::InboxSetupAction(action.action));
-                        })),
+                        },
+                    )),
                 )
                 .into_any_element()
         }))

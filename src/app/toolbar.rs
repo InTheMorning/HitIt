@@ -237,7 +237,8 @@ fn render_global_search_submit_button(
             .leading_icon(IconName::Search)
             .tooltip(display.search_button_a11y_label)
     } else {
-        UiButton::styled(display.search_button_id, ControlStyle::Primary)
+        // musicindex ADR 0020 R-ACT-1 item 4: the search command is never filled.
+        UiButton::styled(display.search_button_id, ControlStyle::Neutral)
             .label(display.search_button_label)
     }
     .a11y_label(display.search_button_a11y_label)

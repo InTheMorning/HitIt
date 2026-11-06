@@ -121,7 +121,7 @@ fn render_live_row(
         list_row = list_row.trailing(
             UiButton::styled(
                 SharedString::from(format!("{element_id}-link")),
-                ControlStyle::Ghost,
+                ControlStyle::Neutral,
             )
             .size(ButtonSize::Sm)
             .label(link.label)
