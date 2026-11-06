@@ -22085,8 +22085,10 @@ fn adr_0084_release_row_actions_r31_07_rows_with_no_menu() {
         "pub(crate) fn render_artists_list_item(",
         "pub(crate) fn render_library_releases_list(",
     );
-    if !artists.contains("render_destination_list_row(row, art, LeadingDisclosure::None, None, cx)")
-    {
+    let artists_compact: String = artists.split_whitespace().collect();
+    if !artists_compact.contains(
+        "render_destination_list_row(row,art,LeadingDisclosure::None,DestinationRowMenu::None,cx,)",
+    ) {
         violations.push("an Artists row must give `None` as its menu context".to_owned());
     }
     let playlists = source_between(

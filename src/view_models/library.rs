@@ -8342,6 +8342,27 @@ mod tests {
         );
     }
 
+    /// ADR 0089 packet 010: a row that a copy of a public playlist made has
+    /// no file, so its menu keeps "Download" (ADR 0083 Decision 6), and it
+    /// has no "Remove from Library…".
+    #[test]
+    fn adr_0089_copy_to_my_playlists_copied_row_keeps_download() {
+        use crate::view_models::release_page::TrackRowMenuAction::{Download, Remove};
+        let mut copied = row();
+        copied.id = 77;
+        copied.is_in_library = false;
+        copied.local_path = None;
+        copied.track_title = Some("Copied".into());
+        let items = menu_items(
+            PlaylistTrackRowVm::new(&copied, 0, 1)
+                .controls_display(7)
+                .menu
+                .as_ref(),
+        );
+        assert!(items.contains(&Download));
+        assert!(!items.contains(&Remove));
+    }
+
     /// R83-7-02 (decision D5): the first row has no "Move up", the last row
     /// has no "Move down", and a track that is not downloaded gives
     /// "Download" and no "Remove from Library…".

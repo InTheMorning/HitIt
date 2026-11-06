@@ -572,6 +572,9 @@ pub(crate) enum TrackRowMenuAction {
     RemoveFromPlaylist,
     /// Removes the track from the Library, after a confirmation.
     Remove,
+    /// Copies a public playlist of the Index to My playlists (ADR 0089
+    /// packet 010). Only the menu of a public playlist gives it.
+    CopyToMyPlaylists,
 }
 
 impl TrackRowMenuAction {
@@ -580,7 +583,11 @@ impl TrackRowMenuAction {
     #[must_use]
     pub(crate) const fn command(self, index: usize) -> Option<ReleasePageCommand> {
         match self {
-            Self::AddToPlaylist | Self::MoveUp | Self::MoveDown | Self::RemoveFromPlaylist => None,
+            Self::AddToPlaylist
+            | Self::MoveUp
+            | Self::MoveDown
+            | Self::RemoveFromPlaylist
+            | Self::CopyToMyPlaylists => None,
             Self::Download => Some(ReleasePageCommand::DownloadTrack(index)),
             Self::InspectSources => Some(ReleasePageCommand::InspectSources(index)),
             Self::Remove => Some(ReleasePageCommand::RemoveTrack(index)),
@@ -609,7 +616,7 @@ pub(crate) struct TrackRowPlaylistLevelVm {
     pub(crate) create_a11y_label: &'static str,
 }
 
-const TRACK_ROW_PLAYLIST_LEVEL: TrackRowPlaylistLevelVm = TrackRowPlaylistLevelVm {
+pub(crate) const TRACK_ROW_PLAYLIST_LEVEL: TrackRowPlaylistLevelVm = TrackRowPlaylistLevelVm {
     back_text: TRACK_MENU_BACK_LABEL,
     back_a11y_label: TRACK_MENU_BACK_A11Y_LABEL,
     new_playlist_a11y_label: TRACK_MENU_NEW_PLAYLIST_A11Y_LABEL,
@@ -627,6 +634,27 @@ pub(crate) struct TrackRowMenuVm {
     /// The items in the order of decision D2. A destructive item is last.
     pub(crate) items: Vec<TrackRowMenuItemVm>,
     pub(crate) playlist_level: TrackRowPlaylistLevelVm,
+}
+
+/// The "More actions" menu of a public playlist (ADR 0089 packet 010). It
+/// has one item, "Copy to My Playlists…", and no playlist level. `id` is
+/// the menu id, and `title` is the playlist title.
+#[must_use]
+pub(crate) fn public_playlist_copy_menu_vm(id: String, title: &str) -> TrackRowMenuVm {
+    let action = TrackRowMenuAction::CopyToMyPlaylists;
+    TrackRowMenuVm {
+        trigger_tooltip: "More actions",
+        trigger_a11y_label: format!("More actions for {title}"),
+        items: vec![TrackRowMenuItemVm {
+            action,
+            id: format!("{id}:{action:?}"),
+            label: "Copy to My Playlists\u{2026}".to_owned(),
+            a11y_label: format!("Copy the public playlist {title} to My Playlists"),
+            destructive: false,
+        }],
+        playlist_level: TRACK_ROW_PLAYLIST_LEVEL,
+        id,
+    }
 }
 
 /// The label of the destructive "Remove" item of a track row menu.

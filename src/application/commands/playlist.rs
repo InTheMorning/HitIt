@@ -4,14 +4,18 @@ use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
 
+use crate::api::Client;
 use crate::application::command_bus::{ApplicationCommand, CommandOutcome, CommandResult};
 use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
 use crate::application::events::library::LibraryEvent;
 use crate::application::events::playlist::PlaylistEvent;
 use crate::application::events::ApplicationEvent;
+use crate::application::request_profiles::INDEX_PUBLIC_PLAYLIST_DETAIL;
+use crate::config::MusicIndexEndpoint;
+use crate::public_playlist_copy::{self, CopyError, CopyOutcome, RSS_HOST_INTERVAL};
 use crate::runtime::{PlaylistRssCheckHandle, RssCheckTrigger};
-use crate::{db, playlist_service};
+use crate::{db, playlist_service, rss};
 
 type SharedConnection = Arc<Mutex<Connection>>;
 
@@ -84,6 +88,74 @@ impl ApplicationCommand for CreatePlaylist {
             CreatePlaylistResult::new(playlist_id),
             playlist_changed_events(),
         ))
+    }
+}
+
+/// The answer of [`CopyPublicPlaylistToMyPlaylists`] (ADR 0089 packet 010).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CopyPublicPlaylistResult {
+    /// The local playlist was made. The counts name what was copied.
+    Copied(CopyOutcome),
+    /// A playlist with this name exists. Nothing was written.
+    NameTaken(String),
+}
+
+/// Copies a public playlist of the Index into a new local playlist. It
+/// reads the playlist with its remote items, then the RSS feeds of its
+/// items. It downloads no file (ADR 0089 Decision 1).
+#[derive(Clone, Debug)]
+pub struct CopyPublicPlaylistToMyPlaylists {
+    conn: SharedConnection,
+    endpoint: MusicIndexEndpoint,
+    feed_guid: String,
+    name: String,
+}
+
+impl CopyPublicPlaylistToMyPlaylists {
+    /// Creates the copy command for the playlist `feed_guid`, with the name
+    /// `name` for the local playlist.
+    #[must_use]
+    pub fn new(
+        conn: SharedConnection,
+        endpoint: MusicIndexEndpoint,
+        feed_guid: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Self {
+        Self {
+            conn,
+            endpoint,
+            feed_guid: feed_guid.into(),
+            name: name.into(),
+        }
+    }
+}
+
+impl ApplicationCommand for CopyPublicPlaylistToMyPlaylists {
+    type Output = CopyPublicPlaylistResult;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        if context.cancellation().is_cancelled() {
+            return Err(CommandError::Cancelled);
+        }
+        let client = Client::new_with_base_url(self.endpoint.clone());
+        let feed = client
+            .fetch_feed_with_profile(&self.feed_guid, &INDEX_PUBLIC_PLAYLIST_DETAIL)
+            .map_err(|error| CommandError::Query(format!("{error:#}")))?;
+        let remote_items = feed.remote_items.unwrap_or_default();
+        let result = public_playlist_copy::copy_public_playlist(
+            &self.conn,
+            &self.endpoint,
+            &self.name,
+            &remote_items,
+            rss::fetch_feed_document,
+            RSS_HOST_INTERVAL,
+        );
+        let result = match result {
+            Ok(outcome) => CopyPublicPlaylistResult::Copied(outcome),
+            Err(CopyError::NameTaken(name)) => CopyPublicPlaylistResult::NameTaken(name),
+            Err(CopyError::Failed(error)) => return Err(playlist_command_error(&error)),
+        };
+        Ok(CommandOutcome::new(result, playlist_changed_events()))
     }
 }
 

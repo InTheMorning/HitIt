@@ -893,7 +893,8 @@ impl LibraryApp {
             TrackRowMenuAction::AddToPlaylist
             | TrackRowMenuAction::Download
             | TrackRowMenuAction::InspectSources
-            | TrackRowMenuAction::Remove => {
+            | TrackRowMenuAction::Remove
+            | TrackRowMenuAction::CopyToMyPlaylists => {
                 self.run_track_row_menu_action(track_id, action, window, cx);
             }
         }
@@ -930,7 +931,8 @@ impl LibraryApp {
             TrackRowMenuAction::AddToPlaylist
             | TrackRowMenuAction::MoveUp
             | TrackRowMenuAction::MoveDown
-            | TrackRowMenuAction::RemoveFromPlaylist => return,
+            | TrackRowMenuAction::RemoveFromPlaylist
+            | TrackRowMenuAction::CopyToMyPlaylists => return,
         }
         cx.notify();
     }
@@ -1071,6 +1073,15 @@ impl LibraryApp {
             &saved_search_rename_input,
             Self::on_saved_search_rename_event,
         );
+        let public_playlist_copy_input = cx.new(|cx: &mut Context<InputState>| {
+            InputState::new(window, cx)
+                .placeholder(crate::view_models::public_playlists::COPY_NAME_PLACEHOLDER)
+        });
+        let public_playlist_copy_sub = cx.subscribe_in(
+            &public_playlist_copy_input,
+            window,
+            Self::on_public_playlist_copy_input_event,
+        );
         let command_runner = match runtime_host.as_ref() {
             Some(host) => AsyncCommandRunner::with_vm_bus_on_handle(
                 application_services.command_bus(),
@@ -1111,6 +1122,10 @@ impl LibraryApp {
             _rename_playlist_sub: rename_playlist_sub,
             saved_search_rename_input,
             _saved_search_rename_sub: saved_search_rename_sub,
+            public_playlist_copy_input,
+            _public_playlist_copy_input_sub: public_playlist_copy_sub,
+            public_playlist_copy: None,
+            copying_public_playlist: None,
             saved_search_renaming: None,
             saved_search_message: None,
             saved_search_counts: std::collections::BTreeMap::new(),
@@ -1523,7 +1538,7 @@ impl LibraryApp {
         );
     }
 
-    fn reload_playlists(&mut self) {
+    pub(crate) fn reload_playlists(&mut self) {
         let conn = self.conn.lock().expect("lock db");
         match self.application_services.query_service().playlists(&conn) {
             Ok(list) => self.vm.replace_playlists(list),

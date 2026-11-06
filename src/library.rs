@@ -382,6 +382,15 @@ pub struct LibraryApp {
     /// The inline rename input of a saved search row (ADR 0089 Decision 4).
     saved_search_rename_input: Entity<InputState>,
     _saved_search_rename_sub: gpui::Subscription,
+    /// The name input of the copy dialog of a public playlist (ADR 0089
+    /// packet 010).
+    public_playlist_copy_input: Entity<InputState>,
+    _public_playlist_copy_input_sub: gpui::Subscription,
+    /// The open copy dialog of a public playlist, or `None`.
+    public_playlist_copy: Option<crate::library::public_playlists::PublicPlaylistCopyDialog>,
+    /// The public playlist whose copy runs on the runtime (ADR 0089 packet
+    /// 010). One copy runs at a time.
+    copying_public_playlist: Option<String>,
     /// The saved search whose row shows the rename input.
     saved_search_renaming: Option<crate::view_models::search_results::SavedSearchId>,
     /// The message of the last saved search request, for example a missing
