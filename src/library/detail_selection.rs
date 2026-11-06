@@ -550,7 +550,7 @@ impl LibraryApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.detail_column_focus.contains_focused(window, cx) {
+        if !self.detail_column_has_focus(window, cx) {
             return;
         }
         self.clear_pending_detail_scroll();
@@ -581,7 +581,7 @@ impl LibraryApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.detail_column_focus.contains_focused(window, cx) {
+        if !self.detail_column_has_focus(window, cx) {
             return;
         }
         let Some(rows) = rows.filter(|rows| rows.has_selectable_rows()) else {
@@ -600,7 +600,7 @@ impl LibraryApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.detail_column_focus.contains_focused(window, cx) {
+        if !self.detail_column_has_focus(window, cx) {
             return;
         }
         let Some(rows) = rows.filter(|rows| rows.has_selectable_rows()) else {
@@ -614,7 +614,7 @@ impl LibraryApp {
     /// Enter in the detail column: the row with the keyboard focus, when
     /// the detail column carries the focus.
     pub(crate) fn focused_detail_row(&self, window: &Window, cx: &App) -> Option<DetailRowKey> {
-        if !self.detail_column_focus.contains_focused(window, cx) {
+        if !self.detail_column_has_focus(window, cx) {
             return None;
         }
         self.detail_selection.focused().cloned()
@@ -624,7 +624,7 @@ impl LibraryApp {
     /// selection. Gives `false` outside selection mode, so the caller
     /// keeps the Back action of Escape.
     pub(crate) fn end_detail_selecting(&mut self, window: &Window, cx: &mut Context<Self>) -> bool {
-        if !self.detail_column_focus.contains_focused(window, cx) {
+        if !self.detail_column_has_focus(window, cx) {
             return false;
         }
         let ended = self.detail_selection.end_selecting();

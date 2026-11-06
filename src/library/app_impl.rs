@@ -128,7 +128,7 @@ use crate::view_models::workspace::{
 };
 use crate::views::{EntityIdentityLinks, LocalIdentityFacts};
 use gpui::{
-    div, prelude::*, AnyElement, Context, Entity, FontWeight, Image, InteractiveElement,
+    div, prelude::*, AnyElement, App, Context, Entity, FontWeight, Image, InteractiveElement,
     IntoElement, Modifiers, SharedString, Styled, Window,
 };
 use gpui_component::input::{InputEvent, InputState};
@@ -1182,6 +1182,7 @@ impl LibraryApp {
             detail_scroll_binding: super::detail_selection::DetailScrollBinding::default(),
             saved_searches: Vec::new(),
             open_saved_search: None,
+            music_page_open: false,
             album_identity_backfill_started: false,
             album_identity_backfill_queue: VecDeque::new(),
         };
@@ -4163,7 +4164,7 @@ impl LibraryApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.list_column_focus.contains_focused(window, cx) {
+        if !self.list_column_has_focus(window, cx) {
             return;
         }
         match self.vm.active_destination() {
@@ -4205,7 +4206,7 @@ impl LibraryApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.list_column_focus.contains_focused(window, cx)
+        if !self.list_column_has_focus(window, cx)
             || self.vm.active_destination() != MusicDestination::Releases
         {
             return;
@@ -4231,7 +4232,7 @@ impl LibraryApp {
     /// correction item 3: on a group row, this adds or removes every
     /// single of the group.
     pub(crate) fn toggle_focused_selection(&mut self, window: &Window, cx: &mut Context<Self>) {
-        if !self.list_column_focus.contains_focused(window, cx) {
+        if !self.list_column_has_focus(window, cx) {
             return;
         }
         match self.vm.active_destination() {
@@ -4257,7 +4258,7 @@ impl LibraryApp {
     /// Ctrl+A (ADR 0084 Decision 10): starts selection mode and selects
     /// every member of every visible row (Amendment, 2026-10-19).
     pub(crate) fn select_all_visible(&mut self, window: &Window, cx: &mut Context<Self>) {
-        if !self.list_column_focus.contains_focused(window, cx) {
+        if !self.list_column_has_focus(window, cx) {
             return;
         }
         match self.vm.active_destination() {
@@ -4289,7 +4290,7 @@ impl LibraryApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if !self.list_column_focus.contains_focused(window, cx) {
+        if !self.list_column_has_focus(window, cx) {
             return false;
         }
         match self.vm.active_destination() {
@@ -4334,7 +4335,7 @@ impl LibraryApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if !self.list_column_focus.contains_focused(window, cx) {
+        if !self.list_column_has_focus(window, cx) {
             return false;
         }
         match self.vm.active_destination() {
@@ -4354,6 +4355,63 @@ impl LibraryApp {
             }
             _ => false,
         }
+    }
+
+    /// Sets whether the current Music location shows a page (ADR 0089
+    /// Decision 1). The top app calls it at each render.
+    pub(crate) fn set_music_page_open(&mut self, open: bool) {
+        self.music_page_open = open;
+    }
+
+    /// Returns whether the current Music location shows a page (ADR 0089
+    /// Decision 1).
+    pub(crate) const fn music_page_open(&self) -> bool {
+        self.music_page_open
+    }
+
+    /// Returns whether the Library tree reloads (ADR 0089 Decision 5).
+    pub(crate) fn is_library_loading(&self) -> bool {
+        self.vm.is_library_loading()
+    }
+
+    /// The focus handle of the Music list column (ADR 0089 Invariants).
+    pub(crate) const fn list_column_focus(&self) -> &gpui::FocusHandle {
+        &self.list_column_focus
+    }
+
+    /// Returns whether the Library detail holds the page of a Library-backed
+    /// Music entry (ADR 0089 Decision 5). A Library release or track is
+    /// checked here, so an Index release or track is checked by its caller.
+    pub(crate) fn detail_shows_page(&self, entry: &FrameNavigationEntry) -> bool {
+        match (entry, &self.detail) {
+            (FrameNavigationEntry::DiscoverView(view), LibraryDetail::Discover(shown)) => {
+                view == shown
+            }
+            (FrameNavigationEntry::PlaylistDetail(id), LibraryDetail::Playlist(detail)) => {
+                detail.playlist.id == *id
+            }
+            (FrameNavigationEntry::Release(_), LibraryDetail::Album(_))
+            | (FrameNavigationEntry::Track(_), LibraryDetail::Track(_)) => true,
+            (FrameNavigationEntry::SinglesGroup(key), LibraryDetail::SinglesGroup(shown)) => {
+                key == shown
+            }
+            (FrameNavigationEntry::WindowGroup(key), LibraryDetail::WindowGroup(shown)) => {
+                key == shown
+            }
+            _ => false,
+        }
+    }
+
+    /// Returns whether the list column carries the keyboard focus and
+    /// shows. A hidden list column ignores the keys (ADR 0089 Invariants).
+    pub(crate) fn list_column_has_focus(&self, window: &Window, cx: &App) -> bool {
+        !self.music_page_open && self.list_column_focus.contains_focused(window, cx)
+    }
+
+    /// Returns whether the detail column carries the keyboard focus and
+    /// shows. A hidden detail column ignores the keys (ADR 0089 Invariants).
+    pub(crate) fn detail_column_has_focus(&self, window: &Window, cx: &App) -> bool {
+        self.music_page_open && self.detail_column_focus.contains_focused(window, cx)
     }
 
     /// The Music list column's header action (ADR 0084 Decision 10

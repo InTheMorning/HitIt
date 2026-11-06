@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use gpui::{div, prelude::*, Context, Entity, Image, Render, Styled, Window};
+use gpui::{div, prelude::*, App, Context, Entity, Focusable as _, Image, Render, Styled, Window};
 use gpui_component::input::{InputEvent, InputState};
 use rusqlite::Connection;
 
@@ -45,10 +45,11 @@ use crate::view_models::search_results::{SearchResultsInspectorPageVm, SearchRes
 use crate::view_models::settings::{SettingsAction, SettingsVm};
 use crate::view_models::show::{EventSectionInput, ShowCommandState, ShowPageVm};
 use crate::view_models::workspace::{
-    ContentViewMode, DiscoverView, FrameNavigationEntry, FrameNavigationState, IndexTrackTarget,
-    MusicDestination, NavigationPathStart, PendingToolbarSearchText, ReleasePageSource,
-    TrackPageSource, WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,
-    WorkspaceLayoutConfig,
+    music_focus_moves, music_focus_target, music_page_content, ContentViewMode, DiscoverView,
+    FrameNavigationEntry, FrameNavigationState, IndexTrackTarget, MusicColumns, MusicDestination,
+    MusicFocusTarget, MusicPageContent, NavigationPathStart, PendingToolbarSearchText,
+    ReleasePageSource, TrackPageSource, WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState,
+    WorkspaceLayout, WorkspaceLayoutConfig,
 };
 
 mod capabilities;
@@ -169,6 +170,10 @@ pub struct TopApp {
     /// packet 010). The key handlers act on the search selection only while
     /// the search list carries the focus.
     search_list_focus: gpui::FocusHandle,
+    /// The keyboard target that the window focus last moved to, in the
+    /// Music surface (ADR 0089 Invariants). `None` outside Music. The app
+    /// moves the focus only when the target changes.
+    music_focus_applied: Option<MusicFocusTarget>,
     /// The scroll of the search list in the list column (packet 028 D2). A
     /// keyboard focus move scrolls the focused row into view.
     search_list_scroll: gpui::ScrollHandle,
@@ -520,6 +525,7 @@ impl TopApp {
             toolbar_search_runs: search_live::SearchSlotRuns::default(),
             saved_search_runs: search_live::SearchSlotRuns::default(),
             search_list_focus: cx.focus_handle(),
+            music_focus_applied: None,
             search_list_scroll: gpui::ScrollHandle::new(),
             saved_search_page: None,
             saved_search_focus: cx.focus_handle(),
@@ -1534,6 +1540,111 @@ impl TopApp {
         slots
     }
 
+    /// Gives the page content state of a Music page entry (ADR 0089
+    /// Decision 5). An Index page renders its own state. A Library page
+    /// is loaded when the Library detail holds it, and loading while the
+    /// Library tree reloads.
+    fn music_page_content_state(&self, entry: &FrameNavigationEntry, cx: &App) -> MusicPageContent {
+        let own_content = match entry {
+            FrameNavigationEntry::Release(_) => matches!(
+                self.release_page_source,
+                Some(ReleasePageSource::Index { .. })
+            ),
+            FrameNavigationEntry::Track(_) => {
+                matches!(self.track_page_source, Some(TrackPageSource::Index { .. }))
+            }
+            FrameNavigationEntry::DiscoverView(_)
+            | FrameNavigationEntry::PlaylistDetail(_)
+            | FrameNavigationEntry::SinglesGroup(_)
+            | FrameNavigationEntry::WindowGroup(_) => false,
+            _ => true,
+        };
+        let library = self.library.read(cx);
+        music_page_content(
+            own_content,
+            library.detail_shows_page(entry),
+            library.is_library_loading(),
+        )
+    }
+
+    /// Gives the visible Music frame and the page content state of the
+    /// current entry (ADR 0089 Decisions 1 and 5). Other mounts show no
+    /// Music frame.
+    fn music_frame_for(
+        &self,
+        mount: WorkspaceScreenMount,
+        entry: Option<&FrameNavigationEntry>,
+        cx: &App,
+    ) -> (MusicColumns, MusicPageContent) {
+        match (mount, entry) {
+            (WorkspaceScreenMount::Music, Some(entry)) => {
+                let content = self.music_page_content_state(entry, cx);
+                (MusicColumns::for_entry(entry, content), content)
+            }
+            _ => (MusicColumns::ListRoot, MusicPageContent::Absent),
+        }
+    }
+
+    /// Gives the keyboard target of the visible Music frame (ADR 0089
+    /// Invariants). Gives `None` outside the Music mount.
+    fn music_focus_target_now(&self, cx: &App) -> Option<MusicFocusTarget> {
+        let layout =
+            Self::visible_workspace_layout(&self.workspace_layout, WorkspaceScreenMount::Music);
+        let content_frame_id = layout
+            .frames()
+            .iter()
+            .find(|frame| matches!(frame.kind(), WorkspaceFrameKind::ContentList))
+            .map_or(WORKSPACE_CONTENT_FRAME_ID, WorkspaceFrameState::id);
+        let nav = self.workspace_layout.frame_nav(content_frame_id)?;
+        let entry = nav.current().clone();
+        let (columns, _) = self.music_frame_for(WorkspaceScreenMount::Music, Some(&entry), cx);
+        let search_results_open =
+            nav.active_search_query().is_some() && self.search_results_detail.is_some();
+        Some(music_focus_target(columns, &entry, search_results_open))
+    }
+
+    /// Moves the window focus to the Music frame that shows, when the frame
+    /// changes (ADR 0089 Invariants). A row click, Enter, Back and Forward
+    /// all change the frame, so the keys reach the frame that shows. The
+    /// focus does not move while the frame stays the same.
+    fn apply_music_focus(
+        &mut self,
+        mount: WorkspaceScreenMount,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let target = match mount {
+            WorkspaceScreenMount::Music => self.music_focus_target_now(cx),
+            WorkspaceScreenMount::Show | WorkspaceScreenMount::Settings => None,
+        };
+        if target == self.music_focus_applied {
+            return;
+        }
+        self.music_focus_applied = target;
+        let Some(target) = target else {
+            return;
+        };
+        let search_field_focused = self
+            .global_search_input
+            .read(cx)
+            .focus_handle(cx)
+            .contains_focused(window, cx);
+        if !music_focus_moves(target, search_field_focused) {
+            return;
+        }
+        let handle = match target {
+            MusicFocusTarget::ListColumn => self.library.read(cx).list_column_focus().clone(),
+            MusicFocusTarget::DetailColumn => self.library.read(cx).detail_column_focus().clone(),
+            MusicFocusTarget::SearchResults => self
+                .search_page_focus(SearchPageSlot::ToolbarSearch)
+                .clone(),
+            MusicFocusTarget::SavedSearchPage => {
+                self.search_page_focus(SearchPageSlot::SavedSearch).clone()
+            }
+        };
+        window.focus(&handle, cx);
+    }
+
     #[expect(
         clippy::too_many_lines,
         reason = "ADR 0050 keeps the workspace dispatcher centralized while handler clusters move out"
@@ -1630,6 +1741,13 @@ impl TopApp {
                 nav.record_detail_scroll(location, offset);
             }
         }
+        // ADR 0089 Decisions 1 and 5: the frame that shows, and the page
+        // content state, come from one fact. The shell and the keyboard
+        // gates read the same fact.
+        let (music_columns, page_content) = self.music_frame_for(mount, current_nav.as_ref(), cx);
+        self.library.update(cx, |library, _cx| {
+            library.set_music_page_open(music_columns.shows_detail());
+        });
         // ADR 0084 Decision 3, packet 012: the Discover column marks the
         // saved search of the current location as its open row.
         let open_saved_search = self
@@ -1803,6 +1921,16 @@ impl TopApp {
             }
         }
 
+        // ADR 0089 Decision 5: a page whose data is loading shows the shared
+        // loading state in the detail column. The shell gets the frame fact.
+        if matches!(mount, WorkspaceScreenMount::Music) {
+            workspace_slots = workspace_slots.music_columns(music_columns);
+            if page_content == MusicPageContent::Loading {
+                workspace_slots =
+                    workspace_slots.detail_slot(crate::ui::composites::SkeletonInspector::new());
+            }
+        }
+
         // ADR 0084 packet 018: the detail column has its own keyboard
         // focus, its "Select" and "Done" button and its action bar.
         if fills_detail {
@@ -1954,6 +2082,7 @@ impl Render for TopApp {
         self.defer_application_event_drain(window, cx);
         self.apply_pending_toolbar_search(window, cx);
         let mount = self.active_workspace_screen_mount();
+        self.apply_music_focus(mount, window, cx);
         let show_window_width = f32::from(window.bounds().size.width);
         let live_status_strip = build_live_status_strip(self, mount, cx);
         let capability_notice = if mount == WorkspaceScreenMount::Settings {

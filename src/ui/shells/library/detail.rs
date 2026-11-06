@@ -5,9 +5,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use gpui::{
-    div, prelude::*, AnyElement, Context, Entity, FocusHandle, Image, ScrollHandle, SharedString,
-};
+use gpui::{div, prelude::*, AnyElement, Context, Entity, FocusHandle, Image, ScrollHandle};
 use gpui_component::input::InputState;
 
 use crate::db;
@@ -22,7 +20,6 @@ use crate::ui::shells::library::playlist_detail::{
 use crate::ui::shells::library::singles_group::render_library_singles_group_page;
 use crate::ui::shells::library::track_detail::render_library_track_detail;
 use crate::ui::shells::library::window_group::render_library_window_group_page;
-use crate::ui::style::color;
 use crate::view_models::library::{LibraryChromeDisplay, LibraryViewModel, MbTrackStatus};
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::named_feeds::NamedFeed;
@@ -63,20 +60,9 @@ pub(crate) fn render_library_detail(
     match detail {
         // ADR 0084 Decision 3: `LibraryApp::render_detail_column` renders an
         // open Discover view before it reaches this dispatcher. If a later
-        // path reaches this arm, it shows the empty state. The render path
-        // never panics.
-        LibraryDetail::None | LibraryDetail::Discover(_) => div()
-            .size_full()
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                div()
-                    .text_color(color::text_muted())
-                    .text_center()
-                    .child(SharedString::from(chrome.empty_detail_label)),
-            )
-            .into_any_element(),
+        // path reaches this arm, it shows no content. The render path never
+        // panics.
+        LibraryDetail::None | LibraryDetail::Discover(_) => div().size_full().into_any_element(),
 
         LibraryDetail::Album(album) => render_library_feed_detail(
             album,

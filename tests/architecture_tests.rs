@@ -5183,10 +5183,10 @@ fn adr_0084_detail_selection_r18_07_each_key_handler_checks_its_own_column() {
         "pub(crate) fn end_detail_selecting(",
     ] {
         let body = adr_0084_detail_selection_fn_body(&detail, handler);
-        if !body.contains("self.detail_column_focus.contains_focused(") {
+        if !body.contains("self.detail_column_has_focus(") {
             violations.push(format!(
                 "src/library/detail_selection.rs: `{handler}` must check \
-`self.detail_column_focus.contains_focused(..)`."
+`self.detail_column_has_focus(..)`, which checks the detail column focus and that the column shows."
             ));
         }
         if body.contains("list_column_focus") {
@@ -5205,10 +5205,10 @@ fn adr_0084_detail_selection_r18_07_each_key_handler_checks_its_own_column() {
         "pub(crate) fn clear_focused_selection(",
     ] {
         let body = adr_0084_detail_selection_fn_body(&list, handler);
-        if !body.contains("self.list_column_focus.contains_focused(") {
+        if !body.contains("self.list_column_has_focus(") {
             violations.push(format!(
                 "src/library/app_impl.rs: `{handler}` must keep its check of \
-`self.list_column_focus.contains_focused(..)`."
+`self.list_column_has_focus(..)`, which checks the list column focus and that the column shows."
             ));
         }
     }
@@ -14179,8 +14179,35 @@ fn adr_0060_music_surface_is_dominant_content_without_operational_panes() {
     );
 }
 
+/// Situational ADR 0089 Invariants: no view model or view text exposes the
+/// text "Select an item". Each destination opens on content or an empty
+/// state. The text returned in ADR 0089 packet 001, when a pane had no
+/// page, and this guard blocks its return.
+#[test]
+fn adr_0089_no_view_model_exposes_select_an_item() {
+    let mut files = rust_files_under("src/view_models");
+    files.push(manifest_path("src/views.rs"));
+    let mut violations = Vec::new();
+    for path in files {
+        let file = rel_path(&path);
+        let source = read_source(&path);
+        if source.contains("Select an item") {
+            violations.push(format!(
+                "{file}: ADR 0089 Invariants: no view model exposes the text \"Select an item\". \
+Show the list root or the page instead, and name the state in the view model. Remove the text from this file."
+            ));
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ADR 0089 Invariants violations:\n{}",
+        violations.join("\n")
+    );
+}
+
 /// Situational ADR 0084 Decision 1 (C4-06): the Library render has no
-/// `SplitPane`, and the Music column widths come from the named tokens.
+/// `SplitPane`, and the Music sidebar width comes from the named tokens.
+/// ADR 0089 removed the list column width token.
 #[test]
 fn adr_0084_columns_c4_06_music_columns_use_named_tokens_with_no_split_pane() {
     let workspace_source = read_source(&manifest_path("src/ui/shells/workspace.rs"));
@@ -14194,7 +14221,6 @@ fn adr_0084_columns_c4_06_music_columns_use_named_tokens_with_no_split_pane() {
         "MUSIC_SIDEBAR_WIDTH",
         "MUSIC_SIDEBAR_COLLAPSED_WIDTH",
         ".w(sidebar_width)",
-        ".w(MUSIC_LIST_COLUMN_WIDTH)",
         ".min_w(MUSIC_DETAIL_MIN_WIDTH)",
     ] {
         if !workspace_source.contains(required) {
@@ -21846,7 +21872,6 @@ fn adr_0084_columns_music_column_wrappers_are_flex_columns() {
         // width `resolve_music_sidebar_state` resolves, not the token
         // literal.
         ".w(sidebar_width)",
-        ".w(MUSIC_LIST_COLUMN_WIDTH)",
         ".min_w(MUSIC_DETAIL_MIN_WIDTH)",
     ] {
         let wrapper_start = music_layout

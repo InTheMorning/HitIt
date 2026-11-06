@@ -93,7 +93,7 @@ impl TopApp {
         }
     }
 
-    const fn search_page_focus(&self, slot: SearchPageSlot) -> &gpui::FocusHandle {
+    pub(super) const fn search_page_focus(&self, slot: SearchPageSlot) -> &gpui::FocusHandle {
         match slot {
             SearchPageSlot::ToolbarSearch => &self.search_list_focus,
             SearchPageSlot::SavedSearch => &self.saved_search_focus,
@@ -115,12 +115,20 @@ impl TopApp {
         self.search_page_scroll(slot).set_offset(Point::default());
     }
 
-    /// The search page that carries the keyboard focus, when one does.
+    /// The search page that carries the keyboard focus, when one does. The
+    /// results list shows only with no page open, and the saved-search page
+    /// shows only with a page open (ADR 0089 Decision 1).
     fn focused_search_page(&self, window: &Window, cx: &gpui::App) -> Option<SearchPageSlot> {
+        let page_open = self.library.read(cx).music_page_open();
         [SearchPageSlot::ToolbarSearch, SearchPageSlot::SavedSearch]
             .into_iter()
             .find(|slot| {
-                self.search_page(*slot).is_some()
+                let shows = match slot {
+                    SearchPageSlot::ToolbarSearch => !page_open,
+                    SearchPageSlot::SavedSearch => page_open,
+                };
+                shows
+                    && self.search_page(*slot).is_some()
                     && self.search_page_focus(*slot).contains_focused(window, cx)
             })
     }

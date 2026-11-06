@@ -17,17 +17,16 @@ use crate::ui::composites::{frame_shell, FrameShellSlots, SplitPane};
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::layouts::{
     CONTENT_PANE_DEFAULT_WIDTH, CONTENT_PANE_MIN_WIDTH, MUSIC_DETAIL_MIN_WIDTH,
-    MUSIC_LIST_COLUMN_WIDTH, MUSIC_SIDEBAR_COLLAPSED_WIDTH, MUSIC_SIDEBAR_COLLAPSE_BREAKPOINT,
-    MUSIC_SIDEBAR_WIDTH, MUSIC_SINGLE_COLUMN_BREAKPOINT, WORKSPACE_QUEUE_COLLAPSE_BREAKPOINT,
-    WORKSPACE_SECONDARY_DETAIL_COLLAPSE_BREAKPOINT,
+    MUSIC_SIDEBAR_COLLAPSED_WIDTH, MUSIC_SIDEBAR_COLLAPSE_BREAKPOINT, MUSIC_SIDEBAR_WIDTH,
+    WORKSPACE_QUEUE_COLLAPSE_BREAKPOINT, WORKSPACE_SECONDARY_DETAIL_COLLAPSE_BREAKPOINT,
 };
 use crate::ui::tokens::{resolve_color, FontSize, SemanticColor, Spacing};
 use crate::view_models::index_name_list::{MusicListScope, MusicScopeControlDisplay};
 use crate::view_models::workspace::{
     BreadcrumbDisplay, ContentViewMode, ContentViewModeControlDisplay, FrameHeaderActionDisplay,
     FrameNavigationEntry, FrameNavigationState, FrameShellDisplay, MusicColumns, MusicDestination,
-    MusicSidebarPreference, MusicSidebarState, TrackKey, WorkspaceFrameKind, WorkspaceFrameState,
-    WorkspaceLayout,
+    MusicPageContent, MusicSidebarPreference, MusicSidebarState, TrackKey, WorkspaceFrameKind,
+    WorkspaceFrameState, WorkspaceLayout,
 };
 
 type WorkspaceViewModeSelectHandler = Rc<dyn Fn(ContentViewMode, &mut Window, &mut App) + 'static>;
@@ -54,6 +53,7 @@ pub(crate) struct WorkspaceSlots {
     content_list_header_action: Option<FrameHeaderActionDisplay>,
     detail_header_action: Option<FrameHeaderActionDisplay>,
     content_list_scope_control: Option<MusicScopeControlDisplay>,
+    music_columns: Option<MusicColumns>,
     on_content_list_scope_select: Option<WorkspaceScopeSelectHandler>,
     on_content_list_view_mode_select: Option<WorkspaceViewModeSelectHandler>,
     on_content_list_header_action: Option<WorkspaceHeaderActionHandler>,
@@ -95,6 +95,13 @@ impl WorkspaceSlots {
         preference: MusicSidebarPreference,
     ) -> Self {
         self.source_list_sidebar_preference = preference;
+        self
+    }
+
+    /// Supplies the visible Music frame (ADR 0089 Decisions 1 and 5). The
+    /// shell shows the list frame or the detail frame from this fact.
+    pub(crate) fn music_columns(mut self, columns: MusicColumns) -> Self {
+        self.music_columns = Some(columns);
         self
     }
 
@@ -438,15 +445,14 @@ impl RenderOnce for WorkspaceShell {
             .map(WorkspaceFrameState::id);
         let content_list_navigation =
             content_list_frame_id.and_then(|id| self.layout.frame_nav(id));
-        // ADR 0084 Decision 1: "page open" means the location's current
-        // entry is a page, not a destination root.
-        let page_open =
-            content_list_navigation.is_some_and(|nav| nav.current().opens_detail_page());
-        let music_columns = MusicColumns::for_width(
-            f32::from(workspace_width),
-            f32::from(MUSIC_SINGLE_COLUMN_BREAKPOINT),
-            page_open,
-        );
+        // ADR 0089 Decision 1 and Invariants: the current entry of the one
+        // navigation stack decides which frame shows. A list root shows the
+        // list frame, and a page shows the detail frame.
+        let music_columns = self.slots.music_columns.unwrap_or_else(|| {
+            content_list_navigation.map_or(MusicColumns::ListRoot, |nav| {
+                MusicColumns::for_entry(nav.current(), MusicPageContent::Loaded)
+            })
+        });
         // ADR 0084 Decision 1: the sidebar width comes from its resolved
         // collapse state. The Library's own sidebar render resolves the
         // same state, from the same preference and workspace width, through
@@ -507,18 +513,18 @@ impl RenderOnce for WorkspaceShell {
                     .unwrap_or(&fallback_navigation)
             };
             let mut display = FrameShellDisplay::from_frame(frame, navigation, false);
-            if detail_projects_content_list_nav {
-                // ADR 0084 Decision 9: Back and Forward always show in the
-                // Music detail column.
+            if detail_projects_content_list_nav
+                || (is_music_three_column_layout
+                    && matches!(frame_kind, WorkspaceFrameKind::ContentList))
+            {
+                // ADR 0084 Decision 9: Back and Forward show in the Music
+                // page frame. ADR 0089 packet 001: the list frame shows them
+                // too, until packet 002 moves them to the toolbar.
                 display = display.with_history_controls_always_shown();
             } else if is_music_three_column_layout
-                && matches!(
-                    frame_kind,
-                    WorkspaceFrameKind::ContentList | WorkspaceFrameKind::SourceList
-                )
+                && matches!(frame_kind, WorkspaceFrameKind::SourceList)
             {
-                // ADR 0084 Decision 1: the Music sidebar and list columns
-                // show neither control.
+                // ADR 0084 Decision 1: the Music sidebar shows no control.
                 display = display.with_history_controls_hidden();
             }
             if let Some(view_mode_control) = view_mode_control {
@@ -608,9 +614,9 @@ impl RenderOnce for WorkspaceShell {
             }
         }
 
-        // ADR 0084 Decision 1: the Music layout is one row: the sidebar at
-        // its token width, the list at its token width, and the detail with
-        // the remaining width.
+        // ADR 0089 Decision 1: the Music layout is one row: the sidebar at
+        // its token width, and the one visible page frame with the remaining
+        // width.
         let layout_element: AnyElement = if is_music_three_column_layout {
             let mut row = div()
                 .size_full()
@@ -640,8 +646,8 @@ impl RenderOnce for WorkspaceShell {
                     div()
                         .flex()
                         .flex_col()
-                        .flex_shrink_0()
-                        .w(MUSIC_LIST_COLUMN_WIDTH)
+                        .flex_1()
+                        .min_w_0()
                         .h_full()
                         .min_h_0()
                         .child(content_list),

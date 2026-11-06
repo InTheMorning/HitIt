@@ -1,13 +1,15 @@
 use super::{
-    release_download_updates_open_page, resolve_release_page_source, resolve_track_page_source,
-    track_download_updates_open_page, track_release_download_updates_open_page, BreadcrumbDisplay,
-    BreadcrumbTruncation, ContentViewMode, ContentViewModeControlDisplay, DiscoverView,
-    FrameNavigationEntry, FrameNavigationState, FrameShellDisplay, MusicColumns, MusicDestination,
-    ReleaseKey, ReleasePageSource, TrackKey, TrackPageSource, WorkspaceFrameConfig,
-    WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,
-    WorkspaceLayoutConfig, WorkspaceModelError,
+    music_focus_moves, music_focus_target, music_page_content, release_download_updates_open_page,
+    resolve_release_page_source, resolve_track_page_source, track_download_updates_open_page,
+    track_release_download_updates_open_page, BreadcrumbDisplay, BreadcrumbTruncation,
+    ContentViewMode, ContentViewModeControlDisplay, DiscoverView, FrameNavigationEntry,
+    FrameNavigationState, FrameShellDisplay, MusicColumns, MusicDestination, MusicFocusTarget,
+    MusicPageContent, ReleaseKey, ReleasePageSource, TrackKey, TrackPageSource,
+    WorkspaceFrameConfig, WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState,
+    WorkspaceLayout, WorkspaceLayoutConfig, WorkspaceModelError,
 };
 use crate::view_models::artist_identity::ArtistNameKey;
+use crate::view_models::search_results::SavedSearchId;
 
 fn frame(id: u64, kind: WorkspaceFrameKind) -> WorkspaceFrameState {
     WorkspaceFrameState::with_default_title(WorkspaceFrameId::new(id), kind)
@@ -1713,33 +1715,108 @@ fn detail_frame_id(layout: &WorkspaceLayout) -> WorkspaceFrameId {
 // ADR 0084 Decision 1: the three-column Music shell (task 004).
 // ---------------------------------------------------------------------------
 
-/// C4-02: at the breakpoint and wider, all three columns show, whatever the
-/// page state.
+/// ADR 0089 Decision 1 and Decision 5: each navigation entry shows one
+/// Music frame. A list root shows the list frame, and a loaded page shows the
+/// detail frame. The entry and its content state decide this, not the width.
 #[test]
-fn adr_0084_columns_c4_02_three_columns_show_at_the_breakpoint_and_wider() {
+fn adr_0089_one_page_stack_shows_one_frame_for_each_entry() {
+    let list_roots = [
+        FrameNavigationEntry::Destination(MusicDestination::Releases),
+        FrameNavigationEntry::Destination(MusicDestination::Discover),
+        FrameNavigationEntry::Search("drums".to_string()),
+    ];
+    let pages = [
+        FrameNavigationEntry::PlaylistDetail(1),
+        FrameNavigationEntry::Release(ReleaseKey::FeedGuid("feed".to_string())),
+        FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, "1".to_string())),
+        FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases),
+    ];
+    for entry in &list_roots {
+        let columns = MusicColumns::for_entry(entry, MusicPageContent::Loaded);
+        assert_eq!(columns, MusicColumns::ListRoot, "{entry:?}");
+        assert!(columns.shows_list(), "{entry:?}");
+        assert!(!columns.shows_detail(), "{entry:?}");
+    }
+    for entry in &pages {
+        let columns = MusicColumns::for_entry(entry, MusicPageContent::Loaded);
+        assert_eq!(columns, MusicColumns::Page, "{entry:?}");
+        assert!(!columns.shows_list(), "{entry:?}");
+        assert!(columns.shows_detail(), "{entry:?}");
+    }
+}
+
+/// ADR 0089 Decision 5: a page with no content and nothing loading shows its
+/// list root, and a loading page shows the detail frame with its loading
+/// state. The content state, not the entry alone, decides this.
+#[test]
+fn adr_0089_page_without_content_falls_back_to_the_list_root() {
+    let release = FrameNavigationEntry::Release(ReleaseKey::FeedGuid("feed".to_string()));
     assert_eq!(
-        MusicColumns::for_width(940.0, 940.0, false),
-        MusicColumns::Three
+        MusicColumns::for_entry(&release, MusicPageContent::Absent),
+        MusicColumns::ListRoot
     );
     assert_eq!(
-        MusicColumns::for_width(1200.0, 940.0, true),
-        MusicColumns::Three
+        MusicColumns::for_entry(&release, MusicPageContent::Loading),
+        MusicColumns::Page
+    );
+    assert_eq!(
+        MusicColumns::for_entry(&release, MusicPageContent::Loaded),
+        MusicColumns::Page
     );
 }
 
-/// C4-02: narrower than the breakpoint, the open-page state picks the list
-/// or the detail column. The sidebar always shows.
+/// ADR 0089 Decision 5: the page content state. An own-content page is loaded.
+/// A Library page is loaded when its detail holds, loading while the tree
+/// reloads, and absent otherwise.
 #[test]
-fn adr_0084_columns_c4_02_narrow_width_picks_list_or_detail_by_page_state() {
-    let no_page_open = MusicColumns::for_width(700.0, 940.0, false);
-    assert_eq!(no_page_open, MusicColumns::SidebarList);
-    assert!(no_page_open.shows_list());
-    assert!(!no_page_open.shows_detail());
+fn adr_0089_music_page_content_state_table() {
+    assert_eq!(
+        music_page_content(true, false, false),
+        MusicPageContent::Loaded
+    );
+    assert_eq!(
+        music_page_content(false, true, true),
+        MusicPageContent::Loaded
+    );
+    assert_eq!(
+        music_page_content(false, false, true),
+        MusicPageContent::Loading
+    );
+    assert_eq!(
+        music_page_content(false, false, false),
+        MusicPageContent::Absent
+    );
+}
 
-    let page_open = MusicColumns::for_width(700.0, 940.0, true);
-    assert_eq!(page_open, MusicColumns::SidebarDetail);
-    assert!(!page_open.shows_list());
-    assert!(page_open.shows_detail());
+/// ADR 0089 Invariants: the keyboard target follows the visible frame. A page
+/// takes the detail column, a saved-search page takes its own focus, and a
+/// list root takes the list column or the search results.
+#[test]
+fn adr_0089_focus_target_follows_the_visible_frame() {
+    let release = FrameNavigationEntry::Release(ReleaseKey::FeedGuid("feed".to_string()));
+    let saved = FrameNavigationEntry::SavedSearch {
+        id: SavedSearchId(1),
+        query: "drums".to_string(),
+    };
+    let list_root = FrameNavigationEntry::Destination(MusicDestination::Releases);
+    let search = FrameNavigationEntry::Search("drums".to_string());
+
+    assert_eq!(
+        music_focus_target(MusicColumns::Page, &release, false),
+        MusicFocusTarget::DetailColumn
+    );
+    assert_eq!(
+        music_focus_target(MusicColumns::Page, &saved, false),
+        MusicFocusTarget::SavedSearchPage
+    );
+    assert_eq!(
+        music_focus_target(MusicColumns::ListRoot, &list_root, false),
+        MusicFocusTarget::ListColumn
+    );
+    assert_eq!(
+        music_focus_target(MusicColumns::ListRoot, &search, true),
+        MusicFocusTarget::SearchResults
+    );
 }
 
 /// C4-03: the Detail frame chrome shows Back and Forward always, with each
@@ -1754,20 +1831,6 @@ fn adr_0084_columns_c4_03_detail_frame_shows_history_controls_always() {
     assert!(display.back_shown());
     assert!(display.forward_shown());
     assert!(display.back.disabled, "no back history exists yet");
-}
-
-/// C4-03: the `ContentList` frame chrome in Music shows neither Back nor
-/// Forward, even when the projected navigation has history.
-#[test]
-fn adr_0084_columns_c4_03_content_list_frame_hides_history_controls() {
-    let frame = frame(2, WorkspaceFrameKind::ContentList);
-    let mut nav = FrameNavigationState::new(discover());
-    nav.push(track(1));
-    assert!(nav.can_go_back());
-    let display = FrameShellDisplay::from_frame(&frame, &nav, false).with_history_controls_hidden();
-
-    assert!(!display.back_shown());
-    assert!(!display.forward_shown());
 }
 
 /// C4-04: the breadcrumb attaches to the Detail frame's display, not to a
@@ -2134,4 +2197,16 @@ fn adr_0087_live_results_r87_3_13_live_run_from_a_result_page_starts_one_path() 
         .push_nav(content_list_id, release)
         .expect("should open the release page");
     assert_eq!(layout.pop_nav(content_list_id), Some(search));
+}
+
+/// A live run changes the list root while the curator types, so the search
+/// field keeps the focus. A page that opens takes the focus (ADR 0087
+/// Decision 4, ADR 0089 packet 001).
+#[test]
+fn adr_0089_list_root_does_not_take_the_focus_from_the_search_field() {
+    assert!(!music_focus_moves(MusicFocusTarget::SearchResults, true));
+    assert!(!music_focus_moves(MusicFocusTarget::ListColumn, true));
+    assert!(music_focus_moves(MusicFocusTarget::DetailColumn, true));
+    assert!(music_focus_moves(MusicFocusTarget::SavedSearchPage, true));
+    assert!(music_focus_moves(MusicFocusTarget::SearchResults, false));
 }

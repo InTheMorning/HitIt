@@ -29,7 +29,8 @@ pub(crate) use chrome::{
     FrameChromeMenuItemDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
 };
 pub(crate) use columns::{
-    resolve_music_sidebar_state, toggle_music_sidebar_preference, MusicColumns,
+    music_focus_moves, music_focus_target, music_page_content, resolve_music_sidebar_state,
+    toggle_music_sidebar_preference, MusicColumns, MusicFocusTarget, MusicPageContent,
     MusicSidebarPreference, MusicSidebarState,
 };
 pub(crate) use frame::{WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState};

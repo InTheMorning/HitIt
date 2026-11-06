@@ -35,7 +35,7 @@ Each fact below was read on 2026-11-05 at commit `5942db3`.
 
 | Packet | Scope | Depends on | State |
 |---|---|---|---|
-| [001](../tasks/adr-0089-task-001-one-page-stack.md) | The stack: one page at full width, and no "Select an item" | None | Ready |
+| [001](../tasks/adr-0089-task-001-one-page-stack.md) | The stack: one page at full width, and no "Select an item" | None | Implemented 2026-11-05. V1 and V2 are open |
 | [002](../tasks/adr-0089-task-002-toolbar-history-and-marked-row.md) | The breadcrumb goes. Back, Forward and the title move to the toolbar. Back keeps the scroll and marks the row | 001 | Ready |
 | [003](../tasks/adr-0089-task-003-one-sidebar.md) | One sidebar on each mount, no section tabs, the start page Releases, and the destination Tracks goes | 002 | Ready |
 | [004](../tasks/adr-0089-task-004-list-page-state.md) | The state of each list page, its title row and the scope "All, In Library" | 003 | Ready |
