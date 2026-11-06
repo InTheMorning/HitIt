@@ -62,6 +62,7 @@ impl LibraryApp {
             self.vm.list_scope(ListPageKey::Releases),
             self.releases_sort(),
             &self.release_name_page,
+            &self.recent_music_page,
             &self.expanded_singles_groups,
         )
     }
@@ -113,11 +114,16 @@ impl LibraryApp {
         if self.vm.list_sort(key) == Some(sort) {
             return;
         }
-        self.restart_name_list_at(key, None, cx);
+        // The by-name list starts again at its first page. The sort Newest
+        // reads the recent pager instead, which keeps its own state.
+        if sort == ListSort::AToZ {
+            self.restart_name_list_at(key, None, cx);
+        }
         self.vm.set_list_sort(key, sort);
         if key == ListPageKey::Releases {
             self.releases_selection = ListSelection::new();
             self.releases_selection_mode = SelectionMode::Normal;
+            self.request_default_name_list(cx);
         }
         cx.notify();
     }
@@ -206,10 +212,14 @@ impl LibraryApp {
     pub(crate) fn request_default_name_list(&mut self, cx: &mut Context<Self>) {
         match self.vm.active_destination() {
             MusicDestination::Releases => {
-                if needs_first_page(
-                    self.vm.list_scope(ListPageKey::Releases),
-                    self.release_name_page.is_not_started(),
-                ) {
+                let scope = self.vm.list_scope(ListPageKey::Releases);
+                if self.releases_sort() == ListSort::Newest {
+                    // ADR 0089 Decision 5: the sort Newest sends the first
+                    // recent request, once. The pager keeps its rows.
+                    if needs_first_page(scope, self.recent_music_page.is_not_started()) {
+                        self.start_recent_music_load(false, cx);
+                    }
+                } else if needs_first_page(scope, self.release_name_page.is_not_started()) {
                     let intent = self.release_name_page.begin_load(false);
                     self.send_release_name_request(intent, cx);
                 }
@@ -243,8 +253,12 @@ impl LibraryApp {
     }
 
     /// "Load more" at the end of the Releases list (packet 016 decision
-    /// D7).
+    /// D7). The sort Newest loads the next recent page.
     pub(crate) fn load_more_release_names(&mut self, cx: &mut Context<Self>) {
+        if self.releases_sort() == ListSort::Newest {
+            self.start_recent_music_load(true, cx);
+            return;
+        }
         let intent = self.release_name_page.begin_load(true);
         self.send_release_name_request(intent, cx);
     }
@@ -252,8 +266,13 @@ impl LibraryApp {
     /// "Try again" on the error row of the Releases list (packet 016
     /// decision D8). When the rows of the page wait for a failed feed
     /// request, the command sends only the failed requests (packet 026
-    /// decision D10).
+    /// decision D10). The sort Newest sends the recent request again.
     pub(crate) fn retry_release_names(&mut self, cx: &mut Context<Self>) {
+        if self.releases_sort() == ListSort::Newest {
+            let append = self.recent_music_page.row_count() > 0;
+            self.start_recent_music_load(append, cx);
+            return;
+        }
         if let Some((pending, generation)) = self.release_name_page.begin_pending_retry() {
             let command =
                 FetchReleaseNamePage::retry_pending(self.musicindex_endpoint.clone(), pending);

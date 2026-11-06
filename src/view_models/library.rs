@@ -53,7 +53,8 @@ use crate::view_models::entity_detail::{
 use crate::view_models::format::{fmt_date, fmt_total_runtime_clock, plural};
 use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::index_name_list::{
-    name_sort_key, IndexListStatusRowVm, IndexNameList, IndexNameListPage,
+    name_sort_key, recent_releases_status_row, IndexListStatusRowVm, IndexNameList,
+    IndexNameListPage,
 };
 use crate::view_models::letter_bar::{name_at_or_after, LetterKey};
 pub(crate) use crate::view_models::library_removal::RemovalConfirmation;
@@ -83,8 +84,8 @@ use crate::view_models::release_row_actions::{
     release_row_menu, ReleaseActionCounts, ReleaseRowActionFacts, ReleaseRowMenuVm, ReleaseRowState,
 };
 use crate::view_models::releases_everything::{
-    self, loaded_index_release_title, LibraryReleaseEntry, ReleaseOrderKey, ReleasesDownloadPlan,
-    ReleasesListCache, ReleasesListKey, ReleasesListRows, Revision,
+    self, loaded_index_release_title, recent_release_row, LibraryReleaseEntry, ReleaseOrderKey,
+    ReleasesDownloadPlan, ReleasesListCache, ReleasesListKey, ReleasesListRows, Revision,
 };
 use crate::view_models::search_field_values::LibraryFieldValues;
 use crate::view_models::search_results::{
@@ -106,8 +107,8 @@ use crate::view_models::text_filter::contains_normalized;
 use crate::view_models::text_filter::normalize;
 use crate::view_models::window_group_page::WindowGroupPageVm;
 use crate::view_models::window_groups::{
-    group_key as window_group_key, NewReleasesLayout, WindowGroupKey, WindowGroupSource,
-    WindowLength,
+    group_key as window_group_key, NewReleasesLayout, NewReleasesLayoutItem, ReleasesWindowRows,
+    WindowGroupKey, WindowGroupSource, WindowGroupTileVm, WindowLength,
 };
 use crate::view_models::workspace::{
     ContentViewMode, ContentViewModeControlDisplay, DiscoverView, FrameHeaderActionDisplay,
@@ -1965,6 +1966,9 @@ pub(crate) enum ReleasesListItemVm {
     Group(SinglesGroupRowVm),
     /// A single of an open group.
     Single(DestinationListRowVm),
+    /// A window group of the sort Newest (ADR 0086 Decision 3, ADR 0089
+    /// Decision 5). Its row opens the group page.
+    WindowGroup(Box<WindowGroupTileVm>),
     /// "Load more" or the error row of a later page.
     TrailingStatus(IndexListStatusRowVm),
 }
@@ -1978,6 +1982,7 @@ impl ReleasesListItemVm {
             Self::Release(row) => Self::Release(row.with_marked(entry)),
             Self::Single(row) => Self::Single(row.with_marked(entry)),
             Self::Group(group) => Self::Group(group.with_marked(entry)),
+            Self::WindowGroup(tile) => Self::WindowGroup(Box::new(tile.with_marked(entry))),
             other @ (Self::LeadingStatus(_) | Self::TrailingStatus(_)) => other,
         }
     }
@@ -1990,6 +1995,7 @@ impl ReleasesListItemVm {
             Self::LeadingStatus(row) | Self::TrailingStatus(row) => row.element_id(),
             Self::Release(row) | Self::Single(row) => &row.element_id,
             Self::Group(group) => &group.element_id,
+            Self::WindowGroup(tile) => &tile.element_id,
         }
     }
 
@@ -1998,7 +2004,10 @@ impl ReleasesListItemVm {
     pub(crate) fn thumbnail_href(&self) -> Option<&str> {
         match self {
             Self::Release(row) | Self::Single(row) => row.thumbnail_href.as_deref(),
-            Self::LeadingStatus(_) | Self::Group(_) | Self::TrailingStatus(_) => None,
+            Self::LeadingStatus(_)
+            | Self::Group(_)
+            | Self::WindowGroup(_)
+            | Self::TrailingStatus(_) => None,
         }
     }
 
@@ -2009,6 +2018,7 @@ impl ReleasesListItemVm {
         match self {
             Self::Release(row) | Self::Single(row) => Some(&row.label),
             Self::Group(group) => Some(&group.label),
+            Self::WindowGroup(tile) => Some(&tile.title),
             Self::LeadingStatus(_) | Self::TrailingStatus(_) => None,
         }
     }
@@ -2167,6 +2177,7 @@ pub(crate) fn releases_disclosure_step(
         ReleasesListItemVm::LeadingStatus(_)
         | ReleasesListItemVm::Release(_)
         | ReleasesListItemVm::Single(_)
+        | ReleasesListItemVm::WindowGroup(_)
         | ReleasesListItemVm::TrailingStatus(_) => None,
     });
     match focused {
@@ -3227,23 +3238,12 @@ impl LibraryViewModel {
     /// When the content list has no more pages, each window is closed
     /// (ADR 0086 Decision 5).
     fn refresh_new_releases_layout(&mut self) {
-        self.new_releases_layout =
-            if self.content_list_page.source == ContentListPageSource::RecentMusic {
-                let mut layout = self.layout_of_rows(&self.content_list_page.visible_rows());
-                if !self.content_list_page.has_more() {
-                    layout.mark_list_end();
-                }
-                layout
-            } else {
-                NewReleasesLayout::default()
-            };
-    }
-
-    /// The window groups of `rows` with the tree and the window length of
-    /// this view model. This is the one build site of the layout (packet
-    /// 003 decision D12).
-    fn layout_of_rows(&self, rows: &[&ContentListRowDisplay]) -> NewReleasesLayout {
-        NewReleasesLayout::build(rows, &self.snapshot.tree, self.window_length)
+        self.new_releases_layout = NewReleasesLayout::for_list(
+            &self.content_list_page.visible_rows(),
+            &self.snapshot.tree,
+            self.window_length,
+            self.content_list_page.has_more(),
+        );
     }
 
     /// True when a group of the loaded rows and the staged rows of `page`
@@ -3256,7 +3256,9 @@ impl LibraryViewModel {
             .map(content_list_row_from_recent_feed)
             .collect();
         let rows: Vec<&ContentListRowDisplay> = rows.iter().collect();
-        self.layout_of_rows(&rows).any_window_open()
+        // The pager asks while its chain runs, so no list end is known yet.
+        NewReleasesLayout::for_list(&rows, &self.snapshot.tree, self.window_length, true)
+            .any_window_open()
     }
 
     /// Shows the rows of `page` in the content list when the content list
@@ -3317,6 +3319,7 @@ impl LibraryViewModel {
     /// call (ADR 0086 packet 005).
     pub(crate) fn window_group_page(&self, key: &WindowGroupKey) -> WindowGroupPageVm {
         let saved_search_page;
+        let releases_layout;
         let (layout, rows): (&NewReleasesLayout, Vec<&ContentListRowDisplay>) = match &key.source {
             WindowGroupSource::NewReleases => (
                 &self.new_releases_layout,
@@ -3325,6 +3328,16 @@ impl LibraryViewModel {
             WindowGroupSource::SavedSearch(rows) => {
                 saved_search_page = saved_search_window_page(rows, &self.search_lookup());
                 (&saved_search_page.0, saved_search_page.1.iter().collect())
+            }
+            WindowGroupSource::Releases(list) => {
+                let rows: Vec<&ContentListRowDisplay> = list.rows.iter().collect();
+                releases_layout = NewReleasesLayout::for_list(
+                    &rows,
+                    &self.snapshot.tree,
+                    self.window_length,
+                    !list.closed,
+                );
+                (&releases_layout, rows)
             }
         };
         WindowGroupPageVm::build(
@@ -3913,34 +3926,24 @@ impl LibraryViewModel {
         scope: ListScope,
         sort: ListSort,
         page: &IndexNameListPage<crate::api::Feed>,
+        recent: &RecentFeedsPageVm,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> ReleasesListKey {
         ReleasesListKey {
             scope,
             sort,
             page: page.revision(),
+            // The sort Newest reads the recent pager (ADR 0089 Decision 5).
+            recent: (sort == ListSort::Newest).then(|| recent.revision()),
             singles: self.index_feed_singles.revision(),
             library: self.releases_revision(),
             expanded: expanded.clone(),
         }
     }
 
-    /// One build of the Releases list (ADR 0084 task 037, Design step 3):
-    /// [`Self::releases_list`] and its status row, as flat items. Each
-    /// release row holds its `Normal` menu, and the rows hold the state of
-    /// each row key. Only [`ReleasesListCache::read`] calls this, through
-    /// [`Self::cached_releases_rows`].
-    #[must_use]
-    pub(crate) fn releases_list_rows(
-        &self,
-        scope: ListScope,
-        page: &IndexNameListPage<crate::api::Feed>,
-        expanded: &BTreeSet<SinglesGroupKey>,
-    ) -> ReleasesListRows {
-        let entries = self.releases_list(scope, page, &self.index_feed_singles, expanded);
-        // One map of the tree albums for the whole build. A search of the
-        // tree for each row costs the row count multiplied by the album
-        // count (task 037 Recorded Facts).
+    /// The album of each release key of the tree (ADR 0084 task 037). One
+    /// map serves a whole build.
+    fn release_album_map(&self) -> BTreeMap<ReleaseKey, &AlbumNode> {
         let mut albums: BTreeMap<ReleaseKey, &AlbumNode> = BTreeMap::new();
         for album in self
             .snapshot
@@ -3953,24 +3956,209 @@ impl LibraryViewModel {
                 albums.entry(key).or_insert(album);
             }
         }
+        albums
+    }
+
+    /// The state of the row `key` (ADR 0084 task 037).
+    fn row_state_of(
+        &self,
+        albums: &BTreeMap<ReleaseKey, &AlbumNode>,
+        key: &ReleaseKey,
+    ) -> Option<ReleaseRowState> {
+        self.release_row_state_in(key, albums.get(key).copied())
+    }
+
+    /// The `Normal` menu of a release row (ADR 0084 task 031).
+    fn row_menu_of(
+        &self,
+        albums: &BTreeMap<ReleaseKey, &AlbumNode>,
+        row: &DestinationListRowVm,
+    ) -> Option<ReleaseRowMenuVm> {
+        let DestinationListRowTarget::Release(key) = &row.open else {
+            return None;
+        };
+        self.release_row_menu_in(
+            &row.element_id,
+            key,
+            &row.label,
+            row.release_kind?,
+            false,
+            albums.get(key).copied(),
+        )
+    }
+
+    /// One build of the Releases list (ADR 0084 task 037, Design step 3):
+    /// [`Self::releases_list`] and its status row, as flat items. Each
+    /// release row holds its `Normal` menu, and the rows hold the state of
+    /// each row key. Only [`ReleasesListCache::read`] calls this, through
+    /// [`Self::cached_releases_rows`].
+    #[must_use]
+    pub(crate) fn releases_list_rows(
+        &self,
+        scope: ListScope,
+        sort: ListSort,
+        page: &IndexNameListPage<crate::api::Feed>,
+        recent: &RecentFeedsPageVm,
+        expanded: &BTreeSet<SinglesGroupKey>,
+    ) -> ReleasesListRows {
+        if sort == ListSort::Newest {
+            return self.newest_releases_rows(scope, recent);
+        }
+        let entries = self.releases_list(scope, page, &self.index_feed_singles, expanded);
+        // One map of the tree albums for the whole build. A search of the
+        // tree for each row costs the row count multiplied by the album
+        // count (task 037 Recorded Facts).
+        let albums = self.release_album_map();
         ReleasesListRows::new(
             entries,
             Self::releases_list_status(scope, page),
-            |key| self.release_row_state_in(key, albums.get(key).copied()),
-            |row| {
-                let DestinationListRowTarget::Release(key) = &row.open else {
-                    return None;
-                };
-                self.release_row_menu_in(
-                    &row.element_id,
-                    key,
-                    &row.label,
-                    row.release_kind?,
-                    false,
-                    albums.get(key).copied(),
-                )
-            },
+            |key| self.row_state_of(&albums, key),
+            |row| self.row_menu_of(&albums, row),
         )
+    }
+
+    /// The rows of the Releases list in the sort Newest (ADR 0089 Decision
+    /// 5, ADR 0086 Decisions 1, 2 and 5). The scope "In Library" holds the
+    /// Library releases. The scope "All" also holds the recent pager rows.
+    /// A pager row whose release the Library holds gives no row, so the
+    /// Library row keeps its state. The rows come newest first, and the
+    /// window groups come from [`NewReleasesLayout::for_list`].
+    /// The Library releases of the sort Newest that the scope holds, in
+    /// the order of the tree (ADR 0089 Decision 5). `seen` gets each key.
+    fn newest_library_rows(
+        &self,
+        scope: ListScope,
+        seen: &mut BTreeSet<ReleaseKey>,
+    ) -> Vec<NewestRow> {
+        let mut rows = Vec::new();
+        for artist in &self.snapshot.tree.artists {
+            for album in &artist.albums {
+                let Some(key) = album.release_key() else {
+                    continue;
+                };
+                if seen.contains(&key) {
+                    continue;
+                }
+                let Some(row) = library_release_row(
+                    artist,
+                    album,
+                    self.busy.release_download_phase(album),
+                    self.album_failed(album),
+                ) else {
+                    continue;
+                };
+                if !scope.holds(row.download_state.as_ref().map(|state| state.state)) {
+                    continue;
+                }
+                let display = library_album_display(&row, album, &key);
+                seen.insert(key);
+                rows.push(NewestRow {
+                    row,
+                    display,
+                    in_library: true,
+                });
+            }
+        }
+        rows
+    }
+
+    /// The loaded rows of the recent pager that the Library does not hold
+    /// (ADR 0089 Decision 5). `seen` holds the Library keys, and gets each
+    /// pager key that it adds.
+    fn newest_pager_rows(
+        &self,
+        recent: &RecentFeedsPageVm,
+        seen: &mut BTreeSet<ReleaseKey>,
+    ) -> Vec<NewestRow> {
+        let mut rows = Vec::new();
+        for (_, display) in recent.loaded_rows() {
+            let key = display
+                .key
+                .clone()
+                .unwrap_or_else(|| ReleaseKey::from_index_feed_guid(display.id.clone()));
+            if !seen.insert(key.clone()) {
+                continue;
+            }
+            let row = recent_release_row(
+                &key,
+                display,
+                self.busy.index_release_download_phase(&key),
+                self.busy.index_release_failed(&key),
+            );
+            let mut display = display.clone();
+            display.id.clone_from(&row.element_id);
+            display.key = Some(key);
+            rows.push(NewestRow {
+                row,
+                display,
+                in_library: false,
+            });
+        }
+        rows
+    }
+
+    fn newest_releases_rows(
+        &self,
+        scope: ListScope,
+        recent: &RecentFeedsPageVm,
+    ) -> ReleasesListRows {
+        let tree = &self.snapshot.tree;
+        let albums = self.release_album_map();
+        let mut seen: BTreeSet<ReleaseKey> = BTreeSet::new();
+        let mut merged = self.newest_library_rows(scope, &mut seen);
+        if scope == ListScope::All {
+            merged.extend(self.newest_pager_rows(recent, &mut seen));
+        }
+        merged.sort_by_key(|item| std::cmp::Reverse(item.display.newest_item_at));
+
+        let has_more = scope == ListScope::All && recent.has_more();
+        let contents: Vec<ContentListRowDisplay> = merged
+            .iter()
+            .map(|item| {
+                let mut content = ContentListRowDisplay::from_release_result(item.display.clone());
+                if item.in_library {
+                    content.mark_in_library();
+                }
+                content
+            })
+            .collect();
+        let refs: Vec<&ContentListRowDisplay> = contents.iter().collect();
+        let mut layout = NewReleasesLayout::for_list(&refs, tree, self.window_length, has_more);
+        let source = WindowGroupSource::Releases(Rc::new(ReleasesWindowRows {
+            rows: contents,
+            closed: !has_more,
+        }));
+        layout.attach_source(&source);
+
+        let mut rows_by_id: BTreeMap<String, DestinationListRowVm> = merged
+            .into_iter()
+            .map(|item| (item.row.element_id.clone(), item.row))
+            .collect();
+        let mut items: Vec<ReleasesListItemVm> = Vec::new();
+        let mut plain: Vec<ReleasesListEntryVm> = Vec::new();
+        for item in layout.into_items() {
+            match item {
+                NewReleasesLayoutItem::Release { row_id } => {
+                    let Some(mut row) = rows_by_id.remove(&row_id) else {
+                        continue;
+                    };
+                    row.menu = self.row_menu_of(&albums, &row);
+                    plain.push(ReleasesListEntryVm::Release(row.clone()));
+                    items.push(ReleasesListItemVm::Release(row));
+                }
+                NewReleasesLayoutItem::WindowGroup(tile) => {
+                    items.push(ReleasesListItemVm::WindowGroup(tile));
+                }
+            }
+        }
+        let status = if scope == ListScope::All {
+            recent_releases_status_row(recent)
+        } else {
+            None
+        };
+        ReleasesListRows::from_parts(items, releases_selection_rows(&plain), status, |key| {
+            self.row_state_of(&albums, key)
+        })
     }
 
     /// The rows of the Releases list from `cache` (ADR 0084 task 037,
@@ -3983,11 +4171,13 @@ impl LibraryViewModel {
         scope: ListScope,
         sort: ListSort,
         page: &IndexNameListPage<crate::api::Feed>,
+        recent: &RecentFeedsPageVm,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> Rc<ReleasesListRows> {
-        cache.read(self.releases_list_key(scope, sort, page, expanded), || {
-            self.releases_list_rows(scope, page, expanded)
-        })
+        cache.read(
+            self.releases_list_key(scope, sort, page, recent, expanded),
+            || self.releases_list_rows(scope, sort, page, recent, expanded),
+        )
     }
 
     /// `item`, with the Decision 10 checkbox facts of `selection` applied
@@ -4035,6 +4225,9 @@ impl LibraryViewModel {
                 );
                 ReleasesListItemVm::Group(group)
             }
+            // A window group has no checkbox in this packet (ADR 0089 packet 005
+            // Part C adds it).
+            tile @ ReleasesListItemVm::WindowGroup(_) => tile,
             status @ (ReleasesListItemVm::LeadingStatus(_)
             | ReleasesListItemVm::TrailingStatus(_)) => status,
         }
@@ -5535,6 +5728,42 @@ fn track_row_matches_text_filter(track: &TrackRow, filter: &str) -> bool {
     .into_iter()
     .flatten()
     .any(|value| contains_normalized(value, filter))
+}
+
+/// One row of the Releases list in the sort Newest, before the window
+/// layout (ADR 0089 Decision 5). `display` is the row as the window
+/// logic reads it, and its id is the element id of `row`.
+struct NewestRow {
+    row: DestinationListRowVm,
+    display: FeedResultDisplay,
+    in_library: bool,
+}
+
+/// The window input of a Library release (ADR 0086 Decision 1). The feed
+/// GUID names the album, so the window logic reads its kind, its artist
+/// and its date from the tree (packet 002 decision D3).
+fn library_album_display(
+    row: &DestinationListRowVm,
+    album: &AlbumNode,
+    key: &ReleaseKey,
+) -> FeedResultDisplay {
+    let mut display = FeedResultDisplay::new(
+        row.element_id.clone(),
+        row.label.clone(),
+        SearchResultOrigin::Library,
+    )
+    .with_release_key(key.clone(), album.release_kind())
+    .with_secondary_text(row.secondary_text.clone());
+    display.thumbnail_href.clone_from(&row.thumbnail_href);
+    display.newest_item_at = album.tracks.iter().filter_map(|track| track.pub_date).max();
+    display.remote_feed = album
+        .feed_guid
+        .as_ref()
+        .map(|feed_guid| crate::views::FeedView {
+            feed_guid: Some(feed_guid.clone()),
+            ..crate::views::FeedView::default()
+        });
+    display
 }
 
 fn content_list_rows_from_tree(tree: &LibraryTree) -> Vec<ContentListRowDisplay> {
@@ -9276,6 +9505,188 @@ mod tests {
         }
     }
 
+    use crate::view_models::recent_feeds::RecentFeedsPageBatch;
+    use crate::views::FeedView;
+
+    /// The Haleen singles of `singles_tree`, without the album of the
+    /// first artist. That album has no track date, and a row with no date
+    /// closes each window (ADR 0086 Decision 5).
+    fn singles_only_tree() -> LibraryTree {
+        let mut tree = singles_tree();
+        tree.artists.remove(0);
+        tree
+    }
+
+    /// One pager row of the sort Newest: a `MusicIndex` single of the
+    /// feed `guid` by `artist`, dated `date`.
+    fn newest_pager_single(guid: &str, artist: &str, date: i64) -> RecentFeedResultRow {
+        let feed = FeedView {
+            feed_guid: Some(guid.to_owned()),
+            artist: Some(artist.to_owned()),
+            release_kind: Some("single".to_owned()),
+            ..FeedView::default()
+        };
+        (
+            0,
+            FeedResultDisplay::new(
+                format!("index-feed:{guid}"),
+                format!("Index {guid}"),
+                SearchResultOrigin::Index,
+            )
+            .with_release_key(ReleaseKey::FeedGuid(guid.to_owned()), ReleaseKind::Single)
+            .with_remote_feed(feed)
+            .with_newest_item_at(Some(date)),
+        )
+    }
+
+    /// A pager of one loaded page with these rows.
+    fn loaded_pager(rows: Vec<RecentFeedResultRow>, has_more: bool) -> RecentFeedsPageVm {
+        let mut pager = RecentFeedsPageVm::loading();
+        pager.load_recorded_page(
+            RecentFeedsPageBatch {
+                rows,
+                cursor: has_more.then(|| "next".to_owned()),
+                has_more,
+            },
+            false,
+        );
+        pager
+    }
+
+    /// The window group tiles of the Releases items, in order.
+    fn releases_window_tiles(items: &[ReleasesListItemVm]) -> Vec<&WindowGroupTileVm> {
+        items
+            .iter()
+            .filter_map(|item| match item {
+                ReleasesListItemVm::WindowGroup(tile) => Some(tile.as_ref()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// ADR 0089 Decision 5 with ADR 0086 Decisions 1 and 5: the sort Newest
+    /// in the scope "All" gives window groups. The recent pager is open,
+    /// so the window is open, and the pager row joins the Library group.
+    #[test]
+    fn adr_0089_task_005_newest_all_gives_window_groups() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_only_tree());
+        let pager = loaded_pager(vec![newest_pager_single("guid-9", "Haleen", 250)], true);
+
+        let rows = vm.releases_list_rows(
+            ListScope::All,
+            ListSort::Newest,
+            &IndexNameListPage::default(),
+            &pager,
+            &BTreeSet::new(),
+        );
+        let tiles = releases_window_tiles(rows.items());
+        assert_eq!(tiles.len(), 1, "the Haleen singles give one window group");
+        assert_eq!(
+            tiles[0].count, 4,
+            "the pager single joins the Library singles"
+        );
+        assert!(!tiles[0].window_closed, "the pager has more pages");
+        assert!(
+            !rows
+                .items()
+                .iter()
+                .any(|item| matches!(item, ReleasesListItemVm::Group(_))),
+            "the sort Newest gives no ADR 0084 singles group"
+        );
+    }
+
+    /// ADR 0089 Decision 5: the sort Newest in the scope "In Library" gives
+    /// window groups from the Library tree alone, with each window closed.
+    #[test]
+    fn adr_0089_task_005_newest_in_library_gives_window_groups() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_only_tree());
+        let pager = loaded_pager(vec![newest_pager_single("guid-9", "Haleen", 250)], true);
+
+        let rows = vm.releases_list_rows(
+            ListScope::InLibrary,
+            ListSort::Newest,
+            &IndexNameListPage::default(),
+            &pager,
+            &BTreeSet::new(),
+        );
+        let tiles = releases_window_tiles(rows.items());
+        assert_eq!(tiles.len(), 1, "the Haleen singles give one window group");
+        // The scope "In Library" shows the downloaded singles only: Middle
+        // and Oldest. The pager row is not in the Library.
+        assert_eq!(tiles[0].count, 2);
+        assert!(tiles[0].window_closed, "the Library list has no more pages");
+    }
+
+    /// ADR 0084 Decision 6 under the sort A to Z: the scope "All" keeps the
+    /// singles group row, and gives no window group.
+    #[test]
+    fn adr_0089_task_005_a_to_z_all_keeps_singles_groups() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_tree());
+        let pager = loaded_pager(vec![newest_pager_single("guid-9", "Haleen", 250)], true);
+
+        let rows = vm.releases_list_rows(
+            ListScope::All,
+            ListSort::AToZ,
+            &IndexNameListPage::default(),
+            &pager,
+            &BTreeSet::new(),
+        );
+        assert!(
+            rows.items()
+                .iter()
+                .any(|item| matches!(item, ReleasesListItemVm::Group(_))),
+            "A to Z gives the singles group row"
+        );
+        assert!(releases_window_tiles(rows.items()).is_empty());
+    }
+
+    /// ADR 0084 Decision 6 under the sort A to Z in the scope "In Library".
+    #[test]
+    fn adr_0089_task_005_a_to_z_in_library_keeps_singles_groups() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_tree());
+
+        let rows = vm.releases_list_rows(
+            ListScope::InLibrary,
+            ListSort::AToZ,
+            &IndexNameListPage::default(),
+            &RecentFeedsPageVm::loading(),
+            &BTreeSet::new(),
+        );
+        assert!(
+            rows.items()
+                .iter()
+                .any(|item| matches!(item, ReleasesListItemVm::Group(_))),
+            "A to Z gives the singles group row"
+        );
+        assert!(releases_window_tiles(rows.items()).is_empty());
+    }
+
+    /// ADR 0089 Decision 5: an Index row that the Library holds keeps the
+    /// Library state. The pager row of the Library single `guid-2` gives
+    /// no second member, so the window holds the three Library singles.
+    #[test]
+    fn adr_0089_task_005_newest_all_library_row_keeps_its_state() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_only_tree());
+        let pager = loaded_pager(vec![newest_pager_single("guid-2", "Haleen", 300)], false);
+
+        let rows = vm.releases_list_rows(
+            ListScope::All,
+            ListSort::Newest,
+            &IndexNameListPage::default(),
+            &pager,
+            &BTreeSet::new(),
+        );
+        let tiles = releases_window_tiles(rows.items());
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].count, 3, "the Library single is one member");
+        assert!(tiles[0].window_closed, "the pager has no more pages");
+    }
+
     /// R15-05 (ADR 0084 Decision 6): the singles of a group give one group
     /// entry and no release entry. The group entry sorts by the display
     /// artist and names the count and the Library state.
@@ -9475,7 +9886,9 @@ mod tests {
 
         let closed = vm.releases_list_rows(
             ListScope::InLibrary,
+            ListSort::AToZ,
             &IndexNameListPage::default(),
+            &RecentFeedsPageVm::loading(),
             &BTreeSet::new(),
         );
         let closed = closed.items();
@@ -9490,7 +9903,9 @@ mod tests {
 
         let open = vm.releases_list_rows(
             ListScope::InLibrary,
+            ListSort::AToZ,
             &IndexNameListPage::default(),
+            &RecentFeedsPageVm::loading(),
             &BTreeSet::from([group_key.clone()]),
         );
         let open = open.items();
@@ -9520,6 +9935,7 @@ mod tests {
                 ReleasesListItemVm::Release(row) | ReleasesListItemVm::Single(row) => Some(row),
                 ReleasesListItemVm::LeadingStatus(_)
                 | ReleasesListItemVm::Group(_)
+                | ReleasesListItemVm::WindowGroup(_)
                 | ReleasesListItemVm::TrailingStatus(_) => None,
             })
             .collect()
@@ -9560,7 +9976,9 @@ mod tests {
         vm.replace_tree(library_tree());
         let rows = vm.releases_list_rows(
             ListScope::InLibrary,
+            ListSort::AToZ,
             &IndexNameListPage::default(),
+            &RecentFeedsPageVm::loading(),
             &BTreeSet::new(),
         );
         let entries = |mode| items_with_selection(&rows, &ListSelection::new(), mode);
@@ -9623,7 +10041,9 @@ mod tests {
         vm.replace_tree(library_tree());
         let rows = vm.releases_list_rows(
             ListScope::InLibrary,
+            ListSort::AToZ,
             &IndexNameListPage::default(),
+            &RecentFeedsPageVm::loading(),
             &BTreeSet::new(),
         );
         let entries = items_with_selection(&rows, &ListSelection::new(), SelectionMode::Normal);
@@ -9693,7 +10113,9 @@ mod tests {
 
         let rows = vm.releases_list_rows(
             ListScope::InLibrary,
+            ListSort::AToZ,
             &IndexNameListPage::default(),
+            &RecentFeedsPageVm::loading(),
             &expanded,
         );
         let entries = items_with_selection(&rows, &selection, SelectionMode::Selecting);
@@ -13238,8 +13660,9 @@ mod tests {
             self.vm.cached_releases_rows(
                 &mut self.cache,
                 self.scope,
-                ListSort::Newest,
+                ListSort::AToZ,
                 &self.page,
+                &RecentFeedsPageVm::loading(),
                 &self.expanded,
             )
         }
@@ -13458,7 +13881,13 @@ mod tests {
         ];
         for (vm, scope, page, expanded) in cases {
             let entries = vm.releases_list(scope, &page, vm.index_feed_singles(), &expanded);
-            let rows = vm.releases_list_rows(scope, &page, &expanded);
+            let rows = vm.releases_list_rows(
+                scope,
+                ListSort::AToZ,
+                &page,
+                &RecentFeedsPageVm::loading(),
+                &expanded,
+            );
             assert!(!entries.is_empty());
             assert_eq!(item_labels_of(&rows), flat(&entries), "{scope:?}");
         }
@@ -13486,7 +13915,13 @@ mod tests {
             (first_page, 1),
         ] {
             let expanded = BTreeSet::from([haleen.clone()]);
-            let rows = vm.releases_list_rows(ListScope::All, &page, &expanded);
+            let rows = vm.releases_list_rows(
+                ListScope::All,
+                ListSort::AToZ,
+                &page,
+                &RecentFeedsPageVm::loading(),
+                &expanded,
+            );
             let entries =
                 vm.releases_list(ListScope::All, &page, vm.index_feed_singles(), &expanded);
             assert_eq!(
@@ -13524,7 +13959,9 @@ mod tests {
         let group_key = SinglesGroupKey(ArtistIdentity::Name("haleen".into()));
         let rows = vm.releases_list_rows(
             ListScope::InLibrary,
+            ListSort::AToZ,
             &IndexNameListPage::default(),
+            &RecentFeedsPageVm::loading(),
             &BTreeSet::from([group_key]),
         );
         let group_row = rows
@@ -13588,7 +14025,13 @@ mod tests {
             releases_everything::tests::recorded_rows(),
             false,
         );
-        let rows = vm.releases_list_rows(ListScope::All, &page, &BTreeSet::new());
+        let rows = vm.releases_list_rows(
+            ListScope::All,
+            ListSort::AToZ,
+            &page,
+            &RecentFeedsPageVm::loading(),
+            &BTreeSet::new(),
+        );
         for key in ["alpha", "beta", "motive-album"] {
             assert_eq!(
                 rows.row_state(&guid_key(key)),

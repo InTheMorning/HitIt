@@ -36,6 +36,7 @@ use crate::view_models::list_selection::{
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::release_row_actions::{ReleaseRowMenuVm, ReleaseRowState};
+use crate::view_models::search_results::FeedResultDisplay;
 use crate::view_models::singles_group::SinglesGroupKey;
 use crate::view_models::workspace::ReleaseKey;
 
@@ -160,14 +161,47 @@ pub(crate) fn index_release_row(
         // while its own job runs (review correction of 2026-10-22). The
         // app has not read this feed's track list here, so a downloaded
         // row never shows a count.
-        download_state: Some(match phase {
-            Some(DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. }) => {
-                ReleaseDownloadStateVm::queued()
-            }
-            Some(DownloadPhase::InFlight) => ReleaseDownloadStateVm::downloading(),
-            None => ReleaseDownloadStateVm::in_library(false),
-        }),
+        download_state: Some(download_state_of_phase(phase)),
     })
+}
+
+/// The download state of a row with the download `phase` of its own job
+/// (ADR 0084 task 033). No job gives the quiet `NotDownloaded` icon.
+fn download_state_of_phase(phase: Option<DownloadPhase>) -> ReleaseDownloadStateVm {
+    match phase {
+        Some(DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. }) => {
+            ReleaseDownloadStateVm::queued()
+        }
+        Some(DownloadPhase::InFlight) => ReleaseDownloadStateVm::downloading(),
+        None => ReleaseDownloadStateVm::in_library(false),
+    }
+}
+
+/// The row of one loaded `MusicIndex` release of the recent pager, in the
+/// sort Newest (ADR 0089 Decision 5). `key` is its release key, `phase`
+/// the phase of its own download job, and `failed` tells whether its
+/// latest job failed. The row reads only the fields of the pager row.
+#[must_use]
+pub(crate) fn recent_release_row(
+    key: &ReleaseKey,
+    display: &FeedResultDisplay,
+    phase: Option<DownloadPhase>,
+    failed: bool,
+) -> DestinationListRowVm {
+    DestinationListRowVm {
+        marked: false,
+        element_id: format!("music-release-row-{}", release_row_slug(key)),
+        a11y_label: format!("Release: {}", display.label),
+        label: display.label.clone(),
+        secondary_text: display.secondary_text.clone(),
+        thumbnail_href: display.thumbnail_href.clone(),
+        art: None,
+        open: DestinationListRowTarget::Release(key.clone()),
+        selection: RowSelectionVm::none(),
+        release_kind: Some(display.kind),
+        menu: None,
+        download_state: Some(download_state_of_phase(phase).with_failure(failed)),
+    }
 }
 
 /// The title of a `MusicIndex` release row.
@@ -341,6 +375,9 @@ pub(crate) struct ReleasesListKey {
     pub(crate) sort: ListSort,
     /// The revision of the release name page.
     pub(crate) page: Revision,
+    /// The revision of the recent pager. Only the sort Newest reads the
+    /// pager, so the other sort holds `None` (ADR 0089 Decision 5).
+    pub(crate) recent: Option<Revision>,
     /// The revision of the loaded `MusicIndex` singles.
     pub(crate) singles: Revision,
     /// The revision of the Library tree and of the busy state.
@@ -375,15 +412,46 @@ impl ReleasesListRows {
         row_menu: impl Fn(&DestinationListRowVm) -> Option<ReleaseRowMenuVm>,
     ) -> Self {
         let selection_rows = releases_selection_rows(&entries);
+        let with_menu = |mut row: DestinationListRowVm| {
+            row.menu = row_menu(&row);
+            row
+        };
+        let mut body: Vec<ReleasesListItemVm> = Vec::new();
+        for entry in entries {
+            match entry {
+                ReleasesListEntryVm::Release(row) => {
+                    body.push(ReleasesListItemVm::Release(with_menu(row)));
+                }
+                ReleasesListEntryVm::SinglesGroup(mut group) => {
+                    let singles = std::mem::take(&mut group.singles);
+                    body.push(ReleasesListItemVm::Group(group));
+                    body.extend(
+                        singles
+                            .into_iter()
+                            .map(|row| ReleasesListItemVm::Single(with_menu(row))),
+                    );
+                }
+            }
+        }
+        Self::from_parts(body, selection_rows, status, row_state)
+    }
+
+    /// Builds the rows from the `body` items, the selection rows of the
+    /// body and the status row of the list. The status row goes first when
+    /// it shows before the items, else last. `row_state` gives the state
+    /// of each row key of the selection rows.
+    #[must_use]
+    pub(crate) fn from_parts(
+        body: Vec<ReleasesListItemVm>,
+        selection_rows: Vec<SelectionRow<ReleasesRowId, ReleaseKey>>,
+        status: Option<IndexListStatusRowVm>,
+        row_state: impl Fn(&ReleaseKey) -> Option<ReleaseRowState>,
+    ) -> Self {
         let row_states = selection_rows
             .iter()
             .flat_map(|row| row.members.iter())
             .filter_map(|key| row_state(key).map(|state| (key.clone(), state)))
             .collect();
-        let with_menu = |mut row: DestinationListRowVm| {
-            row.menu = row_menu(&row);
-            row
-        };
         let (leading, trailing) = match status {
             Some(row) if row.at_list_start() => (Some(row), None),
             other => (None, other),
@@ -392,22 +460,7 @@ impl ReleasesListRows {
             .map(ReleasesListItemVm::LeadingStatus)
             .into_iter()
             .collect();
-        for entry in entries {
-            match entry {
-                ReleasesListEntryVm::Release(row) => {
-                    items.push(ReleasesListItemVm::Release(with_menu(row)));
-                }
-                ReleasesListEntryVm::SinglesGroup(mut group) => {
-                    let singles = std::mem::take(&mut group.singles);
-                    items.push(ReleasesListItemVm::Group(group));
-                    items.extend(
-                        singles
-                            .into_iter()
-                            .map(|row| ReleasesListItemVm::Single(with_menu(row))),
-                    );
-                }
-            }
-        }
+        items.extend(body);
         items.extend(trailing.map(ReleasesListItemVm::TrailingStatus));
         let item_ids = items
             .iter()
@@ -887,6 +940,7 @@ pub(crate) mod tests {
             scope: ListScope::All,
             sort: ListSort::Newest,
             page: Revision::default(),
+            recent: None,
             singles: Revision::default(),
             library: Revision::default(),
             expanded: BTreeSet::new(),
@@ -913,6 +967,7 @@ pub(crate) mod tests {
             scope: ListScope::All,
             sort: ListSort::Newest,
             page: Revision::default(),
+            recent: None,
             singles: Revision::default(),
             library: Revision::default(),
             expanded: BTreeSet::new(),

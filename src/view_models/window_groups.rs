@@ -16,6 +16,7 @@
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 use chrono::Datelike;
 
@@ -34,7 +35,7 @@ use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::search_results::FeedResultDisplay;
 use crate::view_models::singles_group::SinglesGroupKey;
-use crate::view_models::workspace::ReleaseKey;
+use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey};
 
 /// The number of seconds in one day.
 const SECONDS_PER_DAY: i64 = 86_400;
@@ -218,6 +219,21 @@ pub(crate) enum WindowGroupSource {
     /// group row. The page reads the Library facts of these rows at each
     /// render.
     SavedSearch(Vec<FeedResultDisplay>),
+    /// A group of the Releases list in the sort Newest (ADR 0086 Decision
+    /// 4, ADR 0089 Decision 5). The rows are the rows of the list, and the
+    /// page makes the layout of them at each render.
+    Releases(Rc<ReleasesWindowRows>),
+}
+
+/// The rows of a Releases list in the sort Newest, as the page of a window
+/// group reads them (ADR 0086 Decision 4). `closed` is true when the list
+/// has no more pages, so each window is closed (ADR 0086 Decision 5).
+#[derive(Clone, Debug)]
+pub(crate) struct ReleasesWindowRows {
+    /// The rows of the list, newest first.
+    pub(crate) rows: Vec<ContentListRowDisplay>,
+    /// True when the list has no more pages.
+    pub(crate) closed: bool,
 }
 
 impl Eq for WindowGroupKey {}
@@ -406,6 +422,9 @@ pub(crate) struct WindowGroupTileVm {
     pub(crate) window_closed: bool,
     /// The selection facts of the tile: a group row of each member key.
     pub(crate) selection: RowSelectionVm,
+    /// True when the page of this group is the current page (R-NAV-2 item
+    /// 2). Set by [`Self::with_marked`].
+    pub(crate) marked: bool,
     /// The key of the window group page that a click opens (packet 004).
     pub(crate) page_key: WindowGroupKey,
 }
@@ -466,8 +485,20 @@ impl WindowGroupTileVm {
             art: CollectionArtVm::resolve(None, anchor_cover, CollectionKind::SinglesGroup),
             window_closed,
             selection: RowSelectionVm::none(),
+            marked: false,
             page_key,
         }
+    }
+
+    /// Gives this tile its mark: `true` when it opens `entry`, the group
+    /// page that Back left open (R-NAV-2 item 2).
+    #[must_use]
+    pub(crate) fn with_marked(mut self, entry: Option<&FrameNavigationEntry>) -> Self {
+        self.marked = matches!(
+            entry,
+            Some(FrameNavigationEntry::WindowGroup(key)) if *key == self.page_key
+        );
+        self
     }
 
     /// Sets the window state, and the kind badge and the accessibility
@@ -552,6 +583,40 @@ impl NewReleasesLayout {
         }
         layout.entries = entries;
         layout
+    }
+
+    /// The layout of `rows` for a list: the windows of Decisions 1 and 2,
+    /// and each window closed when the list has no more pages (ADR 0086
+    /// Decision 5). New releases and the Releases list build the layout
+    /// here, so the window logic has one site.
+    #[must_use]
+    pub(crate) fn for_list(
+        rows: &[&ContentListRowDisplay],
+        tree: &LibraryTree,
+        length: WindowLength,
+        has_more: bool,
+    ) -> Self {
+        let mut layout = Self::build(rows, tree, length);
+        if !has_more {
+            layout.mark_list_end();
+        }
+        layout
+    }
+
+    /// Sets the page source of each group tile to `source` (ADR 0089
+    /// Decision 5). The Releases list gives each tile its rows this way.
+    pub(crate) fn attach_source(&mut self, source: &WindowGroupSource) {
+        for item in &mut self.items {
+            if let NewReleasesLayoutItem::WindowGroup(tile) = item {
+                tile.page_key.source = source.clone();
+            }
+        }
+    }
+
+    /// The items of the layout, in the order of the list.
+    #[must_use]
+    pub(crate) fn into_items(self) -> Vec<NewReleasesLayoutItem> {
+        self.items
     }
 
     /// The layout of the window group page of a saved search (ADR 0086
