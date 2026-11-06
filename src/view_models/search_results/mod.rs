@@ -4,16 +4,15 @@
 //! result opens in the detail column. Packet 010 gives the view three tabs,
 //! one row for each item with the state word of each Library item, and the
 //! selection model of packets 018 and 019 on the Releases tab and the
-//! Tracks tab. Each tab keeps its rows in one ADR 0041 [`PagedListVm`]
+//! Tracks tab. Each tab keeps its rows in one ADR 0041 `PagedListVm`
 //! window.
 #![warn(clippy::pedantic)]
 
-use crate::runtime::paged_list_vm::{PagedListVm, RowSlot};
 use crate::view_models::detail_selection::{
     detail_header_action, search_header_action, search_release_rows, search_track_rows,
     DetailPageRows, DetailRowClick, DetailRowKey, DetailSelection,
 };
-use crate::view_models::list_page::ListScope;
+use crate::view_models::list_page::{ListPageKey, ListPageState, ListPages, ListScope, ListSort};
 use crate::view_models::list_selection::{FocusStep, SelectionRow};
 use crate::view_models::live_run::RunGeneration;
 use crate::view_models::search_query::library_scope_of;
@@ -33,6 +32,7 @@ mod saved_search;
 mod saved_search_groups;
 mod saved_search_query;
 mod search_run;
+mod sort;
 mod tabs;
 #[cfg(test)]
 mod tests;
@@ -129,6 +129,10 @@ pub(crate) struct SearchResultsInspectorPageVm {
     /// The Index result of this query that the page did not show, and its
     /// note (packet 007 decision D6).
     index_result_stop: Option<(IndexResultDiagnostic, EmptyStateDisplay)>,
+    /// The list state of the page: its sort and its view, under the key of
+    /// the results page or of a saved search (ADR 0089 Decision 5). A new
+    /// run keeps it, see [`Self::with_list_state_of`].
+    lists: ListPages,
 }
 
 impl SearchResultsInspectorPageVm {
@@ -158,6 +162,7 @@ impl SearchResultsInspectorPageVm {
             run_generation: RunGeneration::default(),
             index_result_shown: false,
             index_result_stop: None,
+            lists: ListPages::default(),
         };
         page.refresh_empty_state();
         page
@@ -190,6 +195,45 @@ impl SearchResultsInspectorPageVm {
     pub(crate) fn with_library_rows_partial(mut self, partial: bool) -> Self {
         self.library_rows_partial = partial;
         self
+    }
+
+    /// Returns this page with the list state of `previous`, the page that
+    /// it replaces, so the sort and the view of the curator stay across a
+    /// run (ADR 0089 Decision 5). `None` keeps the default state.
+    #[must_use]
+    pub(crate) fn with_list_state_of(mut self, previous: Option<&Self>) -> Self {
+        if let Some(previous) = previous {
+            self.lists = previous.lists.clone();
+        }
+        self
+    }
+
+    /// The key of the list state of this page: a saved search, or the
+    /// results page of the toolbar search.
+    #[must_use]
+    pub(crate) const fn list_key(&self) -> ListPageKey {
+        match self.entry {
+            FrameNavigationEntry::SavedSearch { .. } => ListPageKey::SavedSearch,
+            _ => ListPageKey::Results,
+        }
+    }
+
+    /// The list state of this page: its sort and its view (ADR 0089
+    /// Decision 5).
+    #[must_use]
+    pub(crate) fn list_state(&self) -> ListPageState {
+        *self.lists.get(self.list_key())
+    }
+
+    /// Sets the sort of this page (ADR 0089 Decision 4). The query does not
+    /// change, and the rows follow the sort at the next read.
+    pub(crate) fn set_list_sort(&mut self, sort: ListSort) {
+        self.lists.set_sort(self.list_key(), sort);
+    }
+
+    /// The sort of this page. A page with no sort state uses Newest.
+    fn sort(&self) -> ListSort {
+        self.list_state().sort.unwrap_or(ListSort::Newest)
     }
 
     /// Returns this page with the run generation `generation` (packet 003).
@@ -562,11 +606,48 @@ impl SearchResultsInspectorPageVm {
     /// rows of the Artists tab and the Labels tab are one list, divided by
     /// the role of each feed (musicindex ADR 0033 R-WORD-3).
     fn artist_rows_of(&self, tab: SearchResultsTab) -> Vec<ArtistResultDisplay> {
-        self.artists
+        let mut rows: Vec<ArtistResultDisplay> = self
+            .artists
             .rows()
             .into_iter()
             .filter(|row| rows::artist_tab(row) == tab)
-            .collect()
+            .collect();
+        // An artist row has no date, so Newest keeps the order of the run.
+        sort::sort_rows(&mut rows, self.sort(), |_| None, |row| row.label.as_str());
+        rows
+    }
+
+    /// The release rows in the order of the sort. A row with no date uses
+    /// the release date of its Library release, when the Library holds it.
+    /// The grouped Releases of a saved search with Newest keep the window
+    /// order of ADR 0086, because the groups read that order.
+    fn sorted_releases(&self, lookup: &dyn SearchLibraryLookup) -> Vec<FeedResultDisplay> {
+        let mut rows = self.releases.rows();
+        if self.releases_grouped() {
+            return rows;
+        }
+        sort::sort_rows(
+            &mut rows,
+            self.sort(),
+            |row| {
+                row.newest_item_at.or_else(|| {
+                    row.key
+                        .as_ref()
+                        .and_then(|key| lookup.release_window_facts(key))
+                        .and_then(|facts| facts.release_date)
+                })
+            },
+            |row| row.label.as_str(),
+        );
+        rows
+    }
+
+    /// The track rows in the order of the sort. A track row has no date, so
+    /// Newest keeps the order of the run.
+    fn sorted_tracks(&self) -> Vec<TrackResultDisplay> {
+        let mut rows = self.tracks.rows();
+        sort::sort_rows(&mut rows, self.sort(), |_| None, |row| row.label.as_str());
+        rows
     }
 
     /// The count of the rows of the tab `tab`. The tab All gives the sum of
@@ -652,28 +733,36 @@ impl SearchResultsInspectorPageVm {
 
     /// Returns the visible row thumbnail hrefs of the active tab.
     #[must_use]
-    pub(crate) fn thumbnail_hrefs(&self) -> Vec<String> {
+    pub(crate) fn thumbnail_hrefs(&self, lookup: &dyn SearchLibraryLookup) -> Vec<String> {
         group_tabs_of(self.tab)
             .into_iter()
-            .flat_map(|tab| self.group_thumbnail_hrefs(tab))
+            .flat_map(|tab| self.group_thumbnail_hrefs(tab, lookup))
             .collect()
     }
 
-    /// The visible thumbnail hrefs of one group.
-    fn group_thumbnail_hrefs(&self, tab: SearchResultsTab) -> Vec<String> {
+    /// The visible thumbnail hrefs of one group, in the order of the sort.
+    fn group_thumbnail_hrefs(
+        &self,
+        tab: SearchResultsTab,
+        lookup: &dyn SearchLibraryLookup,
+    ) -> Vec<String> {
         match tab {
-            SearchResultsTab::Releases => {
-                visible_thumbnail_hrefs(self.releases.window(), |row| row.thumbnail_href.as_deref())
-            }
+            SearchResultsTab::Releases => visible_thumbnail_hrefs(
+                &self.sorted_releases(lookup),
+                self.releases.window().page_size(),
+                |row| row.thumbnail_href.as_deref(),
+            ),
             SearchResultsTab::Artists | SearchResultsTab::Labels => self
                 .artist_rows_of(tab)
                 .iter()
                 .filter_map(|row| row.thumbnail_href.clone())
                 .take(self.artists.window().page_size())
                 .collect(),
-            SearchResultsTab::Tracks => {
-                visible_thumbnail_hrefs(self.tracks.window(), |row| row.thumbnail_href.as_deref())
-            }
+            SearchResultsTab::Tracks => visible_thumbnail_hrefs(
+                &self.sorted_tracks(),
+                self.tracks.window().page_size(),
+                |row| row.thumbnail_href.as_deref(),
+            ),
             SearchResultsTab::All => Vec::new(),
         }
     }
@@ -700,8 +789,7 @@ impl SearchResultsInspectorPageVm {
     ) -> Vec<SearchResultRowVm> {
         match tab {
             SearchResultsTab::Releases => self
-                .releases
-                .rows()
+                .sorted_releases(lookup)
                 .iter()
                 .map(|row| {
                     rows::release_row_vm(
@@ -718,8 +806,7 @@ impl SearchResultsInspectorPageVm {
                 .map(|row| rows::artist_row_vm(row, lookup))
                 .collect(),
             SearchResultsTab::Tracks => self
-                .tracks
-                .rows()
+                .sorted_tracks()
                 .iter()
                 .map(|row| rows::track_row_vm(row, lookup, &self.selection))
                 .collect(),
@@ -771,7 +858,7 @@ impl SearchResultsInspectorPageVm {
                 .map(SearchResultItemVm::Row)
                 .collect();
         }
-        let rows = self.releases.rows();
+        let rows = self.sorted_releases(lookup);
         let placement = self.release_kind_placement();
         saved_search_window_items(&rows, lookup, self.release_rows_complete())
             .into_iter()
@@ -801,20 +888,23 @@ impl SearchResultsInspectorPageVm {
         if !self.groups_release_rows() {
             return None;
         }
-        saved_search_window_items(&self.releases.rows(), lookup, self.release_rows_complete())
-            .into_iter()
-            .find_map(|item| match item {
-                SavedSearchWindowItem::Group { tile, .. } if tile.open_row_id == row_id => {
-                    Some(*tile)
-                }
-                SavedSearchWindowItem::Group { .. } | SavedSearchWindowItem::Plain(_) => None,
-            })
+        saved_search_window_items(
+            &self.sorted_releases(lookup),
+            lookup,
+            self.release_rows_complete(),
+        )
+        .into_iter()
+        .find_map(|item| match item {
+            SavedSearchWindowItem::Group { tile, .. } if tile.open_row_id == row_id => Some(*tile),
+            SavedSearchWindowItem::Group { .. } | SavedSearchWindowItem::Plain(_) => None,
+        })
     }
 
     /// Tells if the Releases rows of this page are grouped: a saved search
     /// page groups them (ADR 0086 packet 005 decision D1).
     fn releases_grouped(&self) -> bool {
         matches!(self.entry, FrameNavigationEntry::SavedSearch { .. })
+            && self.sort() == ListSort::Newest
     }
 
     /// Tells if the active tab groups its rows: the Releases tab, or the
@@ -834,7 +924,7 @@ impl SearchResultsInspectorPageVm {
         if !self.groups_release_rows() {
             return None;
         }
-        let rows = self.releases.rows();
+        let rows = self.sorted_releases(lookup);
         let items = saved_search_window_items(&rows, lookup, true);
         if !items
             .iter()
@@ -894,11 +984,11 @@ impl SearchResultsInspectorPageVm {
         }
         match self.tab {
             SearchResultsTab::Releases => Some(DetailPageRows::Releases(search_release_rows(
-                &self.releases.rows(),
+                &self.sorted_releases(lookup),
                 lookup,
             ))),
             SearchResultsTab::Tracks => Some(DetailPageRows::Tracks(search_track_rows(
-                &self.tracks.rows(),
+                &self.sorted_tracks(),
                 lookup,
             ))),
             SearchResultsTab::All | SearchResultsTab::Artists | SearchResultsTab::Labels => None,
@@ -1039,11 +1129,11 @@ impl SearchResultsInspectorPageVm {
                 .position(|item| item.key().as_ref() == Some(focused));
         }
         match self.tab {
-            SearchResultsTab::Releases => self.releases.rows().iter().position(|row| {
+            SearchResultsTab::Releases => self.sorted_releases(lookup).iter().position(|row| {
                 row.merge_key()
                     .is_some_and(|key| DetailRowKey::Release(key) == *focused)
             }),
-            SearchResultsTab::Tracks => self.tracks.rows().iter().position(|row| {
+            SearchResultsTab::Tracks => self.sorted_tracks().iter().position(|row| {
                 row.merge_key()
                     .is_some_and(|key| DetailRowKey::Track(key) == *focused)
             }),
@@ -1170,14 +1260,14 @@ fn group_tabs_of(tab: SearchResultsTab) -> Vec<SearchResultsTab> {
     }
 }
 
+/// The thumbnail hrefs of the first page of `rows`, in their order.
 fn visible_thumbnail_hrefs<Row>(
-    window: &PagedListVm<SearchResultItemId, Row>,
+    rows: &[Row],
+    page_size: usize,
     thumbnail_href: impl Fn(&Row) -> Option<&str>,
 ) -> Vec<String> {
-    (0..window.total().min(window.page_size()))
-        .filter_map(|index| match window.peek_row(index) {
-            RowSlot::Ready(row) => thumbnail_href(row.as_ref()).map(str::to_string),
-            RowSlot::Pending(_) => None,
-        })
+    rows.iter()
+        .take(page_size)
+        .filter_map(|row| thumbnail_href(row).map(str::to_string))
         .collect()
 }

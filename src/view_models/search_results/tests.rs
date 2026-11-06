@@ -880,7 +880,7 @@ fn visible_thumbnail_hrefs_follow_the_active_tab() {
         ..no_index_rows()
     });
     assert_eq!(
-        vm.thumbnail_hrefs(),
+        vm.thumbnail_hrefs(&RecordedLibrary::default()),
         vec!["https://example.test/deathdreams.jpg".to_string()]
     );
 }
@@ -2280,5 +2280,159 @@ fn adr_0089_task_008_all_moves_the_focus_across_groups() {
     assert_eq!(
         vm.move_focus(FocusStep::End, &lookup),
         Some(keys[3].clone())
+    );
+}
+
+/// An Index release with a date, for the sort of the search rows.
+fn dated_release(
+    id: SearchResultItemId,
+    guid: &str,
+    label: &str,
+    date: Option<i64>,
+) -> (SearchResultItemId, FeedResultDisplay) {
+    let (id, row) = index_release(id, guid, label);
+    (id, row.with_newest_item_at(date))
+}
+
+/// The Releases rows of `vm` in their visible order.
+fn release_labels(vm: &SearchResultsInspectorPageVm) -> Vec<String> {
+    vm.visible_rows(&RecordedLibrary::default())
+        .into_iter()
+        .map(|row| row.label)
+        .collect()
+}
+
+/// ADR 0089 Decision 5: the results page and a saved search start with the
+/// sort Newest and the view Rows, and the page keeps its own state.
+#[test]
+fn adr_0089_task_008_part_c_search_pages_default_to_newest_and_rows() {
+    use crate::view_models::list_page::{ListPageKey, ListPageState, ListSort, ListView};
+
+    let results = ListPageState::default_for(ListPageKey::Results);
+    assert_eq!(results.sort, Some(ListSort::Newest));
+    assert_eq!(results.view, ListView::Rows);
+    assert_eq!(results.scope, None, "the query holds the scope");
+    let saved = ListPageState::default_for(ListPageKey::SavedSearch);
+    assert_eq!(saved.sort, Some(ListSort::Newest));
+    assert_eq!(saved.view, ListView::Rows);
+
+    let vm = SearchResultsInspectorPageVm::new("survival guide");
+    assert_eq!(vm.list_key(), ListPageKey::Results);
+    assert_eq!(vm.list_state(), results);
+}
+
+/// ADR 0089 Decision 4: the sort Newest puts the newest date first, and a
+/// row with no date goes last. The sort sends no request and keeps the
+/// query.
+#[test]
+fn adr_0089_task_008_part_c_newest_puts_dateless_rows_last_and_keeps_query() {
+    use crate::view_models::list_page::ListSort;
+
+    let mut vm = SearchResultsInspectorPageVm::new("survival guide");
+    vm.replace_index_results(IndexSearchResultRows {
+        feeds: vec![
+            dated_release(1, "alpha", "Alpha", Some(100)),
+            dated_release(2, "bravo", "Bravo", None),
+            dated_release(3, "charlie", "Charlie", Some(300)),
+        ],
+        ..no_index_rows()
+    });
+    vm.set_tab(SearchResultsTab::Releases);
+    assert_eq!(
+        release_labels(&vm),
+        ["Charlie", "Alpha", "Bravo"],
+        "Newest: newest first, the dateless row last"
+    );
+
+    vm.set_list_sort(ListSort::AToZ);
+    assert_eq!(release_labels(&vm), ["Alpha", "Bravo", "Charlie"]);
+    assert_eq!(vm.query(), "survival guide", "a sort keeps the query");
+}
+
+/// ADR 0089 Decision 4: the sort A to Z orders each group of the tab All,
+/// and the tab All keeps its group headings.
+#[test]
+fn adr_0089_task_008_part_c_a_to_z_orders_each_group_of_all() {
+    use crate::view_models::list_page::ListSort;
+    use crate::view_models::search_results::SearchResultItemVm;
+
+    let mut vm = SearchResultsInspectorPageVm::new("survival guide");
+    vm.replace_index_results(IndexSearchResultRows {
+        feeds: vec![
+            dated_release(1, "bravo", "Bravo", None),
+            dated_release(2, "alpha", "Alpha", None),
+        ],
+        ..no_index_rows()
+    });
+    vm.set_list_sort(ListSort::AToZ);
+    let items = vm.visible_items(&RecordedLibrary::default());
+    let labels: Vec<String> = items
+        .iter()
+        .filter_map(|item| match item {
+            SearchResultItemVm::Row(row) => Some(row.label.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(labels, ["Alpha", "Bravo"]);
+    assert!(
+        matches!(items.first(), Some(SearchResultItemVm::Heading(_))),
+        "the tab All keeps its heading"
+    );
+}
+
+/// ADR 0089 packet 008 Part C: the selection and the keyboard focus follow
+/// the sorted sequence. The first selectable row is the first sorted row.
+#[test]
+fn adr_0089_task_008_part_c_selection_follows_the_sorted_sequence() {
+    let mut vm = SearchResultsInspectorPageVm::new("survival guide");
+    vm.replace_index_results(IndexSearchResultRows {
+        feeds: vec![
+            dated_release(1, "alpha", "Alpha", Some(100)),
+            dated_release(2, "charlie", "Charlie", Some(300)),
+        ],
+        ..no_index_rows()
+    });
+    vm.set_tab(SearchResultsTab::Releases);
+    let lookup = RecordedLibrary::default();
+    let newest_first = vm.visible_rows(&lookup)[0].key.clone();
+    let selectable = vm
+        .selection_rows(&lookup)
+        .expect("the Releases tab has selectable rows")
+        .selection_rows();
+    assert_eq!(Some(selectable[0].id.clone()), newest_first);
+    assert_eq!(
+        vm.row_label(SearchResultsTab::Releases, "index-feed:charlie")
+            .as_deref(),
+        Some("Charlie")
+    );
+}
+
+/// ADR 0089 packet 008 Part C: the sort Newest keeps the thumbnails of the
+/// first page in the sorted order, so the artwork of the visible rows loads.
+#[test]
+fn adr_0089_task_008_part_c_thumbnails_follow_the_sorted_order() {
+    let mut vm = SearchResultsInspectorPageVm::new("survival guide");
+    let (id, old) = dated_release(1, "alpha", "Alpha", Some(100));
+    let (id2, new) = dated_release(2, "charlie", "Charlie", Some(300));
+    vm.replace_index_results(IndexSearchResultRows {
+        feeds: vec![
+            (
+                id,
+                old.with_thumbnail_href("https://example.test/alpha.jpg"),
+            ),
+            (
+                id2,
+                new.with_thumbnail_href("https://example.test/charlie.jpg"),
+            ),
+        ],
+        ..no_index_rows()
+    });
+    vm.set_tab(SearchResultsTab::Releases);
+    assert_eq!(
+        vm.thumbnail_hrefs(&RecordedLibrary::default()),
+        [
+            "https://example.test/charlie.jpg".to_string(),
+            "https://example.test/alpha.jpg".to_string()
+        ]
     );
 }

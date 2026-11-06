@@ -17,7 +17,7 @@ use gpui::{
 };
 
 use crate::ui::composites::list_page_head::{
-    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler,
+    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
 };
 use crate::ui::composites::music_column_scroll::{
     music_column_scrollbar, music_column_tracked_scrollbar,
@@ -37,7 +37,9 @@ use crate::ui::shells::search_result_rows::{
 };
 use crate::ui::tokens::{FontSize, SemanticColor, Size, Spacing};
 use crate::view_models::detail_selection::DetailRowKey;
-use crate::view_models::list_page::{ListPageHeadVm, ListScope};
+use crate::view_models::list_page::{
+    ListPageHeadVm, ListPageKey, ListPageState, ListScope, ListSort,
+};
 use crate::view_models::search_results::{
     EmptyStateDisplay, IndexDetailDisplay, IndexDetailKind, SearchFailureAction,
     SearchFailureAvailability, SearchPageActionDisplay, SearchResultItemVm, SearchResultOrigin,
@@ -57,6 +59,7 @@ type HeaderActionHandler = ListHeadButtonHandler;
 pub(crate) struct SearchResultsInspectorSlots {
     tab_select: Option<TabSelectHandler>,
     scope_select: Option<ListScopeHandler>,
+    sort_select: Option<ListSortHandler>,
     result_select: Option<SearchResultSelectHandler>,
     row_toggle: Option<SearchResultToggleHandler>,
     failure_action: Option<FailureHandler>,
@@ -112,6 +115,18 @@ impl SearchResultsInspectorSlots {
     ) -> Self {
         self.scope_select = Some(Rc::new(move |scope: &ListScope, window, cx| {
             handler(*scope, window, cx);
+        }));
+        self
+    }
+
+    /// Supplies the callback of the sort menu (ADR 0089 Decision 4). The app
+    /// sets the sort of the page. The query does not change.
+    pub(crate) fn on_sort_select(
+        mut self,
+        handler: impl Fn(ListSort, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.sort_select = Some(Rc::new(move |sort: &ListSort, window, cx| {
+            handler(*sort, window, cx);
         }));
         self
     }
@@ -211,6 +226,9 @@ pub(crate) fn render_search_results_inspector(
                 vm.query()
             },
             scope: vm.library_scope(),
+            list_key: vm.list_key(),
+            list_state: vm.list_state(),
+            sort_select: slots.sort_select.as_ref(),
             status_text: vm.status_text(),
             selected: tab,
             counts: vm.tab_counts(),
@@ -325,6 +343,11 @@ struct InspectorHeader<'a> {
     title: &'a str,
     /// The "All | In Library" scope of the query.
     scope: ListScope,
+    /// The key and the list state of the page: its sort (ADR 0089 Decision
+    /// 5). The view icons stay absent on the search pages.
+    list_key: ListPageKey,
+    list_state: ListPageState,
+    sort_select: Option<&'a ListSortHandler>,
     status_text: Option<&'a str>,
     selected: SearchResultsTab,
     /// The count of each tab, in the order of `SearchResultsTab::ALL`.
@@ -341,12 +364,15 @@ struct InspectorHeader<'a> {
 /// `truncate()` (ADR 0063).
 fn render_inspector_header(header: InspectorHeader<'_>, cx: &App) -> AnyElement {
     let display = ListPageHeadVm::for_search(
+        header.list_key,
+        header.list_state,
         header.title.to_owned(),
         header.scope,
         header.action.map(|(display, _)| display.clone()),
     );
     let handlers = ListPageHeadHandlers {
         scope: header.scope_select.cloned(),
+        sort: header.sort_select.cloned(),
         action: header.action.map(|(_, handler)| Rc::clone(handler)),
         ..ListPageHeadHandlers::default()
     };

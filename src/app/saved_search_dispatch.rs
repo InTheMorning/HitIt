@@ -21,7 +21,7 @@ use crate::view_models::search_results::{
 };
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
-use super::search_selection::{SearchPageSlot, SearchRowClick};
+use super::search_selection::{sort_handler, SearchPageSlot, SearchRowClick};
 use super::TopApp;
 
 impl TopApp {
@@ -222,7 +222,7 @@ impl TopApp {
                 results
                     .action_bar(&lookup)
                     .zip(results.selection_rows(&lookup)),
-                results.thumbnail_hrefs(),
+                results.thumbnail_hrefs(&lookup),
             )
         };
         let thumbnails = self.resolve_search_result_thumbnails(thumbnail_hrefs, cx);
@@ -233,7 +233,7 @@ impl TopApp {
         let toggle_entity = entity.clone();
         let failure_entity = entity.clone();
         let scope_entity = entity.clone();
-        let delete_entity = entity;
+        let delete_entity = entity.clone();
         let slots = SearchResultsInspectorSlots::new()
             .on_failure_action(move |action, _window, cx: &mut App| {
                 failure_entity.update(cx, |this, cx| {
@@ -243,6 +243,7 @@ impl TopApp {
             .on_tab_select(move |tab, _window, cx: &mut App| {
                 tab_entity.update(cx, |this, cx| this.set_saved_search_tab(tab, cx));
             })
+            .on_sort_select(sort_handler(entity.clone(), SearchPageSlot::SavedSearch))
             .on_result_select(
                 move |tab, result_id, key, modifiers, window, cx: &mut App| {
                     select_entity.update(cx, |this, cx| {

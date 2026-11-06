@@ -52,6 +52,17 @@ pub(super) struct SearchRowClick {
     pub(super) modifiers: Modifiers,
 }
 
+/// The sort callback of a search page `slot` of the app `entity` (ADR 0089
+/// Decision 4). The sort changes the rows, and the query does not change.
+pub(super) fn sort_handler(
+    entity: gpui::Entity<TopApp>,
+    slot: SearchPageSlot,
+) -> impl Fn(crate::view_models::list_page::ListSort, &mut gpui::Window, &mut gpui::App) + 'static {
+    move |sort, _window, cx| {
+        entity.update(cx, |this, cx| this.set_search_list_sort(slot, sort, cx));
+    }
+}
+
 /// The kind of a row click from its modifier keys, by the rule of the
 /// detail column (packet 018).
 fn row_click(modifiers: Modifiers) -> DetailRowClick {
