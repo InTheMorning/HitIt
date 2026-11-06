@@ -10,6 +10,14 @@ The results page has two rows below its title (ADR 0089 Decision 4). "All | In L
 
 The sort starts at Newest, and the view starts at Rows (Decision 5). A saved search has the same rows.
 
+## Parts
+
+The orchestrator divided this packet on 2026-11-06. Each part keeps the gate Green and has its own commit.
+
+- Part A: steps 1, 2 and 8. The head moves to `list_page_head`, and the scope row writes the query.
+- Part B: steps 3 to 6 and 9. The type tabs, their counts, the group list of All, and Artists and Labels.
+- Part C: step 7. Sort and view.
+
 ## Files To Inspect
 
 `src/view_models/search_results/{mod,tabs,results,rows,paged_tab,saved_search,saved_search_groups}.rs`, `src/view_models/search_query.rs`, `src/ui/shells/search_results_inspector.rs`, `src/ui/shells/search_result_rows.rs`, `src/app/search_dispatch.rs`, `src/app/search_live.rs`, `src/app/search_selection.rs`, `src/app/saved_search_dispatch.rs`, `src/app/toolbar.rs`, `src/view_models/list_page.rs`, `src/ui/composites/list_page_head.rs`, `src/db/saved_searches.rs` (`start_tab`), `tests/architecture_tests.rs`.
