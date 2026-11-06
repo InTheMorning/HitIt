@@ -15,6 +15,7 @@
 
 use crate::view_models::letter_bar::{LetterBarVm, LetterKey};
 use crate::view_models::release_download_state::ReleaseDownloadState;
+use crate::view_models::search_results::SearchPageActionDisplay;
 use crate::view_models::workspace::FrameHeaderActionDisplay;
 
 /// A list page of the Music destinations. Packet 004 has three keys.
@@ -366,8 +367,9 @@ pub(crate) struct ListViewControlVm {
 /// right. The scope control sits below the title.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ListPageHeadVm {
-    /// The page title.
-    pub(crate) title: &'static str,
+    /// The page title. A search page gives the query text, or an empty text
+    /// when its query field is open.
+    pub(crate) title: String,
     /// The scope control, or `None` when the page has no scope.
     pub(crate) scope: Option<ListScopeControlVm>,
     /// The sort button, or `None` when the page has no sort.
@@ -381,6 +383,10 @@ pub(crate) struct ListPageHeadVm {
     /// The Select action of the page, or `None` when no item can be
     /// selected.
     pub(crate) select: Option<FrameHeaderActionDisplay>,
+    /// The typed action of a search page, for example "Save search" or
+    /// "Delete…" (ADR 0089 Decision 4). It sits at the right of the title
+    /// row. `None` for a Music list page.
+    pub(crate) action: Option<SearchPageActionDisplay>,
 }
 
 impl ListPageHeadVm {
@@ -395,7 +401,7 @@ impl ListPageHeadVm {
         select: Option<FrameHeaderActionDisplay>,
     ) -> Self {
         Self {
-            title: key.title(),
+            title: key.title().to_owned(),
             scope: state
                 .scope
                 .map(|selected| scope_control(key, selected, library_count)),
@@ -404,7 +410,54 @@ impl ListPageHeadVm {
                 .then(|| LetterBarVm::new(key, state.letter)),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
             select,
+            action: None,
         }
+    }
+
+    /// The title row of a search page (ADR 0089 Decision 4): the title, the
+    /// scope "All | In Library" of the query, and the typed action of the
+    /// page. The scope control shows no count, because the Index gives no
+    /// total. A search page has no sort, no view and no letter bar.
+    #[must_use]
+    pub(crate) fn for_search(
+        title: String,
+        scope: ListScope,
+        action: Option<SearchPageActionDisplay>,
+    ) -> Self {
+        Self {
+            title,
+            scope: Some(search_scope_control(scope)),
+            sort: None,
+            letters: None,
+            view: None,
+            select: None,
+            action,
+        }
+    }
+}
+
+/// The scope control of a search page (ADR 0089 Decision 4). It has no
+/// count beside its labels.
+fn search_scope_control(selected: ListScope) -> ListScopeControlVm {
+    ListScopeControlVm {
+        control_id: "music-scope-search",
+        selected,
+        options: [
+            ListScopeOptionVm {
+                id: "music-scope-search-all",
+                scope: ListScope::All,
+                label: "All",
+                a11y_label: "Show all results, Library and MusicIndex".to_owned(),
+                count_text: None,
+            },
+            ListScopeOptionVm {
+                id: "music-scope-search-in-library",
+                scope: ListScope::InLibrary,
+                label: "In Library",
+                a11y_label: "Show results in Library only".to_owned(),
+                count_text: None,
+            },
+        ],
     }
 }
 
@@ -526,6 +579,38 @@ mod tests {
         assert_eq!(playlists.sort, None);
         assert_eq!(playlists.view, ListView::Rows);
         assert_eq!(playlists.scope, None);
+    }
+
+    /// ADR 0089 Decision 4: the title row of a search page has the scope
+    /// of the query, no count, and the typed action. It has no sort, no
+    /// view and no letter bar.
+    #[test]
+    fn adr_0089_task_008_search_head_has_scope_without_count_and_action() {
+        use crate::view_models::search_results::SearchPageActionStyle;
+        let action = SearchPageActionDisplay {
+            id: "music-search-list-save-search",
+            label: "Save search",
+            a11y_label: "Save this search".to_owned(),
+            available: true,
+            style: SearchPageActionStyle::Plain,
+        };
+        let head = ListPageHeadVm::for_search(
+            "in:library haleen".to_owned(),
+            ListScope::InLibrary,
+            Some(action.clone()),
+        );
+        assert_eq!(head.title, "in:library haleen");
+        assert_eq!(head.action, Some(action));
+        assert!(head.sort.is_none() && head.view.is_none() && head.letters.is_none());
+        let scope = head.scope.expect("a search page has the scope control");
+        assert_eq!(scope.selected, ListScope::InLibrary);
+        assert_eq!(scope.control_id, "music-scope-search");
+        assert!(scope
+            .options
+            .iter()
+            .all(|option| option.count_text.is_none()));
+        assert_eq!(scope.options[0].label, "All");
+        assert_eq!(scope.options[1].label, "In Library");
     }
 
     /// A change of one page does not change another page (ADR 0089

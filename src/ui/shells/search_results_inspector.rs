@@ -16,6 +16,9 @@ use gpui::{
     SharedString, Styled, Window,
 };
 
+use crate::ui::composites::list_page_head::{
+    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler,
+};
 use crate::ui::composites::music_column_scroll::{
     music_column_scrollbar, music_column_tracked_scrollbar,
 };
@@ -34,24 +37,17 @@ use crate::ui::shells::search_result_rows::{
 };
 use crate::ui::tokens::{FontSize, SemanticColor, Size, Spacing};
 use crate::view_models::detail_selection::DetailRowKey;
+use crate::view_models::list_page::{ListPageHeadVm, ListScope};
 use crate::view_models::search_results::{
     EmptyStateDisplay, IndexDetailDisplay, IndexDetailKind, SearchFailureAction,
-    SearchFailureAvailability, SearchPageActionDisplay, SearchPageActionStyle, SearchResultItemVm,
-    SearchResultOrigin, SearchResultsInspectorPageVm, SearchResultsTab,
+    SearchFailureAvailability, SearchPageActionDisplay, SearchResultItemVm, SearchResultOrigin,
+    SearchResultsInspectorPageVm, SearchResultsTab,
 };
 use crate::view_models::workspace::FrameNavigationEntry;
 
 type TabSelectHandler = Rc<dyn Fn(SearchResultsTab, &mut Window, &mut App) + 'static>;
 type FailureHandler = Rc<dyn Fn(SearchFailureAction, &mut Window, &mut App) + 'static>;
-type HeaderActionHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
-
-// ADR 0077 packet 006 deleted this mode's only scoped drill-down caller
-// (the old Index name-route feed results). `Tabbed` is the one remaining
-// header mode; the type stays named for its one caller in `app.rs`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum SearchResultsHeaderMode {
-    Tabbed,
-}
+type HeaderActionHandler = ListHeadButtonHandler;
 
 /// Callback slots and the visible rows, supplied by the screen or frame
 /// owner. The app layer makes the rows with the Library facts of this
@@ -60,6 +56,7 @@ pub(crate) enum SearchResultsHeaderMode {
 #[must_use]
 pub(crate) struct SearchResultsInspectorSlots {
     tab_select: Option<TabSelectHandler>,
+    scope_select: Option<ListScopeHandler>,
     result_select: Option<SearchResultSelectHandler>,
     row_toggle: Option<SearchResultToggleHandler>,
     failure_action: Option<FailureHandler>,
@@ -104,6 +101,18 @@ impl SearchResultsInspectorSlots {
         handler: impl Fn(SearchResultsTab, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.tab_select = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the callback of the "All | In Library" control (ADR 0089
+    /// Decision 4). The app writes the scope into the query text.
+    pub(crate) fn on_scope_select(
+        mut self,
+        handler: impl Fn(ListScope, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.scope_select = Some(Rc::new(move |scope: &ListScope, window, cx| {
+            handler(*scope, window, cx);
+        }));
         self
     }
 
@@ -191,18 +200,21 @@ impl SearchResultsInspectorSlots {
 pub(crate) fn render_search_results_inspector(
     vm: &SearchResultsInspectorPageVm,
     slots: &SearchResultsInspectorSlots,
-    header_mode: SearchResultsHeaderMode,
     cx: &App,
 ) -> AnyElement {
-    let tab = match header_mode {
-        SearchResultsHeaderMode::Tabbed => vm.tab(),
-    };
+    let tab = vm.tab();
     let header = render_inspector_header(
         InspectorHeader {
-            query: (!slots.hide_header_query).then(|| vm.query()),
+            title: if slots.hide_header_query {
+                ""
+            } else {
+                vm.query()
+            },
+            scope: vm.library_scope(),
             status_text: vm.status_text(),
             selected: tab,
             tab_select: slots.tab_select.as_ref(),
+            scope_select: slots.scope_select.as_ref(),
             action: slots.header_action.as_ref(),
         },
         cx,
@@ -307,86 +319,62 @@ pub(crate) fn render_index_detail_display(display: &IndexDetailDisplay, cx: &App
 /// The parts of the header of a search page.
 #[derive(Clone, Copy)]
 struct InspectorHeader<'a> {
-    /// The query headline, or `None` when the page shows its query field.
-    query: Option<&'a str>,
+    /// The title row text: the query, or an empty text when the page shows
+    /// its query field (ADR 0089 Decision 4).
+    title: &'a str,
+    /// The "All | In Library" scope of the query.
+    scope: ListScope,
     status_text: Option<&'a str>,
     selected: SearchResultsTab,
     tab_select: Option<&'a TabSelectHandler>,
+    scope_select: Option<&'a ListScopeHandler>,
     action: Option<&'a (SearchPageActionDisplay, HeaderActionHandler)>,
 }
 
-/// The header at the width of the list column (packet 010 "The view at
-/// the width of the list column"): the query as the headline on the first
-/// row, with the typed action of packet 012 after it, then the status text,
-/// and the tab control on its own row under them. Column text does not
-/// call `truncate()` (ADR 0063).
+/// The header at the width of the list column (ADR 0089 Decision 4). The
+/// title row and the scope row come from the shared `list_page_head`, with
+/// the typed action of the page in the title row. The type tabs sit in a row
+/// below the scope, then the status text. Column text does not call
+/// `truncate()` (ADR 0063).
 fn render_inspector_header(header: InspectorHeader<'_>, cx: &App) -> AnyElement {
-    let mut query_row = div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(Spacing::SM.scaled(cx))
-        .min_w_0()
-        .child(
-            div().flex_1().min_w_0().overflow_hidden().children(
-                header
-                    .query
-                    .map(|query| Label::new(query.to_string()).variant(LabelVariant::Headline)),
-            ),
-        );
-    if let Some((display, handler)) = header.action {
-        query_row = query_row.child(
-            div()
-                .flex_shrink_0()
-                .child(render_header_action(display, handler)),
-        );
-    }
+    let display = ListPageHeadVm::for_search(
+        header.title.to_owned(),
+        header.scope,
+        header.action.map(|(display, _)| display.clone()),
+    );
+    let handlers = ListPageHeadHandlers {
+        scope: header.scope_select.cloned(),
+        action: header.action.map(|(_, handler)| Rc::clone(handler)),
+        ..ListPageHeadHandlers::default()
+    };
     let mut column = div()
         .flex()
         .flex_col()
         .gap(Spacing::XS.scaled(cx))
-        .p(Spacing::MD.scaled(cx))
-        .child(query_row);
-    if let Some(status) = header.status_text {
-        column = column.child(
-            MultilineText::new(status.to_owned())
-                .max_lines(usize::MAX)
-                .wrap_lines()
-                .size(FontSize::Caption)
-                .color(SemanticColor::SecondaryLabel),
-        );
-    }
-    column
+        .child(list_page_head(display, handlers, cx))
         .child(
             div()
                 .w_full()
                 .min_w_0()
+                .px(Spacing::MD.scaled(cx))
+                .pb(Spacing::XS.scaled(cx))
                 .child(render_tab_strip(header.selected, header.tab_select)),
-        )
-        .into_any_element()
-}
-
-/// One typed header action. The view model gives the label, the
-/// accessibility label, the availability and the style.
-fn render_header_action(
-    display: &SearchPageActionDisplay,
-    handler: &HeaderActionHandler,
-) -> AnyElement {
-    let style = match display.style {
-        SearchPageActionStyle::Plain => ControlStyle::Secondary,
-        SearchPageActionStyle::Destructive => ControlStyle::Destructive,
-    };
-    let button = UiButton::styled(SharedString::from(display.id), style)
-        .label(display.label)
-        .a11y_label(display.a11y_label.clone())
-        .disabled(!display.available);
-    if !display.available {
-        return button.into_any_element();
+        );
+    if let Some(status) = header.status_text {
+        column = column.child(
+            div()
+                .px(Spacing::MD.scaled(cx))
+                .pb(Spacing::MD.scaled(cx))
+                .child(
+                    MultilineText::new(status.to_owned())
+                        .max_lines(usize::MAX)
+                        .wrap_lines()
+                        .size(FontSize::Caption)
+                        .color(SemanticColor::SecondaryLabel),
+                ),
+        );
     }
-    let handler = Rc::clone(handler);
-    button
-        .on_activate(move |window, cx| handler(window, cx))
-        .into_any_element()
+    column.into_any_element()
 }
 
 /// Renders one empty state with no failure action, for example the page

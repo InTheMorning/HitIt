@@ -30,7 +30,9 @@ use crate::ui::primitives::{Button as UiButton, Label};
 use crate::ui::sizable_bridge::SizableScaled;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, Motion, SemanticColor};
+use crate::view_models::list_page::ListScope;
 use crate::view_models::live_run::PauseTicket;
+use crate::view_models::search_query::with_library_scope;
 use crate::view_models::search_results::{
     saved_search_query_field, SavedSearch, SavedSearchPage, SavedSearchQueryEdit,
     SavedSearchQueryFieldDisplay, SavedSearchQueryKeep, SearchRun,
@@ -61,6 +63,40 @@ impl TopApp {
             input.focus(window, cx);
         });
         cx.notify();
+    }
+
+    /// Writes the scope of the "All | In Library" control into the query
+    /// field of the saved-search page (ADR 0089 Decision 4). The field opens
+    /// when it is closed. The change starts the run by the path of a typed
+    /// change. A page with no results opens no field, so nothing changes.
+    pub(super) fn set_saved_search_library_scope(
+        &mut self,
+        scope: ListScope,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let is_open = self
+            .saved_search_page
+            .as_ref()
+            .is_some_and(|page| page.edit.is_some());
+        if !is_open {
+            self.begin_saved_search_query_edit(window, cx);
+        }
+        let open = self
+            .saved_search_page
+            .as_ref()
+            .is_some_and(|page| page.edit.is_some());
+        if !open {
+            return;
+        }
+        let text = self.saved_search_query_input.read(cx).value().to_string();
+        let next = with_library_scope(&text, scope);
+        if next == text {
+            return;
+        }
+        self.saved_search_query_input
+            .update(cx, |input, cx| input.set_value(next, window, cx));
+        self.start_saved_search_query_pause(cx);
     }
 
     /// Opens the saved search `search` over the list, and then its query

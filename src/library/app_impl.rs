@@ -5258,6 +5258,7 @@ impl LibraryApp {
                 sort: Some(on_sort),
                 view: Some(on_view),
                 letter: Some(on_letter),
+                action: None,
             },
             cx,
         )
@@ -5293,6 +5294,7 @@ impl LibraryApp {
                 sort: Some(on_sort),
                 view: None,
                 letter: Some(on_letter),
+                action: None,
             },
             cx,
         )

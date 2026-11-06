@@ -23,7 +23,9 @@ use gpui::Context;
 use crate::application::CancellationToken;
 use crate::presentation::delayed_presenter::present_after;
 use crate::ui::tokens::Motion;
+use crate::view_models::list_page::ListScope;
 use crate::view_models::live_run::{LiveRunGate, PauseTicket, RunGeneration};
+use crate::view_models::search_query::with_library_scope;
 use crate::view_models::search_results::{
     live_run_step, IndexResultStopReason, LiveRunStep, SearchResultsInspectorPageVm, SearchRun,
 };
@@ -157,6 +159,27 @@ impl TopApp {
         present_after(Motion::SearchPause.duration(), cx, move |this, cx| {
             this.end_search_pause(ticket, cx);
         });
+    }
+
+    /// Writes the scope of the "All | In Library" control into the toolbar
+    /// field, and starts the run by the path of a typed change (ADR 0089
+    /// Decision 4). The field text changes without a `Change` event, so the
+    /// function arms the pause itself. A text that does not change starts
+    /// no run.
+    pub(super) fn set_toolbar_library_scope(
+        &mut self,
+        scope: ListScope,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        let text = self.global_search_input.read(cx).value().to_string();
+        let next = with_library_scope(&text, scope);
+        if next == text {
+            return;
+        }
+        self.global_search_input
+            .update(cx, |input, cx| input.set_value(next, window, cx));
+        self.start_search_pause(cx);
     }
 
     /// Runs the search when the pause of `ticket` ends and `ticket` is the

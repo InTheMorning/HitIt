@@ -2021,3 +2021,22 @@ fn adr_0087_live_index_rows_d6_no_note_for_another_query_or_a_shown_result() {
         .index_result_diagnostic()
         .is_none());
 }
+
+/// ADR 0089 Decision 4 (task 008 Part A): the scope of the results page
+/// reads the query text. A type tab change does not change the query.
+#[test]
+fn adr_0089_task_008_results_page_scope_reads_the_query_and_tab_keeps_it() {
+    use crate::view_models::list_page::ListScope;
+    use crate::view_models::search_query::with_library_scope;
+
+    let text = with_library_scope("haleen", ListScope::InLibrary);
+    let mut vm = SearchResultsInspectorPageVm::new(text.clone());
+    assert_eq!(vm.library_scope(), ListScope::InLibrary);
+    vm.set_tab(SearchResultsTab::Tracks);
+    assert_eq!(vm.query(), text);
+    assert_eq!(vm.library_scope(), ListScope::InLibrary);
+    assert_eq!(
+        SearchResultsInspectorPageVm::new("haleen").library_scope(),
+        ListScope::All
+    );
+}

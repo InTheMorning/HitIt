@@ -19,6 +19,8 @@ use std::ops::Range;
 
 use chrono::{Months, NaiveDate, NaiveTime};
 
+use crate::view_models::list_page::ListScope;
+
 /// The double quote character that opens and closes a phrase.
 const QUOTE: char = '\u{22}';
 
@@ -703,6 +705,88 @@ fn quote_phrase(phrase: &str) -> String {
     }
     out.push(QUOTE);
     out
+}
+
+/// The spans of the correct `in:library` terms, without `-` (ADR 0089
+/// Decision 4).
+fn library_scope_spans(query: &SearchQuery) -> Vec<Range<usize>> {
+    query
+        .terms()
+        .iter()
+        .filter(|term| !term.excluded)
+        .filter(|term| {
+            matches!(
+                &term.kind,
+                TermKind::Field(FieldTerm {
+                    name: QueryFieldName::In,
+                    value: FieldValueState::Valid(FieldValue::Scope(ScopeValue::Library)),
+                })
+            )
+        })
+        .map(|term| term.span.clone())
+        .collect()
+}
+
+/// Writes the scope of the "All | In Library" control into the query `text`
+/// (ADR 0089 Decision 4).
+///
+/// `ListScope::InLibrary` adds `in:library` at the end. A text with the term
+/// does not change. `ListScope::All` removes each correct `in:library` term.
+/// Each other term keeps its text. A removed term takes the white space
+/// before it, or the white space after it when no text is before it. A
+/// `in:index` term does not change, so the conflict message of
+/// [`QueryScope::Conflict`] shows when both terms are present.
+#[must_use]
+pub(crate) fn with_library_scope(text: &str, scope: ListScope) -> String {
+    let query = SearchQuery::parse(text);
+    let spans = library_scope_spans(&query);
+    match scope {
+        ListScope::InLibrary => {
+            if !spans.is_empty() {
+                text.to_owned()
+            } else if text.is_empty() || text.ends_with(char::is_whitespace) {
+                format!("{text}in:library")
+            } else {
+                format!("{text} in:library")
+            }
+        }
+        ListScope::All => remove_spans(text, &spans),
+    }
+}
+
+/// Removes each span of `spans` from `text`. The spans are in text order and
+/// do not overlap. A removed span takes the white space before it, when the
+/// text has white space before it. Else it takes the white space after it.
+fn remove_spans(text: &str, spans: &[Range<usize>]) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut pos = 0;
+    for span in spans {
+        out.push_str(&text[pos..span.start]);
+        pos = span.end;
+        if out.ends_with(char::is_whitespace) {
+            let kept = out.trim_end().len();
+            out.truncate(kept);
+        } else {
+            let rest = &text[pos..];
+            pos += rest.len() - rest.trim_start().len();
+        }
+    }
+    out.push_str(&text[pos..]);
+    out
+}
+
+/// The scope that the "All | In Library" control shows for the query `text`
+/// (ADR 0089 Decision 4). The control shows "In Library" when the text has
+/// an `in:library` term, or when a field of the Library only is in the text
+/// (`QueryScope::LibraryOnly`). Each other text shows "All".
+#[must_use]
+pub(crate) fn library_scope_of(text: &str) -> ListScope {
+    let query = SearchQuery::parse(text);
+    if !library_scope_spans(&query).is_empty() || query.scope() == QueryScope::LibraryOnly {
+        ListScope::InLibrary
+    } else {
+        ListScope::All
+    }
 }
 
 /// Writes `text` as one field value (ADR 0087 Decision 3, packet 005).
@@ -1928,5 +2012,120 @@ mod tests {
         assert_eq!(unquote_field_value_prefix(r#""a \"b"#), r#"a "b"#);
         assert_eq!(unquote_field_value_prefix("hal"), "hal");
         assert_eq!(unquote_field_value_prefix(r#""Haleen""#), "Haleen");
+    }
+
+    /// ADR 0089 Decision 4: an empty query gets `in:library` at its end, and
+    /// the scope All removes that term again.
+    #[test]
+    fn adr_0089_task_008_library_scope_on_an_empty_query() {
+        assert_eq!(with_library_scope("", ListScope::InLibrary), "in:library");
+        assert_eq!(with_library_scope("in:library", ListScope::All), "");
+        assert_eq!(with_library_scope("", ListScope::All), "");
+    }
+
+    /// One word gets the term after one space, and the scope All keeps it.
+    #[test]
+    fn adr_0089_task_008_library_scope_with_one_term() {
+        assert_eq!(
+            with_library_scope("haleen", ListScope::InLibrary),
+            "haleen in:library"
+        );
+        assert_eq!(
+            with_library_scope("haleen in:library", ListScope::All),
+            "haleen"
+        );
+        assert_eq!(
+            with_library_scope("haleen ", ListScope::InLibrary),
+            "haleen in:library"
+        );
+        assert_eq!(with_library_scope("haleen", ListScope::All), "haleen");
+    }
+
+    /// A quoted phrase keeps its text. A phrase that holds `in:library` is
+    /// not a field, so it stays in the text.
+    #[test]
+    fn adr_0089_task_008_library_scope_keeps_a_quoted_term() {
+        assert_eq!(
+            with_library_scope("\"night drive\"", ListScope::InLibrary),
+            "\"night drive\" in:library"
+        );
+        assert_eq!(
+            with_library_scope("\"in:library\"", ListScope::InLibrary),
+            "\"in:library\" in:library"
+        );
+        assert_eq!(
+            with_library_scope("\"in:library\" in:library", ListScope::All),
+            "\"in:library\""
+        );
+    }
+
+    /// A term in the middle is removed with the space before it. Its
+    /// neighbours keep their spacing, and `InLibrary` changes nothing when
+    /// the term is there.
+    #[test]
+    fn adr_0089_task_008_library_scope_with_a_term_in_the_middle() {
+        assert_eq!(
+            with_library_scope("artist:x in:library -title:remix", ListScope::All),
+            "artist:x -title:remix"
+        );
+        assert_eq!(
+            with_library_scope("haleen  in:library  night", ListScope::All),
+            "haleen  night"
+        );
+        assert_eq!(
+            with_library_scope("in:library haleen night", ListScope::All),
+            "haleen night"
+        );
+        assert_eq!(
+            with_library_scope("a in:library b", ListScope::InLibrary),
+            "a in:library b"
+        );
+    }
+
+    /// Two copies of the term are both removed. A `-in:library` is an
+    /// exclusion, so the scope does not remove it.
+    #[test]
+    fn adr_0089_task_008_library_scope_removes_each_copy_and_keeps_exclusion() {
+        assert_eq!(
+            with_library_scope("a in:library in:library b", ListScope::All),
+            "a b"
+        );
+        assert_eq!(
+            with_library_scope("-in:library haleen", ListScope::InLibrary),
+            "-in:library haleen in:library"
+        );
+        assert_eq!(
+            with_library_scope("-in:library haleen", ListScope::All),
+            "-in:library haleen"
+        );
+    }
+
+    /// `in:index` does not change. The scope In Library adds its term, and
+    /// the query then has the conflict of ADR 0087.
+    #[test]
+    fn adr_0089_task_008_library_scope_with_in_index_keeps_the_index_term() {
+        let added = with_library_scope("in:index", ListScope::InLibrary);
+        assert_eq!(added, "in:index in:library");
+        assert_eq!(SearchQuery::parse(&added).scope(), QueryScope::Conflict);
+        assert_eq!(with_library_scope("in:index", ListScope::All), "in:index");
+        assert_eq!(
+            with_library_scope("in:library in:index", ListScope::All),
+            "in:index"
+        );
+    }
+
+    /// The control shows In Library for an `in:library` term and for a
+    /// field of the Library only. Each other text shows All.
+    #[test]
+    fn adr_0089_task_008_library_scope_of_reads_the_query_scope() {
+        assert_eq!(library_scope_of("in:library haleen"), ListScope::InLibrary);
+        assert_eq!(library_scope_of("is:ready"), ListScope::InLibrary);
+        assert_eq!(
+            library_scope_of("in:index in:library"),
+            ListScope::InLibrary
+        );
+        assert_eq!(library_scope_of("haleen"), ListScope::All);
+        assert_eq!(library_scope_of("in:index"), ListScope::All);
+        assert_eq!(library_scope_of(""), ListScope::All);
     }
 }

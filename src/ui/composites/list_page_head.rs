@@ -32,6 +32,7 @@ use crate::view_models::list_page::{
     ListPageHeadVm, ListScope, ListScopeControlVm, ListSort, ListSortButtonVm, ListView,
     ListViewControlVm,
 };
+use crate::view_models::search_results::{SearchPageActionDisplay, SearchPageActionStyle};
 
 /// The callback of a scope selection (ADR 0089 Decision 5).
 pub(crate) type ListScopeHandler = Rc<dyn Fn(&ListScope, &mut Window, &mut App) + 'static>;
@@ -59,6 +60,9 @@ pub(crate) struct ListPageHeadHandlers {
     pub(crate) view: Option<ListViewHandler>,
     /// The letter click of the letter bar.
     pub(crate) letter: Option<LetterHandler>,
+    /// The click of the typed action of a search page (ADR 0089 Decision 4).
+    /// The handler runs only when the action is available.
+    pub(crate) action: Option<ListHeadButtonHandler>,
 }
 
 /// Renders the title row of a list page.
@@ -96,6 +100,11 @@ pub(crate) fn list_page_head(
         trailing = trailing.child(button);
     }
 
+    if let Some(action) = display.action {
+        trailing = trailing.child(title_action(action, handlers.action.as_ref()));
+    }
+
+    // Column text does not call `truncate()` (ADR 0063). A query title wraps.
     let title_row = div()
         .flex()
         .flex_row()
@@ -107,7 +116,6 @@ pub(crate) fn list_page_head(
                 .min_w_0()
                 .text_size(FontSize::Title.scaled(cx))
                 .font_weight(FontWeight::SEMIBOLD)
-                .truncate()
                 .child(SharedString::from(display.title)),
         )
         .child(trailing);
@@ -130,6 +138,31 @@ pub(crate) fn list_page_head(
     }
 
     head.into_any_element()
+}
+
+/// The typed action of a search page in the title row (ADR 0089 Decision
+/// 4). The view model gives the label, the availability and the style.
+fn title_action(
+    display: SearchPageActionDisplay,
+    on_click: Option<&ListHeadButtonHandler>,
+) -> AnyElement {
+    let style = match display.style {
+        SearchPageActionStyle::Plain => ControlStyle::Secondary,
+        SearchPageActionStyle::Destructive => ControlStyle::Destructive,
+    };
+    let button = Button::styled(SharedString::from(display.id), style)
+        .label(display.label)
+        .a11y_label(display.a11y_label)
+        .disabled(!display.available);
+    match on_click {
+        Some(handler) if display.available => {
+            let handler = Rc::clone(handler);
+            button
+                .on_activate(move |window, cx| handler(window, cx))
+                .into_any_element()
+        }
+        _ => button.into_any_element(),
+    }
 }
 
 /// The sort menu of a list page (R-LIST-1 item 1). Its trigger shows the
