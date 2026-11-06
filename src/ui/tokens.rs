@@ -934,6 +934,9 @@ pub enum Size {
     /// with no selectable row (ADR 0084 Decision 10, packet 018). Page Up
     /// and Page Down scroll one view height less this step.
     KeyScrollStep,
+    /// 3 px — the leading bar of a marked row (R-NAV-2 item 2, ADR 0089
+    /// Decision 9). A marked row also uses the outline of a selected row.
+    RowMarkBar,
     /// 480 px — the height that a virtual Music list renders above and
     /// below its view (ADR 0084 task 037). A row in this area is measured
     /// and shows its image before it scrolls into view.
@@ -959,6 +962,7 @@ impl Size {
             Self::ContentTileArtwork => px(152.0),
             Self::NoticeWidth => px(600.0),
             Self::CheckboxIndicator => px(18.0),
+            Self::RowMarkBar => px(3.0),
         }
     }
 

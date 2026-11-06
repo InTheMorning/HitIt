@@ -4,11 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-    breadcrumb::BreadcrumbDisplay,
-    frame::{WorkspaceFrameId, WorkspaceFrameState},
-    nav::FrameNavigationState,
-};
+use super::frame::{WorkspaceFrameId, WorkspaceFrameState};
 use crate::view_models::index_name_list::MusicScopeControlDisplay;
 
 /// Presentation mode for content rows.
@@ -170,21 +166,6 @@ pub(crate) struct FrameChromeMenuItemDisplay {
     pub(crate) disabled: bool,
 }
 
-/// When the frame chrome shows its Back and Forward controls.
-///
-/// ADR 0084 Decision 9: Back and Forward always show in the Music detail
-/// column. Each control keeps its typed availability. ADR 0084 Decision 1:
-/// the Music sidebar and list columns show neither control.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum FrameHistoryControls {
-    /// Each control shows only when its history is not empty.
-    WhenAvailable,
-    /// Both controls always show. An unavailable control shows as disabled.
-    Always,
-    /// Neither control shows, whatever its availability.
-    Hidden,
-}
-
 /// Display contract consumed by the shared workspace frame shell.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct FrameShellDisplay {
@@ -196,10 +177,6 @@ pub(crate) struct FrameShellDisplay {
     pub(crate) subtitle: Option<String>,
     /// Optional trailing status text.
     pub(crate) status: Option<String>,
-    /// Back navigation command display.
-    pub(crate) back: FrameChromeButtonDisplay,
-    /// Forward navigation command display.
-    pub(crate) forward: FrameChromeButtonDisplay,
     /// Optional close command display.
     pub(crate) close: Option<FrameChromeButtonDisplay>,
     /// Additional frame action menu items.
@@ -214,42 +191,23 @@ pub(crate) struct FrameShellDisplay {
     /// 0084 Decision 8, packet 016 decision D1). It sits at the leading
     /// edge of the filter row.
     pub(crate) scope_control: Option<MusicScopeControlDisplay>,
-    /// Optional frame-local breadcrumb path.
-    pub(crate) breadcrumb: Option<BreadcrumbDisplay>,
-    /// When the chrome shows Back and Forward.
-    pub(crate) history_controls: FrameHistoryControls,
     /// Stable content slot identifier for mounting frame body content.
     pub(crate) content_slot_id: String,
 }
 
 impl FrameShellDisplay {
-    const BACK_A11Y_LABEL: &'static str = "Navigate back in frame";
-    const FORWARD_A11Y_LABEL: &'static str = "Navigate forward in frame";
     const CLOSE_A11Y_LABEL: &'static str = "Close frame";
 
-    /// Projects frame state and navigation into shell chrome display data.
+    /// Projects frame state into shell chrome display data. Back, Forward
+    /// and the page title are not frame chrome (ADR 0089 Decision 9).
     #[must_use]
-    pub(crate) fn from_frame(
-        frame: &WorkspaceFrameState,
-        nav: &FrameNavigationState,
-        allow_close: bool,
-    ) -> Self {
+    pub(crate) fn from_frame(frame: &WorkspaceFrameState, allow_close: bool) -> Self {
         let frame_id = frame.id();
         Self {
             frame_id,
             title: frame.title().to_string(),
             subtitle: frame.subtitle().map(ToOwned::to_owned),
             status: frame.status().map(ToOwned::to_owned),
-            back: FrameChromeButtonDisplay::new(
-                format!("workspace-frame-{}-back", frame_id.value()),
-                Self::BACK_A11Y_LABEL,
-                !nav.can_go_back(),
-            ),
-            forward: FrameChromeButtonDisplay::new(
-                format!("workspace-frame-{}-forward", frame_id.value()),
-                Self::FORWARD_A11Y_LABEL,
-                !nav.can_go_forward(),
-            ),
             close: allow_close.then(|| {
                 FrameChromeButtonDisplay::new(
                     format!("workspace-frame-{}-close", frame_id.value()),
@@ -261,8 +219,6 @@ impl FrameShellDisplay {
             header_action: None,
             view_mode_control: None,
             scope_control: None,
-            breadcrumb: None,
-            history_controls: FrameHistoryControls::WhenAvailable,
             content_slot_id: format!("workspace-frame-{}-content", frame_id.value()),
         }
     }
@@ -290,57 +246,12 @@ impl FrameShellDisplay {
         self
     }
 
-    /// Returns this shell display with Back and Forward always shown.
-    #[must_use]
-    pub(crate) const fn with_history_controls_always_shown(mut self) -> Self {
-        self.history_controls = FrameHistoryControls::Always;
-        self
-    }
-
-    /// Returns this shell display with Back and Forward hidden, whatever
-    /// their availability (ADR 0084 Decision 1: the Music sidebar and list
-    /// columns show neither control).
-    #[must_use]
-    pub(crate) const fn with_history_controls_hidden(mut self) -> Self {
-        self.history_controls = FrameHistoryControls::Hidden;
-        self
-    }
-
-    /// Returns whether the chrome shows the Back control.
-    #[must_use]
-    pub(crate) fn back_shown(&self) -> bool {
-        match self.history_controls {
-            FrameHistoryControls::Hidden => false,
-            FrameHistoryControls::Always => true,
-            FrameHistoryControls::WhenAvailable => !self.back.disabled,
-        }
-    }
-
-    /// Returns whether the chrome shows the Forward control.
-    #[must_use]
-    pub(crate) fn forward_shown(&self) -> bool {
-        match self.history_controls {
-            FrameHistoryControls::Hidden => false,
-            FrameHistoryControls::Always => true,
-            FrameHistoryControls::WhenAvailable => !self.forward.disabled,
-        }
-    }
-
-    /// Returns this shell display with frame-local breadcrumbs attached.
-    #[must_use]
-    pub(crate) fn with_breadcrumb(mut self, display: BreadcrumbDisplay) -> Self {
-        self.breadcrumb = Some(display);
-        self
-    }
-
     /// Returns whether the frame header row carries visible information.
     #[must_use]
     pub(crate) fn header_visible(&self) -> bool {
         !self.title.is_empty()
             || self.subtitle.is_some()
             || self.status.is_some()
-            || self.back_shown()
-            || self.forward_shown()
             || self.close.is_some()
             || !self.action_menu_items.is_empty()
             || self.header_action.is_some()

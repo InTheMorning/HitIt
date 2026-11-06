@@ -40,7 +40,7 @@ use crate::view_models::workspace::ReleaseKey;
 pub(crate) const WINDOW_GROUP_EMPTY_MESSAGE: &str =
     "The loaded New releases hold no single of this window.";
 
-/// The title of a window group page and its breadcrumb label, for example
+/// The title of a window group page and its label, for example
 /// "jSmovie · 9 singles" (packet 004 decision D14). No member gives the
 /// artist name alone.
 #[must_use]
@@ -54,7 +54,7 @@ pub(crate) fn window_group_title(artist: &str, count: usize) -> String {
 /// The page of one window group (ADR 0086 Decision 4).
 #[derive(Clone, Debug)]
 pub(crate) struct WindowGroupPageVm {
-    /// "jSmovie · 9 singles". The breadcrumb label and the detail frame
+    /// "jSmovie · 9 singles". The label and the detail frame
     /// title are the same text.
     pub(crate) title: String,
     /// The date span of the members, for example "Oct 8 to Oct 20". `None`

@@ -10,7 +10,7 @@
 use gpui::{div, prelude::*, AnyElement, ClickEvent, Context, FontWeight, SharedString, Styled};
 
 use crate::library::LibraryApp;
-use crate::ui::composites::music_column_scroll::music_column_scrollbar;
+use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::{ListRow, ListRowA11yLabel};
 use crate::ui::icons::{Icon, IconName, IconSize};
@@ -31,6 +31,7 @@ const fn icon_name(icon: DiscoverViewIcon) -> IconName {
 /// releases", then the saved searches.
 pub(crate) fn render_library_discover_views_list(
     rows: &[DiscoverViewRowVm],
+    scroll: &gpui::ScrollHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     let container = div()
@@ -47,7 +48,7 @@ pub(crate) fn render_library_discover_views_list(
                 .gap(spacing::XXS)
                 .children(rows.iter().map(|row| render_discover_view_row(row, cx))),
         );
-    music_column_scrollbar(container, "music-discover-views-list-scrollbar")
+    music_column_tracked_scrollbar(container, scroll, None)
 }
 
 fn render_discover_view_row(row: &DiscoverViewRowVm, cx: &mut Context<LibraryApp>) -> AnyElement {

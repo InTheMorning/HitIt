@@ -23,20 +23,14 @@ use crate::ui::layouts::{
 use crate::ui::tokens::{resolve_color, FontSize, SemanticColor, Spacing};
 use crate::view_models::index_name_list::{MusicListScope, MusicScopeControlDisplay};
 use crate::view_models::workspace::{
-    BreadcrumbDisplay, ContentViewMode, ContentViewModeControlDisplay, FrameHeaderActionDisplay,
-    FrameNavigationEntry, FrameNavigationState, FrameShellDisplay, MusicColumns, MusicDestination,
-    MusicPageContent, MusicSidebarPreference, MusicSidebarState, TrackKey, WorkspaceFrameKind,
+    ContentViewMode, ContentViewModeControlDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
+    MusicColumns, MusicPageContent, MusicSidebarPreference, MusicSidebarState, WorkspaceFrameKind,
     WorkspaceFrameState, WorkspaceLayout,
 };
 
 type WorkspaceViewModeSelectHandler = Rc<dyn Fn(ContentViewMode, &mut Window, &mut App) + 'static>;
 type WorkspaceScopeSelectHandler = Rc<dyn Fn(MusicListScope, &mut Window, &mut App) + 'static>;
 type WorkspaceHeaderActionHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
-type WorkspaceBreadcrumbSelectHandler =
-    Rc<dyn Fn(FrameNavigationEntry, &mut Window, &mut App) + 'static>;
-type WorkspaceBreadcrumbLabeler = Rc<dyn Fn(&FrameNavigationEntry) -> String + 'static>;
-type WorkspaceBackSelectHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
-type WorkspaceForwardSelectHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 
 type WorkspaceContentPaneResizeHandler = Box<dyn Fn(Pixels, &mut Window, &mut App) + 'static>;
 type WorkspaceContentPaneResizeStartHandler = Box<dyn Fn(&mut Window, &mut App) + 'static>;
@@ -58,14 +52,6 @@ pub(crate) struct WorkspaceSlots {
     on_content_list_view_mode_select: Option<WorkspaceViewModeSelectHandler>,
     on_content_list_header_action: Option<WorkspaceHeaderActionHandler>,
     on_detail_header_action: Option<WorkspaceHeaderActionHandler>,
-    on_content_list_breadcrumb_select: Option<WorkspaceBreadcrumbSelectHandler>,
-    content_list_breadcrumb_labeler: Option<WorkspaceBreadcrumbLabeler>,
-    on_content_list_back_select: Option<WorkspaceBackSelectHandler>,
-    on_content_list_forward_select: Option<WorkspaceForwardSelectHandler>,
-    on_detail_breadcrumb_select: Option<WorkspaceBreadcrumbSelectHandler>,
-    detail_breadcrumb_labeler: Option<WorkspaceBreadcrumbLabeler>,
-    on_detail_back_select: Option<WorkspaceBackSelectHandler>,
-    on_detail_forward_select: Option<WorkspaceForwardSelectHandler>,
     content_pane_width: Option<Pixels>,
     on_content_pane_resize_start: Option<WorkspaceContentPaneResizeStartHandler>,
     on_content_pane_resize_move: Option<WorkspaceContentPaneResizeMoveHandler>,
@@ -188,79 +174,6 @@ impl WorkspaceSlots {
         self
     }
 
-    /// Supplies the content-list breadcrumb selection callback.
-    pub(crate) fn on_content_list_breadcrumb_select(
-        mut self,
-        handler: impl Fn(FrameNavigationEntry, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_content_list_breadcrumb_select = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the content-list breadcrumb label projection.
-    pub(crate) fn content_list_breadcrumb_labeler(
-        mut self,
-        labeler: impl Fn(&FrameNavigationEntry) -> String + 'static,
-    ) -> Self {
-        self.content_list_breadcrumb_labeler = Some(Rc::new(labeler));
-        self
-    }
-
-    /// Supplies the content-list back button callback.
-    pub(crate) fn on_content_list_back_select(
-        mut self,
-        handler: impl Fn(&mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_content_list_back_select = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the content-list forward button callback.
-    pub(crate) fn on_content_list_forward_select(
-        mut self,
-        handler: impl Fn(&mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_content_list_forward_select = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the detail frame's breadcrumb selection callback (ADR 0084
-    /// Decision 9: the breadcrumb moves to the detail column in Music).
-    pub(crate) fn on_detail_breadcrumb_select(
-        mut self,
-        handler: impl Fn(FrameNavigationEntry, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_detail_breadcrumb_select = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the detail frame's breadcrumb label projection.
-    pub(crate) fn detail_breadcrumb_labeler(
-        mut self,
-        labeler: impl Fn(&FrameNavigationEntry) -> String + 'static,
-    ) -> Self {
-        self.detail_breadcrumb_labeler = Some(Rc::new(labeler));
-        self
-    }
-
-    /// Supplies the detail frame's back button callback.
-    pub(crate) fn on_detail_back_select(
-        mut self,
-        handler: impl Fn(&mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_detail_back_select = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the detail frame's forward button callback.
-    pub(crate) fn on_detail_forward_select(
-        mut self,
-        handler: impl Fn(&mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_detail_forward_select = Some(Rc::new(handler));
-        self
-    }
-
     /// Supplies the content pane width for the `SplitPane`.
     pub(crate) fn content_pane_width(mut self, width: Pixels) -> Self {
         self.content_pane_width = Some(width);
@@ -352,50 +265,6 @@ impl WorkspaceSlots {
             WorkspaceFrameKind::SourceList
             | WorkspaceFrameKind::Detail
             | WorkspaceFrameKind::QueueNowPlaying => None,
-        }
-    }
-
-    fn breadcrumb_select_handler_for(
-        &self,
-        kind: WorkspaceFrameKind,
-    ) -> Option<WorkspaceBreadcrumbSelectHandler> {
-        match kind {
-            WorkspaceFrameKind::ContentList => self.on_content_list_breadcrumb_select.clone(),
-            WorkspaceFrameKind::Detail => self.on_detail_breadcrumb_select.clone(),
-            WorkspaceFrameKind::SourceList | WorkspaceFrameKind::QueueNowPlaying => None,
-        }
-    }
-
-    fn breadcrumb_labeler_for(
-        &self,
-        kind: WorkspaceFrameKind,
-    ) -> Option<WorkspaceBreadcrumbLabeler> {
-        match kind {
-            WorkspaceFrameKind::ContentList => self.content_list_breadcrumb_labeler.clone(),
-            WorkspaceFrameKind::Detail => self.detail_breadcrumb_labeler.clone(),
-            WorkspaceFrameKind::SourceList | WorkspaceFrameKind::QueueNowPlaying => None,
-        }
-    }
-
-    fn back_select_handler_for(
-        &self,
-        kind: WorkspaceFrameKind,
-    ) -> Option<WorkspaceBackSelectHandler> {
-        match kind {
-            WorkspaceFrameKind::ContentList => self.on_content_list_back_select.clone(),
-            WorkspaceFrameKind::Detail => self.on_detail_back_select.clone(),
-            WorkspaceFrameKind::SourceList | WorkspaceFrameKind::QueueNowPlaying => None,
-        }
-    }
-
-    fn forward_select_handler_for(
-        &self,
-        kind: WorkspaceFrameKind,
-    ) -> Option<WorkspaceForwardSelectHandler> {
-        match kind {
-            WorkspaceFrameKind::ContentList => self.on_content_list_forward_select.clone(),
-            WorkspaceFrameKind::Detail => self.on_detail_forward_select.clone(),
-            WorkspaceFrameKind::SourceList | WorkspaceFrameKind::QueueNowPlaying => None,
         }
     }
 }
@@ -499,34 +368,9 @@ impl RenderOnce for WorkspaceShell {
             let on_view_mode_select = self.slots.view_mode_select_handler_for(frame_kind);
             let on_header_action = self.slots.header_action_handler_for(frame_kind);
             let content = self.slots.take(frame.kind(), frame, cx);
-            let fallback_navigation = FrameNavigationState::new(navigation_entry_for(frame_kind));
-            // ADR 0084 Decision 9: in the Music three-column layout, the
-            // Detail frame chrome projects the content-list frame's one
-            // navigation stack, not a stack of its own.
-            let detail_projects_content_list_nav =
-                is_music_three_column_layout && matches!(frame_kind, WorkspaceFrameKind::Detail);
-            let navigation = if detail_projects_content_list_nav {
-                content_list_navigation.unwrap_or(&fallback_navigation)
-            } else {
-                self.layout
-                    .frame_nav(frame.id())
-                    .unwrap_or(&fallback_navigation)
-            };
-            let mut display = FrameShellDisplay::from_frame(frame, navigation, false);
-            if detail_projects_content_list_nav
-                || (is_music_three_column_layout
-                    && matches!(frame_kind, WorkspaceFrameKind::ContentList))
-            {
-                // ADR 0084 Decision 9: Back and Forward show in the Music
-                // page frame. ADR 0089 packet 001: the list frame shows them
-                // too, until packet 002 moves them to the toolbar.
-                display = display.with_history_controls_always_shown();
-            } else if is_music_three_column_layout
-                && matches!(frame_kind, WorkspaceFrameKind::SourceList)
-            {
-                // ADR 0084 Decision 1: the Music sidebar shows no control.
-                display = display.with_history_controls_hidden();
-            }
+            // ADR 0089 Decision 9: Back, Forward and the page title belong to
+            // the app toolbar, so no frame shows them.
+            let mut display = FrameShellDisplay::from_frame(frame, false);
             if let Some(view_mode_control) = view_mode_control {
                 display = display.with_view_mode_control(view_mode_control);
             }
@@ -535,21 +379,6 @@ impl RenderOnce for WorkspaceShell {
             }
             if let Some(header_action) = header_action {
                 display = display.with_header_action(header_action);
-            }
-            if should_render_breadcrumb(frame_kind, navigation, is_music_three_column_layout) {
-                let breadcrumb_id = format!("workspace-frame-{}-breadcrumb", frame.id().value());
-                let breadcrumb = if let Some(labeler) =
-                    self.slots.breadcrumb_labeler_for(frame_kind)
-                {
-                    BreadcrumbDisplay::project(breadcrumb_id, navigation, |entry| labeler(entry))
-                } else {
-                    BreadcrumbDisplay::project(
-                        breadcrumb_id,
-                        navigation,
-                        FrameNavigationEntry::display_label,
-                    )
-                };
-                display = display.with_breadcrumb(breadcrumb);
             }
             let mut shell_slots = FrameShellSlots::new().content(content);
             if let Some(handler) = on_view_mode_select {
@@ -564,21 +393,6 @@ impl RenderOnce for WorkspaceShell {
             }
             if let Some(handler) = on_header_action {
                 shell_slots = shell_slots.on_header_action(move |window, cx| {
-                    handler(window, cx);
-                });
-            }
-            if let Some(handler) = self.slots.breadcrumb_select_handler_for(frame_kind) {
-                shell_slots = shell_slots.on_breadcrumb_select(move |entry, window, cx| {
-                    handler(entry, window, cx);
-                });
-            }
-            if let Some(handler) = self.slots.back_select_handler_for(frame_kind) {
-                shell_slots = shell_slots.on_back(move |window, cx| {
-                    handler(window, cx);
-                });
-            }
-            if let Some(handler) = self.slots.forward_select_handler_for(frame_kind) {
-                shell_slots = shell_slots.on_forward(move |window, cx| {
                     handler(window, cx);
                 });
             }
@@ -755,25 +569,6 @@ impl RenderOnce for WorkspaceShell {
     }
 }
 
-fn should_render_breadcrumb(
-    kind: WorkspaceFrameKind,
-    nav: &FrameNavigationState,
-    music_three_column: bool,
-) -> bool {
-    if music_three_column {
-        // ADR 0084 Decision 1: in Music, only the detail column shows the
-        // location breadcrumb. The sidebar and list columns show none.
-        return matches!(kind, WorkspaceFrameKind::Detail) && nav.has_location_path();
-    }
-    let is_detail_search = matches!(kind, WorkspaceFrameKind::Detail)
-        && matches!(nav.current(), FrameNavigationEntry::Search(_));
-    // ADR 0084 Decision 9: the breadcrumb shows the location path, not the
-    // history.
-    let is_content_list_with_path =
-        matches!(kind, WorkspaceFrameKind::ContentList) && nav.has_location_path();
-    is_detail_search || is_content_list_with_path
-}
-
 fn should_collapse_frame(
     kind: WorkspaceFrameKind,
     workspace_width: Pixels,
@@ -808,18 +603,6 @@ fn collapsed_frames_hint(frame_titles: &[String], cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-fn navigation_entry_for(kind: WorkspaceFrameKind) -> FrameNavigationEntry {
-    match kind {
-        WorkspaceFrameKind::SourceList | WorkspaceFrameKind::ContentList => {
-            FrameNavigationEntry::Destination(MusicDestination::Discover)
-        }
-        WorkspaceFrameKind::Detail => {
-            FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, String::new()))
-        }
-        WorkspaceFrameKind::QueueNowPlaying => FrameNavigationEntry::QueueNowPlaying,
-    }
-}
-
 fn placeholder(frame: &WorkspaceFrameState, cx: &App) -> AnyElement {
     div()
         .flex()
@@ -835,45 +618,12 @@ fn placeholder(frame: &WorkspaceFrameState, cx: &App) -> AnyElement {
 
 #[cfg(test)]
 mod tests {
-    use super::{should_collapse_frame, should_render_breadcrumb};
+    use super::should_collapse_frame;
     use crate::ui::layouts::{
         WORKSPACE_QUEUE_COLLAPSE_BREAKPOINT, WORKSPACE_SECONDARY_DETAIL_COLLAPSE_BREAKPOINT,
     };
-    use crate::view_models::workspace::{
-        FrameNavigationEntry, FrameNavigationState, MusicDestination, TrackKey, WorkspaceFrameKind,
-    };
+    use crate::view_models::workspace::WorkspaceFrameKind;
     use gpui::px;
-
-    fn track(id: i64) -> FrameNavigationEntry {
-        FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, id.to_string()))
-    }
-
-    /// C4-04: in the Music three-column layout, the breadcrumb attaches to
-    /// the Detail frame, not to the `ContentList` frame, for the same
-    /// navigation state.
-    #[test]
-    fn adr_0084_columns_c4_04_music_breadcrumb_attaches_to_detail_only() {
-        let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
-            MusicDestination::Discover,
-        ));
-        nav.push(track(1));
-
-        assert!(should_render_breadcrumb(
-            WorkspaceFrameKind::Detail,
-            &nav,
-            true
-        ));
-        assert!(!should_render_breadcrumb(
-            WorkspaceFrameKind::ContentList,
-            &nav,
-            true
-        ));
-        assert!(!should_render_breadcrumb(
-            WorkspaceFrameKind::SourceList,
-            &nav,
-            true
-        ));
-    }
 
     /// ADR 0084 Decision 1: the width-based Detail collapse rule stays
     /// inert in the Music three-column layout, where `MusicColumns`

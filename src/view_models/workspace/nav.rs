@@ -488,7 +488,7 @@ pub(crate) fn track_release_download_updates_open_page(
 /// One location of a frame: the destination, then the pages inside it, and
 /// the current page last (ADR 0084 Decision 9).
 ///
-/// A location holds each page one time at most. The breadcrumb projects a
+/// A location holds each page one time at most. The page shows the
 /// location, never the history.
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct FrameLocation {
@@ -576,6 +576,11 @@ impl FrameLocation {
         self.ancestors.iter().chain(std::iter::once(&self.page))
     }
 
+    /// The root of this location: its destination or its search.
+    fn root(&self) -> &FrameNavigationEntry {
+        self.ancestors.first().unwrap_or(&self.page)
+    }
+
     /// Returns this location with `entry` as its page. When the path holds
     /// `entry`, the path stops at it. Otherwise `entry` goes after the page.
     fn with_page(&self, entry: FrameNavigationEntry) -> Self {
@@ -601,8 +606,7 @@ impl FrameLocation {
 /// Per-frame back/forward navigation history (ADR 0084 Decision 9).
 ///
 /// The history holds locations. Back and Forward move through the history.
-/// The breadcrumb shows only the current location, so it never repeats a
-/// page.
+/// A location holds each page one time, so a page never repeats in its path.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct FrameNavigationState {
     back_stack: Vec<FrameLocation>,
@@ -611,6 +615,23 @@ pub(crate) struct FrameNavigationState {
     /// How the current entry became current. It is not part of the
     /// equality of two histories.
     arrival: NotCompared<NavigationArrival>,
+    /// The page that Back left open over the current list root (R-NAV-2
+    /// item 2). A new path, a row or a destination change clears it. It is
+    /// not part of the equality of two histories.
+    marked: NotCompared<Option<FrameNavigationEntry>>,
+}
+
+/// The page that Back leaves marked: the first page under the root of the
+/// location that Back left, when both locations share one root (R-NAV-2
+/// item 2). Otherwise nothing is marked.
+fn marked_after_back(
+    left: &FrameLocation,
+    restored: &FrameLocation,
+) -> Option<FrameNavigationEntry> {
+    if left.root() != restored.root() {
+        return None;
+    }
+    left.entries().nth(1).cloned()
 }
 
 impl FrameNavigationState {
@@ -622,6 +643,7 @@ impl FrameNavigationState {
             current: FrameLocation::new(current),
             forward_stack: Vec::new(),
             arrival: NotCompared(NavigationArrival::Open),
+            marked: NotCompared(None),
         }
     }
 
@@ -666,6 +688,7 @@ impl FrameNavigationState {
             current: FrameLocation::new(destination).with_page(page),
             forward_stack: Vec::new(),
             arrival: NotCompared(NavigationArrival::Open),
+            marked: NotCompared(None),
         }
     }
 
@@ -679,7 +702,7 @@ impl FrameNavigationState {
     /// starts from a search.
     ///
     /// Search-result drill-down pages stay in the search location, so the
-    /// owning app can keep the inspector VM alive while breadcrumbs navigate
+    /// owning app can keep the inspector VM alive while pages navigate
     /// below a submitted query.
     #[must_use]
     pub(crate) fn active_search_query(&self) -> Option<&str> {
@@ -701,7 +724,9 @@ impl FrameNavigationState {
     }
 
     /// Returns the current location path, from its destination through the
-    /// current page.
+    /// current page. Only the tests read the whole path, so the app keeps no
+    /// production caller of it.
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn path_entries(&self) -> Vec<FrameNavigationEntry> {
         self.current.entries().cloned().collect()
@@ -716,16 +741,19 @@ impl FrameNavigationState {
         self.current.ancestors.first().unwrap_or(&self.current.page)
     }
 
-    /// Returns whether the current location has more than one page.
+    /// Returns the page that Back left open over the current list root
+    /// (R-NAV-2 item 2). `None` after a new path, a row click or a
+    /// destination change.
     #[must_use]
-    pub(crate) fn has_location_path(&self) -> bool {
-        !self.current.ancestors.is_empty()
+    pub(crate) fn marked_entry(&self) -> Option<&FrameNavigationEntry> {
+        self.marked.0.as_ref()
     }
 
-    /// Returns whether a back-history entry is available.
+    /// Returns whether a back move is available. A page with no earlier
+    /// entry still goes back to the list that holds it (R-NAV-2 item 3).
     #[must_use]
     pub(crate) fn can_go_back(&self) -> bool {
-        !self.back_stack.is_empty()
+        !self.back_stack.is_empty() || !self.current.ancestors.is_empty()
     }
 
     /// Returns whether a forward-history entry is available.
@@ -742,6 +770,7 @@ impl FrameNavigationState {
         self.back_stack.push(previous);
         self.forward_stack.clear();
         self.arrival.0 = NavigationArrival::Open;
+        self.marked.0 = None;
     }
 
     /// Opens a page in the current location and clears forward history.
@@ -797,6 +826,7 @@ impl FrameNavigationState {
         self.current = FrameLocation::new(entry);
         self.forward_stack.clear();
         self.arrival.0 = NavigationArrival::Open;
+        self.marked.0 = None;
     }
 
     /// Replaces only the current page.
@@ -823,6 +853,7 @@ impl FrameNavigationState {
         self.current.memory = NotCompared(LocationMemory::fresh());
         self.forward_stack.clear();
         self.arrival.0 = NavigationArrival::Open;
+        self.marked.0 = None;
     }
 
     /// Replaces the query of the search page, or starts a new search path.
@@ -846,17 +877,25 @@ impl FrameNavigationState {
 
     /// Moves back one history entry and returns the page of that location.
     ///
+    /// With no earlier entry, a page of a path goes back to the list that
+    /// holds it (R-NAV-2 item 3): the path starts at its root, after a
+    /// shared link.
+    ///
     /// # Errors
     ///
     /// Returns [`WorkspaceModelError::CannotNavigateBack`] when there is no
-    /// back-history entry.
+    /// back move: no earlier entry and no page over a root.
     pub(crate) fn go_back(&mut self) -> Result<&FrameNavigationEntry, WorkspaceModelError> {
-        let previous = self
-            .back_stack
-            .pop()
-            .ok_or(WorkspaceModelError::CannotNavigateBack)?;
-        let current = std::mem::replace(&mut self.current, previous);
-        self.forward_stack.push(current);
+        let previous = match self.back_stack.pop() {
+            Some(previous) => previous,
+            None if !self.current.ancestors.is_empty() => {
+                FrameLocation::new(self.current.root().clone())
+            }
+            None => return Err(WorkspaceModelError::CannotNavigateBack),
+        };
+        let left = std::mem::replace(&mut self.current, previous);
+        self.marked.0 = marked_after_back(&left, &self.current);
+        self.forward_stack.push(left);
         self.arrival.0 = NavigationArrival::History;
         Ok(&self.current.page)
     }
@@ -875,6 +914,7 @@ impl FrameNavigationState {
         let current = std::mem::replace(&mut self.current, next);
         self.back_stack.push(current);
         self.arrival.0 = NavigationArrival::History;
+        self.marked.0 = None;
         Ok(&self.current.page)
     }
 }

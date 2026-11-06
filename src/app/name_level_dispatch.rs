@@ -61,7 +61,7 @@ impl TopApp {
     }
 
     /// Restores the `MusicIndex` request of a name level entry that a
-    /// breadcrumb, a row or a history move just restored. It sends no
+    /// a row or a history move just restored. It sends no
     /// request when `entry` is not a name level entry, or when the mounted
     /// page already has its key.
     pub(super) fn restore_name_level_page_for_nav(

@@ -625,6 +625,21 @@ pub(crate) struct PlaylistSidebarVm {
     pub(crate) rows: Vec<PlaylistSidebarRowVm>,
 }
 
+impl PlaylistSidebarVm {
+    /// Gives each playlist row its mark: a row is marked when it opens
+    /// `entry`, the playlist page that Back left open (R-NAV-2 item 2).
+    #[must_use]
+    pub(crate) fn with_marked(mut self, entry: Option<&FrameNavigationEntry>) -> Self {
+        for row in &mut self.rows {
+            row.marked = matches!(
+                entry,
+                Some(FrameNavigationEntry::PlaylistDetail(id)) if *id == row.id
+            );
+        }
+        self
+    }
+}
+
 /// One playlist row in the library sidebar.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PlaylistSidebarRowVm {
@@ -635,6 +650,9 @@ pub(crate) struct PlaylistSidebarRowVm {
     pub(crate) selected: bool,
     /// The art of the playlist in the logo frame (ADR 0084 Decision 12).
     pub(crate) art: CollectionArtVm,
+    /// `true` when this row opens the page that Back left open over the
+    /// Playlists list (R-NAV-2 item 2).
+    pub(crate) marked: bool,
 }
 
 /// The drag fact of a track row (ADR 0083 Decision 6, task 008). A row
@@ -1933,6 +1951,36 @@ pub(crate) struct DestinationListRowVm {
     /// The download-state icon of a release row (ADR 0083 Decision 6,
     /// amended 2026-10-22; ADR 0084 task 033). `None` for an artist row.
     pub(crate) download_state: Option<ReleaseDownloadStateVm>,
+    /// `true` when this row opens the page that Back left open over the
+    /// current list root (R-NAV-2 item 2). At most one row of a list is
+    /// marked.
+    pub(crate) marked: bool,
+}
+
+impl DestinationListRowVm {
+    /// Gives this row its mark: `true` when it opens `entry`, the page that
+    /// Back left open over the list root (R-NAV-2 item 2).
+    #[must_use]
+    pub(crate) fn with_marked(mut self, entry: Option<&FrameNavigationEntry>) -> Self {
+        self.marked = entry.is_some_and(|entry| self.open.opens(entry));
+        self
+    }
+}
+
+impl DestinationListRowTarget {
+    /// Returns whether this target opens the page `entry` (R-NAV-2 item 2).
+    #[must_use]
+    fn opens(&self, entry: &FrameNavigationEntry) -> bool {
+        match (self, entry) {
+            (Self::Release(key), FrameNavigationEntry::Release(open)) => key == open,
+            (Self::ArtistName(key), FrameNavigationEntry::ArtistName(open)) => key == open,
+            (
+                Self::Publisher(guid) | Self::IndexPublisher(guid),
+                FrameNavigationEntry::PublisherDetail(open),
+            ) => guid == open,
+            _ => false,
+        }
+    }
 }
 
 /// One entry of the Releases destination list (ADR 0084 Decisions 2 and
@@ -1978,6 +2026,18 @@ pub(crate) enum ReleasesListItemVm {
 }
 
 impl ReleasesListItemVm {
+    /// Gives the row of this item its mark (R-NAV-2 item 2). A status row
+    /// carries no mark.
+    #[must_use]
+    pub(crate) fn with_marked(self, entry: Option<&FrameNavigationEntry>) -> Self {
+        match self {
+            Self::Release(row) => Self::Release(row.with_marked(entry)),
+            Self::Single(row) => Self::Single(row.with_marked(entry)),
+            Self::Group(group) => Self::Group(group.with_marked(entry)),
+            other @ (Self::LeadingStatus(_) | Self::TrailingStatus(_)) => other,
+        }
+    }
+
     /// The element id of the row. The virtual list keys its measured
     /// sizes by this id (Design step 8).
     #[must_use]
@@ -2024,6 +2084,18 @@ pub(crate) enum ArtistsListItemVm {
     Row(DestinationListRowVm),
     /// The loading row, the error row or "Load more".
     Status(IndexListStatusRowVm),
+}
+
+impl ArtistsListItemVm {
+    /// Gives the row of this item its mark (R-NAV-2 item 2). A status row
+    /// carries no mark.
+    #[must_use]
+    pub(crate) fn with_marked(self, entry: Option<&FrameNavigationEntry>) -> Self {
+        match self {
+            Self::Row(row) => Self::Row(row.with_marked(entry)),
+            status @ Self::Status(_) => status,
+        }
+    }
 }
 
 impl ArtistsListItemVm {
@@ -2206,6 +2278,7 @@ pub(crate) fn destination_release_row(
 ) -> Option<DestinationListRowVm> {
     let key = album.release_key()?;
     Some(DestinationListRowVm {
+        marked: false,
         element_id: format!("music-release-row-{}", release_row_slug(&key)),
         label: album.name.clone(),
         // ADR 0084 Decision 5: the row names the kind after the artist,
@@ -2303,6 +2376,7 @@ fn artist_name_row(
     LibraryArtistRow {
         order: ArtistOrderKey::name(key.to_owned()),
         row: DestinationListRowVm {
+            marked: false,
             element_id: format!("music-artist-row-name:{}", release_row_slug_text(key)),
             label: label.clone(),
             secondary_text: format!("{secondary_text}{ARTIST_ROW_SEPARATOR}{ARTIST_NAME_ROW_MARK}"),
@@ -2426,6 +2500,7 @@ fn artist_feed_row(
     LibraryArtistRow {
         order: ArtistOrderKey::feed(name_sort_key(&title), &feed_guid),
         row: DestinationListRowVm {
+            marked: false,
             element_id: format!("music-artist-row-publisher:{feed_guid}"),
             label: title.clone(),
             secondary_text: artist_row_count_text(members.len() + matched_count, scope),
@@ -3704,6 +3779,7 @@ impl LibraryViewModel {
                     name: playlist.name.clone(),
                     track_count_label: format!("({})", playlist.track_count),
                     selected: self.selected_playlist_id == Some(playlist.id),
+                    marked: false,
                     art: CollectionArtVm::resolve(
                         None,
                         self.snapshot
@@ -14677,9 +14753,9 @@ mod adr_0086_window_groups_tests {
             assert_eq!(window_group_title("jSmovie", 0), "jSmovie");
         }
 
-        /// R86-4-14: the breadcrumb labels of the path to the page.
+        /// R86-4-14: the labels of the path to the page.
         #[test]
-        fn adr_0086_window_group_page_r14_breadcrumb_labels() {
+        fn adr_0086_window_group_page_r14_path_labels() {
             let (vm, _) = view_model(singles_on(12..=20), false);
             let key = first_key(&vm);
             let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
@@ -14995,5 +15071,44 @@ mod adr_0086_saved_search_groups_tests {
         assert_eq!(window.title, "jSmovie · 2 singles");
         assert_eq!(window.rows.len(), 2);
         assert_eq!(window.date_span.as_deref(), Some("Oct 8 to Oct 20"));
+    }
+}
+
+#[cfg(test)]
+mod marked_row_tests {
+    use super::{DestinationListRowTarget, DestinationListRowVm, RowSelectionVm};
+    use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey};
+
+    fn release_row(guid: &str) -> DestinationListRowVm {
+        DestinationListRowVm {
+            element_id: format!("music-release-row-{guid}"),
+            label: guid.to_owned(),
+            secondary_text: String::new(),
+            a11y_label: guid.to_owned(),
+            thumbnail_href: None,
+            art: None,
+            open: DestinationListRowTarget::Release(ReleaseKey::FeedGuid(guid.to_owned())),
+            selection: RowSelectionVm::none(),
+            release_kind: None,
+            menu: None,
+            download_state: None,
+            marked: false,
+        }
+    }
+
+    /// R-NAV-2 item 2 (ADR 0089 Decision 9): only the row that opens the
+    /// marked page carries the mark. A list with no marked page marks no row.
+    #[test]
+    fn adr_0089_marked_row_is_the_only_row_that_opens_the_marked_page() {
+        let marked = FrameNavigationEntry::Release(ReleaseKey::FeedGuid("guid-b".to_owned()));
+        let flags: Vec<bool> = ["guid-a", "guid-b", "guid-c"]
+            .into_iter()
+            .map(|guid| release_row(guid).with_marked(Some(&marked)).marked)
+            .collect();
+        assert_eq!(flags, [false, true, false]);
+        assert!(
+            !release_row("guid-b").with_marked(None).marked,
+            "no marked page marks no row"
+        );
     }
 }

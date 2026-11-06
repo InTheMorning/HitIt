@@ -82,7 +82,8 @@ pub(crate) fn render_result_row(
             label: SharedString::from(row.a11y_label.clone()),
         })
         .selected(selection.is_marked())
-        .focused(selection.focused);
+        .focused(selection.focused)
+        .marked(row.marked);
 
     // ADR 0084 Decision 10 Amendment, 2026-10-19: the checkbox shows only
     // in selection mode, as on a Releases list row.

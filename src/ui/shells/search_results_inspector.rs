@@ -3,7 +3,7 @@
 //! ADR 0084 Decision 2 routes global search results into the Music list
 //! column. This shell consumes the GPUI-free search-results view model and
 //! renders only the body content: the query, the tab control, the rows and
-//! the empty states. Frame chrome and breadcrumbs remain owned by
+//! the empty states. Frame chrome and the toolbar remain owned by
 //! `frame_shell`.
 
 #![warn(clippy::pedantic)]
@@ -39,6 +39,7 @@ use crate::view_models::search_results::{
     SearchFailureAvailability, SearchPageActionDisplay, SearchPageActionStyle, SearchResultItemVm,
     SearchResultOrigin, SearchResultsInspectorPageVm, SearchResultsTab,
 };
+use crate::view_models::workspace::FrameNavigationEntry;
 
 type TabSelectHandler = Rc<dyn Fn(SearchResultsTab, &mut Window, &mut App) + 'static>;
 type FailureHandler = Rc<dyn Fn(SearchFailureAction, &mut Window, &mut App) + 'static>;
@@ -67,6 +68,9 @@ pub(crate) struct SearchResultsInspectorSlots {
     items: Vec<SearchResultItemVm>,
     arts: BTreeMap<String, CollectionArtImage>,
     scroll: ScrollHandle,
+    /// The page that Back left open over the search results list (R-NAV-2
+    /// item 2). `None` for a page that has no list root.
+    marked_entry: Option<FrameNavigationEntry>,
 }
 
 impl SearchResultsInspectorSlots {
@@ -158,6 +162,13 @@ impl SearchResultsInspectorSlots {
     /// handle, and scrolls the focused row into view after a key.
     pub(crate) fn with_scroll(mut self, scroll: &ScrollHandle) -> Self {
         self.scroll = scroll.clone();
+        self
+    }
+
+    /// Supplies the page that Back left open over the results list, for the
+    /// marked row (R-NAV-2 item 2).
+    pub(crate) fn with_marked_entry(mut self, entry: Option<FrameNavigationEntry>) -> Self {
+        self.marked_entry = entry;
         self
     }
 
@@ -466,7 +477,8 @@ fn render_active_result_list(
                 let href = row.thumbnail_href.as_deref();
                 SearchRowLeading::Thumbnail(href.and_then(|href| slots.thumbnail_for_href(href)))
             };
-            render_result_row(tab, row.clone(), leading, handlers, cx)
+            let row = row.clone().with_marked(tab, slots.marked_entry.as_ref());
+            render_result_row(tab, row, leading, handlers, cx)
         })
         .chain((0..pending_rows).map(|index| render_pending_result_row(tab, index)))
         .collect();

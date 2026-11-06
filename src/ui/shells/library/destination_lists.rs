@@ -24,7 +24,7 @@ use gpui_component::input::Input;
 use gpui_component::Size;
 
 use crate::library::LibraryApp;
-use crate::ui::composites::music_column_scroll::{music_column_scrollbar, MusicColumnList};
+use crate::ui::composites::music_column_scroll::{music_column_tracked_scrollbar, MusicColumnList};
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::release_download_state::render_release_download_state;
 use crate::ui::composites::release_row_menu::{release_row_menu, ReleaseRowMenuContext};
@@ -197,6 +197,7 @@ fn render_singles_group_row(
         singles: _,
         single_keys,
         selection,
+        marked,
     } = group;
     let art = collection_art(art, CollectionKind::SinglesGroup);
     let open_key = open.clone();
@@ -224,7 +225,8 @@ fn render_singles_group_row(
             label: SharedString::from(a11y_label),
         })
         .selected(selection.is_marked())
-        .focused(selection.focused);
+        .focused(selection.focused)
+        .marked(marked);
 
     // ADR 0084 Decision 6: the group row's checkbox selects each single
     // of the group. ADR 0084 Decision 10 Amendment, 2026-10-19:
@@ -325,7 +327,8 @@ fn render_destination_list_row(
             label: SharedString::from(row.a11y_label),
         })
         .selected(selection.is_marked())
-        .focused(selection.focused);
+        .focused(selection.focused)
+        .marked(row.marked);
 
     // ADR 0084 Decision 10 Amendment, 2026-10-19: a Releases row's
     // checkbox shows only in selection mode (`checkbox_visible`).
@@ -447,6 +450,7 @@ pub(crate) fn render_library_playlists_list(
     sidebar: PlaylistSidebarVm,
     new_playlist_input: &gpui::Entity<gpui_component::input::InputState>,
     arts: &RowArts,
+    scroll: &gpui::ScrollHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     let PlaylistSidebarVm {
@@ -530,6 +534,7 @@ pub(crate) fn render_library_playlists_list(
             track_count_label,
             selected,
             art: _,
+            marked,
         } = row;
         let art = row_art(arts, &element_id, CollectionKind::Playlist);
         let row_a11y_label = format!("Playlist: {name}");
@@ -538,6 +543,7 @@ pub(crate) fn render_library_playlists_list(
                 label: row_a11y_label.into(),
             })
             .selected(selected)
+            .marked(marked)
             .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
                 this.open_page(
                     FrameNavigationEntry::PlaylistDetail(playlist_id),
@@ -579,5 +585,5 @@ pub(crate) fn render_library_playlists_list(
         .pt(spacing::MD)
         .pb(spacing::MD)
         .child(page_scroll_content(cx).gap(spacing::XXS).children(items));
-    music_column_scrollbar(container, "music-playlists-destination-list-scrollbar")
+    music_column_tracked_scrollbar(container, scroll, None)
 }

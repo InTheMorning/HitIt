@@ -862,8 +862,8 @@ fn apply_playlist_row_selection<E: Styled>(el: E, selected: bool, focused: bool,
     } else {
         el
     };
-    match row_outline(selected, focused) {
-        RowOutline::None => el,
+    match row_outline(selected, focused, false) {
+        RowOutline::None | RowOutline::Marked => el,
         RowOutline::Selected => el
             .border_1()
             .border_color(token_color(cx, SemanticColor::Accent)),

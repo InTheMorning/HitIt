@@ -58,12 +58,12 @@ mod settings;
 mod startup;
 
 mod bootstrap;
-mod breadcrumb;
 mod detail_selection;
 mod events;
 pub(crate) mod keyboard;
 mod menu;
 mod name_level_dispatch;
+mod page_title;
 mod playback_bar;
 mod publisher_dispatch;
 mod queue_now_playing;
@@ -101,7 +101,7 @@ enum AppTab {
 /// ADR 0060 app-section mount boundary.
 ///
 /// Music and Settings render through the workspace shell. Show is a
-/// whole-screen mount because it does not use frame history or breadcrumbs.
+/// whole-screen mount because it does not use frame history or a page title.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WorkspaceScreenMount {
     Music,
@@ -245,7 +245,7 @@ pub struct TopApp {
     /// current frame is not a publisher page.
     publisher_page: Option<publisher_dispatch::PublisherPageState>,
     /// The route (Library or Index) each visited publisher feed GUID last
-    /// opened with (ADR 0077 packet 004). A breadcrumb or history restore
+    /// opened with (ADR 0077 packet 004). A history restore
     /// of an older `PublisherDetail` entry reads this to fetch with the
     /// same query it originally used.
     publisher_page_routes: BTreeMap<String, PublisherPageContext>,
@@ -271,7 +271,7 @@ pub struct TopApp {
     /// download; the render path reads it and makes no lookup of its own.
     release_page_source: Option<ReleasePageSource>,
     /// The label an opening row gave a release, by feed GUID (ADR 0084
-    /// Decision 4). The breadcrumb and the Index loading page show it until
+    /// Decision 4). The toolbar title and the Index loading page show it until
     /// the release's own title loads.
     release_page_labels: BTreeMap<String, String>,
     /// The data source of the open track page (ADR 0084 Decision 4). `None`
@@ -280,7 +280,7 @@ pub struct TopApp {
     /// the render path reads it and makes no lookup of its own.
     track_page_source: Option<TrackPageSource>,
     /// The label an opening row gave a track, by its Index activation
-    /// target (ADR 0084 Decision 4). The breadcrumb and the Index loading
+    /// target (ADR 0084 Decision 4). The toolbar title and the Index loading
     /// page show it until the track's own title loads.
     track_page_labels: BTreeMap<IndexTrackTarget, String>,
     /// The disclosure state of an Index release's description, by feed
@@ -859,8 +859,8 @@ impl TopApp {
         self.restore_content_list_nav_entry(content_list_id, &opened_entry, cx);
     }
 
-    /// Restores the page for a navigation entry that Back, Forward, a
-    /// breadcrumb segment or `open_music_page` selected on the
+    /// Restores the page for a navigation entry that Back, Forward or
+    /// `open_music_page` selected on the
     /// content-list frame (ADR 0046 Task 015). A `Search` entry takes a new
     /// run and starts its Index part (ADR 0087 packet 003 decision D4).
     ///
@@ -910,7 +910,7 @@ impl TopApp {
     ///
     /// ADR 0084 task 030, decision D5, corrected in the review of
     /// 2026-10-21: the caller records the text only on a history move
-    /// (Back, Forward, a breadcrumb segment), never on a new submit or on
+    /// (Back, Forward), never on a new submit or on
     /// `open_music_page`. The comparison trims the field value first. A
     /// typed query with a trailing space stays as typed, because the
     /// recorded text is already trimmed and the two then compare equal.
@@ -1080,11 +1080,9 @@ impl TopApp {
     }
 
     /// Gives the Music visible layout: the sidebar, the list and the
-    /// detail columns, in that order (ADR 0084 Decision 1). The list
-    /// column keeps the "Library" title until task 005 gives each
-    /// destination its own title. The detail column keeps the page title
-    /// that `content_list_frame_title` gives, read from the content-list
-    /// frame's one navigation stack. The sidebar shows no header.
+    /// detail columns, in that order (ADR 0084 Decision 1). The columns
+    /// carry no title: the toolbar shows the page title (ADR 0089 Decision
+    /// 9). The sidebar shows no header.
     fn visible_music_layout(layout: &WorkspaceLayout) -> WorkspaceLayout {
         // ADR 0084 Decision 1: Music always shows its three columns, whatever
         // frames a saved `config.toml` layout holds. The saved content-list
@@ -1099,11 +1097,12 @@ impl TopApp {
         };
         let content_list_id =
             saved_id(WorkspaceFrameKind::ContentList).unwrap_or(WORKSPACE_CONTENT_FRAME_ID);
-        let list_title = Self::music_list_frame_title(layout, content_list_id);
+        // ADR 0089 Decision 9: the page title is in the toolbar, so the
+        // Music frames show no title.
         let mut frames = vec![WorkspaceFrameState::new(
             content_list_id,
             WorkspaceFrameKind::ContentList,
-            list_title,
+            String::new(),
         )];
         let source_list_id = saved_id(WorkspaceFrameKind::SourceList)
             .unwrap_or_else(|| Self::unused_workspace_frame_id(&frames, WorkspaceFrameId::new(1)));
@@ -1117,12 +1116,10 @@ impl TopApp {
         );
         let detail_id = saved_id(WorkspaceFrameKind::Detail)
             .unwrap_or_else(|| Self::unused_workspace_frame_id(&frames, WorkspaceFrameId::new(3)));
-        let detail_title =
-            Self::content_list_frame_title(layout, content_list_id, WorkspaceScreenMount::Music);
         frames.push(WorkspaceFrameState::new(
             detail_id,
             WorkspaceFrameKind::Detail,
-            detail_title,
+            String::new(),
         ));
 
         let focused_frame_id = layout
@@ -1160,8 +1157,19 @@ impl TopApp {
         let Some(nav) = layout.frame_nav(frame_id) else {
             return Self::root_content_frame_title();
         };
-
         match nav.current() {
+            FrameNavigationEntry::Destination(_) | FrameNavigationEntry::Settings => {
+                Self::root_content_frame_title()
+            }
+            entry => Self::page_type_title(entry),
+        }
+    }
+
+    /// The title that names the type of a page, before its own facts give
+    /// a name (ADR 0084 Decisions 4 and 5). `page_title` replaces it with
+    /// the page's name where a page has one.
+    fn page_type_title(entry: &FrameNavigationEntry) -> String {
+        match entry {
             FrameNavigationEntry::Destination(_) | FrameNavigationEntry::Settings => {
                 Self::root_content_frame_title()
             }
@@ -1181,8 +1189,7 @@ impl TopApp {
                 crate::view_models::name_level_page::NameLevelPageVm::FRAME_TITLE.to_string()
             }
             // ADR 0085 Decision 7: the default title, before the page's
-            // own facts load. `render_workspace_screen_mount` overrides
-            // this with the loaded frame title.
+            // own facts load.
             FrameNavigationEntry::PublisherDetail(_) => "Feed".to_string(),
             FrameNavigationEntry::SinglesGroup(_) | FrameNavigationEntry::WindowGroup(_) => {
                 "Singles".to_string()
@@ -1514,7 +1521,12 @@ impl TopApp {
             .with_thumbnails(thumbnails)
             .with_arts(arts)
             .with_items(items)
-            .with_scroll(self.search_page_scroll(SearchPageSlot::ToolbarSearch));
+            .with_scroll(self.search_page_scroll(SearchPageSlot::ToolbarSearch))
+            .with_marked_entry(
+                self.workspace_layout
+                    .frame_nav(content_frame_id)
+                    .and_then(|nav| nav.marked_entry().cloned()),
+            );
         let inspector_content = render_search_results_inspector(
             self.search_results_detail.as_ref().unwrap(),
             &inspector_slots,
@@ -1659,7 +1671,7 @@ impl TopApp {
             return self.render_workspace_screen_mount(mount, show_window_width, cx);
         }
 
-        let mut layout = Self::visible_workspace_layout(&self.workspace_layout, mount);
+        let layout = Self::visible_workspace_layout(&self.workspace_layout, mount);
         let content_frame_id = layout
             .frames()
             .iter()
@@ -1676,48 +1688,6 @@ impl TopApp {
             .workspace_layout
             .frame_nav(content_frame_id)
             .map(|nav| nav.current().clone());
-
-        // ADR 0084 task 015, operator decision 2026-10-17: the Detail
-        // frame title shows the open page's own title for a singles
-        // group, for example "Singles by Haleen", not the type label
-        // `content_list_frame_title` gives by default. Every other page
-        // keeps its type label. ADR 0086 Decision 4: a window group page
-        // also shows its own title.
-        if let Some(
-            entry @ (FrameNavigationEntry::SinglesGroup(_) | FrameNavigationEntry::WindowGroup(_)),
-        ) = &current_nav
-        {
-            let detail_frame_id = layout
-                .frames()
-                .iter()
-                .find(|frame| matches!(frame.kind(), WorkspaceFrameKind::Detail))
-                .map(WorkspaceFrameState::id);
-            if let Some(detail_frame_id) = detail_frame_id {
-                let title = self.library.read(cx).navigation_label(entry);
-                layout
-                    .set_frame_title(detail_frame_id, title)
-                    .expect("the found detail frame id exists in this layout");
-            }
-        }
-
-        // ADR 0085 Decision 7: the Detail frame title of a feed page comes
-        // from its own loaded facts, once they load. Before that, and on
-        // a failed fetch, `content_list_frame_title`'s default "Feed"
-        // stays. This mirrors the singles-group title override above.
-        if matches!(&current_nav, Some(FrameNavigationEntry::PublisherDetail(_))) {
-            if let Some(title) = self.publisher_page_frame_title() {
-                let detail_frame_id = layout
-                    .frames()
-                    .iter()
-                    .find(|frame| matches!(frame.kind(), WorkspaceFrameKind::Detail))
-                    .map(WorkspaceFrameState::id);
-                if let Some(detail_frame_id) = detail_frame_id {
-                    layout
-                        .set_frame_title(detail_frame_id, title)
-                        .expect("the found detail frame id exists in this layout");
-                }
-            }
-        }
 
         // ADR 0084 packet 018: the detail selection belongs to the open
         // page. A move to another page clears it and sets `Normal`.
@@ -1756,6 +1726,15 @@ impl TopApp {
             .and_then(FrameNavigationState::active_saved_search);
         self.library.update(cx, |library, _cx| {
             library.set_open_saved_search(open_saved_search);
+        });
+        // ADR 0089 Decision 9, R-NAV-2 item 2: the row of the page that Back
+        // left open is marked in the Music list.
+        let marked_entry = self
+            .workspace_layout
+            .frame_nav(content_frame_id)
+            .and_then(|nav| nav.marked_entry().cloned());
+        self.library.update(cx, |library, _cx| {
+            library.set_marked_entry(marked_entry);
         });
 
         let mut workspace_slots = match &current_nav {
@@ -1950,69 +1929,6 @@ impl TopApp {
             }
         }
 
-        let breadcrumb_labels = self.content_list_breadcrumb_labels(content_frame_id, cx);
-        let detail_breadcrumb_labels = breadcrumb_labels.clone();
-        workspace_slots = workspace_slots.content_list_breadcrumb_labeler(move |entry| {
-            breadcrumb_labels
-                .iter()
-                .find_map(|(candidate, label)| (candidate == entry).then(|| label.clone()))
-                .unwrap_or_else(|| entry.display_label())
-        });
-
-        // Wire breadcrumb select handler for ContentList
-        let breadcrumb_entity = entity.clone();
-        workspace_slots =
-            workspace_slots.on_content_list_breadcrumb_select(move |entry, _window, cx| {
-                breadcrumb_entity.update(cx, |this, cx| {
-                    this.handle_content_list_breadcrumb_select(entry, cx);
-                });
-            });
-
-        let back_entity = entity.clone();
-        workspace_slots = workspace_slots.on_content_list_back_select(move |_window, cx| {
-            back_entity.update(cx, |this, cx| {
-                this.handle_content_list_back_select(cx);
-            });
-        });
-
-        let forward_entity = entity.clone();
-        workspace_slots = workspace_slots.on_content_list_forward_select(move |_window, cx| {
-            forward_entity.update(cx, |this, cx| {
-                this.handle_content_list_forward_select(cx);
-            });
-        });
-
-        // ADR 0084 Decision 9: in Music, the detail column chrome projects
-        // the same breadcrumb, Back and Forward handlers as the content
-        // list, with Back and Forward always shown.
-        if fills_detail {
-            let detail_breadcrumb_entity = entity.clone();
-            let detail_back_entity = entity.clone();
-            let detail_forward_entity = entity.clone();
-            workspace_slots = workspace_slots
-                .detail_breadcrumb_labeler(move |entry| {
-                    detail_breadcrumb_labels
-                        .iter()
-                        .find_map(|(candidate, label)| (candidate == entry).then(|| label.clone()))
-                        .unwrap_or_else(|| entry.display_label())
-                })
-                .on_detail_breadcrumb_select(move |entry, _window, cx| {
-                    detail_breadcrumb_entity.update(cx, |this, cx| {
-                        this.handle_content_list_breadcrumb_select(entry, cx);
-                    });
-                })
-                .on_detail_back_select(move |_window, cx| {
-                    detail_back_entity.update(cx, |this, cx| {
-                        this.handle_content_list_back_select(cx);
-                    });
-                })
-                .on_detail_forward_select(move |_window, cx| {
-                    detail_forward_entity.update(cx, |this, cx| {
-                        this.handle_content_list_forward_select(cx);
-                    });
-                });
-        }
-
         // Stage 6: Wire content pane width and resize handler
         workspace_slots = workspace_slots
             .content_pane_width(self.content_pane_width)
@@ -2124,7 +2040,7 @@ impl Render for TopApp {
             .on_action(cx.listener(TopApp::handle_move_selection_end))
             .on_action(cx.listener(TopApp::handle_toggle_focused_selection))
             .on_action(cx.listener(TopApp::handle_select_all_visible))
-            .child(render_tab_bar(self, window, cx))
+            .child(render_tab_bar(self, mount, window, cx))
             .when_some(capability_notice, gpui::ParentElement::child)
             .child(
                 div()

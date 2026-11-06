@@ -79,11 +79,18 @@ pub(crate) enum RowClickOwner {
 /// One row in a list. Wraps an [`HStack`] with padding, gap, and rounding.
 #[derive(IntoElement)]
 #[must_use]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is one row state (selected, focused, marked, menu cell), read by the row outline"
+)]
 pub struct ListRow {
     id: ElementId,
     density: ListRowDensity,
     selected: bool,
     focused: bool,
+    /// The row opens the page that Back left open (R-NAV-2 item 2). It
+    /// shows the mark: the outline of a selected row and a leading bar.
+    marked: bool,
     a11y_label: Option<gpui::SharedString>,
     on_click: Option<ClickHandler>,
     /// The leading selection checkbox (ADR 0084 Decision 10, amended
@@ -122,6 +129,7 @@ impl ListRow {
             density: ListRowDensity::default(),
             selected: false,
             focused: false,
+            marked: false,
             a11y_label: None,
             on_click: None,
             checkbox: None,
@@ -152,6 +160,12 @@ impl ListRow {
 
     pub fn focused(mut self, focused: bool) -> Self {
         self.focused = focused;
+        self
+    }
+
+    /// The mark of a row that Back left open (R-NAV-2 item 2).
+    pub(crate) fn marked(mut self, marked: bool) -> Self {
+        self.marked = marked;
         self
     }
 
@@ -241,6 +255,7 @@ impl RenderOnce for ListRow {
         let stack = HStack::new().spacing(self.density.gap()).center();
         let selected = self.selected;
         let focused = self.focused;
+        let marked = self.marked;
         let on_click = self.on_click.clone();
         let selected_bg = color(cx, SemanticColor::SelectedContent);
         let accent = color(cx, SemanticColor::Accent);
@@ -278,9 +293,9 @@ impl RenderOnce for ListRow {
             .border_1()
             .border_color(gpui::transparent_black())
             .when(selected, |el| el.bg(selected_bg))
-            .map(|el| match row_outline(selected, focused) {
+            .map(|el| match row_outline(selected, focused, marked) {
                 RowOutline::None => el,
-                RowOutline::Selected => el.border_color(accent),
+                RowOutline::Selected | RowOutline::Marked => el.border_color(accent),
                 RowOutline::Focus => el.border_2().border_color(focus),
             })
             .child(
@@ -289,8 +304,18 @@ impl RenderOnce for ListRow {
                     // Decision 11: the audition slot trails it. Each is
                     // `None` until its owning decision fills it, so neither
                     // reserves space here.
-                    checkbox
+                    marked
+                        .then(|| {
+                            // R-NAV-2 item 2: the leading bar of a marked row.
+                            div()
+                                .w(Size::RowMarkBar.scaled(cx))
+                                .self_stretch()
+                                .flex_shrink_0()
+                                .bg(accent)
+                                .into_any_element()
+                        })
                         .into_iter()
+                        .chain(checkbox)
                         .chain(self.children)
                         .chain(self.audition)
                         .chain(menu_cell)
@@ -424,17 +449,21 @@ pub(crate) fn menu_cell(cx: &App) -> Div {
 pub(crate) enum RowOutline {
     None,
     Selected,
+    /// The row that Back left open (R-NAV-2 item 2). It uses the outline
+    /// width of a selected row, so the mark does not rely on color alone.
+    Marked,
     Focus,
 }
 
 /// The keyboard focus outline wins, so each focused row shows it, selected
 /// or not. The operator found on 2026-10-19 that the focus showed only on a
-/// selected row.
-pub(crate) const fn row_outline(selected: bool, focused: bool) -> RowOutline {
-    match (selected, focused) {
-        (_, true) => RowOutline::Focus,
-        (true, false) => RowOutline::Selected,
-        (false, false) => RowOutline::None,
+/// selected row. A selected row keeps its outline over a mark.
+pub(crate) const fn row_outline(selected: bool, focused: bool, marked: bool) -> RowOutline {
+    match (selected, focused, marked) {
+        (_, true, _) => RowOutline::Focus,
+        (true, false, _) => RowOutline::Selected,
+        (false, false, true) => RowOutline::Marked,
+        (false, false, false) => RowOutline::None,
     }
 }
 
@@ -541,10 +570,13 @@ mod tests {
 
     #[test]
     fn adr_0084_selection_focus_outline_shows_on_each_focused_row() {
-        assert_eq!(row_outline(false, true), RowOutline::Focus);
-        assert_eq!(row_outline(true, true), RowOutline::Focus);
-        assert_eq!(row_outline(true, false), RowOutline::Selected);
-        assert_eq!(row_outline(false, false), RowOutline::None);
+        assert_eq!(row_outline(false, true, false), RowOutline::Focus);
+        assert_eq!(row_outline(true, true, false), RowOutline::Focus);
+        assert_eq!(row_outline(true, false, false), RowOutline::Selected);
+        assert_eq!(row_outline(false, false, false), RowOutline::None);
+        assert_eq!(row_outline(false, false, true), RowOutline::Marked);
+        assert_eq!(row_outline(true, false, true), RowOutline::Selected);
+        assert_eq!(row_outline(false, true, true), RowOutline::Focus);
     }
 
     #[test]

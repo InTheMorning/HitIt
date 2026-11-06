@@ -13,7 +13,6 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-mod breadcrumb;
 mod chrome;
 mod columns;
 mod frame;
@@ -21,9 +20,6 @@ mod nav;
 #[cfg(test)]
 mod tests;
 
-#[cfg(test)]
-pub(crate) use breadcrumb::BreadcrumbTruncation;
-pub(crate) use breadcrumb::{BreadcrumbDisplay, BreadcrumbSegment};
 pub(crate) use chrome::{
     ContentViewMode, ContentViewModeControlDisplay, FrameChromeButtonDisplay,
     FrameChromeMenuItemDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
@@ -356,27 +352,6 @@ impl WorkspaceLayout {
         }
         self.focused_frame_id = Some(id);
         self.sync_focus_flags();
-        Ok(())
-    }
-
-    /// Sets the title of the frame with id `id` (ADR 0084 task 015,
-    /// operator decision 2026-10-17: the Detail frame title follows the
-    /// open page for a singles group).
-    ///
-    /// # Errors
-    ///
-    /// Returns [`WorkspaceModelError::FrameNotFound`] when the frame does not
-    /// exist in the layout.
-    pub(crate) fn set_frame_title(
-        &mut self,
-        id: WorkspaceFrameId,
-        title: impl Into<String>,
-    ) -> Result<(), WorkspaceModelError> {
-        self.frames
-            .iter_mut()
-            .find(|frame| frame.id() == id)
-            .ok_or(WorkspaceModelError::FrameNotFound(id))?
-            .set_title(title);
         Ok(())
     }
 

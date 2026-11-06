@@ -101,8 +101,8 @@ impl RenderOnce for SelectableTile {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let radius = Radius::MD.scaled(cx);
         let hover_bg = color(cx, SemanticColor::SecondarySystemBackground);
-        let outline = match row_outline(self.selected, self.focused) {
-            RowOutline::None => None,
+        let outline = match row_outline(self.selected, self.focused, false) {
+            RowOutline::None | RowOutline::Marked => None,
             RowOutline::Selected => Some(
                 div()
                     .border_1()
