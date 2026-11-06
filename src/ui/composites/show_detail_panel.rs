@@ -471,14 +471,34 @@ fn render_publisher_service(
         .child(compact_detail(unit_name, cx))
         .child(render_controls(
             vec![
-                publisher_action_button(actions.start, role, slots.publisher_start.clone())
-                    .into_any_element(),
-                publisher_action_button(actions.stop, role, slots.publisher_stop.clone())
-                    .into_any_element(),
-                publisher_action_button(actions.reset, role, slots.publisher_reset.clone())
-                    .into_any_element(),
-                publisher_action_button(logs.action, role, slots.publisher_open_logs.clone())
-                    .into_any_element(),
+                publisher_action_button(
+                    actions.start,
+                    ControlStyle::CompactAction,
+                    role,
+                    slots.publisher_start.clone(),
+                )
+                .into_any_element(),
+                publisher_action_button(
+                    actions.stop,
+                    ControlStyle::CompactAction,
+                    role,
+                    slots.publisher_stop.clone(),
+                )
+                .into_any_element(),
+                publisher_action_button(
+                    actions.reset,
+                    ControlStyle::CompactAction,
+                    role,
+                    slots.publisher_reset.clone(),
+                )
+                .into_any_element(),
+                publisher_action_button(
+                    logs.action,
+                    ControlStyle::RowAction,
+                    role,
+                    slots.publisher_open_logs.clone(),
+                )
+                .into_any_element(),
             ],
             cx,
         ))
@@ -519,6 +539,22 @@ fn compact_detail(text: String, cx: &App) -> gpui::Div {
         .text_size(FontSize::Micro.scaled(cx))
         .text_color(color(cx, SemanticColor::SecondaryLabel))
         .child(SharedString::from(text))
+}
+
+/// The role of an event control by its typed intent: a command that
+/// creates, replaces, attaches or detaches is `CompactAction` (musicindex
+/// ADR 0042 R-ACT-4). Other intents keep `RowAction`.
+fn event_control_style(intent: EventControlIntent) -> ControlStyle {
+    match intent {
+        EventControlIntent::Create
+        | EventControlIntent::Replace
+        | EventControlIntent::Attach
+        | EventControlIntent::Detach => ControlStyle::CompactAction,
+        EventControlIntent::Check
+        | EventControlIntent::ReadTargets
+        | EventControlIntent::Refresh
+        | EventControlIntent::CopyFeedTag => ControlStyle::RowAction,
+    }
 }
 
 fn event_handler(
@@ -606,11 +642,22 @@ fn render_event_detail(
     let mut controls = Vec::new();
     if let Some(primary) = section.primary {
         controls.push(
-            event_action_button(primary.action, event_handler(primary.intent, slots))
-                .into_any_element(),
+            event_action_button(
+                primary.action,
+                event_control_style(primary.intent),
+                event_handler(primary.intent, slots),
+            )
+            .into_any_element(),
         );
     }
-    controls.push(event_action_button(section.logs, slots.event_logs.clone()).into_any_element());
+    controls.push(
+        event_action_button(
+            section.logs,
+            ControlStyle::RowAction,
+            slots.event_logs.clone(),
+        )
+        .into_any_element(),
+    );
     controls.push(overflow.into_any_element());
     div()
         .flex()
@@ -804,9 +851,11 @@ fn source_action_button(
     display: SourceReadinessActionDisplay,
     handler: Option<PanelClickHandler>,
 ) -> Button {
+    let style = ControlStyle::RowAction;
     let disabled = display.disabled() || handler.is_none();
     detail_action_button(
         display.id,
+        style,
         display.label,
         display.a11y_label,
         disabled,
@@ -814,10 +863,15 @@ fn source_action_button(
     )
 }
 
-fn event_action_button(display: EventActionDisplay, handler: Option<PanelClickHandler>) -> Button {
+fn event_action_button(
+    display: EventActionDisplay,
+    style: ControlStyle,
+    handler: Option<PanelClickHandler>,
+) -> Button {
     let disabled = display.disabled() || handler.is_none();
     detail_action_button(
         display.id,
+        style,
         display.label,
         display.a11y_label,
         disabled,
@@ -829,9 +883,11 @@ fn stream_action_button(
     display: StreamActionDisplay,
     handler: Option<PanelClickHandler>,
 ) -> Button {
+    let style = ControlStyle::CompactAction;
     let disabled = display.disabled() || handler.is_none();
     detail_action_button(
         display.id,
+        style,
         display.label,
         display.a11y_label,
         disabled,
@@ -841,11 +897,12 @@ fn stream_action_button(
 
 fn publisher_action_button(
     display: PublisherActionDisplay,
+    style: ControlStyle,
     role: PublisherServiceRole,
     handler: Option<PublisherClickHandler>,
 ) -> Button {
     let disabled = display.disabled() || handler.is_none();
-    let mut button = Button::styled(SharedString::from(display.id), ControlStyle::RowAction)
+    let mut button = Button::styled(SharedString::from(display.id), style)
         .label(display.label)
         .a11y_label(display.a11y_label.clone())
         .tooltip(display.a11y_label)
@@ -864,12 +921,13 @@ fn publisher_action_button(
 
 fn detail_action_button(
     id: impl Into<gpui::ElementId>,
+    style: ControlStyle,
     label: &'static str,
     a11y_label: String,
     disabled: bool,
     handler: Option<PanelClickHandler>,
 ) -> Button {
-    let mut button = Button::styled(id, ControlStyle::RowAction)
+    let mut button = Button::styled(id, style)
         .label(label)
         .a11y_label(a11y_label.clone())
         .tooltip(a11y_label)

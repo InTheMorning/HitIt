@@ -642,7 +642,7 @@ fn empty_state_content(
                 actions = actions.child(
                     UiButton::styled(
                         SharedString::from(format!("search-failure-{intent:?}")),
-                        ControlStyle::Secondary,
+                        ControlStyle::Neutral,
                     )
                     .label(display.label)
                     .a11y_label(display.a11y_label)

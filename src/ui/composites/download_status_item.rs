@@ -158,7 +158,7 @@ fn render_dismiss_button(
     handler: &ClickHandler,
 ) -> UiButton {
     let handler = Rc::clone(handler);
-    UiButton::styled(dismiss.id, ControlStyle::Secondary)
+    UiButton::styled(dismiss.id, ControlStyle::Neutral)
         .leading_icon(IconName::Close)
         .label(dismiss.label)
         .a11y_label(dismiss.a11y_label)

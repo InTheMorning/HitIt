@@ -93,7 +93,7 @@ pub(crate) fn public_playlist_copy_dialog(
                         .child(
                             UiButton::styled(
                                 SharedString::from("public-playlist-copy-cancel"),
-                                ControlStyle::Secondary,
+                                ControlStyle::Neutral,
                             )
                             .size(ButtonSize::Md)
                             .label(COPY_CANCEL_LABEL)
@@ -321,7 +321,7 @@ pub(crate) fn render_public_playlist_failed(
         .child(
             UiButton::styled(
                 SharedString::from("music-public-playlist-retry"),
-                ControlStyle::Ghost,
+                ControlStyle::Neutral,
             )
             .label("Try again")
             .a11y_label("Send the MusicIndex playlist request again")

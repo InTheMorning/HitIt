@@ -273,7 +273,7 @@ fn header_action_button(
     handler: Option<FrameButtonHandler>,
 ) -> Button {
     let a11y_label = display.a11y_label.clone();
-    let mut button = Button::styled(SharedString::from(display.id), ControlStyle::Ghost)
+    let mut button = Button::styled(SharedString::from(display.id), ControlStyle::Neutral)
         .label(display.label)
         .a11y_label(a11y_label.clone())
         .tooltip(a11y_label);

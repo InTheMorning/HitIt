@@ -6,6 +6,8 @@
 //! callbacks — the primitive owns no state.
 //! Keyboard actions share visible focus chrome (ADRs 0033/0034/0069).
 //! Focused action buttons reserve Enter from pane shortcuts (ADR 0071).
+//! A button with a label is a pill and an icon button is a circle
+//! (musicindex ADR 0020 R-ACT-2).
 //!
 //! Size selection follows the HIG button rule: every variant ships with
 //! ≥ 14pt **semibold** label text so filled / tinted variants qualify as
@@ -34,17 +36,20 @@ use super::tooltip::Tooltip;
 /// HIG button styles.
 ///
 /// * **Filled** — high-emphasis primary action. Solid accent fill.
-/// * **Tinted** — medium-emphasis. Translucent accent background, accent
-///   text.
-/// * **Plain** — low-emphasis / inline action. Transparent background,
-///   accent text. Equivalent to a "ghost" button, but the label is *always*
-///   accent-colored so it stays readable on any surface our tokens emit.
-/// * **Destructive** — high-emphasis dangerous action. Solid danger fill.
+/// * **Tinted** — medium-emphasis. The accent tint with accent text.
+/// * **Plain** — an icon button or a menu item. Transparent background, accent
+///   text. With a text label and centered content it draws as Neutral
+///   (musicindex ADR 0042 R-ACT-6).
+/// * **Neutral** — a command that changes no stored data. The text color on the
+///   neutral fill (musicindex ADR 0042 R-ACT-5).
+/// * **Destructive** — dangerous action. A red label on the danger tint, never
+///   a fill (musicindex ADR 0020 R-ACT-3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonVariant {
     Filled,
     Tinted,
     Plain,
+    Neutral,
     Destructive,
 }
 
@@ -87,8 +92,8 @@ type ActivateHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 
 const BUTTON_KEY_CONTEXT: &str = "ActionButton";
 
-pub(crate) const TINTED_BUTTON_BG_ALPHA: f32 = 0.08;
-pub(crate) const TINTED_BUTTON_HOVER_BG_ALPHA: f32 = 0.12;
+/// A tint grows by this alpha under the pointer.
+pub(crate) const TINT_HOVER_ALPHA_STEP: f32 = 0.03;
 
 #[derive(IntoElement)]
 #[must_use]
@@ -105,11 +110,11 @@ pub struct Button {
     a11y_label: Option<gpui::SharedString>,
     leading_icon: Option<IconName>,
     narrow_hit_target: bool,
+    compact_inset: bool,
     on_click: Option<ClickHandler>,
     on_activate: Option<ActivateHandler>,
     focus_handle: Option<gpui::FocusHandle>,
     appearance: Option<Appearance>,
-    radius: Option<Radius>,
     font_size: Option<FontSize>,
     foreground: Option<SemanticColor>,
     border: Option<SemanticColor>,
@@ -133,11 +138,11 @@ impl Button {
             a11y_label: None,
             leading_icon: None,
             narrow_hit_target: false,
+            compact_inset: false,
             on_click: None,
             on_activate: None,
             focus_handle: None,
             appearance: None,
-            radius: None,
             font_size: None,
             foreground: None,
             border: None,
@@ -192,6 +197,13 @@ impl Button {
         self
     }
 
+    /// Gives a pill the smaller side space of a menu item, for a menu trigger in
+    /// a header that must stay on one line at each UI scale (ADR 0074).
+    pub const fn compact_inset(mut self) -> Self {
+        self.compact_inset = true;
+        self
+    }
+
     pub const fn leading_icon(mut self, icon: IconName) -> Self {
         self.leading_icon = Some(icon);
         self
@@ -207,7 +219,6 @@ impl Button {
         self.variant = spec.variant;
         self.size = spec.size;
         self.font_size = Some(spec.font_size);
-        self.radius = Some(spec.radius);
         self.foreground = spec.foreground;
         self.border = spec.border;
         self.control_style = Some(style);
@@ -312,10 +323,51 @@ impl Button {
         Size::MinHitTarget.scaled(cx)
     }
 
+    /// R-ACT-2 items 1 and 2: a label gives a pill, and an icon alone gives a
+    /// circle. A menu item is a row, so it has the radius of a row
+    /// (musicindex ADR 0024).
+    const fn radius(&self) -> Radius {
+        match self.content_alignment {
+            ButtonContentAlignment::Center => Radius::Full,
+            ButtonContentAlignment::Leading => Radius::LG,
+        }
+    }
+
+    /// An icon with no text. Its width is its height, so it is a circle.
+    fn is_icon_only(&self) -> bool {
+        self.leading_icon.is_some()
+            && self.description.is_none()
+            && self.label.as_ref().is_none_or(|label| label.is_empty())
+    }
+
+    fn border_width(&self) -> gpui::Pixels {
+        if self.border.is_some() {
+            px(1.0)
+        } else {
+            px(0.0)
+        }
+    }
+
+    /// A border takes its width from the inset, so that a selected tab has the
+    /// width of the same tab when it is not selected.
+    fn with_width(&self, visual: gpui::Div, cx: &App) -> gpui::Div {
+        if self.is_icon_only() {
+            visual.w(self.height(cx)).flex_none()
+        } else {
+            visual.px(self.px_inset().scaled(cx) - self.border_width())
+        }
+    }
+
+    /// A pill has more space at each side than a menu item or a letter of the
+    /// letter bar, because the round end cuts into that space.
     fn px_inset(&self) -> Spacing {
-        match self.size {
-            ButtonSize::Sm => Spacing::SM,
-            ButtonSize::Md | ButtonSize::Lg => Spacing::MD,
+        let compact = self.narrow_hit_target
+            || self.compact_inset
+            || matches!(self.content_alignment, ButtonContentAlignment::Leading);
+        match (self.size, compact) {
+            (ButtonSize::Sm, true) => Spacing::SM,
+            (ButtonSize::Sm, false) | (ButtonSize::Md | ButtonSize::Lg, true) => Spacing::MD,
+            (ButtonSize::Md | ButtonSize::Lg, false) => Spacing::LG,
         }
     }
 
@@ -357,11 +409,7 @@ impl Button {
     /// ever fires, bring the measured mismatch back to ADR 0039; never
     /// shrink the font or grow chrome here to silence it.
     fn debug_assert_label_reservation_fits(&self, font_role: FontSize, cx: &App) {
-        let border_width = if self.border.is_some() {
-            px(1.0)
-        } else {
-            px(0.0)
-        };
+        let border_width = self.border_width();
         debug_assert!(
             self.description.is_some()
                 || layout::button_label_reservation(font_role, ScaleFactor::current(cx))
@@ -374,18 +422,32 @@ impl Button {
         );
     }
 
+    /// R-ACT-6 item 1: a button with a text label has a fill. A menu item is a
+    /// row, and `Unfilled` names the other items of item 2.
+    fn effective_variant(&self) -> ButtonVariant {
+        let has_text = self.label.as_ref().is_some_and(|label| !label.is_empty());
+        let centered = matches!(self.content_alignment, ButtonContentAlignment::Center);
+        match self.variant {
+            ButtonVariant::Plain if has_text && centered => match self.control_style {
+                Some(ControlStyle::Unfilled) => ButtonVariant::Plain,
+                Some(ControlStyle::DestructiveRowAction) => ButtonVariant::Destructive,
+                _ => ButtonVariant::Neutral,
+            },
+            variant => variant,
+        }
+    }
+
     fn resolved_colors(&self, cx: &App, appearance: Option<Appearance>) -> (Rgba, Rgba, Rgba) {
-        let (mut bg, mut fg, hover_bg) = match self.variant {
+        let (mut bg, mut fg, hover_bg) = match self.effective_variant() {
             ButtonVariant::Filled => (
                 resolve_color(cx, SemanticColor::Accent, appearance),
                 resolve_color(cx, SemanticColor::OnAccent, appearance),
                 resolve_color(cx, SemanticColor::AccentHover, appearance),
             ),
             ButtonVariant::Tinted => {
-                let mut tint = resolve_color(cx, SemanticColor::Accent, appearance);
-                tint.a = TINTED_BUTTON_BG_ALPHA;
+                let tint = resolve_color(cx, SemanticColor::AccentTint, appearance);
                 let mut hover = tint;
-                hover.a = TINTED_BUTTON_HOVER_BG_ALPHA;
+                hover.a += TINT_HOVER_ALPHA_STEP;
                 (
                     tint,
                     resolve_color(cx, SemanticColor::Accent, appearance),
@@ -402,25 +464,28 @@ impl Button {
                     hover,
                 )
             }
-            ButtonVariant::Destructive => (
-                resolve_color(cx, SemanticColor::Danger, appearance),
-                resolve_color(cx, SemanticColor::OnDanger, appearance),
-                {
-                    let mut hover = resolve_color(cx, SemanticColor::Danger, appearance);
-                    hover.r = (hover.r + 0.05).min(1.0);
-                    hover.g = (hover.g + 0.05).min(1.0);
-                    hover.b = (hover.b + 0.05).min(1.0);
-                    hover
-                },
+            ButtonVariant::Neutral => (
+                resolve_color(cx, SemanticColor::ButtonFill, appearance),
+                resolve_color(cx, SemanticColor::Label, appearance),
+                resolve_color(cx, SemanticColor::ButtonFillHover, appearance),
             ),
+            ButtonVariant::Destructive => {
+                let tint = resolve_color(cx, SemanticColor::DangerTint, appearance);
+                let mut hover = tint;
+                hover.a += TINT_HOVER_ALPHA_STEP;
+                (
+                    tint,
+                    resolve_color(cx, SemanticColor::DangerLabel, appearance),
+                    hover,
+                )
+            }
         };
         if let Some(foreground) = self.foreground {
             fg = resolve_color(cx, foreground, appearance);
         }
         // R-LIST-1 item 3: the current view icon has a tint.
         if self.selected {
-            bg = fg;
-            bg.a = TINTED_BUTTON_HOVER_BG_ALPHA;
+            bg = resolve_color(cx, SemanticColor::AccentTint, appearance);
         }
         (bg, fg, hover_bg)
     }
@@ -431,7 +496,7 @@ impl RenderOnce for Button {
         let min_hit_target = Self::min_hit_target(cx);
         let font_role = self.font_size.unwrap_or_else(|| self.font_size());
         let font = font_role.scaled(cx);
-        let radius = self.radius.unwrap_or(Radius::MD).scaled(cx);
+        let radius = self.radius().scaled(cx);
         let appearance = self.appearance;
 
         self.debug_assert_label_reservation_fits(font_role, cx);
@@ -456,12 +521,13 @@ impl RenderOnce for Button {
             .items_center()
             .gap(Spacing::XS.scaled(cx))
             .h(self.height(cx))
-            .px(self.px_inset().scaled(cx))
             .rounded(radius)
             .bg(bg)
             .text_color(fg)
             .text_size(font)
             .font_weight(FontWeight::SEMIBOLD);
+
+        visual = self.with_width(visual, cx);
 
         visual = match content_alignment {
             ButtonContentAlignment::Center => visual.justify_center(),
@@ -614,6 +680,93 @@ fn keyboard_activation_key(event: &KeyDownEvent) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// musicindex ADR 0020 R-ACT-2: each role gives a pill, a menu item keeps
+    /// the radius of a row, and an icon alone is a circle.
+    #[test]
+    fn button_shape_follows_the_shared_rule() {
+        for style in [
+            ControlStyle::Primary,
+            ControlStyle::Secondary,
+            ControlStyle::Neutral,
+            ControlStyle::Destructive,
+            ControlStyle::RowAction,
+            ControlStyle::MetadataAction,
+            ControlStyle::SelectedTab,
+        ] {
+            assert_eq!(
+                Button::styled("role", style).label("Open").radius(),
+                Radius::Full,
+                "musicindex ADR 0020 R-ACT-2: {style:?} must be a pill. Fix the radius in \
+                 Button::radius, not at the caller."
+            );
+        }
+        assert_eq!(Button::plain("menu").align_leading().radius(), Radius::LG);
+
+        let icon = Button::styled("icon", ControlStyle::ToolbarIcon).leading_icon(IconName::Add);
+        assert!(icon.is_icon_only());
+        assert!(icon.label("").is_icon_only());
+        assert!(!Button::plain("text")
+            .leading_icon(IconName::Add)
+            .label("Add")
+            .is_icon_only());
+    }
+
+    /// musicindex ADR 0042 R-ACT-6: each role with a text label has a fill. Only
+    /// `Unfilled`, a menu item and an icon button have none. Fix: give the button a
+    /// role of R-ACT-4, or name the item in R-ACT-6 item 2.
+    #[test]
+    fn a_button_with_a_text_label_has_a_fill() {
+        for style in [
+            ControlStyle::Primary,
+            ControlStyle::Secondary,
+            ControlStyle::Neutral,
+            ControlStyle::CompactAction,
+            ControlStyle::Destructive,
+            ControlStyle::RowAction,
+            ControlStyle::ToolbarIcon,
+            ControlStyle::DestructiveRowAction,
+            ControlStyle::MetadataAction,
+            ControlStyle::SelectedTab,
+        ] {
+            assert_ne!(
+                Button::styled("role", style)
+                    .label("Open")
+                    .effective_variant(),
+                ButtonVariant::Plain,
+                "musicindex ADR 0042 R-ACT-6: {style:?} with a text label has no fill."
+            );
+        }
+        assert_eq!(
+            Button::plain("plain").label("Open").effective_variant(),
+            ButtonVariant::Neutral
+        );
+        assert_eq!(
+            Button::styled("remove", ControlStyle::DestructiveRowAction)
+                .label("Remove")
+                .effective_variant(),
+            ButtonVariant::Destructive
+        );
+        assert_eq!(
+            Button::styled("letter", ControlStyle::Unfilled)
+                .label("A")
+                .effective_variant(),
+            ButtonVariant::Plain
+        );
+        assert_eq!(
+            Button::plain("menu")
+                .label("A to Z")
+                .align_leading()
+                .effective_variant(),
+            ButtonVariant::Plain
+        );
+        assert_eq!(
+            Button::styled("icon", ControlStyle::ToolbarIcon)
+                .leading_icon(IconName::Add)
+                .effective_variant(),
+            ButtonVariant::Plain
+        );
+    }
 
     #[test]
     fn leading_icon_uses_semantic_icon_role() {

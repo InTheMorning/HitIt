@@ -2,8 +2,8 @@
 //! Apple-style segmented control composite.
 //!
 //! Mutually-exclusive horizontal selector built on the [`Button`] primitive.
-//! The currently-selected segment renders with the configured selected
-//! treatment; the rest render plain. Spacing between segments scales with the
+//! The selected segment has a tint and an outline (musicindex ADR 0020 R-ACT-1
+//! item 3); the rest render plain. Spacing between segments scales with the
 //! global UI scale.
 //!
 //! Accessibility note (ADR 0038 task 005): every segment carries a VM/screen
@@ -12,32 +12,25 @@
 use std::rc::Rc;
 
 use gpui::{
-    div, App, ClickEvent, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
-    Window,
+    App, ClickEvent, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Window,
 };
 
-use crate::ui::primitives::{Button, ButtonVariant, HStack};
-use crate::ui::tokens::{Radius, Spacing};
+use crate::ui::control_styles::ControlStyle;
+use crate::ui::primitives::{Button, HStack};
+use crate::ui::tokens::Spacing;
 
 type OnSelect<K> = Rc<dyn Fn(&K, &mut Window, &mut App) + 'static>;
 
-/// Visual treatment for a [`SegmentedControl`].
+/// The spacing of a [`SegmentedControl`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SegmentedControlStyle {
-    /// High-emphasis selection for settings and inspector-level choices.
+    /// Settings and inspector-level choices.
     Prominent,
-    /// Medium-emphasis filter selection that preserves button metrics.
+    /// A filter above a list.
     Filter,
 }
 
 impl SegmentedControlStyle {
-    const fn selected_variant(self) -> ButtonVariant {
-        match self {
-            Self::Prominent => ButtonVariant::Filled,
-            Self::Filter => ButtonVariant::Tinted,
-        }
-    }
-
     const fn spacing(self) -> Spacing {
         match self {
             Self::Prominent => Spacing::XS,
@@ -119,7 +112,7 @@ impl<K: Clone + PartialEq + 'static> SegmentedControl<K> {
 }
 
 impl<K: Clone + PartialEq + 'static> RenderOnce for SegmentedControl<K> {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let on_select = self.on_select;
         let selected = self.selected;
         let style = self.style;
@@ -128,12 +121,12 @@ impl<K: Clone + PartialEq + 'static> RenderOnce for SegmentedControl<K> {
         for segment in self.segments {
             let key = segment.key.clone();
             let is_selected = key == selected;
-            let variant = if is_selected {
-                style.selected_variant()
+            let role = if is_selected {
+                ControlStyle::SelectedTab
             } else {
-                ButtonVariant::Plain
+                ControlStyle::Neutral
             };
-            let mut button = Button::new(segment.id, variant)
+            let mut button = Button::styled(segment.id, role)
                 .label(segment.label.clone())
                 .a11y_label(segment.a11y_label.clone());
             if let Some(handler) = on_select.clone() {
@@ -146,7 +139,7 @@ impl<K: Clone + PartialEq + 'static> RenderOnce for SegmentedControl<K> {
             row = row.child(button);
         }
 
-        div().rounded(Radius::SM.scaled(cx)).child(row)
+        row
     }
 }
 
@@ -169,15 +162,8 @@ mod tests {
     }
 
     #[test]
-    fn filter_style_changes_chrome_without_changing_control_role() {
-        assert_eq!(
-            SegmentedControlStyle::Filter.selected_variant(),
-            ButtonVariant::Tinted
-        );
-        assert_eq!(
-            SegmentedControlStyle::Prominent.selected_variant(),
-            ButtonVariant::Filled
-        );
+    fn filter_style_changes_the_spacing() {
+        assert_eq!(SegmentedControlStyle::Prominent.spacing(), Spacing::XS);
         assert_eq!(SegmentedControlStyle::Filter.spacing(), Spacing::XXS);
     }
 }

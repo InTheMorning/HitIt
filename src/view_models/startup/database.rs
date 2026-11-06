@@ -35,6 +35,19 @@ pub(crate) enum DatabaseAction {
     CopyReport,
 }
 
+impl DatabaseAction {
+    /// Whether the command writes stored data. The renderer maps the result
+    /// to a role through `ControlStyle::by_result` (musicindex ADR 0042
+    /// R-ACT-4).
+    #[must_use]
+    pub(crate) const fn changes_stored_data(self) -> bool {
+        matches!(
+            self,
+            Self::Backup | Self::Preserve | Self::UpgradeBackup | Self::EndSession
+        )
+    }
+}
+
 pub(crate) struct DatabaseActionDisplay {
     pub(crate) action: DatabaseAction,
     pub(crate) label: &'static str,
@@ -678,6 +691,14 @@ fn snapshot_report(snapshot: &Snapshot) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Musicindex ADR 0042 R-ACT-4: Back up writes a file. A check writes
+    /// nothing.
+    #[test]
+    fn adr_0042_database_backup_changes_stored_data_and_check_does_not() {
+        assert!(DatabaseAction::Backup.changes_stored_data());
+        assert!(!DatabaseAction::Check.changes_stored_data());
+    }
 
     #[test]
     fn adr_0075_migration_repair_report_does_not_claim_current_readiness() {

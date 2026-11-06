@@ -162,7 +162,7 @@ pub(crate) fn saved_search_query_field(
             label: "Save Query",
             a11y_label: format!("Save the query \"{typed}\" of this saved search"),
             available,
-            style: SearchPageActionStyle::Plain,
+            style: SearchPageActionStyle::Action,
         },
         cancel: SearchPageActionDisplay {
             id: "music-saved-search-query-cancel",

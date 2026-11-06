@@ -6144,11 +6144,6 @@ fn pressable_button_chrome_does_not_use_on_accent_on_ghost_surfaces() {
     for file in ["src/ui/control_styles.rs"] {
         let source = read_source(&manifest_path(file));
         for (line_number, line) in code_lines(&source) {
-            if line.contains("ControlStyle::Pill") && line.contains("OnAccent") {
-                violations.push(format!(
-                    "{file}:{line_number}: tinted pill buttons must use accent text, not OnAccent"
-                ));
-            }
             if line.contains(".ghost()") {
                 let following = source
                     .lines()

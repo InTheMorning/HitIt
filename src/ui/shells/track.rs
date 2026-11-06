@@ -87,7 +87,7 @@ pub(crate) fn render_track_name_links(
             } = link;
             let button = Button::styled(
                 SharedString::from(format!("track-name-link-{index}")),
-                ControlStyle::Ghost,
+                ControlStyle::Unfilled,
             )
             .label(label)
             .a11y_label(a11y_label)

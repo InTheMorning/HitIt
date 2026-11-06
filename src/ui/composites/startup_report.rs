@@ -185,7 +185,7 @@ fn capability_button(display: CapabilityActionDisplay, handler: CapabilityHandle
     let action = display.action;
     Button::styled(
         SharedString::from(format!("capability-{action:?}")),
-        ControlStyle::Secondary,
+        ControlStyle::by_result(action.changes_stored_data()),
     )
     .label(display.label)
     .a11y_label(display.a11y_label)
@@ -223,7 +223,7 @@ pub(crate) fn startup_report(
                 if intent == StartupAction::OpenApp {
                     ControlStyle::Primary
                 } else {
-                    ControlStyle::Secondary
+                    ControlStyle::Neutral
                 },
             )
             .label(display.label)

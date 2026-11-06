@@ -74,6 +74,7 @@ impl<T: Copy + 'static> RenderOnce for PageMenu<T> {
             SharedString::from(format!("{}-trigger", self.id)),
             ControlStyle::RowAction,
         )
+        .compact_inset()
         .label(label)
         .a11y_label(self.label)
         .track_focus(focus.read(cx))
@@ -115,9 +116,9 @@ impl<T: Copy + 'static> RenderOnce for PageMenu<T> {
                         let button = Button::styled(
                             SharedString::from(format!("{}-{}", self.id, choice.label)),
                             if choice.selected {
-                                ControlStyle::Primary
+                                ControlStyle::SelectedTab
                             } else {
-                                ControlStyle::Ghost
+                                ControlStyle::Neutral
                             },
                         )
                         .label(choice.label)

@@ -188,7 +188,7 @@ impl RenderOnce for SelectionActionBar {
                     action.element_id,
                     action.label,
                     action.a11y_label,
-                    ControlStyle::Secondary,
+                    ControlStyle::Destructive,
                     on_remove_from_playlist.clone(),
                 ),
                 SelectionActionKind::MoveToTop => action_button(
@@ -209,7 +209,7 @@ impl RenderOnce for SelectionActionBar {
                     action.element_id,
                     action.label,
                     action.a11y_label,
-                    ControlStyle::Ghost,
+                    ControlStyle::Neutral,
                     on_clear.clone(),
                 ),
             });

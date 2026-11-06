@@ -125,7 +125,7 @@ fn render_matched_feed_notice(
         .child(
             Button::styled(
                 SharedString::from(format!("name-level-open-feed:{}", notice.feed_guid)),
-                ControlStyle::Ghost,
+                ControlStyle::Neutral,
             )
             .label(notice.action_label)
             .a11y_label(notice.a11y_label)

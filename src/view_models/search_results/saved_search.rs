@@ -98,7 +98,11 @@ pub(crate) fn is_query_saved(saved: &[SavedSearch], query: &str) -> bool {
 /// The control style of a search page action.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum SearchPageActionStyle {
-    /// A plain button: "Save search".
+    /// A button that adds or changes something: "Save search" and "Save
+    /// Query" (musicindex ADR 0042 R-ACT-4).
+    Action,
+    /// A button that changes no stored data: "Cancel" and "New Saved
+    /// Search".
     Plain,
     /// A destructive button: "Delete…".
     Destructive,
@@ -133,7 +137,7 @@ pub(crate) fn save_search_action(query: &str, saved: &[SavedSearch]) -> SearchPa
             label: "Save search",
             a11y_label: format!("Save the search \"{}\" in Search", query.trim()),
             available: true,
-            style: SearchPageActionStyle::Plain,
+            style: SearchPageActionStyle::Action,
         }
     }
 }
@@ -498,7 +502,7 @@ mod tests {
     use super::{
         delete_saved_search_confirmation, location_after_saved_search_delete, save_search_action,
         saved_search_restore, saved_search_result_is_current, SavedSearch, SavedSearchId,
-        SavedSearchPage, SavedSearchRestore,
+        SavedSearchPage, SavedSearchRestore, SearchPageActionStyle,
     };
     use crate::view_models::search_results::tests::{index_release, index_track, RecordedLibrary};
     use crate::view_models::search_results::{
@@ -538,11 +542,13 @@ mod tests {
         assert_eq!(new.label, "Save search");
         assert!(new.available);
         assert_eq!(new.a11y_label, "Save the search \"ambient\" in Search");
+        assert_eq!(new.style, SearchPageActionStyle::Action);
 
         let present = save_search_action("Bluegrass", &list);
         assert_eq!(present.label, "Saved");
         assert!(!present.available);
         assert_eq!(present.a11y_label, "This search is saved in Search");
+        assert_eq!(present.style, SearchPageActionStyle::Plain);
 
         let vm = SearchResultsInspectorPageVm::new("bluegrass");
         assert_eq!(vm.save_action(&list).label, "Saved");

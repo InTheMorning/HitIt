@@ -112,9 +112,9 @@ pub(crate) fn letter_bar(
     let focus_color = resolve_color(cx, SemanticColor::Focus, None);
     for letter in display.letters {
         let style = if letter.selected {
-            ControlStyle::Primary
+            ControlStyle::SelectedTab
         } else {
-            ControlStyle::Ghost
+            ControlStyle::Unfilled
         };
         let mut button = Button::styled(SharedString::from(letter.id), style)
             .narrow_hit_target()

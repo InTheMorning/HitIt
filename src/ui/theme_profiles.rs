@@ -105,6 +105,11 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
         SemanticColor::AccentPressed => hex(0x38_caff),
         SemanticColor::OnAccent => hex(0x00_0000),
         SemanticColor::Focus => hex(0xff_f06a),
+        SemanticColor::AccentTint => tint(0x66_d9ff, 0.18),
+        SemanticColor::AccentOutline => tint(0x66_d9ff, 0.34),
+        SemanticColor::DangerTint => tint(0xff_6b6b, 0.16),
+        SemanticColor::ButtonFill => tint(0x76_7680, 0.24),
+        SemanticColor::ButtonFillHover => tint(0xff_ffff, 0.12),
 
         SemanticColor::Success => hex(0x00_e676),
         SemanticColor::Warning => hex(0xff_d60a),
@@ -180,6 +185,11 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
         SemanticColor::AccentPressed => hex(0x00_32a8),
         SemanticColor::OnAccent => hex(0xff_ffff),
         SemanticColor::Focus => hex(0x00_40dd),
+        SemanticColor::AccentTint => tint(0x00_40dd, 0.12),
+        SemanticColor::AccentOutline => tint(0x00_40dd, 0.40),
+        SemanticColor::DangerTint => tint(0xb0_0020, 0.10),
+        SemanticColor::ButtonFill => tint(0x78_7880, 0.14),
+        SemanticColor::ButtonFillHover => tint(0x78_7880, 0.18),
 
         SemanticColor::Success => hex(0x00_6d2c),
         SemanticColor::Warning => hex(0x7a_4b00),
@@ -226,6 +236,12 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
 }
 
 #[inline]
+const fn tint(rgb: u32, alpha: f32) -> Rgba {
+    let mut color = hex(rgb);
+    color.a = alpha;
+    color
+}
+
 const fn hex(rgb: u32) -> Rgba {
     #[expect(
         clippy::cast_precision_loss,

@@ -88,7 +88,7 @@ fn action_button(
     action: IndexListAction,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
-    UiButton::styled(SharedString::from(display.id), ControlStyle::Ghost)
+    UiButton::styled(SharedString::from(display.id), ControlStyle::Neutral)
         .label(display.label)
         .a11y_label(display.a11y_label)
         .disabled(!display.available)

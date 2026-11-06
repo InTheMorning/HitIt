@@ -13,6 +13,16 @@ pub(crate) enum SessionAction {
     Quit,
 }
 
+impl SessionAction {
+    /// Whether the command writes stored data. The renderer maps the result
+    /// to a role through `ControlStyle::by_result` (musicindex ADR 0042
+    /// R-ACT-4).
+    #[must_use]
+    pub(crate) const fn changes_stored_data(self) -> bool {
+        matches!(self, Self::EndSession)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SessionActionDisplay {
     pub(crate) action: SessionAction,
@@ -126,6 +136,14 @@ impl SessionReportVm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Musicindex ADR 0042 R-ACT-4: End app session writes data. Copy report
+    /// writes nothing.
+    #[test]
+    fn adr_0042_session_end_changes_stored_data_and_copy_report_does_not() {
+        assert!(SessionAction::EndSession.changes_stored_data());
+        assert!(!SessionAction::CopyReport.changes_stored_data());
+    }
 
     #[test]
     fn adr_0066_session_actions_explain_playback_and_keep_retry_report_available() {
