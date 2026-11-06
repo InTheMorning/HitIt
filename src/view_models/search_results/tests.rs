@@ -233,18 +233,19 @@ fn no_index_rows() -> IndexSearchResultRows {
     IndexSearchResultRows::default()
 }
 
-/// R10-01: the tabs are Releases, Artists and Tracks, in that order, with
-/// those labels. Releases is the default.
+/// R10-01 (ADR 0089 Decision 4 supersedes its three tabs): the tabs are All,
+/// Releases, Tracks, Artists and Labels, in that order, with those labels.
+/// All is the default.
 #[test]
-fn adr_0084_search_list_r10_01_three_tabs_in_order() {
+fn adr_0089_task_008_five_tabs_in_order_and_all_is_default() {
     assert_eq!(
         SearchResultsTab::ALL.map(SearchResultsTab::label),
-        ["Releases", "Artists", "Tracks"]
+        ["All", "Releases", "Tracks", "Artists", "Labels"]
     );
-    assert_eq!(SearchResultsTab::default(), SearchResultsTab::Releases);
+    assert_eq!(SearchResultsTab::default(), SearchResultsTab::All);
     assert_eq!(
         SearchResultsInspectorPageVm::new("q").tab(),
-        SearchResultsTab::Releases
+        SearchResultsTab::All
     );
 }
 
@@ -259,6 +260,7 @@ fn adr_0084_search_list_r10_02_one_release_row_for_each_item() {
         &local,
         &super::ArtistSearchFacts::default(),
     );
+    vm.set_tab(SearchResultsTab::Releases);
     vm.replace_index_results(IndexSearchResultRows {
         feeds: vec![
             index_release(2_000_000_000, "g-library", "Library Release"),
@@ -348,7 +350,6 @@ fn adr_0084_search_list_release_kind_is_the_first_word_of_the_subtitle() {
     let saved = super::SavedSearch {
         id: super::SavedSearchId(1),
         query: "haleen".to_owned(),
-        start_tab: SearchResultsTab::Releases,
         name: None,
     };
     let detail = vm.into_saved_search(&saved);
@@ -399,6 +400,7 @@ fn adr_0084_search_list_merged_row_takes_the_index_image_when_the_library_has_no
 #[test]
 fn adr_0084_search_list_r10_03_index_hit_of_a_library_feed_is_a_library_row() {
     let mut vm = SearchResultsInspectorPageVm::new("q");
+    vm.set_tab(SearchResultsTab::Releases);
     vm.replace_index_results(IndexSearchResultRows {
         feeds: vec![index_release(2_000_000_000, "g-stored", "Stored Release")],
         ..no_index_rows()
@@ -472,7 +474,7 @@ fn adr_0084_search_list_r10_06_feed_row_badges() {
         ],
         ..no_index_rows()
     });
-    assert_eq!(vm.tab(), SearchResultsTab::Artists);
+    vm.set_tab(SearchResultsTab::Artists);
     let mut lookup = RecordedLibrary::default();
     lookup
         .artist_feeds
@@ -604,6 +606,7 @@ fn selectable_page() -> (SearchResultsInspectorPageVm, RecordedLibrary) {
         &local,
         &super::ArtistSearchFacts::default(),
     );
+    vm.set_tab(SearchResultsTab::Releases);
     vm.replace_index_results(IndexSearchResultRows {
         artists: vec![(1_000_000_000, artist(1, "Haleen"))],
         feeds: vec![index_release(2_000_000_000, "g-index", "Index Release")],
@@ -672,6 +675,7 @@ fn adr_0084_search_list_r10_10_tab_change_clears_and_index_arrival_keeps() {
         &local,
         &super::ArtistSearchFacts::default(),
     );
+    vm.set_tab(SearchResultsTab::Releases);
     vm.mark_index_loading();
     let lookup = RecordedLibrary::default().with_release("g-library", 7, true);
     let library_key = DetailRowKey::Release(ReleaseKey::FeedGuid("g-library".to_owned()));
@@ -796,7 +800,8 @@ fn adr_0084_search_list_click_opens_in_normal_and_selects_in_selecting() {
 /// It has no clear-filter action.
 #[test]
 fn adr_0084_search_list_empty_state_names_the_tab_and_the_query() {
-    let vm = SearchResultsInspectorPageVm::new("bluegrass");
+    let mut vm = SearchResultsInspectorPageVm::new("bluegrass");
+    vm.set_tab(SearchResultsTab::Releases);
     let empty = vm.empty_state().expect("no row gives an empty state");
     assert_eq!(empty.title, "No releases");
     assert_eq!(empty.secondary, "No releases matched \"bluegrass\".");
@@ -810,14 +815,17 @@ fn index_loading_suppresses_empty_state() {
     assert!(vm.empty_state().is_none());
 }
 
+/// ADR 0089 Decision 4: the page stays on the tab All when the Index rows
+/// arrive, and a tab that the curator chose stays chosen on a refresh. The
+/// earlier rule that picked the first populated tab is retired.
 #[test]
-fn index_results_auto_select_first_populated_tab_until_user_selects_tab() {
+fn adr_0089_task_008_all_stays_until_the_curator_selects_a_tab() {
     let mut vm = SearchResultsInspectorPageVm::new("delta");
     vm.replace_index_results(IndexSearchResultRows {
         tracks: vec![index_track(3_000_000_000, Some("g"), "t", "Remote Track")],
         ..no_index_rows()
     });
-    assert_eq!(vm.tab(), SearchResultsTab::Tracks);
+    assert_eq!(vm.tab(), SearchResultsTab::All);
     assert!(vm.empty_state().is_none());
 
     vm.set_tab(SearchResultsTab::Artists);
@@ -987,6 +995,7 @@ fn adr_0087_one_index_error_r87_9_05_older_run_error_does_not_reach_newer_page()
     let mut newer =
         SearchResultsInspectorPageVm::from_local_library_tracks("haleen d", &rows_in, &facts)
             .with_run_generation(newer_generation);
+    newer.set_tab(SearchResultsTab::Releases);
     assert!(newer.begin_index_run(newer_generation));
 
     let error = CommandError::Query("connection refused".into());
@@ -1047,6 +1056,7 @@ fn adr_0084_search_list_rejected_query_shows_a_note_with_the_library_rows() {
         &local,
         &super::ArtistSearchFacts::default(),
     );
+    vm.set_tab(SearchResultsTab::Releases);
     vm.mark_index_loading();
     vm.set_index_error(
         &crate::application::CommandError::QueryRejected(
@@ -1074,6 +1084,7 @@ fn adr_0084_search_list_rejected_query_shows_a_note_with_the_library_rows() {
     assert!(!report.contains("secret"));
 
     let mut no_rows = SearchResultsInspectorPageVm::new("haleen'");
+    no_rows.set_tab(SearchResultsTab::Releases);
     no_rows.set_index_error(
         &crate::application::CommandError::QueryRejected("HTTP 400".into()),
         "https://index.test",
@@ -1102,6 +1113,7 @@ fn adr_0084_search_open_defects_r28_06_unavailable_index_gives_a_note_after_the_
         &local,
         &super::ArtistSearchFacts::default(),
     );
+    vm.set_tab(SearchResultsTab::Releases);
     vm.mark_index_loading();
     vm.set_index_error(
         &crate::application::CommandError::Query("connection refused".into()),
@@ -1123,6 +1135,7 @@ fn adr_0084_search_open_defects_r28_06_unavailable_index_gives_a_note_after_the_
     );
 
     let mut no_rows = SearchResultsInspectorPageVm::new("hey");
+    no_rows.set_tab(SearchResultsTab::Releases);
     no_rows.mark_index_loading();
     no_rows.set_index_error(
         &crate::application::CommandError::Query("connection refused".into()),
@@ -1558,10 +1571,11 @@ fn recorded_link_fact_rows() -> SearchResultsInspectorPageVm {
 /// of the view model says "Publisher" or "Unverified".
 #[test]
 fn adr_0084_search_link_facts_r29_07_badge_sequence() {
-    let vm = recorded_link_fact_rows();
-    assert_eq!(vm.tab(), SearchResultsTab::Artists);
-    let rows = rows(&vm, &RecordedLibrary::default());
-    let labels: Vec<(&str, &str)> = rows
+    let mut vm = recorded_link_fact_rows();
+    assert_eq!(vm.tab(), SearchResultsTab::All);
+    vm.set_tab(SearchResultsTab::Artists);
+    let artist_rows = rows(&vm, &RecordedLibrary::default());
+    let labels: Vec<(&str, &str)> = artist_rows
         .iter()
         .map(|row| {
             (
@@ -1573,23 +1587,28 @@ fn adr_0084_search_link_facts_r29_07_badge_sequence() {
     assert_eq!(
         labels,
         [
-            ("Sir Libre Records", "Label"),
             ("Kolomona Myer - AKA Sir Libre", "Artist"),
             ("Haleen", "Artist"),
             ("Haleen", "Artist"),
             ("HeyCitizen", "Artist"),
             ("TJ Wong", "Feed"),
-        ]
+        ],
+        "the Artists tab has no feed with a role other than artist"
     );
+    vm.set_tab(SearchResultsTab::Labels);
+    let label_rows = rows(&vm, &RecordedLibrary::default());
+    assert_eq!(label_rows.len(), 1);
     assert_eq!(
-        rows[0].badge,
+        label_rows[0].badge,
         Some(SearchRowBadge::Roles("Label".to_owned()))
     );
     assert_eq!(
-        rows[0].a11y_label,
+        label_rows[0].a11y_label,
         "Open the feed page Sir Libre Records, Label"
     );
-    for row in &rows {
+    vm.set_tab(SearchResultsTab::All);
+    let all_rows = rows(&vm, &RecordedLibrary::default());
+    for row in &all_rows {
         let badge = row.badge.as_ref().expect("a feed row has a badge");
         assert!(
             row.a11y_label.ends_with(&format!(", {}", badge.label())),
@@ -1632,8 +1651,9 @@ fn adr_0084_search_link_facts_r29_07_two_roles_give_the_frame_title_text() {
 /// with the link facts of a label (decision D3). A row with no link fact
 /// gives "Feed".
 #[test]
-fn adr_0084_search_link_facts_r29_08_library_decides_first() {
+fn adr_0084_search_link_facts_r29_08_library_feed_keeps_its_role_word() {
     let mut vm = SearchResultsInspectorPageVm::new("libre");
+    vm.set_tab(SearchResultsTab::Labels);
     vm.replace_index_results(IndexSearchResultRows {
         artists: vec![
             index_feed_page_with_facts(
@@ -1651,14 +1671,28 @@ fn adr_0084_search_link_facts_r29_08_library_decides_first() {
     lookup
         .artist_feeds
         .insert("34bf795f-f551-4db1-8877-ad19aa5f89c8".to_owned());
-    let rows = rows(&vm, &lookup);
-    assert_eq!(rows[0].badge, Some(SearchRowBadge::Artist));
+    let label_rows = rows(&vm, &lookup);
     assert_eq!(
-        rows[0].a11y_label,
-        "Open the feed page Sir Libre Records, Artist"
+        label_rows.len(),
+        1,
+        "the Labels tab holds the label feed only"
     );
-    assert_eq!(rows[1].badge, Some(SearchRowBadge::Feed));
-    assert_eq!(rows[1].a11y_label, "Open the feed page No Facts, Feed");
+    assert_eq!(
+        label_rows[0].badge,
+        Some(SearchRowBadge::Roles("Label".to_owned())),
+        "a stated label role gives its word, not Artist (ADR 0085 Decision 7)"
+    );
+    assert_eq!(
+        label_rows[0].a11y_label,
+        "Open the feed page Sir Libre Records, Label"
+    );
+    vm.set_tab(SearchResultsTab::Artists);
+    let artist_rows = rows(&vm, &lookup);
+    assert_eq!(artist_rows[0].badge, Some(SearchRowBadge::Feed));
+    assert_eq!(
+        artist_rows[0].a11y_label,
+        "Open the feed page No Facts, Feed"
+    );
 }
 
 /// The skip of a query whose Index part has a field that the Index cannot
@@ -1688,6 +1722,7 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
         &local,
         &super::ArtistSearchFacts::default(),
     );
+    vm.set_tab(SearchResultsTab::Releases);
 
     vm.set_index_skipped(&skip);
 
@@ -1700,6 +1735,7 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
     assert!(notice.failure.is_none());
 
     let mut empty = SearchResultsInspectorPageVm::new("zzzz kind:ep");
+    empty.set_tab(SearchResultsTab::Releases);
     empty.set_index_skipped(&unsupported_skip("zzzz kind:ep"));
     assert!(empty.index_notice().is_none());
     let state = empty.empty_state().expect("the empty tab shows the note");
@@ -1714,6 +1750,7 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
 #[test]
 fn adr_0087_library_fields_r87_2_25_conflict_and_library_only_states() {
     let mut conflict = SearchResultsInspectorPageVm::new("conflict");
+    conflict.set_tab(SearchResultsTab::Releases);
     conflict.set_index_skipped(&super::IndexSkip::Conflict);
     let state = conflict.empty_state().expect("a conflict shows no rows");
     assert_eq!(state.title, super::SCOPE_CONFLICT_TITLE);
@@ -1728,12 +1765,14 @@ fn adr_0087_library_fields_r87_2_25_conflict_and_library_only_states() {
             &local,
             &super::ArtistSearchFacts::default(),
         );
+        with_rows.set_tab(SearchResultsTab::Releases);
         with_rows.set_index_skipped(&skip);
         assert!(with_rows.index_notice().is_none(), "{skip:?}");
         assert!(with_rows.empty_state().is_none(), "{skip:?}");
         assert!(!with_rows.is_index_loading(), "{skip:?}");
 
         let mut empty = SearchResultsInspectorPageVm::new("haleen");
+        empty.set_tab(SearchResultsTab::Releases);
         empty.set_index_skipped(&skip);
         let state = empty.empty_state().expect("an empty tab");
         assert_eq!(state.title, "No releases", "{skip:?}");
@@ -1890,6 +1929,7 @@ fn two_library_release_page() -> SearchResultsInspectorPageVm {
 fn adr_0087_live_index_rows_r87_7_01_loading_rows_follow_library_rows() {
     let generation = generations(1);
     let mut vm = two_library_release_page();
+    vm.set_tab(SearchResultsTab::Releases);
     assert_eq!(row_ids(&vm).len(), 2);
     assert!(vm.begin_index_run(generation[0]));
     assert_eq!(vm.index_pending_row_count(), super::INDEX_PENDING_ROW_COUNT);
@@ -2038,5 +2078,207 @@ fn adr_0089_task_008_results_page_scope_reads_the_query_and_tab_keeps_it() {
     assert_eq!(
         SearchResultsInspectorPageVm::new("haleen").library_scope(),
         ListScope::All
+    );
+}
+
+/// ADR 0089 Decision 4: each tab counts the rows of its group, and the tab
+/// All sums the groups. The feed rows of artists and labels are divided by
+/// their roles (musicindex ADR 0033 R-WORD-3). A name row stays in Artists.
+#[test]
+fn adr_0089_task_008_each_tab_counts_its_group_and_all_sums_them() {
+    let mut vm = SearchResultsInspectorPageVm::new("q");
+    vm.replace_index_results(IndexSearchResultRows {
+        artists: vec![
+            (1_000_000_000, artist(1, "Haleen")),
+            index_feed_page_with_facts(
+                4_000_000_000,
+                "label-guid",
+                "Sir Libre Records",
+                &["label"],
+                0,
+            ),
+            index_feed_page(4_000_000_001, "no-roles-guid", "No Roles"),
+        ],
+        feeds: vec![index_release(2_000_000_000, "g-index", "Index Release")],
+        tracks: vec![index_track(
+            3_000_000_000,
+            Some("g-index"),
+            "t1",
+            "Index Track",
+        )],
+        feed_rows_partial: false,
+    });
+    let counts = |vm: &SearchResultsInspectorPageVm| {
+        vm.tab_counts()
+            .map(|count| (count.tab, count.count, count.text()))
+    };
+    assert_eq!(
+        counts(&vm),
+        [
+            (SearchResultsTab::All, 5, "5".to_owned()),
+            (SearchResultsTab::Releases, 1, "1".to_owned()),
+            (SearchResultsTab::Tracks, 1, "1".to_owned()),
+            (SearchResultsTab::Artists, 2, "2".to_owned()),
+            (SearchResultsTab::Labels, 1, "1".to_owned()),
+        ]
+    );
+
+    vm.replace_index_results(IndexSearchResultRows {
+        artists: vec![(1_000_000_000, artist(1, "Haleen"))],
+        feeds: vec![index_release(2_000_000_000, "g-index", "Index Release")],
+        feed_rows_partial: true,
+        ..no_index_rows()
+    });
+    let partial = vm.tab_counts();
+    assert_eq!(partial[0].text(), "2+", "All is partial when a group is");
+    assert_eq!(
+        partial[1].text(),
+        "1+",
+        "a partial feed count gives a floor"
+    );
+    assert_eq!(
+        partial[3].text(),
+        "1+",
+        "the Artists tab reads the feed rows"
+    );
+    assert_eq!(partial[4].text(), "0", "a tab with no row shows no floor");
+}
+
+/// ADR 0089 Decision 4: a tab change selects a group of the run and keeps
+/// the query text.
+#[test]
+fn adr_0089_task_008_a_tab_change_keeps_the_query() {
+    let mut vm = SearchResultsInspectorPageVm::new("haleen kind:ep");
+    for tab in SearchResultsTab::ALL {
+        vm.set_tab(tab);
+        assert_eq!(vm.tab(), tab);
+        assert_eq!(
+            vm.query(),
+            "haleen kind:ep",
+            "the tab {tab:?} keeps the query"
+        );
+    }
+}
+
+/// ADR 0089 Decision 4: the tab All lists each group that has rows, in the
+/// order of the tabs, with a heading for each group. A group with no row
+/// has no heading.
+#[test]
+fn adr_0089_task_008_all_lists_the_groups_in_order_with_headings() {
+    let lookup = RecordedLibrary::default();
+    let headings = |vm: &SearchResultsInspectorPageVm| {
+        vm.visible_items(&lookup)
+            .iter()
+            .filter_map(|item| match item {
+                super::SearchResultItemVm::Heading(tab) => Some(tab.label()),
+                super::SearchResultItemVm::Row(_) | super::SearchResultItemVm::WindowGroup(_) => {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let mut vm = SearchResultsInspectorPageVm::new("q");
+    vm.replace_index_results(IndexSearchResultRows {
+        artists: vec![
+            (1_000_000_000, artist(1, "Haleen")),
+            index_feed_page_with_facts(4_000_000_000, "label-guid", "Label", &["label"], 0),
+        ],
+        feeds: vec![index_release(2_000_000_000, "g-index", "Index Release")],
+        tracks: vec![index_track(
+            3_000_000_000,
+            Some("g-index"),
+            "t1",
+            "Index Track",
+        )],
+        feed_rows_partial: false,
+    });
+    assert_eq!(vm.tab(), SearchResultsTab::All);
+    assert_eq!(
+        headings(&vm),
+        ["Releases", "Tracks", "Artists", "Labels"],
+        "each group with rows has a heading, in the tab order"
+    );
+    let first = vm.visible_items(&lookup);
+    assert!(matches!(
+        first.first(),
+        Some(super::SearchResultItemVm::Heading(
+            SearchResultsTab::Releases
+        ))
+    ));
+
+    let mut labels_only = SearchResultsInspectorPageVm::new("q");
+    labels_only.replace_index_results(IndexSearchResultRows {
+        artists: vec![index_feed_page_with_facts(
+            4_000_000_000,
+            "label-guid",
+            "Label",
+            &["label"],
+            0,
+        )],
+        ..no_index_rows()
+    });
+    assert_eq!(
+        headings(&labels_only),
+        ["Labels"],
+        "a group with no row is absent"
+    );
+}
+
+/// ADR 0089 Decision 9: the tab All has no selection model, so it has no
+/// Select button. The Releases tab keeps its selection model.
+#[test]
+fn adr_0089_task_008_all_has_no_select_and_releases_keeps_it() {
+    let (mut vm, lookup) = selectable_page();
+    vm.set_tab(SearchResultsTab::All);
+    assert!(vm.selection_rows(&lookup).is_none());
+    assert!(vm.header_action(&lookup).is_none());
+    assert!(vm.action_bar(&lookup).is_none());
+
+    vm.set_tab(SearchResultsTab::Releases);
+    assert!(vm.header_action(&lookup).is_some());
+}
+
+/// ADR 0089 Decision 9: the tab All moves the keyboard focus through its
+/// rows in display order, across the group headings. Each row is one
+/// focus stop, and a row of another group is reached by the same motion.
+#[test]
+fn adr_0089_task_008_all_moves_the_focus_across_groups() {
+    use crate::view_models::list_selection::FocusStep;
+    let (mut vm, lookup) = selectable_page();
+    vm.set_tab(SearchResultsTab::All);
+    let keys: Vec<_> = vm
+        .visible_items(&lookup)
+        .iter()
+        .filter_map(super::SearchResultItemVm::key)
+        .collect();
+    assert_eq!(keys.len(), 4, "two releases and two keyed tracks");
+
+    assert_eq!(
+        vm.move_focus(FocusStep::Down, &lookup),
+        Some(keys[0].clone())
+    );
+    assert_eq!(
+        vm.move_focus(FocusStep::Down, &lookup),
+        Some(keys[1].clone())
+    );
+    assert_eq!(
+        vm.move_focus(FocusStep::Down, &lookup),
+        Some(keys[2].clone()),
+        "the focus crosses the Tracks heading"
+    );
+    assert_eq!(
+        vm.focused_row_index(&lookup),
+        Some(4),
+        "the index counts the Releases heading, two releases, the Tracks heading"
+    );
+    assert_eq!(vm.move_focus(FocusStep::Up, &lookup), Some(keys[1].clone()));
+    assert_eq!(
+        vm.move_focus(FocusStep::Home, &lookup),
+        Some(keys[0].clone())
+    );
+    assert_eq!(
+        vm.move_focus(FocusStep::End, &lookup),
+        Some(keys[3].clone())
     );
 }

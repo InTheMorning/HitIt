@@ -458,7 +458,7 @@ impl TopApp {
             .visible_items(&lookup)
             .into_iter()
             .find(|item| item.key().as_ref() == Some(&focused))
-            .map(|item| (detail.tab(), item.row_id().to_owned()))
+            .and_then(|item| Some((item.tab()?, item.row_id()?.to_owned())))
     }
 
     /// Escape, for the search list. Gives `false` outside selection mode,

@@ -13655,7 +13655,6 @@ mod adr_0086_saved_search_groups_tests {
     use super::*;
     use crate::view_models::search_results::{
         IndexSearchResultRows, SavedSearch, SavedSearchId, SearchResultsInspectorPageVm,
-        SearchResultsTab,
     };
     use crate::view_models::window_groups::WindowGroupSource;
 
@@ -13749,7 +13748,6 @@ mod adr_0086_saved_search_groups_tests {
         let search = SavedSearch {
             id: SavedSearchId(1),
             query: "jsmovie".to_owned(),
-            start_tab: SearchResultsTab::Releases,
             name: None,
         };
         let mut page = SearchResultsInspectorPageVm::new("jsmovie").into_saved_search(&search);

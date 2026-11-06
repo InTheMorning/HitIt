@@ -54,12 +54,6 @@ impl<Row> SearchResultsPagedTab<Row> {
     pub(crate) const fn window(&self) -> &PagedListVm<SearchResultItemId, Row> {
         &self.window
     }
-
-    /// Returns whether the tab has no row.
-    #[must_use]
-    pub(crate) fn is_empty(&self) -> bool {
-        self.window.total() == 0
-    }
 }
 
 impl<Row: Clone + SearchRowMergeKey> SearchResultsPagedTab<Row> {

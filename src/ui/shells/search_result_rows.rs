@@ -65,14 +65,15 @@ pub(crate) enum SearchRowLeading {
     },
 }
 
-/// Renders one search row.
+/// Renders one search row. The row carries its group tab, so a row of the
+/// tab All opens with the tab of its own group.
 pub(crate) fn render_result_row(
-    tab: SearchResultsTab,
     row: SearchResultRowVm,
     leading: SearchRowLeading,
     handlers: SearchResultRowHandlers<'_>,
     cx: &App,
 ) -> AnyElement {
+    let tab = row.tab;
     let kind = entity_kind_for_tab(tab);
     let row_id = row.id.clone();
     let element_id = format!("search-results-{}-{row_id}", tab_id(tab));
@@ -283,17 +284,22 @@ pub(crate) fn origin_label(origin: SearchResultOrigin) -> Label {
 
 pub(crate) const fn tab_id(tab: SearchResultsTab) -> &'static str {
     match tab {
+        SearchResultsTab::All => "all",
         SearchResultsTab::Releases => "releases",
-        SearchResultsTab::Artists => "artists",
         SearchResultsTab::Tracks => "tracks",
+        SearchResultsTab::Artists => "artists",
+        SearchResultsTab::Labels => "labels",
     }
 }
 
+/// The kind of the placeholder of a row of a tab. The tab All has rows of
+/// each group, so its loading rows show the release placeholder.
 const fn entity_kind_for_tab(tab: SearchResultsTab) -> EntityKind {
     match tab {
-        SearchResultsTab::Releases => EntityKind::Release,
-        SearchResultsTab::Artists => EntityKind::Artist,
+        SearchResultsTab::All | SearchResultsTab::Releases => EntityKind::Release,
         SearchResultsTab::Tracks => EntityKind::Track,
+        SearchResultsTab::Artists => EntityKind::Artist,
+        SearchResultsTab::Labels => EntityKind::Feed,
     }
 }
 
@@ -342,6 +348,8 @@ mod tests {
         assert_eq!(tab_id(SearchResultsTab::Releases), "releases");
         assert_eq!(tab_id(SearchResultsTab::Artists), "artists");
         assert_eq!(tab_id(SearchResultsTab::Tracks), "tracks");
+        assert_eq!(tab_id(SearchResultsTab::All), "all");
+        assert_eq!(tab_id(SearchResultsTab::Labels), "labels");
     }
 
     #[test]

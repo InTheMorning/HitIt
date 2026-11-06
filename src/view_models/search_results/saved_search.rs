@@ -26,8 +26,6 @@ pub(crate) struct SavedSearch {
     pub(crate) id: SavedSearchId,
     /// The trimmed query text.
     pub(crate) query: String,
-    /// The tab that was open at the save. The page opens on this tab.
-    pub(crate) start_tab: SearchResultsTab,
     /// The name that the operator gave, or `None` to show the query.
     pub(crate) name: Option<String>,
 }
@@ -46,7 +44,6 @@ impl SavedSearch {
         Self {
             id: SavedSearchId(stored.id),
             query: stored.query,
-            start_tab: SearchResultsTab::from(stored.start_tab),
             name: stored.name,
         }
     }
@@ -75,21 +72,14 @@ pub(crate) fn saved_search_label(query: &str) -> String {
     format!("Saved: {query}")
 }
 
-impl From<StoredStartTab> for SearchResultsTab {
-    fn from(tab: StoredStartTab) -> Self {
-        match tab {
-            StoredStartTab::Releases => Self::Releases,
-            StoredStartTab::Artists => Self::Artists,
-            StoredStartTab::Tracks => Self::Tracks,
-        }
-    }
-}
-
+/// The stored start tab of a new saved search. The column keeps its three
+/// values (ADR 0089 Decision 4): a saved search opens on All, so the stored
+/// value of All and of Labels is the value that the column held before.
 impl From<SearchResultsTab> for StoredStartTab {
     fn from(tab: SearchResultsTab) -> Self {
         match tab {
-            SearchResultsTab::Releases => Self::Releases,
-            SearchResultsTab::Artists => Self::Artists,
+            SearchResultsTab::All | SearchResultsTab::Releases => Self::Releases,
+            SearchResultsTab::Artists | SearchResultsTab::Labels => Self::Artists,
             SearchResultsTab::Tracks => Self::Tracks,
         }
     }
@@ -517,11 +507,10 @@ mod tests {
     use crate::view_models::workspace::{
         FrameNavigationEntry, FrameNavigationState, MusicDestination,
     };
-    fn saved(id: i64, query: &str, start_tab: SearchResultsTab) -> SavedSearch {
+    fn saved(id: i64, query: &str) -> SavedSearch {
         SavedSearch {
             id: SavedSearchId(id),
             query: query.to_owned(),
-            start_tab,
             name: None,
         }
     }
@@ -542,7 +531,7 @@ mod tests {
     /// available, with its accessibility label.
     #[test]
     fn adr_0084_saved_search_r12_03_save_action_follows_the_saved_list() {
-        let list = [saved(1, "bluegrass", SearchResultsTab::Releases)];
+        let list = [saved(1, "bluegrass")];
 
         let new = save_search_action("ambient", &list);
         assert_eq!(new.label, "Save search");
@@ -559,14 +548,14 @@ mod tests {
         assert_eq!(vm.save_action(&[]).label, "Save search");
     }
 
-    /// R12-06 (ADR 0084 Decision 3): the page opens on its start tab, also
-    /// when the Index rows of another tab arrive first.
+    /// R12-06 (ADR 0084 Decision 3, ADR 0089 Decision 4): the page opens on
+    /// the tab All, also when the Index rows arrive first.
     #[test]
-    fn adr_0084_saved_search_r12_06_page_opens_on_its_start_tab() {
-        let search = saved(4, "bluegrass", SearchResultsTab::Tracks);
+    fn adr_0084_saved_search_r12_06_page_opens_on_all() {
+        let search = saved(4, "bluegrass");
         let mut page = open_page(&search);
         let results = page.results_mut().expect("an open page has results");
-        assert_eq!(results.tab(), SearchResultsTab::Tracks);
+        assert_eq!(results.tab(), SearchResultsTab::All);
         results.mark_index_loading();
 
         results.replace_index_results(IndexSearchResultRows {
@@ -576,8 +565,8 @@ mod tests {
 
         assert_eq!(
             results.tab(),
-            SearchResultsTab::Tracks,
-            "the Releases rows do not change the start tab"
+            SearchResultsTab::All,
+            "the Releases rows do not change the tab All"
         );
         assert_eq!(
             results.selection().entry(),
@@ -592,8 +581,8 @@ mod tests {
     /// A with the page of B, so the stale result for A no longer matches.
     #[test]
     fn adr_0084_saved_search_r12_07_stale_result_changes_nothing() {
-        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
-        let b = saved(2, "ambient", SearchResultsTab::Releases);
+        let a = saved(1, "bluegrass");
+        let b = saved(2, "ambient");
 
         let page_a = open_page(&a);
         assert!(saved_search_result_is_current(
@@ -619,7 +608,7 @@ mod tests {
     /// gives the empty state, and the restore starts no query.
     #[test]
     fn adr_0084_saved_search_r12_09_deleted_entry_runs_no_query() {
-        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let a = saved(1, "bluegrass");
         let mounted = open_page(&a);
 
         assert_eq!(
@@ -652,9 +641,10 @@ mod tests {
     /// Tracks tab. The header action has the id of the detail column.
     #[test]
     fn adr_0084_saved_search_r12_10_header_action_and_bar() {
-        let search = saved(5, "q", SearchResultsTab::Releases);
+        let search = saved(5, "q");
         let mut page = open_page(&search);
         let results = page.results_mut().unwrap();
+        results.set_tab(SearchResultsTab::Releases);
         results.replace_index_results(IndexSearchResultRows {
             feeds: vec![index_release(2_000_000_000, "g-index", "Index Release")],
             tracks: vec![index_track(
@@ -710,7 +700,7 @@ mod tests {
     /// shows the rows, not a stuck loading state.
     #[test]
     fn adr_0084_saved_search_late_reply_after_leaving_the_path_is_not_stuck_loading() {
-        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let a = saved(1, "bluegrass");
         let mut page = open_page(&a);
         page.results_mut()
             .expect("an open page has results")
@@ -770,7 +760,7 @@ mod tests {
         );
         assert_eq!(confirmation.confirm_label, "Delete");
 
-        let search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        let search = saved(3, "bluegrass");
         let action = open_page(&search)
             .delete_action()
             .expect("an open page gives Delete");
@@ -796,7 +786,7 @@ mod tests {
     /// its query.
     #[test]
     fn adr_0089_saved_search_row_shows_the_name_or_the_query() {
-        let mut search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        let mut search = saved(3, "bluegrass");
         assert_eq!(search.display_label(), "bluegrass");
         search.name = Some("Old time".to_owned());
         assert_eq!(search.display_label(), "Old time");
@@ -808,7 +798,7 @@ mod tests {
     /// available, and only the delete item is destructive.
     #[test]
     fn adr_0089_saved_search_menu_has_the_four_items_in_order() {
-        let search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        let search = saved(3, "bluegrass");
         let menu = super::saved_search_menu(&search);
         let labels: Vec<&str> = menu.iter().map(|entry| entry.label).collect();
         assert_eq!(
@@ -840,7 +830,7 @@ mod tests {
     /// carry their labels and accessibility labels from the view model.
     #[test]
     fn adr_0089_saved_search_rename_and_new_button_are_typed() {
-        let mut search = saved(3, "bluegrass", SearchResultsTab::Releases);
+        let mut search = saved(3, "bluegrass");
         search.name = Some("Old time".to_owned());
         let rename = super::saved_search_rename_display(&search);
         assert_eq!(rename.save_label, "Save");
@@ -860,7 +850,7 @@ mod tests {
     /// field is open (ADR 0087 Decision 4).
     #[test]
     fn adr_0089_saved_search_query_edit_live_query_and_current_results() {
-        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let a = saved(1, "bluegrass");
         let mut page = open_page(&a);
         assert!(page.begin_query_edit());
         assert!(!page.begin_query_edit(), "a second open changes nothing");
@@ -896,7 +886,7 @@ mod tests {
     /// saved-search entry.
     #[test]
     fn adr_0089_saved_search_query_edit_live_results_keep_the_tab() {
-        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let a = saved(1, "bluegrass");
         let mut page = open_page(&a);
         page.results_mut()
             .expect("an open page has results")
@@ -926,7 +916,7 @@ mod tests {
     /// or the query field, never both. The page gives that fact.
     #[test]
     fn adr_0089_saved_search_query_edit_header_shows_the_query_or_the_field() {
-        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let a = saved(1, "bluegrass");
         let mut page = open_page(&a);
         assert!(page.header_shows_query());
         assert!(page.begin_query_edit());

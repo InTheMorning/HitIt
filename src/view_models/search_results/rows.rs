@@ -131,18 +131,18 @@ impl SearchRowBadge {
         }
     }
 
-    /// The badge of a feed row, in the sequence of packet 029 "The badge".
-    /// A feed of the Library Artists list is "Artist" whatever its link
-    /// facts (decision D3). A row with no link class is "Feed".
+    /// The badge of a feed row (ADR 0085 Decision 7). A feed with a stated
+    /// role other than artist shows that role word, also when the Library
+    /// holds it as an artist, so the badge agrees with the Labels tab. A feed
+    /// of the Library Artists list is otherwise "Artist" (decision D3). A
+    /// row with no link class is "Feed".
     fn for_feed(is_library_artist: bool, link_class: Option<&FeedLinkClass>) -> Self {
-        if is_library_artist {
-            return Self::Artist;
-        }
         match link_class {
-            Some(FeedLinkClass::Artist | FeedLinkClass::UnverifiedArtist) => Self::Artist,
             Some(FeedLinkClass::OtherRoles(words)) => {
                 Self::Roles(capitalize_first(&role_list_text(words)))
             }
+            _ if is_library_artist => Self::Artist,
+            Some(FeedLinkClass::Artist | FeedLinkClass::UnverifiedArtist) => Self::Artist,
             Some(FeedLinkClass::NotNamedFirst) | None => Self::Feed,
         }
     }
@@ -168,6 +168,10 @@ const SEARCH_LIST_SUBTITLE_SEPARATOR: &str = " \u{b7} ";
 /// One visible search row. The shell lays it out and makes no text.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SearchResultRowVm {
+    /// The group tab of the row: Releases, Tracks, Artists or Labels. The
+    /// tab All shows each row in its group, so the row carries the tab that
+    /// [`SearchResultTarget::from_row_id`] parses its id with.
+    pub(crate) tab: SearchResultsTab,
     /// The row id. [`SearchResultTarget::from_row_id`] parses it.
     pub(crate) id: String,
     /// The title.
@@ -259,6 +263,7 @@ pub(super) fn release_row_vm(
         None => ReleaseDownloadStateVm::in_library(false),
     });
     SearchResultRowVm {
+        tab: SearchResultsTab::Releases,
         marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
@@ -298,6 +303,7 @@ pub(super) fn track_row_vm(
     let library = row.key.as_ref().and_then(|key| lookup.track(key));
     let key = row.key.clone().map(DetailRowKey::Track);
     SearchResultRowVm {
+        tab: SearchResultsTab::Tracks,
         marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
@@ -310,6 +316,19 @@ pub(super) fn track_row_vm(
         badge: None,
         selection: selection.row_selection(key.as_ref(), &row.label),
         key,
+    }
+}
+
+/// The group tab of an artist row (ADR 0089 Decision 4). A feed whose
+/// agreed roles hold a role other than artist is a label row, by its link
+/// facts (musicindex ADR 0033 R-WORD-3). Each other row, a name row
+/// included, is an artist row.
+#[must_use]
+pub(super) fn artist_tab(row: &ArtistResultDisplay) -> SearchResultsTab {
+    if matches!(row.link_class, Some(FeedLinkClass::OtherRoles(_))) {
+        SearchResultsTab::Labels
+    } else {
+        SearchResultsTab::Artists
     }
 }
 
@@ -333,6 +352,7 @@ pub(super) fn artist_row_vm(
         None => row.a11y_label.clone(),
     };
     SearchResultRowVm {
+        tab: artist_tab(row),
         marked: false,
         id: row.id.clone(),
         label: row.label.clone(),

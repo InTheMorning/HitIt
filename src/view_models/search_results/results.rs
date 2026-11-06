@@ -396,11 +396,13 @@ impl SearchResultTarget {
         }
     }
 
-    /// The target of the row `id` of the tab `tab`. `None` for an id of
-    /// another form.
+    /// The target of the row `id` of the group tab `tab`. `None` for an id of
+    /// another form, and for the tab All, which has no id form of its own:
+    /// each row of All carries its group tab.
     #[must_use]
     pub(crate) fn from_row_id(tab: SearchResultsTab, id: &str) -> Option<Self> {
         match tab {
+            SearchResultsTab::All => None,
             SearchResultsTab::Releases => id.strip_prefix("index-feed:").map_or_else(
                 || {
                     id.parse::<i64>()
@@ -428,7 +430,7 @@ impl SearchResultTarget {
                     .ok()
                     .map(Self::LibraryTrack)
             }
-            SearchResultsTab::Artists => {
+            SearchResultsTab::Artists | SearchResultsTab::Labels => {
                 if let Some(feed_guid) = id
                     .strip_prefix(ARTIST_FEED_RESULT_PREFIX)
                     .or_else(|| id.strip_prefix(INDEX_FEED_PAGE_RESULT_PREFIX))

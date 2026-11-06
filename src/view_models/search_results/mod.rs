@@ -69,7 +69,7 @@ pub(crate) use search_run::{
     LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger, INDEX_SKIP_ROWS_TEXT,
     SCOPE_CONFLICT_TEXT, SCOPE_CONFLICT_TITLE,
 };
-pub(crate) use tabs::{SearchResultItemId, SearchResultOrigin, SearchResultsTab};
+pub(crate) use tabs::{SearchResultItemId, SearchResultOrigin, SearchResultsTab, SearchTabCount};
 
 use self::empty_state::empty_state_for;
 use self::paged_tab::SearchRowMergeKey;
@@ -103,7 +103,6 @@ pub(crate) struct SearchResultsInspectorPageVm {
     /// cannot apply a term of the query.
     index_skip_notice: Option<EmptyStateDisplay>,
     empty_state: Option<EmptyStateDisplay>,
-    tab_was_user_selected: bool,
     /// The page entry of this view model: `FrameNavigationEntry::Search`
     /// for the toolbar search, or `FrameNavigationEntry::SavedSearch` for
     /// the saved-search page of the detail column (packet 012).
@@ -151,7 +150,6 @@ impl SearchResultsInspectorPageVm {
             index_skip: None,
             index_skip_notice: None,
             empty_state: None,
-            tab_was_user_selected: false,
             entry,
             selection,
             status_text: None,
@@ -324,15 +322,13 @@ impl SearchResultsInspectorPageVm {
     }
 
     /// Returns this page as the page of the saved search `search` (packet
-    /// 012). The page opens on the start tab of the save. The tab counts as
-    /// a tab that the operator selected, so the arrival of the Index rows
-    /// does not change it. The selection belongs to the saved-search entry.
+    /// 012). The page opens on the tab All (ADR 0089 Decision 4). The
+    /// selection belongs to the saved-search entry.
     #[must_use]
     pub(crate) fn into_saved_search(mut self, search: &SavedSearch) -> Self {
         self.entry = search.entry();
         self.selection.reset(Some(self.entry.clone()));
-        self.tab = search.start_tab;
-        self.tab_was_user_selected = true;
+        self.tab = SearchResultsTab::All;
         self.refresh_empty_state();
         self
     }
@@ -349,7 +345,6 @@ impl SearchResultsInspectorPageVm {
         self.entry = entry.clone();
         self.selection.reset(Some(entry));
         self.tab = tab;
-        self.tab_was_user_selected = true;
         self.refresh_empty_state();
         self
     }
@@ -437,7 +432,6 @@ impl SearchResultsInspectorPageVm {
         self.releases.replace_index_rows(rows.feeds);
         self.tracks.replace_index_rows(rows.tracks);
         self.feed_rows_partial = rows.feed_rows_partial;
-        self.select_first_populated_tab_if_automatic();
         let members = self.visible_members();
         self.selection.retain_visible(&members);
         self.refresh_empty_state();
@@ -533,37 +527,93 @@ impl SearchResultsInspectorPageVm {
             self.selection.reset(Some(self.entry.clone()));
         }
         self.tab = tab;
-        self.tab_was_user_selected = true;
         self.refresh_empty_state();
     }
 
-    /// The label of the row `id` of the tab `tab`.
+    /// The label of the row `id` of the tab `tab`. The tab All searches
+    /// each group, in the order of [`SearchResultsTab::GROUPS`].
     #[must_use]
     pub(crate) fn row_label(&self, tab: SearchResultsTab, id: &str) -> Option<String> {
-        match tab {
+        group_tabs_of(tab).into_iter().find_map(|tab| match tab {
             SearchResultsTab::Releases => self
                 .releases
-                .cached_row_matching(|row| row.id == id)
-                .map(|row| row.label),
-            SearchResultsTab::Artists => self
-                .artists
                 .cached_row_matching(|row| row.id == id)
                 .map(|row| row.label),
             SearchResultsTab::Tracks => self
                 .tracks
                 .cached_row_matching(|row| row.id == id)
                 .map(|row| row.label),
-        }
+            SearchResultsTab::Artists | SearchResultsTab::Labels => self
+                .artist_rows_of(tab)
+                .into_iter()
+                .find(|row| row.id == id)
+                .map(|row| row.label),
+            SearchResultsTab::All => None,
+        })
     }
 
     /// Returns whether a tab has no rows.
     #[must_use]
     pub(crate) fn is_empty(&self, tab: SearchResultsTab) -> bool {
+        self.count_of(tab) == 0
+    }
+
+    /// The rows of one group of the run that the tab `tab` shows. The
+    /// rows of the Artists tab and the Labels tab are one list, divided by
+    /// the role of each feed (musicindex ADR 0033 R-WORD-3).
+    fn artist_rows_of(&self, tab: SearchResultsTab) -> Vec<ArtistResultDisplay> {
+        self.artists
+            .rows()
+            .into_iter()
+            .filter(|row| rows::artist_tab(row) == tab)
+            .collect()
+    }
+
+    /// The count of the rows of the tab `tab`. The tab All gives the sum of
+    /// the groups.
+    fn count_of(&self, tab: SearchResultsTab) -> usize {
         match tab {
-            SearchResultsTab::Releases => self.releases.is_empty(),
-            SearchResultsTab::Artists => self.artists.is_empty(),
-            SearchResultsTab::Tracks => self.tracks.is_empty(),
+            SearchResultsTab::All => SearchResultsTab::GROUPS
+                .into_iter()
+                .map(|group| self.count_of(group))
+                .sum(),
+            SearchResultsTab::Releases => self.releases.window().total(),
+            SearchResultsTab::Tracks => self.tracks.window().total(),
+            SearchResultsTab::Artists | SearchResultsTab::Labels => self.artist_rows_of(tab).len(),
         }
+    }
+
+    /// Tells if the rows of the tab `tab` are not all the rows of the
+    /// query. The feed rows hold the artist and label rows (ADR 0086 packet
+    /// 005 decision D3), and the Library track search holds the release and
+    /// track rows.
+    fn has_more_of(&self, tab: SearchResultsTab) -> bool {
+        match tab {
+            SearchResultsTab::All => SearchResultsTab::GROUPS
+                .into_iter()
+                .any(|group| self.has_more_of(group)),
+            SearchResultsTab::Releases => self.feed_rows_partial || self.library_rows_partial,
+            SearchResultsTab::Tracks => self.library_rows_partial,
+            SearchResultsTab::Artists | SearchResultsTab::Labels => self.feed_rows_partial,
+        }
+    }
+
+    /// The count of the tab `tab` from the rows of this run (ADR 0089
+    /// Decision 4). A tab with rows and a partial result shows "20+".
+    #[must_use]
+    pub(crate) fn tab_count(&self, tab: SearchResultsTab) -> SearchTabCount {
+        let count = self.count_of(tab);
+        SearchTabCount {
+            tab,
+            count,
+            has_more: count > 0 && self.has_more_of(tab),
+        }
+    }
+
+    /// The counts of the tabs, in the order of [`SearchResultsTab::ALL`].
+    #[must_use]
+    pub(crate) fn tab_counts(&self) -> [SearchTabCount; 5] {
+        SearchResultsTab::ALL.map(|tab| self.tab_count(tab))
     }
 
     /// Returns the empty state for the active tab, if any.
@@ -603,25 +653,52 @@ impl SearchResultsInspectorPageVm {
     /// Returns the visible row thumbnail hrefs of the active tab.
     #[must_use]
     pub(crate) fn thumbnail_hrefs(&self) -> Vec<String> {
-        match self.tab {
+        group_tabs_of(self.tab)
+            .into_iter()
+            .flat_map(|tab| self.group_thumbnail_hrefs(tab))
+            .collect()
+    }
+
+    /// The visible thumbnail hrefs of one group.
+    fn group_thumbnail_hrefs(&self, tab: SearchResultsTab) -> Vec<String> {
+        match tab {
             SearchResultsTab::Releases => {
                 visible_thumbnail_hrefs(self.releases.window(), |row| row.thumbnail_href.as_deref())
             }
-            SearchResultsTab::Artists => {
-                visible_thumbnail_hrefs(self.artists.window(), |row| row.thumbnail_href.as_deref())
-            }
+            SearchResultsTab::Artists | SearchResultsTab::Labels => self
+                .artist_rows_of(tab)
+                .iter()
+                .filter_map(|row| row.thumbnail_href.clone())
+                .take(self.artists.window().page_size())
+                .collect(),
             SearchResultsTab::Tracks => {
                 visible_thumbnail_hrefs(self.tracks.window(), |row| row.thumbnail_href.as_deref())
             }
+            SearchResultsTab::All => Vec::new(),
         }
     }
 
     /// The visible rows of the active tab, with the state word, the badge
     /// and the selection facts of each row. `lookup` gives the Library
-    /// facts at this render.
+    /// facts at this render. Production code reads the rows through
+    /// [`Self::visible_items`].
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn visible_rows(&self, lookup: &dyn SearchLibraryLookup) -> Vec<SearchResultRowVm> {
-        match self.tab {
+        group_tabs_of(self.tab)
+            .into_iter()
+            .flat_map(|tab| self.group_rows(tab, lookup))
+            .collect()
+    }
+
+    /// The rows of one group, in the visible order. The tab All has no
+    /// group of its own, so it gives no row.
+    fn group_rows(
+        &self,
+        tab: SearchResultsTab,
+        lookup: &dyn SearchLibraryLookup,
+    ) -> Vec<SearchResultRowVm> {
+        match tab {
             SearchResultsTab::Releases => self
                 .releases
                 .rows()
@@ -635,9 +712,8 @@ impl SearchResultsInspectorPageVm {
                     )
                 })
                 .collect(),
-            SearchResultsTab::Artists => self
-                .artists
-                .rows()
+            SearchResultsTab::Artists | SearchResultsTab::Labels => self
+                .artist_rows_of(tab)
                 .iter()
                 .map(|row| rows::artist_row_vm(row, lookup))
                 .collect(),
@@ -647,6 +723,7 @@ impl SearchResultsInspectorPageVm {
                 .iter()
                 .map(|row| rows::track_row_vm(row, lookup, &self.selection))
                 .collect(),
+            SearchResultsTab::All => Vec::new(),
         }
     }
 
@@ -660,9 +737,36 @@ impl SearchResultsInspectorPageVm {
         &self,
         lookup: &dyn SearchLibraryLookup,
     ) -> Vec<SearchResultItemVm> {
-        if !self.groups_release_rows() {
+        if self.tab != SearchResultsTab::All {
+            return self.group_items(self.tab, lookup);
+        }
+        // ADR 0089 Decision 4: the tab All lists each group that has rows,
+        // in the order of `SearchResultsTab::GROUPS`, under its heading.
+        SearchResultsTab::GROUPS
+            .into_iter()
+            .flat_map(|group| {
+                let items = self.group_items(group, lookup);
+                if items.is_empty() {
+                    Vec::new()
+                } else {
+                    std::iter::once(SearchResultItemVm::Heading(group))
+                        .chain(items)
+                        .collect()
+                }
+            })
+            .collect()
+    }
+
+    /// The items of one group. The Releases group of a saved search keeps
+    /// its window groups (ADR 0086 Decision 6).
+    fn group_items(
+        &self,
+        tab: SearchResultsTab,
+        lookup: &dyn SearchLibraryLookup,
+    ) -> Vec<SearchResultItemVm> {
+        if tab != SearchResultsTab::Releases || !self.releases_grouped() {
             return self
-                .visible_rows(lookup)
+                .group_rows(tab, lookup)
                 .into_iter()
                 .map(SearchResultItemVm::Row)
                 .collect();
@@ -707,11 +811,18 @@ impl SearchResultsInspectorPageVm {
             })
     }
 
-    /// Tells if the active tab groups its rows: only the Releases tab of a
-    /// saved search page (ADR 0086 packet 005 decision D1).
+    /// Tells if the Releases rows of this page are grouped: a saved search
+    /// page groups them (ADR 0086 packet 005 decision D1).
+    fn releases_grouped(&self) -> bool {
+        matches!(self.entry, FrameNavigationEntry::SavedSearch { .. })
+    }
+
+    /// Tells if the active tab groups its rows: the Releases tab, or the
+    /// tab All with its Releases group, of a saved search page (ADR 0086
+    /// packet 005 decision D1).
     fn groups_release_rows(&self) -> bool {
-        self.tab == SearchResultsTab::Releases
-            && matches!(self.entry, FrameNavigationEntry::SavedSearch { .. })
+        matches!(self.tab, SearchResultsTab::Releases | SearchResultsTab::All)
+            && self.releases_grouped()
     }
 
     /// The selectable rows of the Releases tab of a saved search page with
@@ -773,6 +884,11 @@ impl SearchResultsInspectorPageVm {
         &self,
         lookup: &dyn SearchLibraryLookup,
     ) -> Option<DetailPageRows> {
+        // ADR 0089 packet 008 decision 9: the tab All has no selection
+        // model, so it has no Select button and no checkbox.
+        if self.tab == SearchResultsTab::All {
+            return None;
+        }
         if let Some(grouped) = self.grouped_release_rows(lookup) {
             return Some(grouped);
         }
@@ -785,7 +901,7 @@ impl SearchResultsInspectorPageVm {
                 &self.tracks.rows(),
                 lookup,
             ))),
-            SearchResultsTab::Artists => None,
+            SearchResultsTab::All | SearchResultsTab::Artists | SearchResultsTab::Labels => None,
         }
     }
 
@@ -884,8 +1000,28 @@ impl SearchResultsInspectorPageVm {
         step: FocusStep,
         lookup: &dyn SearchLibraryLookup,
     ) -> Option<DetailRowKey> {
-        let rows = self.selectable_rows(lookup)?;
-        self.selection.move_focus(step, &rows.selection_rows())
+        let rows = self.focus_rows(lookup)?;
+        self.selection.move_focus(step, &rows)
+    }
+
+    /// The rows that the keyboard focus moves through. The tab All moves
+    /// through each group in display order, across the group headings
+    /// (ADR 0089 Decision 9: All has no Select and no selection model).
+    fn focus_rows(
+        &self,
+        lookup: &dyn SearchLibraryLookup,
+    ) -> Option<Vec<SelectionRow<DetailRowKey, DetailRowKey>>> {
+        if self.tab == SearchResultsTab::All {
+            let rows: Vec<_> = self
+                .visible_items(lookup)
+                .iter()
+                .filter_map(SearchResultItemVm::key)
+                .map(SelectionRow::of_one)
+                .collect();
+            return (!rows.is_empty()).then_some(rows);
+        }
+        self.selectable_rows(lookup)
+            .map(|rows| rows.selection_rows())
     }
 
     /// The index of the item with the keyboard focus among all the items
@@ -896,7 +1032,7 @@ impl SearchResultsInspectorPageVm {
     #[must_use]
     pub(crate) fn focused_row_index(&self, lookup: &dyn SearchLibraryLookup) -> Option<usize> {
         let focused = self.selection.focused()?;
-        if self.groups_release_rows() {
+        if self.tab == SearchResultsTab::All || self.groups_release_rows() {
             return self
                 .visible_items(lookup)
                 .iter()
@@ -911,7 +1047,7 @@ impl SearchResultsInspectorPageVm {
                 row.merge_key()
                     .is_some_and(|key| DetailRowKey::Track(key) == *focused)
             }),
-            SearchResultsTab::Artists => None,
+            SearchResultsTab::All | SearchResultsTab::Artists | SearchResultsTab::Labels => None,
         }
     }
 
@@ -928,20 +1064,23 @@ impl SearchResultsInspectorPageVm {
     /// The selection key of each visible row of the active tab. The keys
     /// need no Library fact.
     fn visible_members(&self) -> Vec<DetailRowKey> {
-        match self.tab {
-            SearchResultsTab::Releases => self
-                .releases
+        let release_keys = || {
+            self.releases
                 .rows()
                 .into_iter()
                 .filter_map(|row| row.merge_key().map(DetailRowKey::Release))
-                .collect(),
-            SearchResultsTab::Tracks => self
-                .tracks
+        };
+        let track_keys = || {
+            self.tracks
                 .rows()
                 .into_iter()
                 .filter_map(|row| row.merge_key().map(DetailRowKey::Track))
-                .collect(),
-            SearchResultsTab::Artists => Vec::new(),
+        };
+        match self.tab {
+            SearchResultsTab::Releases => release_keys().collect(),
+            SearchResultsTab::Tracks => track_keys().collect(),
+            SearchResultsTab::All => release_keys().chain(track_keys()).collect(),
+            SearchResultsTab::Artists | SearchResultsTab::Labels => Vec::new(),
         }
     }
 
@@ -974,18 +1113,6 @@ impl SearchResultsInspectorPageVm {
             }
             Some(IndexSkip::NoIndexPart | IndexSkip::LibraryOnly) | None => empty,
         });
-    }
-
-    fn select_first_populated_tab_if_automatic(&mut self) {
-        if self.tab_was_user_selected || !self.is_empty(self.tab) {
-            return;
-        }
-        if let Some(tab) = SearchResultsTab::ALL
-            .into_iter()
-            .find(|tab| !self.is_empty(*tab))
-        {
-            self.tab = tab;
-        }
     }
 }
 
@@ -1031,6 +1158,15 @@ impl SearchResultsInspectorPageVm {
     #[must_use]
     pub(crate) const fn tracks(&self) -> &SearchResultsPagedTab<TrackResultDisplay> {
         &self.tracks
+    }
+}
+
+/// The group tabs that a tab shows: the four groups for the tab All, else
+/// the tab itself.
+fn group_tabs_of(tab: SearchResultsTab) -> Vec<SearchResultsTab> {
+    match tab {
+        SearchResultsTab::All => SearchResultsTab::GROUPS.to_vec(),
+        group => vec![group],
     }
 }
 
