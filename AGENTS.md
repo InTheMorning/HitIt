@@ -56,6 +56,7 @@ Ready packets include
 [ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
 The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented [ADR 0080 packets 006 to 016](docs/plans/adr-0080-tag-frames-phase-plan.md), the tag frames of the review of 2026-11-04, and [ADR 0076 packet 011](docs/tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md). Packet 006 is complete. The checks of the other packets are open in section 10 of [pending human checks](docs/pending-human-checks.md). [Packet 014](docs/tasks/adr-0080-task-014-reader-keeps-each-frame.md) corrects a reader fault that the walk found. A write of 143 Library files ran on 2026-11-05. The next full write waits for more playlist checks, as the operator decided (open point 3 of the run record). 26 HeyCitizen files hold `TPUB: HeyCitizen`. The operator confirmed that this value is correct. The live HeyCitizen feeds state only `rel="artist"`.
 [ADR 0088](docs/adr/0088-a-feed-move-follows-the-rss-tag.md), the feed move, is Proposed, and its packet waits for the operator.
+[ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md), the shell, is Accepted on 2026-11-05. The [shell run](docs/reviews/orchestrated-run-2026-11-05-shell.md) implements the packets of its [phase plan](docs/plans/adr-0089-shell-phase-plan.md) in sequence. Packet 016, the now-playing panel, waits for ADR 0068. Until each packet lands, the app keeps the part of the three sections, the three columns and Discover of ADR 0084 that the packet replaces.
 
 Known open defects:
 
@@ -78,15 +79,17 @@ Stored facts that agents need:
 
 ## Current Design Philosophy
 
-**Three app sections.** `Music`, `Show`, `Settings`. `Music` is curation and
-holds index results and the library together. `Show` is broadcasting. Search is
-a toolbar command, never a section. ADR 0060.
+**One sidebar.** It lists Search, Releases, Artists, My playlists, Public
+playlists and Live, then Show, Inbox and Settings. Music is curation and holds
+index results and the library together. `Show` is broadcasting. Search is a
+toolbar command on each page, and the Search destination holds the saved
+searches. ADR 0089.
 
-**Curation shows nothing operational.** With no show active, `Music` and
-`Settings` show no queue, no transport, and no broadcast status. A surface that
-cannot act is absent, not disabled.
+**Curation shows nothing operational.** While nothing plays and no show is
+active, `Music` and `Settings` show no queue, no transport, and no broadcast
+status. A surface that cannot act is absent, not disabled. ADR 0089 Decision 7.
 
-**One page for each item.** Music is a column browser. Each release, track, artist and playlist has one
+**One page for each item.** A list is a page, and an item opens over it (musicindex ADR 0027, ADR 0089). Each release, track, artist and playlist has one
 page, whatever its origin. The Library is a state that each page and list shows, not a place. ADR 0084.
 
 **Artists, not publishers.** A feed shows its role word, not the RSS word. The word rules are musicindex ADR 0033

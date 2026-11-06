@@ -5,6 +5,8 @@
 Implemented - 2026-05-15. v1 shipped. Supersedes the earlier workspace
 frame planning artifacts.
 
+Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): Music has no separate list frame and detail frame. A list page and an item page are entries of one stack. The app keeps the three frames until the packets of ADR 0089 land.
+
 Amended 2026-10-08 by [ADR 0084](0084-music-column-browser.md): the Music frames are three columns. `SourceList` holds the destinations, `ContentList` holds the list column and `Detail` holds the detail column. The Music content area has one navigation stack, and no Music screen keeps a second stack or a breadcrumb of its own (ADR 0084 Decisions 1 and 9). At a narrow width the sidebar collapses to icons.
 
 Amended 2026-10-02: [ADR 0081](0081-remove-the-staged-frame-model.md) supersedes Architectural Invariant 8 and the model sentence of
