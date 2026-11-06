@@ -5,13 +5,15 @@
 //! the results in the detail column with the view model of packet 010.
 //! This module gives the types, the labels, the typed actions, the delete
 //! confirmation and the stale-result rule of the saved-search page.
-//! ADR 0089 Decision 4 adds the display name of a saved search.
+//! ADR 0089 Decision 4 adds the display name of a saved search and the
+//! query field of the page (see `saved_search_query`).
 
 #![warn(clippy::pedantic)]
 
 use crate::db::saved_searches::{StoredSavedSearch, StoredStartTab};
 use crate::view_models::workspace::{FrameNavigationEntry, MusicDestination};
 
+use super::saved_search_query::SavedSearchQueryEdit;
 use super::{EmptyStateDisplay, SearchResultsInspectorPageVm, SearchResultsTab};
 
 /// The identity of one saved search: its `saved_searches` row id.
@@ -206,11 +208,16 @@ pub(crate) enum SavedSearchPageState {
 }
 
 /// The mounted saved-search page of the detail column.
+///
+/// `query` is the stored text. It changes only when a keep saves a new text.
+/// While `edit` is open, the results show the live query of the field.
 #[derive(Debug)]
 pub(crate) struct SavedSearchPage {
     pub(crate) id: SavedSearchId,
     pub(crate) query: String,
     pub(crate) state: SavedSearchPageState,
+    /// The open query field, or `None` when the page shows its stored text.
+    pub(crate) edit: Option<SavedSearchQueryEdit>,
 }
 
 impl SavedSearchPage {
@@ -228,6 +235,7 @@ impl SavedSearchPage {
             id: search.id,
             query: search.query.clone(),
             state: SavedSearchPageState::Open(Box::new(results.into_saved_search(search))),
+            edit: None,
         }
     }
 
@@ -238,6 +246,46 @@ impl SavedSearchPage {
             id,
             query: query.into(),
             state: SavedSearchPageState::Deleted,
+            edit: None,
+        }
+    }
+
+    /// The query whose results the page shows: the live query of the open
+    /// field, or the stored text when no field is open (ADR 0087 Decision 4).
+    #[must_use]
+    pub(crate) fn live_query(&self) -> &str {
+        self.edit
+            .as_ref()
+            .map_or(self.query.as_str(), SavedSearchQueryEdit::live_query)
+    }
+
+    /// Tells if the header shows the query as its headline. The header shows
+    /// the query, or the query field, never both (ADR 0089 Decision 4).
+    #[must_use]
+    pub(crate) fn header_shows_query(&self) -> bool {
+        self.edit.is_none()
+    }
+
+    /// Opens the query field over the open page. Gives `false` for a deleted
+    /// page, or when the field is open already.
+    pub(crate) fn begin_query_edit(&mut self) -> bool {
+        if self.edit.is_some() || self.results().is_none() {
+            return false;
+        }
+        self.edit = Some(SavedSearchQueryEdit::open(self.id, &self.query));
+        true
+    }
+
+    /// Replaces the results of the open page, for example with the live run
+    /// of the field. A deleted page keeps its state.
+    pub(crate) fn set_results(&mut self, results: SearchResultsInspectorPageVm) {
+        let entry = FrameNavigationEntry::SavedSearch {
+            id: self.id,
+            query: self.query.clone(),
+        };
+        if let SavedSearchPageState::Open(current) = &mut self.state {
+            let tab = current.tab();
+            **current = results.into_saved_search_with_tab(entry, tab);
         }
     }
 
@@ -335,7 +383,8 @@ pub(crate) fn saved_search_result_is_current(
     id: SavedSearchId,
     query: &str,
 ) -> bool {
-    mounted.is_some_and(|page| page.id == id && page.query == query && page.results().is_some())
+    mounted
+        .is_some_and(|page| page.id == id && page.live_query() == query && page.results().is_some())
 }
 
 /// The text that shows when a saved search no longer exists (ADR 0089
@@ -803,5 +852,89 @@ mod tests {
         assert_eq!(new.label, "New Saved Search");
         assert!(new.available);
         assert_eq!(new.id, "music-search-new-saved-search");
+    }
+
+    /// ADR 0089 Decision 4: the query field opens over the page with the
+    /// stored text, once. The live query is the typed text, and the stored
+    /// text stays. A result is current for the typed text only while the
+    /// field is open (ADR 0087 Decision 4).
+    #[test]
+    fn adr_0089_saved_search_query_edit_live_query_and_current_results() {
+        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let mut page = open_page(&a);
+        assert!(page.begin_query_edit());
+        assert!(!page.begin_query_edit(), "a second open changes nothing");
+        assert_eq!(page.live_query(), "bluegrass");
+
+        page.edit
+            .as_mut()
+            .expect("the field is open")
+            .set_typed("bluegrass banjo");
+        assert_eq!(page.live_query(), "bluegrass banjo");
+        assert_eq!(page.query, "bluegrass", "the stored text stays");
+        assert!(saved_search_result_is_current(
+            Some(&page),
+            a.id,
+            "bluegrass banjo"
+        ));
+        assert!(
+            !saved_search_result_is_current(Some(&page), a.id, "bluegrass"),
+            "a result of the stored text is stale while the field shows another text"
+        );
+
+        page.edit = None;
+        assert_eq!(page.live_query(), "bluegrass");
+        assert!(saved_search_result_is_current(
+            Some(&page),
+            a.id,
+            "bluegrass"
+        ));
+    }
+
+    /// ADR 0089 Decision 4: a live run replaces the results of the page with
+    /// the typed text. The page keeps the tab that the curator chose and the
+    /// saved-search entry.
+    #[test]
+    fn adr_0089_saved_search_query_edit_live_results_keep_the_tab() {
+        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let mut page = open_page(&a);
+        page.results_mut()
+            .expect("an open page has results")
+            .set_tab(SearchResultsTab::Tracks);
+        assert!(page.begin_query_edit());
+        page.set_results(SearchResultsInspectorPageVm::from_local_library_tracks(
+            "bluegrass banjo",
+            &[],
+            &ArtistSearchFacts::default(),
+        ));
+        let results = page.results().expect("an open page has results");
+        assert_eq!(results.query(), "bluegrass banjo");
+        assert_eq!(results.tab(), SearchResultsTab::Tracks);
+        assert_eq!(results.selection().entry(), Some(&a.entry()));
+    }
+
+    /// ADR 0089 Decision 4: a deleted saved search opens no query field.
+    #[test]
+    fn adr_0089_saved_search_query_edit_deleted_page_opens_no_field() {
+        let mut page = SavedSearchPage::deleted(SavedSearchId(1), "bluegrass");
+        assert!(!page.begin_query_edit());
+        assert!(page.edit.is_none());
+        assert_eq!(page.live_query(), "bluegrass");
+    }
+
+    /// ADR 0089 Decision 4 (review of 2026-11-06): the header shows the query,
+    /// or the query field, never both. The page gives that fact.
+    #[test]
+    fn adr_0089_saved_search_query_edit_header_shows_the_query_or_the_field() {
+        let a = saved(1, "bluegrass", SearchResultsTab::Releases);
+        let mut page = open_page(&a);
+        assert!(page.header_shows_query());
+        assert!(page.begin_query_edit());
+        assert!(
+            !page.header_shows_query(),
+            "the field replaces the headline"
+        );
+        page.edit = None;
+        assert!(page.header_shows_query());
     }
 }

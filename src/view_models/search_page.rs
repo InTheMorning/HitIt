@@ -33,6 +33,10 @@ pub(crate) enum SearchPageAction {
     RunQuery(String),
     /// Opens the delete confirmation of a saved search (ADR 0089 Decision 4).
     DeleteSavedSearch(SavedSearch),
+    /// Opens the saved search with its query field open (ADR 0089 Decision 4).
+    EditSavedSearchQuery(SavedSearch),
+    /// Copies the saved search, then opens the copy with its query field open.
+    DuplicateSavedSearch(SavedSearchId),
 }
 
 /// One row of the Search page: one saved search.

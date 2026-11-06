@@ -330,6 +330,7 @@ const SCREEN_FILES: &[&str] = &[
     "src/app/publisher_dispatch.rs",
     "src/app/resize.rs",
     "src/app/saved_search_dispatch.rs",
+    "src/app/saved_search_query_edit.rs",
     "src/app/search_dispatch.rs",
     "src/app/search_field_list.rs",
     "src/app/search_live.rs",

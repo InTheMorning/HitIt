@@ -28,6 +28,7 @@ mod results;
 mod rows;
 mod saved_search;
 mod saved_search_groups;
+mod saved_search_query;
 mod search_run;
 mod tabs;
 #[cfg(test)]
@@ -55,6 +56,10 @@ pub(crate) use saved_search::{
     SearchPageActionStyle, SAVED_SEARCH_COPY_CONFLICT_TEXT, SAVED_SEARCH_MISSING_TEXT,
 };
 pub(crate) use saved_search_groups::{saved_search_window_page, SearchResultItemVm};
+pub(crate) use saved_search_query::{
+    saved_search_query_field, SavedSearchQueryEdit, SavedSearchQueryFieldDisplay,
+    SavedSearchQueryKeep, SAVED_SEARCH_QUERY_PLACEHOLDER,
+};
 pub(crate) use search_run::{
     library_part_runs, live_run_step, IndexSearchPlan, IndexSearchRequest, IndexSkip,
     LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger, INDEX_SKIP_ROWS_TEXT,
@@ -323,6 +328,23 @@ impl SearchResultsInspectorPageVm {
         self.entry = search.entry();
         self.selection.reset(Some(self.entry.clone()));
         self.tab = search.start_tab;
+        self.tab_was_user_selected = true;
+        self.refresh_empty_state();
+        self
+    }
+
+    /// Gives the page the saved-search `entry` and keeps `tab`, the tab that
+    /// the curator chose. A live run of the query field uses it, so the tab
+    /// stays when the results change (ADR 0089 Decision 4).
+    #[must_use]
+    pub(crate) fn into_saved_search_with_tab(
+        mut self,
+        entry: FrameNavigationEntry,
+        tab: SearchResultsTab,
+    ) -> Self {
+        self.entry = entry.clone();
+        self.selection.reset(Some(entry));
+        self.tab = tab;
         self.tab_was_user_selected = true;
         self.refresh_empty_state();
         self

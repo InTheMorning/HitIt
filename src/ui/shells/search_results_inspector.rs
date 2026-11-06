@@ -71,12 +71,22 @@ pub(crate) struct SearchResultsInspectorSlots {
     /// The page that Back left open over the search results list (R-NAV-2
     /// item 2). `None` for a page that has no list root.
     marked_entry: Option<FrameNavigationEntry>,
+    /// `true` when the page shows its query field, so the header gives no
+    /// query headline (ADR 0089 Decision 4).
+    hide_header_query: bool,
 }
 
 impl SearchResultsInspectorSlots {
     /// Creates empty search-results inspector slots.
     pub(crate) fn new() -> Self {
         Self::default()
+    }
+
+    /// Hides the query headline of the header, when the page shows its query
+    /// field. The view model gives the fact.
+    pub(crate) fn with_header_query_hidden(mut self, hidden: bool) -> Self {
+        self.hide_header_query = hidden;
+        self
     }
 
     /// Supplies disclosure and clipboard wiring for the VM's failure actions.
@@ -189,7 +199,7 @@ pub(crate) fn render_search_results_inspector(
     };
     let header = render_inspector_header(
         InspectorHeader {
-            query: vm.query(),
+            query: (!slots.hide_header_query).then(|| vm.query()),
             status_text: vm.status_text(),
             selected: tab,
             tab_select: slots.tab_select.as_ref(),
@@ -297,7 +307,8 @@ pub(crate) fn render_index_detail_display(display: &IndexDetailDisplay, cx: &App
 /// The parts of the header of a search page.
 #[derive(Clone, Copy)]
 struct InspectorHeader<'a> {
-    query: &'a str,
+    /// The query headline, or `None` when the page shows its query field.
+    query: Option<&'a str>,
     status_text: Option<&'a str>,
     selected: SearchResultsTab,
     tab_select: Option<&'a TabSelectHandler>,
@@ -317,11 +328,11 @@ fn render_inspector_header(header: InspectorHeader<'_>, cx: &App) -> AnyElement 
         .gap(Spacing::SM.scaled(cx))
         .min_w_0()
         .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .overflow_hidden()
-                .child(Label::new(header.query.to_string()).variant(LabelVariant::Headline)),
+            div().flex_1().min_w_0().overflow_hidden().children(
+                header
+                    .query
+                    .map(|query| Label::new(query.to_string()).variant(LabelVariant::Headline)),
+            ),
         );
     if let Some((display, handler)) = header.action {
         query_row = query_row.child(

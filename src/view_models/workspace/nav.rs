@@ -525,6 +525,18 @@ impl FrameLocation {
         self.ancestors.iter().chain(std::iter::once(&self.page))
     }
 
+    /// Gives each entry of this location of the saved search `id` the text
+    /// `query`.
+    fn rename_saved_search(&mut self, id: SavedSearchId, query: &str) {
+        for entry in self
+            .ancestors
+            .iter_mut()
+            .chain(std::iter::once(&mut self.page))
+        {
+            rename_saved_search_entry(entry, id, query);
+        }
+    }
+
     /// The root of this location: its destination or its search.
     fn root(&self) -> &FrameNavigationEntry {
         self.ancestors.first().unwrap_or(&self.page)
@@ -568,6 +580,19 @@ pub(crate) struct FrameNavigationState {
     /// item 2). A new path, a row or a destination change clears it. It is
     /// not part of the equality of two histories.
     marked: NotCompared<Option<FrameNavigationEntry>>,
+}
+
+/// Gives `entry` the text `query`, when `entry` is the saved search `id`.
+fn rename_saved_search_entry(entry: &mut FrameNavigationEntry, id: SavedSearchId, query: &str) {
+    if let FrameNavigationEntry::SavedSearch {
+        id: entry_id,
+        query: entry_query,
+    } = entry
+    {
+        if *entry_id == id {
+            query.clone_into(entry_query);
+        }
+    }
 }
 
 /// The page that Back leaves marked: the first page under the root of the
@@ -804,6 +829,25 @@ impl FrameNavigationState {
         self.forward_stack.clear();
         self.arrival.0 = NavigationArrival::Open;
         self.marked.0 = None;
+    }
+
+    /// Gives each history entry of the saved search `id` the text `query`.
+    /// The back stack, the current location and the forward stack change.
+    /// Each entry keeps its place and its memory, so Back and Forward still
+    /// reach the saved search. A saved search keys on its id, so its rows
+    /// resolve after its text changes (ADR 0087 Decision 6).
+    pub(crate) fn rename_saved_search_entries(&mut self, id: SavedSearchId, query: &str) {
+        for location in self
+            .back_stack
+            .iter_mut()
+            .chain(std::iter::once(&mut self.current))
+            .chain(self.forward_stack.iter_mut())
+        {
+            location.rename_saved_search(id, query);
+        }
+        if let Some(entry) = self.marked.0.as_mut() {
+            rename_saved_search_entry(entry, id, query);
+        }
     }
 
     /// Replaces the query of the search page, or starts a new search path.
