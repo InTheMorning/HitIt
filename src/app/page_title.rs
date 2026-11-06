@@ -31,7 +31,11 @@ pub(crate) fn page_type_title(entry: &FrameNavigationEntry) -> String {
             crate::view_models::search_results::SavedSearch::FRAME_TITLE.to_string()
         }
         FrameNavigationEntry::Search(_) => "Search Results".to_string(),
-        FrameNavigationEntry::PlaylistDetail(_) => "Playlist".to_string(),
+        // ADR 0089 packet 009: a public playlist has the type title of a
+        // playlist, before its loaded title.
+        FrameNavigationEntry::PlaylistDetail(_) | FrameNavigationEntry::PublicPlaylist(_) => {
+            "Playlist".to_string()
+        }
         // ADR 0084 Decision 4/5: the curator sees "Track" for a track and
         // "Release" for a feed of music, whatever its origin.
         FrameNavigationEntry::Track(_) => "Track".to_string(),
@@ -61,6 +65,7 @@ pub(crate) fn music_page_title(entry: &FrameNavigationEntry, facts: &PageTitleFa
         FrameNavigationEntry::SinglesGroup(_)
         | FrameNavigationEntry::WindowGroup(_)
         | FrameNavigationEntry::PublisherDetail(_)
+        | FrameNavigationEntry::PublicPlaylist(_)
         | FrameNavigationEntry::Release(_)
         | FrameNavigationEntry::Track(_) => facts
             .loaded_title
@@ -84,6 +89,11 @@ impl TopApp {
                     opening_label: None,
                 }
             }
+            // ADR 0089 packet 009: the playlist title, when the page loads.
+            FrameNavigationEntry::PublicPlaylist(feed_guid) => PageTitleFacts {
+                loaded_title: self.library.read(cx).public_playlist_title(feed_guid),
+                opening_label: None,
+            },
             // ADR 0085 Decision 7: the feed title, when the page loads.
             FrameNavigationEntry::PublisherDetail(_) => PageTitleFacts {
                 loaded_title: self.publisher_page_frame_title(),
@@ -270,5 +280,17 @@ mod tests {
             page_type_title(&FrameNavigationEntry::PlaylistDetail(1)),
             "Playlist"
         );
+    }
+
+    /// ADR 0089 packet 009  a public playlist shows its loaded title, then
+    /// "Playlist" before it loads.
+    #[test]
+    fn adr_0089_title_public_playlist_uses_loaded_then_type() {
+        let playlist = FrameNavigationEntry::PublicPlaylist("playlist-guid".to_owned());
+        assert_eq!(
+            music_page_title(&playlist, &facts(Some("Late Night"), None)),
+            "Late Night"
+        );
+        assert_eq!(music_page_title(&playlist, &facts(None, None)), "Playlist");
     }
 }

@@ -26,18 +26,22 @@ pub(crate) enum MusicDestination {
     Artists,
     NeedsAttention,
     Playlists,
+    /// The public playlists of the Index, the musicL feeds (ADR 0089
+    /// Decision 1, packet 009).
+    PublicPlaylists,
 }
 
 impl MusicDestination {
     /// Every destination, in sidebar order (ADR 0084 Decision 2). Tests
     /// walk each destination through this list.
     #[cfg(test)]
-    pub(crate) const ALL: [Self; 5] = [
+    pub(crate) const ALL: [Self; 6] = [
         Self::Search,
         Self::Releases,
         Self::Artists,
         Self::NeedsAttention,
         Self::Playlists,
+        Self::PublicPlaylists,
     ];
 
     /// The visible destination name.
@@ -49,6 +53,7 @@ impl MusicDestination {
             Self::Artists => "Artists",
             Self::NeedsAttention => "Needs attention",
             Self::Playlists => "Playlists",
+            Self::PublicPlaylists => "Public playlists",
         }
     }
 }
@@ -68,6 +73,9 @@ pub(crate) enum FrameNavigationEntry {
     SavedSearch { id: SavedSearchId, query: String },
     /// Playlist detail by playlist id.
     PlaylistDetail(i64),
+    /// A public playlist of the Index, by its feed GUID (ADR 0089 packet
+    /// 009). The page opens over the Public playlists list.
+    PublicPlaylist(String),
     /// A release, keyed by its identity, whatever its origin (ADR 0084
     /// Decision 4). The origin selects only the data source of the page,
     /// held outside this entry.
@@ -116,6 +124,9 @@ impl FrameNavigationEntry {
             Self::Destination(destination) => destination.label().to_string(),
             Self::SavedSearch { query, .. } => saved_search_label(query),
             Self::PlaylistDetail(id) => format!("Playlist {id}"),
+            // The page title is the loaded playlist title (ADR 0089
+            // packet 009). This fallback shows only before it loads.
+            Self::PublicPlaylist(_) => "Playlist".to_string(),
             // The top app gives the real title from the resolved data
             // source. This fallback shows only before that title is known.
             Self::Release(_) => "Release".to_string(),

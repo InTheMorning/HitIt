@@ -544,6 +544,28 @@ pub struct RemoteItem {
     pub remote_feed_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// The raw `rel` attribute of the entry (ADR 0089 packet 009). The
+    /// contract says it is non-standard, so it is shown as the response
+    /// gives it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rel: Option<String>,
+    /// The `itemGuid` of the track the entry names, or `None` when the
+    /// entry has none (ADR 0089 packet 009, Stophammer ADR 0060 section 3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_item_guid: Option<String>,
+    /// The title of the track the entry names (ADR 0060 section 3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_item_title: Option<String>,
+    /// The title of the named feed, or `None` when the node holds no feed
+    /// for the entry (ADR 0059 section 1).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_feed_title: Option<String>,
+    /// The image URL of the named feed (ADR 0059 section 3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_feed_image_url: Option<String>,
+    /// The release artist of the named feed (ADR 0059 section 1).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_release_artist: Option<String>,
 }
 
 /// How MusicIndex resolved the publisher feed that carries
@@ -1356,6 +1378,9 @@ fn name_list_params(
 pub(crate) enum FeedMedium {
     /// Music releases, the default of the endpoint.
     Music,
+    /// Public playlists, the `musicL` feeds of the Index (ADR 0089
+    /// Decision 1, the Public playlists destination).
+    MusicL,
 }
 
 impl FeedMedium {
@@ -1364,6 +1389,7 @@ impl FeedMedium {
     pub(crate) const fn query_value(self) -> &'static str {
         match self {
             Self::Music => "music",
+            Self::MusicL => "musicL",
         }
     }
 }
@@ -1627,6 +1653,76 @@ pub(crate) mod tests {
             )
             .expect("url");
         assert!(!first_page.query_pairs().any(|(key, _)| key == "from"));
+    }
+
+    /// ADR 0089 packet 009: the public playlist list sends `medium=musicL`
+    /// with each sort, and the `from` of a letter is kept.
+    #[test]
+    fn adr_0089_public_playlist_urls_send_music_l() {
+        use super::{feeds_by_name_params, recent_feeds_params, FeedMedium};
+        let client = Client::new();
+        let recent = client
+            .build_url(
+                &["v1", "feeds", "recent"],
+                &recent_feeds_params(20, None, FeedMedium::MusicL),
+            )
+            .expect("url");
+        assert!(recent
+            .query_pairs()
+            .any(|(key, value)| key == "medium" && value == "musicL"));
+
+        let by_name = client
+            .build_url(
+                &["v1", "feeds", "by-name"],
+                &feeds_by_name_params(
+                    50,
+                    None,
+                    None,
+                    Some("b"),
+                    FeedMedium::MusicL,
+                    &crate::application::request_profiles::INDEX_PUBLIC_PLAYLIST_LIST,
+                ),
+            )
+            .expect("url");
+        let pairs: Vec<(String, String)> = by_name
+            .query_pairs()
+            .map(|(key, value)| (key.into_owned(), value.into_owned()))
+            .collect();
+        assert!(pairs.contains(&("medium".to_owned(), "musicL".to_owned())));
+        assert!(pairs.contains(&("from".to_owned(), "b".to_owned())));
+        assert!(!pairs.iter().any(|(key, _)| key == "include"));
+    }
+
+    /// ADR 0089 packet 009: a feed read with `include=remote_items` decodes
+    /// each entry in its wire shape. A null `remote_item_guid` decodes, and
+    /// a feed the node does not hold gives no feed title.
+    #[test]
+    fn adr_0089_public_playlist_remote_items_decode_with_null_item_guid() {
+        let feed: Feed = serde_json::from_value(serde_json::json!({
+            "feed_guid": "playlist-guid",
+            "title": "Late Night Set",
+            "raw_medium": "musicL",
+            "remote_items": [
+                {"position": 2, "medium": "music", "rel": "artist",
+                 "remote_feed_guid": "album-guid", "source": "remote_item",
+                 "remote_item_guid": null, "remote_item_title": null,
+                 "remote_feed_title": "Album Two", "remote_feed_image_url": null,
+                 "remote_release_artist": "Band", "remote_episode_count": 4},
+                {"position": 1, "medium": "music", "rel": null,
+                 "remote_feed_guid": "other-guid", "source": "remote_item",
+                 "remote_item_guid": "track-1", "remote_item_title": "Opener",
+                 "remote_feed_title": null}
+            ]
+        }))
+        .expect("the remote items decode");
+        let items = feed.remote_items.expect("the include gives the items");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].position, Some(2));
+        assert_eq!(items[0].remote_item_guid, None);
+        assert_eq!(items[0].remote_feed_title.as_deref(), Some("Album Two"));
+        assert_eq!(items[0].rel.as_deref(), Some("artist"));
+        assert_eq!(items[1].remote_item_guid.as_deref(), Some("track-1"));
+        assert_eq!(items[1].remote_feed_title, None);
     }
 
     #[test]

@@ -30,6 +30,7 @@ const fn icon_name(icon: SidebarIcon) -> IconName {
         SidebarIcon::Release => IconName::Release,
         SidebarIcon::Artist => IconName::Artist,
         SidebarIcon::Playlist => IconName::Playlist,
+        SidebarIcon::PublicPlaylist => IconName::PublicPlaylist,
         SidebarIcon::Warning => IconName::Warning,
         SidebarIcon::Show => IconName::Show,
         SidebarIcon::Settings => IconName::Settings,

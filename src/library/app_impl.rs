@@ -113,6 +113,7 @@ use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListScope, List
 use crate::view_models::list_selection::{FocusStep, ListSelection, SelectionMode, SelectionRow};
 use crate::view_models::name_level_page::NameLevelLibraryRelease;
 use crate::view_models::playlist_option_displays;
+use crate::view_models::public_playlists::PublicPlaylistPages;
 use crate::view_models::recent_feeds::{
     RecentFeedsLoadIntent, RecentFeedsPageStep, RecentFeedsPageVm,
 };
@@ -580,6 +581,10 @@ impl LibraryApp {
                     publisher_feed_guid: feed_guid.clone(),
                 });
                 return;
+            }
+            // ADR 0089 packet 009: a public playlist row opens its page.
+            DestinationListRowTarget::PublicPlaylist(feed_guid) => {
+                FrameNavigationEntry::PublicPlaylist(feed_guid.clone())
             }
         };
         self.open_page(entry, NavigationPathStart::ListRow, cx);
@@ -1137,6 +1142,10 @@ impl LibraryApp {
             releases_tiles_scroll,
             releases_list_cache: std::cell::RefCell::default(),
             artists_list_state: MusicColumnList::new(cx),
+            public_playlists_list_state: MusicColumnList::new(cx),
+            public_playlists_tiles_scroll: gpui::ScrollHandle::new(),
+            public_playlist_list: IndexNameListPage::default(),
+            public_playlist_pages: PublicPlaylistPages::default(),
             list_column_focus: cx.focus_handle(),
             selection_removal: SelectionRemovalConfirmationState::new(),
             selection_removal_report: None,
@@ -2595,6 +2604,13 @@ impl LibraryApp {
                 self.detail = LibraryDetail::WindowGroup(key.clone());
                 self.request_singles_group_feed(&key.group, cx);
             }
+            // ADR 0089 packet 009: the item page of a public playlist reads
+            // the playlist with its remote items, unless the page holds it.
+            FrameNavigationEntry::PublicPlaylist(feed_guid) => {
+                self.vm.clear_library_selection();
+                self.clear_detail();
+                self.request_public_playlist(feed_guid, cx);
+            }
             // ADR 0084 Decision 7: the top app renders the name level page,
             // as it renders the feed page.
             FrameNavigationEntry::Search(_)
@@ -2628,7 +2644,8 @@ impl LibraryApp {
             MusicDestination::Search
             | MusicDestination::Releases
             | MusicDestination::Artists
-            | MusicDestination::Playlists => {
+            | MusicDestination::Playlists
+            | MusicDestination::PublicPlaylists => {
                 // The Discover, Releases, Artists, and Playlists lists read
                 // straight from already-loaded data; they hold no
                 // `ContentListPageVm` state of their own.
@@ -4201,7 +4218,10 @@ impl LibraryApp {
                 }
                 cx.notify();
             }
-            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
+            MusicDestination::Search
+            | MusicDestination::Artists
+            | MusicDestination::Playlists
+            | MusicDestination::PublicPlaylists => {}
         }
     }
 
@@ -4257,7 +4277,10 @@ impl LibraryApp {
                 self.track_selection.toggle_focused(&visible);
                 cx.notify();
             }
-            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
+            MusicDestination::Search
+            | MusicDestination::Artists
+            | MusicDestination::Playlists
+            | MusicDestination::PublicPlaylists => {}
         }
     }
 
@@ -4280,7 +4303,10 @@ impl LibraryApp {
                 self.track_selection.select_all(&visible);
                 cx.notify();
             }
-            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
+            MusicDestination::Search
+            | MusicDestination::Artists
+            | MusicDestination::Playlists
+            | MusicDestination::PublicPlaylists => {}
         }
     }
 
@@ -4343,9 +4369,10 @@ impl LibraryApp {
                 );
                 true
             }
-            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {
-                false
-            }
+            MusicDestination::Search
+            | MusicDestination::Artists
+            | MusicDestination::Playlists
+            | MusicDestination::PublicPlaylists => false,
         }
     }
 
@@ -4532,7 +4559,10 @@ impl LibraryApp {
                     }
                 };
             }
-            MusicDestination::Search | MusicDestination::Artists | MusicDestination::Playlists => {}
+            MusicDestination::Search
+            | MusicDestination::Artists
+            | MusicDestination::Playlists
+            | MusicDestination::PublicPlaylists => {}
         }
         cx.notify();
     }
@@ -5097,6 +5127,10 @@ impl LibraryApp {
                     ));
                 }
                 pane
+            }
+            MusicDestination::PublicPlaylists => {
+                page_head = Some(self.render_public_playlists_page_head(cx));
+                self.render_public_playlists_pane(window, cx)
             }
             MusicDestination::Releases => {
                 // ADR 0084 task 037: the rows come from the cache, and the

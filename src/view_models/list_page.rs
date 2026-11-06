@@ -29,6 +29,9 @@ pub(crate) enum ListPageKey {
     Artists,
     /// The playlists of the curator.
     MyPlaylists,
+    /// The public playlists of the Index, the musicL feeds (ADR 0089
+    /// Decision 1, packet 009).
+    PublicPlaylists,
     /// The results page of the toolbar search.
     Results,
     /// The page of a saved search.
@@ -42,7 +45,7 @@ impl ListPageKey {
         match self {
             Self::Releases => "releases",
             Self::Artists => "artists",
-            Self::MyPlaylists => "playlists",
+            Self::MyPlaylists | Self::PublicPlaylists => "playlists",
             Self::Results | Self::SavedSearch => "results",
         }
     }
@@ -54,6 +57,7 @@ impl ListPageKey {
             Self::Releases => "Releases",
             Self::Artists => "Artists",
             Self::MyPlaylists => "My playlists",
+            Self::PublicPlaylists => "Public playlists",
             Self::Results => "Results",
             Self::SavedSearch => "Saved search",
         }
@@ -67,7 +71,7 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn views(self) -> &'static [ListView] {
         match self {
-            Self::Releases => &[ListView::Rows, ListView::Tiles],
+            Self::Releases | Self::PublicPlaylists => &[ListView::Rows, ListView::Tiles],
             Self::Artists | Self::MyPlaylists | Self::Results | Self::SavedSearch => {
                 &[ListView::Rows]
             }
@@ -79,7 +83,7 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn sorts(self) -> &'static [ListSort] {
         match self {
-            Self::Releases | Self::Results | Self::SavedSearch => {
+            Self::Releases | Self::PublicPlaylists | Self::Results | Self::SavedSearch => {
                 &[ListSort::Newest, ListSort::AToZ]
             }
             Self::Artists => &[ListSort::AToZ],
@@ -220,6 +224,13 @@ impl ListPageState {
                 scope: None,
                 letter: None,
             },
+            // ADR 0089 Decision 5: Newest, tiles, and no scope.
+            ListPageKey::PublicPlaylists => Self {
+                sort: Some(ListSort::Newest),
+                view: ListView::Tiles,
+                scope: None,
+                letter: None,
+            },
             // The query holds the scope of a search page (ADR 0089 Decision
             // 4), so the page state has none.
             ListPageKey::Results | ListPageKey::SavedSearch => Self {
@@ -239,6 +250,7 @@ pub(crate) struct ListPages {
     releases: ListPageState,
     artists: ListPageState,
     my_playlists: ListPageState,
+    public_playlists: ListPageState,
     results: ListPageState,
     saved_search: ListPageState,
 }
@@ -249,6 +261,7 @@ impl Default for ListPages {
             releases: ListPageState::default_for(ListPageKey::Releases),
             artists: ListPageState::default_for(ListPageKey::Artists),
             my_playlists: ListPageState::default_for(ListPageKey::MyPlaylists),
+            public_playlists: ListPageState::default_for(ListPageKey::PublicPlaylists),
             results: ListPageState::default_for(ListPageKey::Results),
             saved_search: ListPageState::default_for(ListPageKey::SavedSearch),
         }
@@ -263,6 +276,7 @@ impl ListPages {
             ListPageKey::Releases => &self.releases,
             ListPageKey::Artists => &self.artists,
             ListPageKey::MyPlaylists => &self.my_playlists,
+            ListPageKey::PublicPlaylists => &self.public_playlists,
             ListPageKey::Results => &self.results,
             ListPageKey::SavedSearch => &self.saved_search,
         }
@@ -274,6 +288,7 @@ impl ListPages {
             ListPageKey::Releases => &mut self.releases,
             ListPageKey::Artists => &mut self.artists,
             ListPageKey::MyPlaylists => &mut self.my_playlists,
+            ListPageKey::PublicPlaylists => &mut self.public_playlists,
             ListPageKey::Results => &mut self.results,
             ListPageKey::SavedSearch => &mut self.saved_search,
         }
@@ -534,6 +549,12 @@ fn scope_control(
             "music-scope-playlists-all",
             "music-scope-playlists-in-library",
         ),
+        // Public playlists has no scope, so no scope control uses these ids.
+        ListPageKey::PublicPlaylists => (
+            "music-scope-public-playlists",
+            "music-scope-public-playlists-all",
+            "music-scope-public-playlists-in-library",
+        ),
         ListPageKey::Results | ListPageKey::SavedSearch => (
             "music-scope-search",
             "music-scope-search-all",
@@ -576,6 +597,7 @@ fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
         ListPageKey::Releases => "music-list-sort-releases",
         ListPageKey::Artists => "music-list-sort-artists",
         ListPageKey::MyPlaylists => "music-list-sort-playlists",
+        ListPageKey::PublicPlaylists => "music-list-sort-public-playlists",
         ListPageKey::Results => "music-list-sort-results",
         ListPageKey::SavedSearch => "music-list-sort-saved-search",
     };
@@ -897,5 +919,53 @@ mod tests {
         );
         pages.set_sort(ListPageKey::MyPlaylists, ListSort::AToZ);
         assert_eq!(pages.get(ListPageKey::MyPlaylists).sort, None);
+    }
+
+    /// ADR 0089 Decision 5 and packet 009  Public playlists starts at Newest,
+    /// tiles and no scope. It offers rows and tiles, and the two sorts. Its
+    /// title row has no scope control and no select action.
+    #[test]
+    fn adr_0089_public_playlists_defaults_and_title_row() {
+        let state = ListPageState::default_for(ListPageKey::PublicPlaylists);
+        assert_eq!(state.sort, Some(ListSort::Newest));
+        assert_eq!(state.view, ListView::Tiles);
+        assert_eq!(state.scope, None);
+        assert_eq!(
+            ListPageKey::PublicPlaylists.views(),
+            [ListView::Rows, ListView::Tiles]
+        );
+        assert_eq!(
+            ListPageKey::PublicPlaylists.sorts(),
+            [ListSort::Newest, ListSort::AToZ]
+        );
+
+        let head = ListPageHeadVm::new(ListPageKey::PublicPlaylists, state, None, None);
+        assert_eq!(head.title, "Public playlists");
+        assert!(head.scope.is_none());
+        assert!(head.select.is_none());
+        let views = head.view.expect("two views show their icons");
+        let selected: Vec<ListView> = views
+            .options
+            .iter()
+            .filter(|option| option.selected)
+            .map(|option| option.view)
+            .collect();
+        assert_eq!(selected, [ListView::Tiles]);
+
+        let mut pages = ListPages::default();
+        pages.set_scope(ListPageKey::PublicPlaylists, ListScope::InLibrary);
+        assert_eq!(pages.get(ListPageKey::PublicPlaylists).scope, None);
+        pages.set_sort(ListPageKey::PublicPlaylists, ListSort::AToZ);
+        assert_eq!(
+            pages.get(ListPageKey::PublicPlaylists).sort,
+            Some(ListSort::AToZ)
+        );
+        let a_to_z = ListPageHeadVm::new(
+            ListPageKey::PublicPlaylists,
+            *pages.get(ListPageKey::PublicPlaylists),
+            None,
+            None,
+        );
+        assert!(a_to_z.letters.is_some(), "A to Z shows the letter bar");
     }
 }

@@ -149,3 +149,22 @@ pub(crate) const fn music_focus_target(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::view_models::workspace::FrameNavigationEntry;
+
+    /// ADR 0089 packet 009  a public playlist page opens over its list, with
+    /// its own content state, so the detail frame shows and the list does
+    /// not.
+    #[test]
+    fn adr_0089_public_playlist_page_shows_the_detail_frame() {
+        let entry = FrameNavigationEntry::PublicPlaylist("playlist-guid".to_owned());
+        let content = music_page_content(true, false, false);
+        assert_eq!(content, MusicPageContent::Loaded);
+        let columns = MusicColumns::for_entry(&entry, content);
+        assert!(columns.shows_detail());
+        assert!(!columns.shows_list());
+    }
+}

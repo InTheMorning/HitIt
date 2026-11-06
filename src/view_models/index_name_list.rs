@@ -328,6 +328,10 @@ pub(crate) enum IndexNameList {
     /// `GET /v1/feeds/recent`, for the Releases list in the sort Newest
     /// (ADR 0089 Decision 5).
     RecentReleases,
+    /// `GET /v1/feeds/recent` or `GET /v1/feeds/by-name` with
+    /// `medium=musicL`, for the Public playlists list (ADR 0089 Decision 1,
+    /// packet 009).
+    PublicPlaylists,
 }
 
 impl IndexNameList {
@@ -335,6 +339,7 @@ impl IndexNameList {
         match self {
             Self::Releases | Self::RecentReleases => "releases",
             Self::Artists => "artists",
+            Self::PublicPlaylists => "playlists",
         }
     }
 
@@ -342,6 +347,7 @@ impl IndexNameList {
         match self {
             Self::Releases | Self::RecentReleases => "release",
             Self::Artists => "artist",
+            Self::PublicPlaylists => "playlist",
         }
     }
 
@@ -351,12 +357,16 @@ impl IndexNameList {
             Self::Releases => "GET /v1/feeds/by-name",
             Self::RecentReleases => "GET /v1/feeds/recent",
             Self::Artists => "GET /v1/artist-names",
+            Self::PublicPlaylists => {
+                "GET /v1/feeds/recent or GET /v1/feeds/by-name with medium=musicL"
+            }
         }
     }
 
     fn element_id(self, part: &str) -> String {
         match self {
             Self::RecentReleases => format!("music-index-recent-{part}"),
+            Self::PublicPlaylists => format!("music-public-playlists-{part}"),
             Self::Releases | Self::Artists => format!("music-index-{}-{part}", self.noun()),
         }
     }
@@ -366,6 +376,7 @@ impl IndexNameList {
             Self::Releases => "Loading MusicIndex releases",
             Self::RecentReleases => "Loading recent MusicIndex releases",
             Self::Artists => "Loading MusicIndex artists",
+            Self::PublicPlaylists => "Loading public playlists",
         }
     }
 

@@ -23,7 +23,7 @@ use crate::ui::composites::selectable_tile::SelectableTile;
 use crate::ui::composites::{CollectionArt, CollectionArtImage, ThumbnailSize};
 use crate::ui::primitives::{Checkbox, Label};
 use crate::ui::shells::library::content_list::render_content_list_tile_artwork;
-use crate::ui::shells::library::content_list_scroll::attach_content_list_scroll;
+use crate::ui::shells::library::content_list_scroll::attach_list_scroll_with;
 use crate::ui::shells::library::destination_lists::checkbox_state_for;
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
@@ -51,8 +51,39 @@ pub(crate) fn render_releases_tile_grid(
     is_loading: bool,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
+    render_tile_grid(
+        "music-releases-tiles",
+        scroll_handle,
+        leading,
+        tiles,
+        trailing,
+        has_more,
+        is_loading,
+        |this, cx| this.start_recent_music_load(true, cx),
+        cx,
+    )
+}
+
+/// Renders a grid of tiles with the status rows at its start and its end
+/// (ADR 0089 packets 005 and 009). `grid_id` names the grid element, and
+/// `load_more` runs near the end of the scroll.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the grid takes its id, its three rows, its two flags, its scroll action and the context"
+)]
+pub(crate) fn render_tile_grid(
+    grid_id: &'static str,
+    scroll_handle: &ScrollHandle,
+    leading: Vec<AnyElement>,
+    tiles: Vec<AnyElement>,
+    trailing: Vec<AnyElement>,
+    has_more: bool,
+    is_loading: bool,
+    load_more: fn(&mut LibraryApp, &mut Context<LibraryApp>),
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
     let grid = div()
-        .id("music-releases-tiles")
+        .id(grid_id)
         .flex_shrink_0()
         .flex()
         .flex_row()
@@ -74,7 +105,14 @@ pub(crate) fn render_releases_tile_grid(
         .px(Spacing::MD.scaled(cx))
         .pb(Spacing::MD.scaled(cx))
         .child(content);
-    attach_content_list_scroll(container, has_more, is_loading, scroll_handle, cx)
+    attach_list_scroll_with(
+        container,
+        has_more,
+        is_loading,
+        scroll_handle,
+        load_more,
+        cx,
+    )
 }
 
 /// Renders one item of the Releases list in the Tiles view (ADR 0089 packet
@@ -239,7 +277,7 @@ fn render_singles_group_tile(
 
 /// One line of text in a tile, at the width of the cover. The title has
 /// the primary color, and the secondary line has the tertiary color.
-fn tile_text_line(
+pub(crate) fn tile_text_line(
     text: String,
     size: FontSize,
     weight: FontWeight,

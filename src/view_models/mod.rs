@@ -91,6 +91,7 @@ pub mod paged_playlist_detail;
 pub(crate) mod pagination;
 pub mod playlist_detail;
 pub(crate) mod playlist_rss_check;
+pub(crate) mod public_playlists;
 pub(crate) mod publisher_page;
 pub(crate) mod queue_now_playing;
 pub(crate) mod recent_feeds;
