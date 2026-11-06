@@ -377,14 +377,13 @@ impl TopApp {
             Self::on_saved_search_query_event,
         );
         let library = cx.new(|cx| {
-            let mut library = LibraryApp::new_with_content_view_mode(
+            let mut library = LibraryApp::new(
                 conn.clone(),
                 library_cache,
                 musicindex_endpoint.clone(),
                 music_dir.clone(),
                 library_services,
                 library_runtime_host.clone(),
-                Self::initial_content_list_view_mode(workspace_layout_prefs),
                 window,
                 cx,
             );
@@ -475,6 +474,9 @@ impl TopApp {
                 // completed. The open pages change in place.
                 LibraryAppEvent::IndexDownloadFinished { job, outcome } => {
                     this.finish_index_download(job, outcome, cx);
+                }
+                LibraryAppEvent::InboxSetupAction(action) => {
+                    this.capability_action(*action, window, cx);
                 }
             },
         );

@@ -4,7 +4,6 @@ use gpui::Context;
 
 use crate::config;
 use crate::ui::layouts as layout;
-use crate::view_models::workspace::ContentViewMode;
 
 use super::TopApp;
 
@@ -18,23 +17,11 @@ impl TopApp {
         gpui::px(Self::clamped_content_pane_width(width))
     }
 
-    pub(super) fn initial_content_list_view_mode(
-        workspace_layout_prefs: Option<&config::WorkspaceLayoutPrefs>,
-    ) -> ContentViewMode {
-        workspace_layout_prefs
-            .and_then(|prefs| prefs.content_list_view_mode)
-            .unwrap_or_default()
-    }
-
-    fn persist_content_pane_width(
-        &self,
-        content_list_view_mode: ContentViewMode,
-    ) -> anyhow::Result<()> {
+    fn persist_content_pane_width(&self) -> anyhow::Result<()> {
         config::save_workspace_layout_prefs(
             &self.cfg_path,
             &config::WorkspaceLayoutPrefs {
                 content_pane_width: Some(f32::from(self.content_pane_width)),
-                content_list_view_mode: Some(content_list_view_mode),
             },
         )
     }
@@ -62,8 +49,7 @@ impl TopApp {
 
     pub(super) fn end_content_pane_resize(&mut self, cx: &mut Context<Self>) {
         self.is_content_pane_resizing = false;
-        let content_list_view_mode = self.library.read(cx).content_view_mode();
-        if let Err(error) = self.persist_content_pane_width(content_list_view_mode) {
+        if let Err(error) = self.persist_content_pane_width() {
             self.settings_status = format!("Error: {error:#}");
         }
         cx.notify();

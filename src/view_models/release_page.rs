@@ -43,7 +43,7 @@ const TRACK_MENU_ADD_TO_PLAYLIST_LABEL: &str = "Add to playlist";
 const TRACK_MENU_DOWNLOAD_LABEL: &str = "Download";
 const TRACK_MENU_INSPECT_SOURCES_LABEL: &str = "Inspect sources";
 const TRACK_MENU_REMOVE_LABEL: &str = "Remove\u{2026}";
-/// The menu item labels of a playlist row and of a Needs attention row
+/// The menu item labels of a playlist row and of an Inbox row
 /// (ADR 0083 task 007, decisions D5 to D7).
 const TRACK_MENU_MOVE_UP_LABEL: &str = "Move up";
 const TRACK_MENU_MOVE_DOWN_LABEL: &str = "Move down";
@@ -663,7 +663,7 @@ pub(crate) enum TrackRowRemoveLabel {
     /// "Remove…", on a release page row and on a Tracks list row (task
     /// 006, decision D2).
     Remove,
-    /// "Remove from Library…", on a playlist row and on a Needs attention
+    /// "Remove from Library…", on a playlist row and on an Inbox
     /// row (task 007, decision D7).
     RemoveFromLibrary,
 }

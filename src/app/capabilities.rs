@@ -41,8 +41,9 @@ impl TopApp {
         self.maintenance_worker = worker;
         bridge_watch(
             receiver,
-            |this: &mut Self, snapshot, _cx| {
+            |this: &mut Self, snapshot, cx| {
                 this.capability_vm.observations = snapshot;
+                this.sync_inbox_setup(cx);
             },
             cx,
         );
@@ -60,6 +61,14 @@ impl TopApp {
             },
             cx,
         );
+    }
+
+    /// Gives the Inbox its Setup items: the capability issues that a show
+    /// needs (ADR 0089 Decision 3). The Library holds them for its render path.
+    pub(super) fn sync_inbox_setup(&self, cx: &mut Context<Self>) {
+        let setup = self.capability_vm.show_setup_items();
+        self.library
+            .update(cx, |library, cx| library.set_inbox_setup(setup, cx));
     }
 
     pub(super) fn render_capabilities(

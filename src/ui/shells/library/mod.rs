@@ -21,6 +21,7 @@ pub mod destination_list_scroll;
 pub mod destination_lists;
 pub mod detail;
 pub mod feed_detail;
+pub mod inbox;
 pub mod index_list_status;
 pub mod live_page;
 pub mod playlist_detail;

@@ -11,6 +11,8 @@ use crate::application::capability::{
 };
 use crate::application::capability_recovery::{RecoveryAction, RecoveryIntent, RecoveryIntents};
 use crate::application::conversion_recovery::FailureClass;
+use crate::view_models::inbox::InboxSetupItem;
+use crate::view_models::show::show_card_for_dependency;
 
 #[derive(Clone, Debug)]
 pub struct CapabilityActionDisplay {
@@ -120,6 +122,26 @@ impl CapabilityReportVm {
         self.observations
             .values()
             .filter(|observation| observation.failure.is_some())
+    }
+
+    /// The Setup items of the Inbox (ADR 0089 Decision 3): each issue whose
+    /// dependency a show needs, with its existing repair action (ADR 0066).
+    /// An issue that no show card names stays out.
+    #[must_use]
+    pub(crate) fn show_setup_items(&self) -> Vec<InboxSetupItem> {
+        self.issues()
+            .filter_map(|issue| {
+                let dependency = match issue.dependency {
+                    Dependency::Configuration(field) => configuration_dependency(field),
+                    dependency => dependency,
+                };
+                show_card_for_dependency(dependency)?;
+                Some(InboxSetupItem {
+                    text: observation_text(issue),
+                    action: self.action(CapabilityAction::Configure(issue.dependency)),
+                })
+            })
+            .collect()
     }
 
     #[must_use]
@@ -778,6 +800,39 @@ mod tests {
     use super::*;
     use std::io;
     use std::time::{Duration, SystemTime};
+
+    /// ADR 0089 Decision 3: the Inbox Setup section lists only the issues
+    /// that a show needs (the Show cards), each with its existing repair
+    /// action. A tool that no show card names stays out.
+    #[test]
+    fn adr_0089_inbox_setup_lists_only_the_issues_a_show_needs() {
+        let observations: CapabilitySnapshot = [
+            Dependency::Publisher,
+            Dependency::MusicIndex,
+            Dependency::Converter,
+            Dependency::Playback,
+        ]
+        .map(|dependency| {
+            (
+                dependency,
+                CapabilityObservation::new(dependency, Some(CapabilityFailure::Preparation)),
+            )
+        })
+        .into_iter()
+        .collect();
+        let vm = CapabilityReportVm::new(observations, true);
+
+        let items = vm.show_setup_items();
+
+        let repairs: Vec<_> = items.iter().map(|item| item.action.action).collect();
+        assert_eq!(
+            repairs,
+            [
+                CapabilityAction::Configure(Dependency::Playback),
+                CapabilityAction::Configure(Dependency::Publisher),
+            ]
+        );
+    }
 
     /// Situational ADR 0074: the full page must not reuse the failure-only notice.
     #[test]

@@ -44,14 +44,22 @@ pub(crate) struct TagUpdateButtonDisplay {
     pub(crate) enabled: bool,
 }
 
+/// The number of files that the scan lists, or zero with no scan.
+#[must_use]
+pub(crate) fn file_count(snapshot: Option<&TagUpdateSnapshot>) -> usize {
+    snapshot
+        .and_then(|snapshot| snapshot.scan.as_ref())
+        .map_or(0, TagUpdateScan::count)
+}
+
 /// The button, or `None` when the scan lists no file.
 #[must_use]
 pub(crate) fn button(snapshot: Option<&TagUpdateSnapshot>) -> Option<TagUpdateButtonDisplay> {
-    let snapshot = snapshot?;
-    let count = snapshot.scan.as_ref().map_or(0, TagUpdateScan::count);
+    let count = file_count(snapshot);
     if count == 0 {
         return None;
     }
+    let snapshot = snapshot?;
     let availability = if snapshot.writing {
         TagUpdateAvailability::Writing
     } else {
@@ -305,7 +313,7 @@ fn write_report(write: &TagUpdateWriteReport) -> TagUpdateReportDisplay {
     TagUpdateReportDisplay { summary, lines }
 }
 
-fn files_text(count: usize) -> String {
+pub(crate) fn files_text(count: usize) -> String {
     if count == 1 {
         "1 file".to_owned()
     } else {

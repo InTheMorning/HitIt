@@ -21,8 +21,8 @@ mod nav;
 mod tests;
 
 pub(crate) use chrome::{
-    ContentViewMode, FrameChromeButtonDisplay, FrameChromeMenuItemDisplay,
-    FrameHeaderActionDisplay, FrameShellDisplay,
+    FrameChromeButtonDisplay, FrameChromeMenuItemDisplay, FrameHeaderActionDisplay,
+    FrameShellDisplay,
 };
 pub(crate) use columns::{
     music_focus_moves, music_focus_target, music_page_content, MusicColumns, MusicFocusTarget,

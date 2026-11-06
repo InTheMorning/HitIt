@@ -528,7 +528,7 @@ mod tests {
         std::fs::write(&artists, b"preserve download-directory blocker").unwrap();
         let config_path = temp.path().join("config.toml");
         let bytes = format!(
-            "music_dir = {:?}\ndb_path = {:?}\ntheme_profile = 42\nui_scale = false\n[workspace.layout]\ncontent_list_view_mode = false\n",
+            "music_dir = {:?}\ndb_path = {:?}\ntheme_profile = 42\nui_scale = false\n[workspace.layout]\ncontent_pane_width = false\n",
             music, temp.path().join("library.sqlite"),
         );
         std::fs::write(&config_path, &bytes).unwrap();
@@ -555,7 +555,7 @@ mod tests {
         for field in [
             "theme_profile",
             "ui_scale",
-            "workspace.layout.content_list_view_mode",
+            "workspace.layout.content_pane_width",
         ] {
             assert_eq!(
                 reports

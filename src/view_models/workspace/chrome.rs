@@ -2,31 +2,7 @@
 
 #![warn(clippy::pedantic)]
 
-use serde::{Deserialize, Serialize};
-
 use super::frame::{WorkspaceFrameId, WorkspaceFrameState};
-
-/// Presentation mode for content rows.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum ContentViewMode {
-    /// Tiled artwork-first browser.
-    #[default]
-    Tiles,
-    /// Compact row list.
-    List,
-}
-
-impl ContentViewMode {
-    /// Returns the stable segment id suffix.
-    #[must_use]
-    pub(crate) const fn id_suffix(self) -> &'static str {
-        match self {
-            Self::Tiles => "tiles",
-            Self::List => "list",
-        }
-    }
-}
 
 /// Display contract for one frame-chrome button.
 #[derive(Clone, Debug, Eq, PartialEq)]

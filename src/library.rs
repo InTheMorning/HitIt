@@ -126,6 +126,9 @@ pub(crate) enum LibraryAppEvent {
     /// A request of the Search page (ADR 0089 Decision 4). The top app owns
     /// the toolbar field, so it applies the request.
     SearchPage(crate::view_models::search_page::SearchPageAction),
+    /// The repair action of a Setup item of the Inbox (ADR 0089 Decision
+    /// 3). The top app runs it through its capability actions (ADR 0066).
+    InboxSetupAction(crate::application::capability::CapabilityAction),
 }
 
 impl gpui::EventEmitter<LibraryAppEvent> for LibraryApp {}
@@ -260,9 +263,9 @@ pub struct LibraryApp {
     tag_update_request_failed: bool,
     /// Existing Recent Feeds pager consumed by the default Music content region.
     recent_music_page: RecentFeedsPageVm,
-    /// The scroll of the Needs attention list (ADR 0089 Decision 1). The
-    /// Library holds it, so the offset survives a page opened over the list.
-    needs_attention_scroll: ScrollHandle,
+    /// The scroll of the Inbox list (ADR 0089 Decision 3). The Library holds
+    /// it, so the offset survives a page opened over the list.
+    inbox_scroll: ScrollHandle,
     /// The scroll of the Search page list (ADR 0089 Decision 4). The Library
     /// holds it, so the offset survives a page opened over the list.
     search_page_scroll: ScrollHandle,
@@ -293,11 +296,11 @@ pub struct LibraryApp {
     /// 2026-10-19): `Normal` or `Selecting`, beside `releases_selection`.
     /// A change of destination resets it to `Normal`.
     releases_selection_mode: SelectionMode,
-    /// The Tracks and Needs attention lists' shared selection (ADR 0084
-    /// Decision 10). A change of destination clears it.
+    /// The Tracks and Inbox lists' shared selection (ADR 0084 Decision 10).
+    /// A change of destination clears it.
     track_selection: ListSelection<TrackKey>,
-    /// The Tracks and Needs attention lists' shared mode (ADR 0084
-    /// Decision 10 Amendment, 2026-10-19), beside `track_selection`. A
+    /// The Tracks and Inbox lists' shared mode (ADR 0084 Decision 10
+    /// Amendment, 2026-10-19), beside `track_selection`. A
     /// change of destination resets it to `Normal`.
     track_selection_mode: SelectionMode,
     /// The Releases list's held virtual list state (ADR 0084 Decision 10

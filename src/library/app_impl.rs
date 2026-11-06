@@ -72,6 +72,7 @@ use crate::ui::shells::library::destination_lists::{
     render_library_releases_list, render_releases_list_item, RowArts,
 };
 use crate::ui::shells::library::detail::render_library_detail;
+use crate::ui::shells::library::inbox::render_inbox_sections;
 use crate::ui::shells::library::index_list_status::IndexListActions;
 use crate::ui::shells::library::releases_tiles::{
     render_releases_list_tile, render_releases_tile_grid,
@@ -91,6 +92,7 @@ use crate::ui::tokens::Motion;
 use crate::view_models::artist_identity::{ArtistNameDestination, ArtistNameKey, NameFeedMatches};
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::entity_detail::TrackMetadataActionState;
+use crate::view_models::inbox::InboxSection;
 use crate::view_models::index_name_list::IndexNameListPage;
 use crate::view_models::library::{
     description_line_count, list_column_header_action, releases_disclosure_step, AlbumNode,
@@ -133,8 +135,8 @@ use crate::view_models::singles_group::{
 use crate::view_models::track_detail::TrackNameLinkTarget;
 use crate::view_models::window_groups::WindowGroupKey;
 use crate::view_models::workspace::{
-    ContentViewMode, FrameHeaderActionDisplay, FrameNavigationEntry, MusicDestination,
-    NavigationPathStart, ReleaseKey, TrackKey,
+    FrameHeaderActionDisplay, FrameNavigationEntry, MusicDestination, NavigationPathStart,
+    ReleaseKey, TrackKey,
 };
 use crate::views::{EntityIdentityLinks, LocalIdentityFacts};
 use gpui::{
@@ -466,19 +468,6 @@ fn reset_removed_inspector_frame(frame: &mut InspectorFrame, message: &'static s
 // ---------------------------------------------------------------------------
 
 impl LibraryApp {
-    pub(crate) const fn content_view_mode(&self) -> ContentViewMode {
-        self.vm.content_view_mode()
-    }
-
-    pub(crate) fn set_content_view_mode(
-        &mut self,
-        view_mode: ContentViewMode,
-        cx: &mut Context<Self>,
-    ) {
-        self.vm.set_content_view_mode(view_mode);
-        cx.notify();
-    }
-
     /// Starts one page request of New releases: the fresh load, one "Load
     /// more" click or one scroll probe (ADR 0086 Decision 5, packet 003
     /// decision D2).
@@ -821,7 +810,7 @@ impl LibraryApp {
         }
     }
 
-    /// Runs one item of the row menu of a Tracks or Needs attention row
+    /// Runs one item of the row menu of a Tracks or Inbox row
     /// (ADR 0083 task 007, decisions D9 and D10). `row_id` is the id of the
     /// row, which is the id of its Library track. "Add to playlist" opens
     /// a level of the menu, and the playlist items are items of a playlist
@@ -839,7 +828,7 @@ impl LibraryApp {
         self.run_track_row_menu_action(track_id, action, window, cx);
     }
 
-    /// "Add to playlist" of the row menu of a Tracks or Needs attention row
+    /// "Add to playlist" of the row menu of a Tracks or Inbox row
     /// (ADR 0083 task 007, decision D9).
     pub(crate) fn add_content_row_to_playlist(
         &mut self,
@@ -852,7 +841,7 @@ impl LibraryApp {
         }
     }
 
-    /// "New Playlist" of the row menu of a Tracks or Needs attention row
+    /// "New Playlist" of the row menu of a Tracks or Inbox row
     /// (ADR 0083 task 007, decision D9).
     pub(crate) fn create_playlist_for_content_row(
         &mut self,
@@ -976,35 +965,71 @@ impl LibraryApp {
         }
     }
 
-    /// Opens the Needs attention destination from an already-fetched
-    /// report (ADR 0084 Decision 2). Show's "Open in Music" calls this with
-    /// its own cached report, so this makes no database query.
+    /// Stores the Setup items of the Inbox (ADR 0089 Decision 3) and redraws
+    /// the sidebar count.
+    pub(crate) fn set_inbox_setup(
+        &mut self,
+        setup: Vec<crate::view_models::inbox::InboxSetupItem>,
+        cx: &mut Context<Self>,
+    ) {
+        self.vm.set_inbox_setup(setup);
+        cx.notify();
+    }
+
+    /// Opens the Inbox destination from an already-fetched report (ADR 0084
+    /// Decision 2, ADR 0089 Decision 3). Show's "Open" calls this with its
+    /// own cached report, so this makes no readiness query.
     pub(crate) fn show_broadcast_readiness_report(
         &mut self,
         report: &BroadcastReadinessReport,
         cx: &mut Context<Self>,
     ) {
-        self.vm.show_needs_attention_report(report);
+        let source_track_ids = self.inbox_source_track_ids();
+        self.vm.show_inbox_report(report, &source_track_ids);
         cx.notify();
     }
 
-    /// Opens the Needs attention destination from a fresh query (ADR 0084
-    /// Decision 2: a sidebar click). The render path makes no query: this
-    /// runs only from an explicit destination-select event.
-    fn open_needs_attention_destination(&mut self) {
+    /// Opens the Inbox destination from a fresh query (ADR 0084 Decision 2:
+    /// a sidebar click). The render path makes no query: this runs only
+    /// from an explicit destination-select event.
+    fn open_inbox_destination(&mut self) {
         if let Some(report) = self.fetch_broadcast_readiness_report() {
-            self.vm.show_needs_attention_report(&report);
+            let source_track_ids = self.inbox_source_track_ids();
+            self.vm.show_inbox_report(&report, &source_track_ids);
         }
     }
 
-    /// Keeps the Needs attention count current (ADR 0084 Decision 2): on
-    /// load, after a feed check or a repair, and after a download or a
-    /// removal. It replaces the active list's rows only when Needs
-    /// attention is already open.
+    /// Keeps the Inbox count current (ADR 0084 Decision 2): on load, after
+    /// a feed check or a repair, and after a download or a removal. It
+    /// replaces the active list's rows only when the Inbox is already open.
     fn refresh_current_broadcast_readiness_report(&mut self) {
         if let Some(report) = self.fetch_broadcast_readiness_report() {
-            self.vm.refresh_needs_attention_report(&report);
+            let source_track_ids = self.inbox_source_track_ids();
+            self.vm.refresh_inbox_report(&report, &source_track_ids);
         }
+    }
+
+    /// The track ids of the show playlist, in its sequence (ADR 0089
+    /// Decision 3, Answer 3). The show playlist is the playlist of the
+    /// playback session that is not stopped. It is empty with no session,
+    /// or when the session names no playlist.
+    fn inbox_source_track_ids(&self) -> Vec<i64> {
+        let Ok(conn) = self.conn.lock() else {
+            return Vec::new();
+        };
+        let playlist_id = crate::db::playback_session(&conn, crate::playback::DEFAULT_SESSION_ID)
+            .ok()
+            .flatten()
+            .filter(|session| session.state != "stopped")
+            .and_then(|session| session.playlist_id);
+        let Some(playlist_id) = playlist_id else {
+            return Vec::new();
+        };
+        self.application_services
+            .query_service()
+            .playlist_tracks(&conn, playlist_id)
+            .map(|rows| rows.into_iter().map(|row| row.id).collect())
+            .unwrap_or_default()
     }
 
     /// The broadcast readiness report, from the Library connection and
@@ -1043,16 +1068,15 @@ impl LibraryApp {
 
     #[expect(
         clippy::too_many_arguments,
-        reason = "top-level app bootstrap passes persisted content mode into the library surface"
+        reason = "top-level app bootstrap passes the shared services into the library surface"
     )]
-    pub(crate) fn new_with_content_view_mode(
+    pub(crate) fn new(
         conn: Arc<Mutex<Connection>>,
         cache: Arc<ImageCache>,
         musicindex_endpoint: crate::config::MusicIndexEndpoint,
         music_dir: PathBuf,
         application_services: Arc<ApplicationServices>,
         runtime_host: Option<Arc<crate::presentation::RuntimeHost>>,
-        content_view_mode: ContentViewMode,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -1095,10 +1119,9 @@ impl LibraryApp {
                 crate::application::capability::ExecutionUnavailable::RUNTIME,
             ),
         };
-        let mut vm = LibraryViewModel::new();
-        vm.set_content_view_mode(content_view_mode);
+        let vm = LibraryViewModel::new();
         let detail_column_scroll = gpui::ScrollHandle::new();
-        let needs_attention_scroll = gpui::ScrollHandle::new();
+        let inbox_scroll = gpui::ScrollHandle::new();
         let releases_tiles_scroll = gpui::ScrollHandle::new();
         let mut app = Self {
             playback_availability: Err(
@@ -1142,7 +1165,7 @@ impl LibraryApp {
             recent_music_page: RecentFeedsPageVm::loading(),
             artist_name_page: IndexNameListPage::default(),
             release_name_page: IndexNameListPage::default(),
-            needs_attention_scroll,
+            inbox_scroll,
             search_page_scroll: gpui::ScrollHandle::new(),
             playlists_scroll: gpui::ScrollHandle::new(),
             expanded_singles_groups: BTreeSet::new(),
@@ -1352,7 +1375,7 @@ impl LibraryApp {
 
     /// Open the "Update n file(s)" popup. The confirm writes the listed
     /// files that the popup shows.
-    fn open_tag_update_popup(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_tag_update_popup(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let snapshot = self.tag_update_snapshot.as_ref();
         let Some(display) = crate::view_models::tag_update::popup(snapshot) else {
             return;
@@ -1512,7 +1535,7 @@ impl LibraryApp {
                 // ADR 0089 Decision 5: the scope "All" of the active list
                 // sends its first name request after a Library load, once.
                 this.request_default_name_list(cx);
-                // ADR 0084 Decision 2: the Needs attention count stays
+                // ADR 0084 Decision 2: the Inbox count stays
                 // current on each Library load.
                 this.refresh_current_broadcast_readiness_report();
                 // ADR 0084 Decision 10: a removal drops the removed
@@ -2673,8 +2696,8 @@ impl LibraryApp {
                 // straight from already-loaded data; they hold no
                 // `ContentListPageVm` state of their own.
             }
-            MusicDestination::NeedsAttention => {
-                self.open_needs_attention_destination();
+            MusicDestination::Inbox => {
+                self.open_inbox_destination();
             }
         }
     }
@@ -2764,7 +2787,7 @@ impl LibraryApp {
         );
     }
 
-    fn apply_all_feed_updates(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn apply_all_feed_updates(&mut self, cx: &mut Context<Self>) {
         let Some(stale) = self.vm.begin_apply_feed_updates() else {
             return;
         };
@@ -3957,7 +3980,7 @@ impl LibraryApp {
             .collect()
     }
 
-    /// The Tracks or Needs attention list's visible rows, in their
+    /// The Tracks or Inbox list's visible rows, in their
     /// render sequence. Each row has one member: its own track key
     /// (Required correction item 2: "The Tracks lists keep one member
     /// for each row").
@@ -3968,7 +3991,7 @@ impl LibraryApp {
             .collect()
     }
 
-    /// The Tracks or Needs attention list's visible track keys, in their
+    /// The Tracks or Inbox list's visible track keys, in their
     /// render sequence.
     fn content_list_visible_track_keys(&self) -> Vec<TrackKey> {
         self.vm
@@ -4136,7 +4159,7 @@ impl LibraryApp {
         cx.notify();
     }
 
-    /// A click on a Tracks or Needs attention row. Ctrl+click and
+    /// A click on a Tracks or Inbox row. Ctrl+click and
     /// Shift+click start selection mode and act on the row, as before;
     /// neither opens a page. In `Selecting` mode, a plain click also
     /// toggles the row and opens no page (Amendment, 2026-10-19). In
@@ -4176,7 +4199,7 @@ impl LibraryApp {
         self.open_content_list_row(row_id, cx);
     }
 
-    /// A click on a Tracks or Needs attention row's own checkbox (ADR
+    /// A click on a Tracks or Inbox row's own checkbox (ADR
     /// 0084 Decision 10). It never opens a page.
     pub(crate) fn toggle_content_list_row_selection(
         &mut self,
@@ -4232,11 +4255,11 @@ impl LibraryApp {
                 }
                 cx.notify();
             }
-            MusicDestination::NeedsAttention => {
+            MusicDestination::Inbox => {
                 let visible = self.content_list_visible_rows();
                 if let Some(focused) = self.track_selection.move_focus(step, &visible) {
                     if let Some(index) = visible.iter().position(|row| row.id == focused) {
-                        self.needs_attention_scroll.scroll_to_item(index);
+                        self.inbox_scroll.scroll_to_item(index);
                     }
                 }
                 cx.notify();
@@ -4295,7 +4318,7 @@ impl LibraryApp {
                     .toggle_focused(rows.selection_rows());
                 cx.notify();
             }
-            MusicDestination::NeedsAttention => {
+            MusicDestination::Inbox => {
                 self.track_selection_mode = SelectionMode::Selecting;
                 let visible = self.content_list_visible_rows();
                 self.track_selection.toggle_focused(&visible);
@@ -4322,7 +4345,7 @@ impl LibraryApp {
                 self.releases_selection.select_all(rows.selection_rows());
                 cx.notify();
             }
-            MusicDestination::NeedsAttention => {
+            MusicDestination::Inbox => {
                 self.track_selection_mode = SelectionMode::Selecting;
                 let visible = self.content_list_visible_rows();
                 self.track_selection.select_all(&visible);
@@ -4384,7 +4407,7 @@ impl LibraryApp {
                 }
                 None => false,
             },
-            MusicDestination::NeedsAttention => {
+            MusicDestination::Inbox => {
                 let Some(focused) = self.track_selection.focused().cloned() else {
                     return false;
                 };
@@ -4422,7 +4445,7 @@ impl LibraryApp {
                 cx.notify();
                 true
             }
-            MusicDestination::NeedsAttention if self.track_selection_mode.is_selecting() => {
+            MusicDestination::Inbox if self.track_selection_mode.is_selecting() => {
                 self.track_selection_mode = SelectionMode::Normal;
                 self.track_selection.clear();
                 cx.notify();
@@ -4526,16 +4549,16 @@ impl LibraryApp {
 
     /// The Music list column's header action (ADR 0084 Decision 10
     /// Amendment, 2026-10-19): "Select" in `Normal`, "Done" in
-    /// `Selecting`, for the Tracks and Needs attention list. Releases and
+    /// `Selecting`, for the Tracks and Inbox list. Releases and
     /// Artists show their Select in the title row (ADR 0089 Decision 6).
     /// Absent for every other destination and for an empty list.
     pub(crate) fn header_action_for_list_column(&self) -> Option<FrameHeaderActionDisplay> {
-        if self.vm.active_destination() != MusicDestination::NeedsAttention {
+        if self.vm.active_destination() != MusicDestination::Inbox {
             return None;
         }
         let list_has_rows = !self.content_list_visible_rows().is_empty();
         list_column_header_action(
-            MusicDestination::NeedsAttention,
+            MusicDestination::Inbox,
             self.track_selection_mode,
             list_has_rows,
         )
@@ -4577,7 +4600,7 @@ impl LibraryApp {
                     }
                 };
             }
-            MusicDestination::NeedsAttention => {
+            MusicDestination::Inbox => {
                 self.track_selection_mode = match self.track_selection_mode {
                     SelectionMode::Normal => SelectionMode::Selecting,
                     SelectionMode::Selecting => {
@@ -4606,7 +4629,7 @@ impl LibraryApp {
         )
     }
 
-    /// The Tracks or Needs attention list's action bar (ADR 0084
+    /// The Tracks or Inbox list's action bar (ADR 0084
     /// Decision 10), or `None` outside `Selecting` mode (Amendment,
     /// 2026-10-19).
     pub(crate) fn content_list_selection_action_bar(&self) -> Option<SelectionActionBarVm> {
@@ -4672,7 +4695,7 @@ impl LibraryApp {
         self.create_playlist_and_add_albums(name, feed_ids, cx);
     }
 
-    /// Runs a Remove or Clear action of the Tracks or Needs attention
+    /// Runs a Remove or Clear action of the Tracks or Inbox
     /// list's action bar (ADR 0084 Decision 10). "Download" never shows
     /// there, since every selectable row is already in the Library.
     /// "Add to playlist" opens its own popover, through
@@ -4928,7 +4951,9 @@ impl LibraryApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let sidebar = self.vm.sidebar(self.sidebar_selected);
+        let sidebar = self
+            .vm
+            .sidebar(self.sidebar_selected, self.tag_update_snapshot.as_ref());
         let mut items: Vec<AnyElement> = Vec::new();
         for entry in sidebar.entries() {
             match entry {
@@ -5115,18 +5140,21 @@ impl LibraryApp {
                     cx,
                 )
             }
-            MusicDestination::NeedsAttention => {
+            MusicDestination::Inbox => {
                 let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();
                 for (row_id, url) in self.vm.content_list_thumbnail_sources() {
                     let img = self.thumbnail_for_url(Some(&url), false, cx);
                     content_row_thumbs.insert(row_id, img);
                 }
                 // ADR 0084 Decision 10: the rows carry the Tracks or
-                // Needs attention selection's checkbox facts.
+                // Inbox selection's checkbox facts.
                 let rows = self.vm.content_list_rows_with_selection(
                     &self.track_selection,
                     self.track_selection_mode,
                 );
+                let rows = self
+                    .vm
+                    .content_list_rows_with_marked(rows, self.marked_entry.as_ref());
                 // ADR 0083 task 007, decision D15: the right-click menu of
                 // a row gives the focus back to the list column.
                 let menu = ContentListMenuContext {
@@ -5135,16 +5163,42 @@ impl LibraryApp {
                 };
                 // ADR 0086 packet 002: the list column shows no window
                 // group, so each of its rows is one item.
-                let items = rows.into_iter().collect();
-                let pane = render_library_content_list(
-                    self.vm.content_list_page(),
-                    items,
-                    &content_row_thumbs,
-                    &self.needs_attention_scroll,
-                    (ContentListSelectionTarget::ListColumn, None),
-                    Some(menu),
-                    cx,
-                );
+                let items: Vec<_> = rows.into_iter().collect();
+                // ADR 0089 Decision 3: the Tracks section comes first, then
+                // Updates and Setup. A section with no item is absent, and
+                // an Inbox with no item shows the empty state of the rows.
+                let inbox = self.vm.inbox_page(self.tag_update_snapshot.as_ref());
+                let shows_track_pane = inbox
+                    .sections()
+                    .first()
+                    .is_none_or(|section| section.section == InboxSection::Tracks);
+                let track_pane = shows_track_pane.then(|| {
+                    render_library_content_list(
+                        self.vm.content_list_page(),
+                        items,
+                        &content_row_thumbs,
+                        &self.inbox_scroll,
+                        (ContentListSelectionTarget::ListColumn, None),
+                        Some(menu),
+                        cx,
+                    )
+                });
+                let sections = render_inbox_sections(&inbox, cx);
+                let pane = match (track_pane, sections) {
+                    (Some(track_pane), Some(sections)) => div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h_0()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .child(track_pane)
+                        .child(sections)
+                        .into_any_element(),
+                    (Some(track_pane), None) => track_pane,
+                    (None, Some(sections)) => sections,
+                    (None, None) => div().into_any_element(),
+                };
                 if let Some(bar) = self.content_list_selection_action_bar() {
                     action_bar = Some(self.render_selection_action_bar(
                         bar,

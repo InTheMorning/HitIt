@@ -12301,7 +12301,7 @@ fn adr_0065_readiness_rows_keep_state_labels_separate_from_actions() {
     let render_row = source_between(
         &content_shell_source,
         "fn render_content_list_row(",
-        "fn render_content_list_tile(",
+        "fn render_content_row_checkbox(",
     );
     if !render_row.contains("row.accepts_row_click()") {
         violations.push(
@@ -21245,10 +21245,11 @@ entry.\n{}",
     );
 }
 
-/// D5-03 (ADR 0084 Decision 2): Show's "Open in Music" opens
-/// `Destination(NeedsAttention)`.
+/// Situational ADR 0089 Decision 3 (ADR 0084 Decision 2 for the order of
+/// the navigation entry): Show's "Open" opens `Destination(Inbox)`. The
+/// destination `Needs attention` was renamed to `Inbox` by ADR 0089.
 #[test]
-fn adr_0084_destinations_d5_03_show_opens_needs_attention_destination() {
+fn adr_0089_destinations_show_opens_inbox_destination() {
     let show_source = read_source(&manifest_path("src/app/show.rs"));
     let function_body = show_source
         .split("fn open_broadcast_readiness_in_music(")
@@ -21257,10 +21258,9 @@ fn adr_0084_destinations_d5_03_show_opens_needs_attention_destination() {
         .expect("src/app/show.rs must define open_broadcast_readiness_in_music");
 
     assert!(
-        function_body
-            .contains("FrameNavigationEntry::Destination(MusicDestination::NeedsAttention)"),
-        "ADR 0084 Decision 2: Show's \"Open in Music\" must open \
-`Destination(MusicDestination::NeedsAttention)`, through `open_broadcast_readiness_in_music`."
+        function_body.contains("FrameNavigationEntry::Destination(MusicDestination::Inbox)"),
+        "ADR 0089 Decision 3: Show's \"Open\" must open \
+`Destination(MusicDestination::Inbox)`, through `open_broadcast_readiness_in_music`. Fix: change the destination in that function."
     );
 }
 
@@ -21854,7 +21854,7 @@ fn adr_0083_list_row_actions_r83_7_13_rows_use_the_shared_menu() {
     let render_row = source_between(
         &content,
         "fn render_content_list_row(",
-        "fn render_content_list_tile(",
+        "fn render_content_row_checkbox(",
     );
     if render_row.contains("UiButton")
         || render_row

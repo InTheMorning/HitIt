@@ -18,7 +18,7 @@ use crate::broadcast::encoder::EncoderTarget;
 use crate::broadcast::producer::DropFileProducer;
 use crate::broadcast::transport::Transport;
 use crate::theme_profile::ThemeProfile;
-use crate::view_models::workspace::{ContentViewMode, WorkspaceLayoutConfig};
+use crate::view_models::workspace::WorkspaceLayoutConfig;
 
 pub(crate) mod correction;
 
@@ -66,8 +66,6 @@ pub(crate) struct WorkspaceConfig {
 pub(crate) struct WorkspaceLayoutPrefs {
     /// Persisted content-pane width in logical pixels.
     pub(crate) content_pane_width: Option<f32>,
-    /// Persisted Music content-list presentation mode.
-    pub(crate) content_list_view_mode: Option<ContentViewMode>,
 }
 
 /// Persisted UI scale enum — TOML representation is a lowercase string
@@ -387,7 +385,6 @@ pub struct ConfigSnapshot {
     pub theme_profile: ConfigField<ThemeProfile>,
     pub(crate) workspace_layout: ConfigField<Option<WorkspaceLayoutConfig>>,
     pub(crate) content_pane_width: ConfigField<Option<f32>>,
-    pub(crate) content_list_view_mode: ConfigField<Option<ContentViewMode>>,
 }
 
 impl fmt::Debug for ConfigSnapshot {
@@ -685,12 +682,6 @@ impl ConfigSnapshot {
                 "expected a valid workspace frame layout",
             ),
             content_pane_width: snapshot_width(layout),
-            content_list_view_mode: decode_field(
-                layout,
-                "content_list_view_mode",
-                "workspace.layout.content_list_view_mode",
-                "expected list or tiles",
-            ),
             path: path.to_path_buf(),
             original_bytes: bytes,
             document,
@@ -727,7 +718,6 @@ impl ConfigSnapshot {
             self.theme_profile.as_ref().err(),
             self.workspace_layout.as_ref().err(),
             self.content_pane_width.as_ref().err(),
-            self.content_list_view_mode.as_ref().err(),
         ]
         .into_iter()
         .flatten()
@@ -756,7 +746,6 @@ impl ConfigSnapshot {
             .and_then(toml::Value::as_table)
             .map(|_| WorkspaceLayoutPrefs {
                 content_pane_width: self.content_pane_width.unwrap_or_default(),
-                content_list_view_mode: self.content_list_view_mode.unwrap_or_default(),
             });
         Some(WorkspaceConfig { layout })
     }
@@ -1046,17 +1035,6 @@ pub(crate) fn save_workspace_layout_prefs(
         }
         None => {
             layout_table.remove("content_pane_width");
-        }
-    }
-    match workspace_layout_prefs.content_list_view_mode {
-        Some(mode) => {
-            layout_table.insert(
-                "content_list_view_mode".into(),
-                toml::Value::String(mode.id_suffix().to_string()),
-            );
-        }
-        None => {
-            layout_table.remove("content_list_view_mode");
         }
     }
 
@@ -1730,7 +1708,6 @@ db_path = "/tmp/v4vmm.sqlite"
 [workspace]
 [workspace.layout]
 content_pane_width = "wide"
-content_list_view_mode = "tiles"
 "#,
         )
         .expect("write config");
@@ -1743,9 +1720,8 @@ content_list_view_mode = "tiles"
                 .and_then(|workspace| workspace.layout.as_ref()),
             Some(&WorkspaceLayoutPrefs {
                 content_pane_width: None,
-                content_list_view_mode: Some(ContentViewMode::Tiles)
             }),
-            "invalid width falls back independently while the valid view mode survives"
+            "invalid width falls back independently"
         );
     }
 
@@ -1962,7 +1938,6 @@ driver = "null"
             &cfg_path,
             &WorkspaceLayoutPrefs {
                 content_pane_width: Some(560.0),
-                content_list_view_mode: Some(ContentViewMode::List),
             },
         )
         .expect("save workspace preferences");
@@ -2069,7 +2044,6 @@ kind = "detail"
             &cfg_path,
             &WorkspaceLayoutPrefs {
                 content_pane_width: Some(1400.0),
-                content_list_view_mode: Some(ContentViewMode::List),
             },
         )
         .expect("save workspace layout prefs");
@@ -2102,22 +2076,6 @@ kind = "detail"
             prefs.and_then(|prefs| prefs.content_pane_width),
             Some(1400.0),
             "workspace prefs save should update the persisted pane width"
-        );
-        assert_eq!(
-            prefs.and_then(|prefs| prefs.content_list_view_mode),
-            Some(ContentViewMode::List),
-            "workspace prefs save should update the persisted content-list view mode"
-        );
-        assert_eq!(
-            table
-                .get("workspace")
-                .and_then(toml::Value::as_table)
-                .and_then(|workspace| workspace.get("layout"))
-                .and_then(toml::Value::as_table)
-                .and_then(|layout| layout.get("content_list_view_mode"))
-                .and_then(toml::Value::as_str),
-            Some("list"),
-            "workspace prefs save should serialize the content-list view mode"
         );
         assert_eq!(
             table
@@ -2160,15 +2118,17 @@ workspace = "not a table"
             &cfg_path,
             &WorkspaceLayoutPrefs {
                 content_pane_width: Some(900.0),
-                content_list_view_mode: None,
             },
         )
         .expect_err("ordinary saves cannot repair malformed settings");
         assert_eq!(fs::read(&cfg_path).expect("preserved bytes"), before);
     }
 
+    /// A config written before the Inbox packet (ADR 0089 packet 012) still
+    /// loads. The retired `content_list_view_mode` key is an unknown field,
+    /// and the pane width still loads.
     #[test]
-    fn load_config_defaults_missing_content_list_view_mode() {
+    fn load_config_ignores_retired_content_list_view_mode() {
         let temp = tempfile::tempdir().expect("tempdir");
         let cfg_path = temp.path().join("config.toml");
         fs::write(
@@ -2179,11 +2139,13 @@ db_path = "/tmp/v4vmm.sqlite"
 
 [workspace.layout]
 content_pane_width = 720.0
+content_list_view_mode = "tiles"
 "#,
         )
         .expect("write config");
 
         let cfg = ConfigSnapshot::read_existing(&cfg_path).expect("load config");
+        assert!(cfg.issues().is_empty(), "retired key must not be an issue");
         let workspace = cfg.workspace_preferences();
         let prefs = workspace
             .as_ref()
@@ -2191,40 +2153,6 @@ content_pane_width = 720.0
             .expect("workspace layout prefs");
 
         assert_eq!(prefs.content_pane_width, Some(720.0));
-        assert_eq!(
-            prefs.content_list_view_mode, None,
-            "old configs without content_list_view_mode should keep loading"
-        );
-    }
-
-    #[test]
-    fn load_config_parses_content_list_view_mode() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let cfg_path = temp.path().join("config.toml");
-        fs::write(
-            &cfg_path,
-            r#"
-music_dir = "/tmp/old"
-db_path = "/tmp/v4vmm.sqlite"
-
-[workspace.layout]
-content_list_view_mode = "list"
-"#,
-        )
-        .expect("write config");
-
-        let cfg = ConfigSnapshot::read_existing(&cfg_path).expect("load config");
-        let workspace = cfg.workspace_preferences();
-        let prefs = workspace
-            .as_ref()
-            .and_then(|workspace| workspace.layout.as_ref())
-            .expect("workspace layout prefs");
-
-        assert_eq!(
-            prefs.content_list_view_mode,
-            Some(ContentViewMode::List),
-            "workspace prefs should deserialize the content-list view mode"
-        );
     }
     // Situational: ADR 0066 invariants 3–4. These are behavioral guards for
     // document preservation and independently decoded configuration facts.
@@ -2322,10 +2250,6 @@ content_list_view_mode = "list"
             ),
             ("[broadcast.encoder]\nport = 'bad'", "broadcast.encoder"),
             (
-                "[workspace.layout]\ncontent_list_view_mode = 'other'",
-                "workspace.layout.content_list_view_mode",
-            ),
-            (
                 "[workspace.layout]\ncontent_pane_width = 'wide'",
                 "workspace.layout.content_pane_width",
             ),
@@ -2373,7 +2297,6 @@ content_list_view_mode = "list"
                 }
                 _ => {
                     assert!(snapshot.content_pane_width.is_err());
-                    assert!(snapshot.content_list_view_mode.is_err());
                     assert!(snapshot.playback_driver.is_ok());
                 }
             }
@@ -2387,7 +2310,7 @@ content_list_view_mode = "list"
              [broadcast]\nhosts = false\nselected_host = 'Local'\n\
              drop_directory = '/tmp/producer'\ndrop_file_target = 'default'\n\
              [broadcast.encoder]\nbinary_path = 'butt'\n\
-             [workspace.layout]\ncontent_pane_width = 'wide'\ncontent_list_view_mode = 'list'\n",
+             [workspace.layout]\ncontent_pane_width = 'wide'\n",
         );
         assert!(snapshot.playback_driver.is_err());
         assert_eq!(snapshot.mpv_path.unwrap(), Some(PathBuf::from("/bin/mpv")));
@@ -2400,10 +2323,6 @@ content_list_view_mode = "list"
         assert_eq!(snapshot.drop_file_target.unwrap(), "default");
         assert!(snapshot.encoder.unwrap().is_some());
         assert!(snapshot.content_pane_width.is_err());
-        assert_eq!(
-            snapshot.content_list_view_mode.unwrap(),
-            Some(ContentViewMode::List)
-        );
 
         let snapshot = config_snapshot(
             "[broadcast]\ndrop_directory = 3\n[broadcast.encoder]\nbinary_path = 'butt'",
@@ -2516,7 +2435,6 @@ content_list_view_mode = "list"
                 path,
                 &WorkspaceLayoutPrefs {
                     content_pane_width: Some(800.0),
-                    content_list_view_mode: Some(ContentViewMode::List),
                 },
             ),
         ]

@@ -35,6 +35,7 @@ use crate::application::queries::stored_values::FeedStoredValues;
 use crate::db::{self, TrackRow};
 use crate::feed_service;
 use crate::metadata::MusicBrainzLookupResult;
+use crate::runtime::TagUpdateSnapshot;
 use crate::view_models::album_page::AlbumNameLinkVm;
 use crate::view_models::artist_identity::{
     name_feed_matches, name_label, ArtistIdentity, ArtistNameKey, NameFeedEntry, NameFeedMatch,
@@ -49,6 +50,7 @@ use crate::view_models::entity_detail::{
     TrackMembershipState,
 };
 use crate::view_models::format::{fmt_date, fmt_total_runtime_clock, plural};
+use crate::view_models::inbox::{order_problem_tracks, update_items, InboxPageVm, InboxSetupItem};
 use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::index_name_list::{
     name_sort_key, recent_releases_status_row, IndexListStatusRowVm, IndexNameList,
@@ -109,8 +111,8 @@ use crate::view_models::window_groups::{
     WindowGroupKey, WindowGroupSource, WindowGroupTileVm, WindowLength,
 };
 use crate::view_models::workspace::{
-    ContentViewMode, FrameHeaderActionDisplay, FrameNavigationEntry, MusicDestination,
-    NavigationPathStart, ReleaseKey, TrackKey,
+    FrameHeaderActionDisplay, FrameNavigationEntry, MusicDestination, NavigationPathStart,
+    ReleaseKey, TrackKey,
 };
 use crate::view_models::ActionStatusMessageDisplay;
 use crate::views::{FeedMetadataFacts, LocalIdentityFacts, TrackRef};
@@ -1362,7 +1364,7 @@ pub(crate) fn release_kind_of_feed_result(display: &FeedResultDisplay) -> Releas
 /// Decision 10, packet 020).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ContentListSelectionTarget {
-    /// The Tracks or Needs attention list of the list column.
+    /// The Tracks or Inbox list of the list column.
     ListColumn,
 }
 
@@ -1383,26 +1385,30 @@ pub(crate) struct ContentListRowDisplay {
     pub(crate) state_label: Option<&'static str>,
     /// Whole-row activation behavior.
     pub(crate) activation: ContentListRowActivation,
-    /// The one main fix of a Needs attention row. It shows at all times,
+    /// The one main fix of an Inbox row. It shows at all times,
     /// outside the menu (ADR 0083 task 007, decision D10). `None` for each
     /// other row and in selection mode.
     pub(crate) fix: Option<ContentListRowActionDisplay>,
-    /// The "⋯" menu and the right-click menu of a Tracks or Needs attention
+    /// The "⋯" menu and the right-click menu of a Tracks or Inbox
     /// row (ADR 0083 task 007, decisions D9 and D10).
     /// [`LibraryViewModel::content_list_rows_with_selection`] fills it.
     /// `None` in selection mode.
     pub(crate) menu: Option<TrackRowMenuVm>,
-    /// The readiness state of a Needs attention row. `None` for each other
+    /// The readiness state of an Inbox row. `None` for each other
     /// row.
     pub(crate) readiness_state: Option<BroadcastReadinessState>,
     /// The drag fact of a Tracks list row of a Library track in `Normal`
-    /// (ADR 0083 task 008, decision D4). `None` for a Needs attention row,
+    /// (ADR 0083 task 008, decision D4). `None` for an Inbox row,
     /// for a row with no track key and in selection mode.
     pub(crate) drag: Option<TrackDragVm>,
     /// The checkbox facts of the row (ADR 0084 Decision 10). Every row
     /// constructs with no selection; [`LibraryViewModel::content_list_rows_with_selection`]
-    /// fills it for the Tracks and Needs attention lists.
+    /// fills it for the Tracks and Inbox lists.
     pub(crate) selection: RowSelectionVm,
+    /// `true` when this row opens the page that Back left open over the
+    /// Inbox (ADR 0089 Decision 9, R-NAV-2 item 2). At most one row of a
+    /// list is marked.
+    pub(crate) marked: bool,
 }
 
 impl ContentListRowDisplay {
@@ -1565,6 +1571,7 @@ impl ContentListRowDisplay {
             readiness_state: None,
             drag: None,
             selection: RowSelectionVm::none(),
+            marked: false,
         }
     }
 
@@ -1661,7 +1668,7 @@ fn broadcast_readiness_row_actions(
 }
 
 /// The drag fact of a Tracks list row that has a track key (ADR 0083 task
-/// 008, decision D4). A Needs attention row has no drag, because its menu
+/// 008, decision D4). A Inbox row has no drag, because its menu
 /// has no "Add to playlist" item.
 fn content_list_row_drag(row: &ContentListRowDisplay) -> Option<TrackDragVm> {
     if row.readiness_state.is_some() {
@@ -1674,7 +1681,7 @@ fn content_list_row_drag(row: &ContentListRowDisplay) -> Option<TrackDragVm> {
 /// attention list (ADR 0083 task 007).
 ///
 /// - A Tracks list row gets the items of task 006 decision D2 (D9).
-/// - A Needs attention row gets "Inspect sources", and "Remove from
+/// - A Inbox row gets "Inspect sources", and "Remove from
 ///   Library…" when its state is `RemovedFromFeed` (D10). The menu never
 ///   holds the fix of the row.
 ///
@@ -1731,8 +1738,8 @@ impl ContentListEmptyStateDisplay {
 
     const fn for_broadcast_readiness() -> Self {
         Self {
-            title: "No readiness issues",
-            secondary: "Local library tracks with files have payment routes.",
+            title: "Nothing needs a decision",
+            secondary: "Tracks, updates and setup that a show needs appear here.",
         }
     }
 }
@@ -2207,7 +2214,7 @@ pub(crate) fn list_column_header_action(
 ) -> Option<FrameHeaderActionDisplay> {
     let (element_id, noun) = match destination {
         MusicDestination::Releases => ("music-list-column-select-releases", "releases"),
-        MusicDestination::NeedsAttention => ("music-list-column-select-needs-attention", "tracks"),
+        MusicDestination::Inbox => ("music-list-column-select-inbox", "tracks"),
         MusicDestination::Search
         | MusicDestination::Artists
         | MusicDestination::Playlists
@@ -2492,7 +2499,6 @@ fn artist_feed_row(
 /// GPUI-free page VM for a workspace content-list frame.
 #[derive(Clone, Debug)]
 pub(crate) struct ContentListPageVm {
-    view_mode: ContentViewMode,
     text_filter: Option<String>,
     cached_rows: Vec<ContentListRowDisplay>,
     library_rows: Vec<ContentListRowDisplay>,
@@ -2505,7 +2511,6 @@ pub(crate) struct ContentListPageVm {
 impl ContentListPageVm {
     const PAGE_ID: &'static str = "music-content-list-page";
     const ROWS_ID: &'static str = "music-content-list-rows";
-    const TILES_ID: &'static str = "music-content-list-tiles";
     const LOAD_MORE_BUTTON_ID: &'static str = "music-content-list-load-more";
     const LOAD_MORE_LABEL: &'static str = "Load more";
     const LOAD_MORE_A11Y_LABEL: &'static str = "Load more recent music";
@@ -2522,7 +2527,6 @@ impl ContentListPageVm {
             ContentListPageLoadState::Loaded
         };
         Self {
-            view_mode: ContentViewMode::default(),
             text_filter: None,
             cached_rows,
             library_rows,
@@ -2569,17 +2573,6 @@ impl ContentListPageVm {
         }
     }
 
-    /// Returns the selected content presentation mode.
-    #[must_use]
-    pub(crate) const fn view_mode(&self) -> ContentViewMode {
-        self.view_mode
-    }
-
-    /// Sets the selected content presentation mode.
-    pub(crate) fn set_view_mode(&mut self, view_mode: ContentViewMode) {
-        self.view_mode = view_mode;
-    }
-
     /// Replaces the cached rows while preserving the frame-local filter.
     pub(crate) fn replace_rows(&mut self, cached_rows: Vec<ContentListRowDisplay>) {
         self.library_rows.clone_from(&cached_rows);
@@ -2600,7 +2593,6 @@ impl ContentListPageVm {
         self.cached_rows = rows;
         self.source = ContentListPageSource::BroadcastReadiness;
         self.text_filter = None;
-        self.view_mode = ContentViewMode::List;
         self.load_state = if self.cached_rows.is_empty() {
             ContentListPageLoadState::Empty
         } else {
@@ -2811,22 +2803,10 @@ impl ContentListPageVm {
         Self::ROWS_ID
     }
 
-    /// Stable tile-grid element id for the renderer.
-    #[must_use]
-    pub(crate) const fn tiles_id() -> &'static str {
-        Self::TILES_ID
-    }
-
     /// Stable skeleton row element id for the renderer.
     #[must_use]
     pub(crate) const fn skeleton_row_id(index: usize) -> (&'static str, usize) {
         ("music-content-loading-row", index)
-    }
-
-    /// Stable skeleton tile element id for the renderer.
-    #[must_use]
-    pub(crate) const fn skeleton_tile_id(index: usize) -> (&'static str, usize) {
-        ("music-content-loading-tile", index)
     }
 }
 
@@ -2967,14 +2947,17 @@ pub(crate) struct LibraryViewModel {
     /// the navigation stack `adr_0084_nav_library_screens_keep_no_navigation_stack`
     /// forbids.
     active_destination: MusicDestination,
-    /// The Needs attention count (ADR 0084 Decision 2), kept off the
-    /// render path: the Library stores it from `show_needs_attention_report`
-    /// and `refresh_needs_attention_report`, at the load, feed-check,
-    /// repair, download, and removal events "Design" names.
-    needs_attention_count: usize,
+    /// The problem tracks of the Inbox (ADR 0089 Decision 3), kept off the
+    /// render path: the Library stores it from `show_inbox_report` and
+    /// `refresh_inbox_report`, at the load, feed-check, repair, download,
+    /// and removal events "Design" names.
+    inbox_track_count: usize,
+    /// The setup items of the Inbox (ADR 0089 Decision 3): the capability
+    /// issues that a show needs. The top app stores them.
+    inbox_setup: Vec<InboxSetupItem>,
     /// The tracks with the state `Ready` in the last readiness report (ADR
     /// 0087 packet 002 decision D10). The Library stores it at the same
-    /// events as `needs_attention_count`. `None` before the first report.
+    /// events as `inbox_track_count`. `None` before the first report.
     ready_track_ids: Option<BTreeSet<i64>>,
     album_description_states: BTreeMap<i64, DescriptionState>,
     track_description_states: BTreeMap<i64, DescriptionState>,
@@ -3020,7 +3003,8 @@ impl LibraryViewModel {
             content_list_page: ContentListPageVm::new(Vec::new()),
             list_pages: ListPages::default(),
             active_destination: MusicDestination::Search,
-            needs_attention_count: 0,
+            inbox_track_count: 0,
+            inbox_setup: Vec::new(),
             ready_track_ids: None,
             album_description_states: BTreeMap::new(),
             track_description_states: BTreeMap::new(),
@@ -3165,28 +3149,84 @@ impl LibraryViewModel {
         self.active_destination = destination;
     }
 
-    /// Always shows the readiness rows of `report`, whatever the
+    /// Always shows the Inbox track rows of `report`, whatever the
     /// previously active destination list (ADR 0084 Decision 2: opening
-    /// Needs attention, from the sidebar or from Show).
-    pub(crate) fn show_needs_attention_report(&mut self, report: &BroadcastReadinessReport) {
-        self.needs_attention_count = report.problem_count();
+    /// the Inbox, from the sidebar or from Show). The tracks of the show
+    /// playlist, `source_track_ids` in its sequence, come first (ADR 0089
+    /// Decision 3).
+    pub(crate) fn show_inbox_report(
+        &mut self,
+        report: &BroadcastReadinessReport,
+        source_track_ids: &[i64],
+    ) {
+        self.inbox_track_count = report.problem_tracks().len();
         self.ready_track_ids = Some(ready_track_ids(report));
-        self.content_list_page
-            .replace_broadcast_readiness_rows(self.broadcast_readiness_rows(report));
+        self.content_list_page.replace_broadcast_readiness_rows(
+            self.broadcast_readiness_rows(report, source_track_ids),
+        );
     }
 
-    /// Keeps the Needs attention count current at the ADR 0084 Decision 2
-    /// events: on load, after a feed check or a repair, and after a
-    /// download or a removal. Only replaces the active list rows when
-    /// Needs attention is already open, so this never hijacks another
-    /// open destination's list.
-    pub(crate) fn refresh_needs_attention_report(&mut self, report: &BroadcastReadinessReport) {
-        self.needs_attention_count = report.problem_count();
+    /// Keeps the Inbox count current at the ADR 0084 Decision 2 events: on
+    /// load, after a feed check or a repair, and after a download or a
+    /// removal. Only replaces the active list rows when the Inbox is
+    /// already open, so this never hijacks another open destination's list.
+    pub(crate) fn refresh_inbox_report(
+        &mut self,
+        report: &BroadcastReadinessReport,
+        source_track_ids: &[i64],
+    ) {
+        self.inbox_track_count = report.problem_tracks().len();
         self.ready_track_ids = Some(ready_track_ids(report));
         if self.shows_broadcast_readiness_list() {
-            self.content_list_page
-                .replace_broadcast_readiness_rows(self.broadcast_readiness_rows(report));
+            self.content_list_page.replace_broadcast_readiness_rows(
+                self.broadcast_readiness_rows(report, source_track_ids),
+            );
         }
+    }
+
+    /// Stores the setup items of the Inbox (ADR 0089 Decision 3).
+    pub(crate) fn set_inbox_setup(&mut self, setup: Vec<InboxSetupItem>) {
+        self.inbox_setup = setup;
+    }
+
+    /// Marks the Inbox track row that opens the page Back left open (ADR 0089
+    /// Decision 9, R-NAV-2 item 2). A row of another kind, or no open track,
+    /// gets no mark.
+    #[must_use]
+    pub(crate) fn content_list_rows_with_marked(
+        &self,
+        rows: Vec<ContentListRowDisplay>,
+        entry: Option<&FrameNavigationEntry>,
+    ) -> Vec<ContentListRowDisplay> {
+        let open = match entry {
+            Some(FrameNavigationEntry::Track(key)) => Some(key),
+            _ => None,
+        };
+        rows.into_iter()
+            .map(|mut row| {
+                row.marked = open.is_some_and(|open| {
+                    self.content_list_track_row_key(&row.id).as_ref() == Some(open)
+                });
+                row
+            })
+            .collect()
+    }
+
+    /// The Inbox page (ADR 0089 Decision 3). `tag_update` is the tag update
+    /// snapshot that the Library holds (ADR 0076 Decision 8): its files are
+    /// the Updates items of the tags.
+    #[must_use]
+    pub(crate) fn inbox_page(&self, tag_update: Option<&TagUpdateSnapshot>) -> InboxPageVm {
+        InboxPageVm::new(
+            self.inbox_track_count,
+            update_items(
+                self.snapshot.feed_update_state.stale.len(),
+                self.snapshot.feed_update_state.phase != FeedUpdatePhase::Idle,
+                crate::view_models::tag_update::file_count(tag_update),
+                tag_update.is_some_and(|snapshot| snapshot.writing),
+            ),
+            self.inbox_setup.clone(),
+        )
     }
 
     /// The Library search facts of one run (ADR 0087 packet 002): the facts
@@ -3199,9 +3239,9 @@ impl LibraryViewModel {
     fn broadcast_readiness_rows(
         &self,
         report: &BroadcastReadinessReport,
+        source_track_ids: &[i64],
     ) -> Vec<ContentListRowDisplay> {
-        report
-            .problem_tracks()
+        order_problem_tracks(report.problem_tracks(), source_track_ids)
             .into_iter()
             .map(|track| {
                 ContentListRowDisplay::from_broadcast_readiness_track(
@@ -3385,15 +3425,6 @@ impl LibraryViewModel {
     #[must_use]
     pub(crate) fn is_library_loading(&self) -> bool {
         self.library_loading
-    }
-
-    #[must_use]
-    pub(crate) const fn content_view_mode(&self) -> ContentViewMode {
-        self.content_list_page.view_mode()
-    }
-
-    pub(crate) fn set_content_view_mode(&mut self, view_mode: ContentViewMode) {
-        self.content_list_page.set_view_mode(view_mode);
     }
 
     /// The scope of the list page `key` (ADR 0089 Decision 5). A page with
@@ -4336,7 +4367,7 @@ impl LibraryViewModel {
     ) -> Vec<ContentListRowDisplay> {
         let selecting = mode.is_selecting();
         // The checked Library tracks that a Tracks list row can drag, in
-        // list order (ADR 0084 task 031). A Needs attention row starts no
+        // list order (ADR 0084 task 031). A Inbox row starts no
         // drag (ADR 0083 task 008, decision D4).
         let checked_track_ids: Vec<i64> = if selecting {
             self.content_list_page
@@ -4386,7 +4417,7 @@ impl LibraryViewModel {
             .collect()
     }
 
-    /// The menu of a Library track row of the Tracks or Needs attention
+    /// The menu of a Library track row of the Tracks or Inbox
     /// list (ADR 0083 task 007, decisions D9 and D10). The work of the row
     /// comes from [`BusyItems`]. A row whose track is not in the tree gets
     /// no menu.
@@ -4429,7 +4460,7 @@ impl LibraryViewModel {
             .map(TrackRow::track_key)
     }
 
-    /// The action bar of the Tracks or Needs attention list selection
+    /// The action bar of the Tracks or Inbox list selection
     /// (ADR 0084 Decision 10), or `None` outside [`SelectionMode::Selecting`]
     /// (Amendment, 2026-10-19). Only a Library track row resolves a track
     /// key (`content_list_track_row_key`), so a selected track is always
@@ -4730,10 +4761,14 @@ impl LibraryViewModel {
     /// counts come from the state that the Library already holds, so the
     /// render path runs no query.
     #[must_use]
-    pub(crate) fn sidebar(&self, selected: Option<SidebarDestination>) -> SidebarVm {
+    pub(crate) fn sidebar(
+        &self,
+        selected: Option<SidebarDestination>,
+        tag_update: Option<&TagUpdateSnapshot>,
+    ) -> SidebarVm {
         SidebarVm::new(
             SidebarCounts {
-                needs_attention: self.needs_attention_count,
+                inbox: self.inbox_page(tag_update).item_count(),
                 playlists: self.snapshot.playlists.len(),
             },
             selected,
@@ -7048,35 +7083,6 @@ mod tests {
     }
 
     #[test]
-    fn content_list_page_vm_set_view_mode_preserves_visible_rows() {
-        let mut page = ContentListPageVm::new(vec![
-            content_row("library", ContentListRowSource::Library),
-            content_row("index", ContentListRowSource::Index),
-        ]);
-        let tile_rows = page
-            .visible_row_ids()
-            .into_iter()
-            .map(str::to_string)
-            .collect::<Vec<_>>();
-
-        page.set_view_mode(ContentViewMode::List);
-
-        assert_eq!(
-            page.view_mode(),
-            ContentViewMode::List,
-            "Situational ADR 0062 content-list view mode guard: selected mode should update"
-        );
-        assert_eq!(
-            page.visible_row_ids()
-                .into_iter()
-                .map(str::to_string)
-                .collect::<Vec<_>>(),
-            tile_rows,
-            "Situational ADR 0062 content-list view mode guard: tile and list modes should expose the same visible rows"
-        );
-    }
-
-    #[test]
     fn content_list_page_vm_set_text_filter_updates_visible_rows() {
         let mut page = ContentListPageVm::new(vec![
             ContentListRowDisplay::new(
@@ -8573,10 +8579,10 @@ mod tests {
         assert!(rows.iter().all(|row| row.fix.is_none()));
     }
 
-    /// R83-7-09 (decision D10): each Needs attention row gives its one fix
+    /// R83-7-09 (decision D10): each Inbox row gives its one fix
     /// and its menu. The menu never holds a fix.
     #[test]
-    fn adr_0083_list_row_actions_r83_7_09_needs_attention_fix_and_menu() {
+    fn adr_0083_list_row_actions_r83_7_09_inbox_row_fix_and_menu() {
         use crate::application::queries::broadcast::BroadcastReadinessState as State;
         use crate::view_models::release_page::TrackRowMenuAction::{InspectSources, Remove};
         let track = downloaded_track(9, "Gone Song");
@@ -8640,15 +8646,13 @@ mod tests {
         vm.replace_tree(library_tree());
         let rhubarb = vm.tree().artists[0].albums[0].tracks[0].clone();
         let cliffs = vm.tree().artists[0].albums[0].tracks[1].clone();
-        let mut needs_attention = ContentListRowDisplay::from_broadcast_readiness_track(
+        let mut inbox_row = ContentListRowDisplay::from_broadcast_readiness_track(
             &broadcast_readiness_track(cliffs.id, "Cliffs", State::NoRouteTag, "Reason."),
             false,
         );
-        needs_attention.source = ContentListRowSource::Library;
-        vm.content_list_page = ContentListPageVm::new(vec![
-            ContentListRowDisplay::from_track(&rhubarb),
-            needs_attention,
-        ]);
+        inbox_row.source = ContentListRowSource::Library;
+        vm.content_list_page =
+            ContentListPageVm::new(vec![ContentListRowDisplay::from_track(&rhubarb), inbox_row]);
         let normal =
             vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Normal);
         assert!(normal.iter().all(|row| row.menu.is_some()));
@@ -8686,8 +8690,10 @@ mod tests {
         assert!(vm.feed_update_state().stale.is_empty());
     }
 
+    /// ADR 0089 Decision 3: the Inbox shows the readiness track rows, and the
+    /// sidebar count sums its items (tracks, then the tag update files).
     #[test]
-    fn library_view_model_broadcast_readiness_report_replaces_content_list() {
+    fn adr_0089_inbox_report_replaces_the_track_rows_and_counts_them() {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
         let report = BroadcastReadinessReport {
@@ -8715,13 +8721,12 @@ mod tests {
             ],
         };
 
-        vm.show_needs_attention_report(&report);
+        vm.show_inbox_report(&report, &[]);
 
         assert_eq!(
             vm.content_list_page.source(),
             ContentListPageSource::BroadcastReadiness
         );
-        assert_eq!(vm.content_view_mode(), ContentViewMode::List);
         let rows = vm.content_list_page.visible_rows();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].title(), "Missing Routes");
@@ -8732,6 +8737,114 @@ mod tests {
         assert_eq!(rows[1].state_label, Some("Missing file"));
         assert!(rows[1].fix.is_none());
         assert!(!rows[1].accepts_row_click());
+    }
+
+    /// ADR 0089 Decision 3, Answer 3: the tracks of the show playlist come
+    /// first, in its sequence, and the other tracks follow in their present
+    /// sequence.
+    #[test]
+    fn adr_0089_inbox_rows_put_the_show_playlist_tracks_first() {
+        let mut vm = LibraryViewModel::new();
+        let report = inbox_report(&[(1, "Rhubarb"), (2, "Cliffs"), (3, "Windowlicker")]);
+
+        vm.show_inbox_report(&report, &[3, 1]);
+
+        assert_eq!(vm.content_list_page.visible_row_ids(), ["3", "1", "2"]);
+    }
+
+    /// ADR 0089 Decision 3, Answer 3: with no session, no track has the
+    /// priority, and the present sequence holds.
+    #[test]
+    fn adr_0089_inbox_rows_keep_the_present_sequence_with_no_session() {
+        let mut vm = LibraryViewModel::new();
+        let report = inbox_report(&[(1, "Rhubarb"), (2, "Cliffs"), (3, "Windowlicker")]);
+
+        vm.show_inbox_report(&report, &[]);
+
+        assert_eq!(vm.content_list_page.visible_row_ids(), ["1", "2", "3"]);
+    }
+
+    /// ADR 0089 Decision 3: the sidebar count is the sum of the Inbox items.
+    /// Each track is one item. The sum of the update items is held by
+    /// `update_items` in `inbox.rs`.
+    #[test]
+    fn adr_0089_inbox_sidebar_count_sums_tracks_updates_and_setup() {
+        let mut vm = LibraryViewModel::new();
+        vm.show_inbox_report(&inbox_report(&[(1, "Rhubarb"), (2, "Cliffs")]), &[]);
+        assert_eq!(vm.inbox_page(None).item_count(), 2);
+        assert_eq!(inbox_count(&vm.sidebar(None, None)), 2);
+
+        vm.set_inbox_setup(Vec::new());
+        assert_eq!(vm.inbox_page(None).sections().len(), 1);
+    }
+
+    /// ADR 0089 Decision 9, R-NAV-2 item 2: the Inbox row that opens the page
+    /// Back left open is the only marked row.
+    #[test]
+    fn adr_0089_inbox_marks_the_track_row_of_the_open_page() {
+        let mut vm = LibraryViewModel::new();
+        let mut tree = library_tree();
+        for track in tree
+            .artists
+            .iter_mut()
+            .flat_map(|artist| artist.albums.iter_mut())
+            .flat_map(|album| album.tracks.iter_mut())
+        {
+            track.item_guid = format!("guid-{}", track.id);
+        }
+        vm.replace_tree(tree);
+        let report = inbox_report(&[(1, "Rhubarb"), (2, "Cliffs")]);
+        vm.show_inbox_report(&report, &[]);
+        let rows: Vec<ContentListRowDisplay> = vm
+            .content_list_page
+            .visible_rows()
+            .into_iter()
+            .cloned()
+            .collect();
+        let open = FrameNavigationEntry::Track(vm.library_track_key(2).expect("track 2"));
+
+        let marked: Vec<bool> = vm
+            .content_list_rows_with_marked(rows, Some(&open))
+            .iter()
+            .map(|row| row.marked)
+            .collect();
+
+        assert_eq!(marked, [false, true]);
+    }
+
+    fn inbox_report(tracks: &[(i64, &str)]) -> BroadcastReadinessReport {
+        use crate::application::queries::broadcast::BroadcastReadinessState;
+        BroadcastReadinessReport {
+            summary: crate::application::queries::broadcast::BroadcastReadinessSummary {
+                no_route_tag: tracks.len(),
+                ..Default::default()
+            },
+            tracks: tracks
+                .iter()
+                .map(|(id, title)| {
+                    broadcast_readiness_track(
+                        *id,
+                        title,
+                        BroadcastReadinessState::NoRouteTag,
+                        "Embedded MusicIndex Value Routes tag is missing.",
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn inbox_count(vm: &SidebarVm) -> usize {
+        vm.entries()
+            .iter()
+            .find_map(|entry| match entry {
+                crate::view_models::sidebar::SidebarEntryVm::Row(row)
+                    if row.destination == SidebarDestination::Inbox =>
+                {
+                    row.count
+                }
+                _ => None,
+            })
+            .unwrap_or(0)
     }
 
     #[test]
@@ -8856,7 +8969,7 @@ mod tests {
                 "Embedded MusicIndex Value Routes tag is missing.",
             )],
         };
-        vm.show_needs_attention_report(&report);
+        vm.show_inbox_report(&report, &[]);
 
         assert!(vm.begin_broadcast_route_repair(7));
 
@@ -9834,21 +9947,15 @@ mod tests {
                 .is_none()
         );
 
-        let tracks = list_column_header_action(
-            MusicDestination::NeedsAttention,
-            SelectionMode::Normal,
-            true,
-        )
-        .expect("Needs attention with rows gives a header action");
+        let tracks =
+            list_column_header_action(MusicDestination::Inbox, SelectionMode::Normal, true)
+                .expect("Inbox with rows gives a header action");
         assert_eq!(tracks.a11y_label, "Select tracks");
 
-        let needs_attention = list_column_header_action(
-            MusicDestination::NeedsAttention,
-            SelectionMode::Normal,
-            true,
-        )
-        .expect("Needs attention with rows gives a header action");
-        assert_eq!(needs_attention.a11y_label, "Select tracks");
+        let inbox_row =
+            list_column_header_action(MusicDestination::Inbox, SelectionMode::Normal, true)
+                .expect("Inbox with rows gives a header action");
+        assert_eq!(inbox_row.a11y_label, "Select tracks");
     }
 
     /// R7-04 (ADR 0084 Decision 5): the Releases list names the kind after
@@ -13002,7 +13109,7 @@ mod tests {
     }
 
     /// R83-8-11 (decision D4): a Tracks list row of a Library track in
-    /// `Normal` gives its drag fact. A Needs attention row, a row with no
+    /// `Normal` gives its drag fact. A Inbox row, a row with no
     /// track key and each row in `Selecting` give none.
     #[test]
     fn adr_0083_track_drag_r83_8_11_content_list_row_drag() {
@@ -13011,14 +13118,14 @@ mod tests {
         vm.replace_tree(library_tree());
         let rhubarb = vm.tree().artists[0].albums[0].tracks[0].clone();
         let cliffs = vm.tree().artists[0].albums[0].tracks[1].clone();
-        let mut needs_attention = ContentListRowDisplay::from_broadcast_readiness_track(
+        let mut inbox_row = ContentListRowDisplay::from_broadcast_readiness_track(
             &broadcast_readiness_track(cliffs.id, "Cliffs", State::NoRouteTag, "Reason."),
             false,
         );
-        needs_attention.source = ContentListRowSource::Library;
+        inbox_row.source = ContentListRowSource::Library;
         vm.content_list_page = ContentListPageVm::new(vec![
             ContentListRowDisplay::from_track(&rhubarb),
-            needs_attention,
+            inbox_row,
             ContentListRowDisplay::from_release_result(release_result(
                 "index-feed:saw-guid",
                 "Release",
@@ -13031,7 +13138,7 @@ mod tests {
             normal[0].drag,
             Some(TrackDragVm::one(rhubarb.id, "Rhubarb"))
         );
-        assert_eq!(normal[1].drag, None, "a Needs attention row has no drag");
+        assert_eq!(normal[1].drag, None, "an Inbox row has no drag");
         assert_eq!(normal[2].drag, None, "a row with no track key has no drag");
         let selecting =
             vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Selecting);
@@ -13131,7 +13238,7 @@ mod tests {
     /// R83-8-12 (decision D1): the spring-load timer with recorded times.
     #[test]
     fn adr_0083_track_drag_r83_8_12_spring_load_timer() {
-        use MusicDestination::{NeedsAttention, Playlists, Releases};
+        use MusicDestination::{Inbox, Playlists, Releases};
         let delay = Duration::from_millis(500);
         let start = Instant::now();
         let early = start + Duration::from_millis(499);
@@ -13146,9 +13253,7 @@ mod tests {
 
         for stop in [SpringLoadVm::leave, SpringLoadVm::end_drag] {
             let mut state = SpringLoadVm::default();
-            let generation = state
-                .enter(Playlists, NeedsAttention, start)
-                .expect("a timer");
+            let generation = state.enter(Playlists, Inbox, start).expect("a timer");
             stop(&mut state);
             assert_eq!(state.fire(generation, late, delay), None);
         }
@@ -13162,7 +13267,7 @@ mod tests {
         assert_eq!(state.fire(second, late + delay, delay), Some(Playlists));
 
         let mut state = SpringLoadVm::default();
-        assert_eq!(state.enter(Releases, NeedsAttention, start), None);
+        assert_eq!(state.enter(Releases, Inbox, start), None);
         assert_eq!(state.enter(Playlists, Playlists, start), None);
         for destination in MusicDestination::ALL {
             assert_eq!(

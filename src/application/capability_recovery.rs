@@ -358,7 +358,6 @@ impl CapabilityRevision {
                         snapshot.theme_profile,
                         &snapshot.workspace_layout,
                         snapshot.content_pane_width,
-                        snapshot.content_list_view_mode
                     )
                 )
             }
