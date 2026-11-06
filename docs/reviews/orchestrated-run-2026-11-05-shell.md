@@ -166,3 +166,5 @@ The run in `~/.claude/v4vmm-shots/20261106-123939` covered scroll, Load more, Ba
 
 The operator walked the writes by hand and found these faults, now corrected: Escape failed in the sheet after Compare ID3, a saved search row had no mark after Back, the copy report did not show on the page, and a My playlists row had no "⋯". The operator accepted one search field for Edit Query, and a new search cancels an open edit. On 2026-11-06 the operator decided that a saved search is keyed by its name. Migration 23 moves the unique rule from the query to the name, so Duplicate keeps the query and writes "<name> copy". "Save search" still shows "Saved" for a query that is already saved. ADR 0087 Decision 6 and ADR 0089 Decision 4 hold the rule.
 
+The operator asked why `title:hey` listed rows with no "hey" in their title. The Library matched inside a word, so "hey" found "They". The operator decided on 2026-11-06 that a Library text term matches at the start of a word (ADR 0087 Invariants), and that `title:` keeps the release title.
+
