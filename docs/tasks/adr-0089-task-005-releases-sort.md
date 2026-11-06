@@ -8,6 +8,17 @@ Depends on: [packet 004](adr-0089-task-004-list-page-state.md).
 
 Releases sorts by Newest or A to Z (ADR 0089 Decision 5). Newest gives the window groups of ADR 0086. A to Z gives the groups of ADR 0084 Decision 6 and a letter bar (R-LIST-1 item 2). The "New releases" view of Discover goes, because Releases takes it (Decision 2). Artists uses A to Z, and this packet examines its Newest source (The Contract).
 
+## Parts
+
+The orchestrator divided this packet on 2026-11-05, because one agent cannot complete it safely in one pass. Each part keeps the gate Green and has its own commit. The design steps below name the owner of each part.
+
+- Part A: steps 1, 3, 6, 7 and 8. The sort state and its menu, the check mark, the letter bar, `medium` on the two requests, and A to Z in All and In Library. The sort Newest shows the present name list until Part B.
+- Part B: steps 2 and 10. Newest with window groups in All and In Library, with the sort in the cache key.
+- Part C: steps 4 and 5. The tile view for each sort, the window group item, its mark and its selection.
+- Part D: step 9. The "New releases" view and its paths go, with their guards.
+
+Result of step 7 (2026-11-05): `GET /v1/feeds/recent` returns `FeedResponse` rows with no name key and no release count, and it gives only release feeds with the default `medium`. `GET /v1/artist-names` has only the sort `sort_name`. Thus Artists has one sort, A to Z, and its menu has one item.
+
 ## Files To Inspect
 
 `src/view_models/window_groups.rs`, `src/view_models/window_group_page.rs`, `src/view_models/releases_everything.rs`, `src/view_models/artists_everything.rs`, `src/view_models/index_name_list.rs`, `src/view_models/library.rs` (`refresh_new_releases_layout`, `releases_list`, `cached_releases_rows`, `content_list_page`), `src/view_models/detail_selection.rs` (`discover_*`), `src/library/music_scopes.rs`, `src/library/detail_selection.rs`, `src/library/app_impl.rs` (`show_discover_view`, `replace_recent_music_content`, `recent_music_page`, `render_discover_view_detail`), `src/ui/shells/library/content_list.rs`, `src/ui/shells/library/window_groups.rs`, `src/ui/shells/library/destination_lists.rs`, `src/api.rs` (`fetch_recent_feeds`, `fetch_feeds_by_name`), `src/application/queries/name_lists.rs`, `tests/architecture_tests.rs`.
