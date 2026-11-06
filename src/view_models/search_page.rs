@@ -7,11 +7,13 @@
 
 #![warn(clippy::pedantic)]
 
+use std::collections::BTreeMap;
+
 use crate::view_models::search_query::QUERY_FIELDS;
 use crate::view_models::search_results::{
-    new_saved_search_action, saved_search_label, saved_search_menu, saved_search_rename_display,
-    SavedSearch, SavedSearchId, SavedSearchMenuEntry, SavedSearchRenameDisplay,
-    SearchPageActionDisplay,
+    new_results_text, new_saved_search_action, saved_search_label, saved_search_menu,
+    saved_search_rename_display, NewResultCount, NewResultsText, SavedSearch, SavedSearchId,
+    SavedSearchMenuEntry, SavedSearchRenameDisplay, SearchPageActionDisplay,
 };
 
 /// The four steps of "How to Search" (ADR 0089 Decision 4).
@@ -58,6 +60,9 @@ pub(crate) struct SearchPageRowVm {
     pub(crate) menu: [SavedSearchMenuEntry; 4],
     /// The inline rename controls of the row.
     pub(crate) rename: SavedSearchRenameDisplay,
+    /// The count of new results (ADR 0089 Decision 4). `None` for a zero
+    /// count and for a count that is unavailable.
+    pub(crate) new_results: Option<NewResultsText>,
 }
 
 /// One example query of "How to Search".
@@ -105,14 +110,11 @@ impl SearchPageVm {
                 element_id: format!("music-search-saved-search-{}", search.id.0),
                 label: search.display_label().to_owned(),
                 subtitle: SavedSearch::SUBTITLE,
-                a11y_label: format!(
-                    "{}, {}",
-                    saved_search_label(&search.query),
-                    SavedSearch::SUBTITLE
-                ),
+                a11y_label: row_a11y_label(search, None),
                 selected: open == Some(search.id),
                 menu: saved_search_menu(search),
                 rename: saved_search_rename_display(search),
+                new_results: None,
             })
             .collect();
         // ADR 0087 Decision 2: the examples are the field table, one for each field.
@@ -137,6 +139,26 @@ impl SearchPageVm {
     #[must_use]
     pub(crate) fn with_message(mut self, message: Option<String>) -> Self {
         self.message = message;
+        self
+    }
+
+    /// The same page with the count of new results of each saved search
+    /// (ADR 0089 Decision 4). The accessibility label of a row with new
+    /// results names them in a sentence, so the count does not rely on
+    /// color alone.
+    #[must_use]
+    pub(crate) fn with_new_counts(
+        mut self,
+        counts: &BTreeMap<SavedSearchId, NewResultCount>,
+    ) -> Self {
+        for row in &mut self.rows {
+            let count = counts
+                .get(&row.search.id)
+                .copied()
+                .unwrap_or(NewResultCount::Unavailable);
+            row.new_results = new_results_text(count);
+            row.a11y_label = row_a11y_label(&row.search, row.new_results.as_ref());
+        }
         self
     }
 
@@ -175,6 +197,20 @@ impl SearchPageVm {
     #[must_use]
     pub(crate) fn steps_show_first(&self) -> bool {
         self.rows.is_empty()
+    }
+}
+
+/// The accessibility label of a saved search row. A row with new results
+/// adds their sentence.
+fn row_a11y_label(search: &SavedSearch, new_results: Option<&NewResultsText>) -> String {
+    let base = format!(
+        "{}, {}",
+        saved_search_label(&search.query),
+        SavedSearch::SUBTITLE
+    );
+    match new_results {
+        Some(text) => format!("{base}, {}", text.sentence),
+        None => base,
     }
 }
 
@@ -224,6 +260,33 @@ mod tests {
         let queries: Vec<&str> = vm.examples().iter().map(|example| example.query).collect();
         let fields: Vec<&str> = QUERY_FIELDS.iter().map(|info| info.example).collect();
         assert_eq!(queries, fields);
+    }
+
+    #[test]
+    fn search_page_row_shows_the_new_count_text_and_sentence() {
+        let counts = BTreeMap::from([(SavedSearchId(3), NewResultCount::Count(3))]);
+        let vm = SearchPageVm::new(&[saved(3, "bluegrass"), saved(4, "jazz")], None)
+            .with_new_counts(&counts);
+        let row = &vm.rows()[0];
+        assert_eq!(row.new_results.as_ref().unwrap().count_text, "3 new");
+        assert!(row.a11y_label.ends_with("3 new results"));
+        assert!(vm.rows()[1].new_results.is_none());
+        assert!(!vm.rows()[1].a11y_label.contains("new result"));
+    }
+
+    #[test]
+    fn search_page_row_shows_no_count_for_zero_or_unavailable() {
+        let counts = BTreeMap::from([
+            (SavedSearchId(3), NewResultCount::Count(0)),
+            (SavedSearchId(4), NewResultCount::Unavailable),
+        ]);
+        let vm = SearchPageVm::new(&[saved(3, "bluegrass"), saved(4, "jazz")], None)
+            .with_new_counts(&counts);
+        assert!(vm.rows().iter().all(|row| row.new_results.is_none()));
+        assert!(vm
+            .rows()
+            .iter()
+            .all(|row| !row.a11y_label.contains("new result")));
     }
 
     #[test]

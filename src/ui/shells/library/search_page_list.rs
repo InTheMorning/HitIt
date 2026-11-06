@@ -154,7 +154,13 @@ fn render_saved_search_row(
                     Label::new(row.subtitle)
                         .size(FontSize::Micro)
                         .color(SemanticColor::TertiaryLabel),
-                ),
+                )
+                // ADR 0089 Decision 4: the count is text, not color alone.
+                .children(row.new_results.as_ref().map(|text| {
+                    Label::new(text.count_text.clone())
+                        .size(FontSize::Micro)
+                        .color(SemanticColor::Label)
+                })),
         )
         .trailing(saved_search_row_menu(row, cx))
         .into_any_element()

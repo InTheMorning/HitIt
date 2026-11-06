@@ -49,3 +49,4 @@ Each entry names the step, the decision and the reason.
 - Packet 006, delete: the delete action stays on the page of a saved search. Packet 007 adds the item menu of a row with each of its four items, and it makes "New Saved Search" a button.
 - Packet 007: the orchestrator divided it into Part A (migration 22, rename, duplicate, the menu and the button), Part B (the query field) and Part C (the seen state and the counts). The agent stopped early on the whole packet.
 - Packet 007 Part A: the unique index on the query stays, so a duplicate holds the query "<query> copy". Part B opens the query field after a duplicate, so the curator changes it. A name is not unique, and a blank name clears the name.
+- Packet 007 Part C: a marker row records the first run, so a first run with no results still counts later results. An actor pass that started before an open can briefly show an old count, and the next pass corrects it.

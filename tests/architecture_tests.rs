@@ -3985,12 +3985,16 @@ fn adr_0047_task_015_search_submit_commands() {
 #[test]
 fn adr_0084_saved_search_r12_11_one_writer_and_no_ui_reader() {
     const OWNER: &str = "src/db/saved_searches.rs";
+    // ADR 0089 Decision 4, packet 007 Part C: the seen table has its own owner.
+    const SEEN_OWNER: &str = "src/db/saved_search_seen.rs";
     let writes = [
         "insert into saved_searches",
         "delete from saved_searches",
         "update saved_searches",
         "replace into saved_searches",
         "insert or replace into saved_searches",
+    ];
+    let seen_writes = [
         "insert into saved_search_seen",
         "insert or ignore into saved_search_seen",
         "delete from saved_search_seen",
@@ -4009,6 +4013,15 @@ fn adr_0084_saved_search_r12_11_one_writer_and_no_ui_reader() {
                 if source.contains(write) {
                     violations.push(format!(
                         "{rel}: found `{write}`. ADR 0084 Decision 3, packet 012: only {OWNER} writes the saved_searches table. Call a function of {OWNER}."
+                    ));
+                }
+            }
+        }
+        if rel != SEEN_OWNER {
+            for write in seen_writes {
+                if source.contains(write) {
+                    violations.push(format!(
+                        "{rel}: found `{write}`. ADR 0089 Decision 4, packet 007 Part C: only {SEEN_OWNER} writes the saved_search_seen table. Call read_seen or mark_seen of {SEEN_OWNER}."
                     ));
                 }
             }

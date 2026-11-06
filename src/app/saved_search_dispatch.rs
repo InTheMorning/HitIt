@@ -92,7 +92,27 @@ impl TopApp {
         // Packet 028 review: each run of a saved search starts at the top.
         self.scroll_search_page_to_top(SearchPageSlot::SavedSearch);
         self.saved_search_page = Some(page);
+        // ADR 0089 Decision 4, packet 007 Part C: the open marks the loaded rows seen.
+        self.mark_saved_search_page_seen(cx);
         self.start_index_search_for_run(SearchPageSlot::SavedSearch, &run, cx);
+    }
+
+    /// Stores the result keys of the mounted saved-search page as seen (ADR
+    /// 0089 Decision 4, packet 007 Part C). It runs at each open and after
+    /// each Index result of the page, so the count of the search goes to
+    /// zero in place.
+    pub(super) fn mark_saved_search_page_seen(&mut self, cx: &mut Context<Self>) {
+        let Some(page) = self.saved_search_page.as_ref() else {
+            return;
+        };
+        let Some(results) = page.results() else {
+            return;
+        };
+        let id = page.id;
+        let keys = results.result_keys();
+        self.library.update(cx, |library, cx| {
+            library.mark_saved_search_seen(id, &keys, cx);
+        });
     }
 
     /// Tells if an Index result for the saved search `id` can write the

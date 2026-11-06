@@ -579,6 +579,11 @@ impl TopApp {
                 if this.search_page_mut(slot).is_some_and(|detail| {
                     detail.replace_index_results_for_run(generation, &success_query, rows)
                 }) {
+                    // ADR 0089 Decision 4, packet 007 Part C: the Index rows of
+                    // a saved search are seen too.
+                    if slot == SearchPageSlot::SavedSearch {
+                        this.mark_saved_search_page_seen(cx);
+                    }
                     cx.notify();
                 }
             },

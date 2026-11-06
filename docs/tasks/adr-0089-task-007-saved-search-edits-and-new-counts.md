@@ -1,6 +1,6 @@
 # ADR 0089 Task 007: Saved Search Edits And New Counts
 
-Status: Ready - 2026-11-05.
+Status: Implemented - 2026-11-06. Parts A to C. V1 to V4 are open. The checks are in section 11 of [pending human checks](../pending-human-checks.md).
 
 Depends on: [packet 006](adr-0089-task-006-search-page.md).
 
