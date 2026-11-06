@@ -22,6 +22,7 @@ use crate::ui::composites::{
     TagBadgeDisplay, Thumbnail, ThumbnailSize,
 };
 use crate::ui::primitives::{Checkbox, CheckboxState, Label};
+use crate::ui::shells::library::destination_row_second_line::destination_row_second_line;
 use crate::ui::shells::library::window_groups::{
     render_window_group_badges, render_window_group_row_art, BadgePlace,
 };
@@ -272,13 +273,10 @@ fn result_row_text(row: &SearchResultRowVm) -> AnyElement {
                 .weight(FontWeight::MEDIUM),
         );
 
-    if !row.secondary_text.is_empty() {
-        text = text.child(
-            Label::new(row.secondary_text.clone())
-                .size(FontSize::Micro)
-                .color(SemanticColor::TertiaryLabel),
-        );
-    }
+    text = text.children(destination_row_second_line(
+        row.type_tag.clone(),
+        row.secondary_text.clone(),
+    ));
 
     text.into_any_element()
 }

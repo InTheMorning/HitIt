@@ -608,12 +608,14 @@ impl LibraryApp {
                     let art = collection_art_image(self, &item.art, ThumbnailSize::Sm, cx);
                     rows.push(render_public_playlist_item(item, art, cx));
                 }
-                // The "More actions" menu of the page (ADR 0089 packet 010).
+                // The "More actions" menu of the page (ADR 0089 packet 010). A
+                // page has no row to hover, so the cell always shows, as on a
+                // release page.
                 let copying = self.copying_public_playlist.is_some();
                 let menu = public_playlist_copy_menu(feed_guid, &page.title, copying).map(|menu| {
                     self.public_playlist_menu_of(menu, feed_guid.to_owned(), page.title.clone(), cx)
                 });
-                let (menu_cell, _root) = row_menu_parts(menu, menu_cell(cx), false, window, cx);
+                let (menu_cell, _root) = row_menu_parts(menu, menu_cell(cx), true, window, cx);
                 let status = (self.copying_public_playlist.as_deref() == Some(feed_guid))
                     .then_some(COPYING_TEXT);
                 render_public_playlist_page_body(

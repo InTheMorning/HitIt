@@ -5,6 +5,7 @@ use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
 use crate::view_models::detail_selection::{
     DetailRowClick, DetailRowKey, LibraryReleaseFacts, ReleaseDownloaded,
 };
+use crate::view_models::library::{RowTypeKind, RowTypeTag};
 use crate::view_models::release_download_state::{ReleaseDownloadState, ReleaseDownloadStateVm};
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::selection_action_bar::SelectionActionKind;
@@ -289,7 +290,11 @@ fn adr_0084_search_list_r10_02_one_release_row_for_each_item() {
         rows[1].badge, None,
         "the list column shows the kind in the second line"
     );
-    assert_eq!(rows[1].secondary_text, "Album");
+    assert_eq!(
+        rows[1].type_tag.as_ref().map(|tag| tag.word.as_str()),
+        Some("Album")
+    );
+    assert_eq!(rows[1].secondary_text, "");
     assert!(rows.iter().all(|row| !row.secondary_text.contains("Index")));
 }
 
@@ -298,7 +303,7 @@ fn adr_0084_search_list_r10_02_one_release_row_for_each_item() {
 /// and no kind badge. The state word stays. A track row does not change.
 /// The saved-search page in the detail column keeps the kind badge.
 #[test]
-fn adr_0084_search_list_release_kind_is_the_first_word_of_the_subtitle() {
+fn adr_0089_search_list_release_kind_is_the_type_tag_of_the_row() {
     let local = [
         local_guid_track(10, 7, "g-library", "i1", "One"),
         local_guid_track(11, 7, "g-library", "i2", "Two"),
@@ -323,18 +328,23 @@ fn adr_0084_search_list_release_kind_is_the_first_word_of_the_subtitle() {
     );
     let list = rows(&vm, &lookup);
     assert_eq!(
-        list[0].secondary_text,
-        "Album \u{b7} Haleen \u{b7} 2 tracks"
+        list[0].type_tag,
+        Some(RowTypeTag {
+            kind: RowTypeKind::Release,
+            word: "Album".to_owned(),
+        })
     );
+    assert_eq!(list[0].secondary_text, "Haleen \u{b7} 2 tracks");
     assert_eq!(
         list[0].download_state.as_ref().map(|state| state.state),
         Some(ReleaseDownloadState::NotDownloaded)
     );
     assert_eq!(list[0].badge, None);
     assert_eq!(
-        list[1].secondary_text,
-        "Album \u{b7} HeyCitizen \u{b7} 19 tracks"
+        list[1].type_tag.as_ref().map(|tag| tag.word.as_str()),
+        Some("Album")
     );
+    assert_eq!(list[1].secondary_text, "HeyCitizen \u{b7} 19 tracks");
     assert_eq!(
         list[1].download_state.as_ref().map(|state| state.state),
         Some(ReleaseDownloadState::NotDownloaded),
@@ -346,6 +356,13 @@ fn adr_0084_search_list_release_kind_is_the_first_word_of_the_subtitle() {
     let tracks = rows(&vm, &lookup);
     assert_eq!(tracks[0].badge, None, "a track row shows no badge");
     assert!(!tracks[0].secondary_text.starts_with("Album"));
+    assert_eq!(
+        tracks[0]
+            .type_tag
+            .as_ref()
+            .map(|tag| (tag.kind, tag.word.as_str())),
+        Some((RowTypeKind::Track, "Track"))
+    );
 
     let saved = super::SavedSearch {
         id: super::SavedSearchId(1),
@@ -359,6 +376,10 @@ fn adr_0084_search_list_release_kind_is_the_first_word_of_the_subtitle() {
     );
     let detail_rows = rows(&detail, &lookup);
     assert_eq!(detail_rows[0].secondary_text, "Haleen - 2 tracks");
+    assert_eq!(
+        detail_rows[0].type_tag, None,
+        "the saved-search page shows the kind as a badge"
+    );
     assert_eq!(
         detail_rows[0].badge,
         Some(SearchRowBadge::Release(ReleaseKind::Album))

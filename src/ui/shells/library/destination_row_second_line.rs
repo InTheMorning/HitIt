@@ -54,6 +54,7 @@ pub(crate) fn destination_row_second_line(
 pub(crate) const fn row_type_entity_kind(kind: RowTypeKind) -> EntityKind {
     match kind {
         RowTypeKind::Release => EntityKind::Release,
+        RowTypeKind::Track => EntityKind::Track,
         RowTypeKind::Artist => EntityKind::Artist,
         RowTypeKind::Playlist => EntityKind::Playlist,
     }

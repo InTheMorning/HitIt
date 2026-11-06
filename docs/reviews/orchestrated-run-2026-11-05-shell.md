@@ -160,3 +160,5 @@ The run in `~/.claude/v4vmm-shots/20261106-120337` shows the first row marked at
 
 The run in `~/.claude/v4vmm-shots/20261106-122447` shows the letter bar as one stop on Artists. The cursor moves with no request, Enter runs the letter, and Tab leaves and returns. The sort menu and the row menus still need the mouse, and the "Select" band of an item page has no owner. They wait for a follow-up packet.
 
+The run in `~/.claude/v4vmm-shots/20261106-123939` covered scroll, Load more, Back, the sort, the scope, the pages, the results, the narrow form and Light. It showed these faults, now corrected: the mark did not show in Light, the "More actions" cell of a public playlist page showed only on hover, and the rows of the results page had no type dot. A saved search row and a feed row keep their trailing `TagBadge`, which already has the dot and the word.
+

@@ -1890,6 +1890,7 @@ pub(crate) struct DestinationListRowVm {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RowTypeKind {
     Release,
+    Track,
     Artist,
     Playlist,
 }
