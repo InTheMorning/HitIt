@@ -58,3 +58,5 @@ Each entry names the step, the decision and the reason.
 - Packet 010: the copy item is on a row and in the menu of the page. A tile has no menu, and the default view of the page is Tiles. A copy with no readable track still makes an empty playlist, and the report states the counts. The final walk checks each.
 - Packet 010: the copy allows one request for each two seconds to one host, and HTTP 429 stops that host for the copy. Item 34 of the responsiveness list records the database lock.
 - Packet 011: a Live row opens only an `http` or `https` link (`live_link_url`). A row with no feed GUID is dropped.
+- Packet 012, Setup: the section holds the capabilities that the Show cards map to: Playback, Producer, LibraryPaths, Publisher and Encoder. The words "needs attention" stay in three status labels of the startup report, the live status and a Show card, because they are not the destination.
+- Packet 012, source playlist: `LibraryApp` reads the source playlist of the session through its own connection. The view mode config field goes, and an old `config.toml` still loads.

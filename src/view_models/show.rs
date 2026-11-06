@@ -1394,6 +1394,24 @@ pub(crate) struct StreamActionsDisplay {
     pub(crate) disconnect: StreamActionDisplay,
 }
 
+/// The Show card that shows a setup issue of `dependency` (ADR 0066), or
+/// `None` when a show does not need the dependency. The Inbox Setup section
+/// reads the same mapping (ADR 0089 Decision 3).
+#[must_use]
+pub(crate) const fn show_card_for_dependency(
+    dependency: crate::application::capability::Dependency,
+) -> Option<ShowCardKind> {
+    use crate::application::capability::Dependency;
+    match dependency {
+        Dependency::Playback | Dependency::Producer | Dependency::LibraryPaths => {
+            Some(ShowCardKind::Source)
+        }
+        Dependency::Publisher => Some(ShowCardKind::LiveMetadata),
+        Dependency::Encoder => Some(ShowCardKind::Stream),
+        _ => None,
+    }
+}
+
 /// Stable card identities for the Show dashboard.
 ///
 /// The order of this enum is the ADR 0059 section order.
@@ -1714,13 +1732,8 @@ impl ShowPageVm {
                 }
                 dependency => dependency,
             };
-            let kind = match dependency {
-                Dependency::Playback | Dependency::Producer | Dependency::LibraryPaths => {
-                    ShowCardKind::Source
-                }
-                Dependency::Publisher => ShowCardKind::LiveMetadata,
-                Dependency::Encoder => ShowCardKind::Stream,
-                _ => continue,
+            let Some(kind) = show_card_for_dependency(dependency) else {
+                continue;
             };
             if let Some(card) = self.cards.iter_mut().find(|card| card.kind == kind) {
                 if !card.secondary.is_empty() {

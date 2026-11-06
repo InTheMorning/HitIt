@@ -396,6 +396,7 @@ impl TopApp {
             .then(|| snapshot.report.clone())
             .flatten();
         self.broadcast_readiness_snapshot = Some(snapshot);
+        self.sync_inbox_setup(cx);
         if let Some(report) = mounted_report {
             self.library.update(cx, |library, cx| {
                 library.show_broadcast_readiness_report(&report, cx);
@@ -1097,11 +1098,11 @@ impl TopApp {
         self.tab = AppTab::Music;
         self.sync_broadcast_service_watch_pace();
         if let Some(content_list_id) = self.content_list_frame_id() {
-            // ADR 0084 Decision 9: the readiness list starts a new path, as
-            // one history entry.
+            // ADR 0084 Decision 9: the Inbox starts a new path, as one
+            // history entry.
             if let Err(error) = self.workspace_layout.start_nav_path(
                 content_list_id,
-                FrameNavigationEntry::Destination(MusicDestination::NeedsAttention),
+                FrameNavigationEntry::Destination(MusicDestination::Inbox),
                 None,
             ) {
                 self.settings_status = format!("Error opening broadcast readiness: {error}");
@@ -1121,7 +1122,7 @@ impl TopApp {
                 .is_some_and(|nav| {
                     matches!(
                         nav.current(),
-                        FrameNavigationEntry::Destination(MusicDestination::NeedsAttention)
+                        FrameNavigationEntry::Destination(MusicDestination::Inbox)
                     )
                 })
     }

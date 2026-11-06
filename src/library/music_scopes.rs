@@ -86,7 +86,7 @@ impl LibraryApp {
                 self.vm.set_list_scope(ListPageKey::Artists, scope);
             }
             MusicDestination::Search
-            | MusicDestination::NeedsAttention
+            | MusicDestination::Inbox
             | MusicDestination::Playlists
             | MusicDestination::PublicPlaylists
             | MusicDestination::Live => return,
@@ -285,7 +285,7 @@ impl LibraryApp {
             // destination shows, from the navigation hook, not here. A
             // Library load does not start a Live read.
             MusicDestination::Search
-            | MusicDestination::NeedsAttention
+            | MusicDestination::Inbox
             | MusicDestination::Playlists
             | MusicDestination::Live => {}
         }

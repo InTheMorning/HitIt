@@ -1373,7 +1373,7 @@ fn adr_0084_columns_list_roots_open_no_detail_page() {
     for root in [
         FrameNavigationEntry::Destination(MusicDestination::Search),
         FrameNavigationEntry::Search("drums".to_string()),
-        FrameNavigationEntry::Destination(MusicDestination::NeedsAttention),
+        FrameNavigationEntry::Destination(MusicDestination::Inbox),
     ] {
         assert!(!root.opens_detail_page(), "{root:?} must open no page");
     }
@@ -1511,7 +1511,7 @@ fn adr_0084_music_open_defects_r30_09_restored_toolbar_text() {
         discover(),
         track(1),
         FrameNavigationEntry::PlaylistDetail(1),
-        FrameNavigationEntry::Destination(MusicDestination::NeedsAttention),
+        FrameNavigationEntry::Destination(MusicDestination::Inbox),
     ] {
         assert_eq!(restored_toolbar_search_text(&entry), None, "{entry:?}");
     }
@@ -1738,7 +1738,7 @@ fn adr_0089_nav_item_path_goes_back_to_its_holding_list() {
             MusicDestination::Releases,
             FrameNavigationEntry::Release(ReleaseKey::FeedGuid("guid-a".to_owned())),
         ),
-        (MusicDestination::NeedsAttention, track(7)),
+        (MusicDestination::Inbox, track(7)),
         (
             MusicDestination::Playlists,
             FrameNavigationEntry::PlaylistDetail(4),

@@ -5,9 +5,9 @@
 //! state labels, load-more labels, and empty/error copy come from the view
 //! model.
 //!
-//! ADR 0083 task 007: a Tracks row and a Needs attention row show "⋯" on a
+//! ADR 0083 task 007: a Tracks row and an Inbox row show "⋯" on a
 //! hover and on the keyboard focus, and a right-click opens the same menu.
-//! A Needs attention row keeps its one main fix as a visible button.
+//! A Inbox row keeps its one main fix as a visible button.
 
 #![warn(clippy::pedantic)]
 
@@ -21,7 +21,6 @@ use gpui::{
 
 use crate::library::LibraryApp;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
-use crate::ui::composites::selectable_tile::SelectableTile;
 use crate::ui::composites::{
     EntityKind, ListRow, ListRowA11yLabel, SkeletonTrackRow, TagBadge, TagBadgeDisplay, Thumbnail,
     ThumbnailSize,
@@ -29,7 +28,6 @@ use crate::ui::composites::{
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{
     Button as UiButton, Checkbox, CheckboxState, Image as ImagePrimitive, ImageSize, Label,
-    Skeleton,
 };
 pub(crate) use crate::ui::shells::library::content_list_row_actions::ContentListMenuContext;
 use crate::ui::shells::library::content_list_row_actions::{
@@ -37,13 +35,12 @@ use crate::ui::shells::library::content_list_row_actions::{
 };
 use crate::ui::shells::library::content_list_scroll::attach_content_list_scroll;
 use crate::ui::shells::library::content_list_state::render_content_list_state;
-use crate::ui::tokens::{color, ArtworkShadow, FontSize, Radius, SemanticColor, Size, Spacing};
+use crate::ui::tokens::{color, ArtworkShadow, FontSize, Radius, SemanticColor, Spacing};
 use crate::view_models::library::{
     ContentListEntityKind, ContentListLoadMoreDisplay, ContentListLoadingStateDisplay,
     ContentListPageStateDisplay, ContentListPageVm, ContentListRowDisplay,
     ContentListSelectionTarget,
 };
-use crate::view_models::workspace::ContentViewMode;
 
 /// The images of a content list: the cover of each row by row id.
 pub(crate) type ContentListImages<'a> = &'a BTreeMap<String, Option<Arc<Image>>>;
@@ -80,14 +77,7 @@ pub(crate) fn render_library_content_list(
         state_display: page.page_state_display(),
         load_more_display: page.load_more_display(),
     };
-    let body = match page.view_mode() {
-        ContentViewMode::List => {
-            render_content_list_rows(page, render_state, thumbnails, scroll_handle, cx)
-        }
-        ContentViewMode::Tiles => {
-            render_content_list_tiles(page, render_state, thumbnails, scroll_handle, cx)
-        }
-    };
+    let body = render_content_list_rows(page, render_state, thumbnails, scroll_handle, cx);
 
     div()
         .id(ContentListPageVm::page_id())
@@ -156,63 +146,6 @@ fn render_content_list_rows(
     )
 }
 
-fn render_content_list_tiles(
-    page: &ContentListPageVm,
-    render_state: ContentListRenderState,
-    thumbnails: ContentListImages<'_>,
-    scroll_handle: &ScrollHandle,
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let pending_tiles = render_state
-        .loading_display
-        .as_ref()
-        .map_or(0, |display| display.skeleton_count);
-    let (target, mut probe) = render_state.routing;
-
-    let mut content = page_scroll_content(cx).gap(Spacing::SM.scaled(cx)).child(
-        // ADR 0084 Decision 1: the tile grid keeps its content height in
-        // the fixed-height list column, so the column scrolls.
-        div()
-            .id(ContentListPageVm::tiles_id())
-            .flex_shrink_0()
-            .flex()
-            .flex_row()
-            .flex_wrap()
-            .gap(Spacing::MD.scaled(cx))
-            .children(render_state.items.into_iter().map(|row| {
-                let thumbnail = thumbnails.get(&row.id).cloned().flatten();
-                let probe = probe.take_if(|_| row.selection.focused);
-                render_content_list_tile(&row, thumbnail, (target, probe), cx)
-            }))
-            .children((0..pending_tiles).map(|index| render_pending_content_tile(index, cx))),
-    );
-    if let Some(display) = render_state.state_display {
-        content = content.child(render_content_list_state(display, cx));
-    }
-    if let Some(display) = render_state.load_more_display {
-        content = content.child(render_content_list_load_more(&display, cx));
-    }
-
-    let container = div()
-        .id(ContentListPageVm::rows_id())
-        .flex()
-        .flex_col()
-        .flex_1()
-        .min_h_0()
-        .min_w_0()
-        .px(Spacing::MD.scaled(cx))
-        .pb(Spacing::MD.scaled(cx))
-        .child(content);
-
-    attach_content_list_scroll(
-        container,
-        page.has_more(),
-        page.is_loading(),
-        scroll_handle,
-        cx,
-    )
-}
-
 fn render_content_list_row(
     row: &ContentListRowDisplay,
     thumbnail: Option<Arc<Image>>,
@@ -228,6 +161,7 @@ fn render_content_list_row(
         })
         .selected(row.selection.is_marked())
         .focused(row.selection.focused)
+        .marked(row.marked)
         .scroll_probe(probe);
     if let Some(checkbox) = render_content_row_checkbox(row, target, cx) {
         list_row = list_row.checkbox(checkbox);
@@ -259,57 +193,6 @@ fn render_content_list_row(
             }))
         })
         .into_any_element()
-}
-
-fn render_content_list_tile(
-    row: &ContentListRowDisplay,
-    thumbnail: Option<Arc<Image>>,
-    (target, probe): (ContentListSelectionTarget, Option<AnyElement>),
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let row_id = row.id.clone();
-    let entity_kind = entity_kind_for_content(row.entity_kind());
-    let artwork_size = Size::ContentTileArtwork.scaled(cx);
-    let artwork = render_content_list_tile_artwork(thumbnail, artwork_size, cx);
-
-    // Packet 020: the tile composite owns the checkbox place, the outline,
-    // the fill and the hover.
-    let mut tile = SelectableTile::new(SharedString::from(row.element_id()), artwork)
-        .checkbox(render_content_row_checkbox(row, target, cx))
-        .selected(row.selection.is_marked())
-        .focused(row.selection.focused)
-        .scroll_probe(probe)
-        .child(
-            div().w(artwork_size).min_w_0().child(
-                Label::new(row.title().to_string())
-                    .size(FontSize::Caption)
-                    .weight(FontWeight::MEDIUM)
-                    .truncated(),
-            ),
-        )
-        .when(!row.secondary_text().is_empty(), |el| {
-            el.child(
-                div().w(artwork_size).min_w_0().child(
-                    Label::new(row.secondary_text().to_string())
-                        .size(FontSize::Micro)
-                        .color(SemanticColor::TertiaryLabel)
-                        .truncated(),
-                ),
-            )
-        })
-        .child(render_content_list_tile_badges(row, entity_kind, cx));
-
-    if let Some(fix) = &row.fix {
-        tile = tile.child(render_content_list_row_action(fix, cx));
-    }
-
-    if row.accepts_row_click() {
-        tile = tile.on_click(cx.listener(move |this, event: &ClickEvent, _window, cx| {
-            this.click_content_row(target, &row_id, event.modifiers(), cx);
-        }));
-    }
-
-    tile.into_any_element()
 }
 
 /// The checkbox of a row or a tile, or `None` outside selection mode (ADR
@@ -372,63 +255,6 @@ fn render_empty_content_tile_artwork(artwork_size: gpui::Pixels, cx: &App) -> An
         // ADR 0083 Decision 4: the content tile applies the artwork shadow
         // to its artwork area. This applies with or without a loaded cover.
         .shadow(ArtworkShadow::Xl.shadow(cx))
-        .into_any_element()
-}
-
-fn render_content_list_tile_badges(
-    row: &ContentListRowDisplay,
-    entity_kind: EntityKind,
-    cx: &App,
-) -> AnyElement {
-    let mut badges = div()
-        .flex()
-        .flex_row()
-        .flex_wrap()
-        .items_center()
-        .gap(Spacing::XS.scaled(cx))
-        .child(TagBadge::new(TagBadgeDisplay {
-            kind: entity_kind,
-            label: Some(SharedString::from(row.entity_badge.label)),
-        }))
-        .when_some(row.library_badge.label, |badges, label| {
-            badges.child(
-                Label::new(label)
-                    .size(FontSize::Micro)
-                    .color(SemanticColor::TertiaryLabel)
-                    .truncated(),
-            )
-        });
-
-    if let Some(state_label) = row.state_label {
-        badges = badges.child(
-            Label::new(state_label)
-                .size(FontSize::Micro)
-                .color(SemanticColor::Accent)
-                .truncated(),
-        );
-    }
-
-    badges.into_any_element()
-}
-
-fn render_pending_content_tile(index: usize, cx: &App) -> AnyElement {
-    let artwork_size = Size::ContentTileArtwork.scaled(cx);
-
-    div()
-        .id(ContentListPageVm::skeleton_tile_id(index))
-        .flex()
-        .flex_col()
-        .gap(Spacing::SM.scaled(cx))
-        .w(Size::ContentTileWidth.scaled(cx))
-        .p(Spacing::SM.scaled(cx))
-        .rounded(Radius::MD.scaled(cx))
-        .child(
-            div()
-                .flex_shrink_0()
-                .child(Skeleton::block(artwork_size, artwork_size).radius(Radius::MD)),
-        )
-        .child(div().w(artwork_size).child(Skeleton::row().full_width()))
-        .child(div().w(artwork_size).child(Skeleton::row().full_width()))
         .into_any_element()
 }
 

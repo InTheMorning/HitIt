@@ -1,4 +1,4 @@
-//! The row actions of a Tracks row and of a Needs attention row (ADR 0083
+//! The row actions of a Tracks row and of an Inbox row (ADR 0083
 //! Decision 6, task 007): the one main fix button and the row menu.
 //!
 //! The fix button renders the typed action of the view model (ADR 0065).
@@ -20,14 +20,14 @@ use crate::ui::primitives::Button as UiButton;
 use crate::view_models::library::{ContentListRowActionDisplay, ContentListRowDisplay};
 
 /// The playlists and the return focus of the row menus of the Tracks and
-/// Needs attention lists (ADR 0083 task 007). The right-click menu gives
+/// Inbox lists (ADR 0083 task 007). The right-click menu gives
 /// the focus back to the list column (decision D15).
 pub(crate) struct ContentListMenuContext {
     pub(crate) playlists: Rc<Vec<PlaylistOption>>,
     pub(crate) return_focus: FocusHandle,
 }
 
-/// The row menu of a Tracks or Needs attention row, or `None` when the
+/// The row menu of a Tracks or Inbox row, or `None` when the
 /// view model gives no menu. Each item goes to `LibraryApp` with the id of
 /// the row (ADR 0083 task 007, "The commands").
 pub(crate) fn content_list_row_menu(
@@ -82,7 +82,7 @@ pub(crate) fn content_list_row_menu(
     })
 }
 
-/// The one main fix button of a Needs attention row (ADR 0083 task 007,
+/// The one main fix button of an Inbox row (ADR 0083 task 007,
 /// decision D10). The label, the accessibility label and the availability
 /// come from the view model.
 pub(crate) fn render_content_list_row_action(

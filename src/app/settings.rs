@@ -85,9 +85,6 @@ impl TopApp {
             .as_ref()
             .and_then(|config| config.layout.as_ref());
         self.content_pane_width = Self::initial_content_pane_width(preferences);
-        self.library.update(cx, |library, cx| {
-            library.set_content_view_mode(Self::initial_content_list_view_mode(preferences), cx);
-        });
         self.workspace_layout = Self::initial_workspace_layout(
             snapshot
                 .workspace_layout

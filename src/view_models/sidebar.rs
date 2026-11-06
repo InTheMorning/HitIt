@@ -1,9 +1,10 @@
 //! Sidebar rows (ADR 0089 Decision 1).
 //!
 //! The sidebar is one list with no group labels. It holds the upper
-//! destinations, a separator, then the lower rows: Show and Settings. This
-//! module owns the rows, their labels, counts and selected state. It carries
-//! no renderer type. The renderer maps each semantic icon to a named icon.
+//! destinations, a separator, then the lower rows: Show, Inbox and Settings.
+//! This module owns the rows, their labels, counts and selected state. It
+//! carries no renderer type. The renderer maps each semantic icon to a named
+//! icon.
 
 #![warn(clippy::pedantic)]
 
@@ -20,8 +21,8 @@ pub(crate) enum SidebarDestination {
     MyPlaylists,
     PublicPlaylists,
     Live,
-    NeedsAttention,
     Show,
+    Inbox,
     Settings,
 }
 
@@ -34,8 +35,8 @@ impl SidebarDestination {
         Self::MyPlaylists,
         Self::PublicPlaylists,
         Self::Live,
-        Self::NeedsAttention,
         Self::Show,
+        Self::Inbox,
         Self::Settings,
     ];
 
@@ -50,7 +51,7 @@ impl SidebarDestination {
             Self::MyPlaylists => Some(MusicDestination::Playlists),
             Self::PublicPlaylists => Some(MusicDestination::PublicPlaylists),
             Self::Live => Some(MusicDestination::Live),
-            Self::NeedsAttention => Some(MusicDestination::NeedsAttention),
+            Self::Inbox => Some(MusicDestination::Inbox),
             Self::Show | Self::Settings => None,
         }
     }
@@ -65,7 +66,7 @@ impl SidebarDestination {
             MusicDestination::Playlists => Self::MyPlaylists,
             MusicDestination::PublicPlaylists => Self::PublicPlaylists,
             MusicDestination::Live => Self::Live,
-            MusicDestination::NeedsAttention => Self::NeedsAttention,
+            MusicDestination::Inbox => Self::Inbox,
         }
     }
 }
@@ -100,7 +101,7 @@ pub(crate) struct SidebarRowVm {
     pub(crate) tooltip: String,
     /// The accessibility label, with the count when the row has one.
     pub(crate) a11y_label: String,
-    /// The row's count, when it has one (Needs attention and My playlists).
+    /// The row's count, when it has one (Inbox and My playlists).
     pub(crate) count: Option<usize>,
     /// Whether the row is the destination of the current screen.
     pub(crate) selected: bool,
@@ -123,8 +124,8 @@ pub(crate) enum SidebarEntryVm {
 /// own state, so the render path runs no query.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct SidebarCounts {
-    /// Tracks that need attention.
-    pub(crate) needs_attention: usize,
+    /// The items that need a decision in the Inbox (ADR 0089 Decision 3).
+    pub(crate) inbox: usize,
     /// Playlists of the curator.
     pub(crate) playlists: usize,
 }
@@ -147,9 +148,12 @@ impl SidebarVm {
             SidebarDestination::MyPlaylists,
             SidebarDestination::PublicPlaylists,
             SidebarDestination::Live,
-            SidebarDestination::NeedsAttention,
         ];
-        let lower = [SidebarDestination::Show, SidebarDestination::Settings];
+        let lower = [
+            SidebarDestination::Show,
+            SidebarDestination::Inbox,
+            SidebarDestination::Settings,
+        ];
         let mut entries: Vec<SidebarEntryVm> = upper
             .into_iter()
             .map(|destination| SidebarEntryVm::Row(row(destination, counts, selected)))
@@ -175,10 +179,10 @@ fn row(
     counts: SidebarCounts,
     selected: Option<SidebarDestination>,
 ) -> SidebarRowVm {
-    // A count of zero shows nothing. Each count names its own items: tracks
-    // for Needs attention, playlists for My playlists.
+    // A count of zero shows nothing. Each count names its own items: the
+    // items that need a decision for the Inbox, playlists for My playlists.
     let count = match destination {
-        SidebarDestination::NeedsAttention => Some(counts.needs_attention),
+        SidebarDestination::Inbox => Some(counts.inbox),
         SidebarDestination::MyPlaylists => Some(counts.playlists),
         SidebarDestination::Search
         | SidebarDestination::Releases
@@ -190,13 +194,9 @@ fn row(
     }
     .filter(|count| *count > 0);
     let label = label(destination);
-    let noun = match destination {
-        SidebarDestination::MyPlaylists => "playlist",
-        _ => "track",
-    };
     let (tooltip, a11y_label) = match count {
         Some(count) => {
-            let text = format!("{label}, {count} {noun}{}", plural(count));
+            let text = count_text(destination, count);
             (text.clone(), text)
         }
         None => (label.to_owned(), label.to_owned()),
@@ -210,9 +210,30 @@ fn row(
         a11y_label,
         count,
         selected: selected == Some(destination),
-        shows_attention_mark: matches!(destination, SidebarDestination::NeedsAttention)
-            && count.is_some(),
+        shows_attention_mark: matches!(destination, SidebarDestination::Inbox) && count.is_some(),
         spring_loaded: matches!(destination, SidebarDestination::MyPlaylists),
+    }
+}
+
+/// The sentence of a row with a count. The Inbox names its decisions in
+/// words, so its count does not rely on color alone (ADR 0089 Decision 3).
+fn count_text(destination: SidebarDestination, count: usize) -> String {
+    let label = label(destination);
+    match destination {
+        SidebarDestination::Inbox => {
+            let verb = if count == 1 { "needs" } else { "need" };
+            format!("{label}, {count} {} {verb} a decision", item_noun(count))
+        }
+        SidebarDestination::MyPlaylists => {
+            format!("{label}, {count} playlist{}", plural(count))
+        }
+        SidebarDestination::Search
+        | SidebarDestination::Releases
+        | SidebarDestination::Artists
+        | SidebarDestination::PublicPlaylists
+        | SidebarDestination::Live
+        | SidebarDestination::Show
+        | SidebarDestination::Settings => label.to_owned(),
     }
 }
 
@@ -224,7 +245,7 @@ const fn label(destination: SidebarDestination) -> &'static str {
         SidebarDestination::MyPlaylists => "My playlists",
         SidebarDestination::PublicPlaylists => "Public playlists",
         SidebarDestination::Live => "Live",
-        SidebarDestination::NeedsAttention => "Needs attention",
+        SidebarDestination::Inbox => "Inbox",
         SidebarDestination::Show => "Show",
         SidebarDestination::Settings => "Settings",
     }
@@ -238,7 +259,7 @@ const fn element_id(destination: SidebarDestination) -> &'static str {
         SidebarDestination::MyPlaylists => "music-destination-playlists",
         SidebarDestination::PublicPlaylists => "music-destination-public-playlists",
         SidebarDestination::Live => "music-destination-live",
-        SidebarDestination::NeedsAttention => "music-destination-needs-attention",
+        SidebarDestination::Inbox => "music-destination-inbox",
         SidebarDestination::Show => "sidebar-show",
         SidebarDestination::Settings => "sidebar-settings",
     }
@@ -252,9 +273,17 @@ const fn icon(destination: SidebarDestination) -> SidebarIcon {
         SidebarDestination::MyPlaylists => SidebarIcon::Playlist,
         SidebarDestination::PublicPlaylists => SidebarIcon::PublicPlaylist,
         SidebarDestination::Live => SidebarIcon::Live,
-        SidebarDestination::NeedsAttention => SidebarIcon::Warning,
+        SidebarDestination::Inbox => SidebarIcon::Warning,
         SidebarDestination::Show => SidebarIcon::Show,
         SidebarDestination::Settings => SidebarIcon::Settings,
+    }
+}
+
+const fn item_noun(count: usize) -> &'static str {
+    if count == 1 {
+        "item"
+    } else {
+        "items"
     }
 }
 
@@ -287,8 +316,11 @@ mod tests {
             .collect()
     }
 
+    /// ADR 0089 Decision 1: the full sidebar sequence. This is the guard of
+    /// the sidebar. A later destination changes this sequence in the same
+    /// change.
     #[test]
-    fn sidebar_lists_rows_in_adr_0089_sequence_with_separator_before_show() {
+    fn adr_0089_sidebar_sequence_equals_decision_1() {
         let vm = SidebarVm::new(SidebarCounts::default(), None);
         assert_eq!(
             labels(&vm),
@@ -299,9 +331,9 @@ mod tests {
                 "My playlists",
                 "Public playlists",
                 "Live",
-                "Needs attention",
                 "---",
                 "Show",
+                "Inbox",
                 "Settings",
             ]
         );
@@ -317,23 +349,45 @@ mod tests {
         assert_eq!(selected, [SidebarDestination::Show]);
     }
 
+    /// ADR 0089 Decision 3: the Inbox count is the sum of its items, and its
+    /// accessibility label is a sentence.
     #[test]
-    fn sidebar_counts_show_only_when_positive_and_name_their_items() {
+    fn adr_0089_inbox_count_shows_only_when_positive_and_reads_as_a_sentence() {
         let counts = SidebarCounts {
-            needs_attention: 2,
+            inbox: 4,
             playlists: 0,
         };
         let vm = SidebarVm::new(counts, None);
-        let attention = rows(&vm)
-            .find(|row| row.destination == SidebarDestination::NeedsAttention)
-            .expect("Needs attention row");
-        assert_eq!(attention.count, Some(2));
-        assert!(attention.shows_attention_mark);
-        assert_eq!(attention.a11y_label, "Needs attention, 2 tracks");
+        let inbox = rows(&vm)
+            .find(|row| row.destination == SidebarDestination::Inbox)
+            .expect("Inbox row");
+        assert_eq!(inbox.count, Some(4));
+        assert!(inbox.shows_attention_mark);
+        assert_eq!(inbox.a11y_label, "Inbox, 4 items need a decision");
         let playlists = rows(&vm)
             .find(|row| row.destination == SidebarDestination::MyPlaylists)
             .expect("My playlists row");
         assert_eq!(playlists.count, None);
+
+        let one = SidebarVm::new(
+            SidebarCounts {
+                inbox: 1,
+                playlists: 0,
+            },
+            None,
+        );
+        let inbox = rows(&one)
+            .find(|row| row.destination == SidebarDestination::Inbox)
+            .expect("Inbox row");
+        assert_eq!(inbox.a11y_label, "Inbox, 1 item needs a decision");
+
+        let empty = SidebarVm::new(SidebarCounts::default(), None);
+        let inbox = rows(&empty)
+            .find(|row| row.destination == SidebarDestination::Inbox)
+            .expect("Inbox row");
+        assert_eq!(inbox.count, None);
+        assert!(!inbox.shows_attention_mark);
+        assert_eq!(inbox.a11y_label, "Inbox");
     }
 
     #[test]
@@ -345,7 +399,7 @@ mod tests {
             MusicDestination::Playlists,
             MusicDestination::PublicPlaylists,
             MusicDestination::Live,
-            MusicDestination::NeedsAttention,
+            MusicDestination::Inbox,
         ] {
             let row = SidebarDestination::for_music(destination);
             assert_eq!(row.music_destination(), Some(destination));

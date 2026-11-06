@@ -464,14 +464,13 @@ mod tests {
         let dir = std::env::temp_dir().join("v4vmm-search-field-list-test");
         let services = crate::application::ApplicationServices::local_with_service_adapters()
             .expect("the local services");
-        LibraryApp::new_with_content_view_mode(
+        LibraryApp::new(
             std::sync::Arc::new(std::sync::Mutex::new(conn)),
             crate::media::ImageCache::new(dir.join("cache")),
             "http://127.0.0.1:9".into(),
             dir,
             std::sync::Arc::new(services),
             None,
-            crate::view_models::workspace::ContentViewMode::default(),
             window,
             cx,
         )

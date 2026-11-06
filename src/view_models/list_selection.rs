@@ -14,7 +14,7 @@
 //! the selected set holds. `R` is the row's own identity, which the focus
 //! and the anchor hold. A row of one member can set `R` to `K`, its own
 //! key: [`SelectionRow::of_one`] builds this shape, and the Tracks and
-//! the Needs attention lists use it for every row.
+//! the Inbox lists use it for every row.
 
 #![warn(clippy::pedantic)]
 
@@ -396,7 +396,7 @@ impl RowSelectionVm {
     }
 
     /// Builds the selection facts of a row of one member, named `title`
-    /// (a release row, a Tracks row, or a Needs attention row).
+    /// (a release row, a Tracks row, or an Inbox row).
     /// `checkbox_visible` is true only in [`SelectionMode::Selecting`]
     /// (ADR 0084 Decision 10 Amendment, 2026-10-19). The row's own
     /// keyboard focus no longer forces it, and the pointer-hover reveal

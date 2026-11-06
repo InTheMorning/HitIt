@@ -24,7 +24,7 @@ pub(crate) enum MusicDestination {
     Search,
     Releases,
     Artists,
-    NeedsAttention,
+    Inbox,
     Playlists,
     /// The public playlists of the Index, the musicL feeds (ADR 0089
     /// Decision 1, packet 009).
@@ -41,7 +41,7 @@ impl MusicDestination {
         Self::Search,
         Self::Releases,
         Self::Artists,
-        Self::NeedsAttention,
+        Self::Inbox,
         Self::Playlists,
         Self::PublicPlaylists,
         Self::Live,
@@ -54,7 +54,7 @@ impl MusicDestination {
             Self::Search => "Search",
             Self::Releases => "Releases",
             Self::Artists => "Artists",
-            Self::NeedsAttention => "Needs attention",
+            Self::Inbox => "Inbox",
             Self::Playlists => "Playlists",
             Self::PublicPlaylists => "Public playlists",
             Self::Live => "Live",
