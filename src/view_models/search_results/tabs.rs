@@ -23,7 +23,7 @@ impl SearchResultsTab {
     /// Each tab, in the visible order.
     pub(crate) const ALL: [Self; 3] = [Self::Releases, Self::Artists, Self::Tracks];
 
-    /// Returns the visible label for this tab. A label shows no count.
+    /// Returns the visible label for this tab.
     #[must_use]
     pub(crate) const fn label(self) -> &'static str {
         match self {
