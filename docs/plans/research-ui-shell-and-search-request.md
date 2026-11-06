@@ -61,6 +61,11 @@ The operator corrected this section on 2026-10-24. It changes ADR 0084
 Decision 2 (the destinations), Decision 3 (Music opens on Discover) and
 Decision 8 (two scopes).
 
+On 2026-11-05 the operator decided that the sidebar items and the page titles
+are "My playlists" and "Public playlists" (musicindex ADR 0023 R-CASE-1 item
+2). This section keeps the words that the research received. A menu item keeps
+title case, for example "Copy to My Playlists…".
+
 - The sidebar is one list with no group labels: **Search, Releases, Artists,
   My Playlists, Public Playlists, Live**. Then Show, Inbox and Settings
   below the line.

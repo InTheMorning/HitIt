@@ -19,6 +19,8 @@ Amended 2026-10-27 by musicindex ADR 0033. Decision 1 and the Invariants line ci
 
 The header badge of a feed page follows R-WORD-3. A role that the two sides agree on has a filled dot. An inferred role, or a role that one side gives, has a hollow dot. A feed with no role has a hollow dot, with the word "Publisher" or "Feed" of Decision 7.
 
+Amended 2026-11-05 by musicindex ADR 0037 R-WORD-7, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. The code gives the earlier label (`src/view_models/publisher_page.rs`), and no packet owns the change.
+
 Built 2026-10-21: [ADR 0084 packet 017](../tasks/adr-0084-task-017-name-level-artist-page.md) builds the name level page with the level word "Name only". Its visual check is open.
 
 It supersedes [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) Decisions 1, 2, 3 and 6.
@@ -125,9 +127,8 @@ The frame title of a feed page is the type label of musicindex ADR 0033 R-WORD-3
 
 | Page | Frame title |
 |---|---|
-| The level is Artist or Unverified artist (Decision 2), or a side states `artist` | "Artist" |
-| No artist role, and the feed states one role | The word of that role, with a capital first letter. Example: "Label" |
-| No artist role, and the feed states two or more roles | "Publisher" |
+| A side states one or more roles | The label of musicindex ADR 0037 R-WORD-7. When the level is Artist or Unverified artist (Decision 2) and no side states `artist`, "Artist" comes first |
+| No side states a role, and the level is Artist or Unverified artist | "Artist" |
 | No role, no side states `artist`, and each named link has a known rank that is not 1 | "Publisher" |
 | Each other page | "Feed" |
 
