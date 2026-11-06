@@ -185,8 +185,6 @@ pub(crate) struct FrameShellDisplay {
     /// The Music list column's "Select" and "Done" button is the first
     /// caller.
     pub(crate) header_action: Option<FrameHeaderActionDisplay>,
-    /// Optional frame-local content view-mode control.
-    pub(crate) view_mode_control: Option<ContentViewModeControlDisplay>,
     /// Optional scope control of the Music Releases or Artists list (ADR
     /// 0084 Decision 8, packet 016 decision D1). It sits at the leading
     /// edge of the filter row.
@@ -217,7 +215,6 @@ impl FrameShellDisplay {
             }),
             action_menu_items: Vec::new(),
             header_action: None,
-            view_mode_control: None,
             scope_control: None,
             content_slot_id: format!("workspace-frame-{}-content", frame_id.value()),
         }
@@ -228,13 +225,6 @@ impl FrameShellDisplay {
     #[must_use]
     pub(crate) fn with_header_action(mut self, display: FrameHeaderActionDisplay) -> Self {
         self.header_action = Some(display);
-        self
-    }
-
-    /// Returns this shell display with frame-local view-mode control attached.
-    #[must_use]
-    pub(crate) fn with_view_mode_control(mut self, display: ContentViewModeControlDisplay) -> Self {
-        self.view_mode_control = Some(display);
         self
     }
 

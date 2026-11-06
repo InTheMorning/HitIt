@@ -4,21 +4,6 @@
 //! the stable ids, labels, and accessibility text so the shell does not grow
 //! screen-local display policy.
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum AppToolbarTabKey {
-    Music,
-    Show,
-    Settings,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct AppToolbarTabDisplay {
-    pub(crate) key: AppToolbarTabKey,
-    pub(crate) id: &'static str,
-    pub(crate) label: &'static str,
-    pub(crate) a11y_label: &'static str,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct GlobalSearchDisplay {
     /// Local search remains available independently of optional Index requests.
@@ -33,11 +18,9 @@ pub(crate) struct GlobalSearchDisplay {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AppToolbarDisplay {
     pub(crate) id: &'static str,
-    pub(crate) leading_id: &'static str,
     pub(crate) center_id: &'static str,
     pub(crate) mark_id: &'static str,
     pub(crate) mark_a11y_label: &'static str,
-    pub(crate) tabs: [AppToolbarTabDisplay; 3],
     pub(crate) global_search: GlobalSearchDisplay,
 }
 
@@ -132,30 +115,9 @@ impl AppToolbarVm {
         let _ = self;
         AppToolbarDisplay {
             id: "app-toolbar",
-            leading_id: "app-toolbar-leading",
             center_id: "app-toolbar-center",
             mark_id: "app-toolbar-mark",
             mark_a11y_label: "Application mark",
-            tabs: [
-                AppToolbarTabDisplay {
-                    key: AppToolbarTabKey::Music,
-                    id: "app-tab-music",
-                    label: "Music",
-                    a11y_label: "Open Music",
-                },
-                AppToolbarTabDisplay {
-                    key: AppToolbarTabKey::Show,
-                    id: "app-tab-show",
-                    label: "Show",
-                    a11y_label: "Open Show",
-                },
-                AppToolbarTabDisplay {
-                    key: AppToolbarTabKey::Settings,
-                    id: "app-tab-settings",
-                    label: "Settings",
-                    a11y_label: "Show Settings",
-                },
-            ],
             global_search: GlobalSearchDisplay {
                 availability: crate::view_models::startup::StartupAvailability::Available,
                 input_id: "app-toolbar-global-search-input",
@@ -177,18 +139,19 @@ mod tests {
         let display = AppToolbarVm::new().display();
 
         assert_eq!(display.id, "app-toolbar");
-        assert_eq!(display.leading_id, "app-toolbar-leading");
         assert_eq!(display.center_id, "app-toolbar-center");
     }
 
     #[test]
-    fn toolbar_tabs_project_labels_and_a11y() {
+    fn toolbar_has_no_section_tabs() {
+        // ADR 0089 Decision 1: the sidebar holds the sections, so the
+        // toolbar exposes no tab (the situational guard of ADR 0089).
         let display = AppToolbarVm::new().display();
-        let labels: Vec<_> = display.tabs.iter().map(|tab| tab.label).collect();
-        let a11y: Vec<_> = display.tabs.iter().map(|tab| tab.a11y_label).collect();
-
-        assert_eq!(labels, ["Music", "Show", "Settings"]);
-        assert_eq!(a11y, ["Open Music", "Open Show", "Show Settings"]);
+        assert_eq!(display.mark_id, "app-toolbar-mark");
+        assert_eq!(
+            display.global_search.input_id,
+            "app-toolbar-global-search-input"
+        );
     }
 
     #[test]
@@ -263,9 +226,6 @@ mod tests {
             display.global_search.placeholder,
             display.global_search.search_button_label,
             display.global_search.search_button_a11y_label,
-            display.tabs[0].label,
-            display.tabs[1].label,
-            display.tabs[2].label,
         ];
 
         assert!(

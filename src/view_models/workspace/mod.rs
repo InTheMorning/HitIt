@@ -25,9 +25,8 @@ pub(crate) use chrome::{
     FrameChromeMenuItemDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
 };
 pub(crate) use columns::{
-    music_focus_moves, music_focus_target, music_page_content, resolve_music_sidebar_state,
-    toggle_music_sidebar_preference, MusicColumns, MusicFocusTarget, MusicPageContent,
-    MusicSidebarPreference, MusicSidebarState,
+    music_focus_moves, music_focus_target, music_page_content, MusicColumns, MusicFocusTarget,
+    MusicPageContent,
 };
 pub(crate) use frame::{WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState};
 pub(crate) use nav::{
@@ -107,8 +106,30 @@ pub(crate) struct WorkspaceLayoutConfig {
 pub(crate) struct WorkspaceFrameConfig {
     /// Stable frame identifier.
     pub(crate) id: u64,
-    /// Structural role for this frame.
-    pub(crate) kind: WorkspaceFrameKind,
+    /// Structural role for this frame. `None` for a removed kind (ADR 0089
+    /// Decision 1): `from_config` drops that frame and keeps the others.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_frame_kind",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) kind: Option<WorkspaceFrameKind>,
+}
+
+/// The frame kind that the sidebar frame stored before ADR 0089 Decision 1.
+/// A saved layout that names it still loads, and that frame is dropped.
+const REMOVED_SOURCE_LIST_KIND: &str = "source_list";
+
+fn deserialize_frame_kind<'de, D>(deserializer: D) -> Result<Option<WorkspaceFrameKind>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    if raw == REMOVED_SOURCE_LIST_KIND {
+        return Ok(None);
+    }
+    WorkspaceFrameKind::deserialize(serde::de::value::StrDeserializer::<D::Error>::new(&raw))
+        .map(Some)
 }
 
 impl Default for WorkspaceLayout {
@@ -118,7 +139,6 @@ impl Default for WorkspaceLayout {
 }
 
 impl WorkspaceLayout {
-    const SOURCE_LIST_ID: WorkspaceFrameId = WorkspaceFrameId::new(1);
     const CONTENT_LIST_ID: WorkspaceFrameId = WorkspaceFrameId::new(2);
     const DETAIL_ID: WorkspaceFrameId = WorkspaceFrameId::new(3);
 
@@ -126,10 +146,6 @@ impl WorkspaceLayout {
     #[must_use]
     pub(crate) fn default_layout() -> Self {
         let frames = vec![
-            WorkspaceFrameState::with_default_title(
-                Self::SOURCE_LIST_ID,
-                WorkspaceFrameKind::SourceList,
-            ),
             WorkspaceFrameState::with_default_title(
                 Self::CONTENT_LIST_ID,
                 WorkspaceFrameKind::ContentList,
@@ -364,7 +380,7 @@ impl WorkspaceLayout {
                 .iter()
                 .map(|frame| WorkspaceFrameConfig {
                     id: frame.id().value(),
-                    kind: frame.kind(),
+                    kind: Some(frame.kind()),
                 })
                 .collect(),
             focused_frame_id: self.focused_frame_id.map(WorkspaceFrameId::value),
@@ -387,10 +403,15 @@ impl WorkspaceLayout {
         let frames: Vec<_> = config
             .frames
             .iter()
-            .map(|frame| {
-                WorkspaceFrameState::with_default_title(WorkspaceFrameId::new(frame.id), frame.kind)
+            .filter_map(|frame| {
+                frame.kind.map(|kind| {
+                    WorkspaceFrameState::with_default_title(WorkspaceFrameId::new(frame.id), kind)
+                })
             })
             .collect();
+        if frames.is_empty() {
+            return Self::default_layout();
+        }
         let focused_frame_id = config.focused_frame_id.map(WorkspaceFrameId::new);
 
         Self::new(frames, focused_frame_id).unwrap_or_else(|_| Self::default_layout())
@@ -416,11 +437,7 @@ impl WorkspaceLayout {
     fn ensure_frame_navigation_entries(&mut self) {
         for frame in &self.frames {
             self.frame_navigation.entry(frame.id()).or_insert_with(|| {
-                let root = default_navigation_entry(frame.kind());
-                match default_navigation_child(frame.kind()) {
-                    Some(page) => FrameNavigationState::new_with_page(root, page),
-                    None => FrameNavigationState::new(root),
-                }
+                FrameNavigationState::new(default_navigation_entry(frame.kind()))
             });
         }
     }
@@ -428,25 +445,13 @@ impl WorkspaceLayout {
 
 fn default_navigation_entry(kind: WorkspaceFrameKind) -> FrameNavigationEntry {
     match kind {
-        // ADR 0084 Decision 3: Music opens on Discover.
-        WorkspaceFrameKind::SourceList | WorkspaceFrameKind::ContentList => {
-            FrameNavigationEntry::Destination(MusicDestination::Discover)
+        // ADR 0089 Decision 8: Music opens on Releases.
+        WorkspaceFrameKind::ContentList => {
+            FrameNavigationEntry::Destination(MusicDestination::Releases)
         }
         WorkspaceFrameKind::Detail => {
             FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, String::new()))
         }
         WorkspaceFrameKind::QueueNowPlaying => FrameNavigationEntry::QueueNowPlaying,
-    }
-}
-
-/// The page under the Music default location, when its destination opens
-/// one beneath it (ADR 0084 Decision 3: Music opens on Discover, then
-/// "New releases").
-fn default_navigation_child(kind: WorkspaceFrameKind) -> Option<FrameNavigationEntry> {
-    match kind {
-        WorkspaceFrameKind::SourceList | WorkspaceFrameKind::ContentList => {
-            MusicDestination::Discover.default_child_page()
-        }
-        WorkspaceFrameKind::Detail | WorkspaceFrameKind::QueueNowPlaying => None,
     }
 }

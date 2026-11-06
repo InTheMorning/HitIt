@@ -20,9 +20,7 @@ use gpui::{
     SharedString, Styled, Window,
 };
 
-use crate::ui::composites::{
-    view_mode_control, Segment, SegmentDisplay, SegmentedControl, ViewModeControlSlots,
-};
+use crate::ui::composites::{Segment, SegmentDisplay, SegmentedControl};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
 use crate::ui::primitives::{
@@ -31,13 +29,12 @@ use crate::ui::primitives::{
 use crate::ui::tokens::{resolve_color, Appearance, FontSize, SemanticColor, Spacing};
 use crate::view_models::index_name_list::{MusicListScope, MusicScopeControlDisplay};
 use crate::view_models::workspace::{
-    ContentViewMode, ContentViewModeControlDisplay, FrameChromeButtonDisplay,
-    FrameChromeMenuItemDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
+    FrameChromeButtonDisplay, FrameChromeMenuItemDisplay, FrameHeaderActionDisplay,
+    FrameShellDisplay,
 };
 
 type FrameButtonHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 type FrameMenuSelectHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App) + 'static>;
-type FrameViewModeSelectHandler = Rc<dyn Fn(ContentViewMode, &mut Window, &mut App) + 'static>;
 type FrameScopeSelectHandler = Rc<dyn Fn(MusicListScope, &mut Window, &mut App) + 'static>;
 
 /// Callback and content slots supplied by a frame-shell caller.
@@ -48,7 +45,6 @@ pub(crate) struct FrameShellSlots {
     on_close: Option<FrameButtonHandler>,
     on_menu_select: Option<FrameMenuSelectHandler>,
     on_header_action: Option<FrameButtonHandler>,
-    on_view_mode_select: Option<FrameViewModeSelectHandler>,
     on_scope_select: Option<FrameScopeSelectHandler>,
     appearance: Option<Appearance>,
 }
@@ -72,15 +68,6 @@ impl FrameShellSlots {
         handler: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_header_action = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the frame-local view-mode selection callback.
-    pub(crate) fn on_view_mode_select(
-        mut self,
-        handler: impl Fn(ContentViewMode, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_view_mode_select = Some(Rc::new(handler));
         self
     }
 
@@ -192,7 +179,6 @@ fn render_chrome(
     cx: &App,
 ) -> impl IntoElement {
     let content_slot_id = display.content_slot_id.clone();
-    let view_mode_control_display = display.view_mode_control.clone();
     let scope_control_display = display.scope_control;
     let header_visible = display.header_visible();
     let mut nav = div()
@@ -274,48 +260,18 @@ fn render_chrome(
         chrome = chrome.child(header);
     }
 
-    if view_mode_control_display.is_some() || scope_control_display.is_some() {
-        chrome = chrome.child(frame_filter_row(
-            FrameFilterRowDisplays {
-                view_mode: view_mode_control_display,
-                scope: scope_control_display,
-            },
-            FrameFilterRowHandlers {
-                view_mode: slots.on_view_mode_select,
-                scope: slots.on_scope_select,
-            },
-            cx,
-        ));
+    if let Some(scope) = scope_control_display {
+        chrome = chrome.child(frame_filter_row(scope, slots.on_scope_select, cx));
     }
 
     chrome
 }
 
-/// The controls of the frame filter row.
-struct FrameFilterRowDisplays {
-    view_mode: Option<ContentViewModeControlDisplay>,
-    scope: Option<MusicScopeControlDisplay>,
-}
-
-/// The callbacks of the frame filter row.
-struct FrameFilterRowHandlers {
-    view_mode: Option<FrameViewModeSelectHandler>,
-    scope: Option<FrameScopeSelectHandler>,
-}
-
 fn frame_filter_row(
-    displays: FrameFilterRowDisplays,
-    handlers: FrameFilterRowHandlers,
+    scope_display: MusicScopeControlDisplay,
+    scope_handler: Option<FrameScopeSelectHandler>,
     cx: &App,
 ) -> AnyElement {
-    let FrameFilterRowDisplays {
-        view_mode: view_mode_display,
-        scope: scope_display,
-    } = displays;
-    let FrameFilterRowHandlers {
-        view_mode: view_mode_handler,
-        scope: scope_handler,
-    } = handlers;
     let mut row = div()
         .flex()
         .flex_row()
@@ -324,20 +280,9 @@ fn frame_filter_row(
 
     // ADR 0084 packet 016 decision D1: the scope control sits at the
     // leading edge of the row.
-    if let Some(display) = scope_display {
-        row = row.child(scope_control(display, scope_handler));
-    }
+    row = row.child(scope_control(scope_display, scope_handler));
 
     row = row.child(div().flex_1().min_w_0());
-    if let Some(display) = view_mode_display {
-        let mut view_mode_slots = ViewModeControlSlots::new();
-        if let Some(handler) = view_mode_handler {
-            view_mode_slots = view_mode_slots.on_select(move |view_mode, window, cx| {
-                handler(view_mode, window, cx);
-            });
-        }
-        row = row.child(view_mode_control(display, view_mode_slots));
-    }
 
     div()
         .px(Spacing::MD.scaled(cx))
@@ -472,13 +417,11 @@ mod tests {
         let slots = FrameShellSlots::new()
             .content(div())
             .on_close(|_, _| {})
-            .on_menu_select(|_, _, _| {})
-            .on_view_mode_select(|_, _, _| {});
+            .on_menu_select(|_, _, _| {});
 
         assert!(slots.content.is_some());
         assert!(slots.on_close.is_some());
         assert!(slots.on_menu_select.is_some());
-        assert!(slots.on_view_mode_select.is_some());
     }
 
     /// ADR 0084 Decision 10 Amendment: the frame shell accepts the
@@ -488,12 +431,5 @@ mod tests {
         let slots = FrameShellSlots::new().on_header_action(|_, _| {});
 
         assert!(slots.on_header_action.is_some());
-    }
-
-    #[test]
-    fn slots_accept_view_mode_selection_callback() {
-        let slots = FrameShellSlots::new().on_view_mode_select(|_, _, _| {});
-
-        assert!(slots.on_view_mode_select.is_some());
     }
 }

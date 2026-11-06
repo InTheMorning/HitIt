@@ -66,7 +66,7 @@ use crate::ui::shells::library::destination_lists::{
 };
 use crate::ui::shells::library::detail::render_library_detail;
 use crate::ui::shells::library::index_list_status::IndexListActions;
-use crate::ui::shells::library::sidebar::{render_destination_row, render_sidebar_collapse_button};
+use crate::ui::shells::library::sidebar::{render_sidebar_row, render_sidebar_separator};
 use crate::ui::shells::library::track_detail_metadata::track_metadata_rows_for_frame;
 use crate::ui::shells::library::views_list::render_library_discover_views_list;
 use crate::ui::shells::library_removal_confirmation::{
@@ -121,10 +121,8 @@ use crate::view_models::singles_group::{
 use crate::view_models::track_detail::TrackNameLinkTarget;
 use crate::view_models::window_groups::{ContentListItemVm, NewReleasesLayoutItem, WindowGroupKey};
 use crate::view_models::workspace::{
-    resolve_music_sidebar_state, toggle_music_sidebar_preference, ContentViewMode,
-    ContentViewModeControlDisplay, DiscoverView, FrameHeaderActionDisplay, FrameNavigationEntry,
-    MusicDestination, MusicSidebarPreference, MusicSidebarState, NavigationPathStart, ReleaseKey,
-    TrackKey,
+    ContentViewMode, DiscoverView, FrameHeaderActionDisplay, FrameNavigationEntry,
+    MusicDestination, NavigationPathStart, ReleaseKey, TrackKey,
 };
 use crate::views::{EntityIdentityLinks, LocalIdentityFacts};
 use gpui::{
@@ -452,10 +450,6 @@ fn reset_removed_inspector_frame(frame: &mut InspectorFrame, message: &'static s
 // ---------------------------------------------------------------------------
 
 impl LibraryApp {
-    pub(crate) fn content_view_mode_control(&self) -> ContentViewModeControlDisplay {
-        self.vm.content_view_mode_control()
-    }
-
     pub(crate) const fn content_view_mode(&self) -> ContentViewMode {
         self.vm.content_view_mode()
     }
@@ -604,24 +598,6 @@ impl LibraryApp {
         );
     }
 
-    /// Resolves the Music sidebar's show state from the preference and the
-    /// current workspace width (ADR 0084 Decision 1). The workspace shell
-    /// resolves the same state from the same preference and width, through
-    /// the same pure function, so both agree.
-    pub(crate) fn sidebar_state(&self, window: &Window) -> MusicSidebarState {
-        resolve_music_sidebar_state(
-            self.vm.sidebar_preference(),
-            f32::from(window.bounds().size.width),
-            f32::from(crate::ui::layouts::MUSIC_SIDEBAR_COLLAPSE_BREAKPOINT),
-        )
-    }
-
-    /// The Music sidebar preference, for the top app's own resolve of the
-    /// sidebar column width (ADR 0084 Decision 1).
-    pub(crate) fn sidebar_preference(&self) -> MusicSidebarPreference {
-        self.vm.sidebar_preference()
-    }
-
     /// The destination whose list the list column currently shows (ADR
     /// 0084 Decision 2), for the top app's own content-list chrome.
     pub(crate) fn active_destination(&self) -> MusicDestination {
@@ -642,19 +618,6 @@ impl LibraryApp {
         if self.vm.set_hovered_thumb_url(url) {
             cx.notify();
         }
-    }
-
-    /// Sets the Music sidebar preference to the opposite of its currently
-    /// resolved state, so the collapse button always moves the sidebar
-    /// (ADR 0084 Decision 1).
-    pub(crate) fn toggle_sidebar_collapse(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let next = toggle_music_sidebar_preference(
-            self.vm.sidebar_preference(),
-            f32::from(window.bounds().size.width),
-            f32::from(crate::ui::layouts::MUSIC_SIDEBAR_COLLAPSE_BREAKPOINT),
-        );
-        self.vm.set_sidebar_preference(next);
-        cx.notify();
     }
 
     /// Opens the publisher page of an album or a track's album feed (ADR
@@ -1177,6 +1140,11 @@ impl LibraryApp {
             selection_removal_report: None,
             detail_selection: DetailSelection::new(),
             detail_column_focus: cx.focus_handle(),
+            sidebar_focus: crate::view_models::sidebar::SidebarDestination::ALL
+                .into_iter()
+                .map(|row| (row, cx.focus_handle()))
+                .collect(),
+            sidebar_selected: None,
             pending_inspect_sources: None,
             spring_load: crate::view_models::library::SpringLoadVm::default(),
             detail_scroll_reveal: ScrollReveal::new(detail_column_scroll.clone()),
@@ -2577,7 +2545,7 @@ impl LibraryApp {
     ///
     /// Maps the nav entry to the appropriate Library detail state:
     /// - `PlaylistDetail(id)` → call `select_playlist` (ADR 0084 Decision 9)
-    /// - `Search(_)` / `SourceList` / others → clear detail to root state
+    /// - `Search(_)` / others → clear detail to root state
     ///
     /// A `Release` entry and a `Track` entry mount through the top app's
     /// resolved data source (ADR 0084 Decision 4), not through this
@@ -2671,9 +2639,6 @@ impl LibraryApp {
                 // The Discover views, Releases, Artists, and Playlists
                 // lists read straight from already-loaded data; they hold
                 // no `ContentListPageVm` state of their own.
-            }
-            MusicDestination::Tracks => {
-                self.vm.show_tracks_destination();
             }
             MusicDestination::NeedsAttention => {
                 self.open_needs_attention_destination();
@@ -4185,7 +4150,7 @@ impl LibraryApp {
                 }
                 cx.notify();
             }
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
+            MusicDestination::NeedsAttention => {
                 let visible = self.content_list_visible_rows();
                 if let Some(focused) = self.track_selection.move_focus(step, &visible) {
                     if let Some(index) = visible.iter().position(|row| row.id == focused) {
@@ -4246,7 +4211,7 @@ impl LibraryApp {
                     .toggle_focused(rows.selection_rows());
                 cx.notify();
             }
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
+            MusicDestination::NeedsAttention => {
                 self.track_selection_mode = SelectionMode::Selecting;
                 let visible = self.content_list_visible_rows();
                 self.track_selection.toggle_focused(&visible);
@@ -4271,7 +4236,7 @@ impl LibraryApp {
                 self.releases_selection.select_all(rows.selection_rows());
                 cx.notify();
             }
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
+            MusicDestination::NeedsAttention => {
                 self.track_selection_mode = SelectionMode::Selecting;
                 let visible = self.content_list_visible_rows();
                 self.track_selection.select_all(&visible);
@@ -4312,7 +4277,7 @@ impl LibraryApp {
                 }
                 None => false,
             },
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
+            MusicDestination::NeedsAttention => {
                 let Some(focused) = self.track_selection.focused().cloned() else {
                     return false;
                 };
@@ -4348,9 +4313,7 @@ impl LibraryApp {
                 cx.notify();
                 true
             }
-            MusicDestination::Tracks | MusicDestination::NeedsAttention
-                if self.track_selection_mode.is_selecting() =>
-            {
+            MusicDestination::NeedsAttention if self.track_selection_mode.is_selecting() => {
                 self.track_selection_mode = SelectionMode::Normal;
                 self.track_selection.clear();
                 cx.notify();
@@ -4380,6 +4343,44 @@ impl LibraryApp {
     /// The focus handle of the Music list column (ADR 0089 Invariants).
     pub(crate) const fn list_column_focus(&self) -> &gpui::FocusHandle {
         &self.list_column_focus
+    }
+
+    /// Sets the sidebar row of the current screen (ADR 0089 Decision 1).
+    /// The top app calls it at each render, and the sidebar renders again
+    /// only when the row changes.
+    pub(crate) fn set_sidebar_selected(
+        &mut self,
+        selected: Option<crate::view_models::sidebar::SidebarDestination>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.sidebar_selected != selected {
+            self.sidebar_selected = selected;
+            cx.notify();
+        }
+    }
+
+    /// Moves the keyboard focus to the sidebar row of `row` (ADR 0089
+    /// Decision 1 and Invariants).
+    pub(crate) fn focus_sidebar_row(
+        &self,
+        row: crate::view_models::sidebar::SidebarDestination,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        if let Some((_, handle)) = self.sidebar_focus.iter().find(|(key, _)| *key == row) {
+            window.focus(handle, cx);
+        }
+    }
+
+    /// The focus handle of a sidebar row (ADR 0089 Decision 1).
+    fn sidebar_row_focus(
+        &self,
+        row: crate::view_models::sidebar::SidebarDestination,
+    ) -> Option<&gpui::FocusHandle> {
+        self.sidebar_focus
+            .iter()
+            .find(|(key, _)| *key == row)
+            .map(|(_, handle)| handle)
     }
 
     /// Returns whether the Library detail holds the page of a Library-backed
@@ -4425,18 +4426,14 @@ impl LibraryApp {
         let destination = self.vm.active_destination();
         let list_has_rows = match destination {
             MusicDestination::Releases => !self.releases_rows().selection_rows().is_empty(),
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
-                !self.content_list_visible_rows().is_empty()
-            }
+            MusicDestination::NeedsAttention => !self.content_list_visible_rows().is_empty(),
             MusicDestination::Discover
             | MusicDestination::Artists
             | MusicDestination::Playlists => false,
         };
         let mode = match destination {
             MusicDestination::Releases => self.releases_selection_mode,
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
-                self.track_selection_mode
-            }
+            MusicDestination::NeedsAttention => self.track_selection_mode,
             MusicDestination::Discover
             | MusicDestination::Artists
             | MusicDestination::Playlists => SelectionMode::Normal,
@@ -4458,7 +4455,7 @@ impl LibraryApp {
                     }
                 };
             }
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
+            MusicDestination::NeedsAttention => {
                 self.track_selection_mode = match self.track_selection_mode {
                     SelectionMode::Normal => SelectionMode::Selecting,
                     SelectionMode::Selecting => {
@@ -4798,41 +4795,30 @@ impl LibraryApp {
 // ---------------------------------------------------------------------------
 
 impl LibraryApp {
-    /// Renders the Music sidebar column (ADR 0084 Decision 1). Its content
-    /// is the present leading pane, unchanged by this packet: the
-    /// feed-update banner, the library tree, Playlists, and Saved
-    /// Searches.
+    /// Renders the sidebar column (ADR 0089 Decision 1): the rows of
+    /// `SidebarVm`, a line, then the feed area. `TopApp::render` places it
+    /// beside the toolbar and the content on each mount. The feed-update
+    /// area and "Check All Feeds" stay at its bottom.
     pub(crate) fn render_sidebar_column(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let sidebar_state = self.sidebar_state(window);
-        let collapse_button = LibraryViewModel::sidebar_collapse_button(sidebar_state);
-        let destination_rows = self.vm.destination_rows();
-
-        let mut items: Vec<AnyElement> = vec![render_sidebar_collapse_button(collapse_button, cx)];
-        for row in &destination_rows {
-            items.push(render_destination_row(row, sidebar_state, cx));
-        }
-
-        // ADR 0084 Decision 1: the collapsed sidebar shows the destinations
-        // only. The feed area shows expanded only. The operator decided
-        // on 2026-10-16 to delete Saved Searches: it had no storage and
-        // no save action, so its section never showed a row.
-        if matches!(sidebar_state, MusicSidebarState::Collapsed) {
-            return div()
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_h_0()
-                .items_center()
-                .gap(spacing::XXS)
-                .p(spacing::XS)
-                .overflow_hidden()
-                .bg(color::bg_sidebar())
-                .children(items)
-                .into_any_element();
+        let sidebar = self.vm.sidebar(self.sidebar_selected);
+        let mut items: Vec<AnyElement> = Vec::new();
+        for entry in sidebar.entries() {
+            match entry {
+                crate::view_models::sidebar::SidebarEntryVm::Row(row) => {
+                    let focus = self
+                        .sidebar_row_focus(row.destination)
+                        .cloned()
+                        .unwrap_or_else(|| cx.focus_handle());
+                    items.push(render_sidebar_row(row, &focus, window, cx));
+                }
+                crate::view_models::sidebar::SidebarEntryVm::Separator => {
+                    items.push(render_sidebar_separator());
+                }
+            }
         }
 
         let tag_update_button = crate::view_models::tag_update::button(
@@ -4994,7 +4980,7 @@ impl LibraryApp {
                     .discover_view_rows(&self.saved_searches, self.open_saved_search);
                 render_library_discover_views_list(&rows, &self.discover_views_scroll, cx)
             }
-            MusicDestination::Tracks | MusicDestination::NeedsAttention => {
+            MusicDestination::NeedsAttention => {
                 let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();
                 for (row_id, url) in self.vm.content_list_thumbnail_sources() {
                     let img = self.thumbnail_for_url(Some(&url), false, cx);

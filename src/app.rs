@@ -44,6 +44,7 @@ use crate::view_models::publisher_page::PublisherPageContext;
 use crate::view_models::search_results::{SearchResultsInspectorPageVm, SearchResultsTab};
 use crate::view_models::settings::{SettingsAction, SettingsVm};
 use crate::view_models::show::{EventSectionInput, ShowCommandState, ShowPageVm};
+use crate::view_models::sidebar::SidebarDestination;
 use crate::view_models::workspace::{
     music_focus_moves, music_focus_target, music_page_content, ContentViewMode, DiscoverView,
     FrameNavigationEntry, FrameNavigationState, IndexTrackTarget, MusicColumns, MusicDestination,
@@ -74,7 +75,7 @@ mod search_field_list;
 mod search_live;
 mod search_selection;
 mod show;
-mod tab_bar;
+mod toolbar;
 
 pub use bootstrap::run_app;
 
@@ -83,7 +84,7 @@ use search_field_list::{FieldValueRequest, SearchFieldListView};
 use search_selection::{SearchPageSlot, SearchRowClick};
 use settings::render_settings;
 use show::{build_live_status_strip, build_show_screen};
-use tab_bar::render_tab_bar;
+use toolbar::{render_app_mark, render_toolbar};
 
 const WORKSPACE_CONTENT_FRAME_ID: WorkspaceFrameId = WorkspaceFrameId::new(2);
 
@@ -200,9 +201,6 @@ pub struct TopApp {
     settings_status: String,
     settings: SettingsVm,
     settings_scroll: crate::ui::composites::settings::SettingsScrollHandles,
-    music_tab_focus: gpui::FocusHandle,
-    show_tab_focus: gpui::FocusHandle,
-    settings_tab_focus: gpui::FocusHandle,
     _global_search_sub: gpui::Subscription,
     _library_sub: gpui::Subscription,
     _field_value_sub: gpui::Subscription,
@@ -411,7 +409,7 @@ impl TopApp {
         let library_sub = cx.subscribe_in(
             &library,
             window,
-            move |this: &mut Self, library, event: &LibraryAppEvent, _window, cx| match event {
+            move |this: &mut Self, library, event: &LibraryAppEvent, window, cx| match event {
                 LibraryAppEvent::PlayPlaylistAt {
                     track_id,
                     playlist_id,
@@ -458,6 +456,9 @@ impl TopApp {
                 }
                 LibraryAppEvent::OpenPage { entry, start } => {
                     this.open_music_page(entry, *start, cx);
+                }
+                LibraryAppEvent::SidebarRowSelected(row) => {
+                    this.open_sidebar_row(*row, window, cx);
                 }
                 // ADR 0084 Decision 10: an Index job of the download queue
                 // completed. The open pages change in place.
@@ -544,9 +545,6 @@ impl TopApp {
             settings_status: String::new(),
             settings: SettingsVm::default(),
             settings_scroll: crate::ui::composites::settings::SettingsScrollHandles::default(),
-            music_tab_focus: cx.focus_handle(),
-            show_tab_focus: cx.focus_handle(),
-            settings_tab_focus: cx.focus_handle(),
             _global_search_sub: global_search_sub,
             _library_sub: library_sub,
             _field_value_sub: field_value_sub,
@@ -648,6 +646,61 @@ impl TopApp {
             InputEvent::Change => self.start_search_pause(cx),
             InputEvent::PressEnter { .. } => self.submit_global_search(window, cx),
             InputEvent::Focus | InputEvent::Blur => {}
+        }
+    }
+
+    /// Gives the keyboard focus to the sidebar row of Show or Settings (ADR
+    /// 0089 Decision 1), so a section shortcut reaches its row. A Music
+    /// shortcut keeps the focus rule of `apply_music_focus`: the list page
+    /// takes the focus when the frame changes, so this does nothing for
+    /// Music.
+    pub(super) fn focus_active_tab(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let row = match self.tab {
+            AppTab::Music => return,
+            AppTab::Show => SidebarDestination::Show,
+            AppTab::Settings => SidebarDestination::Settings,
+        };
+        self.library
+            .update(cx, |library, cx| library.focus_sidebar_row(row, window, cx));
+    }
+
+    /// Routes a click on a sidebar row (ADR 0089 Decision 1). Show and
+    /// Settings select their mount. A Music row selects the Music mount
+    /// first, when another mount shows, and then opens its destination.
+    fn open_sidebar_row(
+        &mut self,
+        row: SidebarDestination,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match row {
+            SidebarDestination::Show => self.select_tab(AppTab::Show, window, cx),
+            SidebarDestination::Settings => self.select_tab(AppTab::Settings, window, cx),
+            music_row => {
+                if self.tab != AppTab::Music {
+                    self.select_tab(AppTab::Music, window, cx);
+                }
+                if let Some(destination) = music_row.music_destination() {
+                    self.library.update(cx, |library, cx| {
+                        library.open_page(
+                            FrameNavigationEntry::Destination(destination),
+                            NavigationPathStart::NewPath,
+                            cx,
+                        );
+                    });
+                }
+            }
+        }
+    }
+
+    /// The sidebar row of the current screen (ADR 0089 Decision 1).
+    fn sidebar_row_for_mount(&self, mount: WorkspaceScreenMount, cx: &App) -> SidebarDestination {
+        match mount {
+            WorkspaceScreenMount::Music => {
+                SidebarDestination::for_music(self.library.read(cx).active_destination())
+            }
+            WorkspaceScreenMount::Show => SidebarDestination::Show,
+            WorkspaceScreenMount::Settings => SidebarDestination::Settings,
         }
     }
 
@@ -1032,9 +1085,7 @@ impl TopApp {
                     }
                 }
                 // ADR 0060 task 002: Queue lives in Show, not curation.
-                WorkspaceFrameKind::QueueNowPlaying
-                | WorkspaceFrameKind::Detail
-                | WorkspaceFrameKind::SourceList => None,
+                WorkspaceFrameKind::QueueNowPlaying | WorkspaceFrameKind::Detail => None,
             })
             .collect();
 
@@ -1104,16 +1155,6 @@ impl TopApp {
             WorkspaceFrameKind::ContentList,
             String::new(),
         )];
-        let source_list_id = saved_id(WorkspaceFrameKind::SourceList)
-            .unwrap_or_else(|| Self::unused_workspace_frame_id(&frames, WorkspaceFrameId::new(1)));
-        frames.insert(
-            0,
-            WorkspaceFrameState::new(
-                source_list_id,
-                WorkspaceFrameKind::SourceList,
-                String::new(),
-            ),
-        );
         let detail_id = saved_id(WorkspaceFrameKind::Detail)
             .unwrap_or_else(|| Self::unused_workspace_frame_id(&frames, WorkspaceFrameId::new(3)));
         frames.push(WorkspaceFrameState::new(
@@ -1832,8 +1873,8 @@ impl TopApp {
 
         // ADR 0084 Decisions 1 and 2: the Music list column shows the search
         // results while the location starts from a search, else the Library
-        // list with its filter and view-mode controls. The open page does not
-        // change it. The sidebar column fills too.
+        // list. The open page does not change it. ADR 0089 Decision 1: the
+        // sidebar is not a frame, so `render` places it beside the content.
         let search_location_is_open = self
             .workspace_layout
             .frame_nav(content_frame_id)
@@ -1841,35 +1882,9 @@ impl TopApp {
             .is_some()
             && self.search_results_detail.is_some();
         if matches!(mount, WorkspaceScreenMount::Music) && search_location_is_open {
-            workspace_slots = self
-                .with_search_results_list(workspace_slots, content_frame_id, cx)
-                .source_list_slot(self.library_sidebar_view.clone())
-                .source_list_sidebar_preference(self.library.read(cx).sidebar_preference());
+            workspace_slots = self.with_search_results_list(workspace_slots, content_frame_id, cx);
         } else if matches!(mount, WorkspaceScreenMount::Music) {
-            workspace_slots = workspace_slots
-                .source_list_slot(self.library_sidebar_view.clone())
-                .source_list_sidebar_preference(self.library.read(cx).sidebar_preference())
-                .content_list(self.library_list_view.clone());
-            // ADR 0084 Decision 3: Discover's "New releases" moved to the
-            // detail column, with its own view-mode control in its own
-            // header. Releases, Artists, and Playlists read straight from
-            // the Library tree and the loaded playlists, so the
-            // content-list chrome would control nothing there either.
-            // Only Tracks keeps the content-list view-mode control: Needs
-            // attention rows carry actions, so that list has no tile view.
-            let destination = self.library.read(cx).active_destination();
-            let shows_generic_content_controls = matches!(destination, MusicDestination::Tracks);
-            if shows_generic_content_controls {
-                let content_view_mode_control = self.library.read(cx).content_view_mode_control();
-                let content_view_mode_entity = entity.clone();
-                workspace_slots = workspace_slots
-                    .content_list_view_mode_control(content_view_mode_control)
-                    .on_content_list_view_mode_select(move |view_mode, _window, cx| {
-                        content_view_mode_entity.update(cx, |this, cx| {
-                            this.set_content_list_view_mode(view_mode, cx);
-                        });
-                    });
-            }
+            workspace_slots = workspace_slots.content_list(self.library_list_view.clone());
             // ADR 0084 packet 016 decision D1: the scope control of
             // Releases and Artists. The view model gives `None` for each
             // other destination.
@@ -2000,6 +2015,10 @@ impl Render for TopApp {
         let mount = self.active_workspace_screen_mount();
         self.apply_music_focus(mount, window, cx);
         let show_window_width = f32::from(window.bounds().size.width);
+        let sidebar_row = self.sidebar_row_for_mount(mount, cx);
+        self.library.update(cx, |library, cx| {
+            library.set_sidebar_selected(Some(sidebar_row), cx);
+        });
         let live_status_strip = build_live_status_strip(self, mount, cx);
         let capability_notice = if mount == WorkspaceScreenMount::Settings {
             None
@@ -2008,13 +2027,58 @@ impl Render for TopApp {
         };
         let bg_canvas = color(cx, SemanticColor::SystemBackground);
         let text_primary = color(cx, SemanticColor::Label);
+        // ADR 0089 Decision 1: the sidebar sits beside the content on each
+        // mount. The toolbar belongs to the content area (R-TOOLBAR-1).
+        let sidebar_column = div()
+            .flex()
+            .flex_col()
+            .flex_shrink_0()
+            .w(crate::ui::layouts::MUSIC_SIDEBAR_WIDTH)
+            .h_full()
+            .min_h_0()
+            .overflow_hidden()
+            .bg(crate::ui::style::color::bg_sidebar())
+            .child(render_app_mark(cx))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .child(self.library_sidebar_view.clone()),
+            );
+        let content_column = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_w_0()
+            .min_h_0()
+            .overflow_hidden()
+            .child(render_toolbar(self, mount, window, cx))
+            .when_some(capability_notice, gpui::ParentElement::child)
+            .child(
+                div()
+                    .key_context(keyboard::ACTIVE_PANE_KEY_CONTEXT)
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .when_some(live_status_strip, gpui::ParentElement::child)
+                    // ADR 0084 Decision 10: the download progress item
+                    // shows on each section, beside the live status strip.
+                    .child(self.download_status_view.clone())
+                    // ADR 0060: workspace render delegates to the active app-section mount.
+                    .child(self.render_workspace_content(mount, show_window_width, cx)),
+            );
         div()
             .size_full()
             .bg(bg_canvas)
             .text_color(text_primary)
             .text_sm()
             .flex()
-            .flex_col()
+            .flex_row()
             .overflow_hidden()
             .on_action(cx.listener(TopApp::handle_toggle_playback))
             .on_action(cx.listener(TopApp::handle_skip_playback_next))
@@ -2040,24 +2104,8 @@ impl Render for TopApp {
             .on_action(cx.listener(TopApp::handle_move_selection_end))
             .on_action(cx.listener(TopApp::handle_toggle_focused_selection))
             .on_action(cx.listener(TopApp::handle_select_all_visible))
-            .child(render_tab_bar(self, mount, window, cx))
-            .when_some(capability_notice, gpui::ParentElement::child)
-            .child(
-                div()
-                    .key_context(keyboard::ACTIVE_PANE_KEY_CONTEXT)
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h_0()
-                    .min_w_0()
-                    .overflow_hidden()
-                    .when_some(live_status_strip, gpui::ParentElement::child)
-                    // ADR 0084 Decision 10: the download progress item
-                    // shows on each section, beside the live status strip.
-                    .child(self.download_status_view.clone())
-                    // ADR 0060: workspace render delegates to the active app-section mount.
-                    .child(self.render_workspace_content(mount, show_window_width, cx)),
-            )
+            .child(sidebar_column)
+            .child(content_column)
             .children(render_window_layers(window, cx))
     }
 }
@@ -2069,10 +2117,10 @@ mod tests {
         WorkspaceScreenMount,
     };
 
-    /// C4-01: the Music visible layout has `SourceList`, `ContentList` and
-    /// Detail, in that order.
+    /// ADR 0089 Decision 1: the Music visible layout has the content-list
+    /// frame and the detail frame, in that order. The sidebar is not a frame.
     #[test]
-    fn adr_0084_columns_c4_01_music_visible_layout_has_three_columns_in_order() {
+    fn adr_0089_music_visible_layout_has_list_and_detail_frames_in_order() {
         let layout = WorkspaceLayout::from_config(None);
         let visible = TopApp::visible_workspace_layout(&layout, WorkspaceScreenMount::Music);
         let kinds: Vec<_> = visible
@@ -2082,20 +2130,15 @@ mod tests {
             .collect();
         assert_eq!(
             kinds,
-            vec![
-                WorkspaceFrameKind::SourceList,
-                WorkspaceFrameKind::ContentList,
-                WorkspaceFrameKind::Detail,
-            ]
+            vec![WorkspaceFrameKind::ContentList, WorkspaceFrameKind::Detail]
         );
     }
 
-    /// C4-01: a saved layout with only the content-list frame still gives
-    /// Music its three columns, and keeps the content-list frame id. The
-    /// operator found this defect on 2026-10-12: a saved `config.toml` layout
-    /// with one frame showed Music as one column.
+    /// ADR 0089 Decision 1: a saved layout with only the content-list frame
+    /// still gives Music its list and detail frames, and keeps the
+    /// content-list frame id.
     #[test]
-    fn adr_0084_columns_c4_01_saved_single_frame_layout_still_has_three_columns() {
+    fn adr_0089_saved_single_frame_layout_still_has_list_and_detail_frames() {
         let content_list_id = WorkspaceFrameId::new(2);
         let layout = WorkspaceLayout::new(
             vec![WorkspaceFrameState::with_default_title(
@@ -2111,21 +2154,16 @@ mod tests {
             .iter()
             .map(|frame| (frame.kind(), frame.id()))
             .collect();
-        assert_eq!(frames.len(), 3, "Music must show three columns");
         assert_eq!(
             frames.iter().map(|(kind, _)| *kind).collect::<Vec<_>>(),
-            vec![
-                WorkspaceFrameKind::SourceList,
-                WorkspaceFrameKind::ContentList,
-                WorkspaceFrameKind::Detail,
-            ]
+            vec![WorkspaceFrameKind::ContentList, WorkspaceFrameKind::Detail]
         );
         assert_eq!(
-            frames[1].1, content_list_id,
+            frames[0].1, content_list_id,
             "the content-list frame must keep its saved id"
         );
         assert!(
-            frames[0].1 != frames[2].1 && frames[0].1 != content_list_id,
+            frames[1].1 != content_list_id,
             "each frame id must be unique"
         );
     }

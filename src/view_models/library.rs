@@ -93,6 +93,7 @@ use crate::view_models::search_results::{
 use crate::view_models::selection_action_bar::{
     SelectionActionBarInput, SelectionActionBarVm, SelectionActionCounts,
 };
+use crate::view_models::sidebar::{SidebarCounts, SidebarDestination, SidebarVm};
 use crate::view_models::singles_group::{
     library_single_artist_feeds, release_page_name_links, singles_groups,
     singles_groups_everything, SinglesGroup, SinglesGroupKey, SinglesGroupPageVm,
@@ -108,8 +109,7 @@ use crate::view_models::window_groups::{
 };
 use crate::view_models::workspace::{
     ContentViewMode, ContentViewModeControlDisplay, DiscoverView, FrameHeaderActionDisplay,
-    FrameNavigationEntry, MusicDestination, MusicSidebarPreference, MusicSidebarState,
-    NavigationPathStart, ReleaseKey, TrackKey,
+    FrameNavigationEntry, MusicDestination, NavigationPathStart, ReleaseKey, TrackKey,
 };
 use crate::view_models::ActionStatusMessageDisplay;
 use crate::views::{FeedMetadataFacts, LocalIdentityFacts, TrackRef};
@@ -1841,62 +1841,6 @@ pub(crate) struct ContentListIndexFeedSelection {
     pub(crate) label: String,
 }
 
-/// A sidebar destination icon (ADR 0084 Decision 1), semantic and
-/// GPUI-free. The renderer maps each name to a named `IconName`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum MusicDestinationIcon {
-    Discover,
-    Release,
-    Artist,
-    Track,
-    Playlist,
-    Warning,
-}
-
-/// Display data for one sidebar destination row (ADR 0084 Decisions 1 and
-/// 2). The Needs attention count has no database query on the render
-/// path: the Library stores it from the events of "Design".
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct DestinationRowVm {
-    /// The destination this row opens.
-    pub(crate) destination: MusicDestination,
-    /// Stable element id.
-    pub(crate) element_id: &'static str,
-    /// The named icon the renderer maps to `IconName`.
-    pub(crate) icon: MusicDestinationIcon,
-    /// The visible destination name.
-    pub(crate) label: &'static str,
-    /// The tooltip text, with the count when the destination has one.
-    pub(crate) tooltip: String,
-    /// The accessibility label, with the count when the destination has one.
-    pub(crate) a11y_label: String,
-    /// The destination's count, when it has one (Needs attention,
-    /// Playlists).
-    pub(crate) count: Option<usize>,
-    /// Whether this destination is the root of the current location.
-    pub(crate) selected: bool,
-    /// Whether the collapsed icon shows an attention mark (ADR 0084
-    /// Decision 1). Never the only sign of the count: the tooltip and the
-    /// accessibility label give it in text.
-    pub(crate) shows_attention_mark: bool,
-    /// The row opens its destination while a dragged track stays over it
-    /// (ADR 0083 Decision 6, task 008).
-    pub(crate) spring_loaded: bool,
-}
-
-/// Display data for the sidebar collapse button (ADR 0084 Decision 1).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct SidebarCollapseButtonVm {
-    /// Stable element id.
-    pub(crate) element_id: &'static str,
-    /// The accessibility label, naming the action the next click takes.
-    pub(crate) a11y_label: &'static str,
-    /// The tooltip text, naming the action the next click takes.
-    pub(crate) tooltip: &'static str,
-    /// The preference the next click sets.
-    pub(crate) next_preference: MusicSidebarPreference,
-}
-
 /// The navigation entry a destination-list row opens (ADR 0084 Decision 2).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum DestinationListRowTarget {
@@ -2250,7 +2194,6 @@ pub(crate) fn list_column_header_action(
 ) -> Option<FrameHeaderActionDisplay> {
     let (element_id, noun) = match destination {
         MusicDestination::Releases => ("music-list-column-select-releases", "releases"),
-        MusicDestination::Tracks => ("music-list-column-select-tracks", "tracks"),
         MusicDestination::NeedsAttention => ("music-list-column-select-needs-attention", "tracks"),
         MusicDestination::Discover | MusicDestination::Artists | MusicDestination::Playlists => {
             return None;
@@ -3151,9 +3094,6 @@ pub(crate) struct LibraryViewModel {
     // Sidebar sort.
     playlist_sort: PlaylistSort,
     content_list_page: ContentListPageVm,
-    /// The sidebar collapse preference (ADR 0084 Decision 1). Session
-    /// state only; never written to `config.toml`.
-    sidebar_preference: MusicSidebarPreference,
     /// The destination whose list the list column currently shows (ADR
     /// 0084 Decision 2). The top app sets this once, when a destination
     /// becomes the current location; it carries no history, so it is not
@@ -3216,7 +3156,6 @@ impl LibraryViewModel {
             snapshot: LibrarySnapshot::default(),
             playlist_sort: PlaylistSort::default(),
             content_list_page: ContentListPageVm::new(Vec::new()),
-            sidebar_preference: MusicSidebarPreference::default(),
             active_destination: MusicDestination::Discover,
             needs_attention_count: 0,
             ready_track_ids: None,
@@ -3423,23 +3362,6 @@ impl LibraryViewModel {
             .filter_map(|album| album.feed_guid.clone())
             .collect();
         self.content_list_page.mark_library_releases(&feed_guids);
-    }
-
-    /// Shows the Library tracks, by the Tracks destination (ADR 0084
-    /// Decision 2). It reuses the already-loaded tree: no new query.
-    pub(crate) fn show_tracks_destination(&mut self) {
-        self.content_list_page
-            .replace_rows(content_list_rows_from_tree(&self.snapshot.tree));
-        self.refresh_new_releases_layout();
-    }
-
-    #[must_use]
-    pub(crate) fn sidebar_preference(&self) -> MusicSidebarPreference {
-        self.sidebar_preference
-    }
-
-    pub(crate) fn set_sidebar_preference(&mut self, preference: MusicSidebarPreference) {
-        self.sidebar_preference = preference;
     }
 
     /// The destination whose list the list column currently shows (ADR
@@ -4736,62 +4658,18 @@ impl LibraryViewModel {
         }
     }
 
-    /// Rows of the six sidebar destinations, in sidebar order (ADR 0084
-    /// Decisions 1 and 2).
+    /// The sidebar of the Library's counts (ADR 0089 Decision 1). The
+    /// counts come from the state that the Library already holds, so the
+    /// render path runs no query.
     #[must_use]
-    pub(crate) fn destination_rows(&self) -> Vec<DestinationRowVm> {
-        MusicDestination::ALL
-            .into_iter()
-            .map(|destination| self.destination_row(destination))
-            .collect()
-    }
-
-    fn destination_row(&self, destination: MusicDestination) -> DestinationRowVm {
-        // ADR 0084 Decision 1: a count of zero shows nothing. Each count
-        // names its own items: tracks for Needs attention, playlists for
-        // Playlists.
-        let count = self
-            .destination_count(destination)
-            .filter(|count| *count > 0);
-        let label = destination.label();
-        let noun = match destination {
-            MusicDestination::Playlists => "playlist",
-            _ => "track",
-        };
-        let (tooltip, a11y_label) = match count {
-            Some(count) => (
-                format!("{label}, {count} {noun}{}", plural(count)),
-                format!("{label}, {count} {noun}{}", plural(count)),
-            ),
-            None => (label.to_string(), label.to_string()),
-        };
-        DestinationRowVm {
-            destination,
-            element_id: destination_element_id(destination),
-            icon: destination_icon(destination),
-            label,
-            tooltip,
-            a11y_label,
-            count,
-            selected: self.active_destination == destination,
-            shows_attention_mark: matches!(destination, MusicDestination::NeedsAttention)
-                && count.is_some(),
-            spring_loaded: destination_is_spring_loaded(destination),
-        }
-    }
-
-    /// The destination's count, when it has one (ADR 0084 Decision 1):
-    /// Needs attention and Playlists.
-    #[must_use]
-    fn destination_count(&self, destination: MusicDestination) -> Option<usize> {
-        match destination {
-            MusicDestination::NeedsAttention => Some(self.needs_attention_count),
-            MusicDestination::Playlists => Some(self.snapshot.playlists.len()),
-            MusicDestination::Discover
-            | MusicDestination::Releases
-            | MusicDestination::Artists
-            | MusicDestination::Tracks => None,
-        }
+    pub(crate) fn sidebar(&self, selected: Option<SidebarDestination>) -> SidebarVm {
+        SidebarVm::new(
+            SidebarCounts {
+                needs_attention: self.needs_attention_count,
+                playlists: self.snapshot.playlists.len(),
+            },
+            selected,
+        )
     }
 
     /// Rows of the Discover views list column, in list order (ADR 0084
@@ -4830,28 +4708,6 @@ impl LibraryViewModel {
             selected: open_saved_search == Some(search.id),
         });
         views.chain(searches).collect()
-    }
-
-    /// Display data for the sidebar collapse button (ADR 0084 Decision 1).
-    /// The next click sets the opposite of the currently resolved state.
-    #[must_use]
-    pub(crate) const fn sidebar_collapse_button(
-        resolved: MusicSidebarState,
-    ) -> SidebarCollapseButtonVm {
-        match resolved {
-            MusicSidebarState::Expanded => SidebarCollapseButtonVm {
-                element_id: "music-sidebar-collapse",
-                a11y_label: "Collapse the Music sidebar",
-                tooltip: "Collapse sidebar",
-                next_preference: MusicSidebarPreference::Collapsed,
-            },
-            MusicSidebarState::Collapsed => SidebarCollapseButtonVm {
-                element_id: "music-sidebar-collapse",
-                a11y_label: "Expand the Music sidebar",
-                tooltip: "Expand sidebar",
-                next_preference: MusicSidebarPreference::Expanded,
-            },
-        }
     }
 
     #[must_use]
@@ -5656,31 +5512,6 @@ pub(crate) fn release_row_slug_text(value: &str) -> String {
             }
         })
         .collect()
-}
-
-/// The sidebar element id of a destination (ADR 0084 Decision 2).
-const fn destination_element_id(destination: MusicDestination) -> &'static str {
-    match destination {
-        MusicDestination::Discover => "music-destination-discover",
-        MusicDestination::Releases => "music-destination-releases",
-        MusicDestination::Artists => "music-destination-artists",
-        MusicDestination::Tracks => "music-destination-tracks",
-        MusicDestination::NeedsAttention => "music-destination-needs-attention",
-        MusicDestination::Playlists => "music-destination-playlists",
-    }
-}
-
-/// The named icon of a destination (ADR 0084 Decision 1). The renderer
-/// maps this to an `IconName`.
-const fn destination_icon(destination: MusicDestination) -> MusicDestinationIcon {
-    match destination {
-        MusicDestination::Discover => MusicDestinationIcon::Discover,
-        MusicDestination::Releases => MusicDestinationIcon::Release,
-        MusicDestination::Artists => MusicDestinationIcon::Artist,
-        MusicDestination::Tracks => MusicDestinationIcon::Track,
-        MusicDestination::NeedsAttention => MusicDestinationIcon::Warning,
-        MusicDestination::Playlists => MusicDestinationIcon::Playlist,
-    }
 }
 
 /// The list-row element id of a Discover view (ADR 0084 Decision 3).
@@ -9346,118 +9177,6 @@ mod tests {
         assert!(sidebar.rows[1].selected);
     }
 
-    /// D5-01: the view model gives the six destinations in Decision 2
-    /// order, each with a label, a named icon, a tooltip and an
-    /// accessibility label.
-    #[test]
-    fn adr_0084_destinations_d5_01_destination_rows_are_in_sidebar_order_with_full_display_data() {
-        let vm = LibraryViewModel::new();
-        let rows = vm.destination_rows();
-
-        assert_eq!(
-            rows.iter().map(|row| row.destination).collect::<Vec<_>>(),
-            vec![
-                MusicDestination::Discover,
-                MusicDestination::Releases,
-                MusicDestination::Artists,
-                MusicDestination::Tracks,
-                MusicDestination::NeedsAttention,
-                MusicDestination::Playlists,
-            ]
-        );
-        for row in &rows {
-            assert_eq!(row.label, row.destination.label());
-            assert!(!row.element_id.is_empty());
-            assert!(!row.tooltip.is_empty());
-            assert!(!row.a11y_label.is_empty());
-        }
-        assert_eq!(
-            rows[0].icon,
-            MusicDestinationIcon::Discover,
-            "Discover must carry its named icon"
-        );
-        assert_eq!(rows[4].icon, MusicDestinationIcon::Warning);
-    }
-
-    /// D5-06: with a Needs attention count, the collapsed destination
-    /// exposes a mark, and its tooltip and its accessibility label give
-    /// the count. Without a count, no mark shows.
-    #[test]
-    fn adr_0084_destinations_d5_06_needs_attention_mark_and_count_text() {
-        let mut vm = LibraryViewModel::new();
-        let before = vm.destination_rows();
-        let needs_attention = &before[4];
-        assert_eq!(
-            needs_attention.destination,
-            MusicDestination::NeedsAttention
-        );
-        assert!(!needs_attention.shows_attention_mark);
-        // A count of zero shows nothing (orchestrator review, 2026-10-16).
-        assert_eq!(needs_attention.count, None);
-
-        let report = BroadcastReadinessReport {
-            summary: crate::application::queries::broadcast::BroadcastReadinessSummary {
-                no_route_tag: 2,
-                ..Default::default()
-            },
-            tracks: Vec::new(),
-        };
-        vm.refresh_needs_attention_report(&report);
-
-        let after = vm.destination_rows();
-        let needs_attention = &after[4];
-        assert!(needs_attention.shows_attention_mark);
-        assert_eq!(needs_attention.count, Some(2));
-        assert!(needs_attention.tooltip.contains('2'));
-        assert!(needs_attention.a11y_label.contains('2'));
-    }
-
-    /// D5-04: the Playlists destination list gives the playlist count as
-    /// its row count, used by the sidebar destination row too.
-    #[test]
-    fn adr_0084_destinations_d5_04_playlists_destination_count_tracks_loaded_playlists() {
-        let mut vm = LibraryViewModel::new();
-        let mut alpha = playlist("Alpha");
-        alpha.id = 10;
-        vm.replace_playlists(vec![alpha]);
-
-        let rows = vm.destination_rows();
-        assert_eq!(rows[5].destination, MusicDestination::Playlists);
-        assert_eq!(rows[5].count, Some(1));
-        assert_eq!(
-            rows[5].tooltip, "Playlists, 1 playlist",
-            "the Playlists count names playlists, not tracks"
-        );
-        assert_eq!(
-            rows[4].count, None,
-            "a Needs attention count of zero shows nothing"
-        );
-        assert_eq!(rows[4].tooltip, "Needs attention");
-    }
-
-    /// D5-07: the collapse button has a typed action, an accessibility
-    /// label and a tooltip, each from the view model, and the next
-    /// preference is always the opposite of the resolved state.
-    #[test]
-    fn adr_0084_destinations_d5_07_collapse_button_is_typed_from_the_view_model() {
-        let expanded_button =
-            LibraryViewModel::sidebar_collapse_button(MusicSidebarState::Expanded);
-        assert_eq!(
-            expanded_button.next_preference,
-            MusicSidebarPreference::Collapsed
-        );
-        assert!(!expanded_button.a11y_label.is_empty());
-        assert!(!expanded_button.tooltip.is_empty());
-
-        let collapsed_button =
-            LibraryViewModel::sidebar_collapse_button(MusicSidebarState::Collapsed);
-        assert_eq!(
-            collapsed_button.next_preference,
-            MusicSidebarPreference::Expanded
-        );
-        assert_ne!(collapsed_button.a11y_label, expanded_button.a11y_label);
-    }
-
     /// The release rows of a Releases list with no singles group.
     fn release_rows(entries: Vec<ReleasesListEntryVm>) -> Vec<DestinationListRowVm> {
         entries
@@ -10002,9 +9721,12 @@ mod tests {
                 .is_none()
         );
 
-        let tracks =
-            list_column_header_action(MusicDestination::Tracks, SelectionMode::Normal, true)
-                .expect("Tracks with rows gives a header action");
+        let tracks = list_column_header_action(
+            MusicDestination::NeedsAttention,
+            SelectionMode::Normal,
+            true,
+        )
+        .expect("Needs attention with rows gives a header action");
         assert_eq!(tracks.a11y_label, "Select tracks");
 
         let needs_attention = list_column_header_action(
@@ -13360,7 +13082,7 @@ mod tests {
     /// R83-8-12 (decision D1): the spring-load timer with recorded times.
     #[test]
     fn adr_0083_track_drag_r83_8_12_spring_load_timer() {
-        use MusicDestination::{Playlists, Releases, Tracks};
+        use MusicDestination::{NeedsAttention, Playlists, Releases};
         let delay = Duration::from_millis(500);
         let start = Instant::now();
         let early = start + Duration::from_millis(499);
@@ -13375,7 +13097,9 @@ mod tests {
 
         for stop in [SpringLoadVm::leave, SpringLoadVm::end_drag] {
             let mut state = SpringLoadVm::default();
-            let generation = state.enter(Playlists, Tracks, start).expect("a timer");
+            let generation = state
+                .enter(Playlists, NeedsAttention, start)
+                .expect("a timer");
             stop(&mut state);
             assert_eq!(state.fire(generation, late, delay), None);
         }
@@ -13389,7 +13113,7 @@ mod tests {
         assert_eq!(state.fire(second, late + delay, delay), Some(Playlists));
 
         let mut state = SpringLoadVm::default();
-        assert_eq!(state.enter(Releases, Tracks, start), None);
+        assert_eq!(state.enter(Releases, NeedsAttention, start), None);
         assert_eq!(state.enter(Playlists, Playlists, start), None);
         for destination in MusicDestination::ALL {
             assert_eq!(
@@ -14168,14 +13892,6 @@ mod adr_0086_window_groups_tests {
         assert_eq!(tiles.len(), 3);
     }
 
-    /// The layout is empty when the content list shows the Tracks rows.
-    #[test]
-    fn adr_0086_window_groups_tracks_destination_clears_the_layout() {
-        let (mut vm, _) = view_model(r01_rows(), false);
-        vm.show_tracks_destination();
-        assert!(vm.new_releases_layout().items().is_empty());
-    }
-
     /// Runs one page request as the app does (packet 003 decision D1).
     /// Each page of `pages` arrives in turn until the pager gives
     /// `Finished`. Gives the number of pages that the request read.
@@ -14287,12 +14003,13 @@ mod adr_0086_window_groups_tests {
         assert!(!vm.recent_music_windows_open(&page));
     }
 
-    /// R86-3-12: the answer reads the pager rows, also while Tracks shows.
+    /// R86-3-12: the answer reads the pager rows, also after the Library tree loads.
     #[test]
     fn adr_0086_pager_windows_r12_windows_read_the_pager_rows() {
         let (mut vm, page) = view_model(vec![single("a", oct(20)), single("b", oct(19))], true);
         assert!(vm.recent_music_windows_open(&page));
-        vm.show_tracks_destination();
+        vm.content_list_page
+            .replace_rows(content_list_rows_from_tree(&LibraryTree::default()));
         assert!(vm.recent_music_windows_open(&page));
     }
 
@@ -14389,14 +14106,15 @@ mod adr_0086_window_groups_tests {
         assert!(!vm.new_releases_layout().any_window_open());
     }
 
-    /// R86-3-22: a result that arrives while Tracks or Needs attention
-    /// shows changes nothing. A later projection shows the rows.
+    /// R86-3-22: a result that arrives while the Library tree shows changes
+    /// nothing. A later projection shows the rows.
     #[test]
     fn adr_0086_pager_windows_r22_result_waits_for_new_releases() {
         let (mut vm, mut page) = view_model(vec![album("first", oct(20))], true);
         page.load_recorded_page(batch(vec![album("second", oct(19))], false), true);
 
-        vm.show_tracks_destination();
+        vm.content_list_page
+            .replace_rows(content_list_rows_from_tree(&LibraryTree::default()));
         let tracks = ids(&vm.content_list_page().visible_rows());
         assert!(!vm.apply_recent_music_page(&page));
         assert_eq!(vm.content_list_page().source(), ContentListPageSource::Tree);

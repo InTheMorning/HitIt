@@ -333,7 +333,7 @@ const SCREEN_FILES: &[&str] = &[
     "src/app/search_dispatch.rs",
     "src/app/search_field_list.rs",
     "src/app/search_live.rs",
-    "src/app/tab_bar.rs",
+    "src/app/toolbar.rs",
     "src/library.rs",
 ];
 
@@ -358,7 +358,7 @@ const PRESENTATION_GLUE_FILES: &[&str] = &[
     "src/app/playback_bar.rs",
     "src/app/queue_now_playing.rs",
     "src/app/show.rs",
-    "src/app/tab_bar.rs",
+    "src/app/toolbar.rs",
     "src/library.rs",
 ];
 
@@ -843,7 +843,6 @@ fn workspace_view_model_contract_is_gpui_free() {
         "struct FrameChromeMenuItemDisplay",
         "struct FrameShellDisplay",
         "pub(crate) fn from_frame",
-        "SourceList",
         "ContentList",
         "Detail",
         "QueueNowPlaying",
@@ -921,7 +920,7 @@ fn adr_0046_forward_go_forward_and_on_forward_have_production_callers() {
         "ADR 0046 Task 015: WorkspaceModelError::CannotNavigateForward must not stay test-only"
     );
 
-    let tab_bar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let tab_bar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     assert!(
         tab_bar_source.contains("this.handle_content_list_forward_select(cx)"),
         "ADR 0089 Decision 9: the toolbar Forward control must call `handle_content_list_forward_select`"
@@ -1669,7 +1668,7 @@ fn workspace_layout_render_uses_frame_shell_without_screen_internals() {
         "fn should_collapse_frame(",
         "WorkspaceFrameKind::QueueNowPlaying =>",
         "WorkspaceFrameKind::Detail =>",
-        "WorkspaceFrameKind::SourceList | WorkspaceFrameKind::ContentList => false",
+        "WorkspaceFrameKind::ContentList => false",
     ] {
         if !source.contains(required) {
             violations.push(format!(
@@ -4296,7 +4295,7 @@ fn workspace_frame_phase_4_guards_queue_frame_shell_wiring() {
 #[test]
 fn workspace_frame_phase_4_guards_playback_commands_stay_out_of_toolbar() {
     let playback_source = read_source(&manifest_path("src/app/playback_bar.rs"));
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let mut violations = Vec::new();
 
     for required in [
@@ -4350,7 +4349,7 @@ fn workspace_frame_phase_4_guards_playback_commands_stay_out_of_toolbar() {
     ] {
         if toolbar_source.contains(forbidden) {
             violations.push(format!(
-                "src/app/tab_bar.rs: ADR 0046 Phase 4 toolbar must not own queue controls; found `{forbidden}`"
+                "src/app/toolbar.rs: ADR 0046 Phase 4 toolbar must not own queue controls; found `{forbidden}`"
             ));
         }
     }
@@ -4389,7 +4388,6 @@ fn workspace_frame_phase_2_guards_workspace_vm_contract_is_gpui_free_and_typed()
         "struct WorkspaceLayout",
         "struct FrameNavigationState",
         "enum FrameNavigationEntry",
-        "SourceList",
         "ContentList",
         "Detail",
         "QueueNowPlaying",
@@ -5483,14 +5481,15 @@ fn adr_0067_keyboard_and_menu_share_platform_modifier_resolution() {
 fn adr_0067_mount_and_section_changes_establish_a_persistent_focus_path() {
     let bootstrap = read_source(&manifest_path("src/app/bootstrap.rs"));
     let app = read_source(&manifest_path("src/app.rs"));
-    let tabs = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let sidebar_row = read_source(&manifest_path("src/ui/shells/library/sidebar.rs"));
+    let library_source = read_source(&manifest_path("src/library/app_impl.rs"));
     assert!(bootstrap.contains("app.focus_active_tab(window, cx);"),
         "Situational ADR 0067: normal mount must focus a control beneath the app action handlers before the first shortcut");
     assert!(app.contains("self.tab = tab;\n        self.focus_active_tab(window, cx);"),
         "Situational ADR 0067: every section transition must replace focus from an input that may leave the mounted tree");
-    assert!(tabs.contains(".track_focus(focus_handle)")
-        && tabs.contains("focus_handle_for_key(key, self).focus(window, cx);"),
-        "Situational ADR 0067: transition focus must use the persistent handles mounted by the shared tab bar");
+    assert!(sidebar_row.contains(".track_focus(focus)")
+        && library_source.contains("fn focus_sidebar_row("),
+        "Situational ADR 0067: transition focus must use the persistent handles of the sidebar rows (ADR 0089 Decision 1)");
     let render = app
         .split_once("impl Render for TopApp")
         .expect("app renderer")
@@ -5578,7 +5577,7 @@ fn macos_app_menu_bootstrap_exposes_standard_app_commands() {
 #[test]
 fn app_shell_avoids_premature_product_naming() {
     let mut violations = Vec::new();
-    for file in ["src/app/tab_bar.rs", "src/app/menu.rs"] {
+    for file in ["src/app/toolbar.rs", "src/app/menu.rs"] {
         let source = read_source(&manifest_path(file));
         for (line_number, line) in code_lines(&source) {
             for forbidden in ["V4V Music Manager", "MusicIndex"] {
@@ -5600,27 +5599,25 @@ fn app_shell_avoids_premature_product_naming() {
 
 #[test]
 fn app_toolbar_exposes_tabs_and_global_search_without_now_playing_chip() {
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let playback_source = read_source(&manifest_path("src/app/playback_bar.rs"));
     let vm_source = read_source(&manifest_path("src/view_models/app_toolbar.rs"));
     let mut violations = Vec::new();
 
     for required in [
         "AppToolbarVm::new().display()",
-        "display.leading_id",
         "display.center_id",
         ".max_w(TokenSize::ColumnTall.scaled(cx))",
     ] {
         if !toolbar_source.contains(required) {
             violations.push(format!(
-                "src/app/tab_bar.rs: ADR 0043 toolbar frame missing `{required}`"
+                "src/app/toolbar.rs: ADR 0043 toolbar frame missing `{required}`"
             ));
         }
     }
 
     for required in [
         "pub(crate) struct AppToolbarDisplay",
-        "pub(crate) struct AppToolbarTabDisplay",
         "pub(crate) struct GlobalSearchDisplay",
         "mark_a11y_label",
         "a11y_label",
@@ -5784,7 +5781,7 @@ fn global_search_replaces_screen_local_search_chrome() {
     let app_source = read_source(&manifest_path("src/app.rs"));
     let search_dispatch_source = read_source(&manifest_path("src/app/search_dispatch.rs"));
     let keyboard_source = read_source(&manifest_path("src/app/keyboard.rs"));
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let icon_source = read_source(&manifest_path("src/ui/icons.rs"));
     let library_source = read_source(&manifest_path("src/library/app_impl.rs"));
     let mut violations = Vec::new();
@@ -5832,7 +5829,7 @@ fn global_search_replaces_screen_local_search_chrome() {
     ] {
         if !toolbar_source.contains(required) {
             violations.push(format!(
-                "src/app/tab_bar.rs: ADR 0043 toolbar search render missing `{required}`"
+                "src/app/toolbar.rs: ADR 0043 toolbar search render missing `{required}`"
             ));
         }
     }
@@ -5894,7 +5891,7 @@ fn global_search_replaces_screen_local_search_chrome() {
     ] {
         if toolbar_source.contains(forbidden) {
             violations.push(format!(
-                "src/app/tab_bar.rs: ADR 0047 Task 011 retired toolbar scope controls; remove `{forbidden}`"
+                "src/app/toolbar.rs: ADR 0047 Task 011 retired toolbar scope controls; remove `{forbidden}`"
             ));
         }
     }
@@ -5968,7 +5965,6 @@ fn interactive_surfaces_route_through_minimum_hit_target_token() {
     }
 
     for (file, required) in [
-        ("src/app/tab_bar.rs", "layout::MIN_HIT_TARGET"),
         (
             "src/ui/composites/disclosure_group.rs",
             "Size::MinHitTarget",
@@ -11333,7 +11329,7 @@ fn index_feed_detail_track_rows_preserve_artwork_fallbacks() {
 fn adr_0048_removes_search_tab_and_workspace_mount() {
     let app_source = read_source(&manifest_path("src/app.rs"));
     let toolbar_vm_source = read_source(&manifest_path("src/view_models/app_toolbar.rs"));
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let keyboard_source = read_source(&manifest_path("src/app/keyboard.rs"));
 
     for forbidden in [
@@ -11353,11 +11349,70 @@ fn adr_0048_removes_search_tab_and_workspace_mount() {
     }
 
     assert!(
-        toolbar_vm_source.contains("tabs: [AppToolbarTabDisplay; 3]")
-            && toolbar_vm_source.contains("label: \"Music\"")
-            && toolbar_vm_source.contains("label: \"Show\"")
-            && toolbar_vm_source.contains("label: \"Settings\""),
-        "toolbar VM must expose the ADR 0060 app sections while keeping Search out of tabs"
+        !toolbar_vm_source.contains("AppToolbarTabDisplay") && !toolbar_source.contains("app-tab-"),
+        "ADR 0089 Decision 1: the toolbar has no section tabs. The sidebar holds the sections."
+    );
+}
+
+/// Situational ADR 0089 Decision 1: the toolbar has no section tabs. The
+/// sidebar holds the sections.
+#[test]
+fn adr_0089_toolbar_has_no_section_tabs() {
+    let toolbar_vm_source = read_source(&manifest_path("src/view_models/app_toolbar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
+    let mut violations = Vec::new();
+    for forbidden in [
+        "AppToolbarTabKey",
+        "AppToolbarTabDisplay",
+        "tabs: [",
+        "app-tab-",
+        "render_tab_bar",
+    ] {
+        if toolbar_vm_source.contains(forbidden) || toolbar_source.contains(forbidden) {
+            violations.push(format!(
+                "ADR 0089 Decision 1: the toolbar has no section tabs; found `{forbidden}`. Fix: the sidebar rows in src/view_models/sidebar.rs hold the sections."
+            ));
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ADR 0089 toolbar violations:\n{}",
+        violations.join("\n")
+    );
+}
+
+/// Situational ADR 0089 Decisions 1, 2 and 7: the sidebar preference, the
+/// source-list frame and the Tracks destination stay deleted.
+#[test]
+fn adr_0089_removed_sidebar_and_tracks_names_stay_deleted() {
+    let mut violations = Vec::new();
+    for path in [
+        "src/app.rs",
+        "src/library/app_impl.rs",
+        "src/view_models/library.rs",
+        "src/view_models/workspace/mod.rs",
+        "src/view_models/workspace/columns.rs",
+        "src/ui/shells/workspace.rs",
+        "src/ui/shells/library/sidebar.rs",
+    ] {
+        let source = read_source(&manifest_path(path));
+        for forbidden in [
+            "MusicSidebarPreference",
+            "MusicSidebarState",
+            "WorkspaceFrameKind::SourceList",
+            "MusicDestination::Tracks",
+        ] {
+            if source.contains(forbidden) {
+                violations.push(format!(
+                    "{path}: ADR 0089 Decisions 1 and 2 removed `{forbidden}`. Fix: the sidebar holds the destinations, and a track opens from its release or playlist page."
+                ));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ADR 0089 removed-name violations:\n{}",
+        violations.join("\n")
     );
 }
 
@@ -11373,7 +11428,7 @@ fn adr_0048_library_settings_tabs_drive_content_list_nav() {
         "last_music_content_nav: Option<FrameNavigationState>",
         "self.last_music_content_nav = Some(nav)",
         "replace_nav(content_list_id, nav)",
-        "WorkspaceFrameKind::SourceList | WorkspaceFrameKind::ContentList",
+        "WorkspaceFrameKind::ContentList",
         "FrameNavigationEntry::Settings",
     ] {
         assert!(
@@ -11388,7 +11443,7 @@ fn adr_0048_content_list_frame_back_is_wired() {
     // ADR 0089 Decision 9: the toolbar owns Back, so the toolbar calls the
     // app's Back handler.
     let app_source = read_source(&manifest_path("src/app.rs"));
-    let tab_bar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let tab_bar_source = read_source(&manifest_path("src/app/toolbar.rs"));
 
     for required in [
         "fn handle_content_list_back_select(",
@@ -13456,8 +13511,6 @@ fn adr_0060_workspace_has_no_broadcast_frame_kind() {
 #[test]
 fn adr_0060_show_is_screen_mount_not_frame_kind() {
     let app_source = read_source(&manifest_path("src/app.rs"));
-    let toolbar_vm_source = read_source(&manifest_path("src/view_models/app_toolbar.rs"));
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
     let keyboard_source = read_source(&manifest_path("src/app/keyboard.rs"));
     let workspace_source = workspace_vm_source();
     let mut violations = Vec::new();
@@ -13465,7 +13518,7 @@ fn adr_0060_show_is_screen_mount_not_frame_kind() {
     for required in [
         "AppTab::Show",
         "WorkspaceScreenMount::Show",
-        "show_tab_focus: gpui::FocusHandle",
+        "AppTab::Show => SidebarDestination::Show,",
         "build_show_screen(self, show_window_width, cx).into_any_element()",
         "if matches!(mount, WorkspaceScreenMount::Show)",
         "self.queue_text_filter = None;",
@@ -13477,28 +13530,13 @@ fn adr_0060_show_is_screen_mount_not_frame_kind() {
         }
     }
 
-    for required in [
-        "AppToolbarTabKey::Show",
-        "label: \"Show\"",
-        "a11y_label: \"Open Show\"",
-        "tabs: [AppToolbarTabDisplay; 3]",
-    ] {
-        if !toolbar_vm_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/app_toolbar.rs: ADR 0060 task 002 toolbar tab missing `{required}`"
-            ));
-        }
-    }
-
-    for required in [
-        "AppToolbarTabKey::Show => AppTab::Show",
-        "AppToolbarTabKey::Show => &app.show_tab_focus",
-    ] {
-        if !toolbar_source.contains(required) {
-            violations.push(format!(
-                "src/app/tab_bar.rs: ADR 0060 task 002 Show tab renderer missing `{required}`"
-            ));
-        }
+    // ADR 0089 Decision 1: the Show row lives in the sidebar, not the toolbar.
+    let sidebar_source = read_source(&manifest_path("src/view_models/sidebar.rs"));
+    if !sidebar_source.contains("SidebarDestination::Show => \"Show\"") {
+        violations.push(
+            "src/view_models/sidebar.rs: ADR 0089 Decision 1 the Show row must carry its label"
+                .to_string(),
+        );
     }
 
     for required in [
@@ -13586,7 +13624,7 @@ fn adr_0060_queue_is_not_mounted_in_curation_workspace() {
     for required in [
         "WorkspaceFrameKind::QueueNowPlaying",
         "WorkspaceFrameKind::Detail",
-        "WorkspaceFrameKind::SourceList => None",
+        "WorkspaceFrameKind::Detail => None",
     ] {
         if !visible_workspace_layout.contains(required) {
             violations.push(format!(
@@ -13725,10 +13763,8 @@ fn adr_0060_show_vm_and_shell_layer_boundaries() {
 fn adr_0060_music_surface_vocabulary_and_primary_filter_are_guarded() {
     let app_source = read_source(&manifest_path("src/app.rs"));
     let toolbar_vm_source = read_source(&manifest_path("src/view_models/app_toolbar.rs"));
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let keyboard_source = read_source(&manifest_path("src/app/keyboard.rs"));
-    let workspace_chrome_source =
-        read_source(&manifest_path("src/view_models/workspace/chrome.rs"));
     let db_source = read_source(&manifest_path("src/db.rs"));
     let cli_source = read_source(&manifest_path("src/cli.rs"));
     let render_workspace_content = source_between(
@@ -13742,35 +13778,11 @@ fn adr_0060_music_surface_vocabulary_and_primary_filter_are_guarded() {
         "AppTab::Music",
         "WorkspaceScreenMount::Music",
         "last_music_content_nav: Option<FrameNavigationState>",
-        "music_tab_focus: gpui::FocusHandle",
+        "SidebarDestination::for_music(",
     ] {
         if !app_source.contains(required) {
             violations.push(format!(
                 "src/app.rs: ADR 0060 task 003 Music app-section vocabulary missing `{required}`"
-            ));
-        }
-    }
-
-    for required in [
-        "AppToolbarTabKey::Music",
-        "id: \"app-tab-music\"",
-        "label: \"Music\"",
-        "a11y_label: \"Open Music\"",
-    ] {
-        if !toolbar_vm_source.contains(required) && !workspace_chrome_source.contains(required) {
-            violations.push(format!(
-                "ADR 0060 task 003 Music/Library/Index display vocabulary missing `{required}`"
-            ));
-        }
-    }
-
-    for required in [
-        "AppToolbarTabKey::Music => AppTab::Music",
-        "AppToolbarTabKey::Music => &app.music_tab_focus",
-    ] {
-        if !toolbar_source.contains(required) {
-            violations.push(format!(
-                "src/app/tab_bar.rs: ADR 0060 task 003 Music tab renderer missing `{required}`"
             ));
         }
     }
@@ -13899,7 +13911,7 @@ fn adr_0060_music_surface_is_dominant_content_without_operational_panes() {
     for required in [
         "WorkspaceFrameKind::QueueNowPlaying",
         "WorkspaceFrameKind::Detail",
-        "WorkspaceFrameKind::SourceList => None",
+        "WorkspaceFrameKind::Detail => None",
     ] {
         if !visible_workspace_layout.contains(required) {
             violations.push(format!(
@@ -14033,23 +14045,25 @@ Show the list root or the page instead, and name the state in the view model. Re
 #[test]
 fn adr_0084_columns_c4_06_music_columns_use_named_tokens_with_no_split_pane() {
     let workspace_source = read_source(&manifest_path("src/ui/shells/workspace.rs"));
+    let app_source = read_source(&manifest_path("src/app.rs"));
     let library_app_source = read_source(&manifest_path("src/library/app_impl.rs"));
     let mut violations = Vec::new();
 
-    for required in [
-        // ADR 0084 Decision 1, task 005: the sidebar width resolves from
-        // the collapse state, through `resolve_music_sidebar_state` and
-        // these two named tokens, not a literal at the `.w(...)` call.
-        "MUSIC_SIDEBAR_WIDTH",
-        "MUSIC_SIDEBAR_COLLAPSED_WIDTH",
-        ".w(sidebar_width)",
-        ".min_w(MUSIC_DETAIL_MIN_WIDTH)",
-    ] {
+    for required in [".min_w(MUSIC_DETAIL_MIN_WIDTH)"] {
         if !workspace_source.contains(required) {
             violations.push(format!(
                 "src/ui/shells/workspace.rs: ADR 0084 Decision 1 Music column widths must come from a named token; missing `{required}`"
             ));
         }
+    }
+
+    // ADR 0089 Decision 1: the sidebar column takes its width from the named
+    // token of the layout, not a literal.
+    if !app_source.contains(".w(crate::ui::layouts::MUSIC_SIDEBAR_WIDTH)") {
+        violations.push(
+            "src/app.rs: ADR 0089 Decision 1 the sidebar width must come from `MUSIC_SIDEBAR_WIDTH`"
+                .to_string(),
+        );
     }
 
     if library_app_source.contains("SplitPane") {
@@ -14502,7 +14516,7 @@ fn adr_0060_live_status_and_show_share_cached_projection() {
 #[test]
 fn adr_0060_toolbar_no_longer_carries_now_playing_chip() {
     let toolbar_vm_source = read_source(&manifest_path("src/view_models/app_toolbar.rs"));
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let layout_source = read_source(&manifest_path("src/ui/layouts.rs"));
     let playback_source = read_source(&manifest_path("src/app/playback_bar.rs"));
     let mut violations = Vec::new();
@@ -15324,7 +15338,7 @@ fn adr_0062_music_default_content_reuses_recent_feeds_pager() {
 fn adr_0062_recent_feeds_destination_is_retired() {
     let nav_source = read_source(&manifest_path("src/view_models/workspace/nav.rs"));
     let toolbar_vm_source = read_source(&manifest_path("src/view_models/app_toolbar.rs"));
-    let toolbar_source = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let search_dispatch_source = read_source(&manifest_path("src/app/search_dispatch.rs"));
     let app_source = read_source(&manifest_path("src/app.rs"));
     let shells_mod_source = read_source(&manifest_path("src/ui/shells/mod.rs"));
@@ -15367,12 +15381,12 @@ fn adr_0062_recent_feeds_destination_is_retired() {
             "app-toolbar-recent-feeds",
         ),
         (
-            "src/app/tab_bar.rs",
+            "src/app/toolbar.rs",
             &toolbar_source,
             "render_recent_feeds_button",
         ),
         (
-            "src/app/tab_bar.rs",
+            "src/app/toolbar.rs",
             &toolbar_source,
             "open_recent_feeds_in_content_list",
         ),
@@ -15554,9 +15568,6 @@ fn adr_0062_music_content_tile_and_list_modes_share_row_contract() {
         read_source(&manifest_path("src/view_models/workspace/chrome.rs"));
     let library_vm_source = read_source(&manifest_path("src/view_models/library.rs"));
     let content_shell_source = read_source(&manifest_path("src/ui/shells/library/content_list.rs"));
-    let frame_shell_vm_source = read_source(&manifest_path("src/view_models/workspace/chrome.rs"));
-    let frame_shell_source = read_source(&manifest_path("src/ui/composites/frame_shell.rs"));
-    let workspace_shell_source = read_source(&manifest_path("src/ui/shells/workspace.rs"));
     let view_mode_control_source =
         read_source(&manifest_path("src/ui/composites/view_mode_control.rs"));
     let config_source = read_source(&manifest_path("src/config.rs"));
@@ -15680,44 +15691,6 @@ fn adr_0062_music_content_tile_and_list_modes_share_row_contract() {
     }
 
     for required in [
-        "view_mode_control: Option<ContentViewModeControlDisplay>",
-        "pub(crate) fn with_view_mode_control(",
-    ] {
-        if !frame_shell_vm_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/workspace/chrome.rs: Situational ADR 0062 frame-shell view-mode display missing `{required}`. Fix: carry view-mode chrome through FrameShellDisplay."
-            ));
-        }
-    }
-
-    for required in [
-        "view_mode_control(display, view_mode_slots)",
-        "pub(crate) fn on_view_mode_select(",
-        "handler(view_mode, window, cx)",
-    ] {
-        if !frame_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/composites/frame_shell.rs: Situational ADR 0062 frame-shell view-mode wiring missing `{required}`. Fix: render shared view-mode chrome through the frame shell."
-            ));
-        }
-    }
-
-    for required in [
-        "content_list_view_mode_control: Option<ContentViewModeControlDisplay>",
-        "pub(crate) fn content_list_view_mode_control(",
-        "on_content_list_view_mode_select: Option<WorkspaceViewModeSelectHandler>",
-        "pub(crate) fn on_content_list_view_mode_select(",
-        "WorkspaceFrameKind::ContentList => self.content_list_view_mode_control.clone()",
-        "display = display.with_view_mode_control(view_mode_control);",
-    ] {
-        if !workspace_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/shells/workspace.rs: Situational ADR 0062 workspace-shell view-mode wiring missing `{required}`. Fix: route Music content view mode as frame-local chrome."
-            ));
-        }
-    }
-
-    for required in [
         "pub(crate) fn view_mode_control(",
         "ContentViewModeControlDisplay",
         "SegmentedControl::new(selected)",
@@ -15746,9 +15719,6 @@ fn adr_0062_music_content_tile_and_list_modes_share_row_contract() {
 
     for required in [
         "Self::initial_content_list_view_mode(workspace_layout_prefs)",
-        ".content_list_view_mode_control(content_view_mode_control)",
-        ".on_content_list_view_mode_select(",
-        "this.set_content_list_view_mode(view_mode, cx)",
         "fn set_content_list_view_mode(",
         "persist_content_list_view_mode(view_mode)",
     ] {
@@ -16139,7 +16109,7 @@ fn adr_0071_selection_and_primary_stay_in_shared_owners() {
     }
     assert!(!logs.contains("SelectionGesture"));
     for file in [
-        "src/app/tab_bar.rs",
+        "src/app/toolbar.rs",
         // ADR 0084 Decision 2 moves the new-playlist input from the
         // Library sidebar tree to the Playlists destination list.
         "src/ui/shells/library/destination_lists.rs",
@@ -17349,7 +17319,7 @@ fn adr_0066_repair_routes_preserve_action_subject() {
     assert!(
         read_source(&manifest_path("src/app.rs")).contains("self.submit_global_search(window, cx)")
     );
-    assert!(read_source(&manifest_path("src/app/tab_bar.rs"))
+    assert!(read_source(&manifest_path("src/app/toolbar.rs"))
         .contains("this.submit_global_search(window, cx)"));
     assert!(keyboard.contains("self.toggle_playback_paused(cx)"));
     assert!(adapter.contains("editor.open_for(field, window, cx)"));
@@ -17413,7 +17383,7 @@ fn adr_0066_recovery_controls_explain_effect_and_completion() {
 #[test]
 fn adr_0060_search_uses_music_section_navigation() {
     let app = read_source(&manifest_path("src/app.rs"));
-    let toolbar = read_source(&manifest_path("src/app/tab_bar.rs"));
+    let toolbar = read_source(&manifest_path("src/app/toolbar.rs"));
     let search = read_source(&manifest_path("src/app/search_dispatch.rs"));
     let submit = source_between(
         &search,
@@ -21682,17 +21652,11 @@ fn adr_0084_columns_music_column_wrappers_are_flex_columns() {
     let shell = read_source(&manifest_path("src/ui/shells/workspace.rs"));
     let music_layout = source_between(
         &shell,
-        "let layout_element: AnyElement = if is_music_three_column_layout",
+        "let layout_element: AnyElement = if is_music_layout",
         "row.into_any_element()",
     );
     let mut violations = Vec::new();
-    for width in [
-        // ADR 0084 Decision 1, task 005: the sidebar wrapper reads the
-        // width `resolve_music_sidebar_state` resolves, not the token
-        // literal.
-        ".w(sidebar_width)",
-        ".min_w(MUSIC_DETAIL_MIN_WIDTH)",
-    ] {
+    for width in [".min_w(MUSIC_DETAIL_MIN_WIDTH)"] {
         let wrapper_start = music_layout
             .find(width)
             .unwrap_or_else(|| panic!("ADR 0084 Decision 1: the Music layout must use `{width}`"));
@@ -22635,8 +22599,12 @@ fn adr_0083_track_drag_r83_8_15_sidebar_only_reports_the_pointer() {
             violations.push(format!("{file}: the sidebar holds `{forbidden}`."));
         }
     }
-    let handlers = source_between(&source, "if row.spring_loaded {", "el = match state {");
-    let call = "this.spring_load_pointer(destination, on_row, cx);";
+    let handlers = source_between(
+        &source,
+        "if let (true, Some(music)) = (spring_loaded, music_destination) {",
+        "el.child(render_row_icon(",
+    );
+    let call = "this.spring_load_pointer(music, on_row, cx);";
     if handlers.matches(".on_drag_move(").count() != 2
         || handlers.matches(call).count() != 2
         || handlers.matches("this.").count() != 2
@@ -24156,7 +24124,7 @@ fn live_results_violations(files: &BTreeMap<String, String>) -> Vec<String> {
     const LIVE: &str = "src/app/search_live.rs";
     const APP: &str = "src/app.rs";
     const DISPATCH: &str = "src/app/search_dispatch.rs";
-    const TAB_BAR: &str = "src/app/tab_bar.rs";
+    const TAB_BAR: &str = "src/app/toolbar.rs";
     let mut violations = Vec::new();
     let mut report = |file: &str, violation: &str| {
         violations.push(format!(
@@ -24325,7 +24293,7 @@ fn adr_0087_live_results_r87_3_17_pause_token_and_no_screen_timer() {
         "src/app/search_live.rs",
         "src/app.rs",
         "src/app/search_dispatch.rs",
-        "src/app/tab_bar.rs",
+        "src/app/toolbar.rs",
     ] {
         files.insert(file.to_owned(), read_source(&manifest_path(file)));
     }

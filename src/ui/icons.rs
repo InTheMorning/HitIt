@@ -61,6 +61,10 @@ pub enum IconName {
     Track,
     /// Playlist destination (ADR 0084 Decision 1).
     Playlist,
+    /// Show row of the sidebar (ADR 0089 Decision 1).
+    Show,
+    /// Settings row of the sidebar (ADR 0089 Decision 1).
+    Settings,
     /// The download button of a track row (ADR 0083 task 006).
     CloudDownload,
     /// A download job that waits in the queue (ADR 0083 task 006).
@@ -112,6 +116,8 @@ impl IconName {
             | Self::Artist
             | Self::Track
             | Self::Playlist
+            | Self::Show
+            | Self::Settings
             | Self::CloudDownload
             | Self::Queued
             | Self::InProgress
@@ -159,6 +165,8 @@ impl IconName {
             | Self::Artist
             | Self::Track
             | Self::Playlist
+            | Self::Show
+            | Self::Settings
             | Self::Dash
             | Self::CloudDownload
             | Self::Queued
@@ -186,6 +194,9 @@ impl IconName {
             Self::Artist => Some(LucideIconName::Users),
             Self::Track => Some(LucideIconName::Music),
             Self::Playlist => Some(LucideIconName::ListMusic),
+            // ADR 0089 Decision 1: the Show and Settings rows of the sidebar.
+            Self::Show => Some(LucideIconName::RadioTower),
+            Self::Settings => Some(LucideIconName::Settings),
             // ADR 0084 Decision 10, Operator Correction, 2026-10-18: the
             // mixed mark of a group row checkbox.
             Self::Dash => Some(LucideIconName::Minus),
@@ -250,6 +261,8 @@ impl IconName {
             | Self::Artist
             | Self::Track
             | Self::Playlist
+            | Self::Show
+            | Self::Settings
             | Self::CloudDownload
             | Self::Queued
             | Self::InProgress
@@ -481,7 +494,9 @@ gpui_kit_assets::icon_assets!(
         Clock,
         Hourglass,
         ScanSearch,
-        BadgeCheck
+        BadgeCheck,
+        RadioTower,
+        Settings
     ]
 );
 
@@ -586,6 +601,8 @@ mod tests {
         IconName::MbDone,
         IconName::MbSkipped,
         IconName::CloudCheck,
+        IconName::Show,
+        IconName::Settings,
     ];
 
     /// R83-21: every `IconName` other than `Rss` and `Nostr` resolves to a
@@ -676,6 +693,14 @@ mod tests {
         assert_eq!(
             IconName::CloudCheck.extra_icon(),
             Some(LucideIconName::CloudCheck)
+        );
+        assert_eq!(
+            IconName::Show.extra_icon(),
+            Some(LucideIconName::RadioTower)
+        );
+        assert_eq!(
+            IconName::Settings.extra_icon(),
+            Some(LucideIconName::Settings)
         );
     }
 

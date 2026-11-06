@@ -25,38 +25,14 @@ fn track(id: i64) -> FrameNavigationEntry {
     FrameNavigationEntry::Track(TrackKey::from_index_track_target(None, id.to_string()))
 }
 
-/// R6-02 (ADR 0084 Decision 3): the Music opening path gives
-/// `Destination(Discover)`, then `DiscoverView(NewReleases)`.
-#[test]
-fn adr_0084_discover_r6_02_music_opens_on_discover_then_new_releases() {
-    let layout = WorkspaceLayout::default_layout();
-    let content_list_id = layout
-        .frames()
-        .iter()
-        .find(|frame| frame.kind() == WorkspaceFrameKind::ContentList)
-        .map(WorkspaceFrameState::id)
-        .expect("the default layout has a content-list frame");
-    let nav = layout
-        .frame_nav(content_list_id)
-        .expect("the content-list frame has navigation");
-
-    assert_eq!(
-        nav.path_entries(),
-        vec![
-            discover(),
-            FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases),
-        ],
-        "Music must open on Discover, then New releases"
-    );
-}
-
 /// R6-02 (ADR 0084 Decision 3): a sidebar click on Discover gives the
 /// same path as the Music opening path. `MusicDestination::default_child_page`
 /// is the one place both the opening path and the sidebar click read.
 #[test]
 fn adr_0084_discover_r6_02_discover_sidebar_click_opens_new_releases() {
-    let mut nav =
-        FrameNavigationState::new(FrameNavigationEntry::Destination(MusicDestination::Tracks));
+    let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+        MusicDestination::Releases,
+    ));
 
     nav.start_path(discover(), MusicDestination::Discover.default_child_page());
 
@@ -77,7 +53,6 @@ fn adr_0084_discover_r6_02_other_destinations_have_no_default_child_page() {
     for destination in [
         MusicDestination::Releases,
         MusicDestination::Artists,
-        MusicDestination::Tracks,
         MusicDestination::NeedsAttention,
         MusicDestination::Playlists,
     ] {
@@ -201,24 +176,6 @@ fn frame_shell_display_passes_through_header_text_and_slot_id() {
         Vec::new(),
         "transitional workspace must not expose multi-frame actions before real frame content owners exist"
     );
-    assert_eq!(
-        display.view_mode_control, None,
-        "view-mode controls are opt-in frame chrome"
-    );
-}
-
-#[test]
-fn frame_shell_display_accepts_optional_view_mode_control() {
-    let frame = frame(7, WorkspaceFrameKind::ContentList);
-    let modes = ContentViewModeControlDisplay::default_for_content_list(ContentViewMode::List);
-
-    let display = FrameShellDisplay::from_frame(&frame, true).with_view_mode_control(modes.clone());
-
-    assert_eq!(
-        display.view_mode_control,
-        Some(modes),
-        "frame shell should carry optional frame-local view modes without applying them"
-    );
 }
 
 #[test]
@@ -314,12 +271,8 @@ fn default_layout_has_expected_workspace_shape() {
 
     assert_eq!(
         kinds,
-        [
-            WorkspaceFrameKind::SourceList,
-            WorkspaceFrameKind::ContentList,
-            WorkspaceFrameKind::Detail,
-        ],
-        "default workspace should expose the ADR 0060 curation frame order"
+        [WorkspaceFrameKind::ContentList, WorkspaceFrameKind::Detail],
+        "default workspace should expose the ADR 0089 frame order: list, then detail"
     );
     assert_eq!(
         focused_frame_of(&layout).map(WorkspaceFrameState::kind),
@@ -397,7 +350,7 @@ fn single_frame_layout_without_requested_focus_focuses_only_frame() {
 fn multi_frame_focus_moves_between_existing_frames() {
     let mut layout = WorkspaceLayout::new(
         vec![
-            frame(1, WorkspaceFrameKind::SourceList),
+            frame(1, WorkspaceFrameKind::QueueNowPlaying),
             frame(2, WorkspaceFrameKind::ContentList),
             frame(3, WorkspaceFrameKind::Detail),
         ],
@@ -428,7 +381,7 @@ fn multi_frame_focus_moves_between_existing_frames() {
 #[test]
 fn invalid_layout_mutations_return_errors() {
     let mut layout = WorkspaceLayout::new(
-        vec![frame(1, WorkspaceFrameKind::SourceList)],
+        vec![frame(1, WorkspaceFrameKind::QueueNowPlaying)],
         Some(WorkspaceFrameId::new(1)),
     )
     .expect("initial layout should be valid");
@@ -447,7 +400,7 @@ fn duplicate_frames_are_rejected_at_construction() {
     assert_eq!(
         WorkspaceLayout::new(
             vec![
-                frame(1, WorkspaceFrameKind::SourceList),
+                frame(1, WorkspaceFrameKind::QueueNowPlaying),
                 frame(1, WorkspaceFrameKind::Detail),
             ],
             Some(WorkspaceFrameId::new(1)),
@@ -501,7 +454,7 @@ fn workspace_layout_config_round_trips() {
     let added_id = WorkspaceFrameId::new(4);
     let layout = WorkspaceLayout::new(
         vec![
-            frame(1, WorkspaceFrameKind::SourceList),
+            frame(1, WorkspaceFrameKind::QueueNowPlaying),
             frame(2, WorkspaceFrameKind::ContentList),
             frame(3, WorkspaceFrameKind::Detail),
             frame(added_id.value(), WorkspaceFrameKind::Detail),
@@ -530,19 +483,19 @@ fn workspace_layout_config_from_before_broadcast_frame_still_loads() {
         frames: vec![
             WorkspaceFrameConfig {
                 id: 1,
-                kind: WorkspaceFrameKind::SourceList,
+                kind: Some(WorkspaceFrameKind::QueueNowPlaying),
             },
             WorkspaceFrameConfig {
                 id: 2,
-                kind: WorkspaceFrameKind::ContentList,
+                kind: Some(WorkspaceFrameKind::ContentList),
             },
             WorkspaceFrameConfig {
                 id: 3,
-                kind: WorkspaceFrameKind::Detail,
+                kind: Some(WorkspaceFrameKind::Detail),
             },
             WorkspaceFrameConfig {
                 id: 4,
-                kind: WorkspaceFrameKind::QueueNowPlaying,
+                kind: Some(WorkspaceFrameKind::QueueNowPlaying),
             },
         ],
         focused_frame_id: Some(2),
@@ -572,11 +525,11 @@ fn malformed_and_empty_workspace_layout_config_falls_back_to_default() {
         frames: vec![
             WorkspaceFrameConfig {
                 id: 1,
-                kind: WorkspaceFrameKind::SourceList,
+                kind: Some(WorkspaceFrameKind::QueueNowPlaying),
             },
             WorkspaceFrameConfig {
                 id: 1,
-                kind: WorkspaceFrameKind::Detail,
+                kind: Some(WorkspaceFrameKind::Detail),
             },
         ],
         focused_frame_id: Some(1),
@@ -584,7 +537,7 @@ fn malformed_and_empty_workspace_layout_config_falls_back_to_default() {
     let missing_focus = WorkspaceLayoutConfig {
         frames: vec![WorkspaceFrameConfig {
             id: 8,
-            kind: WorkspaceFrameKind::Detail,
+            kind: Some(WorkspaceFrameKind::Detail),
         }],
         focused_frame_id: Some(99),
     };
@@ -713,10 +666,9 @@ fn adr_0046_forward_pop_nav_forward_restores_entry_back_left() {
         .expect("a pushed entry should allow going back");
     assert_eq!(
         entry_back_left,
-        // ADR 0084 Decision 3: the default layout opens on Discover, then
-        // "New releases". A pushed page therefore sits under that page,
-        // not under the bare Discover destination.
-        FrameNavigationEntry::DiscoverView(DiscoverView::NewReleases),
+        // ADR 0089 Decision 8: the default layout opens on Releases. A pushed
+        // page therefore sits on that destination.
+        FrameNavigationEntry::Destination(MusicDestination::Releases),
         "Back should restore the entry that preceded the push"
     );
 
@@ -1528,20 +1480,71 @@ fn adr_0084_destinations_d5_02_sidebar_click_starts_a_path_a_row_extends_it() {
     );
 }
 
-/// D5-03 (ADR 0084 Decision 3): Music opens on `Destination(Discover)`,
-/// the default navigation entry of each Music frame kind.
+/// ADR 0089 Decision 8: Music opens on `Destination(Releases)`, the default
+/// navigation entry of the content frame, and no child page is open.
 #[test]
-fn adr_0084_destinations_d5_03_music_opens_on_discover() {
-    for kind in [
-        WorkspaceFrameKind::SourceList,
-        WorkspaceFrameKind::ContentList,
-    ] {
-        assert_eq!(
-            super::default_navigation_entry(kind),
-            FrameNavigationEntry::Destination(MusicDestination::Discover),
-            "{kind:?} must default to the Discover destination"
-        );
-    }
+fn adr_0089_decision_8_music_opens_on_releases() {
+    assert_eq!(
+        super::default_navigation_entry(WorkspaceFrameKind::ContentList),
+        FrameNavigationEntry::Destination(MusicDestination::Releases),
+    );
+    let layout = WorkspaceLayout::default_layout();
+    let content_id = layout
+        .frames()
+        .iter()
+        .find(|frame| frame.kind() == WorkspaceFrameKind::ContentList)
+        .map(WorkspaceFrameState::id)
+        .expect("the default layout has a content frame");
+    let nav = layout
+        .frame_nav(content_id)
+        .expect("content frame navigation");
+    assert_eq!(
+        nav.current(),
+        &FrameNavigationEntry::Destination(MusicDestination::Releases)
+    );
+    assert_eq!(
+        nav.path_entries().len(),
+        1,
+        "no child page opens by default"
+    );
+}
+
+/// ADR 0089 Decision 1: a saved layout that names the removed source-list
+/// frame still loads, and that frame is dropped. The other frames keep their
+/// order and focus.
+#[test]
+fn adr_0089_decision_1_saved_source_list_frame_loads_without_it() {
+    let config: WorkspaceLayoutConfig = toml::from_str(
+        r#"
+focused_frame_id = 2
+
+[[frames]]
+id = 1
+kind = "source_list"
+
+[[frames]]
+id = 2
+kind = "content_list"
+
+[[frames]]
+id = 3
+kind = "detail"
+"#,
+    )
+    .expect("an old layout with the removed frame kind parses");
+
+    let layout = WorkspaceLayout::from_config(Some(&config));
+
+    let kinds: Vec<_> = layout
+        .frames()
+        .iter()
+        .map(WorkspaceFrameState::kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        [WorkspaceFrameKind::ContentList, WorkspaceFrameKind::Detail]
+    );
+    assert_eq!(layout.focused_frame_id(), Some(WorkspaceFrameId::new(2)));
 }
 
 /// R15-10 (ADR 0084 Decision 6): a singles group entry opens a page in the
@@ -1593,7 +1596,7 @@ fn adr_0084_music_open_defects_r30_09_restored_toolbar_text() {
         discover(),
         track(1),
         FrameNavigationEntry::PlaylistDetail(1),
-        FrameNavigationEntry::Destination(MusicDestination::Tracks),
+        FrameNavigationEntry::Destination(MusicDestination::NeedsAttention),
     ] {
         assert_eq!(restored_toolbar_search_text(&entry), None, "{entry:?}");
     }
@@ -1820,7 +1823,7 @@ fn adr_0089_nav_item_path_goes_back_to_its_holding_list() {
             MusicDestination::Releases,
             FrameNavigationEntry::Release(ReleaseKey::FeedGuid("guid-a".to_owned())),
         ),
-        (MusicDestination::Tracks, track(7)),
+        (MusicDestination::NeedsAttention, track(7)),
         (
             MusicDestination::Playlists,
             FrameNavigationEntry::PlaylistDetail(4),

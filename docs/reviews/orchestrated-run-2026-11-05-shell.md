@@ -29,3 +29,6 @@ Each entry names the step, the decision and the reason.
 - Packet 002, scroll: the list scroll stays in long-lived view state (`ListState` or `ScrollHandle`), not in the navigation entry. The packet added handles for My playlists and the Discover views. The mechanical criterion "restored scroll" thus has no model test, and the final walk checks it.
 - Packet 002, marks: a Library track, a name match and an artist by name in search results get no mark, because the row does not hold the data of its page entry. Needs attention rows get no mark, because packet 012 replaces them.
 - Packet 002, Show and Settings: their frames lost Back and Forward, and the toolbar shows each control only when its history exists.
+- Packet 003, frames: `SourceList` goes. `Detail` stays, because a removal changes `MusicColumns` and the shell widths. A later packet removes it when it is small.
+- Packet 003, icons: Show uses Lucide `RadioTower`, and Settings uses Lucide `Settings`.
+- Packet 003, keyboard: the Show and Settings rows take a click and the section shortcuts, as the old tabs did. A sidebar row has no Enter key action.

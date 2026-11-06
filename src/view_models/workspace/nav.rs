@@ -14,7 +14,8 @@ use crate::view_models::search_results::{saved_search_label, SavedSearchId};
 use crate::view_models::singles_group::SinglesGroupKey;
 use crate::view_models::window_groups::WindowGroupKey;
 
-/// A Music destination, in sidebar order (ADR 0084 Decision 2).
+/// A Music destination, in sidebar order (ADR 0084 Decision 2, ADR 0089
+/// Decision 1).
 ///
 /// Each destination is a list root: the sidebar selects one, and the list
 /// column fills with its items. A destination opens no page by itself.
@@ -23,18 +24,18 @@ pub(crate) enum MusicDestination {
     Discover,
     Releases,
     Artists,
-    Tracks,
     NeedsAttention,
     Playlists,
 }
 
 impl MusicDestination {
-    /// Every destination, in sidebar order (ADR 0084 Decision 2).
-    pub(crate) const ALL: [Self; 6] = [
+    /// Every destination, in sidebar order (ADR 0084 Decision 2). Tests
+    /// walk each destination through this list.
+    #[cfg(test)]
+    pub(crate) const ALL: [Self; 5] = [
         Self::Discover,
         Self::Releases,
         Self::Artists,
-        Self::Tracks,
         Self::NeedsAttention,
         Self::Playlists,
     ];
@@ -46,7 +47,6 @@ impl MusicDestination {
             Self::Discover => "Discover",
             Self::Releases => "Releases",
             Self::Artists => "Artists",
-            Self::Tracks => "Tracks",
             Self::NeedsAttention => "Needs attention",
             Self::Playlists => "Playlists",
         }
@@ -62,11 +62,7 @@ impl MusicDestination {
             Self::Discover => Some(FrameNavigationEntry::DiscoverView(
                 DiscoverView::NewReleases,
             )),
-            Self::Releases
-            | Self::Artists
-            | Self::Tracks
-            | Self::NeedsAttention
-            | Self::Playlists => None,
+            Self::Releases | Self::Artists | Self::NeedsAttention | Self::Playlists => None,
         }
     }
 }
@@ -106,8 +102,7 @@ impl DiscoverView {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum FrameNavigationEntry {
     /// A Music destination, the root of a sidebar-started location (ADR
-    /// 0084 Decisions 1 and 2). It replaces `SourceList` and
-    /// `ReadinessIssues`.
+    /// 0084 Decisions 1 and 2, ADR 0089 Decision 1).
     Destination(MusicDestination),
     /// A view of the Discover column, a page under the Discover
     /// destination (ADR 0084 Decision 3).
