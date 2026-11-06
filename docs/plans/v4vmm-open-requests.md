@@ -32,6 +32,8 @@ The v4vmm operator reviewed each item on 2026-09-24 and 2026-09-25.
 | 11 | A feed search hit gives its release date and its named feeds | API field and include additions | Draft - 2026-10-23. Not sent. On 2026-10-25 the v4vmm operator decided to send it after the walk of the saved search checks |
 | 12 | A track gives its season, and the index keeps the license | API field and parser additions | Draft - 2026-11-04. The v4vmm operator agreed on 2026-11-04 that v4vmm writes this request. No v4vmm packet waits for it |
 | 13 | A total for each list of feeds and names | API field addition | Draft - 2026-11-05. Not sent. v4vmm ADR 0089 shows no count for All until a total exists |
+| 14 | The title filter of a track and the kind filter of unknown feeds | Search correction and API parameter addition | Draft - 2026-11-06. Not sent. The v4vmm operator decides when to send it |
+| 15 | A sort direction for each list of feeds and names | API parameter addition | Answered - 2026-11-06. Stophammer ADR 0084 is Proposed |
 
 ### 1. Album Summary Fields In Each Publisher Relationship Entry
 
@@ -321,7 +323,8 @@ musicindex.org will also send these filters. On 2026-10-24 the operator decided 
 | The search request of the website | `../musicindex/docs/plans/research-ui-shell-and-search-request.md` |
 
 **What v4vmm does with it.** v4vmm stops the report of a query error as a failure of the MusicIndex setup. That fix is in v4vmm and needs no Stophammer change.
-v4vmm ADR 0087 sends each field as a parameter, never as syntax in `q`. Until Stophammer supports a filter, a v4vmm query with that field shows no Index rows and names the field.
+
+v4vmm ADR 0087 sends each field as a parameter, never as syntax in `q`. From 2026-11-06, v4vmm sends each field as its filter. Two filters still differ from the Library. Request 14 asks for the change.
 
 ### 11. A Feed Search Hit Gives Its Release Date And Its Named Feeds
 
@@ -403,6 +406,40 @@ The v4vmm publisher relationship request asked this for the Stophammer ADR. ADR 
 The weakest part: the count is useful but not necessary. v4vmm shows no count for All until a total exists.
 
 **Request.** Give a total with `GET /v1/feeds/recent`, `GET /v1/feeds/by-name` and `GET /v1/artist-names`, for the same filters as the list. An approximate total is acceptable if the response says so.
+
+### 14. The Title Filter Of A Track And The Kind Filter Of Unknown Feeds
+
+**What happens.** On 2026-11-06, v4vmm read `GET /v1/search` with read-only requests. Two parts of request 10 do not match the Library.
+
+1. `title` on `type=track` matches the track title only. `title=assorted&type=track` gave no row. `release=assorted&type=track` gave 7 rows of the feed "Various & Assorted". The Library matches a track title or its release title for `title:`, as ADR 0087 Decision 2 states.
+2. `kind` matches the stated `release_kind` only. Most feeds state `unknown`. `kind=single&type=feed` and `kind=single&type=track` gave no row. `kind=album&type=feed` and `kind=ep&type=feed` gave no row. `kind=unknown&type=feed` gave 20 rows. The feed `GET /v1/feeds/{guid}` of a feed with one track states `release_kind` `unknown`.
+
+**Why v4vmm needs it.** The v4vmm client keeps the kind rule of musicindex ADR 0020 R-WORD-1, as the answer of 2026-10-24 to item 2 says. That rule needs two requests for `kind:single`: `kind=single`, and `kind=unknown&tracks=1`. The search of v4vmm allows three requests in each run, one for each type. Thus v4vmm cannot send the rule as the answer states it.
+
+**Request.**
+
+1. A track `title` filter also matches the title of the feed of the track, as the `release` filter does.
+2. One request gives the R-WORD-1 rule. `kind=single` also matches a feed with `release_kind` `unknown` and one track. `kind=album` also matches a feed with `release_kind` `unknown` and two or more tracks. Each of these uses one parameter, so that v4vmm sends one request for each type.
+
+The v4vmm operator decides when this request goes to Stophammer. Until then, `kind:single`, `kind:album` and `kind:ep` show no Index rows, and a track `title:` shows no track of a release title only.
+
+**Status.** Draft - 2026-11-06. Not sent. The v4vmm operator decides when to send it.
+
+### 15. A Sort Direction For Each List Of Feeds And Names
+
+**What happens.** On 2026-11-06, v4vmm read the live contract of release 0.18.1 at `/openapi.json`. `GET /v1/feeds/recent`, `GET /v1/feeds/by-name`, `GET /v1/artist-names` and `GET /v1/search` have no sort parameter and no direction parameter. Their cursors go forward only.
+
+**Why v4vmm needs it.** musicindex ADR 0043 R-LIST-7 gives each list a reverse icon: Newest becomes Oldest, and A to Z becomes Z to A. Item 9 reverses the whole list. If an app reverses only the loaded rows, the rows of a later page come in the wrong position. Item 10 removes the icon when an app cannot reverse the whole list. So v4vmm shows no reverse icon on a list from these routes.
+
+**Request.**
+
+1. `GET /v1/feeds/recent`: the oldest item first, with a cursor in that direction.
+2. `GET /v1/feeds/by-name` and `GET /v1/artist-names`: Z to A. `from` starts the list at a letter, and the cursor goes in that direction.
+3. `GET /v1/search`: the same two directions, if its results have a stable sequence. If they do not, state that in the contract, and v4vmm keeps no reverse icon on search results.
+
+Stophammer owns the name and the form of each parameter. The filters and the row content of each route do not change.
+
+**Status.** Answered - 2026-11-06. The v4vmm operator added this request. Stophammer ADR 0084 is Proposed.
 
 ## Stophammer Answers - 2026-09-25
 
@@ -591,6 +628,22 @@ release record names the release that carries them.
 In the backup of 2026-09-26, 34 names had some releases with a publisher feed
 and some without. Such a name shows two times: one `publisher` row and one
 `name` row. 19 publisher feeds had no music feed, and each one has a row.
+
+## Stophammer Answers - 2026-11-06
+
+**Request 15, a sort direction.** The report is correct. No route has a sort or a direction, and each cursor goes forward only. Stophammer [ADR 0084](https://github.com/InTheMorning/stophammer/blob/main/docs/adr/0084-a-search-and-a-list-take-a-sort.md) is Proposed. Stophammer did not start the work, and these names can change until the operator accepts it.
+
+- `GET /v1/feeds/recent`, `GET /v1/feeds/by-name` and `GET /v1/artist-names` take `reverse=true`.
+- `GET /v1/search` takes `sort`, with the values `relevance`, `name` and `date`, and `reverse=true`. This is more than the request asks for. A direction alone cannot give A to Z on search, because search has no name order.
+- `sort=relevance` does not reverse, so v4vmm shows no reverse icon on it (R-LIST-7 item 10). `sort=name` and `sort=date` reverse, also with a word in `q`. `sort=date` gives the sequence Newest of the v4vmm results.
+- A request with neither parameter does not change.
+- A row with no date comes last in the two directions. Oldest is thus not an exact mirror of Newest. v4vmm uses the same rule for its Library rows.
+- With `reverse=true`, `from=M` starts at the last title that starts with "m".
+- A cursor from a different sort or direction gives `400`. v4vmm starts again from the first page after a change.
+- With `sort=name`, a search row gives `sort_name`. With `sort=date`, it gives `sort_date`. v4vmm can merge its Library rows by these values.
+- `GET /v1/node/capabilities` lists `sort`. An older node ignores `reverse` on a list route and gives no error, so v4vmm shows the icon only when the node lists `sort`.
+
+Stophammer gives no answer to draft request 13 until the v4vmm operator sends it.
 
 ## Release 0.18.1 - Checked By v4vmm On 2026-11-04
 
