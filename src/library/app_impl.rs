@@ -49,8 +49,9 @@ use crate::presentation::delayed_presenter::present_after;
 use crate::presentation::{bridge_watch, present_command};
 use crate::runtime::musicbrainz_feed_saga::{MusicBrainzFeedSagaState, StartFeedLookup};
 use crate::subscribe_service::{self, SubscribeFeedRequest, SubscribeTrackRequest};
+use crate::ui::composites::letter_bar::LetterHandler;
 use crate::ui::composites::list_page_head::{
-    list_page_head, ListHeadButtonHandler, ListScopeHandler,
+    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
 };
 use crate::ui::composites::music_column_scroll::{
     music_column_scrollbar, MusicColumnList, ScrollReveal,
@@ -5162,21 +5163,67 @@ impl LibraryApp {
             let scope = *scope;
             scope_entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
         });
+        let sort_entity = entity.clone();
+        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+            let sort = *sort;
+            sort_entity.update(cx, |this, cx| {
+                this.set_list_sort(ListPageKey::Releases, sort, cx);
+            });
+        });
+        let letter_entity = entity.clone();
+        let on_letter: LetterHandler = Rc::new(move |letter, _window, cx| {
+            let letter = *letter;
+            letter_entity.update(cx, |this, cx| {
+                this.set_list_letter(ListPageKey::Releases, Some(letter), cx);
+            });
+        });
         let on_select: ListHeadButtonHandler = Rc::new(move |_window, cx| {
             entity.update(cx, Self::toggle_list_column_selection_mode);
         });
-        list_page_head(display, Some(on_scope), Some(on_select), cx)
+        list_page_head(
+            display,
+            ListPageHeadHandlers {
+                scope: Some(on_scope),
+                select: Some(on_select),
+                sort: Some(on_sort),
+                letter: Some(on_letter),
+            },
+            cx,
+        )
     }
 
     /// Renders the title row of the Artists list (ADR 0089 Decision 6).
     fn render_artists_page_head(&self, library_count: usize, cx: &mut Context<Self>) -> AnyElement {
         let display = self.artists_page_head(library_count);
         let entity = cx.entity();
+        let scope_entity = entity.clone();
         let on_scope: ListScopeHandler = Rc::new(move |scope, _window, cx| {
             let scope = *scope;
-            entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
+            scope_entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
         });
-        list_page_head(display, Some(on_scope), None, cx)
+        let sort_entity = entity.clone();
+        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+            let sort = *sort;
+            sort_entity.update(cx, |this, cx| {
+                this.set_list_sort(ListPageKey::Artists, sort, cx);
+            });
+        });
+        let on_letter: LetterHandler = Rc::new(move |letter, _window, cx| {
+            let letter = *letter;
+            entity.update(cx, |this, cx| {
+                this.set_list_letter(ListPageKey::Artists, Some(letter), cx);
+            });
+        });
+        list_page_head(
+            display,
+            ListPageHeadHandlers {
+                scope: Some(on_scope),
+                select: None,
+                sort: Some(on_sort),
+                letter: Some(on_letter),
+            },
+            cx,
+        )
     }
 
     /// Renders the item `index` of the cached Releases `rows` (ADR 0084

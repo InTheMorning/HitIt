@@ -21,7 +21,7 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
-use crate::api::{ArtistNameRow, Client, Feed};
+use crate::api::{ArtistNameRow, Client, Feed, FeedMedium};
 use crate::application::command_bus::{ApplicationCommand, CommandOutcome, CommandResult};
 use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
@@ -59,6 +59,9 @@ pub(crate) const FIELD_LIST_ARTIST_NAME_LIMIT: i32 = 20;
 pub(crate) struct FetchReleaseNamePage {
     endpoint: crate::config::MusicIndexEndpoint,
     cursor: Option<String>,
+    /// The `from` text of the list, or `None` for the first row (ADR 0089
+    /// Decision 6, the letter bar).
+    from: Option<String>,
     /// The rows of a page whose name list request had an answer before.
     /// "Try again" sends them again, and the command sends no name list
     /// request (packet 026 decision D10).
@@ -72,15 +75,18 @@ pub(crate) struct FetchReleaseNamePage {
 }
 
 impl FetchReleaseNamePage {
-    /// Creates the command for the page at `cursor`. `None` asks for page 1.
+    /// Creates the command for the page at `cursor` of the list that starts
+    /// at `from`. `None` asks for page 1.
     #[must_use]
     pub(crate) fn new(
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
         cursor: Option<String>,
+        from: Option<String>,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             cursor,
+            from,
             pending: None,
             library_feeds: Vec::new(),
             known_feeds: BTreeSet::new(),
@@ -96,7 +102,7 @@ impl FetchReleaseNamePage {
     ) -> Self {
         Self {
             pending: Some(pending),
-            ..Self::new(endpoint, None)
+            ..Self::new(endpoint, None, None)
         }
     }
 
@@ -142,6 +148,8 @@ impl ApplicationCommand for FetchReleaseNamePage {
                     NAME_LIST_PAGE_LIMIT,
                     self.cursor.as_deref(),
                     None,
+                    self.from.as_deref(),
+                    FeedMedium::Music,
                     &INDEX_RELEASE_NAME_LIST,
                 )
                 .map_err(|error| CommandError::Query(format!("{error:#}")))?;
@@ -285,18 +293,24 @@ fn fetch_feed_singles_set(
 pub(crate) struct FetchArtistNamePage {
     endpoint: crate::config::MusicIndexEndpoint,
     cursor: Option<String>,
+    /// The `from` text of the list, or `None` for the first row (ADR 0089
+    /// Decision 6, the letter bar).
+    from: Option<String>,
 }
 
 impl FetchArtistNamePage {
-    /// Creates the command for the page at `cursor`. `None` asks for page 1.
+    /// Creates the command for the page at `cursor` of the list that starts
+    /// at `from`. `None` asks for page 1.
     #[must_use]
     pub(crate) fn new(
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
         cursor: Option<String>,
+        from: Option<String>,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             cursor,
+            from,
         }
     }
 }
@@ -312,7 +326,7 @@ impl ApplicationCommand for FetchArtistNamePage {
             .fetch_artist_names(
                 NAME_LIST_PAGE_LIMIT,
                 self.cursor.as_deref(),
-                None,
+                self.from.as_deref(),
                 &INDEX_ARTIST_NAME_LIST,
             )
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
@@ -425,7 +439,7 @@ mod tests {
         .to_string();
         let (endpoint, requests) = serve(body, 1);
 
-        let batch = FetchArtistNamePage::new(endpoint, Some("abc".to_owned()))
+        let batch = FetchArtistNamePage::new(endpoint, Some("abc".to_owned()), None)
             .execute(&CommandContext::next())
             .unwrap()
             .into_parts()
@@ -501,7 +515,7 @@ mod tests {
         .to_string();
         let (endpoint, requests) = serve(body, 1);
 
-        let batch = FetchReleaseNamePage::new(endpoint, None)
+        let batch = FetchReleaseNamePage::new(endpoint, None, None)
             .execute(&CommandContext::next())
             .unwrap()
             .into_parts()
@@ -513,7 +527,7 @@ mod tests {
         assert!(batch.feeds.is_empty(), "no single has an artist feed");
         assert_eq!(
             *requests.lock().unwrap(),
-            ["/v1/feeds/by-name?limit=100&include=named_feeds"]
+            ["/v1/feeds/by-name?limit=100&include=named_feeds&medium=music"]
         );
     }
 
@@ -720,7 +734,7 @@ mod tests {
         // The page, eight new feeds and one Library feed.
         let (endpoint, requests, running) = serve_routes(answer, 10);
 
-        let load = FetchReleaseNamePage::new(endpoint, None)
+        let load = FetchReleaseNamePage::new(endpoint, None, None)
             .with_feeds(
                 vec!["library-feed".to_owned(), "known-feed".to_owned()],
                 BTreeSet::from(["known-feed".to_owned()]),

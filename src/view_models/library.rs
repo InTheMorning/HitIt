@@ -55,12 +55,13 @@ use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::index_name_list::{
     name_sort_key, IndexListStatusRowVm, IndexNameList, IndexNameListPage,
 };
+use crate::view_models::letter_bar::{name_at_or_after, LetterKey};
 pub(crate) use crate::view_models::library_removal::RemovalConfirmation;
 use crate::view_models::library_removal::{
     LibraryRemovalConfirmationDisplay, LibraryRemovalConfirmationState,
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
-use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListPages, ListScope};
+use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListPages, ListScope, ListSort};
 #[cfg(test)]
 use crate::view_models::list_selection::RowCheckState;
 use crate::view_models::list_selection::{
@@ -2003,7 +2004,6 @@ impl ReleasesListItemVm {
 
     /// The label of a row: the release name or the display artist. A
     /// status row has none.
-    #[cfg(test)]
     #[must_use]
     pub(crate) fn label(&self) -> Option<&str> {
         match self {
@@ -2030,6 +2030,15 @@ pub(crate) enum ArtistsListItemVm {
 }
 
 impl ArtistsListItemVm {
+    /// The label of a row: the artist name. A status row has none.
+    #[must_use]
+    pub(crate) fn label(&self) -> Option<&str> {
+        match self {
+            Self::Row(row) => Some(&row.label),
+            Self::Status(_) => None,
+        }
+    }
+
     /// Gives the row of this item its mark (R-NAV-2 item 2). A status row
     /// carries no mark.
     #[must_use]
@@ -3600,6 +3609,23 @@ impl LibraryViewModel {
         self.list_pages.set_scope(key, scope);
     }
 
+    /// The sort of the list page `key`, or `None` when the page has no sort.
+    #[must_use]
+    pub(crate) fn list_sort(&self, key: ListPageKey) -> Option<ListSort> {
+        self.list_pages.get(key).sort
+    }
+
+    /// Sets the sort of the list page `key` (ADR 0089 Decision 5). The
+    /// letter of that page is cleared.
+    pub(crate) fn set_list_sort(&mut self, key: ListPageKey, sort: ListSort) {
+        self.list_pages.set_sort(key, sort);
+    }
+
+    /// Sets the letter of the list page `key` (ADR 0089 Decision 6).
+    pub(crate) fn set_list_letter(&mut self, key: ListPageKey, letter: Option<LetterKey>) {
+        self.list_pages.set_letter(key, letter);
+    }
+
     /// The title row of the list page `key` (ADR 0089 Decision 6).
     /// `library_count` and `select` are the facts that the view model does
     /// not read itself.
@@ -3878,18 +3904,20 @@ impl LibraryViewModel {
         }
     }
 
-    /// The cache key of the Releases list in `scope` (ADR 0084 task 037,
-    /// decision D2). `page` is the release name page, and `expanded` is
-    /// the set of open groups.
+    /// The cache key of the Releases list in `scope` and `sort` (ADR 0084
+    /// task 037, decision D2; ADR 0089 Decision 5). `page` is the release
+    /// name page, and `expanded` is the set of open groups.
     #[must_use]
     pub(crate) fn releases_list_key(
         &self,
         scope: ListScope,
+        sort: ListSort,
         page: &IndexNameListPage<crate::api::Feed>,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> ReleasesListKey {
         ReleasesListKey {
             scope,
+            sort,
             page: page.revision(),
             singles: self.index_feed_singles.revision(),
             library: self.releases_revision(),
@@ -3953,10 +3981,11 @@ impl LibraryViewModel {
         &self,
         cache: &mut ReleasesListCache,
         scope: ListScope,
+        sort: ListSort,
         page: &IndexNameListPage<crate::api::Feed>,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> Rc<ReleasesListRows> {
-        cache.read(self.releases_list_key(scope, page, expanded), || {
+        cache.read(self.releases_list_key(scope, sort, page, expanded), || {
             self.releases_list_rows(scope, page, expanded)
         })
     }
@@ -4566,7 +4595,10 @@ impl LibraryViewModel {
                 rows.sort_by(|left, right| left.order.cmp(&right.order));
                 rows.into_iter().map(|entry| entry.row).collect()
             }
-            ListScope::All => artists_everything::everything_rows(rows, page, &matches),
+            ListScope::All => artists_everything::everything_rows(rows, page, &matches)
+                .into_iter()
+                .filter(|row| name_at_or_after(&row.label, page.from()))
+                .collect(),
         }
     }
 
@@ -13203,8 +13235,13 @@ mod tests {
 
         /// One read, as `LibraryApp::releases_rows` does it.
         fn read(&mut self) -> Rc<ReleasesListRows> {
-            self.vm
-                .cached_releases_rows(&mut self.cache, self.scope, &self.page, &self.expanded)
+            self.vm.cached_releases_rows(
+                &mut self.cache,
+                self.scope,
+                ListSort::Newest,
+                &self.page,
+                &self.expanded,
+            )
         }
     }
 

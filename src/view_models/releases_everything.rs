@@ -29,7 +29,7 @@ use crate::view_models::library::{
     release_row_slug, releases_selection_rows, DestinationListRowTarget, DestinationListRowVm,
     ReleasesListEntryVm, ReleasesListItemVm, ReleasesRowId,
 };
-use crate::view_models::list_page::ListScope;
+use crate::view_models::list_page::{ListScope, ListSort};
 use crate::view_models::list_selection::{
     ListSelection, RowSelectionVm, SelectionMode, SelectionRow,
 };
@@ -254,13 +254,24 @@ pub(crate) fn everything_entries(
         .collect();
 
     let last_loaded = page.rows().iter().rev().find_map(ReleaseOrderKey::index);
+    let from = page.from();
     library_entries(
         library
             .into_iter()
             .chain(index_entries)
+            .filter(|entry| at_or_after_from(&entry.order, from))
             .filter(|entry| watermark_shows(&entry.order, last_loaded.as_ref(), page.has_more()))
             .collect(),
     )
+}
+
+/// Whether an entry of order `order` shows at the start `from` of the name
+/// list (ADR 0089 Decision 6, the letter bar). `None` shows every entry.
+fn at_or_after_from(order: &ReleaseOrderKey, from: Option<&str>) -> bool {
+    match from {
+        None => true,
+        Some(from) => order.sort_key.as_str() >= from,
+    }
 }
 
 /// A change of the Releases scope (packet 016 decision D15 and Required
@@ -325,6 +336,9 @@ impl Default for Revision {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ReleasesListKey {
     pub(crate) scope: ListScope,
+    /// The sort of the page (ADR 0089 Decision 5). A new sort gives a new
+    /// merge, even when the rows that it gives are the same.
+    pub(crate) sort: ListSort,
     /// The revision of the release name page.
     pub(crate) page: Revision,
     /// The revision of the loaded `MusicIndex` singles.
@@ -871,6 +885,7 @@ pub(crate) mod tests {
     fn adr_0084_task_037_r37_01_one_build_for_one_key() {
         let key = ReleasesListKey {
             scope: ListScope::All,
+            sort: ListSort::Newest,
             page: Revision::default(),
             singles: Revision::default(),
             library: Revision::default(),
@@ -888,6 +903,40 @@ pub(crate) mod tests {
         changed.page.bump();
         let _ = cache.read(changed, ReleasesListRows::default);
         assert_eq!(cache.builds(), 2);
+    }
+
+    /// ADR 0089 Decision 5: a change of the sort gives a new key, so the
+    /// cache builds the merge again. The same sort gives the same key.
+    #[test]
+    fn adr_0089_releases_cache_key_differs_by_sort() {
+        let key = ReleasesListKey {
+            scope: ListScope::All,
+            sort: ListSort::Newest,
+            page: Revision::default(),
+            singles: Revision::default(),
+            library: Revision::default(),
+            expanded: BTreeSet::new(),
+        };
+        let mut a_to_z = key.clone();
+        a_to_z.sort = ListSort::AToZ;
+        assert_ne!(key, a_to_z);
+        assert_eq!(key, key.clone());
+
+        let mut cache = ReleasesListCache::default();
+        let _ = cache.read(key, ReleasesListRows::default);
+        let _ = cache.read(a_to_z, ReleasesListRows::default);
+        assert_eq!(cache.builds(), 2, "a new sort builds again");
+    }
+
+    /// ADR 0089 Decision 6: an entry before the `from` text of the list
+    /// does not show, and an entry at or after it does.
+    #[test]
+    fn adr_0089_releases_from_hides_entries_before_the_letter() {
+        let before = ReleaseOrderKey::release("Abba", ReleaseKey::FeedGuid("a".into()));
+        let at = ReleaseOrderKey::release("Beck", ReleaseKey::FeedGuid("b".into()));
+        assert!(!at_or_after_from(&before, Some("b")));
+        assert!(at_or_after_from(&at, Some("b")));
+        assert!(at_or_after_from(&before, None), "no letter shows all");
     }
 
     /// R37-06 (ADR 0084 task 037, Design step 8): the id comparison gives

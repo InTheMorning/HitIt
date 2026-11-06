@@ -6,12 +6,13 @@
 //! title row of a list page (`ListPageHeadVm`). It has no renderer type.
 //! `src/ui/composites/list_page_head.rs` draws the title row.
 //!
-//! Packet 004 adds the state and the title row. The sort button shows the
-//! current sort only, and the view icons appear on no page yet. Packet 005
-//! adds the sort and view behavior.
+//! ADR 0089 packet 005, Part A, adds the sort menu and the letter bar
+//! (`LetterBarVm` in `src/view_models/letter_bar.rs`). The sort menu lists
+//! the sorts of the page. The view icons still appear on no page.
 
 #![warn(clippy::pedantic)]
 
+use crate::view_models::letter_bar::{LetterBarVm, LetterKey};
 use crate::view_models::release_download_state::ReleaseDownloadState;
 use crate::view_models::workspace::FrameHeaderActionDisplay;
 
@@ -55,6 +56,17 @@ impl ListPageKey {
             Self::Releases | Self::Artists | Self::MyPlaylists => &[ListView::Rows],
         }
     }
+
+    /// The sorts that the page offers, in menu order. The first sort is the
+    /// default (ADR 0089 Decision 5). A page with no sort gives none.
+    #[must_use]
+    pub(crate) const fn sorts(self) -> &'static [ListSort] {
+        match self {
+            Self::Releases => &[ListSort::Newest, ListSort::AToZ],
+            Self::Artists => &[ListSort::AToZ],
+            Self::MyPlaylists => &[],
+        }
+    }
 }
 
 /// The sort of a list page (ADR 0089 Decision 5, R-LIST-1 item 1).
@@ -73,6 +85,15 @@ impl ListSort {
         match self {
             Self::Newest => "Newest",
             Self::AToZ => "A to Z",
+        }
+    }
+
+    /// The stable element id of the sort menu entry.
+    #[must_use]
+    pub(crate) const fn option_id(self) -> &'static str {
+        match self {
+            Self::Newest => "music-list-sort-newest",
+            Self::AToZ => "music-list-sort-a-to-z",
         }
     }
 }
@@ -130,6 +151,9 @@ pub(crate) struct ListPageState {
     pub(crate) view: ListView,
     /// The scope, or `None` when the page has no scope.
     pub(crate) scope: Option<ListScope>,
+    /// The letter that the letter bar selected, or `None`. The letter bar
+    /// shows only with the sort A to Z.
+    pub(crate) letter: Option<LetterKey>,
 }
 
 impl ListPageState {
@@ -141,16 +165,19 @@ impl ListPageState {
                 sort: Some(ListSort::Newest),
                 view: ListView::Rows,
                 scope: Some(ListScope::All),
+                letter: None,
             },
             ListPageKey::Artists => Self {
                 sort: Some(ListSort::AToZ),
                 view: ListView::Rows,
                 scope: Some(ListScope::All),
+                letter: None,
             },
             ListPageKey::MyPlaylists => Self {
                 sort: None,
                 view: ListView::Rows,
                 scope: None,
+                letter: None,
             },
         }
     }
@@ -202,6 +229,23 @@ impl ListPages {
             state.scope = Some(scope);
         }
     }
+
+    /// Sets the sort of `key` (ADR 0089 Decision 5). A sort that the page
+    /// does not offer changes nothing. A new sort clears the letter, because
+    /// the letter belongs to the sort A to Z.
+    pub(crate) fn set_sort(&mut self, key: ListPageKey, sort: ListSort) {
+        if !key.sorts().contains(&sort) {
+            return;
+        }
+        let state = self.get_mut(key);
+        state.sort = Some(sort);
+        state.letter = None;
+    }
+
+    /// Sets the letter that the letter bar of `key` selected.
+    pub(crate) fn set_letter(&mut self, key: ListPageKey, letter: Option<LetterKey>) {
+        self.get_mut(key).letter = letter;
+    }
 }
 
 /// One option of the scope control (R-LIST-1 item 2).
@@ -233,12 +277,17 @@ pub(crate) struct ListScopeControlVm {
 }
 
 /// One entry of the sort menu.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ListSortOptionVm {
+    /// Stable element id.
+    pub(crate) id: &'static str,
     /// The sort of the entry.
     pub(crate) sort: ListSort,
     /// The visible label.
     pub(crate) label: &'static str,
+    /// The accessibility label. It names the current sort too, so the
+    /// check mark is not the only sign of it.
+    pub(crate) a11y_label: String,
     /// Whether the entry is the current sort. The menu shows a check mark
     /// beside it.
     pub(crate) selected: bool,
@@ -269,6 +318,9 @@ pub(crate) struct ListPageHeadVm {
     pub(crate) scope: Option<ListScopeControlVm>,
     /// The sort button, or `None` when the page has no sort.
     pub(crate) sort: Option<ListSortButtonVm>,
+    /// The letter bar, or `None` unless the sort is A to Z (R-LIST-1 item
+    /// 2). It sits below the scope control.
+    pub(crate) letters: Option<LetterBarVm>,
     /// The current view. `None` when the page offers one view only, so no
     /// view icon shows.
     pub(crate) view: Option<ListView>,
@@ -295,6 +347,8 @@ impl ListPageHeadVm {
                 .scope
                 .map(|selected| scope_control(key, selected, library_count)),
             sort: state.sort.map(|sort| sort_button(key, sort)),
+            letters: (state.sort == Some(ListSort::AToZ))
+                .then(|| LetterBarVm::new(key, state.letter)),
             view,
             select,
         }
@@ -365,11 +419,21 @@ fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
         id,
         label: sort.label(),
         a11y_label: format!("Sort {} by {}", key.noun(), sort.label()),
-        options: vec![ListSortOptionVm {
-            sort,
-            label: sort.label(),
-            selected: true,
-        }],
+        options: key
+            .sorts()
+            .iter()
+            .map(|&option| {
+                let selected = option == sort;
+                let current = if selected { ", current sort" } else { "" };
+                ListSortOptionVm {
+                    id: option.option_id(),
+                    sort: option,
+                    label: option.label(),
+                    a11y_label: format!("Sort {} by {}{current}", key.noun(), option.label()),
+                    selected,
+                }
+            })
+            .collect(),
     }
 }
 
@@ -483,17 +547,91 @@ mod tests {
         assert_eq!(head.view, None);
         let sort = head.sort.expect("Releases has a sort");
         assert_eq!(sort.label, "Newest");
-        assert_eq!(
-            sort.options.len(),
-            1,
-            "the menu shows the current sort only"
-        );
-        assert!(sort.options[0].selected);
 
         let playlists = ListPageState::default_for(ListPageKey::MyPlaylists);
         let head = ListPageHeadVm::new(ListPageKey::MyPlaylists, playlists, None, None);
         assert_eq!(head.title, "My playlists");
         assert!(head.sort.is_none());
         assert!(head.scope.is_none());
+        assert!(head.letters.is_none());
+    }
+
+    /// R-LIST-1 item 1 (ADR 0089 Decision 5): Releases offers Newest and A
+    /// to Z, Artists offers A to Z only, and the check mark marks the
+    /// current sort only.
+    #[test]
+    fn adr_0089_list_page_sort_menu_lists_the_page_sorts_with_a_check_mark() {
+        let releases = ListPageState::default_for(ListPageKey::Releases);
+        let sort = ListPageHeadVm::new(ListPageKey::Releases, releases, None, None)
+            .sort
+            .expect("Releases has a sort");
+        let labels: Vec<&str> = sort.options.iter().map(|option| option.label).collect();
+        assert_eq!(labels, ["Newest", "A to Z"]);
+        let checked: Vec<&str> = sort
+            .options
+            .iter()
+            .filter(|option| option.selected)
+            .map(|option| option.label)
+            .collect();
+        assert_eq!(checked, ["Newest"], "one check mark, on the current sort");
+        assert!(sort.options[0].a11y_label.ends_with("current sort"));
+        assert!(!sort.options[1].a11y_label.contains("current"));
+
+        let artists = ListPageState::default_for(ListPageKey::Artists);
+        let sort = ListPageHeadVm::new(ListPageKey::Artists, artists, None, None)
+            .sort
+            .expect("Artists has a sort");
+        assert_eq!(sort.options.len(), 1, "Artists has one sort");
+        assert_eq!(sort.options[0].label, "A to Z");
+        assert!(sort.options[0].selected);
+    }
+
+    /// R-LIST-1 item 2 (ADR 0089 Decision 6): the letter bar shows only
+    /// with the sort A to Z, and it has the letters A to Z and "#".
+    #[test]
+    fn adr_0089_list_page_letter_bar_shows_only_with_a_to_z() {
+        let newest = ListPageState::default_for(ListPageKey::Releases);
+        let head = ListPageHeadVm::new(ListPageKey::Releases, newest, None, None);
+        assert!(head.letters.is_none(), "Newest shows no letter bar");
+
+        let mut a_to_z = newest;
+        a_to_z.sort = Some(ListSort::AToZ);
+        let letters = ListPageHeadVm::new(ListPageKey::Releases, a_to_z, None, None)
+            .letters
+            .expect("A to Z shows the letter bar");
+        assert_eq!(letters.letters.len(), 27, "A to Z and #");
+        assert_eq!(letters.letters[0].label, "A");
+        assert_eq!(letters.letters[25].label, "Z");
+        assert_eq!(letters.letters[26].label, "#");
+
+        let artists = ListPageState::default_for(ListPageKey::Artists);
+        assert!(
+            ListPageHeadVm::new(ListPageKey::Artists, artists, None, None)
+                .letters
+                .is_some()
+        );
+    }
+
+    /// ADR 0089 Decision 5: a sort change sets the new sort on its page
+    /// only, clears that page's letter, and a sort the page does not offer
+    /// changes nothing.
+    #[test]
+    fn adr_0089_list_page_set_sort_changes_its_page_only() {
+        let mut pages = ListPages::default();
+        pages.set_letter(ListPageKey::Releases, Some(LetterKey::Letter('B')));
+        pages.set_sort(ListPageKey::Releases, ListSort::AToZ);
+        let releases = pages.get(ListPageKey::Releases);
+        assert_eq!(releases.sort, Some(ListSort::AToZ));
+        assert_eq!(releases.letter, None, "a new sort clears the letter");
+        assert_eq!(pages.get(ListPageKey::Artists).sort, Some(ListSort::AToZ));
+
+        pages.set_sort(ListPageKey::Artists, ListSort::Newest);
+        assert_eq!(
+            pages.get(ListPageKey::Artists).sort,
+            Some(ListSort::AToZ),
+            "Artists does not offer Newest"
+        );
+        pages.set_sort(ListPageKey::MyPlaylists, ListSort::AToZ);
+        assert_eq!(pages.get(ListPageKey::MyPlaylists).sort, None);
     }
 }

@@ -51,6 +51,9 @@ pub(crate) struct IndexNameListLoadIntent {
     /// The request generation. A result of an older generation changes
     /// nothing (packet 016 decision D10).
     pub(crate) generation: u64,
+    /// The `from` text of the request, or `None` for the start of the list
+    /// (ADR 0089 Decision 6, the letter bar).
+    pub(crate) from: Option<String>,
 }
 
 /// The load state of one name list.
@@ -82,6 +85,9 @@ pub(crate) struct IndexNameListPage<Row> {
     has_more: bool,
     state: IndexNameListLoadState,
     generation: u64,
+    /// The `from` text of the list (ADR 0089 Decision 6). `None` starts the
+    /// list at its first row.
+    from: Option<String>,
     /// The rows of a page whose name list request had an answer while
     /// another request of the page failed (ADR 0084 packet 026 decision
     /// D10). They show only after "Try again" gets each answer.
@@ -98,6 +104,7 @@ impl<Row> Default for IndexNameListPage<Row> {
             has_more: false,
             state: IndexNameListLoadState::NotStarted,
             generation: 0,
+            from: None,
             pending: None,
             revision: Revision::default(),
         }
@@ -122,6 +129,21 @@ impl<Row> IndexNameListPage<Row> {
     #[must_use]
     pub(crate) const fn has_more(&self) -> bool {
         self.has_more
+    }
+
+    /// The `from` text of the list, or `None` for the start of the list.
+    #[must_use]
+    pub(crate) fn from(&self) -> Option<&str> {
+        self.from.as_deref()
+    }
+
+    /// Starts the list again at `from` (ADR 0089 Decision 6, the letter
+    /// bar). The loaded rows go, and page 1 loads from `from`. `None`
+    /// starts the list at its first row. The result is the request of page 1.
+    #[must_use]
+    pub(crate) fn begin_from(&mut self, from: Option<String>) -> Option<IndexNameListLoadIntent> {
+        self.from = from;
+        self.begin_load(false)
     }
 
     /// Whether no request was sent.
@@ -157,6 +179,7 @@ impl<Row> IndexNameListPage<Row> {
             return Some(IndexNameListLoadIntent {
                 cursor: self.cursor.clone(),
                 generation: self.generation,
+                from: self.from.clone(),
             });
         }
         self.generation += 1;
@@ -169,6 +192,7 @@ impl<Row> IndexNameListPage<Row> {
         Some(IndexNameListLoadIntent {
             cursor: None,
             generation: self.generation,
+            from: self.from.clone(),
         })
     }
 
@@ -604,5 +628,34 @@ mod tests {
             panic!("more pages give Load more");
         };
         assert_eq!(load_more.a11y_label, "Load more MusicIndex releases");
+    }
+
+    /// ADR 0089 Decision 6: a letter starts the list at its `from` text.
+    /// The loaded rows go, page 1 carries the text, and a load of the same
+    /// list keeps it.
+    #[test]
+    fn adr_0089_letter_from_restarts_the_list_at_the_letter() {
+        let mut page: IndexNameListPage<u8> = IndexNameListPage::default();
+        let intent = page
+            .begin_from(Some("b".to_owned()))
+            .expect("page 1 is requested");
+        assert_eq!(intent.cursor, None);
+        assert_eq!(intent.from.as_deref(), Some("b"));
+        assert_eq!(page.from(), Some("b"));
+        assert!(page.finish_load(
+            IndexNameListBatch {
+                rows: vec![1, 2],
+                cursor: None,
+                has_more: false,
+            },
+            intent.generation,
+        ));
+
+        let intent = page.begin_from(None).expect("page 1 is requested");
+        assert_eq!(intent.from, None, "hash starts the list at its first row");
+        assert!(page.rows().is_empty(), "the loaded rows go");
+
+        let again = page.begin_load(false).expect("page 1 is requested");
+        assert_eq!(again.from, None, "a plain load keeps the text of the list");
     }
 }

@@ -37,3 +37,4 @@ Each entry names the step, the decision and the reason.
 - Packet 004, the In Library count: it counts each release that the scope holds, so a singles group of five counts five.
 - Packet 005: the orchestrator divided it into Parts A to D, because the first agent stopped on its size before any edit.
 - Packet 005, Artists: Artists has one sort, A to Z. The packet states the evidence.
+- Packet 005 Part A: a first letter outside ASCII counts as "#". A later rule for sort keys can change this.

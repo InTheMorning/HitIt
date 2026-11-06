@@ -37,8 +37,12 @@ use crate::view_models::index_feed_singles::{finish_release_page, FeedSinglesRes
 use crate::view_models::index_name_list::{
     IndexNameListBatch, IndexNameListLoadIntent, IndexNameListPage,
 };
-use crate::view_models::library::AlbumNode;
-use crate::view_models::list_page::{needs_first_page, ListPageKey, ListScope};
+use crate::view_models::letter_bar::{first_letter_index, LetterKey};
+use crate::view_models::library::{
+    AlbumNode, ArtistsListItemVm, LibraryViewModel, ReleasesListItemVm,
+};
+use crate::view_models::list_page::{needs_first_page, ListPageKey, ListScope, ListSort};
+use crate::view_models::list_selection::{ListSelection, SelectionMode};
 use crate::view_models::releases_everything::{reset_selection_on_scope_change, ReleasesListRows};
 use crate::view_models::singles_group::{
     group_page_feed_to_read, index_page_feed_to_read, library_page_feed_to_read, SinglesGroupKey,
@@ -56,6 +60,7 @@ impl LibraryApp {
         self.vm.cached_releases_rows(
             &mut self.releases_list_cache.borrow_mut(),
             self.vm.list_scope(ListPageKey::Releases),
+            self.releases_sort(),
             &self.release_name_page,
             &self.expanded_singles_groups,
         )
@@ -85,6 +90,113 @@ impl LibraryApp {
         }
         self.request_default_name_list(cx);
         cx.notify();
+    }
+
+    /// The sort of the Releases list (ADR 0089 Decision 5). A page with no
+    /// sort gives the default, Newest.
+    #[must_use]
+    pub(crate) fn releases_sort(&self) -> ListSort {
+        self.vm
+            .list_sort(ListPageKey::Releases)
+            .unwrap_or(ListSort::Newest)
+    }
+
+    /// Sets the sort of the list page `key` (ADR 0089 Decision 5). The
+    /// letter of the page goes with the old sort. The Releases selection
+    /// ends too, because the rows of the new sort are another list.
+    pub(crate) fn set_list_sort(
+        &mut self,
+        key: ListPageKey,
+        sort: ListSort,
+        cx: &mut Context<Self>,
+    ) {
+        if self.vm.list_sort(key) == Some(sort) {
+            return;
+        }
+        self.restart_name_list_at(key, None, cx);
+        self.vm.set_list_sort(key, sort);
+        if key == ListPageKey::Releases {
+            self.releases_selection = ListSelection::new();
+            self.releases_selection_mode = SelectionMode::Normal;
+        }
+        cx.notify();
+    }
+
+    /// Selects the letter `letter` of the list page `key` (ADR 0089
+    /// Decision 6, R-LIST-1 item 2). In the scope "All" the letter starts
+    /// the name list at its key, and the rows of the list are replaced. In
+    /// the scope "In Library" the list moves to the first row of the key.
+    pub(crate) fn set_list_letter(
+        &mut self,
+        key: ListPageKey,
+        letter: Option<LetterKey>,
+        cx: &mut Context<Self>,
+    ) {
+        self.vm.set_list_letter(key, letter);
+        match self.vm.list_scope(key) {
+            ListScope::All => {
+                self.restart_name_list_at(key, letter.and_then(LetterKey::to_from_text), cx);
+            }
+            ListScope::InLibrary => {
+                if let Some(letter) = letter {
+                    self.scroll_list_to_letter(key, letter);
+                }
+            }
+        }
+        cx.notify();
+    }
+
+    /// Starts the name list of `key` again at `from`, when the list starts
+    /// at another text now. The request is sent in every scope, so the
+    /// list state keeps the text of its letter.
+    fn restart_name_list_at(
+        &mut self,
+        key: ListPageKey,
+        from: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        match key {
+            ListPageKey::Releases => {
+                if self.release_name_page.from() == from.as_deref() {
+                    return;
+                }
+                let intent = self.release_name_page.begin_from(from);
+                self.send_release_name_request(intent, cx);
+            }
+            ListPageKey::Artists => {
+                if self.artist_name_page.from() == from.as_deref() {
+                    return;
+                }
+                let intent = self.artist_name_page.begin_from(from);
+                self.send_artist_name_request(intent, cx);
+            }
+            ListPageKey::MyPlaylists => {}
+        }
+    }
+
+    /// Moves the In Library list of `key` to the first row of `letter`. A
+    /// list with no row of the letter stays where it is.
+    fn scroll_list_to_letter(&mut self, key: ListPageKey, letter: LetterKey) {
+        match key {
+            ListPageKey::Releases => {
+                let rows = self.releases_rows();
+                let labels = rows.items().iter().map(ReleasesListItemVm::label);
+                if let Some(index) = first_letter_index(labels, letter) {
+                    self.releases_list_state.scroll_to_reveal_item(index);
+                }
+            }
+            ListPageKey::Artists => {
+                let scope = self.vm.list_scope(ListPageKey::Artists);
+                let rows = self.vm.artists_list(scope, &self.artist_name_page);
+                let status = LibraryViewModel::artists_list_status(scope, &self.artist_name_page);
+                let items = ArtistsListItemVm::of(rows, status);
+                let labels = items.iter().map(ArtistsListItemVm::label);
+                if let Some(index) = first_letter_index(labels, letter) {
+                    self.artists_list_state.scroll_to_reveal_item(index);
+                }
+            }
+            ListPageKey::MyPlaylists => {}
+        }
     }
 
     /// Sends page 1 of the name list of the active destination, when its
@@ -157,10 +269,15 @@ impl LibraryApp {
         intent: Option<IndexNameListLoadIntent>,
         cx: &mut Context<Self>,
     ) {
-        let Some(IndexNameListLoadIntent { cursor, generation }) = intent else {
+        let Some(IndexNameListLoadIntent {
+            cursor,
+            generation,
+            from,
+        }) = intent
+        else {
             return;
         };
-        let command = FetchReleaseNamePage::new(self.musicindex_endpoint.clone(), cursor);
+        let command = FetchReleaseNamePage::new(self.musicindex_endpoint.clone(), cursor, from);
         self.send_release_page_command(command, generation, cx);
     }
 
@@ -306,7 +423,7 @@ impl LibraryApp {
         let endpoint = self.musicindex_endpoint.clone();
         self.send_name_request(
             intent,
-            |cursor| FetchArtistNamePage::new(endpoint, cursor),
+            |cursor, from| FetchArtistNamePage::new(endpoint, cursor, from),
             |this| &mut this.artist_name_page,
             cx,
         );
@@ -319,20 +436,25 @@ impl LibraryApp {
     fn send_name_request<C, Row>(
         &mut self,
         intent: Option<IndexNameListLoadIntent>,
-        command: impl FnOnce(Option<String>) -> C,
+        command: impl FnOnce(Option<String>, Option<String>) -> C,
         page: fn(&mut Self) -> &mut IndexNameListPage<Row>,
         cx: &mut Context<Self>,
     ) where
         C: ApplicationCommand<Output = IndexNameListBatch<Row>>,
         Row: 'static,
     {
-        let Some(IndexNameListLoadIntent { cursor, generation }) = intent else {
+        let Some(IndexNameListLoadIntent {
+            cursor,
+            generation,
+            from,
+        }) = intent
+        else {
             return;
         };
         cx.notify();
         present_command(
             &self.command_runner,
-            command(cursor),
+            command(cursor, from),
             CommandContext::next(),
             cx,
             move |this, batch, cx| {

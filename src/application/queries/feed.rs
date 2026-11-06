@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use rusqlite::Connection;
 
-use crate::api::{Client, Feed};
+use crate::api::{Client, Feed, FeedMedium};
 use crate::application::application_query_service::ApplicationQueryService;
 use crate::application::command_bus::{ApplicationCommand, CommandOutcome, CommandResult};
 use crate::application::command_context::CommandContext;
@@ -129,7 +129,8 @@ fn fetch_recent_feed_result_rows(
     start_index: usize,
 ) -> Result<RecentFeedsPageBatch> {
     let client = crate::api::Client::new_with_base_url(endpoint.clone());
-    let response = client.fetch_recent_feeds(Some(crate::api::PAGE_LIMIT), cursor)?;
+    let response =
+        client.fetch_recent_feeds(Some(crate::api::PAGE_LIMIT), cursor, FeedMedium::Music)?;
     let feeds = response.data;
 
     let next_index = AtomicUsize::new(0);
@@ -997,7 +998,7 @@ mod adr_0086_parallel_reads_tests {
         );
         assert_eq!(
             *requests.lock().unwrap(),
-            ["/v1/feeds/recent?limit=20"],
+            ["/v1/feeds/recent?limit=20&medium=music"],
             "R86-1-05: a list feed with no feed GUID sends no detail request"
         );
     }
