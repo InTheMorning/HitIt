@@ -6,13 +6,19 @@
 
 #![warn(clippy::pedantic)]
 
-use gpui::Context;
+use gpui::{Context, Entity, Window};
+use gpui_component::input::{InputEvent, InputState};
 
 use crate::view_models::search_page::HowToSearchDisclosure;
 
 use super::LibraryApp;
-use crate::db::saved_searches::{self, SavedSearchInsert, StoredStartTab};
-use crate::view_models::search_results::{SavedSearch, SavedSearchId, SearchResultsTab};
+use crate::db::saved_searches::{
+    self, SavedSearchCopy, SavedSearchInsert, SavedSearchWrite, StoredStartTab,
+};
+use crate::view_models::search_results::{
+    SavedSearch, SavedSearchId, SearchResultsTab, SAVED_SEARCH_COPY_CONFLICT_TEXT,
+    SAVED_SEARCH_MISSING_TEXT,
+};
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
 impl LibraryApp {
@@ -86,6 +92,95 @@ impl LibraryApp {
     /// Decisions 3 and 9), as `open_discover_view` does.
     pub(crate) fn open_saved_search_row(&mut self, search: &SavedSearch, cx: &mut Context<Self>) {
         self.open_page(search.entry(), NavigationPathStart::ListRow, cx);
+    }
+
+    /// Shows the rename input in the row of `search`, with its current text.
+    pub(crate) fn begin_saved_search_rename(
+        &mut self,
+        search: &SavedSearch,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let current = search.display_label().to_owned();
+        self.saved_search_renaming = Some(search.id);
+        self.saved_search_message = None;
+        self.saved_search_rename_input.update(cx, |input, cx| {
+            input.set_value(current, window, cx);
+            input.focus(window, cx);
+        });
+        cx.notify();
+    }
+
+    /// Saves the name in the rename input (ADR 0089 Decision 4). A blank
+    /// name clears the name. A saved search that no longer exists gives the
+    /// missing text. A database error keeps the input open.
+    pub(crate) fn submit_saved_search_rename(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.saved_search_renaming else {
+            return;
+        };
+        let name = self.saved_search_rename_input.read(cx).value().to_string();
+        let written = {
+            let conn = self.conn.lock().expect("lock db");
+            saved_searches::rename_saved_search(&conn, id.0, &name)
+        };
+        match written {
+            Ok(SavedSearchWrite::Written) => {
+                self.saved_search_renaming = None;
+                self.saved_search_message = None;
+                self.reload_saved_searches();
+            }
+            Ok(SavedSearchWrite::Missing) => {
+                self.saved_search_renaming = None;
+                self.saved_search_message = Some(SAVED_SEARCH_MISSING_TEXT.to_owned());
+                self.reload_saved_searches();
+            }
+            Err(error) => {
+                self.saved_search_message = Some(format!(
+                    "The app could not rename the saved search: {error:#}"
+                ));
+            }
+        }
+        cx.notify();
+    }
+
+    /// Ends the rename of a saved search row without a change.
+    pub(crate) fn cancel_saved_search_rename(&mut self, cx: &mut Context<Self>) {
+        self.saved_search_renaming = None;
+        self.saved_search_message = None;
+        cx.notify();
+    }
+
+    /// The Enter key of the rename input saves the name.
+    pub(crate) fn on_saved_search_rename_event(
+        &mut self,
+        _entity: Entity<InputState>,
+        event: &InputEvent,
+        cx: &mut Context<Self>,
+    ) {
+        if let InputEvent::PressEnter { .. } = event {
+            self.submit_saved_search_rename(cx);
+        }
+    }
+
+    /// Copies the saved search `id` as a new row, in place (ADR 0089
+    /// Decision 4). The new row takes the name of the original with " copy".
+    /// A copy whose text is saved already gives the conflict text.
+    pub(crate) fn duplicate_saved_search_row(&mut self, id: SavedSearchId, cx: &mut Context<Self>) {
+        let created_at = chrono::Utc::now().timestamp();
+        let copied = {
+            let conn = self.conn.lock().expect("lock db");
+            saved_searches::duplicate_saved_search(&conn, id.0, created_at)
+        };
+        self.saved_search_message = match copied {
+            Ok(SavedSearchCopy::Copied(_)) => None,
+            Ok(SavedSearchCopy::AlreadySaved) => Some(SAVED_SEARCH_COPY_CONFLICT_TEXT.to_owned()),
+            Ok(SavedSearchCopy::Missing) => Some(SAVED_SEARCH_MISSING_TEXT.to_owned()),
+            Err(error) => Some(format!(
+                "The app could not duplicate the saved search: {error:#}"
+            )),
+        };
+        self.reload_saved_searches();
+        cx.notify();
     }
 
     /// Shows or hides the steps of "How to Search" (ADR 0089 Decision 4).

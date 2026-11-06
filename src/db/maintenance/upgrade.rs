@@ -381,7 +381,7 @@ mod tests {
             };
             assert_eq!(prepared.receipt.state, PreparationState::Upgraded);
             let receipt = &prepared.receipt;
-            assert_eq!(receipt.target, 21);
+            assert_eq!(receipt.target, 22);
             assert!(receipt.started_at <= receipt.preserved_at.unwrap());
             assert!(receipt.preserved_at <= receipt.snapshot_verified_at);
             assert!(receipt.snapshot_verified_at.unwrap() <= receipt.finished_at);
@@ -392,7 +392,7 @@ mod tests {
             assert!(receipt.manifest.as_ref().unwrap().is_file());
             let report = crate::view_models::startup::preparation_report(receipt);
             assert!(report.contains(&receipt.snapshot.as_ref().unwrap().display().to_string()));
-            assert!(report.contains("Target schema version: 21"));
+            assert!(report.contains("Target schema version: 22"));
         }
     }
 

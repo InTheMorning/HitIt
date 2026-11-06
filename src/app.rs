@@ -715,6 +715,9 @@ impl TopApp {
                     .update(cx, |input, cx| input.set_value(text, window, cx));
                 self.open_search_results_in_content_list(query, window, cx);
             }
+            SearchPageAction::DeleteSavedSearch(search) => {
+                Self::request_saved_search_delete_for(search, window, cx);
+            }
         }
     }
 

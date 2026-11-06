@@ -1,9 +1,11 @@
-//! Saved searches (ADR 0084 Decision 3, packet 012).
+//! Saved searches (ADR 0084 Decision 3, packet 012; ADR 0089 Decision 4,
+//! packet 007).
 //!
 //! Migration 21 creates `saved_searches`. Each row is one toolbar search
 //! that the operator saved: the trimmed query text, the tab that was open
-//! at the save, and the time of the save. Discover shows each row as a
-//! view after "New releases".
+//! at the save, and the time of the save. Migration 22 adds the optional
+//! name column and the table `saved_search_seen`. No function writes the
+//! name or the seen table yet, so each row reads a null name.
 //!
 //! This module is the only writer of the table. The caller gives each
 //! time, so no function here reads the clock.
@@ -11,7 +13,7 @@
 #![warn(clippy::pedantic)]
 
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection, ErrorCode};
+use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 
 /// The read contract of `saved_searches` after migration 21.
 pub(super) const COLUMNS: &[(&str, &[&str])] = &[(
@@ -72,6 +74,8 @@ pub(crate) struct StoredSavedSearch {
     pub(crate) query: String,
     pub(crate) start_tab: StoredStartTab,
     pub(crate) created_at: i64,
+    /// The name that the operator gave, or `None` for the query text.
+    pub(crate) name: Option<String>,
 }
 
 /// The result of [`insert_saved_search`].
@@ -93,12 +97,33 @@ pub(crate) fn insert_saved_search(
     start_tab: StoredStartTab,
     created_at: i64,
 ) -> Result<SavedSearchInsert> {
+    insert_row(conn, query, start_tab, None, created_at)
+}
+
+/// Inserts one row with an optional name. The query is trimmed and must not
+/// be empty. A query that another row holds gives `AlreadySaved`.
+fn insert_row(
+    conn: &Connection,
+    query: &str,
+    start_tab: StoredStartTab,
+    name: Option<&str>,
+    created_at: i64,
+) -> Result<SavedSearchInsert> {
     let query = query.trim();
     anyhow::ensure!(!query.is_empty(), "A saved search needs a query");
-    match conn.execute(
-        "INSERT INTO saved_searches (query, start_tab, created_at) VALUES (?1, ?2, ?3)",
-        params![query, start_tab.as_str(), created_at],
-    ) {
+    // A row with no name uses the migration-21 columns, so the insert also
+    // runs on a database at version 21.
+    let result = match name {
+        None => conn.execute(
+            "INSERT INTO saved_searches (query, start_tab, created_at) VALUES (?1, ?2, ?3)",
+            params![query, start_tab.as_str(), created_at],
+        ),
+        Some(name) => conn.execute(
+            "INSERT INTO saved_searches (query, start_tab, created_at, name) VALUES (?1, ?2, ?3, ?4)",
+            params![query, start_tab.as_str(), created_at, name],
+        ),
+    };
+    match result {
         Ok(_) => Ok(SavedSearchInsert::Inserted(conn.last_insert_rowid())),
         Err(rusqlite::Error::SqliteFailure(error, _))
             if error.code == ErrorCode::ConstraintViolation =>
@@ -109,10 +134,95 @@ pub(crate) fn insert_saved_search(
     }
 }
 
+/// The result of a rename of a saved search (ADR 0089 Decision 4).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SavedSearchWrite {
+    /// The name changed. A blank name clears it.
+    Written,
+    /// No row has this id. The table does not change.
+    Missing,
+}
+
+/// The result of a copy of a saved search (ADR 0089 Decision 4).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SavedSearchCopy {
+    /// The copy is stored with this id.
+    Copied(i64),
+    /// The copy text is already saved by another row. The table does not
+    /// change.
+    AlreadySaved,
+    /// No row has the id that was copied. The table does not change.
+    Missing,
+}
+
+/// Sets the name of the saved search `id`. A blank name clears it, so the
+/// row shows its query text again.
+pub(crate) fn rename_saved_search(
+    conn: &Connection,
+    id: i64,
+    name: &str,
+) -> Result<SavedSearchWrite> {
+    let name = name.trim();
+    let stored = (!name.is_empty()).then_some(name);
+    let changed = conn
+        .execute(
+            "UPDATE saved_searches SET name = ?2 WHERE id = ?1",
+            params![id, stored],
+        )
+        .context("Rename the saved search")?;
+    Ok(if changed == 0 {
+        SavedSearchWrite::Missing
+    } else {
+        SavedSearchWrite::Written
+    })
+}
+
+/// Copies the saved search `id` as a new row. The copy text is the query of
+/// the original followed by " copy", so the unique query index accepts it.
+/// The copy name is the label of the original followed by " copy". The row
+/// keeps the start tab and gets the time `created_at`.
+pub(crate) fn duplicate_saved_search(
+    conn: &Connection,
+    id: i64,
+    created_at: i64,
+) -> Result<SavedSearchCopy> {
+    let original = conn
+        .query_row(
+            "SELECT query, start_tab, name FROM saved_searches WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            },
+        )
+        .optional()
+        .context("Read the saved search to copy")?;
+    let Some((query, start_tab, name)) = original else {
+        return Ok(SavedSearchCopy::Missing);
+    };
+    let start_tab = StoredStartTab::parse(&start_tab)
+        .with_context(|| format!("Saved search {id} has an unknown tab"))?;
+    let label = name.unwrap_or_else(|| query.clone());
+    let copy_name = format!("{label} copy");
+    match insert_row(
+        conn,
+        &format!("{query} copy"),
+        start_tab,
+        Some(&copy_name),
+        created_at,
+    )? {
+        SavedSearchInsert::Inserted(copy_id) => Ok(SavedSearchCopy::Copied(copy_id)),
+        SavedSearchInsert::AlreadySaved => Ok(SavedSearchCopy::AlreadySaved),
+    }
+}
+
 /// Each saved search, in `id` order.
 pub(crate) fn saved_searches(conn: &Connection) -> Result<Vec<StoredSavedSearch>> {
     let mut statement = conn
-        .prepare("SELECT id, query, start_tab, created_at FROM saved_searches ORDER BY id")
+        .prepare("SELECT id, query, start_tab, created_at, name FROM saved_searches ORDER BY id")
         .context("Read the saved searches")?;
     let rows = statement
         .query_map([], |row| {
@@ -121,12 +231,13 @@ pub(crate) fn saved_searches(conn: &Connection) -> Result<Vec<StoredSavedSearch>
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, i64>(3)?,
+                row.get::<_, Option<String>>(4)?,
             ))
         })
         .context("Read the saved searches")?;
     let mut searches = Vec::new();
     for row in rows {
-        let (id, query, start_tab, created_at) = row.context("Read a saved search")?;
+        let (id, query, start_tab, created_at, name) = row.context("Read a saved search")?;
         let start_tab = StoredStartTab::parse(&start_tab)
             .with_context(|| format!("Saved search {id} has the unknown tab {start_tab}"))?;
         searches.push(StoredSavedSearch {
@@ -134,6 +245,7 @@ pub(crate) fn saved_searches(conn: &Connection) -> Result<Vec<StoredSavedSearch>
             query,
             start_tab,
             created_at,
+            name,
         });
     }
     Ok(searches)
@@ -152,13 +264,14 @@ mod tests {
     use rusqlite::Connection;
 
     use super::{
-        delete_saved_search, insert_saved_search, saved_searches, SavedSearchInsert, StoredStartTab,
+        delete_saved_search, duplicate_saved_search, insert_saved_search, rename_saved_search,
+        saved_searches, SavedSearchCopy, SavedSearchInsert, SavedSearchWrite, StoredStartTab,
     };
     use crate::db::{inspect_schema, upgrades, SchemaCompatibility, CURRENT_VERSION, MIGRATIONS};
 
     /// R12-01 (ADR 0084 Decision 3): migration 21 adds `saved_searches` to
     /// a schema 20 database. Each retained record stays, the new table is
-    /// empty, and `CURRENT_VERSION` is 21.
+    /// empty. Migration 22 is not applied at target 21.
     #[test]
     fn adr_0084_saved_search_r12_01_version_20_migrates_to_21() {
         let conn = Connection::open_in_memory().unwrap();
@@ -183,8 +296,15 @@ mod tests {
 
         crate::db::migrate_schema_to(&conn, 21).unwrap();
 
-        assert_eq!(CURRENT_VERSION, 21);
-        assert_eq!(inspect_schema(&conn).unwrap(), SchemaCompatibility::Current);
+        // Migration 22 is later in the registry, so version 21 is a partial
+        // upgrade: the table exists, and migration 22 is not yet applied.
+        assert_eq!(
+            inspect_schema(&conn).unwrap(),
+            SchemaCompatibility::UpgradeRequired {
+                applied: 21,
+                current: MIGRATIONS.len()
+            }
+        );
         upgrades::verify_target(&conn, 21).unwrap();
         let name: String = conn
             .query_row(
@@ -208,7 +328,10 @@ mod tests {
             })
             .unwrap();
         assert_eq!(playlist, "Friday Show");
-        assert!(saved_searches(&conn).unwrap().is_empty());
+        let saved: i64 = conn
+            .query_row("SELECT count(*) FROM saved_searches", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(saved, 0, "the new table is empty at version 21");
     }
 
     /// R12-02 (ADR 0084 Decision 3): the three functions keep the `id`
@@ -276,5 +399,146 @@ mod tests {
                 [],
             )
             .is_err());
+    }
+
+    /// ADR 0089 Decision 4 (packet 007): migration 22 adds the name column
+    /// and the seen table to a schema 21 database. The retained saved search
+    /// keeps its query, its name is empty, and the seen table is empty.
+    #[test]
+    fn adr_0089_saved_search_seen_r22_01_version_21_migrates_to_22() {
+        let conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, 21).unwrap();
+        insert_saved_search(&conn, "bluegrass", StoredStartTab::Tracks, 100).unwrap();
+        assert_eq!(
+            inspect_schema(&conn).unwrap(),
+            SchemaCompatibility::UpgradeRequired {
+                applied: 21,
+                current: MIGRATIONS.len()
+            }
+        );
+
+        crate::db::migrate_schema_to(&conn, 22).unwrap();
+
+        assert_eq!(CURRENT_VERSION, 22);
+        assert_eq!(inspect_schema(&conn).unwrap(), SchemaCompatibility::Current);
+        upgrades::verify_target(&conn, 22).unwrap();
+        let stored = saved_searches(&conn).unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].query, "bluegrass");
+        assert_eq!(stored[0].name, None);
+        let seen: i64 = conn
+            .query_row("SELECT count(*) FROM saved_search_seen", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(seen, 0, "the seen table is empty after migration 22");
+    }
+
+    /// ADR 0089 Decision 4 (packet 007): a failed migration 22 rolls back. The
+    /// name column and the seen table do not remain, the ledger does not
+    /// record 22, and the saved search of version 21 keeps its query.
+    #[test]
+    fn adr_0089_saved_search_seen_r22_04_failed_migration_rolls_back() {
+        for boundary in [
+            crate::db::MigrationBoundary::BeforeApply,
+            crate::db::MigrationBoundary::AfterApply,
+            crate::db::MigrationBoundary::AfterRecord,
+        ] {
+            let conn = Connection::open_in_memory().unwrap();
+            upgrades::create_fixture(&conn, 21).unwrap();
+            insert_saved_search(&conn, "bluegrass", StoredStartTab::Tracks, 100).unwrap();
+
+            let result = crate::db::migrate_schema_with(&conn, 22, |version, reached| {
+                anyhow::ensure!(
+                    version != 22 || reached != boundary,
+                    "Injected migration failure"
+                );
+                Ok(())
+            });
+
+            assert!(result.is_err(), "the injected failure stops migration 22");
+            assert!(conn.is_autocommit());
+            upgrades::verify_target(&conn, 21).unwrap();
+            let name_columns: i64 = conn
+                .query_row(
+                    "SELECT count(*) FROM pragma_table_info('saved_searches') WHERE name = 'name'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(name_columns, 0, "the name column is rolled back");
+            assert_eq!(saved_searches_query_count(&conn), 1);
+        }
+    }
+
+    fn saved_searches_query_count(conn: &Connection) -> i64 {
+        conn.query_row("SELECT count(*) FROM saved_searches", [], |row| row.get(0))
+            .unwrap()
+    }
+
+    /// ADR 0089 Decision 4 (packet 007): rename sets or clears the name, and
+    /// reports a missing row. Duplicate copies the query with " copy" and
+    /// the name with " copy", and a copy that is already saved gives the
+    /// typed result.
+    #[test]
+    fn adr_0089_saved_search_seen_r22_02_rename_and_duplicate_return_typed_results() {
+        let conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, CURRENT_VERSION).unwrap();
+        let SavedSearchInsert::Inserted(first) =
+            insert_saved_search(&conn, "bluegrass", StoredStartTab::Tracks, 100).unwrap()
+        else {
+            panic!("the first query is inserted");
+        };
+
+        assert_eq!(
+            rename_saved_search(&conn, first, " Old time ").unwrap(),
+            SavedSearchWrite::Written
+        );
+        assert_eq!(
+            saved_searches(&conn).unwrap()[0].name.as_deref(),
+            Some("Old time")
+        );
+        assert_eq!(
+            rename_saved_search(&conn, first, "   ").unwrap(),
+            SavedSearchWrite::Written
+        );
+        assert_eq!(saved_searches(&conn).unwrap()[0].name, None);
+        assert_eq!(
+            rename_saved_search(&conn, 999, "x").unwrap(),
+            SavedSearchWrite::Missing
+        );
+
+        let SavedSearchCopy::Copied(copy_id) = duplicate_saved_search(&conn, first, 300).unwrap()
+        else {
+            panic!("the copy is stored");
+        };
+        let stored = saved_searches(&conn).unwrap();
+        let copied = stored.iter().find(|search| search.id == copy_id).unwrap();
+        assert_eq!(copied.query, "bluegrass copy");
+        assert_eq!(copied.name.as_deref(), Some("bluegrass copy"));
+        assert_eq!(copied.start_tab, StoredStartTab::Tracks);
+
+        rename_saved_search(&conn, first, "Old time").unwrap();
+        let SavedSearchCopy::Copied(second_copy) =
+            duplicate_saved_search(&conn, copy_id, 400).unwrap()
+        else {
+            panic!("a copy of the copy is stored");
+        };
+        let listed = saved_searches(&conn).unwrap();
+        let named = listed
+            .iter()
+            .find(|search| search.id == second_copy)
+            .unwrap();
+        assert_eq!(named.query, "bluegrass copy copy");
+        assert_eq!(named.name.as_deref(), Some("bluegrass copy copy"));
+        assert_eq!(
+            duplicate_saved_search(&conn, first, 500).unwrap(),
+            SavedSearchCopy::AlreadySaved,
+            "the copy query \"bluegrass copy\" is already saved"
+        );
+        assert_eq!(
+            duplicate_saved_search(&conn, 999, 1).unwrap(),
+            SavedSearchCopy::Missing
+        );
     }
 }

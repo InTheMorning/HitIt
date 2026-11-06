@@ -47,10 +47,12 @@ pub(crate) use rows::{
     SearchReleaseWindowFacts, SearchResultRowVm, SearchRowBadge,
 };
 pub(crate) use saved_search::{
-    delete_saved_search_confirmation, location_after_saved_search_delete, save_search_action,
-    saved_search_label, saved_search_restore, saved_search_result_is_current, SavedSearch,
-    SavedSearchDeleteConfirmation, SavedSearchId, SavedSearchPage, SavedSearchRestore,
-    SearchPageActionDisplay, SearchPageActionStyle,
+    delete_saved_search_confirmation, location_after_saved_search_delete, new_saved_search_action,
+    save_search_action, saved_search_label, saved_search_menu, saved_search_rename_display,
+    saved_search_restore, saved_search_result_is_current, SavedSearch,
+    SavedSearchDeleteConfirmation, SavedSearchId, SavedSearchMenuEntry, SavedSearchMenuItem,
+    SavedSearchPage, SavedSearchRenameDisplay, SavedSearchRestore, SearchPageActionDisplay,
+    SearchPageActionStyle, SAVED_SEARCH_COPY_CONFLICT_TEXT, SAVED_SEARCH_MISSING_TEXT,
 };
 pub(crate) use saved_search_groups::{saved_search_window_page, SearchResultItemVm};
 pub(crate) use search_run::{

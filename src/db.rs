@@ -2822,6 +2822,7 @@ pub(crate) mod publisher_link_facts;
 pub(crate) mod publisher_relationships;
 pub mod rss_check_runs;
 pub(crate) mod rss_field_holds;
+pub(crate) mod saved_search_seen;
 pub(crate) mod saved_searches;
 pub mod startup;
 pub(crate) mod upgrades;
@@ -2837,7 +2838,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 21;
+pub(crate) const CURRENT_VERSION: i64 = 22;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -2944,6 +2945,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 21,
         name: "saved_searches",
         apply: saved_searches::apply,
+    },
+    Migration {
+        version: 22,
+        name: "saved_search_seen",
+        apply: saved_search_seen::apply,
     },
 ];
 
@@ -3065,7 +3071,8 @@ fn matches_contract(conn: &Connection, version: i64) -> rusqlite::Result<bool> {
 /// 0.7.0 (ADR 0082 Decision 2), migration 19 adds the RSS position of
 /// each named feed (ADR 0085 Decision 6), migration 20 adds the channel
 /// image of each named feed (ADR 0084 Decision 12), and migration 21 adds
-/// the saved search table (ADR 0084 Decision 3).
+/// the saved search table (ADR 0084 Decision 3), and migration 22 adds the
+/// saved search name and the seen result table (ADR 0089 Decision 4).
 pub(crate) fn schema_contract(
     version: i64,
 ) -> impl Iterator<Item = &'static (&'static str, &'static [&'static str])> {
@@ -3115,8 +3122,15 @@ pub(crate) fn schema_contract(
         } else {
             &[]
         })
-        .chain(if version >= 21 {
+        .chain(if version >= 22 {
+            saved_search_seen::EXTENDED_COLUMNS
+        } else if version >= 21 {
             saved_searches::COLUMNS
+        } else {
+            &[]
+        })
+        .chain(if version >= 22 {
+            saved_search_seen::COLUMNS
         } else {
             &[]
         })
@@ -3435,7 +3449,7 @@ fn migrate_schema_internal(
         }
         let baseline = match migration.version {
             12 if verify => Some(upgrades::legacy_digest(conn)?),
-            13..=21 if verify => Some(upgrades::retained_digest(conn)?),
+            13..=22 if verify => Some(upgrades::retained_digest(conn)?),
             _ => None,
         };
         boundary(migration.version, MigrationBoundary::BeforeApply)?;
@@ -3444,6 +3458,18 @@ fn migrate_schema_internal(
         boundary(migration.version, MigrationBoundary::AfterApply)?;
         record_migration(conn, migration.version, migration.name)?;
         boundary(migration.version, MigrationBoundary::AfterRecord)?;
+        if let (22, Some(before)) = (migration.version, baseline.as_ref()) {
+            upgrades::verify_target(conn, 22)?;
+            anyhow::ensure!(
+                upgrades::retained_digest(conn)? == *before,
+                "Migration changed retained records"
+            );
+            let count: i64 =
+                conn.query_row("SELECT count(*) FROM saved_search_seen", [], |row| {
+                    row.get(0)
+                })?;
+            anyhow::ensure!(count == 0, "Migration created unexpected seen results");
+        }
         if let (21, Some(before)) = (migration.version, baseline.as_ref()) {
             upgrades::verify_target(conn, 21)?;
             anyhow::ensure!(
@@ -5045,7 +5071,7 @@ mod tests {
         );
         assert_eq!(
             applied_migration_versions(&conn)?,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
             "ADR 0016: fresh schema should record all registry migrations"
         );
 
@@ -5386,7 +5412,7 @@ mod tests {
         );
         assert_eq!(
             applied_migration_versions(&conn)?,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
             "cleanup migration should be recorded exactly once"
         );
 

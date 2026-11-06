@@ -76,7 +76,7 @@ use crate::ui::shells::library::index_list_status::IndexListActions;
 use crate::ui::shells::library::releases_tiles::{
     render_releases_list_tile, render_releases_tile_grid,
 };
-use crate::ui::shells::library::search_page_list::render_search_page_list;
+use crate::ui::shells::library::search_page_list::{render_search_page_list, SearchPageListRename};
 use crate::ui::shells::library::sidebar::{render_sidebar_row, render_sidebar_separator};
 use crate::ui::shells::library::track_detail_metadata::track_metadata_rows_for_frame;
 use crate::ui::shells::library_removal_confirmation::{
@@ -1059,6 +1059,13 @@ impl LibraryApp {
         });
         let rename_playlist_sub =
             cx.subscribe(&rename_playlist_input, Self::on_rename_playlist_event);
+        let saved_search_rename_input = cx.new(|cx: &mut Context<InputState>| {
+            InputState::new(window, cx).placeholder("Saved search name")
+        });
+        let saved_search_rename_sub = cx.subscribe(
+            &saved_search_rename_input,
+            Self::on_saved_search_rename_event,
+        );
         let command_runner = match runtime_host.as_ref() {
             Some(host) => AsyncCommandRunner::with_vm_bus_on_handle(
                 application_services.command_bus(),
@@ -1097,6 +1104,10 @@ impl LibraryApp {
             new_playlist_input,
             rename_playlist_input,
             _rename_playlist_sub: rename_playlist_sub,
+            saved_search_rename_input,
+            _saved_search_rename_sub: saved_search_rename_sub,
+            saved_search_renaming: None,
+            saved_search_message: None,
             runtime_host,
             playlist_actor: None,
             musicbrainz_feed_saga: None,
@@ -5022,8 +5033,19 @@ impl LibraryApp {
         let mut page_head: Option<AnyElement> = None;
         let content_list_pane = match self.vm.active_destination() {
             MusicDestination::Search => {
-                let vm = SearchPageVm::new(&self.saved_searches, self.open_saved_search);
-                render_search_page_list(&vm, self.how_to_search, &self.search_page_scroll, cx)
+                let vm = SearchPageVm::new(&self.saved_searches, self.open_saved_search)
+                    .with_message(self.saved_search_message.clone());
+                let rename = SearchPageListRename {
+                    renaming: self.saved_search_renaming,
+                    input: &self.saved_search_rename_input,
+                };
+                render_search_page_list(
+                    &vm,
+                    self.how_to_search,
+                    &rename,
+                    &self.search_page_scroll,
+                    cx,
+                )
             }
             MusicDestination::NeedsAttention => {
                 let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();
