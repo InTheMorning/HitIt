@@ -98,8 +98,6 @@ pub(crate) struct SidebarRowVm {
     pub(crate) icon: SidebarIcon,
     /// The visible row name.
     pub(crate) label: &'static str,
-    /// The tooltip text, with the count when the row has one.
-    pub(crate) tooltip: String,
     /// The accessibility label, with the count when the row has one.
     pub(crate) a11y_label: String,
     /// The row's count, when it has one (Inbox and My playlists).
@@ -325,19 +323,12 @@ fn row(
     }
     .filter(|count| *count > 0);
     let label = label(destination);
-    let (tooltip, a11y_label) = match count {
-        Some(count) => {
-            let text = count_text(destination, count);
-            (text.clone(), text)
-        }
-        None => (label.to_owned(), label.to_owned()),
-    };
+    let a11y_label = count.map_or_else(|| label.to_owned(), |count| count_text(destination, count));
     SidebarRowVm {
         destination,
         element_id: element_id(destination),
         icon: icon(destination),
         label,
-        tooltip,
         a11y_label,
         count,
         selected: selected == Some(destination),

@@ -55,7 +55,7 @@ impl MusicDestination {
             Self::Releases => "Releases",
             Self::Artists => "Artists",
             Self::Inbox => "Inbox",
-            Self::Playlists => "Playlists",
+            Self::Playlists => "My playlists",
             Self::PublicPlaylists => "Public playlists",
             Self::Live => "Live",
         }

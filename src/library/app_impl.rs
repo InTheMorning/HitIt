@@ -50,6 +50,7 @@ use crate::presentation::{bridge_watch, present_command};
 use crate::runtime::musicbrainz_feed_saga::{MusicBrainzFeedSagaState, StartFeedLookup};
 use crate::subscribe_service::{self, SubscribeFeedRequest, SubscribeTrackRequest};
 use crate::ui::composites::inspect_sources_sheet::InspectSourcesSheet;
+use crate::ui::composites::letter_bar::LetterBarKeys;
 use crate::ui::composites::letter_bar::LetterHandler;
 use crate::ui::composites::list_page_head::{
     list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
@@ -70,7 +71,7 @@ use crate::ui::shells::library::content_list::{
 };
 use crate::ui::shells::library::destination_lists::{
     render_artists_list_item, render_library_destination_rows, render_library_playlists_list,
-    render_library_releases_list, render_releases_list_item, RowArts,
+    render_library_releases_list, render_releases_list_item, LeadingDisclosure, RowArts,
 };
 use crate::ui::shells::library::detail::render_library_detail;
 use crate::ui::shells::library::inbox::render_inbox_sections;
@@ -115,7 +116,8 @@ use crate::view_models::library_removal::{
     SelectionRemovalConfirmationState, SelectionRemovalPendingItem, SelectionRemovalReport,
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
-use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListScope, ListView};
+use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListScope, ListSort, ListView};
+use crate::view_models::list_selection::{keyboard_entry_step, list_is_tab_stop};
 use crate::view_models::list_selection::{FocusStep, ListSelection, SelectionMode, SelectionRow};
 use crate::view_models::name_level_page::NameLevelLibraryRelease;
 use crate::view_models::playlist_option_displays;
@@ -130,8 +132,10 @@ use crate::view_models::release_row_actions::{
 };
 use crate::view_models::releases_everything::{ReleasesDownloadPlan, ReleasesListRows};
 use crate::view_models::search_field_values::LibraryFieldValues;
+use crate::view_models::search_page::SearchPageAction;
 use crate::view_models::search_page::{HowToSearchDisclosure, SearchPageVm};
 use crate::view_models::search_results::ArtistSearchFacts;
+use crate::view_models::search_results::{SearchPageActionDisplay, SearchPageActionStyle};
 use crate::view_models::selection_action_bar::{SelectionActionBarVm, SelectionActionKind};
 use crate::view_models::singles_group::{
     SinglesGroupKey, SinglesGroupPageEntryVm, SinglesGroupPageVm,
@@ -1080,6 +1084,9 @@ impl LibraryApp {
         cx: &mut Context<Self>,
     ) -> Self {
         let chrome = LibraryViewModel::chrome_display();
+        // The controls of the page come first in the Tab sequence, as they do
+        // on the screen, so the list has the higher tab index.
+        let list_column_focus = cx.focus_handle().tab_index(1);
         let new_playlist_input = cx.new(|cx: &mut Context<InputState>| {
             InputState::new(window, cx).placeholder(chrome.new_playlist_placeholder)
         });
@@ -1185,14 +1192,18 @@ impl LibraryApp {
             public_playlist_pages: PublicPlaylistPages::default(),
             live_list_state: MusicColumnList::new(cx),
             live_list: IndexNameListPage::default(),
-            list_column_focus: cx.focus_handle(),
+            list_column_focus,
+            list_row_focus_shows: false,
+            letter_bar_focus: cx.focus_handle().tab_index(0).tab_stop(true),
+            letter_cursor: None,
+            letter_cursor_shows: false,
             selection_removal: SelectionRemovalConfirmationState::new(),
             selection_removal_report: None,
             detail_selection: DetailSelection::new(),
             detail_column_focus: cx.focus_handle(),
             sidebar_focus: crate::view_models::sidebar::SidebarDestination::ALL
                 .into_iter()
-                .map(|row| (row, cx.focus_handle()))
+                .map(|row| (row, cx.focus_handle().tab_index(0).tab_stop(true)))
                 .collect(),
             sidebar_selected: None,
             pending_inspect_sources: None,
@@ -4288,6 +4299,44 @@ impl LibraryApp {
         }
     }
 
+    /// Marks a row when the list has the keyboard focus and no row shows it
+    /// (ADR 0089 Decision 9, musicindex ADR 0026 R-FOCUS-1). The list runs this
+    /// in the draw that sees the focus, so the row shows in that same draw. A
+    /// row that Back marked keeps its place.
+    fn mark_row_for_keyboard_entry(&mut self) {
+        let has_focused_row = match self.vm.active_destination() {
+            MusicDestination::Releases => self.releases_selection.focused().is_some(),
+            MusicDestination::Inbox => self.track_selection.focused().is_some(),
+            _ => return,
+        };
+        let Some(step) = keyboard_entry_step(
+            self.list_row_focus_shows,
+            has_focused_row,
+            self.marked_entry.is_some(),
+        ) else {
+            return;
+        };
+        match self.vm.active_destination() {
+            MusicDestination::Releases => {
+                let rows = self.releases_rows();
+                let visible = rows.selection_rows();
+                if let Some(focused) = self.releases_selection.move_focus(step, visible) {
+                    if let Some(index) = visible.iter().position(|row| row.id == focused) {
+                        self.releases_list_state
+                            .scroll_to_reveal_item(index + rows.leading());
+                    }
+                }
+            }
+            MusicDestination::Inbox => {
+                let visible = self.content_list_visible_rows();
+                if self.track_selection.move_focus(step, &visible).is_some() {
+                    self.inbox_scroll.scroll_to_item(0);
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub(crate) fn move_selection_focus(
         &mut self,
         step: FocusStep,
@@ -5224,13 +5273,36 @@ impl LibraryApp {
         // ADR 0084 Decision 2: the list column shows the items of the
         // current root destination. ADR 0084 Decision 3: Discover shows
         // its views, not the content list.
+        // R-FOCUS-1: a row shows the focus only while its list has the keyboard
+        // focus, so one place at a time shows a ring.
+        // `is_focused` does not read the tree of the last frame, so it is true in
+        // the first draw after a Tab.
+        self.letter_cursor_shows =
+            self.letter_bar_focus.is_focused(window) && crate::ui::focus_ring::focus_ring_shows(cx);
+        self.list_row_focus_shows = (self.list_column_focus.is_focused(window)
+            || self.list_column_focus.contains_focused(window, cx))
+            && crate::ui::focus_ring::focus_ring_shows(cx);
+        self.mark_row_for_keyboard_entry();
         let mut action_bar: Option<AnyElement> = None;
-        let mut page_head: Option<AnyElement> = None;
+        let page_head: Option<AnyElement>;
         let content_list_pane = match self.vm.active_destination() {
             MusicDestination::Search => {
                 let vm = SearchPageVm::new(&self.saved_searches, self.open_saved_search)
                     .with_message(self.saved_search_message.clone())
                     .with_new_counts(&self.saved_search_counts);
+                let entity = cx.entity();
+                page_head = Some(Self::render_titled_page_head(
+                    MusicDestination::Search.label(),
+                    Some(vm.new_action().clone()),
+                    move |_window, cx| {
+                        entity.update(cx, |_this, cx| {
+                            cx.emit(super::LibraryAppEvent::SearchPage(
+                                SearchPageAction::NewSavedSearch,
+                            ));
+                        });
+                    },
+                    cx,
+                ));
                 let rename = SearchPageListRename {
                     renaming: self.saved_search_renaming,
                     input: &self.saved_search_rename_input,
@@ -5244,6 +5316,12 @@ impl LibraryApp {
                 )
             }
             MusicDestination::Inbox => {
+                page_head = Some(Self::render_titled_page_head(
+                    MusicDestination::Inbox.label(),
+                    None,
+                    |_window, _cx| {},
+                    cx,
+                ));
                 let mut content_row_thumbs: BTreeMap<String, Option<Arc<Image>>> = BTreeMap::new();
                 for (row_id, url) in self.vm.content_list_thumbnail_sources() {
                     let img = self.thumbnail_for_url(Some(&url), false, cx);
@@ -5254,6 +5332,7 @@ impl LibraryApp {
                 let rows = self.vm.content_list_rows_with_selection(
                     &self.track_selection,
                     self.track_selection_mode,
+                    self.list_row_focus_shows,
                 );
                 let rows = self
                     .vm
@@ -5397,6 +5476,21 @@ impl LibraryApp {
                     .vm
                     .playlist_sidebar()
                     .with_marked(self.marked_entry.as_ref());
+                let entity = cx.entity();
+                page_head = Some(Self::render_titled_page_head(
+                    MusicDestination::Playlists.label(),
+                    Some(SearchPageActionDisplay {
+                        id: sidebar.add_button_id,
+                        label: sidebar.add_label,
+                        a11y_label: sidebar.add_label.to_owned(),
+                        available: true,
+                        style: SearchPageActionStyle::Plain,
+                    }),
+                    move |_window, cx| {
+                        entity.update(cx, LibraryApp::toggle_creating_playlist);
+                    },
+                    cx,
+                ));
                 let mut arts = RowArts::new();
                 for row in &sidebar.rows {
                     let image = collection_art_image(self, &row.art, ThumbnailSize::Sm, cx);
@@ -5412,6 +5506,12 @@ impl LibraryApp {
             }
         };
 
+        let (has_row_focus, row_count) = match self.vm.active_destination() {
+            MusicDestination::Releases => (true, self.releases_rows().selection_rows().len()),
+            MusicDestination::Inbox => (true, self.content_list_visible_rows().len()),
+            _ => (false, 0),
+        };
+        let list_tab_stop = list_is_tab_stop(has_row_focus, row_count);
         div()
             .size_full()
             .bg(color::bg_canvas())
@@ -5423,7 +5523,7 @@ impl LibraryApp {
             .min_h_0()
             .min_w_0()
             .overflow_hidden()
-            .track_focus(&self.list_column_focus)
+            .track_focus(&self.list_column_focus.clone().tab_stop(list_tab_stop))
             .children(page_head)
             .child(
                 div()
@@ -5438,16 +5538,91 @@ impl LibraryApp {
             .into_any_element()
     }
 
+    /// Renders the title row of a page with a title and at most one action
+    /// (ADR 0089 Decision 6).
+    fn render_titled_page_head(
+        title: &str,
+        action: Option<SearchPageActionDisplay>,
+        on_action: impl Fn(&mut Window, &mut App) + 'static,
+        cx: &App,
+    ) -> AnyElement {
+        list_page_head(
+            ListPageHeadVm::titled(title, action),
+            ListPageHeadHandlers {
+                action: Some(Rc::new(on_action)),
+                ..ListPageHeadHandlers::default()
+            },
+            cx,
+        )
+    }
+
+    /// Puts the keyboard cursor on the letter bar of `display`, while the bar
+    /// has the keyboard focus.
+    pub(crate) fn with_letter_cursor(&self, mut display: ListPageHeadVm) -> ListPageHeadVm {
+        if self.letter_cursor_shows {
+            display.letters = display
+                .letters
+                .map(|letters| letters.with_cursor_shown(self.letter_cursor));
+        }
+        display
+    }
+
+    /// The keyboard side of the letter bar of the page `key` (walk of
+    /// 2026-11-06). A move only changes the cursor. Enter or Space runs the
+    /// letter, because a letter sends a name request.
+    pub(crate) fn letter_bar_keys(
+        &self,
+        key: ListPageKey,
+        cx: &mut Context<Self>,
+    ) -> LetterBarKeys {
+        let step_entity = cx.entity();
+        let activate_entity = cx.entity();
+        LetterBarKeys {
+            focus: self.letter_bar_focus.clone(),
+            return_focus: self.list_column_focus.clone(),
+            on_step: Rc::new(move |step, _window, cx| {
+                step_entity.update(cx, |this, cx| {
+                    if let Some(letters) = this.vm.list_page_head(key, None, None).letters {
+                        this.letter_cursor = Some(letters.moved(this.letter_cursor, step));
+                        cx.notify();
+                    }
+                });
+            }),
+            on_activate: Rc::new(move |_window, cx| {
+                activate_entity.update(cx, |this, cx| {
+                    if let Some(letters) = this.vm.list_page_head(key, None, None).letters {
+                        let letter = letters.cursor_key(this.letter_cursor);
+                        this.letter_cursor = Some(letter);
+                        this.set_list_letter(key, Some(letter), cx);
+                    }
+                });
+            }),
+        }
+    }
+
     /// Renders the title row of the Releases list (ADR 0089 Decision 6).
     /// Its scope and its Select action call the view model through the
     /// handlers of the app.
     fn render_releases_page_head(&self, cx: &mut Context<Self>) -> AnyElement {
-        let display = self.releases_page_head();
+        let display = self.with_letter_cursor(self.releases_page_head());
+        let letter_keys = self.letter_bar_keys(ListPageKey::Releases, cx);
         let entity = cx.entity();
         let scope_entity = entity.clone();
-        let on_scope: ListScopeHandler = Rc::new(move |scope, _window, cx| {
+        // A mouse click on a control moves the focus to it (ADR 0069). The
+        // arrow keys act on the list, so the focus goes back to the list. A
+        // keyboard user stays on the control.
+        let list_focus = self.list_column_focus.clone();
+        let refocus_list = move |window: &mut Window, cx: &mut App| {
+            if !crate::ui::focus_ring::focus_ring_shows(cx) {
+                window.focus(&list_focus, cx);
+            }
+        };
+        let scope_refocus = refocus_list.clone();
+        let view_refocus = refocus_list.clone();
+        let on_scope: ListScopeHandler = Rc::new(move |scope, window, cx| {
             let scope = *scope;
             scope_entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
+            scope_refocus(window, cx);
         });
         let sort_entity = entity.clone();
         let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
@@ -5464,14 +5639,16 @@ impl LibraryApp {
             });
         });
         let view_entity = entity.clone();
-        let on_view: ListViewHandler = Rc::new(move |view, _window, cx| {
+        let on_view: ListViewHandler = Rc::new(move |view, window, cx| {
             let view = *view;
             view_entity.update(cx, |this, cx| {
                 this.set_list_view(ListPageKey::Releases, view, cx);
             });
+            view_refocus(window, cx);
         });
-        let on_select: ListHeadButtonHandler = Rc::new(move |_window, cx| {
+        let on_select: ListHeadButtonHandler = Rc::new(move |window, cx| {
             entity.update(cx, Self::toggle_list_column_selection_mode);
+            refocus_list(window, cx);
         });
         list_page_head(
             display,
@@ -5481,6 +5658,7 @@ impl LibraryApp {
                 sort: Some(on_sort),
                 view: Some(on_view),
                 letter: Some(on_letter),
+                letter_keys: Some(letter_keys),
                 action: None,
             },
             cx,
@@ -5489,7 +5667,8 @@ impl LibraryApp {
 
     /// Renders the title row of the Artists list (ADR 0089 Decision 6).
     fn render_artists_page_head(&self, library_count: usize, cx: &mut Context<Self>) -> AnyElement {
-        let display = self.artists_page_head(library_count);
+        let display = self.with_letter_cursor(self.artists_page_head(library_count));
+        let letter_keys = self.letter_bar_keys(ListPageKey::Artists, cx);
         let entity = cx.entity();
         let scope_entity = entity.clone();
         let on_scope: ListScopeHandler = Rc::new(move |scope, _window, cx| {
@@ -5517,6 +5696,7 @@ impl LibraryApp {
                 sort: Some(on_sort),
                 view: None,
                 letter: Some(on_letter),
+                letter_keys: Some(letter_keys),
                 action: None,
             },
             cx,
@@ -5543,7 +5723,12 @@ impl LibraryApp {
         // ADR 0084 packet 016 decision D8: the loading row, the error row
         // or "Load more" of the scope "Everything".
         let actions = Self::releases_status_actions();
-        render_releases_list_item(item, thumbnail, art, actions, menu, cx)
+        let release_column = if self.releases_sort() == ListSort::Newest {
+            LeadingDisclosure::None
+        } else {
+            LeadingDisclosure::Empty
+        };
+        render_releases_list_item(item, thumbnail, art, actions, menu, release_column, cx)
     }
 
     /// The item of the Releases list with its selection facts and its
@@ -5563,6 +5748,7 @@ impl LibraryApp {
             item,
             &self.releases_selection,
             self.releases_selection_mode,
+            self.list_row_focus_shows,
         )
         .with_marked(self.marked_entry.as_ref());
         let thumbnail = item.thumbnail_href().and_then(|href| {

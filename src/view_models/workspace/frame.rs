@@ -124,6 +124,7 @@ impl WorkspaceFrameState {
     }
 
     /// Returns whether this frame is currently focused.
+    #[cfg(test)]
     #[must_use]
     pub(crate) const fn is_focused(&self) -> bool {
         self.focused

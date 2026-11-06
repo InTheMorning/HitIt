@@ -20,14 +20,14 @@ use gpui::{
 };
 use gpui_component::Selectable;
 
-use crate::ui::composites::letter_bar::{letter_bar, LetterHandler};
+use crate::ui::composites::letter_bar::{letter_bar, LetterBarKeys, LetterHandler};
 use crate::ui::composites::{Segment, SegmentDisplay, SegmentedControl};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
 use crate::ui::primitives::{
     Button, ContextMenu, ContextMenuItem, ContextMenuItemDisplay, ContextMenuScope,
 };
-use crate::ui::tokens::{FontSize, Spacing};
+use crate::ui::tokens::{FontSize, Size, Spacing};
 use crate::view_models::list_page::{
     ListPageHeadVm, ListScope, ListScopeControlVm, ListSort, ListSortButtonVm, ListView,
     ListViewControlVm,
@@ -60,6 +60,8 @@ pub(crate) struct ListPageHeadHandlers {
     pub(crate) view: Option<ListViewHandler>,
     /// The letter click of the letter bar.
     pub(crate) letter: Option<LetterHandler>,
+    /// The keyboard side of the letter bar.
+    pub(crate) letter_keys: Option<LetterBarKeys>,
     /// The click of the typed action of a search page (ADR 0089 Decision 4).
     /// The handler runs only when the action is available.
     pub(crate) action: Option<ListHeadButtonHandler>,
@@ -93,7 +95,8 @@ pub(crate) fn list_page_head(
             .a11y_label(a11y_label.clone())
             .tooltip(a11y_label);
         if let Some(handler) = handlers.select {
-            button = button.on_click(move |_, window, cx| {
+            // `on_activate` gives the tab stop, the ring and Enter or Space.
+            button = button.on_activate(move |window, cx| {
                 handler(window, cx);
             });
         }
@@ -109,6 +112,8 @@ pub(crate) fn list_page_head(
         .flex()
         .flex_row()
         .items_center()
+        // The title keeps one height, with or without a control beside it.
+        .min_h(Size::MinHitTarget.scaled(cx))
         .gap(Spacing::SM.scaled(cx))
         .child(
             div()
@@ -134,7 +139,12 @@ pub(crate) fn list_page_head(
     }
 
     if let Some(letters) = display.letters {
-        head = head.child(letter_bar(letters, handlers.letter.as_ref(), cx));
+        head = head.child(letter_bar(
+            letters,
+            handlers.letter.as_ref(),
+            handlers.letter_keys.as_ref(),
+            cx,
+        ));
     }
 
     head.into_any_element()
@@ -220,7 +230,7 @@ fn view_icons(
             .selected(option.selected);
         if let Some(handler) = on_view {
             let handler = handler.clone();
-            button = button.on_click(move |_, window, cx| handler(&view, window, cx));
+            button = button.on_activate(move |window, cx| handler(&view, window, cx));
         }
         icons = icons.child(button);
     }

@@ -272,4 +272,7 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - [Packet 013](tasks/adr-0089-task-013-narrow-tab-bar.md) V1 to V3: the tab bar.
 - [Packet 014](tasks/adr-0089-task-014-row-rules.md) V1 to V4: the rows.
 - [Packet 015](tasks/adr-0089-task-015-inspect-sources-sheet.md) V1 to V4: the sheet.
+- The search field list (ADR 0087 Decision 3), reported in the walk of 2026-11-06: a click on the page or the sidebar closes the list. A click on a list row keeps it open. A click on Search opens no list, and no list opens when the window gets the focus again.
+- The keyboard focus (ADR 0089 Decision 9): Tab reaches the sidebar rows and the list. A row shows the focus when the list gets it. A mouse click shows no ring.
+- The letter bar (ADR 0089 Decision 9): Tab stops once at the bar. Left, Right, Home and End move the cursor with no request. Enter or Space runs the letter.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.

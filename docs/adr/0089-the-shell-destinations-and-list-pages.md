@@ -133,6 +133,8 @@ ADR 0068 decides the audio route of Play. The panel packet waits for that decisi
 - The one navigation stack of ADR 0084 Decision 9 stays, and R-NAV-2 gives Back and Forward. Its location breadcrumb goes. A page shows the back icons and its title (R-TOOLBAR-1).
 - ADR 0087 stays, apart from the place of the saved searches.
 - musicindex ADR 0029 R-SCALE-1 item 2 stays: v4vmm uses the macOS values.
+- The letter bar is one tab stop. Left, Right, Home and End move a cursor in it, and Enter or Space runs the letter. A move sends no request. This follows the WAI-ARIA toolbar pattern.
+- One page shows at a time, so a frame draws no border and no focus outline. The old outline read a stored flag, not the keyboard focus, so it could mark the wrong place. The focused control or row shows the focus (musicindex ADR 0026 R-FOCUS-1). When a list with rows gets the keyboard focus, a row shows it. The walk of 2026-11-06 added this rule.
 
 ## Amended Rules
 

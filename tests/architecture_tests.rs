@@ -2587,12 +2587,14 @@ fn workspace_frame_phase_5_multi_frame_commands_are_deferred_until_content_frame
         }
     }
 
-    for required in ["frame.is_focused()", "SemanticColor::Focus"] {
-        if !workspace_shell_source.contains(required) {
-            violations.push(format!(
-                "src/ui/shells/workspace.rs: ADR 0046 Task 013 focus wiring missing `{required}`"
-            ));
-        }
+    // ADR 0089 Decision 9: one page shows at a time, so a frame draws no
+    // focus outline. The focused control or row shows the focus.
+    if workspace_shell_source.contains("frame.is_focused()") {
+        violations.push(
+            "src/ui/shells/workspace.rs: ADR 0089 Decision 9: a frame draws no focus outline. \
+             Show the focus on the focused control or row."
+                .to_owned(),
+        );
     }
 
     for forbidden in [
@@ -16399,10 +16401,7 @@ fn adr_0069_keyboard_buttons_show_focus_without_layout_shift() {
         pointer.contains("if pointer_activation_click(event) {"),
         "Situational ADR 0069: GPUI key-up clicks must not duplicate the key-down activation"
     );
-    let keyboard = enabled
-        .rsplit_once("if on_activate.is_some() || focus.is_some() {")
-        .unwrap()
-        .1;
+    let keyboard = enabled.rsplit_once("if in_tab_sequence {").unwrap().1;
     for required in [
         "keyboard_button_focus(hit_target, appearance, focus, cx)",
         ".tab_index(0)",
@@ -16866,7 +16865,7 @@ fn adr_0066_editor_escape_focuses_close_without_closing() {
     let button = read_source(&manifest_path("src/ui/primitives/button.rs"));
     let keyboard = source_between(
         &button,
-        "if on_activate.is_some() || focus.is_some() {",
+        "if in_tab_sequence {",
         "if let Some(icon) = leading_icon",
     );
     assert!(keyboard.contains("keyboard_button_focus(hit_target, appearance, focus, cx)"));
@@ -23755,14 +23754,14 @@ fn adr_0087_field_list_r87_4_19_list_keeps_focus_and_reads_view_model() {
 
     // A copy that calls `Popover::new`, `.truncate()` or that holds a
     // string literal fails.
-    let marker = "        let Self { vm, scroll, on_row } = self;";
+    let marker = "        let notices: Vec<AnyElement> = vm";
     assert!(composite.contains(marker));
     for bad in [
         "        let _menu = Popover::new(0);",
         "        let _text = div().truncate();",
         "        let _id = \"search-field-list\";",
     ] {
-        let copy = composite.replacen(marker, &format!("{marker}\n{bad}"), 1);
+        let copy = composite.replacen(marker, &format!("{bad}\n{marker}"), 1);
         assert!(
             !field_list_focus_violations(&copy, &view).is_empty(),
             "the copy with `{bad}` must fail"
@@ -24376,4 +24375,40 @@ fn adr_0089_new_releases_view_stays_deleted() {
         }
     }
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
+}
+
+/// Situational ADR 0089 Decision 9 and R-LIST-1 item 3, from the walk of
+/// 2026-11-06. The frame chrome draws no line in a text color, and `Button`
+/// draws its selected state. Delete this guard when ADR 0089 is superseded.
+#[test]
+fn adr_0089_frame_chrome_line_and_selected_button_tint() {
+    let chrome = read_source(&manifest_path("src/ui/composites/frame_shell.rs"));
+    assert!(
+        !chrome.contains(".border_color(secondary_color)"),
+        "ADR 0089 Decision 9: a frame chrome line uses SemanticColor::Separator, not a text color."
+    );
+    let button = read_source(&manifest_path("src/ui/primitives/button.rs"));
+    assert!(
+        button.contains("if self.selected {"),
+        "R-LIST-1 item 3: Button must draw its selected state, so the current view icon has a tint."
+    );
+}
+
+/// Situational ADR 0089 Decision 9, from the walk of 2026-11-06. The active
+/// pane bindings take Left, Right, Home, End, Enter and Space. They must
+/// exclude the letter bar, or the bar never gets those keys. Delete this guard
+/// when ADR 0089 is superseded.
+#[test]
+fn adr_0089_active_pane_bindings_exclude_the_letter_bar() {
+    let keyboard = read_source(&manifest_path("src/app/keyboard.rs"));
+    let bar = read_source(&manifest_path("src/ui/composites/letter_bar.rs"));
+    assert!(
+        bar.contains("\"LetterBar\"") && bar.contains(".key_context(LETTER_BAR_KEY_CONTEXT)"),
+        "ADR 0089 Decision 9: the letter bar must set its own key context."
+    );
+    assert_eq!(
+        keyboard.matches("!LetterBar\"").count(),
+        2,
+        "ADR 0089 Decision 9: both active pane binding contexts must exclude LetterBar."
+    );
 }

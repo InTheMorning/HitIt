@@ -24,6 +24,12 @@ pub(crate) const HOW_TO_SEARCH_STEPS: [&str; 4] = [
     "Click Save search to keep the search in this list.",
 ];
 
+/// The heading of the steps (ADR 0089 Decision 4).
+pub(crate) const HOW_TO_SEARCH_TITLE: &str = "How to Search";
+
+/// The heading of the example queries, so they do not look like saved searches.
+pub(crate) const EXAMPLE_SEARCHES_TITLE: &str = "Example searches";
+
 /// A request of the Search page to the top app (ADR 0089 Decision 4). The
 /// top app owns the toolbar field, so the page sends the request and the
 /// top app changes the field.

@@ -11,8 +11,11 @@
 #![warn(clippy::pedantic)]
 
 use crate::api::{Feed, RemoteItem};
+use crate::view_models::artist_identity::UNKNOWN_ARTIST_TEXT;
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
-use crate::view_models::index_name_list::{IndexListStatusRowVm, IndexNameList, IndexNameListPage};
+use crate::view_models::index_name_list::{
+    name_sort_key, IndexListStatusRowVm, IndexNameList, IndexNameListPage,
+};
 use crate::view_models::library::{DestinationListRowTarget, DestinationListRowVm};
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_page::{public_playlist_copy_menu_vm, TrackRowMenuVm};
@@ -97,10 +100,17 @@ pub(crate) fn public_playlist_rows(feeds: &[Feed]) -> Vec<DestinationListRowVm> 
     feeds.iter().filter_map(public_playlist_row).collect()
 }
 
+/// The report of a copy with no readable track (walk of 2026-11-06).
+pub(crate) const PUBLIC_PLAYLIST_NO_READABLE_TRACKS: &str =
+    "The app could not read a track of this playlist, so it made no playlist.";
+
 fn public_playlist_row(feed: &Feed) -> Option<DestinationListRowVm> {
     let feed_guid = non_empty(feed.feed_guid.as_deref())?;
     let label = non_empty(feed.title.as_deref()).unwrap_or(UNTITLED_PLAYLIST);
+    // The Index gives the placeholder "Unknown Artist" for a playlist with no
+    // named curator. A placeholder is not a name, so the row shows no name.
     let secondary_text = non_empty(feed.release_artist.as_deref())
+        .filter(|name| name_sort_key(name) != name_sort_key(UNKNOWN_ARTIST_TEXT))
         .unwrap_or_default()
         .to_owned();
     let art = CollectionArtVm::resolve(

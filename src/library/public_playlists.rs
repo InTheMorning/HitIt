@@ -51,7 +51,7 @@ use crate::view_models::list_page::{ListPageKey, ListSort, ListView};
 use crate::view_models::public_playlists::{
     public_playlist_copy_menu, public_playlist_copy_report, public_playlist_list_items,
     PublicPlaylistCopyDialogVm, PublicPlaylistCopyName, PublicPlaylistListItemVm,
-    PublicPlaylistLoadState, PublicPlaylistRowVm, COPYING_TEXT,
+    PublicPlaylistLoadState, PublicPlaylistRowVm, COPYING_TEXT, PUBLIC_PLAYLIST_NO_READABLE_TRACKS,
 };
 use crate::view_models::release_page::TrackRowMenuAction;
 
@@ -212,9 +212,12 @@ impl LibraryApp {
     /// Renders the title row of the Public playlists list (ADR 0089
     /// Decision 6). The list has no scope and no select action.
     pub(crate) fn render_public_playlists_page_head(&self, cx: &mut Context<Self>) -> AnyElement {
-        let display = self
-            .vm
-            .list_page_head(ListPageKey::PublicPlaylists, None, None);
+        let display = self.with_letter_cursor(self.vm.list_page_head(
+            ListPageKey::PublicPlaylists,
+            None,
+            None,
+        ));
+        let letter_keys = self.letter_bar_keys(ListPageKey::PublicPlaylists, cx);
         let entity = cx.entity();
         let sort_entity = entity.clone();
         let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
@@ -245,6 +248,7 @@ impl LibraryApp {
                 sort: Some(on_sort),
                 view: Some(on_view),
                 letter: Some(on_letter),
+                letter_keys: Some(letter_keys),
                 action: None,
             },
             cx,
@@ -381,6 +385,10 @@ impl LibraryApp {
                     CopyPublicPlaylistResult::NameTaken(name) => {
                         let message = PublicPlaylistCopyName::Taken(name).message();
                         this.vm.set_status(message.unwrap_or_default());
+                    }
+                    CopyPublicPlaylistResult::NoReadableTracks => {
+                        this.vm
+                            .set_status(PUBLIC_PLAYLIST_NO_READABLE_TRACKS.to_owned());
                     }
                 }
                 cx.notify();

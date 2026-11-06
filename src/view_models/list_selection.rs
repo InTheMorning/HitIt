@@ -446,8 +446,50 @@ impl RowSelectionVm {
     }
 }
 
+/// Tells if a list is a tab stop (ADR 0089 Decision 9). A stop that can show
+/// no row is a stop with no mark. Only a list with row focus and with rows is
+/// a stop.
+#[must_use]
+pub(crate) const fn list_is_tab_stop(has_row_focus: bool, row_count: usize) -> bool {
+    has_row_focus && row_count > 0
+}
+
+/// The move that shows the focus when a list gets the keyboard focus (ADR
+/// 0089 Decision 9). Only keyboard input shows it (R-FOCUS-1 item 3). A list
+/// with a focused row or with a row that Back marked already shows a place.
+#[must_use]
+pub(crate) const fn keyboard_entry_step(
+    focus_ring_shows: bool,
+    has_focused_row: bool,
+    has_marked_row: bool,
+) -> Option<FocusStep> {
+    if focus_ring_shows && !has_focused_row && !has_marked_row {
+        Some(FocusStep::Home)
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn adr_0089_a_list_with_no_row_focus_or_no_row_is_no_tab_stop() {
+        assert!(super::list_is_tab_stop(true, 1));
+        assert!(!super::list_is_tab_stop(true, 0));
+        assert!(!super::list_is_tab_stop(false, 5));
+    }
+
+    #[test]
+    fn adr_0089_keyboard_entry_marks_the_first_row_only_for_the_keyboard() {
+        assert_eq!(
+            super::keyboard_entry_step(true, false, false),
+            Some(super::FocusStep::Home)
+        );
+        assert_eq!(super::keyboard_entry_step(false, false, false), None);
+        assert_eq!(super::keyboard_entry_step(true, true, false), None);
+        assert_eq!(super::keyboard_entry_step(true, false, true), None);
+    }
+
     use super::*;
 
     #[test]

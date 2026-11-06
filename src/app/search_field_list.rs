@@ -20,12 +20,14 @@
 
 #![warn(clippy::pedantic)]
 
+use std::cell::Cell;
 use std::ops::Range;
+use std::rc::Rc;
 
 use gpui::Div;
 use gpui::{
-    prelude::*, App, Context, Empty, Entity, EventEmitter, MouseButton, ScrollHandle, SharedString,
-    Stateful, Subscription, WeakEntity, Window,
+    prelude::*, App, Bounds, Context, Empty, Entity, EventEmitter, MouseButton, Pixels, Point,
+    ScrollHandle, SharedString, Stateful, Subscription, WeakEntity, Window,
 };
 use gpui_component::input::{
     Enter, Escape, IndentInline, InputEvent, InputState, MoveDown, MoveUp,
@@ -41,7 +43,8 @@ use crate::ui::composites::search_field_list::SearchFieldList;
 use crate::ui::tokens::Motion;
 use crate::view_models::live_run::{LiveRunGate, RunGeneration};
 use crate::view_models::search_field_list::{
-    FieldListEdit, FieldListEvent, FieldListKey, FieldListKeyOutcome, FieldListState, FieldListVm,
+    FieldListEdit, FieldListEvent, FieldListKey, FieldListKeyOutcome, FieldListOpening,
+    FieldListState, FieldListVm,
 };
 use crate::view_models::search_field_values::{
     artist_value_request_key, FieldValueRows, IndexArtistValues,
@@ -70,6 +73,9 @@ pub(crate) struct SearchFieldListView {
     /// The pause and the run generation of the name request.
     gate: LiveRunGate,
     scroll: ScrollHandle,
+    /// The drawn area of the list. The list draws over the other content,
+    /// outside the field wrapper, so a click test of the wrapper cannot see it.
+    list_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     last_text: SharedString,
     last_selection: Range<usize>,
     /// The text at the last Enter that ran the search, until the next
@@ -132,6 +138,7 @@ impl SearchFieldListView {
             index_values: IndexArtistValues::NotRequested,
             gate: LiveRunGate::default(),
             scroll: ScrollHandle::new(),
+            list_bounds: Rc::new(Cell::new(None)),
             last_text,
             last_selection,
             submitted_text: None,
@@ -256,6 +263,19 @@ impl SearchFieldListView {
         cx.notify();
     }
 
+    /// Closes the list after a mouse down outside the field wrapper, unless
+    /// the mouse is in the list (ADR 0087 Decision 3). The keyboard focus
+    /// stays in the field, so the next key opens the list again.
+    fn click_outside_field(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        let in_list = self
+            .list_bounds
+            .get()
+            .is_some_and(|bounds| bounds.contains(&position));
+        if !in_list && self.state.opening == FieldListOpening::Open {
+            self.send(FieldListEvent::OutsideClick, cx);
+        }
+    }
+
     fn view_model(&self, cx: &App) -> Option<FieldListVm> {
         let (text, selection) = read_input(&self.input, cx);
         let library = self.library.read(cx).search_field_values();
@@ -281,10 +301,11 @@ impl SearchFieldListView {
 impl Render for SearchFieldListView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(vm) = self.view_model(cx) else {
+            self.list_bounds.set(None);
             return Empty.into_any_element();
         };
         let view = cx.entity().downgrade();
-        SearchFieldList::new(vm, self.scroll.clone())
+        SearchFieldList::new(vm, self.scroll.clone(), self.list_bounds.clone())
             .on_row(move |index, window, cx| {
                 // The view is gone only when the window closes.
                 let _ = view.update(cx, |view, cx| view.click_row(index, window, cx));
@@ -351,6 +372,7 @@ pub(crate) fn install_field_list_keys(
     let enter = list.downgrade();
     let escape = list.downgrade();
     let click = list.downgrade();
+    let outside = list.downgrade();
     wrapper
         .capture_action(move |_: &MoveUp, window, cx| {
             capture_key(&up, FieldListKey::Up, window, cx);
@@ -374,6 +396,10 @@ pub(crate) fn install_field_list_keys(
                 // The view is gone only when the window closes.
                 let _ = click.update(cx, |view, cx| view.send(FieldListEvent::Click, cx));
             }
+        })
+        .on_mouse_down_out(move |event, _, cx| {
+            // The view is gone only when the window closes.
+            let _ = outside.update(cx, |view, cx| view.click_outside_field(event.position, cx));
         })
 }
 
@@ -550,6 +576,7 @@ mod tests {
     #[gpui::test]
     fn adr_0087_field_list_r87_10_02_down_keeps_the_selected_row_in_view(cx: &mut TestAppContext) {
         let (_input, list, _, cx) = setup(cx);
+        cx.update(|_, cx| list.update(cx, |view, cx| view.send(FieldListEvent::Click, cx)));
         assert!(list_shows(&list, cx), "the empty field shows the list");
         cx.simulate_keystrokes("down down down down down down down down down down down");
         cx.run_until_parked();
@@ -581,6 +608,45 @@ mod tests {
             "R87-10-02: the row list is {:?} high, above its maximum {max_height:?}",
             list_bounds.size.height
         );
+    }
+
+    /// Operator walk of 2026-11-06: the list stayed open until the mouse left
+    /// the window. A click outside the field and the list closes it, and the
+    /// field keeps the focus. A click in the list does not close it.
+    #[gpui::test]
+    fn adr_0087_field_list_outside_click_closes_and_a_list_click_does_not(cx: &mut TestAppContext) {
+        let (input, list, _, cx) = setup(cx);
+        assert!(!list_shows(&list, cx), "the focus alone opens no list");
+
+        cx.simulate_keystrokes("a r");
+        assert!(list_shows(&list, cx));
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        let in_list = cx
+            .update(|_, cx| list.read(cx).list_bounds.get())
+            .expect("the open list has a drawn area")
+            .center();
+        cx.simulate_mouse_down(in_list, MouseButton::Left, gpui::Modifiers::none());
+        cx.simulate_mouse_up(in_list, MouseButton::Left, gpui::Modifiers::none());
+        assert_eq!(
+            cx.update(|_, cx| list.read(cx).state.opening),
+            FieldListOpening::Open,
+            "a click in the list keeps it open"
+        );
+
+        let viewport = cx.update(|window, _| window.viewport_size());
+        let outside = gpui::point(
+            viewport.width - gpui::px(5.0),
+            viewport.height - gpui::px(5.0),
+        );
+        cx.simulate_mouse_down(outside, MouseButton::Left, gpui::Modifiers::none());
+        cx.simulate_mouse_up(outside, MouseButton::Left, gpui::Modifiers::none());
+        assert!(!list_shows(&list, cx), "a click outside closes the list");
+        assert!(input_focused(&input, cx), "the field keeps the focus");
+
+        cx.simulate_keystrokes("t");
+        assert!(list_shows(&list, cx), "the next key opens the list again");
     }
 
     #[gpui::test]

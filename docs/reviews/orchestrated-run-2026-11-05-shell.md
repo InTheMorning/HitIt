@@ -79,3 +79,84 @@ The operator answers these after the walk. The orchestrator did not decide them.
 ## Result
 
 Packets 001 to 015 are implemented and committed. Packet 016 waits for ADR 0068. The mechanical gate is Green at 2782 unit tests and 399 guards. No person has walked a visual check of this run.
+
+## Walk Corrections - 2026-11-06
+
+The operator asked for correction and recheck until the operator and the orchestrator agree. The screenshots of the first run are in `~/.claude/v4vmm-shots/20261106-092538`.
+
+| Fault in the walk | Cause | Correction |
+| --- | --- | --- |
+| The sidebar and the page showed Search under the title "Releases" | The Library view model started on Search | The view model starts on Releases. A test compares it with the layout |
+| The search list stayed open | Only a loss of focus closed it, and each focus opened it | ADR 0087 Decision 3 now states the rule. A click outside closes the list. Focus alone opens no list |
+| A Releases row showed a 404 | The key held the row ID `index-feed:{guid}` | The key holds the GUID. A test holds this |
+| The view icons were invisible | `layout-grid` and `layout-list` were not in the embedded icon list | The list holds them. A test loads each extra icon |
+| A blue frame surrounded each page | The focused frame drew an outline | ADR 0089 Decision 9 removes it. The orchestrator decided this with no answer from the operator |
+| The rows moved when a focus ring or a mark showed | The ring added width, and the mark bar took a column | The border always takes its space, and the bar sits over the padding |
+| A sidebar tooltip repeated the row text | Each row had a tooltip | A row has a tooltip only when the tooltip adds text |
+| The search field moved on each page | The title width moved it | The side areas have equal widths, and the center is at most 640 px wide |
+| The letter bar used two lines | Each letter had the minimum hit width | A letter has no minimum width. The minimum height stays |
+| Search, My playlists and the Inbox had no title row | They used no page head | Each has one, and it holds the page action |
+| Album rows looked like children of a group | An empty column stayed for a chevron that the sort Newest does not show | In the sort Newest, a release row has no empty column |
+| "1 file have tags", and centered buttons | Text and alignment | The text is singular, and the buttons align at the left |
+
+The second screenshot run is in `~/.claude/v4vmm-shots/20261106-094507`. It found these faults:
+
+| Fault in the walk | Cause | Correction |
+| --- | --- | --- |
+| A row of one track said "Album", and its page said "Single" | The Index row builder set no key and no kind, so the row kept the default kind. The Index states `release_kind: unknown` | The builder resolves the kind from the track count. A test holds this |
+| A bright line ran under the status area, and a heavy line under the "Select" band | The frame chrome drew two borders in a text color | One border in the separator color, only under a visible header |
+| Tiles and Rows looked equal | `Button` ignored its selected state | The selected button has a tint (R-LIST-1 item 3) |
+| A long toolbar title was cut in the middle of a letter | The equal side areas of the toolbar leave less width | The title has an ellipsis and a tooltip (R-TOOLTIP-1 item 2) |
+| The title moved by some pixels between pages | The title row took the height of its controls | The title row has one minimum height |
+
+The frame outline, the tooltips on controls with text labels and the choices that have no rule wait for the operator. The orchestrator did not decide them again.
+
+### Decisions From Evidence - 2026-11-06
+
+On 2026-11-06 the operator told the orchestrator to make the best choices from evidence for the user experience and the long-term code quality. A reversal of each decision needs only its own change.
+
+| Decision | Evidence | Cost |
+| --- | --- | --- |
+| The frame outline stays removed, and a row shows the keyboard focus when a list gets it | The outline read a stored flag, and screenshots 03 and 07 show it beside the real focus. R-FOCUS-1, WCAG 2.4.7 and the Apple HIG list guidance point to the item | An empty list has no row to mark |
+| `Button` shows no tooltip with a text label. The sidebar rows have no tooltip | R-TOOLTIP-1 item 3 | The sentence "Inbox, 1 item needs a decision" no longer shows. The number and the mark stay |
+| Sidebar rows and the list are tab stops | R-FOCUS-1 checks a page with Tab, and only buttons had tab stops | The Tab sequence is longer |
+| The search field has a fill | R-FIELD-1 item 1 | None found |
+| Playlist rows show the type dot, the word and "n tracks" | ADR 0089 Decision 6 | None found |
+| A public playlist hides the name "Unknown Artist" | The live Index gives this placeholder as `release_artist`. AGENTS.md calls placeholder text a source problem. Stophammer can also correct it | No request to Stophammer exists yet |
+| Focus alone opens no search list | ADR 0087 Decision 3 names a click, and the Apple HIG warns against a change with no action of the person | Ctrl+F shows no list until a key |
+| "New Playlist" replaces "+" | The durable set forbids a glyph string in a renderer | A wider control |
+| "New Saved Search" is a secondary button | The toolbar already has the primary "Search" button | Less emphasis |
+| List rows keep a 2 px border in each state | A row must not move when its state changes | Rows are 2 px taller, and a marked row has a heavier outline |
+
+Answers to the seven questions:
+
+1. Keep both titles. R-TOOLBAR-1 item 1 gives the toolbar title, and R-LIST-1 item 4 gives the title row. A change needs a musicindex record.
+2. My playlists stays in name sequence, because the Non-Goals of ADR 0089 put moves later.
+3. Correct. Decision 5 gives the results rows, and a query names the results better than one fixed word.
+4. Correct for now. The page menu has the copy and Decision 1 holds. A tile has no menu on any page, so a menu needs a shared tile owner.
+5. No. A copy with no readable track now makes nothing and gives a report.
+6. Correct. The Inbox holds the same action, and the tab bar shows the Inbox count.
+7. An open finding. Back can then appear to do nothing. No new packet owns it yet.
+
+The "Select" band of an item page stays. No shared rule places it, and each item page type needs a change. This needs its own packet.
+
+### Keyboard Focus Report - 2026-11-06
+
+The operator reported that Tab moved the focus and no outline showed. The sidebar ring and the row mark read `Window::last_input_was_keyboard`, and GPUI clears that fact at each mouse move. This is a probable cause, and it is not proved. A new owner, `src/ui/focus_ring.rs`, holds the state: a key press shows the ring, a mouse button hides it, and a mouse move changes nothing. "Select" and the view icons now have a tab stop, the ring and keyboard activation.
+
+The operator then found that the stop with no mark comes after the search field and before the main button of the page. That stop was the list area, which the orchestrator had made a tab stop on each page. Only a list with row focus and with rows is now a tab stop. The script scenario `keyboard` presses Tab and takes a screenshot at each stop.
+
+The third screenshot run is in `~/.claude/v4vmm-shots/20261106-103223`. It holds the scenario `shell` only. It showed these faults, now corrected: a marked group row had the fill of a selected row, and the download icon of a track row used the accent color (ADR 0089 Decision 6). The orchestrator also found that its tooltip rule removed the tooltip of icon buttons with an empty label, and corrected this.
+
+The keyboard run is in `~/.claude/v4vmm-shots/20261106-104940`. Tabs 1 to 7 gave identical images, so no ring painted. After Down, the sidebar row showed its ring, so the ring paints. GPUI gives a key with a binding to its action and returns before the element key listeners, so the listener never saw Tab. The state now uses a keystroke interceptor, and its test has a real Tab binding. The earlier mouse-move explanation stays unproved, because this run does not test it.
+
+The same image showed that a click on a sidebar row left the focus on the row, so the arrow keys never reached the list. A mouse click now moves the focus to the list. A keyboard user stays on the row.
+
+The next keyboard run is in `~/.claude/v4vmm-shots/20261106-110306`. Each Tab stop shows its ring, the ring stays after a mouse move, Shift+Tab goes back and Down moves through the list. It showed these faults, now corrected: a list row kept its ring after the focus left the list, the list came before the page controls in the Tab sequence, and a button with a plain click handler was not a tab stop. A mouse click on a Releases title-row control now gives the focus back to the list, so the arrow keys keep working. ADR 0069 keeps the focus transfer of a button click, so the shared button keeps it. The sort menu and the letter bar stay out of the Tab sequence.
+
+The keyboard run in `~/.claude/v4vmm-shots/20261106-115450` gave a Tab sequence in screen order: the sidebar rows, the two sidebar buttons, the search field, "Search", "Open Show", the view icons, "Select", the scope and the list. The list stop showed no mark, and the cause in the focus listener was not found. The listener is gone. The list now marks its row in the draw that sees the keyboard focus.
+
+The run in `~/.claude/v4vmm-shots/20261106-120337` shows the first row marked at the list stop, and the mark goes at the next stop. The operator then asked to reach the letters as a unit. The letter bar is now one tab stop with a cursor (ADR 0089 Decision 9).
+
+The run in `~/.claude/v4vmm-shots/20261106-122447` shows the letter bar as one stop on Artists. The cursor moves with no request, Enter runs the letter, and Tab leaves and returns. The sort menu and the row menus still need the mouse, and the "Select" band of an item page has no owner. They wait for a follow-up packet.
+

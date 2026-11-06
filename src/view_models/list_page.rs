@@ -470,6 +470,21 @@ impl ListPageHeadVm {
         }
     }
 
+    /// The title row of a page with a title and at most one typed action:
+    /// the Search page, My playlists and the Inbox (ADR 0089 Decision 6).
+    #[must_use]
+    pub(crate) fn titled(title: &str, action: Option<SearchPageActionDisplay>) -> Self {
+        Self {
+            title: title.to_owned(),
+            scope: None,
+            sort: None,
+            letters: None,
+            view: None,
+            select: None,
+            action,
+        }
+    }
+
     /// The title row of a search page (ADR 0089 Decision 4): the title, the
     /// scope "All | In Library" of the query, the sort of `state`, and the
     /// typed action of the page. The scope control shows no count, because

@@ -327,13 +327,14 @@ impl RenderOnce for ListRow {
                 el.min_h(Size::MinHitTarget.scaled(cx))
             })
             .rounded(radius)
-            .border_1()
+            // The border always takes its space, so an outline moves no row.
+            .border_2()
             .border_color(gpui::transparent_black())
             .when(selected, |el| el.bg(selected_bg))
             .map(|el| match row_outline(selected, focused, marked) {
                 RowOutline::None => el,
                 RowOutline::Selected | RowOutline::Marked => el.border_color(accent),
-                RowOutline::Focus => el.border_2().border_color(focus),
+                RowOutline::Focus => el.border_color(focus),
             })
             .child(
                 stack.children(
@@ -341,18 +342,8 @@ impl RenderOnce for ListRow {
                     // Decision 11: the audition slot trails it. Each is
                     // `None` until its owning decision fills it, so neither
                     // reserves space here.
-                    marked
-                        .then(|| {
-                            // R-NAV-2 item 2: the leading bar of a marked row.
-                            div()
-                                .w(Size::RowMarkBar.scaled(cx))
-                                .self_stretch()
-                                .flex_shrink_0()
-                                .bg(accent)
-                                .into_any_element()
-                        })
+                    checkbox
                         .into_iter()
-                        .chain(checkbox)
                         .chain(self.children)
                         .chain(self.audition)
                         .chain(time_column)
@@ -361,6 +352,19 @@ impl RenderOnce for ListRow {
                         .chain(self.trailing),
                 ),
             )
+            // R-NAV-2 item 2: the leading bar of a marked row. It sits over
+            // the row padding, so the mark moves no content.
+            .when(marked, |el| {
+                el.relative().child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .top_0()
+                        .bottom_0()
+                        .w(Size::RowMarkBar.scaled(cx))
+                        .bg(accent),
+                )
+            })
             .when(has_menu_cell, |el| el.group(TRACK_ROW_GROUP))
             .when_some(self.scroll_probe, |el, probe| el.relative().child(probe));
         row = menu_root.attach(row);

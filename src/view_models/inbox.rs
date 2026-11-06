@@ -178,7 +178,10 @@ pub(crate) fn update_items(
         let files = files_text(tag_file_count);
         items.push(InboxUpdateItem {
             kind: InboxUpdateKind::TagUpdates,
-            text: format!("{files} have tags that differ from the stored metadata."),
+            text: format!(
+                "{files} {} tags that differ from the stored metadata.",
+                if tag_file_count == 1 { "has" } else { "have" }
+            ),
             count: tag_file_count,
             button_label: format!("Update {files}"),
             a11y_label: format!("Show the {files} whose tags differ from the stored metadata"),

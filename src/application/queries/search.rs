@@ -1099,6 +1099,15 @@ pub(super) fn index_feed_display(
         // ADR 0086 Decision 1: keep the release date of the feed before
         // `FeedView::from_api` takes the feed. `FeedView` has no field for it.
         let newest_item_at = feed.newest_item_at;
+        // Walk of 2026-11-06: with no resolved kind, a row of one track said
+        // "Album", and its own page said "Single". The Index often states
+        // the kind "unknown", so the track count resolves it.
+        let track_count = feed
+            .episode_count
+            .and_then(|count| usize::try_from(count).ok())
+            .unwrap_or(0);
+        let kind = ReleaseKind::resolve(feed.release_kind.as_deref(), track_count);
+        let key_guid = feed.feed_guid.clone();
         let remote_feed = crate::views::FeedView::from_api(feed.clone());
         let label = feed
             .title
@@ -1120,6 +1129,9 @@ pub(super) fn index_feed_display(
         }
         if let Some(image_url) = non_empty_string(feed.image_url) {
             display = display.with_thumbnail_href(image_url);
+        }
+        if let Some(guid) = key_guid {
+            display = display.with_release_key(ReleaseKey::from_index_feed_guid(guid), kind);
         }
         display = display
             .with_remote_feed(remote_feed)
@@ -1167,6 +1179,24 @@ fn non_empty_string(value: Option<String>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    /// Walk of 2026-11-06: the Index states `release_kind: unknown` for most
+    /// feeds. A feed of one track resolves to a single with its own GUID as
+    /// the key, not to the default kind "Album".
+    #[test]
+    fn adr_0089_index_feed_display_resolves_kind_and_key_from_the_feed() {
+        let feed = crate::api::Feed {
+            feed_guid: Some("guid-a".to_owned()),
+            title: Some("One track".to_owned()),
+            release_kind: Some("unknown".to_owned()),
+            episode_count: Some(1),
+            ..crate::api::Feed::default()
+        };
+        let display =
+            super::index_feed_display("guid-a", Some(crate::api::EntityDetail::Feed(feed)));
+        assert_eq!(display.kind, ReleaseKind::Single);
+        assert_eq!(display.key, Some(ReleaseKey::FeedGuid("guid-a".to_owned())));
+    }
+
     use super::*;
     use crate::view_models::search_results::{SearchResultTarget, SearchResultsTab};
 
