@@ -18,6 +18,7 @@ use gpui::{
     div, prelude::*, AnyElement, App, FontWeight, IntoElement, ParentElement, SharedString, Styled,
     Window,
 };
+use gpui_component::Selectable;
 
 use crate::ui::composites::letter_bar::{letter_bar, LetterHandler};
 use crate::ui::composites::{Segment, SegmentDisplay, SegmentedControl};
@@ -28,7 +29,8 @@ use crate::ui::primitives::{
 };
 use crate::ui::tokens::{FontSize, Spacing};
 use crate::view_models::list_page::{
-    ListPageHeadVm, ListScope, ListScopeControlVm, ListSort, ListSortButtonVm,
+    ListPageHeadVm, ListScope, ListScopeControlVm, ListSort, ListSortButtonVm, ListView,
+    ListViewControlVm,
 };
 
 /// The callback of a scope selection (ADR 0089 Decision 5).
@@ -40,6 +42,9 @@ pub(crate) type ListSortHandler = Rc<dyn Fn(&ListSort, &mut Window, &mut App) + 
 /// The callback of a title row button, such as "Select".
 pub(crate) type ListHeadButtonHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 
+/// The callback of a view icon (R-LIST-1 item 3).
+pub(crate) type ListViewHandler = Rc<dyn Fn(&ListView, &mut Window, &mut App) + 'static>;
+
 /// The callbacks of the title row. A `None` callback leaves its control
 /// without a click.
 #[derive(Default)]
@@ -50,6 +55,8 @@ pub(crate) struct ListPageHeadHandlers {
     pub(crate) select: Option<ListHeadButtonHandler>,
     /// The sort choice of the sort menu.
     pub(crate) sort: Option<ListSortHandler>,
+    /// The view icon click (R-LIST-1 item 3).
+    pub(crate) view: Option<ListViewHandler>,
     /// The letter click of the letter bar.
     pub(crate) letter: Option<LetterHandler>,
 }
@@ -69,6 +76,10 @@ pub(crate) fn list_page_head(
 
     if let Some(sort) = display.sort {
         trailing = trailing.child(sort_menu(sort, handlers.sort.as_ref()));
+    }
+
+    if let Some(view) = display.view {
+        trailing = trailing.child(view_icons(view, handlers.view.as_ref(), cx));
     }
 
     if let Some(select) = display.select {
@@ -149,6 +160,38 @@ fn sort_menu(display: ListSortButtonVm, on_sort: Option<&ListSortHandler>) -> An
         menu = menu.item(item);
     }
     menu.into_any_element()
+}
+
+/// The view icons of a list page (R-LIST-1 item 3). Each icon is one
+/// button. The current view has the tint of a selected button.
+fn view_icons(
+    display: ListViewControlVm,
+    on_view: Option<&ListViewHandler>,
+    cx: &App,
+) -> AnyElement {
+    let mut icons = div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(Spacing::XXS.scaled(cx));
+    for option in display.options {
+        let icon = match option.view {
+            ListView::Rows => IconName::RowsView,
+            ListView::Tiles => IconName::TilesView,
+        };
+        let view = option.view;
+        let mut button = Button::styled(SharedString::from(option.id), ControlStyle::ToolbarIcon)
+            .leading_icon(icon)
+            .a11y_label(option.a11y_label.clone())
+            .tooltip(option.a11y_label)
+            .selected(option.selected);
+        if let Some(handler) = on_view {
+            let handler = handler.clone();
+            button = button.on_click(move |_, window, cx| handler(&view, window, cx));
+        }
+        icons = icons.child(button);
+    }
+    icons.into_any_element()
 }
 
 /// The scope control of a list page: a `SegmentedControl` with the

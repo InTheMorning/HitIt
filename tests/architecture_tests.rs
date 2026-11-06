@@ -5368,7 +5368,7 @@ fn adr_0084_discover_selection_r20_07_selectable_tile_uses_named_tokens() {
         "SemanticColor::Accent",
         "SemanticColor::SelectedContent",
         "SemanticColor::Focus",
-        "row_outline(self.selected, self.focused, false)",
+        "row_outline(self.selected, self.focused, self.marked)",
     ] {
         if !source.contains(required) {
             violations.push(format!("{file}: missing `{required}`."));

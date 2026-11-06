@@ -41,7 +41,7 @@ use crate::view_models::letter_bar::{first_letter_index, LetterKey};
 use crate::view_models::library::{
     AlbumNode, ArtistsListItemVm, LibraryViewModel, ReleasesListItemVm,
 };
-use crate::view_models::list_page::{needs_first_page, ListPageKey, ListScope, ListSort};
+use crate::view_models::list_page::{needs_first_page, ListPageKey, ListScope, ListSort, ListView};
 use crate::view_models::list_selection::{ListSelection, SelectionMode};
 use crate::view_models::releases_everything::{reset_selection_on_scope_change, ReleasesListRows};
 use crate::view_models::singles_group::{
@@ -125,6 +125,22 @@ impl LibraryApp {
             self.releases_selection_mode = SelectionMode::Normal;
             self.request_default_name_list(cx);
         }
+        cx.notify();
+    }
+
+    /// Sets the view of the list page `key` (ADR 0089 Decision 5, R-LIST-1
+    /// item 3). Each page keeps its own view. The rows and the tiles show
+    /// the same items, so the selection stays.
+    pub(crate) fn set_list_view(
+        &mut self,
+        key: ListPageKey,
+        view: ListView,
+        cx: &mut Context<Self>,
+    ) {
+        if self.vm.list_view(key) == view {
+            return;
+        }
+        self.vm.set_list_view(key, view);
         cx.notify();
     }
 

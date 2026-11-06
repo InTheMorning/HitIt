@@ -62,7 +62,9 @@ use crate::view_models::library_removal::{
     LibraryRemovalConfirmationDisplay, LibraryRemovalConfirmationState,
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
-use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListPages, ListScope, ListSort};
+use crate::view_models::list_page::{
+    ListPageHeadVm, ListPageKey, ListPages, ListScope, ListSort, ListView,
+};
 #[cfg(test)]
 use crate::view_models::list_selection::RowCheckState;
 use crate::view_models::list_selection::{
@@ -2103,6 +2105,41 @@ pub(crate) enum ReleasesRowId {
     Release(ReleaseKey),
     /// A singles group row, closed or open.
     Group(SinglesGroupKey),
+    /// A window group of the sort Newest, named by the row id of its anchor
+    /// (ADR 0089 packet 005 Part C). The members are the group's releases.
+    Window(String),
+}
+
+/// The selection rows of the window groups and the release rows of the
+/// sort Newest, in the order of `items` (ADR 0086 Decision 3, ADR 0089
+/// packet 005 Part C). A release row has its own key. A window group row
+/// has each member key, so its checkbox selects each member.
+#[must_use]
+pub(crate) fn newest_selection_rows(
+    items: &[ReleasesListItemVm],
+) -> Vec<SelectionRow<ReleasesRowId, ReleaseKey>> {
+    items
+        .iter()
+        .filter_map(|item| match item {
+            ReleasesListItemVm::Release(row) => match &row.open {
+                DestinationListRowTarget::Release(key) => Some(SelectionRow::new(
+                    ReleasesRowId::Release(key.clone()),
+                    vec![key.clone()],
+                )),
+                DestinationListRowTarget::ArtistName(_)
+                | DestinationListRowTarget::Publisher(_)
+                | DestinationListRowTarget::IndexPublisher(_) => None,
+            },
+            ReleasesListItemVm::WindowGroup(tile) => Some(SelectionRow::new(
+                ReleasesRowId::Window(tile.open_row_id.clone()),
+                tile.member_keys.clone(),
+            )),
+            ReleasesListItemVm::LeadingStatus(_)
+            | ReleasesListItemVm::Group(_)
+            | ReleasesListItemVm::Single(_)
+            | ReleasesListItemVm::TrailingStatus(_) => None,
+        })
+        .collect()
 }
 
 /// The selection rows of the Releases `entries`, in their render sequence
@@ -3639,6 +3676,19 @@ impl LibraryViewModel {
         self.list_pages.set_letter(key, letter);
     }
 
+    /// The view of the list page `key` (ADR 0089 Decision 5). Each page
+    /// keeps its own view. The view is not an input of the Releases list
+    /// build, so a view change builds no merge.
+    #[must_use]
+    pub(crate) fn list_view(&self, key: ListPageKey) -> ListView {
+        self.list_pages.get(key).view
+    }
+
+    /// Sets the view of the list page `key` (ADR 0089 Decision 5).
+    pub(crate) fn set_list_view(&mut self, key: ListPageKey, view: ListView) {
+        self.list_pages.set_view(key, view);
+    }
+
     /// The title row of the list page `key` (ADR 0089 Decision 6).
     /// `library_count` and `select` are the facts that the view model does
     /// not read itself.
@@ -4135,7 +4185,6 @@ impl LibraryViewModel {
             .map(|item| (item.row.element_id.clone(), item.row))
             .collect();
         let mut items: Vec<ReleasesListItemVm> = Vec::new();
-        let mut plain: Vec<ReleasesListEntryVm> = Vec::new();
         for item in layout.into_items() {
             match item {
                 NewReleasesLayoutItem::Release { row_id } => {
@@ -4143,7 +4192,6 @@ impl LibraryViewModel {
                         continue;
                     };
                     row.menu = self.row_menu_of(&albums, &row);
-                    plain.push(ReleasesListEntryVm::Release(row.clone()));
                     items.push(ReleasesListItemVm::Release(row));
                 }
                 NewReleasesLayoutItem::WindowGroup(tile) => {
@@ -4156,7 +4204,10 @@ impl LibraryViewModel {
         } else {
             None
         };
-        ReleasesListRows::from_parts(items, releases_selection_rows(&plain), status, |key| {
+        // ADR 0086 Decision 3 and ADR 0089 packet 005 Part C: a window group
+        // has one selection row, whose members are the group's releases.
+        let selection_rows = newest_selection_rows(&items);
+        ReleasesListRows::from_parts(items, selection_rows, status, |key| {
             self.row_state_of(&albums, key)
         })
     }
@@ -4225,9 +4276,16 @@ impl LibraryViewModel {
                 );
                 ReleasesListItemVm::Group(group)
             }
-            // A window group has no checkbox in this packet (ADR 0089 packet 005
-            // Part C adds it).
-            tile @ ReleasesListItemVm::WindowGroup(_) => tile,
+            ReleasesListItemVm::WindowGroup(mut tile) => {
+                // ADR 0086 Decision 3 and ADR 0089 packet 005 Part C: the
+                // checkbox of a window group selects each member, the same
+                // as the checkbox of a singles group row.
+                let check_state = selection.row_check_state(&tile.member_keys);
+                let focused = focused_row == Some(&ReleasesRowId::Window(tile.open_row_id.clone()));
+                tile.selection =
+                    RowSelectionVm::for_group_row(&tile.title, check_state, focused, selecting);
+                ReleasesListItemVm::WindowGroup(tile)
+            }
             status @ (ReleasesListItemVm::LeadingStatus(_)
             | ReleasesListItemVm::TrailingStatus(_)) => status,
         }
@@ -9690,6 +9748,152 @@ mod tests {
     /// R15-05 (ADR 0084 Decision 6): the singles of a group give one group
     /// entry and no release entry. The group entry sorts by the display
     /// artist and names the count and the Library state.
+    /// ADR 0089 packet 005 Part C: the checkbox of a window group selects
+    /// each member of the group, the same as a singles group row. The tile
+    /// shows the checked state in selection mode only.
+    #[test]
+    fn adr_0089_task_005_part_c_window_group_checkbox_selects_each_member() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_only_tree());
+        let pager = loaded_pager(vec![newest_pager_single("guid-9", "Haleen", 250)], true);
+        let rows = vm.releases_list_rows(
+            ListScope::All,
+            ListSort::Newest,
+            &IndexNameListPage::default(),
+            &pager,
+            &BTreeSet::new(),
+        );
+        let tile = releases_window_tiles(rows.items())[0].clone();
+        let row_id = ReleasesRowId::Window(tile.open_row_id.clone());
+        let row = rows
+            .selection_rows()
+            .iter()
+            .find(|row| row.id == row_id)
+            .expect("the window group has a selection row");
+        assert_eq!(row.members, tile.member_keys, "each member of the group");
+
+        let mut selection = ListSelection::new();
+        selection.toggle(row);
+        assert_eq!(selection.selected_count(), 4, "each member is selected");
+        for key in &tile.member_keys {
+            assert!(selection.is_selected(key));
+        }
+
+        let item = ReleasesListItemVm::WindowGroup(Box::new(tile));
+        let selecting = LibraryViewModel::releases_item_with_selection(
+            &item,
+            &selection,
+            SelectionMode::Selecting,
+        );
+        let ReleasesListItemVm::WindowGroup(shown) = selecting else {
+            panic!("a window group stays a window group");
+        };
+        assert_eq!(shown.selection.check_state, RowCheckState::Checked);
+        assert!(shown.selection.checkbox_visible);
+
+        let normal = LibraryViewModel::releases_item_with_selection(
+            &item,
+            &selection,
+            SelectionMode::Normal,
+        );
+        let ReleasesListItemVm::WindowGroup(normal) = normal else {
+            panic!("a window group stays a window group");
+        };
+        assert!(
+            !normal.selection.checkbox_visible,
+            "no checkbox in Normal mode"
+        );
+    }
+
+    /// ADR 0089 packet 005 Part C: Select covers each item kind of the
+    /// Releases list. The sort Newest gives window groups and release rows,
+    /// and the sort A to Z gives singles groups and release rows. Each
+    /// member of each row is selected.
+    #[test]
+    fn adr_0089_task_005_part_c_select_all_covers_each_item_kind() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_tree());
+        let pager = loaded_pager(vec![newest_pager_single("guid-9", "Haleen", 250)], true);
+        let newest = vm.releases_list_rows(
+            ListScope::InLibrary,
+            ListSort::Newest,
+            &IndexNameListPage::default(),
+            &pager,
+            &BTreeSet::new(),
+        );
+        let by_name = vm.releases_list_rows(
+            ListScope::InLibrary,
+            ListSort::AToZ,
+            &IndexNameListPage::default(),
+            &pager,
+            &BTreeSet::new(),
+        );
+        assert!(newest
+            .selection_rows()
+            .iter()
+            .any(|row| matches!(row.id, ReleasesRowId::Window(_))));
+        assert!(newest
+            .selection_rows()
+            .iter()
+            .any(|row| matches!(row.id, ReleasesRowId::Release(_))));
+        assert!(by_name
+            .selection_rows()
+            .iter()
+            .any(|row| matches!(row.id, ReleasesRowId::Group(_))));
+
+        for rows in [&newest, &by_name] {
+            let mut selection = ListSelection::new();
+            selection.select_all(rows.selection_rows());
+            let members: BTreeSet<ReleaseKey> = rows
+                .selection_rows()
+                .iter()
+                .flat_map(|row| row.members.iter().cloned())
+                .collect();
+            for member in &members {
+                assert!(selection.is_selected(member), "{member:?} is selected");
+            }
+            assert_eq!(selection.selected_count(), members.len());
+        }
+    }
+
+    /// ADR 0089 packet 005 Part C: the rows view and the tiles view read
+    /// one build of the list for one key, so their items are the same. Each
+    /// item has its own element id, and the tiles keep that identity.
+    #[test]
+    fn adr_0089_task_005_part_c_tile_items_equal_row_items_for_one_key() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(singles_only_tree());
+        let pager = loaded_pager(vec![newest_pager_single("guid-9", "Haleen", 250)], true);
+        let page = IndexNameListPage::default();
+        let expanded = BTreeSet::new();
+        let mut cache = ReleasesListCache::default();
+
+        let rows_view = vm.cached_releases_rows(
+            &mut cache,
+            ListScope::All,
+            ListSort::Newest,
+            &page,
+            &pager,
+            &expanded,
+        );
+        let tiles_view = vm.cached_releases_rows(
+            &mut cache,
+            ListScope::All,
+            ListSort::Newest,
+            &page,
+            &pager,
+            &expanded,
+        );
+        assert_eq!(cache.builds(), 1, "one build serves both views");
+        assert_eq!(rows_view.item_ids(), tiles_view.item_ids());
+        let unique: BTreeSet<&String> = tiles_view.item_ids().iter().collect();
+        assert_eq!(
+            unique.len(),
+            tiles_view.item_ids().len(),
+            "one id for each item"
+        );
+    }
+
     #[test]
     fn adr_0084_singles_group_r15_05_releases_list_gives_one_group_entry() {
         let mut vm = LibraryViewModel::new();
