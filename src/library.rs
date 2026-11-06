@@ -118,6 +118,10 @@ pub(crate) enum LibraryAppEvent {
         entry: FrameNavigationEntry,
         start: NavigationPathStart,
     },
+    /// A sidebar row was clicked (ADR 0089 Decision 1). The sidebar view
+    /// lives in the Library, but Show and Settings are screen mounts, so
+    /// the top app routes the row.
+    SidebarRowSelected(crate::view_models::sidebar::SidebarDestination),
     /// An Index job of the download queue completed (ADR 0084 Decision
     /// 10, packet 022). The top app updates its open pages in place and
     /// starts the tag scan of a successful download.
@@ -330,10 +334,16 @@ pub struct LibraryApp {
     /// The Music detail column's own focus handle (packet 018). The
     /// detail selection keys act only while it carries the focus.
     detail_column_focus: FocusHandle,
+    /// The focus handle of each sidebar row (ADR 0089 Decision 1). A
+    /// section shortcut moves the focus to the row of its section.
+    sidebar_focus: Vec<(crate::view_models::sidebar::SidebarDestination, FocusHandle)>,
+    /// The sidebar row of the current screen (ADR 0089 Decision 1). The
+    /// top app sets it at each render.
+    sidebar_selected: Option<crate::view_models::sidebar::SidebarDestination>,
     /// The Library track whose track page opens its "Inspect sources"
     /// disclosure when it mounts (ADR 0083 task 006, decision D4).
     pending_inspect_sources: Option<i64>,
-    /// The spring-load timer of the sidebar row "Playlists" (ADR 0083
+    /// The spring-load timer of the sidebar row "My playlists" (ADR 0083
     /// task 008, decision D1).
     spring_load: crate::view_models::library::SpringLoadVm,
     /// The held scroll handle of each Music detail page (packet 018), so

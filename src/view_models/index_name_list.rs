@@ -81,7 +81,6 @@ impl MusicScopeControlDisplay {
                 ],
             ),
             MusicDestination::Discover
-            | MusicDestination::Tracks
             | MusicDestination::NeedsAttention
             | MusicDestination::Playlists => return None,
         };

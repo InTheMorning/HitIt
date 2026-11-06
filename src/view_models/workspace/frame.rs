@@ -34,8 +34,6 @@ impl WorkspaceFrameId {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum WorkspaceFrameKind {
-    /// Library tree, playlists, saved searches, and settings entry points.
-    SourceList,
     /// Selected library, search, or playlist results.
     ContentList,
     /// Track, feed, album, artist, or settings details.
@@ -49,7 +47,6 @@ impl WorkspaceFrameKind {
     #[must_use]
     pub(crate) const fn default_title(self) -> &'static str {
         match self {
-            Self::SourceList => "Library",
             Self::ContentList => "Content",
             Self::Detail => "Detail",
             Self::QueueNowPlaying => "Queue",

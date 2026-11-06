@@ -55,7 +55,6 @@ impl LibraryApp {
             MusicDestination::Releases => self.releases_scope,
             MusicDestination::Artists => self.artists_scope,
             MusicDestination::Discover
-            | MusicDestination::Tracks
             | MusicDestination::NeedsAttention
             | MusicDestination::Playlists => return None,
         };
@@ -103,7 +102,6 @@ impl LibraryApp {
                 }
             }
             MusicDestination::Discover
-            | MusicDestination::Tracks
             | MusicDestination::NeedsAttention
             | MusicDestination::Playlists => return,
         }

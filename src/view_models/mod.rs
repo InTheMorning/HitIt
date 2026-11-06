@@ -103,6 +103,7 @@ pub mod search_query;
 pub mod search_results;
 pub(crate) mod selection_action_bar;
 pub(crate) mod show;
+pub(crate) mod sidebar;
 pub mod singles_group;
 pub(crate) mod tag_update;
 pub(crate) mod text_filter;

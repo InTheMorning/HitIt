@@ -677,8 +677,9 @@ mod tests {
     fn adr_0084_music_open_defects_r30_11_offset_for_each_history_entry() {
         let handle = ScrollHandle::new();
         let mut binding = DetailScrollBinding::default();
-        let mut nav =
-            FrameNavigationState::new(FrameNavigationEntry::Destination(MusicDestination::Tracks));
+        let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+            MusicDestination::Releases,
+        ));
         nav.push(track(1));
         bind(&mut binding, &handle, &mut nav, true);
         assert_eq!(offset(&handle), px(0.0));
@@ -719,8 +720,9 @@ mod tests {
     fn adr_0084_music_open_defects_review_closing_a_pending_offset_keeps_it_full() {
         let handle = ScrollHandle::new();
         let mut binding = DetailScrollBinding::default();
-        let mut nav =
-            FrameNavigationState::new(FrameNavigationEntry::Destination(MusicDestination::Tracks));
+        let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+            MusicDestination::Releases,
+        ));
         nav.push(track(1));
         bind(&mut binding, &handle, &mut nav, true);
         handle.set_offset(point(px(0.0), px(-400.0)));
@@ -756,8 +758,9 @@ mod tests {
     fn adr_0084_music_open_defects_review_an_interaction_clears_the_pending_offset() {
         let handle = ScrollHandle::new();
         let mut binding = DetailScrollBinding::default();
-        let mut nav =
-            FrameNavigationState::new(FrameNavigationEntry::Destination(MusicDestination::Tracks));
+        let mut nav = FrameNavigationState::new(FrameNavigationEntry::Destination(
+            MusicDestination::Releases,
+        ));
         nav.push(track(1));
         bind(&mut binding, &handle, &mut nav, true);
         handle.set_offset(point(px(0.0), px(-400.0)));

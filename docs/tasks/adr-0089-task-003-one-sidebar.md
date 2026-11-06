@@ -1,6 +1,6 @@
 # ADR 0089 Task 003: One Sidebar
 
-Status: Ready - 2026-11-05.
+Status: Implemented - 2026-11-05. V1 to V3 are open. The checks are in section 11 of [pending human checks](../pending-human-checks.md).
 
 Depends on: [packet 002](adr-0089-task-002-toolbar-history-and-marked-row.md).
 
@@ -44,7 +44,7 @@ Visual:
 
 - V1: The app starts on Releases. The sidebar has the rows of this packet, and a line before Show.
 - V2: The sidebar stays on Show and Settings. A click on each row reaches its page.
-- V3: A keyboard section shortcut still selects its section, and the focus goes to the matching sidebar row.
+- V3: A keyboard section shortcut still selects its section. The focus goes to the list page on Music, and to the matching sidebar row on Show and Settings.
 
 ## Test Commands
 

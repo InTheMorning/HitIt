@@ -53,16 +53,11 @@ pub const MENU_MIN_WIDTH: Pixels = px(320.0);
 pub const MENU_MAX_WIDTH: Pixels = px(520.0);
 pub const TRACK_NUMBER_WIDTH: Pixels = px(24.0);
 
-/// ADR 0084 Decision 1: the Music sidebar column's fixed width.
+/// ADR 0089 Decision 1: the sidebar column's fixed width. It holds each
+/// destination, and it keeps this width at each window width.
 pub const MUSIC_SIDEBAR_WIDTH: Pixels = px(220.0);
 /// ADR 0084 Decision 1: the Music detail column's minimum width.
 pub const MUSIC_DETAIL_MIN_WIDTH: Pixels = px(360.0);
-/// ADR 0084 Decision 1: the Music sidebar column's collapsed width, each
-/// destination as an icon only.
-pub const MUSIC_SIDEBAR_COLLAPSED_WIDTH: Pixels = px(56.0);
-/// ADR 0084 Decision 1: below this width, the `Auto` sidebar preference
-/// collapses the sidebar to icons.
-pub const MUSIC_SIDEBAR_COLLAPSE_BREAKPOINT: Pixels = px(1100.0);
 
 #[must_use]
 pub fn scaled_dimension(base: Pixels, cx: &App) -> Pixels {

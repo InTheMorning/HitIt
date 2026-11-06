@@ -17,18 +17,15 @@ use crate::ui::composites::{frame_shell, FrameShellSlots, SplitPane};
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::layouts::{
     CONTENT_PANE_DEFAULT_WIDTH, CONTENT_PANE_MIN_WIDTH, MUSIC_DETAIL_MIN_WIDTH,
-    MUSIC_SIDEBAR_COLLAPSED_WIDTH, MUSIC_SIDEBAR_COLLAPSE_BREAKPOINT, MUSIC_SIDEBAR_WIDTH,
     WORKSPACE_QUEUE_COLLAPSE_BREAKPOINT, WORKSPACE_SECONDARY_DETAIL_COLLAPSE_BREAKPOINT,
 };
 use crate::ui::tokens::{resolve_color, FontSize, SemanticColor, Spacing};
 use crate::view_models::index_name_list::{MusicListScope, MusicScopeControlDisplay};
 use crate::view_models::workspace::{
-    ContentViewMode, ContentViewModeControlDisplay, FrameHeaderActionDisplay, FrameShellDisplay,
-    MusicColumns, MusicPageContent, MusicSidebarPreference, MusicSidebarState, WorkspaceFrameKind,
-    WorkspaceFrameState, WorkspaceLayout,
+    FrameHeaderActionDisplay, FrameShellDisplay, MusicColumns, MusicPageContent,
+    WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,
 };
 
-type WorkspaceViewModeSelectHandler = Rc<dyn Fn(ContentViewMode, &mut Window, &mut App) + 'static>;
 type WorkspaceScopeSelectHandler = Rc<dyn Fn(MusicListScope, &mut Window, &mut App) + 'static>;
 type WorkspaceHeaderActionHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 
@@ -40,48 +37,25 @@ type WorkspaceContentPaneResizeMoveHandler = Box<dyn Fn(f32, &mut Window, &mut A
 #[derive(Default)]
 #[must_use]
 pub(crate) struct WorkspaceSlots {
-    source_list: Option<AnyElement>,
     content_list: Option<AnyElement>,
     detail: Option<AnyElement>,
-    content_list_view_mode_control: Option<ContentViewModeControlDisplay>,
     content_list_header_action: Option<FrameHeaderActionDisplay>,
     detail_header_action: Option<FrameHeaderActionDisplay>,
     content_list_scope_control: Option<MusicScopeControlDisplay>,
     music_columns: Option<MusicColumns>,
     on_content_list_scope_select: Option<WorkspaceScopeSelectHandler>,
-    on_content_list_view_mode_select: Option<WorkspaceViewModeSelectHandler>,
     on_content_list_header_action: Option<WorkspaceHeaderActionHandler>,
     on_detail_header_action: Option<WorkspaceHeaderActionHandler>,
     content_pane_width: Option<Pixels>,
     on_content_pane_resize_start: Option<WorkspaceContentPaneResizeStartHandler>,
     on_content_pane_resize_move: Option<WorkspaceContentPaneResizeMoveHandler>,
     on_content_pane_resize_end: Option<WorkspaceContentPaneResizeHandler>,
-    source_list_sidebar_preference: MusicSidebarPreference,
 }
 
 impl WorkspaceSlots {
     /// Creates an empty slot map.
     pub(crate) fn new() -> Self {
         Self::default()
-    }
-
-    /// Supplies content for the source-list frame (ADR 0084 Decision 1). The
-    /// Music mount is the only caller today.
-    pub(crate) fn source_list_slot(mut self, content: impl IntoElement) -> Self {
-        self.source_list = Some(content.into_any_element());
-        self
-    }
-
-    /// Supplies the sidebar collapse preference (ADR 0084 Decision 1). The
-    /// shell resolves the sidebar column's width from this preference and
-    /// the workspace width, with the same pure function the Library's own
-    /// sidebar render uses, so both agree on one collapsed state.
-    pub(crate) fn source_list_sidebar_preference(
-        mut self,
-        preference: MusicSidebarPreference,
-    ) -> Self {
-        self.source_list_sidebar_preference = preference;
-        self
     }
 
     /// Supplies the visible Music frame (ADR 0089 Decisions 1 and 5). The
@@ -109,15 +83,6 @@ impl WorkspaceSlots {
     /// bar of the Music detail column).
     pub(crate) fn take_detail_slot(&mut self) -> Option<AnyElement> {
         self.detail.take()
-    }
-
-    /// Supplies frame-local content view-mode chrome for the content-list frame.
-    pub(crate) fn content_list_view_mode_control(
-        mut self,
-        display: ContentViewModeControlDisplay,
-    ) -> Self {
-        self.content_list_view_mode_control = Some(display);
-        self
     }
 
     /// Supplies the content-list frame's trailing header action (ADR
@@ -165,15 +130,6 @@ impl WorkspaceSlots {
         self
     }
 
-    /// Supplies the content-list view-mode callback.
-    pub(crate) fn on_content_list_view_mode_select(
-        mut self,
-        handler: impl Fn(ContentViewMode, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_content_list_view_mode_select = Some(Rc::new(handler));
-        self
-    }
-
     /// Supplies the content pane width for the `SplitPane`.
     pub(crate) fn content_pane_width(mut self, width: Pixels) -> Self {
         self.content_pane_width = Some(width);
@@ -215,9 +171,6 @@ impl WorkspaceSlots {
     ) -> AnyElement {
         match kind {
             WorkspaceFrameKind::ContentList => self.content_list.take(),
-            // ADR 0084 Decision 1: the Music mount fills the source-list and
-            // detail slots.
-            WorkspaceFrameKind::SourceList => self.source_list.take(),
             WorkspaceFrameKind::Detail => self.detail.take(),
             // ADR 0081 Decision 2: a slot is added when a screen fills it.
             WorkspaceFrameKind::QueueNowPlaying => None,
@@ -225,23 +178,11 @@ impl WorkspaceSlots {
         .unwrap_or_else(|| placeholder(frame, cx))
     }
 
-    fn view_mode_control_for(
-        &self,
-        kind: WorkspaceFrameKind,
-    ) -> Option<ContentViewModeControlDisplay> {
-        match kind {
-            WorkspaceFrameKind::ContentList => self.content_list_view_mode_control.clone(),
-            WorkspaceFrameKind::SourceList
-            | WorkspaceFrameKind::Detail
-            | WorkspaceFrameKind::QueueNowPlaying => None,
-        }
-    }
-
     fn header_action_for(&self, kind: WorkspaceFrameKind) -> Option<FrameHeaderActionDisplay> {
         match kind {
             WorkspaceFrameKind::ContentList => self.content_list_header_action.clone(),
             WorkspaceFrameKind::Detail => self.detail_header_action.clone(),
-            WorkspaceFrameKind::SourceList | WorkspaceFrameKind::QueueNowPlaying => None,
+            WorkspaceFrameKind::QueueNowPlaying => None,
         }
     }
 
@@ -252,19 +193,7 @@ impl WorkspaceSlots {
         match kind {
             WorkspaceFrameKind::ContentList => self.on_content_list_header_action.clone(),
             WorkspaceFrameKind::Detail => self.on_detail_header_action.clone(),
-            WorkspaceFrameKind::SourceList | WorkspaceFrameKind::QueueNowPlaying => None,
-        }
-    }
-
-    fn view_mode_select_handler_for(
-        &self,
-        kind: WorkspaceFrameKind,
-    ) -> Option<WorkspaceViewModeSelectHandler> {
-        match kind {
-            WorkspaceFrameKind::ContentList => self.on_content_list_view_mode_select.clone(),
-            WorkspaceFrameKind::SourceList
-            | WorkspaceFrameKind::Detail
-            | WorkspaceFrameKind::QueueNowPlaying => None,
+            WorkspaceFrameKind::QueueNowPlaying => None,
         }
     }
 }
@@ -295,17 +224,12 @@ impl RenderOnce for WorkspaceShell {
         let mut collapsed_frames = Vec::new();
         let mut content_list_element: Option<AnyElement> = None;
         let mut queue_element: Option<AnyElement> = None;
-        let mut source_list_element: Option<AnyElement> = None;
         let mut detail_element: Option<AnyElement> = None;
 
-        // ADR 0084 Decision 1: a `SourceList` frame exists only in the Music
-        // three-column layout. `visible_workspace_layout` gives Settings and
-        // Show the content-list frame only.
-        let is_music_three_column_layout = self
-            .layout
-            .frames()
-            .iter()
-            .any(|frame| frame.kind() == WorkspaceFrameKind::SourceList);
+        // ADR 0089 Decision 1: only the Music mount supplies the visible
+        // Music frame. Settings and Show supply none, so the content-list
+        // frame fills the row for them.
+        let is_music_layout = self.slots.music_columns.is_some();
         let content_list_frame_id = self
             .layout
             .frames()
@@ -322,58 +246,38 @@ impl RenderOnce for WorkspaceShell {
                 MusicColumns::for_entry(nav.current(), MusicPageContent::Loaded)
             })
         });
-        // ADR 0084 Decision 1: the sidebar width comes from its resolved
-        // collapse state. The Library's own sidebar render resolves the
-        // same state, from the same preference and workspace width, through
-        // the same pure function.
-        let sidebar_state = crate::view_models::workspace::resolve_music_sidebar_state(
-            self.slots.source_list_sidebar_preference,
-            f32::from(workspace_width),
-            f32::from(MUSIC_SIDEBAR_COLLAPSE_BREAKPOINT),
-        );
-        let sidebar_width = match sidebar_state {
-            MusicSidebarState::Expanded => MUSIC_SIDEBAR_WIDTH,
-            MusicSidebarState::Collapsed => MUSIC_SIDEBAR_COLLAPSED_WIDTH,
-        };
 
         for frame in self.layout.frames() {
             let frame_kind = frame.kind();
-            if should_collapse_frame(frame_kind, workspace_width, is_music_three_column_layout) {
+            if should_collapse_frame(frame_kind, workspace_width, is_music_layout) {
                 collapsed_frames.push(frame.title().to_owned());
                 continue;
             }
-            if is_music_three_column_layout {
+            if is_music_layout {
                 let hidden_at_this_width = match frame_kind {
                     WorkspaceFrameKind::ContentList => !music_columns.shows_list(),
                     WorkspaceFrameKind::Detail => !music_columns.shows_detail(),
-                    WorkspaceFrameKind::SourceList | WorkspaceFrameKind::QueueNowPlaying => false,
+                    WorkspaceFrameKind::QueueNowPlaying => false,
                 };
                 if hidden_at_this_width {
                     continue;
                 }
             }
 
-            let view_mode_control = self.slots.view_mode_control_for(frame_kind);
             // ADR 0084 packet 016: only the content-list frame has a scope.
             let (scope_control, on_scope_select) = match frame_kind {
                 WorkspaceFrameKind::ContentList => (
                     self.slots.content_list_scope_control,
                     self.slots.on_content_list_scope_select.clone(),
                 ),
-                WorkspaceFrameKind::SourceList
-                | WorkspaceFrameKind::Detail
-                | WorkspaceFrameKind::QueueNowPlaying => (None, None),
+                WorkspaceFrameKind::Detail | WorkspaceFrameKind::QueueNowPlaying => (None, None),
             };
             let header_action = self.slots.header_action_for(frame_kind);
-            let on_view_mode_select = self.slots.view_mode_select_handler_for(frame_kind);
             let on_header_action = self.slots.header_action_handler_for(frame_kind);
             let content = self.slots.take(frame.kind(), frame, cx);
             // ADR 0089 Decision 9: Back, Forward and the page title belong to
             // the app toolbar, so no frame shows them.
             let mut display = FrameShellDisplay::from_frame(frame, false);
-            if let Some(view_mode_control) = view_mode_control {
-                display = display.with_view_mode_control(view_mode_control);
-            }
             if let Some(scope_control) = scope_control {
                 display = display.with_scope_control(scope_control);
             }
@@ -381,11 +285,6 @@ impl RenderOnce for WorkspaceShell {
                 display = display.with_header_action(header_action);
             }
             let mut shell_slots = FrameShellSlots::new().content(content);
-            if let Some(handler) = on_view_mode_select {
-                shell_slots = shell_slots.on_view_mode_select(move |view_mode, window, cx| {
-                    handler(view_mode, window, cx);
-                });
-            }
             if let Some(handler) = on_scope_select {
                 shell_slots = shell_slots.on_scope_select(move |scope, window, cx| {
                     handler(scope, window, cx);
@@ -419,19 +318,16 @@ impl RenderOnce for WorkspaceShell {
                 WorkspaceFrameKind::QueueNowPlaying => {
                     queue_element = Some(frame_container.into_any_element());
                 }
-                WorkspaceFrameKind::SourceList => {
-                    source_list_element = Some(frame_container.into_any_element());
-                }
                 WorkspaceFrameKind::Detail => {
                     detail_element = Some(frame_container.into_any_element());
                 }
             }
         }
 
-        // ADR 0089 Decision 1: the Music layout is one row: the sidebar at
-        // its token width, and the one visible page frame with the remaining
-        // width.
-        let layout_element: AnyElement = if is_music_three_column_layout {
+        // ADR 0089 Decision 1: the Music layout is one row: the one visible
+        // page frame, at the remaining width of the content area. The
+        // sidebar is not a frame; `TopApp::render` places it.
+        let layout_element: AnyElement = if is_music_layout {
             let mut row = div()
                 .size_full()
                 .flex()
@@ -443,18 +339,6 @@ impl RenderOnce for WorkspaceShell {
                 .p(Spacing::SM.scaled(cx))
                 .overflow_hidden();
 
-            if let Some(source_list) = source_list_element {
-                row = row.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .flex_shrink_0()
-                        .w(sidebar_width)
-                        .h_full()
-                        .min_h_0()
-                        .child(source_list),
-                );
-            }
             if let Some(content_list) = content_list_element {
                 row = row.child(
                     div()
@@ -569,23 +453,19 @@ impl RenderOnce for WorkspaceShell {
     }
 }
 
-fn should_collapse_frame(
-    kind: WorkspaceFrameKind,
-    workspace_width: Pixels,
-    music_three_column: bool,
-) -> bool {
+fn should_collapse_frame(kind: WorkspaceFrameKind, workspace_width: Pixels, music: bool) -> bool {
     match kind {
         WorkspaceFrameKind::QueueNowPlaying => {
             workspace_width < WORKSPACE_QUEUE_COLLAPSE_BREAKPOINT
         }
         // ADR 0084 Decision 1: the Detail frame appears only in the Music
-        // three-column layout, where `MusicColumns` already decides this
-        // frame's visibility at the current width. This width-based rule
-        // predates that frame having a screen, so it stays inert there.
+        // layout, where `MusicColumns` already decides this frame's
+        // visibility at the current width. This width-based rule predates
+        // that frame having a screen, so it stays inert there.
         WorkspaceFrameKind::Detail => {
-            !music_three_column && workspace_width < WORKSPACE_SECONDARY_DETAIL_COLLAPSE_BREAKPOINT
+            !music && workspace_width < WORKSPACE_SECONDARY_DETAIL_COLLAPSE_BREAKPOINT
         }
-        WorkspaceFrameKind::SourceList | WorkspaceFrameKind::ContentList => false,
+        WorkspaceFrameKind::ContentList => false,
     }
 }
 

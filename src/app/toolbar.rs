@@ -1,4 +1,8 @@
-//! Top-level app tab bar rendering and stable section focus (ADRs 0060/0067).
+//! Top toolbar rendering (ADR 0089 Decisions 1 and 9, R-TOOLBAR-1).
+//!
+//! The toolbar holds Back, Forward, the page title and the global search.
+//! It has no section tabs: the sidebar holds the sections (ADR 0089
+//! Decision 1). The application mark sits at the top of the sidebar.
 
 use std::sync::Arc;
 
@@ -15,14 +19,13 @@ use crate::ui::layouts as layout;
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
 use crate::ui::primitives::{Button as UiButton, Tooltip};
 use crate::ui::sizable_bridge::SizableScaled;
-use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size as TokenSize, Spacing};
+use crate::ui::tokens::{color, FontSize, SemanticColor, Size as TokenSize, Spacing};
 use crate::view_models::app_toolbar::{
-    AppToolbarTabDisplay, AppToolbarTabKey, AppToolbarVm, GlobalSearchDisplay,
-    ToolbarNavigationDisplay,
+    AppToolbarVm, GlobalSearchDisplay, ToolbarNavigationDisplay,
 };
 
 use super::search_field_list::install_field_list_keys;
-use super::{AppTab, TopApp, WorkspaceScreenMount};
+use super::{TopApp, WorkspaceScreenMount};
 
 fn app_logo() -> Arc<Image> {
     Arc::new(Image::from_bytes(
@@ -31,7 +34,40 @@ fn app_logo() -> Arc<Image> {
     ))
 }
 
-pub(super) fn render_tab_bar(
+/// Renders the application mark at the top of the sidebar (ADR 0089
+/// Decision 1).
+pub(super) fn render_app_mark(cx: &mut Context<TopApp>) -> gpui::AnyElement {
+    let display = AppToolbarVm::new().display();
+    let mark_tooltip = Tooltip::new(display.mark_a11y_label);
+    let spacing_xs = Spacing::XS.scaled(cx);
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .p(Spacing::SM.scaled(cx))
+        .child(
+            div()
+                .w(layout::APP_ICON_SIZE)
+                .h(layout::APP_ICON_SIZE)
+                .rounded(spacing_xs)
+                .overflow_hidden()
+                .flex_shrink_0()
+                .opacity(0.82)
+                .id(display.mark_id)
+                .tooltip(move |window, cx| mark_tooltip.build(window, cx))
+                .child(
+                    img(app_logo())
+                        .w(layout::APP_ICON_SIZE)
+                        .h(layout::APP_ICON_SIZE)
+                        .object_fit(ObjectFit::Cover),
+                ),
+        )
+        .into_any_element()
+}
+
+/// Renders the toolbar of the content area (ADR 0089 Decision 1, R-TOOLBAR-1):
+/// Back, Forward and the page title, then the global search.
+pub(super) fn render_toolbar(
     app: &mut TopApp,
     mount: WorkspaceScreenMount,
     window: &Window,
@@ -42,13 +78,11 @@ pub(super) fn render_tab_bar(
     let bg_surface = color(cx, SemanticColor::SecondarySystemBackground);
     let border_subtle = color(cx, SemanticColor::Separator);
     let spacing_xs = Spacing::XS.scaled(cx);
-    let spacing_sm = Spacing::SM.scaled(cx);
     let spacing_md = Spacing::MD.scaled(cx);
     let tab_bar_height = TokenSize::RowLg.px();
     let toolbar_width = window.bounds().size.width;
-    let mark_tooltip = Tooltip::new(display.mark_a11y_label);
 
-    let mut toolbar = div()
+    div()
         .id(display.id)
         .h(tab_bar_height)
         .flex_shrink_0()
@@ -61,38 +95,6 @@ pub(super) fn render_tab_bar(
         .items_center()
         .gap(spacing_xs)
         .child(render_toolbar_navigation(&navigation, cx))
-        .child(
-            div()
-                .id(display.leading_id)
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(spacing_sm)
-                .mr(spacing_md)
-                .child(
-                    div()
-                        .w(layout::APP_ICON_SIZE)
-                        .h(layout::APP_ICON_SIZE)
-                        .rounded(spacing_xs)
-                        .overflow_hidden()
-                        .flex_shrink_0()
-                        .opacity(0.82)
-                        .id(display.mark_id)
-                        .tooltip(move |window, cx| mark_tooltip.build(window, cx))
-                        .child(
-                            img(app_logo())
-                                .w(layout::APP_ICON_SIZE)
-                                .h(layout::APP_ICON_SIZE)
-                                .object_fit(ObjectFit::Cover),
-                        ),
-                ),
-        );
-
-    for tab in display.tabs {
-        toolbar = toolbar.child(render_app_tab(tab, app.tab, app, window, cx));
-    }
-
-    toolbar
         .child(render_global_search(
             display.center_id,
             &display.global_search,
@@ -236,84 +238,4 @@ fn render_global_search_submit_button(
         this.submit_global_search(window, cx);
     }));
     button
-}
-
-fn render_app_tab(
-    display: AppToolbarTabDisplay,
-    active: AppTab,
-    app: &TopApp,
-    window: &Window,
-    cx: &mut Context<TopApp>,
-) -> gpui::AnyElement {
-    let tab = app_tab_for_key(display.key);
-    let focus_handle = focus_handle_for_key(display.key, app);
-    let is_active = tab == active;
-    let is_focused = focus_handle.is_focused(window);
-    let accent_color = color(cx, SemanticColor::Accent);
-    let text_on_accent_color = color(cx, SemanticColor::OnAccent);
-    let text_secondary_color = color(cx, SemanticColor::SecondaryLabel);
-    let bg_surface_hi_color = color(cx, SemanticColor::TertiarySystemBackground);
-    let focus_ring_color = color(cx, SemanticColor::Focus);
-    let spacing_md = Spacing::MD.scaled(cx);
-    let hit_target_min = layout::MIN_HIT_TARGET;
-    let radius_lg = Radius::LG.scaled(cx);
-    let tooltip = Tooltip::new(display.a11y_label);
-
-    div()
-        .id(display.id)
-        .track_focus(focus_handle)
-        .tooltip(move |window, cx| tooltip.build(window, cx))
-        .on_click(cx.listener(move |this, _, window, cx| {
-            this.select_tab(tab, window, cx);
-        }))
-        .px(spacing_md)
-        .min_h(hit_target_min)
-        .flex_shrink_0()
-        .flex()
-        .items_center()
-        .rounded(radius_lg)
-        .when(is_active, |el| {
-            el.bg(accent_color).text_color(text_on_accent_color)
-        })
-        .when(!is_active, |el| {
-            el.text_color(text_secondary_color)
-                .hover(move |s| s.bg(bg_surface_hi_color))
-        })
-        .when(is_focused, |el| {
-            el.border_2().border_color(focus_ring_color)
-        })
-        .child(
-            div()
-                .text_size(FontSize::Body.scaled(cx))
-                .child(SharedString::from(display.label)),
-        )
-        .into_any_element()
-}
-
-const fn app_tab_for_key(key: AppToolbarTabKey) -> AppTab {
-    match key {
-        AppToolbarTabKey::Music => AppTab::Music,
-        AppToolbarTabKey::Show => AppTab::Show,
-        AppToolbarTabKey::Settings => AppTab::Settings,
-    }
-}
-
-fn focus_handle_for_key(key: AppToolbarTabKey, app: &TopApp) -> &gpui::FocusHandle {
-    match key {
-        AppToolbarTabKey::Music => &app.music_tab_focus,
-        AppToolbarTabKey::Show => &app.show_tab_focus,
-        AppToolbarTabKey::Settings => &app.settings_tab_focus,
-    }
-}
-
-impl TopApp {
-    /// Give app actions a persistent dispatch path after mount or section changes.
-    pub(super) fn focus_active_tab(&self, window: &mut Window, cx: &mut gpui::App) {
-        let key = match self.tab {
-            AppTab::Music => AppToolbarTabKey::Music,
-            AppTab::Show => AppToolbarTabKey::Show,
-            AppTab::Settings => AppToolbarTabKey::Settings,
-        };
-        focus_handle_for_key(key, self).focus(window, cx);
-    }
 }
