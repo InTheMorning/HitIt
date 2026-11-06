@@ -23,12 +23,13 @@ use crate::api::Feed;
 use crate::view_models::download_progress::DownloadPhase;
 use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::index_name_list::{
-    name_sort_key, watermark_shows, IndexListStatusRowVm, IndexNameListPage, MusicListScope,
+    name_sort_key, watermark_shows, IndexListStatusRowVm, IndexNameListPage,
 };
 use crate::view_models::library::{
     release_row_slug, releases_selection_rows, DestinationListRowTarget, DestinationListRowVm,
     ReleasesListEntryVm, ReleasesListItemVm, ReleasesRowId,
 };
+use crate::view_models::list_page::ListScope;
 use crate::view_models::list_selection::{
     ListSelection, RowSelectionVm, SelectionMode, SelectionRow,
 };
@@ -203,10 +204,11 @@ pub(crate) fn library_entries(mut library: Vec<LibraryReleaseEntry>) -> Vec<Rele
     library.into_iter().map(|entry| entry.entry).collect()
 }
 
-/// The Releases entries in the scope "Everything" (packet 016 decisions
-/// D4, D5, D7 and D8):
+/// The Releases entries in the scope "All" (packet 016 decisions D4, D5,
+/// D7 and D8; ADR 0089 Decision 5):
 ///
-/// - While page 1 loads, the list shows no item row.
+/// - While page 1 loads, the Library entries show at once and no
+///   `MusicIndex` row shows (ADR 0089 Decision 5).
 /// - A `MusicIndex` row whose feed GUID is in `hidden_keys` gives no row.
 ///   `hidden_keys` holds each Library release, also each single of a
 ///   singles group, so the Library row or the group wins. It also holds
@@ -218,29 +220,32 @@ pub(crate) fn library_entries(mut library: Vec<LibraryReleaseEntry>) -> Vec<Rele
 /// `download_phase` gives the phase of a download job of a `MusicIndex`
 /// release's own key, when one is queued or running (ADR 0084 task 033,
 /// review correction of 2026-10-22). [`index_release_row`] reads it.
+/// `failed` tells whether the latest job of a key failed (ADR 0089
+/// Decision 5).
 #[must_use]
 pub(crate) fn everything_entries(
     library: Vec<LibraryReleaseEntry>,
     hidden_keys: &BTreeSet<ReleaseKey>,
     page: &IndexNameListPage<Feed>,
     download_phase: impl Fn(&ReleaseKey) -> Option<DownloadPhase>,
+    failed: impl Fn(&ReleaseKey) -> bool,
 ) -> Vec<ReleasesListEntryVm> {
-    if page.first_page_in_flight() {
-        return Vec::new();
-    }
     let mut seen: BTreeSet<ReleaseKey> = BTreeSet::new();
     let index_entries: Vec<LibraryReleaseEntry> = page
         .rows()
         .iter()
         .filter_map(|feed| {
             let order = ReleaseOrderKey::index(feed)?;
-            let row = index_release_row(feed, &download_phase)?;
+            let mut row = index_release_row(feed, &download_phase)?;
             let DestinationListRowTarget::Release(key) = &row.open else {
                 return None;
             };
             if hidden_keys.contains(key) || !seen.insert(key.clone()) {
                 return None;
             }
+            row.download_state = row
+                .download_state
+                .map(|state| state.with_failure(failed(key)));
             Some(LibraryReleaseEntry {
                 order,
                 entry: ReleasesListEntryVm::Release(row),
@@ -262,8 +267,8 @@ pub(crate) fn everything_entries(
 /// Change 16). A new scope clears the selection and ends selection mode,
 /// because the list shows other rows. The same scope changes nothing.
 pub(crate) fn reset_selection_on_scope_change(
-    from: MusicListScope,
-    to: MusicListScope,
+    from: ListScope,
+    to: ListScope,
     selection: &mut ListSelection<ReleaseKey, ReleasesRowId>,
     mode: &mut SelectionMode,
 ) {
@@ -319,7 +324,7 @@ impl Default for Revision {
 /// (decision D3).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ReleasesListKey {
-    pub(crate) scope: MusicListScope,
+    pub(crate) scope: ListScope,
     /// The revision of the release name page.
     pub(crate) page: Revision,
     /// The revision of the loaded `MusicIndex` singles.
@@ -643,6 +648,7 @@ pub(crate) mod tests {
             &keys,
             &loaded_page(recorded_rows(), false),
             |_| None,
+            |_| false,
         );
         assert_eq!(
             labels(&complete),
@@ -672,10 +678,13 @@ pub(crate) mod tests {
             "a LibraryFeed key never merges and comes after equal keys"
         );
 
-        let partial =
-            everything_entries(library, &keys, &loaded_page(recorded_rows(), true), |_| {
-                None
-            });
+        let partial = everything_entries(
+            library,
+            &keys,
+            &loaded_page(recorded_rows(), true),
+            |_| None,
+            |_| false,
+        );
         assert_eq!(
             labels(&partial),
             [
@@ -688,13 +697,15 @@ pub(crate) mod tests {
         );
     }
 
-    /// Decision D8: while page 1 loads, the list shows no item row.
+    /// ADR 0089 Decision 5: while page 1 loads, the Library rows show at
+    /// once and no `MusicIndex` row shows.
     #[test]
-    fn adr_0084_scopes_r16_13_first_page_in_flight_shows_no_row() {
+    fn adr_0089_list_page_all_shows_library_rows_while_page_one_loads() {
         let mut page = IndexNameListPage::<Feed>::default();
         let _ = page.begin_load(false);
         let library = vec![library_row("Zebra", ReleaseKey::FeedGuid("zebra".into()))];
-        assert!(everything_entries(library, &BTreeSet::new(), &page, |_| None).is_empty());
+        let entries = everything_entries(library, &BTreeSet::new(), &page, |_| None, |_| false);
+        assert_eq!(labels(&entries), ["Zebra"]);
     }
 
     /// R16-14: a `MusicIndex` row gives "`release_artist` · Kind" with no
@@ -787,6 +798,7 @@ pub(crate) mod tests {
             &BTreeSet::new(),
             &loaded_page(recorded_rows(), false),
             |found| (*found == key).then_some(DownloadPhase::InFlight),
+            |_| false,
         );
         let motive_state = entries
             .iter()
@@ -814,8 +826,8 @@ pub(crate) mod tests {
         let mut mode = SelectionMode::Selecting;
 
         reset_selection_on_scope_change(
-            MusicListScope::Library,
-            MusicListScope::Library,
+            ListScope::InLibrary,
+            ListScope::InLibrary,
             &mut selection,
             &mut mode,
         );
@@ -823,8 +835,8 @@ pub(crate) mod tests {
         assert!(mode.is_selecting());
 
         reset_selection_on_scope_change(
-            MusicListScope::Library,
-            MusicListScope::Everything,
+            ListScope::InLibrary,
+            ListScope::All,
             &mut selection,
             &mut mode,
         );
@@ -858,7 +870,7 @@ pub(crate) mod tests {
     #[test]
     fn adr_0084_task_037_r37_01_one_build_for_one_key() {
         let key = ReleasesListKey {
-            scope: MusicListScope::Everything,
+            scope: ListScope::All,
             page: Revision::default(),
             singles: Revision::default(),
             library: Revision::default(),

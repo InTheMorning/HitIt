@@ -1,109 +1,14 @@
-//! The scope control and the `MusicIndex` name list pages of the Releases
-//! and Artists lists (ADR 0084 Decision 8, packet 016).
+//! The `MusicIndex` name list pages of the Releases and Artists lists
+//! (ADR 0084 Decision 8, packet 016; ADR 0089 Decision 5).
 //!
-//! A list in the scope "Library" shows the Library items. A list in the
-//! scope "Everything" adds the `MusicIndex` items of the name lists of
-//! Stophammer ADR 0070, in one name order. This module gives the scope
-//! control, the sort key, the page state of one name list, the watermark
-//! and the status row. It has no renderer type.
+//! The scope "All" adds the `MusicIndex` items of the name lists of
+//! Stophammer ADR 0070, in one name order. The scope control is in
+//! `list_page`. This module gives the sort key, the page state of one name
+//! list, the watermark and the status row. It has no renderer type.
 
 #![warn(clippy::pedantic)]
 
 use crate::view_models::releases_everything::Revision;
-use crate::view_models::workspace::MusicDestination;
-
-/// The scope of the Releases list or the Artists list (ADR 0084 Decision
-/// 8). Each app start uses `Library` (packet 016 decision D3).
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum MusicListScope {
-    /// The Library items only.
-    #[default]
-    Library,
-    /// The Library items and the `MusicIndex` items, in one name order.
-    Everything,
-}
-
-/// One option of the scope control.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct MusicScopeOptionDisplay {
-    /// Stable element id.
-    pub(crate) id: &'static str,
-    /// The scope that this option selects.
-    pub(crate) scope: MusicListScope,
-    /// The visible label.
-    pub(crate) label: &'static str,
-    /// The accessibility label.
-    pub(crate) a11y_label: &'static str,
-}
-
-/// The scope control of the Releases list or the Artists list (ADR 0084
-/// Decision 8, packet 016 decisions D1 and D2).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct MusicScopeControlDisplay {
-    /// Stable element id of the control.
-    pub(crate) control_id: &'static str,
-    /// The selected scope.
-    pub(crate) selected: MusicListScope,
-    /// The two options, "Library" first.
-    pub(crate) options: [MusicScopeOptionDisplay; 2],
-}
-
-impl MusicScopeControlDisplay {
-    /// The control of `destination` with `selected` as its value. Only
-    /// Releases and Artists have a scope. Each other destination gives
-    /// `None`.
-    #[must_use]
-    pub(crate) const fn for_destination(
-        destination: MusicDestination,
-        selected: MusicListScope,
-    ) -> Option<Self> {
-        let (control_id, ids, a11y_labels) = match destination {
-            MusicDestination::Releases => (
-                "music-scope-releases",
-                [
-                    "music-scope-releases-library",
-                    "music-scope-releases-everything",
-                ],
-                [
-                    "Show Library releases only",
-                    "Show Library and MusicIndex releases",
-                ],
-            ),
-            MusicDestination::Artists => (
-                "music-scope-artists",
-                [
-                    "music-scope-artists-library",
-                    "music-scope-artists-everything",
-                ],
-                [
-                    "Show Library artists only",
-                    "Show Library and MusicIndex artists",
-                ],
-            ),
-            MusicDestination::Discover
-            | MusicDestination::NeedsAttention
-            | MusicDestination::Playlists => return None,
-        };
-        Some(Self {
-            control_id,
-            selected,
-            options: [
-                MusicScopeOptionDisplay {
-                    id: ids[0],
-                    scope: MusicListScope::Library,
-                    label: "Library",
-                    a11y_label: a11y_labels[0],
-                },
-                MusicScopeOptionDisplay {
-                    id: ids[1],
-                    scope: MusicListScope::Everything,
-                    label: "Everything",
-                    a11y_label: a11y_labels[1],
-                },
-            ],
-        })
-    }
-}
 
 /// The sort key of a name (Stophammer ADR 0070 §1, ADR 0084 Decision 7).
 /// It removes the white space at the two ends, makes each internal run of
@@ -228,6 +133,7 @@ impl<Row> IndexNameListPage<Row> {
     /// Whether the request of page 1 is in flight. The list then shows no
     /// item row (decision D8).
     #[must_use]
+    #[cfg(test)]
     pub(crate) const fn first_page_in_flight(&self) -> bool {
         matches!(
             self.state,
@@ -664,57 +570,6 @@ mod tests {
         assert!(!watermark_shows(&"a", None, true));
         assert!(watermark_shows(&"z", Some(&"c"), false));
         assert!(watermark_shows(&"z", None, false));
-    }
-
-    /// R16-11: the control exists for Releases and Artists only, with the
-    /// labels of decision D2. The default scope is `Library`.
-    #[test]
-    fn adr_0084_scopes_r16_11_scope_control() {
-        assert_eq!(MusicListScope::default(), MusicListScope::Library);
-        for destination in MusicDestination::ALL {
-            let display =
-                MusicScopeControlDisplay::for_destination(destination, MusicListScope::Library);
-            assert_eq!(
-                display.is_some(),
-                matches!(
-                    destination,
-                    MusicDestination::Releases | MusicDestination::Artists
-                ),
-                "{destination:?}"
-            );
-        }
-        let releases = MusicScopeControlDisplay::for_destination(
-            MusicDestination::Releases,
-            MusicListScope::Everything,
-        )
-        .unwrap();
-        assert_eq!(releases.selected, MusicListScope::Everything);
-        assert_eq!(
-            releases
-                .options
-                .map(|option| (option.label, option.a11y_label)),
-            [
-                ("Library", "Show Library releases only"),
-                ("Everything", "Show Library and MusicIndex releases"),
-            ]
-        );
-        let artists = MusicScopeControlDisplay::for_destination(
-            MusicDestination::Artists,
-            MusicListScope::Library,
-        )
-        .unwrap();
-        assert_eq!(
-            artists
-                .options
-                .map(|option| (option.scope, option.a11y_label)),
-            [
-                (MusicListScope::Library, "Show Library artists only"),
-                (
-                    MusicListScope::Everything,
-                    "Show Library and MusicIndex artists"
-                ),
-            ]
-        );
     }
 
     /// R16-12 for the Releases list: the texts of the loading row, the

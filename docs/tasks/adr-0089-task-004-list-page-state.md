@@ -1,6 +1,6 @@
 # ADR 0089 Task 004: List Page State
 
-Status: Ready - 2026-11-05.
+Status: Implemented - 2026-11-05. V1 to V4 are open. The checks are in section 11 of [pending human checks](../pending-human-checks.md).
 
 Depends on: [packet 003](adr-0089-task-003-one-sidebar.md).
 

@@ -5,7 +5,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::frame::{WorkspaceFrameId, WorkspaceFrameState};
-use crate::view_models::index_name_list::MusicScopeControlDisplay;
 
 /// Presentation mode for content rows.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -185,10 +184,6 @@ pub(crate) struct FrameShellDisplay {
     /// The Music list column's "Select" and "Done" button is the first
     /// caller.
     pub(crate) header_action: Option<FrameHeaderActionDisplay>,
-    /// Optional scope control of the Music Releases or Artists list (ADR
-    /// 0084 Decision 8, packet 016 decision D1). It sits at the leading
-    /// edge of the filter row.
-    pub(crate) scope_control: Option<MusicScopeControlDisplay>,
     /// Stable content slot identifier for mounting frame body content.
     pub(crate) content_slot_id: String,
 }
@@ -215,7 +210,6 @@ impl FrameShellDisplay {
             }),
             action_menu_items: Vec::new(),
             header_action: None,
-            scope_control: None,
             content_slot_id: format!("workspace-frame-{}-content", frame_id.value()),
         }
     }
@@ -225,14 +219,6 @@ impl FrameShellDisplay {
     #[must_use]
     pub(crate) fn with_header_action(mut self, display: FrameHeaderActionDisplay) -> Self {
         self.header_action = Some(display);
-        self
-    }
-
-    /// Returns this shell display with the scope control of a Music list
-    /// attached (ADR 0084 packet 016).
-    #[must_use]
-    pub(crate) const fn with_scope_control(mut self, display: MusicScopeControlDisplay) -> Self {
-        self.scope_control = Some(display);
         self
     }
 

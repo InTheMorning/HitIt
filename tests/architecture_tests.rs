@@ -9480,11 +9480,6 @@ fn view_models_own_display_fallbacks_for_library() {
         ),
         (
             "src/library.rs",
-            "UiButton::styled(\"playlists-sort\"",
-            "Library playlist sort id belongs in PlaylistSidebarVm",
-        ),
-        (
-            "src/library.rs",
             "UiButton::styled(\"playlists-add\"",
             "Library playlist add id belongs in PlaylistSidebarVm",
         ),
@@ -21791,13 +21786,15 @@ for each frame (overhaul plan item 31). Read the cache in this call.";
         }
     }
     let app = without_tests(&read_source(&manifest_path("src/library/app_impl.rs")));
+    // ADR 0089 Decision 6: the Releases title row, with its Select action,
+    // reads the cached rows. The list column renders that row.
     for function in [
-        "pub(crate) fn header_action_for_list_column(",
+        "pub(crate) fn releases_page_head(",
         "pub(crate) fn render_list_column(",
     ] {
         if !source_between(&app, function, "\n    }\n").contains("releases_rows(") {
             violations.push(format!(
-                "src/library/app_impl.rs: `{function}` must call `releases_rows(`."
+                "src/library/app_impl.rs: `{function}` must call `releases_rows(`. ADR 0089 Decision 6: the Releases title row reads the cached rows."
             ));
         }
     }

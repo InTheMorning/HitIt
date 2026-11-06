@@ -32,6 +32,7 @@ const fn icon_role_turning(state: ReleaseDownloadState) -> (IconName, SemanticCo
         ReleaseDownloadState::Downloaded => {
             (IconName::CloudCheck, SemanticColor::SuccessLabel, false)
         }
+        ReleaseDownloadState::Failed => (IconName::Warning, SemanticColor::DangerLabel, false),
     }
 }
 

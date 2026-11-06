@@ -296,6 +296,16 @@ impl<'a> SinglesGroup<'a> {
         )
     }
 
+    /// The release key of each member of the group, in `singles`,
+    /// `index_singles` and `matched_by_name`.
+    pub(crate) fn member_keys(&self) -> impl Iterator<Item = &ReleaseKey> {
+        self.singles
+            .iter()
+            .chain(&self.matched_by_name)
+            .map(|single| &single.key)
+            .chain(self.index_singles.iter().map(|single| &single.key))
+    }
+
     /// Tells if the group holds the release `key`, in `singles`, in
     /// `index_singles`, or in `matched_by_name`.
     #[must_use]
@@ -738,11 +748,15 @@ impl SinglesGroupRowVm {
         expanded: bool,
         release_row: impl Fn(&ArtistNode, &AlbumNode) -> Option<DestinationListRowVm>,
         index_download_phase: impl Fn(&ReleaseKey) -> Option<DownloadPhase>,
+        failed: impl Fn(&ReleaseKey) -> bool,
     ) -> Self {
         let element_id = group_element_id(&group.identity);
         let count = group.count();
         let members = group.members();
-        let download_state = group.download_state();
+        // ADR 0089 Decision 5: a group shows the failed state when any of
+        // its members failed.
+        let any_failed = group.member_keys().any(failed);
+        let download_state = group.download_state().with_failure(any_failed);
         let a11y_label = format!(
             "{}, {count} singles, {}, {}",
             group.display_artist,
@@ -1540,6 +1554,27 @@ mod tests {
             .collect()
     }
 
+    /// ADR 0089 Decision 5: a group whose member failed shows the failed
+    /// state on its icon, with the same word in its accessibility label.
+    #[test]
+    fn adr_0089_list_page_group_with_failed_member_shows_failed() {
+        let tree = haleen_tree(2, 2);
+        let groups = singles_groups(&tree);
+        let failed_key = groups[0].singles[1].key.clone();
+        let row = SinglesGroupRowVm::new(
+            &groups[0],
+            false,
+            |_, _| None,
+            |_| None,
+            |key| *key == failed_key,
+        );
+        assert_eq!(row.download_state.state, ReleaseDownloadState::Failed);
+        assert!(row.a11y_label.contains("Failed"), "{}", row.a11y_label);
+
+        let clean = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None, |_| false);
+        assert_eq!(clean.download_state.state, ReleaseDownloadState::Downloaded);
+    }
+
     /// R15-03: two singles of one name give one group. One single gives
     /// no group.
     #[test]
@@ -2014,7 +2049,7 @@ mod tests {
         assert_eq!(page.art, Some(newest_four.clone()));
 
         let groups = singles_groups(&tree);
-        let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None);
+        let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None, |_| false);
         assert_eq!(row.art, newest_four);
 
         let empty = SinglesGroupPageVm::from_tree(
@@ -2059,7 +2094,7 @@ mod tests {
         let groups = singles_groups(&tree);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].collection_art(), expected);
-        let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None);
+        let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None, |_| false);
         assert_eq!(row.art, expected);
         let key = SinglesGroupKey(ArtistIdentity::Publisher("pub".to_owned()));
         let page = SinglesGroupPageVm::from_tree(
@@ -2116,7 +2151,7 @@ mod tests {
             let groups = singles_groups(&tree);
             assert_eq!(groups.len(), 1, "{role:?}");
             assert!(gives_image(&groups[0].collection_art()), "{role:?}");
-            let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None);
+            let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None, |_| false);
             assert!(gives_image(&row.art), "{role:?}");
             let key = SinglesGroupKey(ArtistIdentity::Publisher("pub".to_owned()));
             let page = SinglesGroupPageVm::from_tree(
@@ -2131,7 +2166,7 @@ mod tests {
             vm.replace_tree(tree.clone());
             let artist_row = vm
                 .artists_list(
-                    crate::view_models::index_name_list::MusicListScope::Library,
+                    crate::view_models::list_page::ListScope::InLibrary,
                     &crate::view_models::index_name_list::IndexNameListPage::default(),
                 )
                 .into_iter()
@@ -2467,7 +2502,7 @@ mod tests {
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].summary_text(), "38 singles \u{b7} Artist feed");
         assert_eq!(groups[0].display_artist, "Haleen");
-        let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None);
+        let row = SinglesGroupRowVm::new(&groups[0], false, |_, _| None, |_| None, |_| false);
         assert_eq!(row.label, "Haleen");
         assert_eq!(row.secondary_text, "38 singles \u{b7} Artist feed");
         assert_eq!(
@@ -2580,7 +2615,7 @@ mod tests {
                 download_state: None,
             })
         };
-        let row = SinglesGroupRowVm::new(&groups[0], true, library_row, |_| None);
+        let row = SinglesGroupRowVm::new(&groups[0], true, library_row, |_| None, |_| false);
         let labels: Vec<&str> = row.singles.iter().map(|row| row.label.as_str()).collect();
         assert_eq!(
             labels,
@@ -2662,23 +2697,31 @@ mod tests {
                 .state
         };
 
-        let idle = SinglesGroupRowVm::new(group, true, library_row, |_| None);
+        let idle = SinglesGroupRowVm::new(group, true, library_row, |_| None, |_| false);
         assert_eq!(
             find_index_row(&idle.singles),
             ReleaseDownloadState::NotDownloaded
         );
 
-        let queued = SinglesGroupRowVm::new(group, true, library_row, |key| {
-            (*key == index_key).then_some(DownloadPhase::Queued)
-        });
+        let queued = SinglesGroupRowVm::new(
+            group,
+            true,
+            library_row,
+            |key| (*key == index_key).then_some(DownloadPhase::Queued),
+            |_| false,
+        );
         assert_eq!(
             find_index_row(&queued.singles),
             ReleaseDownloadState::Queued
         );
 
-        let downloading = SinglesGroupRowVm::new(group, true, library_row, |key| {
-            (*key == index_key).then_some(DownloadPhase::InFlight)
-        });
+        let downloading = SinglesGroupRowVm::new(
+            group,
+            true,
+            library_row,
+            |key| (*key == index_key).then_some(DownloadPhase::InFlight),
+            |_| false,
+        );
         assert_eq!(
             find_index_row(&downloading.singles),
             ReleaseDownloadState::Downloading
@@ -2726,7 +2769,7 @@ mod tests {
                 download_state: None,
             })
         };
-        let row = SinglesGroupRowVm::new(group, true, library_row, |_| None);
+        let row = SinglesGroupRowVm::new(group, true, library_row, |_| None, |_| false);
         assert_eq!(
             row.singles.len(),
             group.count(),
@@ -2889,7 +2932,8 @@ mod tests {
         let mut vm = crate::view_models::library::LibraryViewModel::new();
         vm.replace_tree(tree.clone());
         let library_groups = singles_groups(&tree);
-        let library_row = SinglesGroupRowVm::new(&library_groups[0], false, |_, _| None, |_| None);
+        let library_row =
+            SinglesGroupRowVm::new(&library_groups[0], false, |_, _| None, |_| None, |_| false);
         assert_eq!(
             library_row.secondary_text, "3 singles \u{b7} Artist feed",
             "the scope \"Library\" keeps its row (decision D15)"

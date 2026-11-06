@@ -27,7 +27,7 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 use chrono::{DateTime, Local};
@@ -411,6 +411,10 @@ pub(crate) struct DownloadQueue {
     batch: Option<BatchState>,
     /// The RSS host state of the open batch (task 039), by lowercase host.
     hosts: BTreeMap<String, HostState>,
+    /// The feed key of each release whose latest job failed (ADR 0089
+    /// Decision 5). A later successful job of the key removes it. The set
+    /// is session state and is not saved.
+    failed_keys: BTreeSet<FeedKey>,
 }
 
 impl DownloadQueue {
@@ -481,6 +485,14 @@ impl DownloadQueue {
         };
         let job = self.in_flight.remove(position);
         self.end_host_request(job.host.as_deref(), now + host_interval());
+        match &outcome {
+            DownloadOutcome::Succeeded => {
+                self.failed_keys.remove(&job.feed_key);
+            }
+            DownloadOutcome::Failed { .. } => {
+                self.failed_keys.insert(job.feed_key.clone());
+            }
+        }
         if let Some(batch) = self.batch.as_mut() {
             match outcome {
                 DownloadOutcome::Succeeded => batch.done += 1,
@@ -527,7 +539,10 @@ impl DownloadQueue {
     /// or running job.
     #[must_use]
     pub(crate) fn activity(&self) -> DownloadActivity {
-        let mut activity = DownloadActivity::default();
+        let mut activity = DownloadActivity {
+            failed_keys: self.failed_keys.clone(),
+            ..DownloadActivity::default()
+        };
         let queued = self.queued.iter().map(|job| {
             (
                 &job.identity,
@@ -887,6 +902,36 @@ mod tests {
         std::iter::from_fn(|| queue.start_next())
             .map(|job| job.identity)
             .collect()
+    }
+
+    /// ADR 0089 Decision 5: the latest job of a release decides its failed
+    /// state. A failed job keeps the key failed, and a later successful job
+    /// of the key clears it. Another key stays unaffected.
+    #[test]
+    fn adr_0089_list_page_failed_key_clears_on_later_success() {
+        let mut queue = DownloadQueue::default();
+        queue.enqueue(feed_job(1, "g1"));
+        queue.enqueue(feed_job(2, "g2"));
+        let first = start_one(&mut queue);
+        queue.finish(
+            &first.identity,
+            DownloadOutcome::Failed { error: "x".into() },
+            at(0),
+        );
+        assert!(queue.activity().key_failed(&first.feed_key));
+        let second = start_one(&mut queue);
+        assert!(!queue.activity().key_failed(&second.feed_key));
+        assert!(queue.activity().key_failed(&first.feed_key));
+
+        assert_eq!(
+            queue.enqueue(feed_job(1, "g1")),
+            EnqueueResult::Queued,
+            "the failed key accepts a new job"
+        );
+        let retry = start_one(&mut queue);
+        assert_eq!(retry.feed_key, first.feed_key);
+        queue.finish(&retry.identity, DownloadOutcome::Succeeded, at(1));
+        assert!(!queue.activity().key_failed(&first.feed_key));
     }
 
     /// R22-01: no job starts when three are in flight.

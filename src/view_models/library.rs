@@ -53,13 +53,14 @@ use crate::view_models::entity_detail::{
 use crate::view_models::format::{fmt_date, fmt_total_runtime_clock, plural};
 use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::index_name_list::{
-    name_sort_key, IndexListStatusRowVm, IndexNameList, IndexNameListPage, MusicListScope,
+    name_sort_key, IndexListStatusRowVm, IndexNameList, IndexNameListPage,
 };
 pub(crate) use crate::view_models::library_removal::RemovalConfirmation;
 use crate::view_models::library_removal::{
     LibraryRemovalConfirmationDisplay, LibraryRemovalConfirmationState,
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
+use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListPages, ListScope};
 #[cfg(test)]
 use crate::view_models::list_selection::RowCheckState;
 use crate::view_models::list_selection::{
@@ -613,12 +614,10 @@ pub(crate) struct LibrarySnapshot {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PlaylistSidebarVm {
     pub(crate) header_id: &'static str,
-    pub(crate) sort_button_id: &'static str,
     pub(crate) add_button_id: &'static str,
     pub(crate) new_playlist_input_id: &'static str,
     pub(crate) new_playlist_add_button_id: &'static str,
     pub(crate) heading: &'static str,
-    pub(crate) sort_label: &'static str,
     pub(crate) add_label: &'static str,
     pub(crate) new_playlist_add_label: &'static str,
     pub(crate) creating_playlist: bool,
@@ -2253,21 +2252,34 @@ fn library_release_row(
     artist: &ArtistNode,
     album: &AlbumNode,
     phase: Option<DownloadPhase>,
+    failed: bool,
 ) -> Option<DestinationListRowVm> {
     let mut row = destination_release_row(artist, album)?;
+    row.download_state = Some(library_download_state(album, phase, failed));
+    Some(row)
+}
+
+/// The download state of a Library release (ADR 0083 Decision 6; ADR 0089
+/// Decision 5). A job that runs or waits wins. Else the tracks give the
+/// state, and a failed latest job gives `Failed`.
+fn library_download_state(
+    album: &AlbumNode,
+    phase: Option<DownloadPhase>,
+    failed: bool,
+) -> ReleaseDownloadStateVm {
     let downloaded = album
         .tracks
         .iter()
         .filter(|track| track.is_in_library)
         .count();
-    row.download_state = Some(match phase {
+    match phase {
         Some(DownloadPhase::Queued | DownloadPhase::WaitingForHost { .. }) => {
             ReleaseDownloadStateVm::queued()
         }
         Some(DownloadPhase::InFlight) => ReleaseDownloadStateVm::downloading(),
         None => ReleaseDownloadStateVm::of_tracks(downloaded, album.tracks.len()),
-    });
-    Some(row)
+    }
+    .with_failure(failed)
 }
 
 /// The art of an Artists row in the logo frame (ADR 0084 Decision 12).
@@ -2296,10 +2308,10 @@ fn newest_album_images<'a>(albums: &[&'a AlbumNode]) -> Vec<&'a str> {
 /// The count text of an Artists row. In the scope "Everything", it is "n in
 /// Library" (packet 016 decision D12). In the scope "Library", it is "n
 /// release(s)".
-fn artist_row_count_text(count: usize, scope: MusicListScope) -> String {
+fn artist_row_count_text(count: usize, scope: ListScope) -> String {
     match scope {
-        MusicListScope::Library => format!("{count} release{}", plural(count)),
-        MusicListScope::Everything => format!("{count} in Library"),
+        ListScope::InLibrary => format!("{count} release{}", plural(count)),
+        ListScope::All => format!("{count} in Library"),
     }
 }
 
@@ -2311,7 +2323,7 @@ fn artist_row_count_text(count: usize, scope: MusicListScope) -> String {
 fn artist_name_row(
     key: &str,
     members: &[NameLevelLibraryRelease],
-    scope: MusicListScope,
+    scope: ListScope,
 ) -> LibraryArtistRow {
     let label = name_label(members.iter().map(|member| member.artist_text.as_str()))
         .unwrap_or_else(|| key.to_owned());
@@ -2425,7 +2437,7 @@ fn artist_feed_row(
     members: &[&AlbumNode],
     matched_count: usize,
     feed_images: &FeedImages<'_>,
-    scope: MusicListScope,
+    scope: ListScope,
 ) -> LibraryArtistRow {
     let title = members
         .iter()
@@ -3038,40 +3050,6 @@ pub enum FeedUpdatePhase {
     Applying,
 }
 
-/// Sort order for the library's playlist sidebar.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum PlaylistSort {
-    /// Alphabetical by playlist name.
-    #[default]
-    Name,
-    /// Most-recently-updated playlists first.
-    RecentlyUpdated,
-    /// Largest playlists first by track count.
-    TrackCount,
-}
-
-impl PlaylistSort {
-    /// Cycle to the next sort order. Wraps `TrackCount` back to `Name`.
-    #[must_use]
-    pub(crate) fn next(self) -> Self {
-        match self {
-            PlaylistSort::Name => PlaylistSort::RecentlyUpdated,
-            PlaylistSort::RecentlyUpdated => PlaylistSort::TrackCount,
-            PlaylistSort::TrackCount => PlaylistSort::Name,
-        }
-    }
-
-    /// Short button label for the sort cycler.
-    #[must_use]
-    pub(crate) fn label(self) -> &'static str {
-        match self {
-            PlaylistSort::Name => "A–Z",
-            PlaylistSort::RecentlyUpdated => "Recent",
-            PlaylistSort::TrackCount => "Size",
-        }
-    }
-}
-
 /// Stateful screen view-model for the library tab.
 ///
 /// `LibraryViewModel` is the [SwiftUI `@Observable`-style](https://developer.apple.com/documentation/observation)
@@ -3091,9 +3069,9 @@ pub(crate) struct LibraryViewModel {
     // Loaded snapshots — owned here so the screen can become a thin
     // Render impl. None of these carry GPUI types.
     snapshot: LibrarySnapshot,
-    // Sidebar sort.
-    playlist_sort: PlaylistSort,
     content_list_page: ContentListPageVm,
+    /// The sort, view and scope of each list page (ADR 0089 Decision 5).
+    list_pages: ListPages,
     /// The destination whose list the list column currently shows (ADR
     /// 0084 Decision 2). The top app sets this once, when a destination
     /// becomes the current location; it carries no history, so it is not
@@ -3154,8 +3132,8 @@ impl LibraryViewModel {
     pub(crate) fn new() -> Self {
         Self {
             snapshot: LibrarySnapshot::default(),
-            playlist_sort: PlaylistSort::default(),
             content_list_page: ContentListPageVm::new(Vec::new()),
+            list_pages: ListPages::default(),
             active_destination: MusicDestination::Discover,
             needs_attention_count: 0,
             ready_track_ids: None,
@@ -3548,6 +3526,34 @@ impl LibraryViewModel {
         updated
     }
 
+    /// Whether the latest download job of the album's feed failed (ADR 0089
+    /// Decision 5).
+    fn album_failed(&self, album: &AlbumNode) -> bool {
+        album
+            .feed_key()
+            .is_some_and(|key| self.busy.feed_key_failed(&key))
+    }
+
+    /// The count of the Library releases in the scope "In Library" (ADR
+    /// 0089 Decision 5). Each album with a release key counts once, so a
+    /// singles group of five counts five. An album that the scope does not
+    /// hold, for example one with no downloaded track, is not counted.
+    #[must_use]
+    pub(crate) fn library_release_count(&self) -> usize {
+        self.snapshot
+            .tree
+            .artists
+            .iter()
+            .flat_map(|artist| artist.albums.iter())
+            .filter(|album| album.release_key().is_some())
+            .filter(|album| {
+                let phase = self.busy.release_download_phase(album);
+                let state = library_download_state(album, phase, self.album_failed(album));
+                ListScope::InLibrary.holds(Some(state.state))
+            })
+            .count()
+    }
+
     pub(crate) fn finish_library_reload(&mut self, track_count: usize) {
         self.library_loading = false;
         self.status = format!("{track_count} library track{}", plural(track_count));
@@ -3580,6 +3586,31 @@ impl LibraryViewModel {
 
     pub(crate) fn set_content_view_mode(&mut self, view_mode: ContentViewMode) {
         self.content_list_page.set_view_mode(view_mode);
+    }
+
+    /// The scope of the list page `key` (ADR 0089 Decision 5). A page with
+    /// no scope gives `All`.
+    #[must_use]
+    pub(crate) fn list_scope(&self, key: ListPageKey) -> ListScope {
+        self.list_pages.get(key).scope.unwrap_or_default()
+    }
+
+    /// Sets the scope of the list page `key`. The other pages keep theirs.
+    pub(crate) fn set_list_scope(&mut self, key: ListPageKey, scope: ListScope) {
+        self.list_pages.set_scope(key, scope);
+    }
+
+    /// The title row of the list page `key` (ADR 0089 Decision 6).
+    /// `library_count` and `select` are the facts that the view model does
+    /// not read itself.
+    #[must_use]
+    pub(crate) fn list_page_head(
+        &self,
+        key: ListPageKey,
+        library_count: Option<usize>,
+        select: Option<FrameHeaderActionDisplay>,
+    ) -> ListPageHeadVm {
+        ListPageHeadVm::new(key, *self.list_pages.get(key), library_count, select)
     }
 
     #[must_use]
@@ -3650,7 +3681,7 @@ impl LibraryViewModel {
     }
 
     pub(crate) fn replace_playlists(&mut self, mut playlists: Vec<db::Playlist>) {
-        Self::sort_playlists_by(self.playlist_sort, &mut playlists);
+        Self::sort_playlists_by_name(&mut playlists);
         self.snapshot.playlists = playlists;
         self.rebuild_field_values();
     }
@@ -3663,10 +3694,6 @@ impl LibraryViewModel {
 
     pub(crate) fn fail_playlist_load(&mut self, error: impl std::fmt::Display) {
         self.status = format!("Error loading playlists: {error:#}");
-    }
-
-    pub(crate) fn sort_loaded_playlists(&mut self) {
-        Self::sort_playlists_by(self.playlist_sort, &mut self.snapshot.playlists);
     }
 
     #[must_use]
@@ -3682,12 +3709,10 @@ impl LibraryViewModel {
     pub(crate) fn playlist_sidebar(&self) -> PlaylistSidebarVm {
         PlaylistSidebarVm {
             header_id: "playlists-header",
-            sort_button_id: "playlists-sort",
             add_button_id: "playlists-add",
             new_playlist_input_id: "playlist-new-input",
             new_playlist_add_button_id: "playlist-add-btn",
             heading: "Playlists",
-            sort_label: self.playlist_sort_label(),
             add_label: "+",
             new_playlist_add_label: "Add",
             creating_playlist: self.creating_playlist,
@@ -3740,15 +3765,15 @@ impl LibraryViewModel {
     #[must_use]
     pub(crate) fn releases_list(
         &self,
-        scope: MusicListScope,
+        scope: ListScope,
         page: &IndexNameListPage<crate::api::Feed>,
         fills: &IndexFeedSingles,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> Vec<ReleasesListEntryVm> {
         let tree = &self.snapshot.tree;
         let groups: Vec<SinglesGroup<'_>> = match scope {
-            MusicListScope::Library => singles_groups(tree),
-            MusicListScope::Everything => singles_groups_everything(tree, fills),
+            ListScope::InLibrary => singles_groups(tree),
+            ListScope::All => singles_groups_everything(tree, fills),
         };
         let mut hidden_keys: BTreeSet<ReleaseKey> = tree
             .artists
@@ -3761,9 +3786,25 @@ impl LibraryViewModel {
                 .iter()
                 .flat_map(|group| group.index_singles.iter().map(|single| single.key.clone())),
         );
+        // ADR 0089 Decision 5: a Library release whose latest job failed
+        // shows the failed state, unless a job of it runs.
         let release_row = |artist: &ArtistNode, album: &AlbumNode| {
-            library_release_row(artist, album, self.busy.release_download_phase(album))
+            library_release_row(
+                artist,
+                album,
+                self.busy.release_download_phase(album),
+                self.album_failed(album),
+            )
         };
+        // The Library releases whose latest job failed, by release key. A
+        // singles group reads it for each of its members (ADR 0089 Decision 5).
+        let failed_releases: BTreeSet<ReleaseKey> = tree
+            .artists
+            .iter()
+            .flat_map(|artist| artist.albums.iter())
+            .filter(|album| self.album_failed(album))
+            .filter_map(AlbumNode::release_key)
+            .collect();
         let mut entries: Vec<LibraryReleaseEntry> = tree
             .artists
             .iter()
@@ -3783,6 +3824,13 @@ impl LibraryViewModel {
                 | DestinationListRowTarget::Publisher(_)
                 | DestinationListRowTarget::IndexPublisher(_) => None,
             })
+            // ADR 0089 Decision 5: the scope decides which Library rows show.
+            .filter(|entry| match &entry.entry {
+                ReleasesListEntryVm::Release(row) => {
+                    scope.holds(row.download_state.as_ref().map(|state| state.state))
+                }
+                ReleasesListEntryVm::SinglesGroup(_) => true,
+            })
             .collect();
         entries.extend(groups.iter().map(|group| {
             let row = SinglesGroupRowVm::new(
@@ -3790,6 +3838,7 @@ impl LibraryViewModel {
                 expanded.contains(&group.key()),
                 release_row,
                 |key| self.busy.index_release_download_phase(key),
+                |key| failed_releases.contains(key) || self.busy.index_release_failed(key),
             );
             LibraryReleaseEntry {
                 order: ReleaseOrderKey::group(&row.label, group.key()),
@@ -3797,12 +3846,14 @@ impl LibraryViewModel {
             }
         }));
         match scope {
-            MusicListScope::Library => releases_everything::library_entries(entries),
-            MusicListScope::Everything => {
-                releases_everything::everything_entries(entries, &hidden_keys, page, |key| {
-                    self.busy.index_release_download_phase(key)
-                })
-            }
+            ListScope::InLibrary => releases_everything::library_entries(entries),
+            ListScope::All => releases_everything::everything_entries(
+                entries,
+                &hidden_keys,
+                page,
+                |key| self.busy.index_release_download_phase(key),
+                |key| self.busy.index_release_failed(key),
+            ),
         }
     }
 
@@ -3818,12 +3869,12 @@ impl LibraryViewModel {
     /// D8). The scope "Library" has none.
     #[must_use]
     pub(crate) fn releases_list_status(
-        scope: MusicListScope,
+        scope: ListScope,
         page: &IndexNameListPage<crate::api::Feed>,
     ) -> Option<IndexListStatusRowVm> {
         match scope {
-            MusicListScope::Library => None,
-            MusicListScope::Everything => page.status_row(IndexNameList::Releases),
+            ListScope::InLibrary => None,
+            ListScope::All => page.status_row(IndexNameList::Releases),
         }
     }
 
@@ -3833,7 +3884,7 @@ impl LibraryViewModel {
     #[must_use]
     pub(crate) fn releases_list_key(
         &self,
-        scope: MusicListScope,
+        scope: ListScope,
         page: &IndexNameListPage<crate::api::Feed>,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> ReleasesListKey {
@@ -3854,7 +3905,7 @@ impl LibraryViewModel {
     #[must_use]
     pub(crate) fn releases_list_rows(
         &self,
-        scope: MusicListScope,
+        scope: ListScope,
         page: &IndexNameListPage<crate::api::Feed>,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> ReleasesListRows {
@@ -3901,7 +3952,7 @@ impl LibraryViewModel {
     pub(crate) fn cached_releases_rows(
         &self,
         cache: &mut ReleasesListCache,
-        scope: MusicListScope,
+        scope: ListScope,
         page: &IndexNameListPage<crate::api::Feed>,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> Rc<ReleasesListRows> {
@@ -4479,7 +4530,7 @@ impl LibraryViewModel {
     #[must_use]
     pub(crate) fn artists_list(
         &self,
-        scope: MusicListScope,
+        scope: ListScope,
         page: &IndexNameListPage<ArtistNameRow>,
     ) -> Vec<DestinationListRowVm> {
         let matches = self.name_feed_matches();
@@ -4511,11 +4562,11 @@ impl LibraryViewModel {
             artist_feed_row(feed_guid, &members, matched_count, &feed_images, scope)
         }));
         match scope {
-            MusicListScope::Library => {
+            ListScope::InLibrary => {
                 rows.sort_by(|left, right| left.order.cmp(&right.order));
                 rows.into_iter().map(|entry| entry.row).collect()
             }
-            MusicListScope::Everything => artists_everything::everything_rows(rows, page, &matches),
+            ListScope::All => artists_everything::everything_rows(rows, page, &matches),
         }
     }
 
@@ -4649,12 +4700,12 @@ impl LibraryViewModel {
     /// decision D8). The scope "Library" has none.
     #[must_use]
     pub(crate) fn artists_list_status(
-        scope: MusicListScope,
+        scope: ListScope,
         page: &IndexNameListPage<ArtistNameRow>,
     ) -> Option<IndexListStatusRowVm> {
         match scope {
-            MusicListScope::Library => None,
-            MusicListScope::Everything => page.status_row(IndexNameList::Artists),
+            ListScope::InLibrary => None,
+            ListScope::All => page.status_row(IndexNameList::Artists),
         }
     }
 
@@ -5344,31 +5395,14 @@ impl LibraryViewModel {
     }
 
     /// Advance the playlist sort order one step.
-    pub(crate) fn cycle_playlist_sort(&mut self) {
-        self.playlist_sort = self.playlist_sort.next();
-    }
-
-    fn sort_playlists_by(sort: PlaylistSort, playlists: &mut [db::Playlist]) {
-        match sort {
-            PlaylistSort::Name => {
-                playlists.sort_by_key(|playlist| playlist.name.to_lowercase());
-            }
-            PlaylistSort::RecentlyUpdated => {
-                playlists.sort_by_key(|playlist| std::cmp::Reverse(playlist.updated_at));
-            }
-            PlaylistSort::TrackCount => {
-                playlists.sort_by_key(|playlist| std::cmp::Reverse(playlist.track_count));
-            }
-        }
+    /// The playlists sort by name, A to Z (ADR 0089 Decision 5: the
+    /// sidebar has no sort control).
+    fn sort_playlists_by_name(playlists: &mut [db::Playlist]) {
+        playlists.sort_by_key(|playlist| playlist.name.to_lowercase());
     }
 
     fn pending_feed_update_label(count: usize) -> String {
         feed_change_count_label(count)
-    }
-
-    #[must_use]
-    pub(crate) fn playlist_sort_label(&self) -> &'static str {
-        self.playlist_sort.label()
     }
 }
 
@@ -5705,6 +5739,23 @@ impl BusyItems {
             ReleaseKey::FeedGuid(guid) => self.downloads.key_phase(&FeedKey::Guid(guid.clone())),
             ReleaseKey::LibraryFeed(_) => None,
         }
+    }
+
+    /// Whether the latest download job of the `MusicIndex` release `key`
+    /// failed (ADR 0089 Decision 5). A `LibraryFeed` key gives `false`.
+    #[must_use]
+    pub(crate) fn index_release_failed(&self, key: &ReleaseKey) -> bool {
+        match key {
+            ReleaseKey::FeedGuid(guid) => self.feed_key_failed(&FeedKey::Guid(guid.clone())),
+            ReleaseKey::LibraryFeed(_) => false,
+        }
+    }
+
+    /// Whether the latest download job of the feed `key` failed (ADR 0089
+    /// Decision 5).
+    #[must_use]
+    pub(crate) fn feed_key_failed(&self, key: &FeedKey) -> bool {
+        self.downloads.key_failed(key)
     }
 
     /// The work in progress on the row of the `MusicIndex` single `key`
@@ -8826,12 +8877,6 @@ mod tests {
     }
 
     #[test]
-    fn library_view_model_starts_with_default_sort() {
-        let vm = LibraryViewModel::new();
-        assert_eq!(vm.playlist_sort, PlaylistSort::Name);
-    }
-
-    #[test]
     fn library_view_model_starts_with_no_selection_or_operation_in_flight() {
         let vm = LibraryViewModel::new();
         assert_eq!(vm.selected_id, None);
@@ -9094,28 +9139,6 @@ mod tests {
     }
 
     #[test]
-    fn library_view_model_cycle_playlist_sort_advances_through_three_states() {
-        let mut vm = LibraryViewModel::new();
-        assert_eq!(vm.playlist_sort_label(), "A–Z");
-        vm.cycle_playlist_sort();
-        assert_eq!(vm.playlist_sort_label(), "Recent");
-        vm.cycle_playlist_sort();
-        assert_eq!(vm.playlist_sort_label(), "Size");
-        vm.cycle_playlist_sort();
-        assert_eq!(vm.playlist_sort_label(), "A–Z");
-    }
-
-    #[test]
-    fn library_view_model_playlist_sort_label_reflects_active_sort() {
-        let mut vm = LibraryViewModel::new();
-        assert_eq!(vm.playlist_sort_label(), "A–Z");
-        vm.cycle_playlist_sort();
-        assert_eq!(vm.playlist_sort_label(), "Recent");
-        vm.cycle_playlist_sort();
-        assert_eq!(vm.playlist_sort_label(), "Size");
-    }
-
-    #[test]
     fn library_view_model_replaces_and_sorts_playlists_by_active_sort() {
         let mut vm = LibraryViewModel::new();
         let mut alpha = playlist("Alpha");
@@ -9133,14 +9156,6 @@ mod tests {
             vm.playlist_by_id(zed.id).map(|playlist| playlist.name),
             Some("zed".into())
         );
-
-        vm.cycle_playlist_sort();
-        vm.sort_loaded_playlists();
-        assert_eq!(vm.playlists()[0].id, zed.id);
-
-        vm.cycle_playlist_sort();
-        vm.sort_loaded_playlists();
-        assert_eq!(vm.playlists()[0].track_count, 9);
     }
 
     #[test]
@@ -9159,12 +9174,10 @@ mod tests {
         let sidebar = vm.playlist_sidebar();
 
         assert_eq!(sidebar.header_id, "playlists-header");
-        assert_eq!(sidebar.sort_button_id, "playlists-sort");
         assert_eq!(sidebar.add_button_id, "playlists-add");
         assert_eq!(sidebar.new_playlist_input_id, "playlist-new-input");
         assert_eq!(sidebar.new_playlist_add_button_id, "playlist-add-btn");
         assert_eq!(sidebar.heading, "Playlists");
-        assert_eq!(sidebar.sort_label, "A–Z");
         assert_eq!(sidebar.add_label, "+");
         assert_eq!(sidebar.new_playlist_add_label, "Add");
         assert!(sidebar.creating_playlist);
@@ -9240,7 +9253,7 @@ mod tests {
         vm.replace_tree(singles_tree());
 
         let entries = vm.releases_list(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -9289,7 +9302,7 @@ mod tests {
         }
         vm.replace_tree(tree);
         let entries = vm.releases_list(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -9351,7 +9364,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(tree);
         let entries = vm.releases_list(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -9376,7 +9389,7 @@ mod tests {
 
         let expanded = BTreeSet::from([key.clone()]);
         let entries = vm.releases_list(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &IndexFeedSingles::default(),
             &expanded,
@@ -9400,7 +9413,7 @@ mod tests {
         );
 
         let entries = vm.releases_list(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -9429,7 +9442,7 @@ mod tests {
         let single_row = ReleasesRowId::Release(ReleaseKey::FeedGuid("guid-2".into()));
 
         let closed = vm.releases_list_rows(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &BTreeSet::new(),
         );
@@ -9444,7 +9457,7 @@ mod tests {
         );
 
         let open = vm.releases_list_rows(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &BTreeSet::from([group_key.clone()]),
         );
@@ -9514,7 +9527,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
         let rows = vm.releases_list_rows(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &BTreeSet::new(),
         );
@@ -9577,7 +9590,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
         let rows = vm.releases_list_rows(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &BTreeSet::new(),
         );
@@ -9625,7 +9638,7 @@ mod tests {
     fn adr_0084_release_row_actions_r31_07_artist_rows_have_no_menu() {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
-        let rows = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
         assert!(!rows.is_empty());
         assert!(rows
             .iter()
@@ -9647,7 +9660,7 @@ mod tests {
         ));
 
         let rows = vm.releases_list_rows(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &expanded,
         );
@@ -9746,7 +9759,7 @@ mod tests {
         vm.replace_tree(library_tree());
 
         let rows = release_rows(vm.releases_list(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -9784,7 +9797,7 @@ mod tests {
         vm.replace_tree(library_tree());
 
         let rows = release_rows(vm.releases_list(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -9804,7 +9817,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
 
-        let rows = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
 
         assert_eq!(
             rows.iter()
@@ -9834,7 +9847,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(tree);
 
-        let rows = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
 
         assert_eq!(
             rows[0].art,
@@ -9851,7 +9864,7 @@ mod tests {
         let mut one_cover = LibraryViewModel::new();
         one_cover.replace_tree(library_tree());
         assert_eq!(
-            one_cover.artists_list(MusicListScope::Library, &IndexNameListPage::default())[0].art,
+            one_cover.artists_list(ListScope::InLibrary, &IndexNameListPage::default())[0].art,
             Some(CollectionArtVm::SingleCover("saw.jpg".into()))
         );
     }
@@ -9909,7 +9922,7 @@ mod tests {
             ],
         };
         let row_art = |vm: &LibraryViewModel, label: &str| {
-            vm.artists_list(MusicListScope::Library, &IndexNameListPage::default())
+            vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default())
                 .into_iter()
                 .find(|row| row.label == label)
                 .and_then(|row| row.art)
@@ -10074,7 +10087,7 @@ mod tests {
             ],
         });
 
-        let rows = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
         let labels: Vec<&str> = rows.iter().map(|row| row.label.as_str()).collect();
 
         assert!(labels.contains(&"Echo Chamber"), "{labels:?}");
@@ -10257,7 +10270,7 @@ mod tests {
             vm.name_feed_matches().get("haleen"),
             NameFeedMatch::MatchedFeed("haleen-feed".to_owned())
         );
-        let rows = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
         let texts: Vec<(&str, &str)> = rows
             .iter()
             .map(|row| (row.label.as_str(), row.secondary_text.as_str()))
@@ -10317,7 +10330,7 @@ mod tests {
         let matches = vm.name_feed_matches();
         assert_eq!(matches.get("shared"), NameFeedMatch::Ambiguous);
 
-        let rows = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
         let mut name_rows = 0;
         for row in &rows {
             let DestinationListRowTarget::ArtistName(key) = &row.open else {
@@ -10553,7 +10566,7 @@ mod tests {
             .flat_map(|section| section.rows.iter())
             .filter(|row| row.in_library)
             .count();
-        let row = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let row = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
         assert_eq!(row[0].secondary_text, format!("{} releases", 3 + matched));
         assert_eq!(page_rows, 3 + matched);
     }
@@ -10587,7 +10600,7 @@ mod tests {
             intent.generation,
         );
 
-        let everything = vm.artists_list(MusicListScope::Everything, &page);
+        let everything = vm.artists_list(ListScope::All, &page);
         let texts: Vec<(&str, &str)> = everything
             .iter()
             .map(|row| (row.label.as_str(), row.secondary_text.as_str()))
@@ -10630,7 +10643,7 @@ mod tests {
             ],
         });
 
-        let library = vm.artists_list(MusicListScope::Library, &IndexNameListPage::default());
+        let library = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
         let texts: Vec<(&str, &str)> = library
             .iter()
             .map(|row| (row.label.as_str(), row.secondary_text.as_str()))
@@ -10665,7 +10678,7 @@ mod tests {
             intent.generation,
         );
 
-        let everything = vm.artists_list(MusicListScope::Everything, &page);
+        let everything = vm.artists_list(ListScope::All, &page);
         let texts: Vec<(&str, &str)> = everything
             .iter()
             .map(|row| (row.label.as_str(), row.secondary_text.as_str()))
@@ -11579,16 +11592,37 @@ mod tests {
                 &BTreeSet::new(),
             ))
         };
-        for scope in [MusicListScope::Everything, MusicListScope::Library] {
+        // ADR 0089 Decision 5: In Library holds the downloaded, partly
+        // downloaded, downloading, queued and failed releases only, so
+        // "Gamma" (not downloaded) shows in All alone.
+        for (scope, expected) in [
+            (
+                ListScope::All,
+                vec![
+                    ReleaseDownloadState::Downloaded,
+                    ReleaseDownloadState::Partial {
+                        downloaded: 3,
+                        total: 7,
+                    },
+                    ReleaseDownloadState::NotDownloaded,
+                ],
+            ),
+            (
+                ListScope::InLibrary,
+                vec![
+                    ReleaseDownloadState::Downloaded,
+                    ReleaseDownloadState::Partial {
+                        downloaded: 3,
+                        total: 7,
+                    },
+                ],
+            ),
+        ] {
             let rows = rows(scope);
             let texts: Vec<_> = rows.iter().map(|row| row.secondary_text.clone()).collect();
             assert_eq!(
                 texts,
-                [
-                    "Haleen \u{b7} Album",
-                    "Haleen \u{b7} Album",
-                    "Haleen \u{b7} Album"
-                ],
+                vec!["Haleen \u{b7} Album"; expected.len()],
                 "{scope:?}"
             );
             let states: Vec<_> = rows
@@ -11600,19 +11634,33 @@ mod tests {
                         .state
                 })
                 .collect();
-            assert_eq!(
-                states,
-                [
-                    ReleaseDownloadState::Downloaded,
-                    ReleaseDownloadState::Partial {
-                        downloaded: 3,
-                        total: 7
-                    },
-                    ReleaseDownloadState::NotDownloaded,
-                ],
-                "{scope:?}"
-            );
+            assert_eq!(states, expected, "{scope:?}");
         }
+    }
+
+    /// ADR 0089 Decision 5: the In Library count counts releases. A singles
+    /// group of five gives one group row and a count of five.
+    #[test]
+    fn adr_0089_list_page_library_count_counts_releases_not_group_rows() {
+        let singles: Vec<AlbumNode> = (1..=5)
+            .map(|n| {
+                let mut album =
+                    scopes_album(&format!("Single {n}"), n, &format!("single-{n}"), 1, 1);
+                album.metadata_facts.release_kind = Some("single".to_owned());
+                album
+            })
+            .collect();
+        let vm = scopes_vm(singles);
+        assert_eq!(vm.library_release_count(), 5);
+        let page = releases_everything::tests::loaded_page(Vec::new(), false);
+        let rows = vm.releases_list(
+            ListScope::InLibrary,
+            &page,
+            &IndexFeedSingles::default(),
+            &BTreeSet::new(),
+        );
+        assert_eq!(rows.len(), 1, "one singles group row");
+        assert!(matches!(rows[0], ReleasesListEntryVm::SinglesGroup(_)));
     }
 
     /// Review correction of 2026-10-22: R33-12 and R33-13. `library_
@@ -11629,7 +11677,7 @@ mod tests {
         let page = releases_everything::tests::loaded_page(Vec::new(), false);
         let row_state = |vm: &LibraryViewModel| {
             release_rows(vm.releases_list(
-                MusicListScope::Library,
+                ListScope::InLibrary,
                 &page,
                 &IndexFeedSingles::default(),
                 &BTreeSet::new(),
@@ -11690,7 +11738,7 @@ mod tests {
         let page = releases_everything::tests::loaded_page(rows, false);
 
         let entries = vm.releases_list(
-            MusicListScope::Everything,
+            ListScope::All,
             &page,
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -11887,7 +11935,7 @@ mod tests {
             true,
         );
         let rows = releases_selection_rows(&vm.releases_list(
-            MusicListScope::Everything,
+            ListScope::All,
             &page,
             &IndexFeedSingles::default(),
             &BTreeSet::new(),
@@ -11915,7 +11963,7 @@ mod tests {
         );
         let motive_row = |vm: &LibraryViewModel| {
             release_rows(vm.releases_list(
-                MusicListScope::Everything,
+                ListScope::All,
                 &page,
                 &IndexFeedSingles::default(),
                 &BTreeSet::new(),
@@ -12047,7 +12095,7 @@ mod tests {
         let vm = index_singles_vm();
         let fills = haleen_fills();
         let page = fruit_page(true);
-        let entries = vm.releases_list(MusicListScope::Everything, &page, &fills, &BTreeSet::new());
+        let entries = vm.releases_list(ListScope::All, &page, &fills, &BTreeSet::new());
         assert_eq!(
             entries
                 .iter()
@@ -12057,12 +12105,8 @@ mod tests {
             "the group waits for the pages to reach Haleen, and Zebra waits for its page"
         );
 
-        let complete = vm.releases_list(
-            MusicListScope::Everything,
-            &fruit_page(false),
-            &fills,
-            &BTreeSet::new(),
-        );
+        let complete =
+            vm.releases_list(ListScope::All, &fruit_page(false), &fills, &BTreeSet::new());
         assert_eq!(
             complete
                 .iter()
@@ -12083,7 +12127,7 @@ mod tests {
         );
         assert!(group.single_keys.contains(&guid_key("durian")));
 
-        let library = vm.releases_list(MusicListScope::Library, &page, &fills, &BTreeSet::new());
+        let library = vm.releases_list(ListScope::InLibrary, &page, &fills, &BTreeSet::new());
         assert_eq!(
             library
                 .iter()
@@ -12212,19 +12256,10 @@ mod tests {
             not the sort key of a member";
         let vm = index_singles_vm();
         let fills = haleen_fills();
-        let held = vm.releases_list(
-            MusicListScope::Everything,
-            &fruit_page(true),
-            &fills,
-            &BTreeSet::new(),
-        );
+        let held = vm.releases_list(ListScope::All, &fruit_page(true), &fills, &BTreeSet::new());
         assert_eq!(entry_labels(&held), ["Banana", "Cherry"], "{FIX}");
-        let complete = vm.releases_list(
-            MusicListScope::Everything,
-            &fruit_page(false),
-            &fills,
-            &BTreeSet::new(),
-        );
+        let complete =
+            vm.releases_list(ListScope::All, &fruit_page(false), &fills, &BTreeSet::new());
         assert_eq!(
             entry_labels(&complete),
             ["Banana", "Cherry", "Haleen", "Zebra"],
@@ -12256,7 +12291,7 @@ mod tests {
                 })
                 .collect()
         };
-        for scope in [MusicListScope::Library, MusicListScope::Everything] {
+        for scope in [ListScope::InLibrary, ListScope::All] {
             let entries = vm.releases_list(scope, &fruit_page(false), &fills, &BTreeSet::new());
             assert!(
                 entries
@@ -12282,7 +12317,7 @@ mod tests {
         let vm = index_singles_vm();
         let mut fills = haleen_fills();
         let mut page = fruit_page(true);
-        let held = vm.releases_list(MusicListScope::Everything, &page, &fills, &BTreeSet::new());
+        let held = vm.releases_list(ListScope::All, &page, &fills, &BTreeSet::new());
         assert!(!entry_labels(&held).contains(&"Haleen"));
 
         load_next_page(
@@ -12292,7 +12327,7 @@ mod tests {
             Vec::new(),
             true,
         );
-        let reached = vm.releases_list(MusicListScope::Everything, &page, &fills, &BTreeSet::new());
+        let reached = vm.releases_list(ListScope::All, &page, &fills, &BTreeSet::new());
         assert_eq!(
             entry_labels(&reached),
             ["Banana", "Cherry", "Haleen", "Iris"]
@@ -12308,7 +12343,7 @@ mod tests {
         let vm = index_singles_vm();
         let mut fills = haleen_fills();
         let mut page = fruit_page(true);
-        let first = vm.releases_list(MusicListScope::Everything, &page, &fills, &BTreeSet::new());
+        let first = vm.releases_list(ListScope::All, &page, &fills, &BTreeSet::new());
         assert_eq!(entry_labels(&first), ["Banana", "Cherry"]);
 
         load_next_page(
@@ -12321,7 +12356,7 @@ mod tests {
             vec![(AARON_FEED, aaron_singles())],
             true,
         );
-        let second = vm.releases_list(MusicListScope::Everything, &page, &fills, &BTreeSet::new());
+        let second = vm.releases_list(ListScope::All, &page, &fills, &BTreeSet::new());
         assert_eq!(
             entry_labels(&second),
             ["Aaron", "Banana", "Cherry", "Elder"]
@@ -12340,7 +12375,7 @@ mod tests {
         let vm = index_singles_vm();
         let mut fills = haleen_fills();
         let mut page = fruit_page(true);
-        let first = vm.releases_list(MusicListScope::Everything, &page, &fills, &BTreeSet::new());
+        let first = vm.releases_list(ListScope::All, &page, &fills, &BTreeSet::new());
         load_next_page(
             &mut page,
             &mut fills,
@@ -12351,7 +12386,7 @@ mod tests {
             vec![(AARON_FEED, aaron_singles())],
             true,
         );
-        let second = vm.releases_list(MusicListScope::Everything, &page, &fills, &BTreeSet::new());
+        let second = vm.releases_list(ListScope::All, &page, &fills, &BTreeSet::new());
         let grouped: Vec<&ReleaseKey> = second
             .iter()
             .filter_map(|entry| match entry {
@@ -12404,23 +12439,14 @@ mod tests {
                 generation,
             ));
         }
-        let held = vm.releases_list(
-            MusicListScope::Everything,
-            &fruit_page(true),
-            &fills,
-            &BTreeSet::new(),
-        );
+        let held = vm.releases_list(ListScope::All, &fruit_page(true), &fills, &BTreeSet::new());
         assert_eq!(
             entry_labels(&held),
             ["Aaron", "Apple", "Banana", "Cherry"],
             "Aaron shows at its label, and the watermark holds Haleen and Yarrow"
         );
-        let complete = vm.releases_list(
-            MusicListScope::Everything,
-            &fruit_page(false),
-            &fills,
-            &BTreeSet::new(),
-        );
+        let complete =
+            vm.releases_list(ListScope::All, &fruit_page(false), &fills, &BTreeSet::new());
         assert_eq!(
             entry_labels(&complete),
             ["Aaron", "Apple", "Banana", "Cherry", "Haleen", "Yarrow", "Zebra"]
@@ -12438,7 +12464,7 @@ mod tests {
         // The complete page shows the group row at its label (packet 036).
         let page = fruit_page(false);
         let rows = releases_selection_rows(&vm.releases_list(
-            MusicListScope::Everything,
+            ListScope::All,
             &page,
             &fills,
             &BTreeSet::new(),
@@ -13155,7 +13181,7 @@ mod tests {
     struct ReleasesInputs {
         vm: LibraryViewModel,
         cache: ReleasesListCache,
-        scope: MusicListScope,
+        scope: ListScope,
         page: IndexNameListPage<crate::api::Feed>,
         expanded: BTreeSet<SinglesGroupKey>,
     }
@@ -13169,7 +13195,7 @@ mod tests {
             Self {
                 vm,
                 cache: ReleasesListCache::default(),
-                scope: MusicListScope::Everything,
+                scope: ListScope::All,
                 page: fruit_page(true),
                 expanded: BTreeSet::new(),
             }
@@ -13287,7 +13313,7 @@ mod tests {
             )));
         check(&mut inputs, "an open group");
 
-        inputs.scope = MusicListScope::Library;
+        inputs.scope = ListScope::InLibrary;
         check(&mut inputs, "a scope change");
     }
 
@@ -13364,31 +13390,31 @@ mod tests {
         let cases = [
             (
                 &packet_016,
-                MusicListScope::Library,
+                ListScope::InLibrary,
                 IndexNameListPage::default(),
                 BTreeSet::new(),
             ),
             (
                 &packet_015,
-                MusicListScope::Library,
+                ListScope::InLibrary,
                 IndexNameListPage::default(),
                 BTreeSet::from([by_name]),
             ),
             (
                 &packet_026,
-                MusicListScope::Everything,
+                ListScope::All,
                 fruit_page(false),
                 BTreeSet::from([haleen.clone()]),
             ),
             (
                 &packet_026,
-                MusicListScope::Library,
+                ListScope::InLibrary,
                 fruit_page(false),
                 BTreeSet::new(),
             ),
             (
                 &packet_036,
-                MusicListScope::Everything,
+                ListScope::All,
                 page_036,
                 BTreeSet::from([haleen]),
             ),
@@ -13423,13 +13449,9 @@ mod tests {
             (first_page, 1),
         ] {
             let expanded = BTreeSet::from([haleen.clone()]);
-            let rows = vm.releases_list_rows(MusicListScope::Everything, &page, &expanded);
-            let entries = vm.releases_list(
-                MusicListScope::Everything,
-                &page,
-                vm.index_feed_singles(),
-                &expanded,
-            );
+            let rows = vm.releases_list_rows(ListScope::All, &page, &expanded);
+            let entries =
+                vm.releases_list(ListScope::All, &page, vm.index_feed_singles(), &expanded);
             assert_eq!(
                 rows.selection_rows(),
                 releases_selection_rows(&entries).as_slice()
@@ -13464,7 +13486,7 @@ mod tests {
         vm.replace_tree(singles_tree());
         let group_key = SinglesGroupKey(ArtistIdentity::Name("haleen".into()));
         let rows = vm.releases_list_rows(
-            MusicListScope::Library,
+            ListScope::InLibrary,
             &IndexNameListPage::default(),
             &BTreeSet::from([group_key]),
         );
@@ -13529,7 +13551,7 @@ mod tests {
             releases_everything::tests::recorded_rows(),
             false,
         );
-        let rows = vm.releases_list_rows(MusicListScope::Everything, &page, &BTreeSet::new());
+        let rows = vm.releases_list_rows(ListScope::All, &page, &BTreeSet::new());
         for key in ["alpha", "beta", "motive-album"] {
             assert_eq!(
                 rows.row_state(&guid_key(key)),

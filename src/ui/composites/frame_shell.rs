@@ -20,14 +20,12 @@ use gpui::{
     SharedString, Styled, Window,
 };
 
-use crate::ui::composites::{Segment, SegmentDisplay, SegmentedControl};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
 use crate::ui::primitives::{
     Button, ContextMenu, ContextMenuItem, ContextMenuItemDisplay, ContextMenuScope,
 };
 use crate::ui::tokens::{resolve_color, Appearance, FontSize, SemanticColor, Spacing};
-use crate::view_models::index_name_list::{MusicListScope, MusicScopeControlDisplay};
 use crate::view_models::workspace::{
     FrameChromeButtonDisplay, FrameChromeMenuItemDisplay, FrameHeaderActionDisplay,
     FrameShellDisplay,
@@ -35,7 +33,6 @@ use crate::view_models::workspace::{
 
 type FrameButtonHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 type FrameMenuSelectHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App) + 'static>;
-type FrameScopeSelectHandler = Rc<dyn Fn(MusicListScope, &mut Window, &mut App) + 'static>;
 
 /// Callback and content slots supplied by a frame-shell caller.
 #[derive(Default)]
@@ -45,7 +42,6 @@ pub(crate) struct FrameShellSlots {
     on_close: Option<FrameButtonHandler>,
     on_menu_select: Option<FrameMenuSelectHandler>,
     on_header_action: Option<FrameButtonHandler>,
-    on_scope_select: Option<FrameScopeSelectHandler>,
     appearance: Option<Appearance>,
 }
 
@@ -68,16 +64,6 @@ impl FrameShellSlots {
         handler: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_header_action = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the scope selection callback of a Music list (ADR 0084
-    /// packet 016).
-    pub(crate) fn on_scope_select(
-        mut self,
-        handler: impl Fn(MusicListScope, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_scope_select = Some(Rc::new(handler));
         self
     }
 }
@@ -179,7 +165,6 @@ fn render_chrome(
     cx: &App,
 ) -> impl IntoElement {
     let content_slot_id = display.content_slot_id.clone();
-    let scope_control_display = display.scope_control;
     let header_visible = display.header_visible();
     let mut nav = div()
         .flex()
@@ -260,62 +245,7 @@ fn render_chrome(
         chrome = chrome.child(header);
     }
 
-    if let Some(scope) = scope_control_display {
-        chrome = chrome.child(frame_filter_row(scope, slots.on_scope_select, cx));
-    }
-
     chrome
-}
-
-fn frame_filter_row(
-    scope_display: MusicScopeControlDisplay,
-    scope_handler: Option<FrameScopeSelectHandler>,
-    cx: &App,
-) -> AnyElement {
-    let mut row = div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(Spacing::XS.scaled(cx));
-
-    // ADR 0084 packet 016 decision D1: the scope control sits at the
-    // leading edge of the row.
-    row = row.child(scope_control(scope_display, scope_handler));
-
-    row = row.child(div().flex_1().min_w_0());
-
-    div()
-        .px(Spacing::MD.scaled(cx))
-        .pb(Spacing::XS.scaled(cx))
-        .child(row)
-        .into_any_element()
-}
-
-/// The scope control of a Music list: a `SegmentedControl` with the
-/// `Filter` style (ADR 0084 packet 016).
-fn scope_control(
-    display: MusicScopeControlDisplay,
-    handler: Option<FrameScopeSelectHandler>,
-) -> AnyElement {
-    let mut control = SegmentedControl::new(display.selected)
-        .filter_style()
-        .segments(display.options.map(|option| {
-            Segment::new(SegmentDisplay {
-                id: SharedString::from(option.id).into(),
-                key: option.scope,
-                label: SharedString::from(option.label),
-                a11y_label: SharedString::from(option.a11y_label),
-            })
-        }));
-    if let Some(handler) = handler {
-        control = control.on_select(move |scope, window, cx| {
-            handler(*scope, window, cx);
-        });
-    }
-    div()
-        .id(SharedString::from(display.control_id))
-        .child(control)
-        .into_any_element()
 }
 
 fn chrome_button(

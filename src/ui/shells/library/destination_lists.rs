@@ -440,8 +440,9 @@ pub(crate) fn render_hoverable_release_thumb(
         .into_any_element()
 }
 
-/// Renders the Playlists destination list (ADR 0084 Decision 2): sort,
-/// "+", each playlist row, and the inline new-playlist input.
+/// Renders the Playlists destination list (ADR 0084 Decision 2; ADR 0089
+/// Decision 5, no sort control): "+", each playlist row, and the inline
+/// new-playlist input.
 #[expect(
     clippy::too_many_lines,
     reason = "moves the Library sidebar's existing playlist rows, sort, add, and inline input intact (ADR 0084 Decision 2)"
@@ -454,11 +455,9 @@ pub(crate) fn render_library_playlists_list(
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     let PlaylistSidebarVm {
-        sort_button_id,
         add_button_id,
         new_playlist_input_id,
         new_playlist_add_button_id,
-        sort_label,
         add_label,
         new_playlist_add_label,
         creating_playlist,
@@ -476,13 +475,6 @@ pub(crate) fn render_library_playlists_list(
             .gap(spacing::XS)
             .px(spacing::MD)
             .pb(spacing::XS)
-            .child(
-                UiButton::styled(sort_button_id, ControlStyle::ToolbarIcon)
-                    .label(sort_label)
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.cycle_playlist_sort(cx);
-                    })),
-            )
             .child(
                 UiButton::styled(add_button_id, ControlStyle::ToolbarIcon)
                     .label(add_label)

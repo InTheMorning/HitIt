@@ -20,13 +20,11 @@ use crate::ui::layouts::{
     WORKSPACE_QUEUE_COLLAPSE_BREAKPOINT, WORKSPACE_SECONDARY_DETAIL_COLLAPSE_BREAKPOINT,
 };
 use crate::ui::tokens::{resolve_color, FontSize, SemanticColor, Spacing};
-use crate::view_models::index_name_list::{MusicListScope, MusicScopeControlDisplay};
 use crate::view_models::workspace::{
     FrameHeaderActionDisplay, FrameShellDisplay, MusicColumns, MusicPageContent,
     WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,
 };
 
-type WorkspaceScopeSelectHandler = Rc<dyn Fn(MusicListScope, &mut Window, &mut App) + 'static>;
 type WorkspaceHeaderActionHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 
 type WorkspaceContentPaneResizeHandler = Box<dyn Fn(Pixels, &mut Window, &mut App) + 'static>;
@@ -41,9 +39,7 @@ pub(crate) struct WorkspaceSlots {
     detail: Option<AnyElement>,
     content_list_header_action: Option<FrameHeaderActionDisplay>,
     detail_header_action: Option<FrameHeaderActionDisplay>,
-    content_list_scope_control: Option<MusicScopeControlDisplay>,
     music_columns: Option<MusicColumns>,
-    on_content_list_scope_select: Option<WorkspaceScopeSelectHandler>,
     on_content_list_header_action: Option<WorkspaceHeaderActionHandler>,
     on_detail_header_action: Option<WorkspaceHeaderActionHandler>,
     content_pane_width: Option<Pixels>,
@@ -115,18 +111,6 @@ impl WorkspaceSlots {
         handler: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_detail_header_action = Some(Rc::new(handler));
-        self
-    }
-
-    /// Supplies the scope control of the Music Releases or Artists list
-    /// (ADR 0084 packet 016) and its selection callback.
-    pub(crate) fn content_list_scope_control(
-        mut self,
-        display: MusicScopeControlDisplay,
-        handler: impl Fn(MusicListScope, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.content_list_scope_control = Some(display);
-        self.on_content_list_scope_select = Some(Rc::new(handler));
         self
     }
 
@@ -264,32 +248,16 @@ impl RenderOnce for WorkspaceShell {
                 }
             }
 
-            // ADR 0084 packet 016: only the content-list frame has a scope.
-            let (scope_control, on_scope_select) = match frame_kind {
-                WorkspaceFrameKind::ContentList => (
-                    self.slots.content_list_scope_control,
-                    self.slots.on_content_list_scope_select.clone(),
-                ),
-                WorkspaceFrameKind::Detail | WorkspaceFrameKind::QueueNowPlaying => (None, None),
-            };
             let header_action = self.slots.header_action_for(frame_kind);
             let on_header_action = self.slots.header_action_handler_for(frame_kind);
             let content = self.slots.take(frame.kind(), frame, cx);
             // ADR 0089 Decision 9: Back, Forward and the page title belong to
             // the app toolbar, so no frame shows them.
             let mut display = FrameShellDisplay::from_frame(frame, false);
-            if let Some(scope_control) = scope_control {
-                display = display.with_scope_control(scope_control);
-            }
             if let Some(header_action) = header_action {
                 display = display.with_header_action(header_action);
             }
             let mut shell_slots = FrameShellSlots::new().content(content);
-            if let Some(handler) = on_scope_select {
-                shell_slots = shell_slots.on_scope_select(move |scope, window, cx| {
-                    handler(scope, window, cx);
-                });
-            }
             if let Some(handler) = on_header_action {
                 shell_slots = shell_slots.on_header_action(move |window, cx| {
                     handler(window, cx);
