@@ -218,7 +218,7 @@ impl SemanticColor {
             Self::SecondaryLabel => hex(0xa1_a1a6),
             // Derived: continues the Label -> SecondaryLabel step toward
             // SystemBackground (ADR 0083 task 001 packet result).
-            Self::TertiaryLabel => hex(0x72_7274),
+            Self::TertiaryLabel => hex(0x8e_8e93),
             Self::QuaternaryLabel => hex(0x43_4345),
 
             // Derived: the surface ladder shifted one tier, so a fill reads
@@ -249,22 +249,25 @@ impl SemanticColor {
             Self::ButtonFill => hex_alpha(0x76_7680, 0.24),
             Self::ButtonFillHover => hex_alpha(0xff_ffff, 0.12),
 
-            Self::Success => hex(0x7d_d67d),
+            // musicindex ADR 0025 R-STATUS-1 owns the status values.
+            Self::Success => hex(0x30_d158),
             // ADR 0083 Decision 2: orange, not gold, so gold is free for the
             // value palette. Started from #ff9f0a and kept the existing
             // OnWarning contrast pair.
             Self::Warning => hex(0xff_9f0a),
-            Self::Danger => hex(0xff_8585),
+            Self::Danger => hex(0xff_6961),
             // Derived: reuses Accent, matching the pre-existing pattern
             // where Info tracks Accent's hue.
             Self::Info => hex(0x2d_7bff),
 
             // In dark, the system colors already meet body-text contrast
             // against the canvas — labels can match the system value.
-            Self::SuccessLabel => hex(0x7d_d67d),
+            Self::SuccessLabel => hex(0x30_d158),
             Self::WarningLabel => hex(0xff_9f0a),
-            Self::DangerLabel => hex(0xff_8585),
-            Self::InfoLabel => hex(0x8b_9bff),
+            Self::DangerLabel => hex(0xff_6961),
+            // The accent of R-STATUS-1 gives 4.36:1 on a raised surface. This
+            // value has its hue and gives 4.5:1 for text.
+            Self::InfoLabel => hex(0x57_95ff),
 
             // Dark-mode status fills are all bright/saturated — near-black
             // text reads cleanly on every one of them.
@@ -322,7 +325,7 @@ impl SemanticColor {
             Self::SecondaryLabel => hex(0x5c_5c62),
             // Derived: continues the Label -> SecondaryLabel step toward
             // SystemBackground (ADR 0083 task 001 packet result).
-            Self::TertiaryLabel => hex(0x89_898b),
+            Self::TertiaryLabel => hex(0x6e_6e73),
             Self::QuaternaryLabel => hex(0xc0_c0c0),
 
             // Derived: the surface ladder shifted one tier toward black, so
@@ -355,7 +358,7 @@ impl SemanticColor {
 
             Self::Success => hex(0x34_c759),
             Self::Warning => hex(0xff_9500),
-            Self::Danger => hex(0xff_3b30),
+            Self::Danger => hex(0xc4_1e3a),
             // Derived: reuses Accent, matching the pre-existing pattern
             // where Info tracks Accent's hue.
             Self::Info => hex(0x0a_5bd6),
@@ -364,10 +367,10 @@ impl SemanticColor {
             // (white). Same intent as Apple's `.systemRed`/`.systemGreen`
             // *label* shades that ship in `UIColor` but are slightly darker
             // than the fills.
-            Self::SuccessLabel => hex(0x1f_7a3a),
-            Self::WarningLabel => hex(0xa0_5400),
-            Self::DangerLabel => hex(0xc2_271c),
-            Self::InfoLabel => hex(0x00_5fcc),
+            Self::SuccessLabel => hex(0x1a_7f37),
+            Self::WarningLabel => hex(0xa0_5a00),
+            Self::DangerLabel => hex(0xc4_1e3a),
+            Self::InfoLabel => hex(0x0a_5bd6),
 
             // iOS systemGreen / systemOrange are too bright to take white
             // text — Apple's own HIG examples render black on them. Red and
@@ -1419,6 +1422,28 @@ mod tests {
         assert!((c.g - 0.501_960_8).abs() < 1e-4);
         assert!((c.b - 0.250_980_4).abs() < 1e-4);
         assert!((c.a - 1.0).abs() < f32::EPSILON);
+    }
+
+    /// musicindex ADR 0025 R-STATUS-1: a status text color has its shared value.
+    /// The dark info text is the one difference, because the accent has 4.36:1.
+    /// Fix: copy the value from the rule, or supersede the rule in musicindex.
+    #[test]
+    fn status_text_colors_match_the_shared_rule() {
+        for (appearance, token, rgb) in [
+            (Appearance::Dark, SemanticColor::SuccessLabel, 0x30_d158),
+            (Appearance::Dark, SemanticColor::WarningLabel, 0xff_9f0a),
+            (Appearance::Dark, SemanticColor::DangerLabel, 0xff_6961),
+            (Appearance::Light, SemanticColor::SuccessLabel, 0x1a_7f37),
+            (Appearance::Light, SemanticColor::WarningLabel, 0xa0_5a00),
+            (Appearance::Light, SemanticColor::DangerLabel, 0xc4_1e3a),
+            (Appearance::Light, SemanticColor::InfoLabel, 0x0a_5bd6),
+        ] {
+            assert_eq!(
+                token.resolve(appearance),
+                hex(rgb),
+                "{token:?} in {appearance:?}"
+            );
+        }
     }
 
     /// musicindex ADR 0032 R-DOT-2: the button tints and fills match the shared copy in
