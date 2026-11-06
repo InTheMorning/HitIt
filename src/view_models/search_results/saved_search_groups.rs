@@ -26,7 +26,7 @@ use crate::view_models::window_groups::{
 use crate::view_models::workspace::ReleaseKey;
 use crate::views::FeedView;
 
-use super::{FeedResultDisplay, SearchLibraryLookup, SearchResultRowVm};
+use super::{FeedResultDisplay, SearchLibraryLookup, SearchResultRowVm, SearchResultsTab};
 
 /// One item of a search page: a row, or a group row of a saved search
 /// (ADR 0086 Decision 6).
@@ -40,6 +40,9 @@ pub(crate) enum SearchResultItemVm {
     Row(SearchResultRowVm),
     /// One group row at the place of its anchor single.
     WindowGroup(Box<WindowGroupTileVm>),
+    /// The heading of one group of the tab All (ADR 0089 Decision 4). It is
+    /// not a row and has no selection key.
+    Heading(SearchResultsTab),
 }
 
 impl SearchResultItemVm {
@@ -50,16 +53,29 @@ impl SearchResultItemVm {
         match self {
             Self::Row(row) => row.key.clone(),
             Self::WindowGroup(tile) => Some(DetailRowKey::Release(tile.page_key.anchor.clone())),
+            Self::Heading(_) => None,
         }
     }
 
     /// The row id of the item: the id of a row, or the row id of the
-    /// anchor of a group.
+    /// anchor of a group. `None` for a heading.
     #[must_use]
-    pub(crate) fn row_id(&self) -> &str {
+    pub(crate) fn row_id(&self) -> Option<&str> {
         match self {
-            Self::Row(row) => &row.id,
-            Self::WindowGroup(tile) => &tile.open_row_id,
+            Self::Row(row) => Some(&row.id),
+            Self::WindowGroup(tile) => Some(&tile.open_row_id),
+            Self::Heading(_) => None,
+        }
+    }
+
+    /// The group tab of the item: the tab of a row, or Releases for a
+    /// group row. `None` for a heading.
+    #[must_use]
+    pub(crate) fn tab(&self) -> Option<SearchResultsTab> {
+        match self {
+            Self::Row(row) => Some(row.tab),
+            Self::WindowGroup(_) => Some(SearchResultsTab::Releases),
+            Self::Heading(_) => None,
         }
     }
 }
@@ -357,7 +373,6 @@ mod tests {
         SavedSearch {
             id: SavedSearchId(1),
             query: "q".to_owned(),
-            start_tab: SearchResultsTab::Releases,
             name: None,
         }
     }
@@ -384,13 +399,15 @@ mod tests {
     /// The five rows of R86-5-01: Library singles of one key on Oct 8 and
     /// Oct 20 at positions 1 and 3, and three albums.
     fn r01() -> (SearchResultsInspectorPageVm, RecordedLibrary) {
-        let vm = saved_page(vec![
+        // The window groups read the Releases tab, the tab of this fixture.
+        let mut vm = saved_page(vec![
             release("a0", ReleaseKind::Album),
             release("s8", ReleaseKind::Single),
             release("a2", ReleaseKind::Album),
             release("s20", ReleaseKind::Single),
             release("a4", ReleaseKind::Album),
         ]);
+        vm.set_tab(SearchResultsTab::Releases);
         let lookup = library(
             RecordedLibrary::default(),
             "s8",
@@ -408,6 +425,7 @@ mod tests {
             .map(|item| match item {
                 SearchResultItemVm::Row(row) => row.id.clone(),
                 SearchResultItemVm::WindowGroup(tile) => format!("group:{}", tile.open_row_id),
+                SearchResultItemVm::Heading(tab) => format!("heading:{}", tab.label()),
             })
             .collect()
     }
@@ -417,7 +435,7 @@ mod tests {
             .iter()
             .filter_map(|item| match item {
                 SearchResultItemVm::WindowGroup(tile) => Some(tile.as_ref()),
-                SearchResultItemVm::Row(_) => None,
+                SearchResultItemVm::Row(_) | SearchResultItemVm::Heading(_) => None,
             })
             .collect()
     }
@@ -492,11 +510,12 @@ mod tests {
     /// never anchors a group and never joins one.
     #[test]
     fn adr_0086_saved_search_groups_r07_index_row_with_no_date_stays_a_row() {
-        let vm = saved_page(vec![
+        let mut vm = saved_page(vec![
             index_single("idx", None, "jSmovie"),
             index_single("other", None, "jSmovie"),
             release("lib", ReleaseKind::Single),
         ]);
+        vm.set_tab(SearchResultsTab::Releases);
         let mut lookup = library(
             RecordedLibrary::default(),
             "lib",
@@ -527,6 +546,7 @@ mod tests {
             &ArtistSearchFacts::default(),
         )
         .into_saved_search(&saved_search());
+        vm.set_tab(SearchResultsTab::Releases);
         vm.replace_index_results(index_rows(vec![
             index_single("both", Some(oct(1)), "jSmovie"),
             release("other", ReleaseKind::Single),
@@ -551,12 +571,13 @@ mod tests {
     /// give rows at their places. The two singles still make one group.
     #[test]
     fn adr_0086_saved_search_groups_r09_album_and_ep_stay_rows() {
-        let vm = saved_page(vec![
+        let mut vm = saved_page(vec![
             release("s20", ReleaseKind::Single),
             release("album", ReleaseKind::Album),
             release("ep", ReleaseKind::Ep),
             release("s10", ReleaseKind::Single),
         ]);
+        vm.set_tab(SearchResultsTab::Releases);
         let lookup = library(
             RecordedLibrary::default(),
             "s20",

@@ -217,13 +217,10 @@ fn row_a11y_label(search: &SavedSearch, new_results: Option<&NewResultsText>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::view_models::search_results::SearchResultsTab;
-
     fn saved(id: i64, query: &str) -> SavedSearch {
         SavedSearch {
             id: SavedSearchId(id),
             query: query.to_owned(),
-            start_tab: SearchResultsTab::Releases,
             name: None,
         }
     }

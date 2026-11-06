@@ -3333,11 +3333,9 @@ fn adr_0049_inspector_source_ownership_is_guarded() {
         );
     }
 
-    for required in [
-        "pub(crate) fn row_label(",
-        "tab_was_user_selected",
-        "select_first_populated_tab_if_automatic(",
-    ] {
+    // ADR 0089 Decision 4 retired the auto-selection of the first populated
+    // tab, so the guard keeps the row label contract only.
+    for required in ["pub(crate) fn row_label("] {
         if !search_results_mod_source.contains(required) {
             violations.push(format!(
                 "src/view_models/search_results/mod.rs: ADR 0049 Index drill-down VM contract missing `{required}`"
@@ -3838,17 +3836,16 @@ fn adr_0047_task_014_search_results_inspector_shell_contract() {
         "pub(crate) fn render_search_results_inspector",
         "SearchResultsInspectorPageVm",
         "SegmentedControl::new(selected)",
-        // ADR 0084 packet 010 decision D1: Releases, Artists, Tracks.
-        "Segment::new(tab_segment_display(SearchResultsTab::Releases))",
-        "Segment::new(tab_segment_display(SearchResultsTab::Artists))",
-        "Segment::new(tab_segment_display(SearchResultsTab::Tracks))",
+        // ADR 0089 Decision 4: the type tabs of All, Releases, Tracks,
+        // Artists and Labels, each with its count from the view model.
+        "Segment::new(tab_segment_display(&count))",
         "vm.empty_state()",
         "render_empty_state(",
         "render_active_result_list(",
         // Packet 028 D3: the row takes its thumbnail or its logo frame.
         // ADR 0084 task 033: the row takes `cx`, to render its
         // download-state icon through the shared composite.
-        "render_result_row(tab, row, leading, handlers, cx)",
+        "render_result_row(row, leading, handlers, cx)",
     ] {
         if !shell_source.contains(required) {
             violations.push(format!(

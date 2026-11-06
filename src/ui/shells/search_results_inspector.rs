@@ -12,8 +12,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    div, AnyElement, App, Image, InteractiveElement, IntoElement, ParentElement, ScrollHandle,
-    SharedString, Styled, Window,
+    div, AnyElement, App, FontWeight, Image, InteractiveElement, IntoElement, ParentElement,
+    ScrollHandle, SharedString, Styled, Window,
 };
 
 use crate::ui::composites::list_page_head::{
@@ -41,7 +41,7 @@ use crate::view_models::list_page::{ListPageHeadVm, ListScope};
 use crate::view_models::search_results::{
     EmptyStateDisplay, IndexDetailDisplay, IndexDetailKind, SearchFailureAction,
     SearchFailureAvailability, SearchPageActionDisplay, SearchResultItemVm, SearchResultOrigin,
-    SearchResultsInspectorPageVm, SearchResultsTab,
+    SearchResultsInspectorPageVm, SearchResultsTab, SearchTabCount,
 };
 use crate::view_models::workspace::FrameNavigationEntry;
 
@@ -213,6 +213,7 @@ pub(crate) fn render_search_results_inspector(
             scope: vm.library_scope(),
             status_text: vm.status_text(),
             selected: tab,
+            counts: vm.tab_counts(),
             tab_select: slots.tab_select.as_ref(),
             scope_select: slots.scope_select.as_ref(),
             action: slots.header_action.as_ref(),
@@ -326,6 +327,8 @@ struct InspectorHeader<'a> {
     scope: ListScope,
     status_text: Option<&'a str>,
     selected: SearchResultsTab,
+    /// The count of each tab, in the order of `SearchResultsTab::ALL`.
+    counts: [SearchTabCount; 5],
     tab_select: Option<&'a TabSelectHandler>,
     scope_select: Option<&'a ListScopeHandler>,
     action: Option<&'a (SearchPageActionDisplay, HeaderActionHandler)>,
@@ -358,7 +361,11 @@ fn render_inspector_header(header: InspectorHeader<'_>, cx: &App) -> AnyElement 
                 .min_w_0()
                 .px(Spacing::MD.scaled(cx))
                 .pb(Spacing::XS.scaled(cx))
-                .child(render_tab_strip(header.selected, header.tab_select)),
+                .child(render_tab_strip(
+                    header.selected,
+                    header.counts,
+                    header.tab_select,
+                )),
         );
     if let Some(status) = header.status_text {
         column = column.child(
@@ -383,15 +390,18 @@ pub(crate) fn render_search_empty_state(empty: &EmptyStateDisplay, cx: &App) -> 
     render_empty_state(empty, None, cx)
 }
 
+/// The type tabs, each with its count (ADR 0089 Decision 4). The counts
+/// come from the view model, and no tab changes the query.
 fn render_tab_strip(
     selected: SearchResultsTab,
+    counts: [SearchTabCount; 5],
     on_tab_select: Option<&TabSelectHandler>,
 ) -> SegmentedControl<SearchResultsTab> {
-    let mut control = SegmentedControl::new(selected).segments([
-        Segment::new(tab_segment_display(SearchResultsTab::Releases)),
-        Segment::new(tab_segment_display(SearchResultsTab::Artists)),
-        Segment::new(tab_segment_display(SearchResultsTab::Tracks)),
-    ]);
+    let mut control = SegmentedControl::new(selected).segments(
+        counts
+            .into_iter()
+            .map(|count| Segment::new(tab_segment_display(&count))),
+    );
 
     if let Some(handler) = on_tab_select.cloned() {
         control = control.on_select(move |tab, window, cx| {
@@ -402,13 +412,36 @@ fn render_tab_strip(
     control
 }
 
-fn tab_segment_display(tab: SearchResultsTab) -> SegmentDisplay<SearchResultsTab> {
+fn tab_segment_display(count: &SearchTabCount) -> SegmentDisplay<SearchResultsTab> {
+    let tab = count.tab;
     SegmentDisplay {
         id: SharedString::from(format!("search-results-tab-{}", tab_id(tab))).into(),
         key: tab,
-        label: SharedString::from(tab.label()),
-        a11y_label: SharedString::from(format!("Show {} search results", tab.label())),
+        label: SharedString::from(count.segment_label()),
+        a11y_label: SharedString::from(format!(
+            "Show {} search results, {} found",
+            tab.label(),
+            count.text()
+        )),
     }
+}
+
+/// The heading of one group of the tab All (ADR 0089 Decision 4).
+fn render_group_heading(group: SearchResultsTab, cx: &App) -> AnyElement {
+    div()
+        .id(SharedString::from(format!(
+            "search-results-group-{}",
+            tab_id(group)
+        )))
+        .w_full()
+        .pt(Spacing::SM.scaled(cx))
+        .child(
+            Label::new(group.label())
+                .size(FontSize::Caption)
+                .weight(FontWeight::MEDIUM)
+                .color(SemanticColor::SecondaryLabel),
+        )
+        .into_any_element()
 }
 
 fn detail_metadata_row(label: &str, value: &str, cx: &App) -> AnyElement {
@@ -454,13 +487,20 @@ fn render_active_result_list(
         .map(|item| {
             let row = match item {
                 SearchResultItemVm::Row(row) => row,
+                SearchResultItemVm::Heading(group) => return render_group_heading(*group, cx),
                 SearchResultItemVm::WindowGroup(tile) => {
                     let art = slots
                         .arts
                         .get(&tile.element_id)
                         .cloned()
                         .unwrap_or(CollectionArtImage::EntityColor);
-                    return render_window_group_result_row(tab, tile, art, handlers, cx);
+                    return render_window_group_result_row(
+                        SearchResultsTab::Releases,
+                        tile,
+                        art,
+                        handlers,
+                        cx,
+                    );
                 }
             };
             let leading = if let Some(art) = &row.art {
@@ -476,8 +516,10 @@ fn render_active_result_list(
                 let href = row.thumbnail_href.as_deref();
                 SearchRowLeading::Thumbnail(href.and_then(|href| slots.thumbnail_for_href(href)))
             };
-            let row = row.clone().with_marked(tab, slots.marked_entry.as_ref());
-            render_result_row(tab, row, leading, handlers, cx)
+            let row = row
+                .clone()
+                .with_marked(row.tab, slots.marked_entry.as_ref());
+            render_result_row(row, leading, handlers, cx)
         })
         .chain((0..pending_rows).map(|index| render_pending_result_row(tab, index)))
         .collect();
