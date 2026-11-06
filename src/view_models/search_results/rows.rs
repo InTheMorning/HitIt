@@ -11,6 +11,7 @@
 use crate::view_models::artists_everything::FeedLinkClass;
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
 use crate::view_models::detail_selection::{DetailRowKey, DetailSelection, LibraryReleaseFacts};
+use crate::view_models::library::{RowTypeKind, RowTypeTag};
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
 use crate::view_models::release_kind::ReleaseKind;
@@ -176,7 +177,12 @@ pub(crate) struct SearchResultRowVm {
     pub(crate) id: String,
     /// The title.
     pub(crate) label: String,
-    /// The second line.
+    /// The type dot and the type word that lead the second line (ADR 0089
+    /// Decision 6, musicindex ADR 0038 R-DOT-4). `None` for a row that
+    /// shows its type as a trailing badge.
+    pub(crate) type_tag: Option<RowTypeTag>,
+    /// The second line after the type word. It does not hold the type
+    /// word.
     pub(crate) secondary_text: String,
     /// The thumbnail href, when the row has one.
     pub(crate) thumbnail_href: Option<String>,
@@ -246,9 +252,17 @@ pub(super) fn release_row_vm(
     let library = row.key.as_ref().and_then(|key| lookup.release(key));
     let kind = library.as_ref().map_or(row.kind, |library| library.kind);
     let key = row.key.clone().map(DetailRowKey::Release);
-    let (secondary_text, badge) = match placement {
-        ReleaseKindPlacement::Subtitle => (list_subtitle(kind, row), None),
+    let (type_tag, secondary_text, badge) = match placement {
+        ReleaseKindPlacement::Subtitle => (
+            Some(RowTypeTag {
+                kind: RowTypeKind::Release,
+                word: kind.label().to_owned(),
+            }),
+            list_subtitle(row),
+            None,
+        ),
         ReleaseKindPlacement::Badge => (
+            None,
             row.secondary_text.clone(),
             Some(SearchRowBadge::Release(kind)),
         ),
@@ -267,6 +281,7 @@ pub(super) fn release_row_vm(
         marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
+        type_tag,
         secondary_text,
         thumbnail_href: row.thumbnail_href.clone(),
         art: None,
@@ -279,11 +294,11 @@ pub(super) fn release_row_vm(
     }
 }
 
-/// The second line of a release row in the search list: the kind, then
-/// each part of the row, with one separator. A row with no parts uses its
-/// secondary text as one part.
-fn list_subtitle(kind: ReleaseKind, row: &FeedResultDisplay) -> String {
-    let mut parts = vec![kind.label().to_owned()];
+/// The second line of a release row in the search list after its type
+/// word: each part of the row, with one separator. A row with no parts uses
+/// its secondary text as one part.
+fn list_subtitle(row: &FeedResultDisplay) -> String {
+    let mut parts = Vec::new();
     if row.secondary_parts.is_empty() {
         if !row.secondary_text.is_empty() {
             parts.push(row.secondary_text.clone());
@@ -307,6 +322,10 @@ pub(super) fn track_row_vm(
         marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
+        type_tag: Some(RowTypeTag {
+            kind: RowTypeKind::Track,
+            word: "Track".to_owned(),
+        }),
         secondary_text: row.secondary_text.clone(),
         thumbnail_href: row.thumbnail_href.clone(),
         art: None,
@@ -356,6 +375,12 @@ pub(super) fn artist_row_vm(
         marked: false,
         id: row.id.clone(),
         label: row.label.clone(),
+        // A feed row shows its type as the trailing badge. A name row has
+        // no badge, so it shows the artist word in its second line.
+        type_tag: badge.is_none().then(|| RowTypeTag {
+            kind: RowTypeKind::Artist,
+            word: "Artist".to_owned(),
+        }),
         secondary_text: row.secondary_text.clone(),
         thumbnail_href: row.thumbnail_href.clone(),
         // A row with art is a Library name row of the Artists tab. Its

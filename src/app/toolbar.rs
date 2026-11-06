@@ -4,12 +4,7 @@
 //! It has no section tabs: the sidebar holds the sections (ADR 0089
 //! Decision 1). The application mark sits at the top of the sidebar.
 
-use std::sync::Arc;
-
-use gpui::{
-    div, img, prelude::*, Context, FontWeight, Image, ImageFormat, ObjectFit, SharedString, Styled,
-    Window,
-};
+use gpui::{div, prelude::*, svg, Context, FontWeight, SharedString, Styled, Window};
 use gpui_component::input::Input;
 use gpui_component::{IconName as InputIconName, Size};
 
@@ -26,13 +21,6 @@ use crate::view_models::app_toolbar::{
 
 use super::search_field_list::install_field_list_keys;
 use super::{TopApp, WorkspaceScreenMount};
-
-fn app_logo() -> Arc<Image> {
-    Arc::new(Image::from_bytes(
-        ImageFormat::Png,
-        include_bytes!("../assets/music_network_logo.png").to_vec(),
-    ))
-}
 
 /// Renders the application mark at the top of the sidebar (ADR 0089
 /// Decision 1).
@@ -52,14 +40,14 @@ pub(super) fn render_app_mark(cx: &mut Context<TopApp>) -> gpui::AnyElement {
                 .rounded(spacing_xs)
                 .overflow_hidden()
                 .flex_shrink_0()
-                .opacity(0.82)
                 .id(display.mark_id)
                 .tooltip(move |window, cx| mark_tooltip.build(window, cx))
+                // The mark has the color of the text, so it shows in each theme.
                 .child(
-                    img(app_logo())
-                        .w(layout::APP_ICON_SIZE)
-                        .h(layout::APP_ICON_SIZE)
-                        .object_fit(ObjectFit::Cover),
+                    svg()
+                        .path(crate::ui::icons::LOGO_FRAME_ASSET_PATH)
+                        .size(layout::APP_ICON_SIZE)
+                        .text_color(color(cx, SemanticColor::Label)),
                 ),
         )
         .into_any_element()

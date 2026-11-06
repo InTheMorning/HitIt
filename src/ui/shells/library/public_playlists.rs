@@ -196,7 +196,7 @@ pub(crate) fn render_public_playlist_page_body(
                 .min_w_0()
                 .child(
                     Label::new(page.title.clone())
-                        .size(FontSize::Body)
+                        .size(FontSize::Title2)
                         .weight(FontWeight::SEMIBOLD)
                         .truncated(),
                 )
