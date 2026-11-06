@@ -41,7 +41,6 @@ use crate::view_models::singles_group::SinglesGroupKey;
 use crate::view_models::workspace::ReleaseKey;
 
 /// The separator between the parts of a Releases row text.
-const RELEASE_ROW_SEPARATOR: &str = " \u{b7} ";
 /// The label of a `MusicIndex` release with no title.
 const UNTITLED_RELEASE: &str = "Untitled release";
 
@@ -130,16 +129,15 @@ pub(crate) fn index_release_row(
         .and_then(|count| usize::try_from(count).ok())
         .unwrap_or(0);
     let release_kind = ReleaseKind::resolve(feed.release_kind.as_deref(), track_count);
-    let kind = release_kind.label();
-    let secondary_text = match feed
+    // ADR 0089 Decision 6: the type badge names the kind, so the secondary
+    // text names the artist alone.
+    let secondary_text = feed
         .release_artist
         .as_deref()
         .map(str::trim)
         .filter(|artist| !artist.is_empty())
-    {
-        Some(artist) => format!("{artist}{RELEASE_ROW_SEPARATOR}{kind}"),
-        None => kind.to_owned(),
-    };
+        .unwrap_or_default()
+        .to_owned();
     Some(DestinationListRowVm {
         marked: false,
         // The element id of a Library row of the same key, so the row
@@ -153,6 +151,8 @@ pub(crate) fn index_release_row(
         open: DestinationListRowTarget::Release(key),
         selection: RowSelectionVm::none(),
         release_kind: Some(release_kind),
+        duration_label: None,
+        feed_roles: Vec::new(),
         menu: None,
         // ADR 0084 task 033, Flag: a `MusicIndex` row that the Library
         // does not hold showed no state word before this packet. "A row
@@ -199,6 +199,8 @@ pub(crate) fn recent_release_row(
         open: DestinationListRowTarget::Release(key.clone()),
         selection: RowSelectionVm::none(),
         release_kind: Some(display.kind),
+        duration_label: None,
+        feed_roles: Vec::new(),
         menu: None,
         download_state: Some(download_state_of_phase(phase).with_failure(failed)),
     }
@@ -714,6 +716,8 @@ pub(crate) mod tests {
                 open: DestinationListRowTarget::Release(key),
                 selection: RowSelectionVm::none(),
                 release_kind: None,
+                duration_label: None,
+                feed_roles: Vec::new(),
                 menu: None,
                 download_state: None,
             }),
@@ -814,20 +818,29 @@ pub(crate) mod tests {
         assert_eq!(labels(&entries), ["Zebra"]);
     }
 
-    /// R16-14: a `MusicIndex` row gives "`release_artist` · Kind" with no
-    /// state word. The kind comes from `ReleaseKind::resolve`.
+    /// R16-14: a `MusicIndex` row gives the `release_artist` as its text with
+    /// no state word. The kind comes from `ReleaseKind::resolve`, and it is the
+    /// type word of the row (ADR 0089 Decision 6).
     #[test]
     fn adr_0084_scopes_r16_14_index_row_text() {
         let rows = recorded_rows();
         let liii = index_release_row(&rows[0], |_| None).unwrap();
         assert_eq!(liii.label, "#LIII4PRESIDENT");
-        assert_eq!(liii.secondary_text, "LIIINEKELA \u{b7} Single");
+        assert_eq!(liii.secondary_text, "LIIINEKELA");
+        assert_eq!(
+            liii.type_tag().map(|tag| tag.word),
+            Some("Single".to_owned())
+        );
         assert_eq!(
             liii.open,
             DestinationListRowTarget::Release(ReleaseKey::FeedGuid("liii-album".into()))
         );
         let motive = index_release_row(&rows[2], |_| None).unwrap();
-        assert_eq!(motive.secondary_text, "Motive to Kill \u{b7} Album");
+        assert_eq!(motive.secondary_text, "Motive to Kill");
+        assert_eq!(
+            motive.type_tag().map(|tag| tag.word),
+            Some("Album".to_owned())
+        );
         assert_eq!(
             motive.thumbnail_href.as_deref(),
             Some("https://example.test/motive.jpg")

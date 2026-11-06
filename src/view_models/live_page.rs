@@ -161,6 +161,8 @@ fn live_row(item: &LiveItem) -> Option<LiveRowVm> {
         open: DestinationListRowTarget::Release(ReleaseKey::from_index_feed_guid(feed_guid)),
         selection: RowSelectionVm::none(),
         release_kind: None,
+        duration_label: None,
+        feed_roles: Vec::new(),
         menu: None,
         download_state: None,
         marked: false,

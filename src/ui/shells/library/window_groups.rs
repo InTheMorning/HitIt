@@ -198,8 +198,12 @@ fn render_window_group_row_with(
     if let Some(checkbox) = render_window_group_checkbox(tile, toggle, cx) {
         row = row.checkbox(checkbox);
     }
+    // ADR 0089 Decision 6: a group row keeps the time and library columns of
+    // a Releases row, so its columns align with the rows around it.
     row.child(render_window_group_row_art(art))
         .child(text)
+        .time_column(None)
+        .library_column(None)
         .on_click(cx.listener(move |this, event: &ClickEvent, _window, cx| {
             on_click(this, event, cx);
         }))

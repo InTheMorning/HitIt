@@ -3128,25 +3128,29 @@ fn adr_0083_track_row_shows_the_hover_fill_of_a_list_row() {
     );
 }
 
-/// ADR 0083 Decision 6 and ADR 0084 task 033 (operator decision of
-/// 2026-10-23): a release row with a menu cell puts its download state icon
-/// in the trailing slot of `ListRow`, after the menu cell. The icon is then
-/// at the right edge, aligned with the group rows, and the hover "⋯" shows
-/// to its left.
+/// ADR 0084 task 033 (operator decision of 2026-10-23), as amended by ADR 0089
+/// Decision 6: a release row puts its download state icon in the library
+/// column, the last fixed column, after the menu cell. The release section
+/// list keeps its trailing slot. The library column is `ListRow::library_column`.
 #[test]
 fn adr_0084_release_row_state_icon_is_the_last_column() {
-    for path in [
+    let source = compact_source(&read_source(&manifest_path(
         "src/ui/shells/library/destination_lists.rs",
+    )));
+    assert!(
+        source.contains(".library_column(row.download_state.map("),
+        "ADR 0089 Decision 6: src/ui/shells/library/destination_lists.rs must put the release \
+         download state icon in `ListRow::library_column`, the last fixed column. Do not add it \
+         with `.child(...)` before the menu cell."
+    );
+    let section = compact_source(&read_source(&manifest_path(
         "src/ui/composites/release_section_list.rs",
-    ] {
-        let source = compact_source(&read_source(&manifest_path(path)));
-        assert!(
-            source.contains(".trailing(render_release_download_state("),
-            "ADR 0084 task 033: {path} must put the release download state icon in \
-             `ListRow::trailing`, after the menu cell, so the icon is the last column. Do not \
-             add it with `.child(...)` before the menu cell."
-        );
-    }
+    )));
+    assert!(
+        section.contains(".trailing(render_release_download_state("),
+        "ADR 0084 task 033: src/ui/composites/release_section_list.rs must put the release \
+         download state icon in `ListRow::trailing`, after the menu cell."
+    );
 }
 
 /// ADR 0084 Decision 8 (operator decision of 2026-10-16): the Music
@@ -10689,6 +10693,45 @@ fn nearby_source_mentions(source: &str, line_number: usize, needles: &[&str]) ->
 
 fn read_source(path: &Path) -> String {
     fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
+}
+
+/// ADR 0089 Decision 6: the time and the library columns of a list row have
+/// one owner. The composite `ListRow` sizes both from `TrackRowColumn`, so a
+/// destination list gives no raw pixel width for either column. A fix goes in
+/// `src/ui/composites/list_row.rs`, not in the list shell.
+#[test]
+fn adr_0089_list_row_columns_come_from_named_tokens() {
+    let shell_source = read_source(&manifest_path("src/ui/shells/library/destination_lists.rs"));
+    let list_row_source = read_source(&manifest_path("src/ui/composites/list_row.rs"));
+
+    let mut violations = Vec::new();
+    for (number, line) in shell_source.lines().enumerate() {
+        if (line.contains(".time_column(") || line.contains(".library_column("))
+            && line.contains("px(")
+        {
+            violations.push(format!(
+                "src/ui/shells/library/destination_lists.rs:{}: a column width is raw px",
+                number + 1
+            ));
+        }
+    }
+    for needle in [
+        "TrackRowColumn::Duration.scaled(cx)",
+        "TrackRowColumn::DownloadState.scaled(cx)",
+    ] {
+        if !list_row_source.contains(needle) {
+            violations.push(format!(
+                "src/ui/composites/list_row.rs: the column width is not {needle}"
+            ));
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ADR 0089 Decision 6: a list row owns its time and library columns. \
+         Move the width into src/ui/composites/list_row.rs and use the named \
+         TrackRowColumn token.\n{}",
+        violations.join("\n")
+    );
 }
 
 /// Situational ADR 0057: current and archived decisions use one status format.

@@ -87,6 +87,7 @@ use crate::view_models::releases_everything::{
     self, loaded_index_release_title, recent_release_row, LibraryReleaseEntry, ReleaseOrderKey,
     ReleasesDownloadPlan, ReleasesListCache, ReleasesListKey, ReleasesListRows, Revision,
 };
+use crate::view_models::role_words::{capitalize_first, role_words};
 use crate::view_models::search_field_values::LibraryFieldValues;
 use crate::view_models::search_results::{
     saved_search_window_page, FeedResultDisplay, IndexDetailDisplay, SearchLibraryLookup,
@@ -1860,9 +1861,71 @@ pub(crate) struct DestinationListRowVm {
     /// current list root (R-NAV-2 item 2). At most one row of a list is
     /// marked.
     pub(crate) marked: bool,
+    /// The total duration of a Library release, as text, when the row knows
+    /// it (ADR 0089 Decision 6). `None` keeps the time column empty.
+    pub(crate) duration_label: Option<String>,
+    /// The confirmed roles of a feed row, each with a capital first letter
+    /// (ADR 0085 Decision 7, musicindex ADR 0037 R-WORD-7). Empty for a name
+    /// row and for a feed with no confirmed role.
+    pub(crate) feed_roles: Vec<String>,
+}
+
+/// The kind of a list row, for its type dot (musicindex ADR 0032 R-DOT-1).
+/// The renderer maps each kind to its entity color.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RowTypeKind {
+    Release,
+    Artist,
+    Playlist,
+}
+
+/// The type dot and type word of a list row (ADR 0089 Decision 6, musicindex
+/// ADR 0038 R-DOT-4). The word comes from the view model, not the renderer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RowTypeTag {
+    pub(crate) kind: RowTypeKind,
+    pub(crate) word: String,
+}
+
+/// The type of a singles group row (ADR 0084 Decision 6): the release color
+/// and the word "Singles".
+#[must_use]
+pub(crate) fn singles_type_tag() -> RowTypeTag {
+    RowTypeTag {
+        kind: RowTypeKind::Release,
+        word: "Singles".to_owned(),
+    }
 }
 
 impl DestinationListRowVm {
+    /// The type of the row. A release row has the word of its release kind,
+    /// and `None` when the kind is not known. An artist row has the word
+    /// "Artist", or the confirmed roles of its feed joined by " \u{b7} "
+    /// (ADR 0085 Decision 7). A public playlist row has the word "Playlist".
+    #[must_use]
+    pub(crate) fn type_tag(&self) -> Option<RowTypeTag> {
+        match &self.open {
+            DestinationListRowTarget::Release(_) => self.release_kind.map(|kind| RowTypeTag {
+                kind: RowTypeKind::Release,
+                word: kind.label().to_owned(),
+            }),
+            DestinationListRowTarget::ArtistName(_)
+            | DestinationListRowTarget::Publisher(_)
+            | DestinationListRowTarget::IndexPublisher(_) => Some(RowTypeTag {
+                kind: RowTypeKind::Artist,
+                word: if self.feed_roles.is_empty() {
+                    "Artist".to_owned()
+                } else {
+                    self.feed_roles.join(" \u{b7} ")
+                },
+            }),
+            DestinationListRowTarget::PublicPlaylist(_) => Some(RowTypeTag {
+                kind: RowTypeKind::Playlist,
+                word: "Playlist".to_owned(),
+            }),
+        }
+    }
+
     /// Gives this row its mark: `true` when it opens `entry`, the page that
     /// Back left open over the list root (R-NAV-2 item 2).
     #[must_use]
@@ -2248,18 +2311,32 @@ pub(crate) fn destination_release_row(
         marked: false,
         element_id: format!("music-release-row-{}", release_row_slug(&key)),
         label: album.name.clone(),
-        // ADR 0084 Decision 5: the row names the kind after the artist,
-        // for example "Haleen · Single".
-        secondary_text: format!("{} · {}", artist.name, album.release_kind().label()),
+        // ADR 0089 Decision 6: the row names the artist, and its type badge
+        // names the kind (ADR 0084 Decision 5).
+        secondary_text: artist.name.clone(),
         a11y_label: format!("Release: {}", album.name),
         thumbnail_href: album.image_href.clone(),
         art: None,
         open: DestinationListRowTarget::Release(key),
         selection: RowSelectionVm::none(),
         release_kind: Some(album.release_kind()),
+        duration_label: album_total_duration_label(album),
+        feed_roles: Vec::new(),
         menu: None,
         download_state: None,
     })
+}
+
+/// The total duration of a Library album as text (ADR 0089 Decision 6). It
+/// sums the tracks that name a duration, and it is `None` when no track has
+/// one. The tracks are already loaded, so the row runs no query.
+fn album_total_duration_label(album: &AlbumNode) -> Option<String> {
+    let seconds: i64 = album
+        .tracks
+        .iter()
+        .filter_map(|track| track.duration_seconds)
+        .sum();
+    fmt_total_runtime_clock(seconds)
 }
 
 /// The release row of one Library album, with its download-state icon
@@ -2368,6 +2445,8 @@ fn artist_name_row(
             // selection model, so its row never shows a checkbox.
             selection: RowSelectionVm::none(),
             release_kind: None,
+            duration_label: None,
+            feed_roles: Vec::new(),
             menu: None,
             download_state: None,
         },
@@ -2457,6 +2536,25 @@ pub(crate) fn tree_name_feed_matches(tree: &LibraryTree) -> NameFeedMatches {
 /// members. With no stored title, it is the feed GUID. The element id comes
 /// from the feed GUID, so a feed row and a name row with the same label
 /// stay two rows.
+/// The confirmed roles of one feed in the Artists list (ADR 0085 Decision 7,
+/// musicindex ADR 0037 R-WORD-7). A role counts when both sides agree on it.
+/// Each role has a capital first letter, and each role appears once.
+fn confirmed_feed_roles(members: &[&AlbumNode], feed_guid: &str) -> Vec<String> {
+    let mut words: Vec<String> = Vec::new();
+    for link in members.iter().flat_map(|album| album.named_feeds.iter()) {
+        if link.feed_guid != feed_guid || link.role_agreement.as_deref() != Some("both") {
+            continue;
+        }
+        for word in role_words(link.role.as_deref()) {
+            let word = capitalize_first(&word);
+            if !words.contains(&word) {
+                words.push(word);
+            }
+        }
+    }
+    words
+}
+
 fn artist_feed_row(
     feed_guid: String,
     members: &[&AlbumNode],
@@ -2477,6 +2575,7 @@ fn artist_feed_row(
         feed_images.get(&feed_guid),
         newest_album_images(members),
     ));
+    let feed_roles = confirmed_feed_roles(members, &feed_guid);
     LibraryArtistRow {
         order: ArtistOrderKey::feed(name_sort_key(&title), &feed_guid),
         row: DestinationListRowVm {
@@ -2490,6 +2589,8 @@ fn artist_feed_row(
             open: DestinationListRowTarget::Publisher(feed_guid),
             selection: RowSelectionVm::none(),
             release_kind: None,
+            duration_label: None,
+            feed_roles,
             menu: None,
             download_state: None,
         },
@@ -9961,8 +10062,13 @@ mod tests {
     /// R7-04 (ADR 0084 Decision 5): the Releases list names the kind after
     /// the artist. "Windowlicker" has one track and no stated kind, which
     /// resolves to Single.
+    /// The type word of a row, for the tests of ADR 0089 Decision 6.
+    fn type_word(row: &DestinationListRowVm) -> String {
+        row.type_tag().map(|tag| tag.word).unwrap_or_default()
+    }
+
     #[test]
-    fn adr_0084_release_kind_r7_04_releases_list_names_the_kind_after_the_artist() {
+    fn adr_0084_release_kind_r7_04_releases_list_gives_the_kind_as_the_type_word() {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
 
@@ -9977,7 +10083,8 @@ mod tests {
             .find(|row| row.label == "Windowlicker")
             .expect("the fixture names a Windowlicker release");
 
-        assert_eq!(windowlicker.secondary_text, "Aphex Twin · Single");
+        assert_eq!(windowlicker.secondary_text, "Aphex Twin");
+        assert_eq!(type_word(windowlicker), "Single");
     }
 
     /// D5-04: the Artists destination list gives one row for each Library
@@ -10204,6 +10311,32 @@ mod tests {
             image_url: None,
         }];
         album
+    }
+
+    /// ADR 0085 Decision 7 and musicindex ADR 0037 R-WORD-7: a feed row of the
+    /// Artists list lists the roles that both sides confirm. A role that one
+    /// side states is not listed, and a feed with no confirmed role gives none.
+    #[test]
+    fn adr_0089_task_014_feed_row_lists_each_confirmed_role() {
+        let confirmed = with_named_feed(
+            minimal_album("Label Release", 1),
+            "feed-guid",
+            "Feed",
+            Some("label, producer"),
+            Some("both"),
+        );
+        let one_side = with_named_feed(
+            minimal_album("Other Release", 2),
+            "feed-guid",
+            "Feed",
+            Some("host"),
+            Some("one_side"),
+        );
+        assert_eq!(
+            confirmed_feed_roles(&[&confirmed], "feed-guid"),
+            vec!["Label".to_owned(), "Producer".to_owned()]
+        );
+        assert!(confirmed_feed_roles(&[&one_side], "feed-guid").is_empty());
     }
 
     /// R85-8-10: `artists_list` gives a feed row for an `Artist` feed and
@@ -11729,11 +11862,7 @@ mod tests {
         ] {
             let rows = rows(scope);
             let texts: Vec<_> = rows.iter().map(|row| row.secondary_text.clone()).collect();
-            assert_eq!(
-                texts,
-                vec!["Haleen \u{b7} Album"; expected.len()],
-                "{scope:?}"
-            );
+            assert_eq!(texts, vec!["Haleen"; expected.len()], "{scope:?}");
             let states: Vec<_> = rows
                 .iter()
                 .map(|row| {
@@ -11882,7 +12011,8 @@ mod tests {
                 _ => None,
             })
             .unwrap();
-        assert_eq!(liii.secondary_text, "LIIINEKELA \u{b7} Single");
+        assert_eq!(liii.secondary_text, "LIIINEKELA");
+        assert_eq!(type_word(liii), "Single");
     }
 
     /// R16-16 and R18-06: a `MusicIndex` release counts in "Download" only.
@@ -12082,7 +12212,7 @@ mod tests {
             .expect("one Motive to Kill row")
         };
         let before = motive_row(&scopes_vm(Vec::new()));
-        assert_eq!(before.secondary_text, "Motive to Kill \u{b7} Album");
+        assert_eq!(before.secondary_text, "Motive to Kill");
         assert_eq!(
             before
                 .download_state
@@ -12104,7 +12234,7 @@ mod tests {
             after.element_id, before.element_id,
             "the row keeps its identity"
         );
-        assert_eq!(after.secondary_text, "Motive to Kill \u{b7} Album");
+        assert_eq!(after.secondary_text, "Motive to Kill");
         assert_eq!(
             after
                 .download_state
@@ -13772,7 +13902,8 @@ mod tests {
         );
         // ADR 0084 Decision 5: "Selected Ambient Works" has two tracks and
         // no stated kind, which resolves to Album.
-        assert_eq!(rows[0].secondary_text, "Aphex Twin · Album");
+        assert_eq!(rows[0].secondary_text, "Aphex Twin");
+        assert_eq!(type_word(&rows[0]), "Album");
         assert_eq!(rows[0].thumbnail_href, Some("saw.jpg".to_string()));
         assert_eq!(
             rows[0].open,
@@ -13930,10 +14061,48 @@ mod marked_row_tests {
             open: DestinationListRowTarget::Release(ReleaseKey::FeedGuid(guid.to_owned())),
             selection: RowSelectionVm::none(),
             release_kind: None,
+            duration_label: None,
+            feed_roles: Vec::new(),
             menu: None,
             download_state: None,
             marked: false,
         }
+    }
+
+    /// ADR 0089 Decision 6 (musicindex ADR 0038 R-DOT-4): a release row names
+    /// its kind, an Artists row says "Artist", a public playlist row says
+    /// "Playlist", and a release of an unknown kind exposes no type word.
+    #[test]
+    fn adr_0089_task_014_row_exposes_its_type_word() {
+        use super::{RowTypeKind, RowTypeTag};
+        use crate::view_models::release_kind::ReleaseKind;
+
+        let mut row = release_row("guid-type");
+        assert_eq!(row.type_tag(), None);
+        row.release_kind = Some(ReleaseKind::Single);
+        assert_eq!(
+            row.type_tag(),
+            Some(RowTypeTag {
+                kind: RowTypeKind::Release,
+                word: "Single".to_owned(),
+            })
+        );
+        row.open = DestinationListRowTarget::PublicPlaylist("playlist-guid".to_owned());
+        assert_eq!(
+            row.type_tag(),
+            Some(RowTypeTag {
+                kind: RowTypeKind::Playlist,
+                word: "Playlist".to_owned(),
+            })
+        );
+        row.open = DestinationListRowTarget::Publisher("artist-guid".to_owned());
+        assert_eq!(
+            row.type_tag(),
+            Some(RowTypeTag {
+                kind: RowTypeKind::Artist,
+                word: "Artist".to_owned(),
+            })
+        );
     }
 
     /// R-NAV-2 item 2 (ADR 0089 Decision 9): only the row that opens the

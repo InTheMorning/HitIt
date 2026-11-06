@@ -111,7 +111,11 @@ fn render_live_row(
         .child(TagBadge::new(TagBadgeDisplay {
             kind: EntityKind::Live,
             label: Some(SharedString::from(row.type_word)),
-        }));
+        }))
+        // ADR 0089 Decision 6: the live row keeps the time and library columns
+        // of a Releases row, so its columns align with the rows of the list.
+        .time_column(None)
+        .library_column(None);
     if let Some(link) = row.link {
         let url = link.url;
         list_row = list_row.trailing(

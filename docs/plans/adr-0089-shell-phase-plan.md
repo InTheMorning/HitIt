@@ -48,7 +48,7 @@ Each fact below was read on 2026-11-05 at commit `5942db3`.
 | [011](../tasks/adr-0089-task-011-live-page.md) | The Live page | 008 | Implemented 2026-11-06. V1 to V3 are open. |
 | [012](../tasks/adr-0089-task-012-inbox.md) | The Inbox, and Needs attention goes | 008 | Implemented 2026-11-06. V1 to V4 are open. |
 | [013](../tasks/adr-0089-task-013-narrow-tab-bar.md) | The tab bar and More in a narrow window | 011, 012 | Implemented 2026-11-06. V1 to V3 are open. |
-| [014](../tasks/adr-0089-task-014-row-rules.md) | The rows of Decision 6, apart from Play | 005 | Ready |
+| [014](../tasks/adr-0089-task-014-row-rules.md) | The rows of Decision 6, apart from Play | 005 | Implemented 2026-11-06. Play moves to packet 016. V1 to V4 are open. |
 | [015](../tasks/adr-0089-task-015-inspect-sources-sheet.md) | Inspect Sources is a sheet | 003 | Ready |
 | [016](../tasks/adr-0089-task-016-now-playing-panel.md) | The now-playing panel and the row action Play | The operator decision on ADR 0068 | Waits for the operator |
 
@@ -101,3 +101,4 @@ Each packet is one commit. `git revert` of a packet and the packets after it res
 - 2026-11-06: an open window group page keeps the rows of its key, so a fresh load of the Releases list does not empty it (`WindowGroupSource::Releases` in `src/view_models/window_groups.rs`). No packet owns this.
 - 2026-11-06: 37 comments and strings in `src/` still say "New releases". Packet 006 changes each string that a person sees.
 - 2026-11-06: the other `open::that` sites of `src/` pass a URL with no scheme check. RSS and MusicIndex responses are untrusted input. Only `live_link_url` checks the scheme. No packet owns the other sites.
+- 2026-11-06: `role_words` in `src/view_models/role_words.rs` gives the roles in alphabetical sequence. musicindex ADR 0037 asks for the sequence of ADR 0036 R-ROLE-1. No packet owns this.

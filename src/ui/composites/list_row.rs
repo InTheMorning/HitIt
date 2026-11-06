@@ -27,8 +27,8 @@ use crate::ui::composites::track_row_menu::{
     row_menu_state, track_row_menu_items, track_row_pointer_menu, TrackRowMenuCell,
     TrackRowMenuHandlers, TrackRowMenuState, TRACK_ROW_GROUP,
 };
-use crate::ui::primitives::{HStack, PointerContextMenu};
-use crate::ui::tokens::{color, Radius, SemanticColor, Size, Spacing, TrackRowColumn};
+use crate::ui::primitives::{HStack, Label, PointerContextMenu};
+use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size, Spacing, TrackRowColumn};
 use crate::view_models::library::TrackDragVm;
 use crate::view_models::release_page::TrackRowMenuVm;
 
@@ -114,6 +114,14 @@ pub struct ListRow {
     /// The last column of the row, after the menu cell: the download
     /// state icon of a release row (operator decision of 2026-10-23).
     trailing: Option<gpui::AnyElement>,
+    /// The time column, before the menu cell (ADR 0089 Decision 6). It keeps
+    /// its width when `time` is `None`, so the columns of a list align.
+    has_time_column: bool,
+    time: Option<gpui::SharedString>,
+    /// The library column, the last fixed column (ADR 0089 Decision 6). It
+    /// keeps its width when `library` is `None`.
+    has_library_column: bool,
+    library: Option<gpui::AnyElement>,
     /// The menu of the menu cell.
     menu: Option<RowMenu>,
     /// The drag of one track to a playlist (ADR 0083 task 008). `None`
@@ -138,6 +146,10 @@ impl ListRow {
             has_menu_cell: false,
             click_owner: RowClickOwner::Row,
             trailing: None,
+            has_time_column: false,
+            time: None,
+            has_library_column: false,
+            library: None,
             menu: None,
             drag: None,
             children: Vec::new(),
@@ -215,6 +227,22 @@ impl ListRow {
         self
     }
 
+    /// The time column of the row (ADR 0089 Decision 6). The column has the
+    /// width of the duration text, and it holds `time` when the row knows it.
+    pub(crate) fn time_column(mut self, time: Option<gpui::SharedString>) -> Self {
+        self.has_time_column = true;
+        self.time = time;
+        self
+    }
+
+    /// The library column of the row (ADR 0089 Decision 6). It has the width
+    /// of one icon control, and it holds `element` when the row has one.
+    pub(crate) fn library_column(mut self, element: Option<gpui::AnyElement>) -> Self {
+        self.has_library_column = true;
+        self.library = element;
+        self
+    }
+
     /// The menu cell of the row (ADR 0083 task 007). The cell is the last
     /// fixed column. It keeps its width when `menu` is `None`, so each cell
     /// of a list starts at the same position. A row with a menu is the
@@ -278,6 +306,15 @@ impl RenderOnce for ListRow {
             (None, RowMenuRoot::empty())
         };
 
+        // ADR 0089 Decision 6: the time and the library columns keep their
+        // width on each row of a list, also when the row has no value.
+        let time_column = self
+            .has_time_column
+            .then(|| time_column_cell(self.time, cx));
+        let library_column = self
+            .has_library_column
+            .then(|| library_column_cell(self.library, cx));
+
         // ADR 0084 Decision 1: a row in a scrolling list keeps its content
         // height. A list column has a fixed height, and a flex child shrinks
         // by default, so a row without this overlaps the next row.
@@ -318,7 +355,9 @@ impl RenderOnce for ListRow {
                         .chain(checkbox)
                         .chain(self.children)
                         .chain(self.audition)
+                        .chain(time_column)
                         .chain(menu_cell)
+                        .chain(library_column)
                         .chain(self.trailing),
                 ),
             )
@@ -431,6 +470,37 @@ pub(crate) fn row_menu_parts(
 /// the menu column of a track row, so the hover fill of the button is not
 /// cut. It has the height of a hit target, so each row has the same
 /// height with or without a menu.
+/// The time column cell of a list row (ADR 0089 Decision 6). The width is
+/// the duration width of [`TrackRowColumn::Duration`].
+fn time_column_cell(time: Option<gpui::SharedString>, cx: &App) -> gpui::AnyElement {
+    div()
+        .flex_none()
+        .w(TrackRowColumn::Duration.scaled(cx))
+        .flex()
+        .justify_end()
+        .when_some(time, |el, text| {
+            el.child(
+                Label::new(text)
+                    .size(FontSize::Micro)
+                    .color(SemanticColor::TertiaryLabel),
+            )
+        })
+        .into_any_element()
+}
+
+/// The library column cell of a list row (ADR 0089 Decision 6). The width is
+/// the icon width of [`TrackRowColumn::DownloadState`].
+fn library_column_cell(element: Option<gpui::AnyElement>, cx: &App) -> gpui::AnyElement {
+    div()
+        .flex_none()
+        .w(TrackRowColumn::DownloadState.scaled(cx))
+        .flex()
+        .items_center()
+        .justify_center()
+        .when_some(element, ParentElement::child)
+        .into_any_element()
+}
+
 pub(crate) fn menu_cell(cx: &App) -> Div {
     div()
         .w(TrackRowColumn::Menu.scaled(cx))
