@@ -1,6 +1,6 @@
 # ADR 0089 Task 001: One Page Stack
 
-Status: Ready - 2026-11-05.
+Status: Implemented - 2026-11-05. The visual checks V1 and V2 are open in section 11 of [pending human checks](../pending-human-checks.md).
 
 Depends on: none. The [phase plan](../plans/adr-0089-shell-phase-plan.md) holds the rules for each packet.
 

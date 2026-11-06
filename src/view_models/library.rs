@@ -786,7 +786,6 @@ pub(crate) struct LibraryChromeDisplay {
     pub(crate) new_playlist_placeholder: &'static str,
     pub(crate) search_heading: &'static str,
     pub(crate) search_button_label: &'static str,
-    pub(crate) empty_detail_label: &'static str,
 }
 
 impl LibraryChromeDisplay {
@@ -808,9 +807,6 @@ impl LibraryChromeDisplay {
         new_playlist_placeholder: "New playlist name\u{2026}",
         search_heading: "Search Library",
         search_button_label: "Search",
-        // ADR 0084 Decision 1: the detail column's empty state names the
-        // list column by its role, not the old split pane.
-        empty_detail_label: "Select an item in the list.",
     };
 }
 
@@ -3576,7 +3572,6 @@ impl LibraryViewModel {
     /// with ADR 0084 Decision 2. This type's own tests still read it
     /// directly.
     #[must_use]
-    #[cfg(test)]
     pub(crate) fn is_library_loading(&self) -> bool {
         self.library_loading
     }
@@ -11011,7 +11006,6 @@ mod tests {
         );
         assert_eq!(display.search_heading, "Search Library");
         assert_eq!(display.search_button_label, "Search");
-        assert_eq!(display.empty_detail_label, "Select an item in the list.");
     }
 
     #[test]

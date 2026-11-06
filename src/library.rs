@@ -348,6 +348,10 @@ pub struct LibraryApp {
     /// The saved search of the current location, for the open row of the
     /// Discover column. The top app sets it at each render.
     open_saved_search: Option<crate::view_models::search_results::SavedSearchId>,
+    /// `true` when the current Music location shows a page, so the detail
+    /// column shows and the list column does not (ADR 0089 Decision 1).
+    /// The top app sets it at each render, and the keyboard gates read it.
+    music_page_open: bool,
     /// `true` after the once-per-session identity backfill starts (ADR
     /// 0084 task 034, decision D2). It starts after the first successful
     /// Library tree load of the session, and it never starts twice.
