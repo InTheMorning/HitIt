@@ -16,6 +16,7 @@ use gpui::{
 use crate::library::{LibraryApp, LibraryAppEvent};
 use crate::ui::composites::tab_bar::sidebar_icon_name as icon_name;
 use crate::ui::composites::track_drag::{PlaylistTrackDragPayload, TrackDragPayload};
+use crate::ui::focus_ring::focus_ring_shows;
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::primitives::Label;
 use crate::ui::style::{color, spacing};
@@ -45,9 +46,9 @@ pub(crate) fn render_sidebar_row(
 ) -> AnyElement {
     let destination = row.destination;
     let selected = row.selected;
-    let focused = focus.is_focused(window);
+    // A mouse click also moves the focus. Only a keyboard user needs the ring.
+    let focused = focus.is_focused(window) && focus_ring_shows(cx);
     let icon = icon_name(row.icon);
-    let tooltip_text = row.tooltip.clone();
     let count_label = row.count.map(|count| count.to_string());
     let shows_attention_mark = row.shows_attention_mark;
     let focus_color = resolve_color(cx, SemanticColor::Focus, None);
@@ -62,16 +63,15 @@ pub(crate) fn render_sidebar_row(
         .w_full()
         .gap(spacing::SM)
         .px(spacing::SM)
-        .py(spacing::XS)
+        .py(spacing::XXS)
+        // The border always takes its space, so the focus ring moves no row.
+        .border_2()
+        .border_color(gpui::transparent_black())
         .cursor_pointer()
         .rounded(spacing::XS)
         .when(selected, |el| el.bg(color::bg_selected()))
-        .when(focused, |el| el.border_2().border_color(focus_color))
+        .when(focused, |el| el.border_color(focus_color))
         .hover(|el| el.bg(color::bg_surface_hi()))
-        .tooltip({
-            let tooltip = crate::ui::primitives::Tooltip::new(tooltip_text);
-            move |window, cx| tooltip.build(window, cx)
-        })
         .on_click(cx.listener(move |_this, _: &ClickEvent, _window, cx| {
             cx.emit(LibraryAppEvent::SidebarRowSelected(destination));
         }));

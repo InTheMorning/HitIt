@@ -1,6 +1,6 @@
-//! The Search page list column (ADR 0089 Decision 4). It shows the "New
-//! Saved Search" button, then one row for each saved search, then "How to
-//! Search" with its steps and example queries.
+//! The Search page list column (ADR 0089 Decision 4). It shows one row for
+//! each saved search, then "How to Search" with its steps and example
+//! queries. The title row holds "New Saved Search".
 //!
 //! The view model gives each label, each menu item and each action. This
 //! shell owns the layout and the click wiring. A click on the new-search
@@ -23,6 +23,7 @@ use crate::ui::composites::{ListRow, ListRowA11yLabel};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
+use crate::ui::primitives::SectionHeader;
 use crate::ui::primitives::{
     Button as UiButton, ContextMenu, ContextMenuItem, ContextMenuItemDisplay, ContextMenuScope,
     Label,
@@ -31,11 +32,10 @@ use crate::ui::sizable_bridge::SizableScaled;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor};
 use crate::view_models::search_page::{
-    HowToSearchDisclosure, SearchPageAction, SearchPageRowVm, SearchPageVm,
+    HowToSearchDisclosure, SearchPageAction, SearchPageRowVm, SearchPageVm, EXAMPLE_SEARCHES_TITLE,
+    HOW_TO_SEARCH_TITLE,
 };
-use crate::view_models::search_results::{
-    SavedSearch, SavedSearchId, SavedSearchMenuItem, SearchPageActionDisplay,
-};
+use crate::view_models::search_results::{SavedSearch, SavedSearchId, SavedSearchMenuItem};
 
 /// The rename state of the saved search rows: the row that shows the input,
 /// and the input itself.
@@ -55,9 +55,7 @@ pub(crate) fn render_search_page_list(
     scroll: &gpui::ScrollHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
-    let mut content = page_scroll_content(cx)
-        .gap(spacing::XXS)
-        .child(new_saved_search_button(vm.new_action(), cx));
+    let mut content = page_scroll_content(cx).gap(spacing::XXS);
     if let Some(message) = vm.message() {
         content = content.child(
             Label::new(message.to_owned())
@@ -90,24 +88,6 @@ pub(crate) fn render_search_page_list(
         .pb(spacing::MD)
         .child(content);
     music_column_tracked_scrollbar(container, scroll, None)
-}
-
-/// "New Saved Search", a button from its typed action state (ADR 0089
-/// Decision 4).
-fn new_saved_search_button(
-    action: &SearchPageActionDisplay,
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    UiButton::styled(SharedString::from(action.id), ControlStyle::Primary)
-        .label(action.label)
-        .a11y_label(action.a11y_label.clone())
-        .disabled(!action.available)
-        .on_click(cx.listener(|_this, _: &ClickEvent, _window, cx| {
-            cx.emit(LibraryAppEvent::SearchPage(
-                SearchPageAction::NewSavedSearch,
-            ));
-        }))
-        .into_any_element()
 }
 
 fn render_saved_search_row(
@@ -283,7 +263,7 @@ fn how_to_search_disclosure_row(open: bool, cx: &mut Context<LibraryApp>) -> Any
                 .overflow_hidden()
                 .pl(spacing::MD)
                 .child(
-                    Label::new("How to Search")
+                    Label::new(HOW_TO_SEARCH_TITLE)
                         .color(SemanticColor::Label)
                         .weight(FontWeight::MEDIUM),
                 ),
@@ -297,8 +277,8 @@ fn render_how_to_search(vm: &SearchPageVm, cx: &mut Context<LibraryApp>) -> AnyE
         .enumerate()
         .map(|(index, step)| {
             Label::new(format!("{}. {step}", index + 1))
-                .size(FontSize::Micro)
-                .color(SemanticColor::TertiaryLabel)
+                .size(FontSize::Caption)
+                .color(SemanticColor::SecondaryLabel)
         });
     let examples = vm.examples().iter().map(|example| {
         let query = example.query;
@@ -329,9 +309,10 @@ fn render_how_to_search(vm: &SearchPageVm, cx: &mut Context<LibraryApp>) -> AnyE
         .id("music-search-how-to-search-body")
         .flex()
         .flex_col()
-        .gap(spacing::XXS)
-        .pl(spacing::MD)
+        .gap(spacing::XS)
+        .child(SectionHeader::new(HOW_TO_SEARCH_TITLE))
         .children(steps.map(IntoElement::into_any_element))
+        .child(SectionHeader::new(EXAMPLE_SEARCHES_TITLE))
         .children(examples)
         .into_any_element()
 }

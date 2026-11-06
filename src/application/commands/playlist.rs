@@ -98,6 +98,8 @@ pub enum CopyPublicPlaylistResult {
     Copied(CopyOutcome),
     /// A playlist with this name exists. Nothing was written.
     NameTaken(String),
+    /// No item gave a readable track. No playlist was made.
+    NoReadableTracks,
 }
 
 /// Copies a public playlist of the Index into a new local playlist. It
@@ -153,6 +155,7 @@ impl ApplicationCommand for CopyPublicPlaylistToMyPlaylists {
         let result = match result {
             Ok(outcome) => CopyPublicPlaylistResult::Copied(outcome),
             Err(CopyError::NameTaken(name)) => CopyPublicPlaylistResult::NameTaken(name),
+            Err(CopyError::NoReadableTracks) => CopyPublicPlaylistResult::NoReadableTracks,
             Err(CopyError::Failed(error)) => return Err(playlist_command_error(&error)),
         };
         Ok(CommandOutcome::new(result, playlist_changed_events()))

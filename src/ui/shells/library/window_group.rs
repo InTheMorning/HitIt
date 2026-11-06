@@ -169,6 +169,7 @@ fn render_window_heading(
         .flex_col()
         .flex_1()
         .min_w_0()
+        .items_start()
         .gap(spacing::SM)
         .child(
             Label::new(title)

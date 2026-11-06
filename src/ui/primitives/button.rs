@@ -22,6 +22,7 @@ use gpui::{
 };
 
 use crate::ui::control_styles::ControlStyle;
+use crate::ui::focus_ring::focus_ring_shows;
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::layouts as layout;
 use crate::ui::tokens::{
@@ -91,6 +92,10 @@ pub(crate) const TINTED_BUTTON_HOVER_BG_ALPHA: f32 = 0.12;
 
 #[derive(IntoElement)]
 #[must_use]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is one independent builder option of the button"
+)]
 pub struct Button {
     id: ElementId,
     variant: ButtonVariant,
@@ -99,6 +104,7 @@ pub struct Button {
     description: Option<gpui::SharedString>,
     a11y_label: Option<gpui::SharedString>,
     leading_icon: Option<IconName>,
+    narrow_hit_target: bool,
     on_click: Option<ClickHandler>,
     on_activate: Option<ActivateHandler>,
     focus_handle: Option<gpui::FocusHandle>,
@@ -126,6 +132,7 @@ impl Button {
             description: None,
             a11y_label: None,
             leading_icon: None,
+            narrow_hit_target: false,
             on_click: None,
             on_activate: None,
             focus_handle: None,
@@ -175,6 +182,13 @@ impl Button {
 
     pub fn tooltip(mut self, label: impl Into<gpui::SharedString>) -> Self {
         self.tooltip = Tooltip::non_empty(label);
+        self
+    }
+
+    /// Removes the minimum width of the hit area, for a row of one-letter
+    /// buttons that must fit on one line. The minimum height stays.
+    pub const fn narrow_hit_target(mut self) -> Self {
+        self.narrow_hit_target = true;
         self
     }
 
@@ -281,6 +295,19 @@ impl Button {
         }
     }
 
+    /// WCAG 2.1.1: each action outside a list row is reachable with Tab. A row
+    /// action stays out, or Tab must pass each button of each row, and so does
+    /// a letter of the letter bar.
+    fn in_tab_sequence(&self) -> bool {
+        let row_action = matches!(
+            self.control_style,
+            Some(ControlStyle::RowAction | ControlStyle::DestructiveRowAction)
+        );
+        self.on_activate.is_some()
+            || self.focus_handle.is_some()
+            || (self.on_click.is_some() && !self.narrow_hit_target && !row_action)
+    }
+
     fn min_hit_target(cx: &App) -> gpui::Pixels {
         Size::MinHitTarget.scaled(cx)
     }
@@ -301,6 +328,10 @@ impl Button {
     }
 
     fn effective_tooltip(&self) -> Option<Tooltip> {
+        // R-TOOLTIP-1 item 3: a control with a text label has no tooltip.
+        if self.label.as_ref().is_some_and(|label| !label.is_empty()) {
+            return None;
+        }
         if let Some(tooltip) = self.tooltip.clone() {
             return Some(tooltip);
         }
@@ -344,7 +375,7 @@ impl Button {
     }
 
     fn resolved_colors(&self, cx: &App, appearance: Option<Appearance>) -> (Rgba, Rgba, Rgba) {
-        let (bg, mut fg, hover_bg) = match self.variant {
+        let (mut bg, mut fg, hover_bg) = match self.variant {
             ButtonVariant::Filled => (
                 resolve_color(cx, SemanticColor::Accent, appearance),
                 resolve_color(cx, SemanticColor::OnAccent, appearance),
@@ -386,6 +417,11 @@ impl Button {
         if let Some(foreground) = self.foreground {
             fg = resolve_color(cx, foreground, appearance);
         }
+        // R-LIST-1 item 3: the current view icon has a tint.
+        if self.selected {
+            bg = fg;
+            bg.a = TINTED_BUTTON_HOVER_BG_ALPHA;
+        }
         (bg, fg, hover_bg)
     }
 }
@@ -412,6 +448,7 @@ impl RenderOnce for Button {
         let content_alignment = self.content_alignment;
         let label_treatment = self.label_treatment;
         let tooltip = self.effective_tooltip();
+        let in_tab_sequence = self.in_tab_sequence();
 
         let mut visual = div()
             .flex()
@@ -442,7 +479,7 @@ impl RenderOnce for Button {
         }
 
         let mut hit_target = hit_target_base(self.id)
-            .min_w(min_hit_target)
+            .when(!self.narrow_hit_target, |el| el.min_w(min_hit_target))
             .min_h(min_hit_target)
             .flex()
             .items_center()
@@ -479,7 +516,7 @@ impl RenderOnce for Button {
             }
             // Menu triggers delegate activation to their popover, but keep
             // the shared focus chrome and tab stop (ADR 0074).
-            if on_activate.is_some() || focus.is_some() {
+            if in_tab_sequence {
                 hit_target = keyboard_button_focus(hit_target, appearance, focus, cx)
                     .tab_index(0)
                     .rounded(radius);
@@ -528,7 +565,12 @@ fn keyboard_button_focus(
     cx: &App,
 ) -> gpui::Stateful<gpui::Div> {
     let focus_ring_width = layout::scaled_dimension(layout::CONTROL_FOCUS_RING_WIDTH, cx);
-    let focus_color = resolve_color(cx, SemanticColor::Focus, appearance);
+    // R-FOCUS-1 item 3: a mouse click shows no ring.
+    let focus_color = if focus_ring_shows(cx) {
+        resolve_color(cx, SemanticColor::Focus, appearance)
+    } else {
+        gpui::transparent_black().into()
+    };
     target
         .key_context(BUTTON_KEY_CONTEXT)
         .border(focus_ring_width)
@@ -603,7 +645,7 @@ mod tests {
     #[test]
     fn row_action_tooltip_uses_accessibility_label() {
         let button = Button::styled("remove", ControlStyle::RowAction)
-            .label("Remove")
+            .leading_icon(IconName::Close)
             .a11y_label("Remove feed from library");
 
         assert_eq!(
@@ -668,17 +710,92 @@ mod tests {
         }
     }
 
-    #[test]
-    fn toolbar_icon_tooltip_falls_back_to_visible_label() {
-        let button = Button::styled("sort", ControlStyle::ToolbarIcon).label("Sort A-Z");
+    struct ClickRoot {
+        focus: gpui::FocusHandle,
+        clicks: std::rc::Rc<std::cell::Cell<usize>>,
+    }
 
-        assert_eq!(
-            button
-                .effective_tooltip()
-                .expect("toolbar action has tooltip")
-                .label(),
-            gpui::SharedString::from("Sort A-Z")
+    impl gpui::Render for ClickRoot {
+        fn render(
+            &mut self,
+            _: &mut gpui::Window,
+            _: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            let clicks = self.clicks.clone();
+            div().size_full().track_focus(&self.focus).child(
+                Button::plain("plain-click")
+                    .label("Click")
+                    .on_click(move |_, _, _| {
+                        clicks.set(clicks.get() + 1);
+                    }),
+            )
+        }
+    }
+
+    /// Walk of 2026-11-06: Tab reaches a button with a click handler, and a
+    /// mouse click moves the focus to it (ADR 0069 keeps that focus transfer).
+    #[gpui::test]
+    fn tab_reaches_a_click_button_and_a_click_moves_the_focus(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_component::init);
+        let clicks = std::rc::Rc::new(std::cell::Cell::new(0));
+        let root_clicks = clicks.clone();
+        let (root, cx) = cx.add_window_view(|_, cx| ClickRoot {
+            focus: cx.focus_handle(),
+            clicks: root_clicks,
+        });
+        let focus = cx.update(|_, cx| root.read(cx).focus.clone());
+        cx.update(|window, cx| {
+            window.activate_window();
+            window.focus(&focus, cx);
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+        let center = cx
+            .debug_bounds("plain-click")
+            .expect("the button has bounds")
+            .center();
+        cx.update(|window, cx| {
+            window.focus_next(cx);
+            window.draw(cx).clear(cx);
+        });
+        assert!(
+            !cx.update(|window, _| focus.is_focused(window)),
+            "Tab reaches the button"
         );
+
+        cx.update(|window, cx| {
+            window.focus(&focus, cx);
+            window.draw(cx).clear(cx);
+        });
+        cx.simulate_click(center, gpui::Modifiers::none());
+        assert_eq!(clicks.get(), 1);
+        assert!(
+            !cx.update(|window, _| focus.is_focused(window)),
+            "a mouse click moves the focus to the button"
+        );
+    }
+
+    /// R-TOOLTIP-1 item 1: an icon button with an empty label keeps its tooltip.
+    #[test]
+    fn icon_button_with_an_empty_label_keeps_its_tooltip() {
+        let button = Button::styled("download", ControlStyle::RowAction)
+            .leading_icon(IconName::CloudDownload)
+            .label("")
+            .tooltip("Download");
+
+        assert!(button.effective_tooltip().is_some());
+    }
+
+    /// R-TOOLTIP-1 item 3: a control with a text label has no tooltip, also
+    /// when a caller gives one.
+    #[test]
+    fn button_with_a_text_label_has_no_tooltip() {
+        let button = Button::styled("sort", ControlStyle::ToolbarIcon)
+            .label("Sort A-Z")
+            .a11y_label("Sort the list")
+            .tooltip("Sort the list");
+
+        assert!(button.effective_tooltip().is_none());
     }
 
     #[test]

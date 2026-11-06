@@ -521,7 +521,9 @@ gpui_kit_assets::icon_assets!(
         BadgeCheck,
         RadioTower,
         Radio,
-        Settings
+        Settings,
+        LayoutGrid,
+        LayoutList
     ]
 );
 
@@ -646,6 +648,20 @@ mod tests {
                 name.image().is_none(),
                 "{name:?} must not fall back to a catalog image"
             );
+        }
+    }
+
+    /// A Lucide icon that the asset source does not serve draws nothing and
+    /// reports no error. The view icons of the walk of 2026-11-06 failed in
+    /// this way.
+    #[test]
+    fn every_extra_icon_is_served_by_the_asset_source() {
+        for name in NON_CATALOG_IMAGE_ICON_NAMES {
+            if let Some(extra) = name.extra_icon() {
+                let path = extra.path();
+                let served = InterfaceAssets.load(&path).expect("the asset source loads");
+                assert!(served.is_some(), "{name:?} has no asset at {path}");
+            }
         }
     }
 

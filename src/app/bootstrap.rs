@@ -50,6 +50,7 @@ pub fn run_app() -> bool {
         gpui_component::init(cx);
         crate::ui::primitives::primary_selection::init(cx);
         crate::ui::primitives::context_menu::init(cx);
+        crate::ui::focus_ring::init(cx);
         install_key_bindings(cx);
         install_app_menu(cx);
         // ADR 0083 Decision 3: load the interface font before the first

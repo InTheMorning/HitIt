@@ -32,8 +32,7 @@ use crate::ui::composites::release_row_menu::{release_row_menu, ReleaseRowMenuCo
 use crate::ui::composites::track_drag::{self, playlist_drop_target, PlaylistDrop};
 use crate::ui::composites::{
     disclosure_column, CollectionArt, CollectionArtImage, DisclosureIndicator,
-    DisclosureIndicatorDisplay, DisclosureSupplementDisplay, DisclosureSupplementLabel, EntityKind,
-    ListRow, ListRowA11yLabel, Thumbnail, ThumbnailSize,
+    DisclosureIndicatorDisplay, EntityKind, ListRow, ListRowA11yLabel, Thumbnail, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
@@ -171,13 +170,16 @@ pub(crate) fn render_library_releases_list(
 /// (ADR 0084 Decision 6, packet 016 decision D8). `thumbnail` is the
 /// cover of a release row or of a single row, and `art` is the logo frame
 /// of a group row. `menu` gives each release row its "⋯" menu and its
-/// right-click menu (ADR 0084 task 031).
+/// right-click menu (ADR 0084 task 031). `release_column` is the empty
+/// column of a release row: the sort A to Z has group rows with a chevron,
+/// and the sort Newest has none, so its covers need no column.
 pub(crate) fn render_releases_list_item(
     item: ReleasesListItemVm,
     thumbnail: Option<Arc<Image>>,
     art: Option<CollectionArtImage>,
     actions: IndexListActions,
     menu: &ReleaseRowMenuContext,
+    release_column: LeadingDisclosure,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     match item {
@@ -187,7 +189,7 @@ pub(crate) fn render_releases_list_item(
         ReleasesListItemVm::Release(row) => render_destination_list_row(
             row,
             RowArt::Cover(thumbnail),
-            LeadingDisclosure::Empty,
+            release_column,
             DestinationRowMenu::Release(menu),
             cx,
         ),
@@ -481,12 +483,8 @@ pub(crate) fn render_hoverable_release_thumb(
 }
 
 /// Renders the Playlists destination list (ADR 0084 Decision 2; ADR 0089
-/// Decision 5, no sort control): "+", each playlist row, and the inline
-/// new-playlist input.
-#[expect(
-    clippy::too_many_lines,
-    reason = "moves the Library sidebar's existing playlist rows, sort, add, and inline input intact (ADR 0084 Decision 2)"
-)]
+/// Decision 5, no sort control): the inline new-playlist input and each
+/// playlist row. The title row holds "New Playlist".
 pub(crate) fn render_library_playlists_list(
     sidebar: PlaylistSidebarVm,
     new_playlist_input: &gpui::Entity<gpui_component::input::InputState>,
@@ -495,10 +493,8 @@ pub(crate) fn render_library_playlists_list(
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     let PlaylistSidebarVm {
-        add_button_id,
         new_playlist_input_id,
         new_playlist_add_button_id,
-        add_label,
         new_playlist_add_label,
         creating_playlist,
         rows,
@@ -506,24 +502,6 @@ pub(crate) fn render_library_playlists_list(
     } = sidebar;
 
     let mut items: Vec<AnyElement> = Vec::new();
-    items.push(
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_end()
-            .gap(spacing::XS)
-            .px(spacing::MD)
-            .pb(spacing::XS)
-            .child(
-                UiButton::styled(add_button_id, ControlStyle::ToolbarIcon)
-                    .label(add_label)
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.toggle_creating_playlist(cx);
-                    })),
-            )
-            .into_any_element(),
-    );
 
     if creating_playlist {
         items.push(
@@ -564,6 +542,7 @@ pub(crate) fn render_library_playlists_list(
             element_id,
             name,
             track_count_label,
+            type_tag,
             selected,
             art: _,
             marked,
@@ -597,10 +576,11 @@ pub(crate) fn render_library_playlists_list(
                             })
                             .truncated(),
                     )
-                    .child(DisclosureSupplementLabel::new(
-                        DisclosureSupplementDisplay {
-                            label: track_count_label.into(),
-                        },
+                    // ADR 0089 Decision 6: each list row shows its type dot
+                    // and its type word.
+                    .children(destination_row_second_line(
+                        Some(type_tag),
+                        track_count_label,
                     )),
             )
             .into_any_element();

@@ -113,7 +113,6 @@ impl RenderOnce for FrameShell {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let mut slots = self.slots;
         let appearance = slots.appearance;
-        let border = resolve_color(cx, SemanticColor::Separator, appearance);
         let title_color = resolve_color(cx, SemanticColor::Label, appearance);
         let secondary_color = resolve_color(cx, SemanticColor::SecondaryLabel, appearance);
         let content = slots
@@ -134,8 +133,6 @@ impl RenderOnce for FrameShell {
             .min_h_0()
             .min_w_0()
             .overflow_hidden()
-            .border_1()
-            .border_color(border)
             .child(render_chrome(
                 self.display,
                 slots,
@@ -231,16 +228,12 @@ fn render_chrome(
         .px(Spacing::MD.scaled(cx))
         .py(Spacing::XS.scaled(cx))
         .border_b_1()
-        .border_color(secondary_color)
+        .border_color(resolve_color(cx, SemanticColor::Separator, None))
         .child(nav)
         .child(title_stack)
         .child(trailing);
 
-    let mut chrome = div()
-        .flex()
-        .flex_col()
-        .border_b_1()
-        .border_color(secondary_color);
+    let mut chrome = div().flex().flex_col();
     if header_visible {
         chrome = chrome.child(header);
     }

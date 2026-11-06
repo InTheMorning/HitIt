@@ -33,6 +33,7 @@ use crate::runtime::{
     BroadcastServiceWatchPace, BroadcastServiceWatchSnapshot,
 };
 use crate::theme_profile::ThemeProfile;
+use crate::ui::focus_ring::{focus_ring_shows, track_focus_ring_mouse};
 use crate::ui::shells::search_results_inspector::{
     render_search_results_inspector, SearchResultsInspectorSlots,
 };
@@ -738,6 +739,12 @@ impl TopApp {
                     // toolbar field.
                     if destination == MusicDestination::Search {
                         self.focus_global_search(window, cx);
+                    }
+                    // A mouse click moves the focus to the page, so the arrow
+                    // keys act on its list. A keyboard user stays on the row.
+                    else if !focus_ring_shows(cx) {
+                        let list = self.library.read(cx).list_column_focus().clone();
+                        window.focus(&list, cx);
                     }
                 }
             }
@@ -2171,41 +2178,43 @@ impl Render for TopApp {
             .overflow_hidden()
             .when_some(sidebar_column, gpui::ParentElement::child)
             .child(content_column);
-        div()
-            .size_full()
-            .bg(bg_canvas)
-            .text_color(text_primary)
-            .text_sm()
-            .flex()
-            .flex_col()
-            .overflow_hidden()
-            .on_action(cx.listener(TopApp::handle_toggle_playback))
-            .on_action(cx.listener(TopApp::handle_skip_playback_next))
-            .on_action(cx.listener(TopApp::handle_skip_playback_previous))
-            .on_action(cx.listener(TopApp::handle_open_preferences))
-            .on_action(cx.listener(TopApp::handle_navigate_back))
-            .on_action(cx.listener(TopApp::handle_navigate_forward))
-            .on_action(cx.listener(TopApp::handle_focus_search))
-            .on_action(cx.listener(TopApp::handle_new_playlist))
-            .on_action(cx.listener(TopApp::handle_select_music_tab))
-            .on_action(cx.listener(TopApp::handle_select_show_tab))
-            .on_action(cx.listener(TopApp::handle_select_settings_tab))
-            .on_action(cx.listener(TopApp::handle_refresh_library))
-            .on_action(cx.listener(TopApp::handle_cancel_active_pane))
-            .on_action(cx.listener(TopApp::handle_move_selection_up))
-            .on_action(cx.listener(TopApp::handle_move_selection_down))
-            .on_action(cx.listener(TopApp::handle_confirm_selection))
-            .on_action(cx.listener(TopApp::handle_move_selection_page_up))
-            .on_action(cx.listener(TopApp::handle_move_selection_page_down))
-            .on_action(cx.listener(TopApp::handle_move_selection_home))
-            .on_action(cx.listener(TopApp::handle_open_focused_group))
-            .on_action(cx.listener(TopApp::handle_close_focused_group))
-            .on_action(cx.listener(TopApp::handle_move_selection_end))
-            .on_action(cx.listener(TopApp::handle_toggle_focused_selection))
-            .on_action(cx.listener(TopApp::handle_select_all_visible))
-            .child(body)
-            .when_some(tab_bar, gpui::ParentElement::child)
-            .children(render_window_layers(window, cx))
+        track_focus_ring_mouse(
+            div()
+                .size_full()
+                .bg(bg_canvas)
+                .text_color(text_primary)
+                .text_sm()
+                .flex()
+                .flex_col()
+                .overflow_hidden()
+                .on_action(cx.listener(TopApp::handle_toggle_playback))
+                .on_action(cx.listener(TopApp::handle_skip_playback_next))
+                .on_action(cx.listener(TopApp::handle_skip_playback_previous))
+                .on_action(cx.listener(TopApp::handle_open_preferences))
+                .on_action(cx.listener(TopApp::handle_navigate_back))
+                .on_action(cx.listener(TopApp::handle_navigate_forward))
+                .on_action(cx.listener(TopApp::handle_focus_search))
+                .on_action(cx.listener(TopApp::handle_new_playlist))
+                .on_action(cx.listener(TopApp::handle_select_music_tab))
+                .on_action(cx.listener(TopApp::handle_select_show_tab))
+                .on_action(cx.listener(TopApp::handle_select_settings_tab))
+                .on_action(cx.listener(TopApp::handle_refresh_library))
+                .on_action(cx.listener(TopApp::handle_cancel_active_pane))
+                .on_action(cx.listener(TopApp::handle_move_selection_up))
+                .on_action(cx.listener(TopApp::handle_move_selection_down))
+                .on_action(cx.listener(TopApp::handle_confirm_selection))
+                .on_action(cx.listener(TopApp::handle_move_selection_page_up))
+                .on_action(cx.listener(TopApp::handle_move_selection_page_down))
+                .on_action(cx.listener(TopApp::handle_move_selection_home))
+                .on_action(cx.listener(TopApp::handle_open_focused_group))
+                .on_action(cx.listener(TopApp::handle_close_focused_group))
+                .on_action(cx.listener(TopApp::handle_move_selection_end))
+                .on_action(cx.listener(TopApp::handle_toggle_focused_selection))
+                .on_action(cx.listener(TopApp::handle_select_all_visible))
+                .child(body)
+                .when_some(tab_bar, gpui::ParentElement::child)
+                .children(render_window_layers(window, cx)),
+        )
     }
 }
 

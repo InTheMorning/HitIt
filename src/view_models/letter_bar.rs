@@ -87,6 +87,22 @@ pub(crate) struct LetterVm {
     pub(crate) a11y_label: String,
     /// Whether this letter is the selected letter.
     pub(crate) selected: bool,
+    /// Whether the keyboard cursor of the bar is on this letter and shows.
+    pub(crate) cursor: bool,
+}
+
+/// One move of the keyboard cursor in the letter bar. The bar is one tab stop,
+/// and the arrow keys move inside it (WAI-ARIA toolbar pattern).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LetterStep {
+    /// Left: the letter before, or the last letter from the first.
+    Previous,
+    /// Right: the next letter, or the first letter from the last.
+    Next,
+    /// Home: the first letter.
+    First,
+    /// End: the last letter, "#".
+    Last,
 }
 
 /// The letter bar of a list page: A to Z, then "#" (R-LIST-1 item 2).
@@ -119,6 +135,7 @@ impl LetterBarVm {
                         letter.a11y_part()
                     ),
                     selected: is_selected,
+                    cursor: false,
                 }
             })
             .collect();
@@ -126,6 +143,49 @@ impl LetterBarVm {
             control_id: format!("music-letters-{noun}"),
             letters,
         }
+    }
+
+    /// The letter of the keyboard cursor: `cursor`, else the selected
+    /// letter, else the first letter. The bar always has letters.
+    #[must_use]
+    pub(crate) fn cursor_key(&self, cursor: Option<LetterKey>) -> LetterKey {
+        cursor
+            .or_else(|| {
+                self.letters
+                    .iter()
+                    .find(|letter| letter.selected)
+                    .map(|letter| letter.key)
+            })
+            .unwrap_or(self.letters[0].key)
+    }
+
+    /// The letter after one move from `cursor`.
+    #[must_use]
+    pub(crate) fn moved(&self, cursor: Option<LetterKey>, step: LetterStep) -> LetterKey {
+        let count = self.letters.len();
+        let current = self.cursor_key(cursor);
+        let index = self
+            .letters
+            .iter()
+            .position(|letter| letter.key == current)
+            .unwrap_or(0);
+        let next = match step {
+            LetterStep::Previous => (index + count - 1) % count,
+            LetterStep::Next => (index + 1) % count,
+            LetterStep::First => 0,
+            LetterStep::Last => count - 1,
+        };
+        self.letters[next].key
+    }
+
+    /// The same bar with the keyboard cursor on the letter of `cursor`.
+    #[must_use]
+    pub(crate) fn with_cursor_shown(mut self, cursor: Option<LetterKey>) -> Self {
+        let key = self.cursor_key(cursor);
+        for letter in &mut self.letters {
+            letter.cursor = letter.key == key;
+        }
+        self
     }
 }
 
@@ -146,6 +206,35 @@ pub(crate) fn first_letter_index<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Walk of 2026-11-06: the bar is one unit, and the arrow keys move in it.
+    #[test]
+    fn adr_0089_letter_cursor_starts_on_the_selected_letter_and_wraps() {
+        let bar = LetterBarVm::new(ListPageKey::Artists, Some(LetterKey::Letter('M')));
+        assert_eq!(bar.cursor_key(None), LetterKey::Letter('M'));
+        assert_eq!(bar.moved(None, LetterStep::Next), LetterKey::Letter('N'));
+        assert_eq!(bar.moved(None, LetterStep::First), LetterKey::Letter('A'));
+        assert_eq!(bar.moved(None, LetterStep::Last), LetterKey::Other);
+        assert_eq!(
+            bar.moved(Some(LetterKey::Other), LetterStep::Next),
+            LetterKey::Letter('A')
+        );
+        assert_eq!(
+            bar.moved(Some(LetterKey::Letter('A')), LetterStep::Previous),
+            LetterKey::Other
+        );
+
+        let free = LetterBarVm::new(ListPageKey::Artists, None);
+        assert_eq!(free.cursor_key(None), LetterKey::Letter('A'));
+        let shown = free.with_cursor_shown(Some(LetterKey::Letter('C')));
+        let marked: Vec<_> = shown
+            .letters
+            .iter()
+            .filter(|letter| letter.cursor)
+            .collect();
+        assert_eq!(marked.len(), 1);
+        assert_eq!(marked[0].key, LetterKey::Letter('C'));
+    }
 
     /// R-LIST-1 item 2: each letter has its key, its label and its
     /// accessibility label, and the selected letter says so.

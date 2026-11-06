@@ -80,6 +80,8 @@ pub enum FieldListEvent {
     CursorMoved,
     /// The Escape key closed the list.
     Escape,
+    /// A mouse button went down outside the search field and the list.
+    OutsideClick,
     /// The search ran.
     Submit,
     /// The view put the edit of a row into the text.
@@ -102,8 +104,10 @@ impl FieldListState {
     pub fn apply(&mut self, event: FieldListEvent) {
         match event {
             FieldListEvent::Focus => {
+                // ADR 0087 Decision 3: only a click or typing opens the list.
+                // The field gets the focus again when the window gets the
+                // focus, and from each shortcut.
                 self.focused = true;
-                self.opening = FieldListOpening::Open;
                 self.selected = None;
             }
             FieldListEvent::Click | FieldListEvent::Inserted => {
@@ -120,7 +124,7 @@ impl FieldListState {
                 self.selected = None;
             }
             FieldListEvent::CursorMoved => self.selected = None,
-            FieldListEvent::Escape | FieldListEvent::Submit => {
+            FieldListEvent::Escape | FieldListEvent::Submit | FieldListEvent::OutsideClick => {
                 self.opening = FieldListOpening::Closed;
             }
             FieldListEvent::Blur => {
@@ -1129,7 +1133,12 @@ mod tests {
         assert_eq!(open.opening, FieldListOpening::Closed);
 
         state.apply(FieldListEvent::Focus);
+        assert_eq!(state.opening, FieldListOpening::Closed);
+        assert!(state.focused);
+        state.apply(FieldListEvent::Change);
         assert_eq!(state.opening, FieldListOpening::Open);
+        state.apply(FieldListEvent::OutsideClick);
+        assert_eq!(state.opening, FieldListOpening::Closed);
         assert!(state.focused);
 
         for event in [FieldListEvent::Change, FieldListEvent::CursorMoved] {
@@ -1332,6 +1341,7 @@ mod tests {
         for event in [
             FieldListEvent::Escape,
             FieldListEvent::Submit,
+            FieldListEvent::OutsideClick,
             FieldListEvent::Blur,
         ] {
             let mut state = open;

@@ -14,11 +14,12 @@
 
 #![warn(clippy::pedantic)]
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    anchored, deferred, div, prelude::*, AnyElement, App, MouseButton, ScrollHandle, SharedString,
-    Window,
+    anchored, canvas, deferred, div, prelude::*, AnyElement, App, Bounds, MouseButton, Pixels,
+    ScrollHandle, SharedString, Window,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -39,15 +40,23 @@ pub(crate) struct SearchFieldList {
     vm: FieldListVm,
     scroll: ScrollHandle,
     on_row: Option<RowHandler>,
+    bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
 
 impl SearchFieldList {
-    /// Makes the list for the view model. `scroll` scrolls the rows.
-    pub(crate) fn new(vm: FieldListVm, scroll: ScrollHandle) -> Self {
+    /// Makes the list for the view model. `scroll` scrolls the rows. The
+    /// list writes its drawn area to `bounds`, so the view can tell a click
+    /// in the list from a click outside it.
+    pub(crate) fn new(
+        vm: FieldListVm,
+        scroll: ScrollHandle,
+        bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    ) -> Self {
         Self {
             vm,
             scroll,
             on_row: None,
+            bounds,
         }
     }
 
@@ -63,7 +72,12 @@ impl SearchFieldList {
 
 impl RenderOnce for SearchFieldList {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let Self { vm, scroll, on_row } = self;
+        let Self {
+            vm,
+            scroll,
+            on_row,
+            bounds,
+        } = self;
         let notices: Vec<AnyElement> = vm
             .notices
             .into_iter()
@@ -92,11 +106,19 @@ impl RenderOnce for SearchFieldList {
             .child(row_list)
             .vertical_scrollbar(&scroll);
         let surface = div()
+            .relative()
             .flex()
             .flex_col()
             .occlude()
             .w(Size::ColumnTall.scaled(cx))
             .mt(Spacing::XS.scaled(cx))
+            .child(
+                canvas(move |area, _, _| bounds.set(Some(area)), |_, (), _, _| {})
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+            )
             .child(
                 Surface::new(SurfaceElevation::Raised)
                     .padding(Spacing::XS)
@@ -245,9 +267,11 @@ mod tests {
 
     impl Render for FieldListTest {
         fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-            div()
-                .size_full()
-                .child(SearchFieldList::new(self.vm.clone(), ScrollHandle::new()))
+            div().size_full().child(SearchFieldList::new(
+                self.vm.clone(),
+                ScrollHandle::new(),
+                Rc::default(),
+            ))
         }
     }
 

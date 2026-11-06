@@ -36,6 +36,9 @@ pub const RSS_HOST_INTERVAL: Duration = Duration::from_secs(2);
 pub enum CopyError {
     /// A playlist with the name already exists. Nothing was written.
     NameTaken(String),
+    /// No item of the playlist gave a readable track, so no playlist was
+    /// made. An empty copy gives the curator nothing to use.
+    NoReadableTracks,
     /// The copy failed. The error names the cause.
     Failed(anyhow::Error),
 }
@@ -97,6 +100,10 @@ pub fn copy_public_playlist(
         let resolved =
             resolve_item(conn, endpoint, item, &mut reader).map_err(CopyError::Failed)?;
         track_ids.extend(resolved);
+    }
+
+    if track_ids.is_empty() {
+        return Err(CopyError::NoReadableTracks);
     }
 
     let playlist_id = {
@@ -299,6 +306,23 @@ mod tests {
 
     /// ADR 0089 packet 010: the copy makes the playlist in `position`
     /// sequence, and it writes no file.
+    /// Walk of 2026-11-06: a copy with no readable track makes no playlist.
+    #[test]
+    fn adr_0089_copy_with_no_readable_track_makes_no_playlist() -> Result<()> {
+        let conn = setup()?;
+        let result = copy_public_playlist(
+            &conn,
+            &endpoint(),
+            "Nothing",
+            &[remote(1, None, None)],
+            |_| Err(anyhow!("no fetch expected")),
+            Duration::ZERO,
+        );
+        assert!(matches!(result, Err(CopyError::NoReadableTracks)));
+        assert!(!name_taken(&conn, "Nothing")?);
+        Ok(())
+    }
+
     #[test]
     fn adr_0089_copy_to_my_playlists_keeps_position_order_and_writes_no_file() -> Result<()> {
         let conn = setup()?;
@@ -426,7 +450,7 @@ mod tests {
             remote(2, Some("https://busy.test/b.xml"), Some("b")),
         ];
         let reads = Cell::new(0_usize);
-        let outcome = copy_public_playlist(
+        let result = copy_public_playlist(
             &conn,
             &endpoint(),
             "Throttled",
@@ -440,11 +464,10 @@ mod tests {
                 .into())
             },
             Duration::ZERO,
-        )
-        .map_err(|error| anyhow!("{error:?}"))?;
+        );
         assert_eq!(reads.get(), 1);
-        assert_eq!(outcome.copied, 0);
-        assert_eq!(outcome.skipped(), 2);
+        assert!(matches!(result, Err(CopyError::NoReadableTracks)));
+        assert!(!name_taken(&conn, "Throttled")?);
         Ok(())
     }
 }

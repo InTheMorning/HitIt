@@ -73,6 +73,7 @@ A click in the empty search field opens the field list under the field. Each row
   - `playlist:` shows the matching playlist names.
   - `kind:`, `in:`, `is:` and `has:` show their fixed values.
 - The keyboard focus stays in the search field. Up and Down move the selected row. Tab and Enter put the selected row into the text. Escape closes the list. A click on a row puts it into the text.
+- A click that is not on the field or the list closes the list, and the field keeps the keyboard focus. The focus alone does not open the list. A click in the field or a typed key opens it.
 - Enter with no selected row runs the search.
 - The list shows the error of a field, for example "after: needs a date, for example 2026-10-01".
 - The view model gives each row, its text, its accessibility label and its typed action state. The renderer only composes.

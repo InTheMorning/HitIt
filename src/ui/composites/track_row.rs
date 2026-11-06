@@ -348,6 +348,8 @@ fn download_cell(
         let mut button = Button::styled(SharedString::from(slot.id), ControlStyle::RowAction)
             .leading_icon(IconName::CloudDownload)
             .label("")
+            // ADR 0089 Decision 6: the library icon is muted.
+            .foreground(SemanticColor::TertiaryLabel)
             .tooltip(tooltip)
             .a11y_label(a11y_label)
             .disabled(!slot.available);

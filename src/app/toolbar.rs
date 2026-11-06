@@ -19,7 +19,7 @@ use crate::ui::layouts as layout;
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
 use crate::ui::primitives::{Button as UiButton, Tooltip};
 use crate::ui::sizable_bridge::SizableScaled;
-use crate::ui::tokens::{color, FontSize, SemanticColor, Size as TokenSize, Spacing};
+use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size as TokenSize, Spacing};
 use crate::view_models::app_toolbar::{
     AppToolbarVm, GlobalSearchDisplay, ToolbarNavigationDisplay,
 };
@@ -94,7 +94,14 @@ pub(super) fn render_toolbar(
         .flex_row()
         .items_center()
         .gap(spacing_xs)
-        .child(render_toolbar_navigation(&navigation, cx))
+        // R-TOOLBAR-1 item 2: the two side areas have equal widths, so the
+        // field stays in the center, whatever the title and the controls.
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(render_toolbar_navigation(&navigation, cx)),
+        )
         .child(render_global_search(
             display.center_id,
             &display.global_search,
@@ -102,7 +109,14 @@ pub(super) fn render_toolbar(
             toolbar_width,
             cx,
         ))
+        .child(div().flex_1().min_w_0())
         .into_any_element()
+}
+
+/// The width of the center area of the toolbar, with the field and its
+/// button: half of the window, at most `APP_TOOLBAR_SEARCH_MAX_WIDTH`.
+fn toolbar_search_width(toolbar_width: gpui::Pixels) -> gpui::Pixels {
+    (toolbar_width / 2.0).min(layout::APP_TOOLBAR_SEARCH_MAX_WIDTH)
 }
 
 /// The Back and Forward controls and the page title at the left of the
@@ -153,13 +167,16 @@ fn render_toolbar_navigation(
         .min_w_0()
         .child(controls);
     if !display.title.is_empty() {
+        // R-TOOLTIP-1 item 2: a title that is cut with "…" shows its full
+        // text in a tooltip.
+        let tooltip = Tooltip::new(display.title.clone());
         group = group.child(
             div()
                 .id("app-toolbar-title")
                 .min_w_0()
                 .max_w(TokenSize::ColumnTall.scaled(cx))
-                .overflow_hidden()
-                .whitespace_nowrap()
+                .truncate()
+                .tooltip(move |window, cx| tooltip.build(window, cx))
                 .text_size(FontSize::Body.scaled(cx))
                 .font_weight(FontWeight::SEMIBOLD)
                 .child(SharedString::from(display.title.clone())),
@@ -185,6 +202,9 @@ fn render_global_search(
         div()
             .id(display.input_id)
             .relative()
+            // R-FIELD-1 item 1: a text field has a fill and no border.
+            .bg(color(cx, SemanticColor::SystemFill))
+            .rounded(Radius::MD.scaled(cx))
             .flex_1()
             .min_w_0()
             .max_w(TokenSize::ColumnTall.scaled(cx)),
@@ -201,7 +221,8 @@ fn render_global_search(
 
     let mut toolbar_search = div()
         .id(center_id)
-        .flex_1()
+        .flex_none()
+        .w(toolbar_search_width(toolbar_width))
         .min_w_0()
         .flex()
         .items_center()

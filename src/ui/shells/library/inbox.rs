@@ -80,6 +80,7 @@ fn render_updates_section(
             div()
                 .flex()
                 .flex_col()
+                .items_start()
                 .gap(Spacing::XXS.scaled(cx))
                 .child(
                     Label::new(item.text.clone())
@@ -122,6 +123,7 @@ fn render_setup_section(
             div()
                 .flex()
                 .flex_col()
+                .items_start()
                 .gap(Spacing::XXS.scaled(cx))
                 .child(
                     Label::new(item.text.clone())

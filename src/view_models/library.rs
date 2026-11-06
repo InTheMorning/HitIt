@@ -662,6 +662,8 @@ pub(crate) struct PlaylistSidebarRowVm {
     pub(crate) element_id: String,
     pub(crate) name: String,
     pub(crate) track_count_label: String,
+    /// The type dot and word of the row (ADR 0089 Decision 6).
+    pub(crate) type_tag: RowTypeTag,
     pub(crate) selected: bool,
     /// The art of the playlist in the logo frame (ADR 0084 Decision 12).
     pub(crate) art: CollectionArtVm,
@@ -2629,7 +2631,7 @@ impl ContentListPageVm {
     const LOAD_MORE_LABEL: &'static str = "Load more";
     const LOAD_MORE_A11Y_LABEL: &'static str = "Load more recent music";
     const LOADING_LABEL: &'static str = "Loading recent music";
-    const INDEX_FEED_PREFIX: &'static str = "index-feed:";
+    pub(crate) const INDEX_FEED_PREFIX: &'static str = "index-feed:";
 
     /// Creates a content-list page VM with cached rows and the default filter.
     #[must_use]
@@ -3116,7 +3118,9 @@ impl LibraryViewModel {
             snapshot: LibrarySnapshot::default(),
             content_list_page: ContentListPageVm::new(Vec::new()),
             list_pages: ListPages::default(),
-            active_destination: MusicDestination::Search,
+            // ADR 0089: Releases is the start page, the same page as
+            // `WorkspaceLayout::default_layout`.
+            active_destination: MusicDestination::Releases,
             inbox_track_count: 0,
             inbox_setup: Vec::new(),
             ready_track_ids: None,
@@ -3680,7 +3684,7 @@ impl LibraryViewModel {
             new_playlist_input_id: "playlist-new-input",
             new_playlist_add_button_id: "playlist-add-btn",
             heading: "Playlists",
-            add_label: "+",
+            add_label: "New Playlist",
             new_playlist_add_label: "Add",
             creating_playlist: self.creating_playlist,
             rows: self
@@ -3691,7 +3695,14 @@ impl LibraryViewModel {
                     id: playlist.id,
                     element_id: format!("playlist-{}", playlist.id),
                     name: playlist.name.clone(),
-                    track_count_label: format!("({})", playlist.track_count),
+                    track_count_label: match playlist.track_count {
+                        1 => "1 track".to_owned(),
+                        count => format!("{count} tracks"),
+                    },
+                    type_tag: RowTypeTag {
+                        kind: RowTypeKind::Playlist,
+                        word: "Playlist".to_owned(),
+                    },
                     selected: self.selected_playlist_id == Some(playlist.id),
                     marked: false,
                     art: CollectionArtVm::resolve(
@@ -4001,10 +4012,15 @@ impl LibraryViewModel {
     ) -> Vec<NewestRow> {
         let mut rows = Vec::new();
         for (_, display) in recent.loaded_rows() {
-            let key = display
-                .key
-                .clone()
-                .unwrap_or_else(|| ReleaseKey::from_index_feed_guid(display.id.clone()));
+            let key = display.key.clone().unwrap_or_else(|| {
+                // The row id of the pager is "index-feed:{guid}". The
+                // key holds the GUID, because the page sends it to
+                // `GET /v1/feeds/{guid}` (walk of 2026-11-06).
+                let guid = display
+                    .id
+                    .strip_prefix(ContentListPageVm::INDEX_FEED_PREFIX);
+                ReleaseKey::from_index_feed_guid(guid.unwrap_or(&display.id))
+            });
             if !seen.insert(key.clone()) {
                 continue;
             }
@@ -4123,9 +4139,10 @@ impl LibraryViewModel {
         item: &ReleasesListItemVm,
         selection: &ListSelection<ReleaseKey, ReleasesRowId>,
         mode: SelectionMode,
+        show_focus: bool,
     ) -> ReleasesListItemVm {
         let selecting = mode.is_selecting();
-        let focused_row = selection.focused();
+        let focused_row = selection.focused().filter(|_| show_focus);
         let with_selection = |mut row: DestinationListRowVm| {
             if let DestinationListRowTarget::Release(key) = &row.open {
                 let focused = focused_row == Some(&ReleasesRowId::Release(key.clone()));
@@ -4478,6 +4495,7 @@ impl LibraryViewModel {
         &self,
         selection: &ListSelection<TrackKey>,
         mode: SelectionMode,
+        show_focus: bool,
     ) -> Vec<ContentListRowDisplay> {
         let selecting = mode.is_selecting();
         // The checked Library tracks that a Tracks list row can drag, in
@@ -4503,7 +4521,7 @@ impl LibraryViewModel {
             .cloned()
             .map(|mut row| {
                 if let Some(key) = self.content_list_track_row_key(&row.id) {
-                    let focused = selection.focused() == Some(&key);
+                    let focused = selection.focused().filter(|_| show_focus) == Some(&key);
                     row.selection = RowSelectionVm::for_row(
                         row.title(),
                         selection.is_selected(&key),
@@ -7008,6 +7026,30 @@ mod tests {
     use crate::view_models::publisher_page::{MatchedByNameFacts, PublisherPageVm};
     use crate::view_models::release_download_state::ReleaseDownloadState;
 
+    /// ADR 0089: the sidebar and the page read the view model, and the
+    /// toolbar title reads the layout. The start page must be the same in
+    /// both, or the sidebar shows Search under the title "Releases".
+    #[test]
+    fn adr_0089_view_model_starts_on_the_start_page_of_the_layout() {
+        use crate::view_models::workspace::{
+            FrameNavigationEntry, WorkspaceFrameKind, WorkspaceLayout,
+        };
+
+        let layout = WorkspaceLayout::default_layout();
+        let content_list = layout
+            .frames()
+            .iter()
+            .find(|frame| matches!(frame.kind(), WorkspaceFrameKind::ContentList))
+            .expect("the default layout has a content list frame");
+        let nav = layout
+            .frame_nav(content_list.id())
+            .expect("the content list frame has navigation");
+        assert_eq!(
+            nav.current(),
+            &FrameNavigationEntry::Destination(LibraryViewModel::new().active_destination()),
+        );
+    }
+
     fn row() -> TrackRow {
         TrackRow {
             id: 0,
@@ -8704,7 +8746,7 @@ mod tests {
             )),
         ]);
         let rows =
-            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Normal);
+            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Normal, true);
         assert!(rows[0].menu.is_some(), "a Library track row has a menu");
         assert!(
             rows[1].menu.is_none(),
@@ -8788,11 +8830,14 @@ mod tests {
         vm.content_list_page =
             ContentListPageVm::new(vec![ContentListRowDisplay::from_track(&rhubarb), inbox_row]);
         let normal =
-            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Normal);
+            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Normal, true);
         assert!(normal.iter().all(|row| row.menu.is_some()));
         assert!(normal[1].fix.is_some());
-        let selecting =
-            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Selecting);
+        let selecting = vm.content_list_rows_with_selection(
+            &ListSelection::new(),
+            SelectionMode::Selecting,
+            true,
+        );
         for row in &selecting {
             assert!(row.menu.is_none(), "{}", row.id);
             assert!(row.fix.is_none(), "{}", row.id);
@@ -9186,14 +9231,15 @@ mod tests {
         assert_eq!(sidebar.new_playlist_input_id, "playlist-new-input");
         assert_eq!(sidebar.new_playlist_add_button_id, "playlist-add-btn");
         assert_eq!(sidebar.heading, "Playlists");
-        assert_eq!(sidebar.add_label, "+");
+        assert_eq!(sidebar.add_label, "New Playlist");
         assert_eq!(sidebar.new_playlist_add_label, "Add");
         assert!(sidebar.creating_playlist);
         assert_eq!(sidebar.rows.len(), 2);
         assert_eq!(sidebar.rows[0].id, 10);
         assert_eq!(sidebar.rows[0].element_id, "playlist-10");
         assert_eq!(sidebar.rows[0].name, "Alpha");
-        assert_eq!(sidebar.rows[0].track_count_label, "(3)");
+        assert_eq!(sidebar.rows[0].track_count_label, "3 tracks");
+        assert_eq!(sidebar.rows[0].type_tag.word, "Playlist");
         assert!(!sidebar.rows[0].selected);
         assert!(sidebar.rows[1].selected);
     }
@@ -9473,6 +9519,7 @@ mod tests {
             &item,
             &selection,
             SelectionMode::Selecting,
+            true,
         );
         let ReleasesListItemVm::WindowGroup(shown) = selecting else {
             panic!("a window group stays a window group");
@@ -9484,6 +9531,7 @@ mod tests {
             &item,
             &selection,
             SelectionMode::Normal,
+            true,
         );
         let ReleasesListItemVm::WindowGroup(normal) = normal else {
             panic!("a window group stays a window group");
@@ -9843,7 +9891,7 @@ mod tests {
     ) -> Vec<ReleasesListItemVm> {
         rows.items()
             .iter()
-            .map(|item| LibraryViewModel::releases_item_with_selection(item, selection, mode))
+            .map(|item| LibraryViewModel::releases_item_with_selection(item, selection, mode, true))
             .collect()
     }
 
@@ -13296,15 +13344,18 @@ mod tests {
             )),
         ]);
         let normal =
-            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Normal);
+            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Normal, true);
         assert_eq!(
             normal[0].drag,
             Some(TrackDragVm::one(rhubarb.id, "Rhubarb"))
         );
         assert_eq!(normal[1].drag, None, "an Inbox row has no drag");
         assert_eq!(normal[2].drag, None, "a row with no track key has no drag");
-        let selecting =
-            vm.content_list_rows_with_selection(&ListSelection::new(), SelectionMode::Selecting);
+        let selecting = vm.content_list_rows_with_selection(
+            &ListSelection::new(),
+            SelectionMode::Selecting,
+            true,
+        );
         assert!(selecting.iter().all(|row| row.drag.is_none()));
     }
 
@@ -13340,7 +13391,7 @@ mod tests {
         for track in [&tracks[0], &tracks[2]] {
             selection.toggle(&SelectionRow::of_one(track.track_key()));
         }
-        let rows = vm.content_list_rows_with_selection(&selection, SelectionMode::Selecting);
+        let rows = vm.content_list_rows_with_selection(&selection, SelectionMode::Selecting, true);
         let checked_ids: Vec<i64> = rows
             .iter()
             .filter(|row| row.selection.is_marked())
@@ -13360,7 +13411,7 @@ mod tests {
         }
 
         // R31-08: in `Normal`, each row drags its one track.
-        let normal = vm.content_list_rows_with_selection(&selection, SelectionMode::Normal);
+        let normal = vm.content_list_rows_with_selection(&selection, SelectionMode::Normal, true);
         for row in &normal {
             let id: i64 = row.id.parse().expect("a track id");
             assert_eq!(row.drag, Some(TrackDragVm::one(id, row.title())));
@@ -14298,6 +14349,46 @@ mod adr_0086_newest_tests {
         tiles(rows).iter().map(|tile| tile.count).collect()
     }
 
+    /// Walk of 2026-11-06: a pager row with no release key opened
+    /// `GET /v1/feeds/index-feed:{guid}`, and the Index answered 404. The
+    /// key of the row holds the GUID, not the row id.
+    #[test]
+    fn adr_0089_recent_pager_row_key_holds_the_guid_not_the_row_id() {
+        let row = (
+            0,
+            FeedResultDisplay::new("index-feed:guid-a", "Album a", SearchResultOrigin::Index)
+                .with_newest_item_at(Some(1)),
+        );
+        let (vm, page) = view_model(vec![row], false);
+        assert_eq!(
+            release_keys(&newest_rows(&vm, &page)),
+            [ReleaseKey::FeedGuid("guid-a".to_owned())]
+        );
+    }
+
+    /// Walk of 2026-11-06: a row kept its ring after the focus left the list,
+    /// so two places showed a ring. The selection keeps the row, and the row
+    /// shows the focus only while the list has it.
+    #[test]
+    fn adr_0089_a_row_shows_the_focus_only_while_the_list_has_it() {
+        let (vm, page) = view_model(vec![album("a", 1)], false);
+        let rows = newest_rows(&vm, &page);
+        let mut selection = ListSelection::new();
+        selection.move_focus(FocusStep::Home, rows.selection_rows());
+        let shown = |show_focus| match LibraryViewModel::releases_item_with_selection(
+            &rows.items()[0],
+            &selection,
+            SelectionMode::Normal,
+            show_focus,
+        ) {
+            ReleasesListItemVm::Release(row) => row.selection.focused,
+            _ => panic!("the first item is a release row"),
+        };
+        assert!(shown(true));
+        assert!(!shown(false));
+        assert!(selection.focused().is_some(), "the list keeps its place");
+    }
+
     /// The release key of each plain release row, in order.
     fn release_keys(rows: &ReleasesListRows) -> Vec<ReleaseKey> {
         rows.items()
@@ -14444,6 +14535,7 @@ mod adr_0086_newest_tests {
             &rows.items()[0],
             selection,
             SelectionMode::Selecting,
+            true,
         ) {
             ReleasesListItemVm::WindowGroup(tile) => tile.selection.clone(),
             _ => panic!("the first item is the group"),
@@ -14956,6 +15048,7 @@ mod adr_0086_newest_tests {
             &rows.items()[0],
             &selection,
             SelectionMode::Selecting,
+            true,
         ) else {
             panic!("the first item is the group");
         };
@@ -15118,6 +15211,7 @@ mod adr_0086_newest_tests {
                     item,
                     &selection,
                     SelectionMode::Normal,
+                    true,
                 )
             })
             .collect();
@@ -15251,7 +15345,9 @@ mod adr_0086_newest_tests {
             rows.items()
                 .iter()
                 .filter_map(|item| {
-                    match LibraryViewModel::releases_item_with_selection(item, &selection, mode) {
+                    match LibraryViewModel::releases_item_with_selection(
+                        item, &selection, mode, true,
+                    ) {
                         ReleasesListItemVm::Release(row) => Some(row.selection.checkbox_visible),
                         _ => None,
                     }

@@ -97,6 +97,7 @@ impl LibraryApp {
                 sort: None,
                 view: None,
                 letter: None,
+                letter_keys: None,
                 action: None,
             },
             cx,

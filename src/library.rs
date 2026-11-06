@@ -215,6 +215,10 @@ impl CollectionArtHost for LibraryApp {
     }
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is one independent state of the Library surface"
+)]
 pub struct LibraryApp {
     conn: Arc<Mutex<Connection>>,
     application_services: Arc<ApplicationServices>,
@@ -240,6 +244,14 @@ pub struct LibraryApp {
     new_playlist_input: Entity<InputState>,
     rename_playlist_input: Entity<InputState>,
     _rename_playlist_sub: gpui::Subscription,
+    /// `true` while the list has the keyboard focus and the ring shows.
+    list_row_focus_shows: bool,
+    /// The one tab stop of the letter bar. One bar shows at a time.
+    letter_bar_focus: FocusHandle,
+    /// The keyboard cursor of the letter bar.
+    letter_cursor: Option<crate::view_models::letter_bar::LetterKey>,
+    /// `true` while the letter bar has the keyboard focus and the ring shows.
+    letter_cursor_shows: bool,
     /// Optional async runtime host (ADR 0040). When present, screens
     /// can spawn paged-track-list actors that publish snapshots back
     /// via `presentation::bridge_watch`.

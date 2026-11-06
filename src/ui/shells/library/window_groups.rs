@@ -192,7 +192,8 @@ fn render_window_group_row_with(
         .a11y_label(ListRowA11yLabel {
             label: SharedString::from(tile.a11y_label.clone()),
         })
-        .selected(tile.marked || tile.selection.is_marked())
+        .selected(tile.selection.is_marked())
+        .marked(tile.marked)
         .focused(tile.selection.focused)
         .scroll_probe(probe);
     if let Some(checkbox) = render_window_group_checkbox(tile, toggle, cx) {

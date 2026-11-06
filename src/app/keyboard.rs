@@ -10,8 +10,9 @@ use crate::view_models::list_selection::FocusStep;
 use super::{AppTab, TopApp};
 
 pub(super) const ACTIVE_PANE_KEY_CONTEXT: &str = "ActivePane";
-const ACTIVE_PANE_KEY_BINDING_CONTEXT: &str = "ActivePane && !Input";
-const ACTIVE_PANE_CONFIRM_KEY_BINDING_CONTEXT: &str = "ActivePane && !Input && !ActionButton";
+const ACTIVE_PANE_KEY_BINDING_CONTEXT: &str = "ActivePane && !Input && !LetterBar";
+const ACTIVE_PANE_CONFIRM_KEY_BINDING_CONTEXT: &str =
+    "ActivePane && !Input && !ActionButton && !LetterBar";
 
 actions!(
     v4vmm,
