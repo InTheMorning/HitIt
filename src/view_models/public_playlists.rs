@@ -15,7 +15,21 @@ use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
 use crate::view_models::index_name_list::{IndexListStatusRowVm, IndexNameList, IndexNameListPage};
 use crate::view_models::library::{DestinationListRowTarget, DestinationListRowVm};
 use crate::view_models::list_selection::RowSelectionVm;
+use crate::view_models::release_page::{public_playlist_copy_menu_vm, TrackRowMenuVm};
 use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey, TrackKey};
+
+/// The title of the copy dialog.
+pub(crate) const COPY_DIALOG_TITLE: &str = "Copy to My Playlists";
+/// The label of the confirm button of the copy dialog.
+pub(crate) const COPY_CONFIRM_LABEL: &str = "Copy";
+/// The label of the cancel button of the copy dialog.
+pub(crate) const COPY_CANCEL_LABEL: &str = "Cancel";
+/// The placeholder of the name field of the copy dialog.
+pub(crate) const COPY_NAME_PLACEHOLDER: &str = "Name of the new playlist";
+/// The text of a row, and of a page, while its copy runs.
+pub(crate) const COPYING_TEXT: &str = "Copying to My Playlists\u{2026}";
+/// The message of the copy dialog when the name is blank.
+const COPY_NAME_EMPTY_TEXT: &str = "Enter a name for the playlist.";
 
 /// The label of a playlist with no title. The Index gives no title for
 /// it, so the row names the kind instead.
@@ -33,9 +47,17 @@ const UNTITLED_ITEM: &str = "Untitled item";
 )]
 pub(crate) enum PublicPlaylistListItemVm {
     /// A playlist row.
-    Row(DestinationListRowVm),
+    Row(PublicPlaylistRowVm),
     /// The loading row, the error row or "Load more".
     Status(IndexListStatusRowVm),
+}
+
+/// A playlist row with its "More actions" menu. `menu` is `None` while a
+/// copy runs, because the menu cannot act then (ADR 0089 Decision 7).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PublicPlaylistRowVm {
+    pub(crate) row: DestinationListRowVm,
+    pub(crate) menu: Option<TrackRowMenuVm>,
 }
 
 impl PublicPlaylistListItemVm {
@@ -43,7 +65,7 @@ impl PublicPlaylistListItemVm {
     /// packet 016 decision D8).
     #[must_use]
     pub(crate) fn of(
-        rows: Vec<DestinationListRowVm>,
+        rows: Vec<PublicPlaylistRowVm>,
         status: Option<IndexListStatusRowVm>,
     ) -> Vec<Self> {
         let (leading, trailing) = match status {
@@ -62,7 +84,7 @@ impl PublicPlaylistListItemVm {
     #[must_use]
     pub(crate) fn element_id(&self) -> &str {
         match self {
-            Self::Row(row) => &row.element_id,
+            Self::Row(row) => &row.row.element_id,
             Self::Status(row) => row.element_id(),
         }
     }
@@ -105,16 +127,125 @@ fn public_playlist_row(feed: &Feed) -> Option<DestinationListRowVm> {
 /// The items of the Public playlists list: the loaded rows, with the
 /// status row of the page (ADR 0084 packet 016 decision D8). The mark
 /// follows `marked`.
+///
+/// `copying` is the playlist whose copy runs. Its row shows the busy text,
+/// and no row has a menu while a copy runs.
 #[must_use]
 pub(crate) fn public_playlist_list_items(
     page: &IndexNameListPage<Feed>,
     marked: Option<&FrameNavigationEntry>,
+    copying: Option<&str>,
 ) -> Vec<PublicPlaylistListItemVm> {
     let rows = public_playlist_rows(page.rows())
         .into_iter()
-        .map(|row| row.with_marked(marked))
+        .map(|row| {
+            let row = row.with_marked(marked);
+            let feed_guid = match &row.open {
+                DestinationListRowTarget::PublicPlaylist(guid) => guid.clone(),
+                _ => String::new(),
+            };
+            let busy = copying == Some(feed_guid.as_str());
+            let menu = public_playlist_copy_menu(&feed_guid, &row.label, copying.is_some());
+            let row = if busy {
+                DestinationListRowVm {
+                    secondary_text: COPYING_TEXT.to_owned(),
+                    ..row
+                }
+            } else {
+                row
+            };
+            PublicPlaylistRowVm { row, menu }
+        })
         .collect();
     PublicPlaylistListItemVm::of(rows, page.status_row(IndexNameList::PublicPlaylists))
+}
+
+/// The "More actions" menu of a public playlist, with its one item "Copy
+/// to My Playlists…" (ADR 0089 packet 010). `None` while a copy runs.
+#[must_use]
+pub(crate) fn public_playlist_copy_menu(
+    feed_guid: &str,
+    title: &str,
+    copying: bool,
+) -> Option<TrackRowMenuVm> {
+    if copying || feed_guid.is_empty() {
+        return None;
+    }
+    let id = format!("music-public-playlist-{feed_guid}-menu");
+    Some(public_playlist_copy_menu_vm(id, title))
+}
+
+/// The texts of the copy dialog of the public playlist `title` (ADR 0089
+/// packet 010).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PublicPlaylistCopyDialogVm {
+    /// The explanation under the title. It names the playlist.
+    pub(crate) body: String,
+    /// The message of a rejected name, or `None`.
+    pub(crate) message: Option<String>,
+}
+
+impl PublicPlaylistCopyDialogVm {
+    /// The dialog of the playlist `title`, with the message of the last
+    /// rejected name.
+    #[must_use]
+    pub(crate) fn new(title: &str, message: Option<String>) -> Self {
+        Self {
+            body: format!("Copy {title} to a new local playlist. The copy downloads no file."),
+            message,
+        }
+    }
+}
+
+/// The name in the copy dialog, checked against the playlists of the
+/// Library (ADR 0089 packet 010). `playlists.name` is `UNIQUE`, so a name
+/// that exists is a conflict, and the dialog stays open.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum PublicPlaylistCopyName {
+    /// The trimmed name. It is free.
+    Ready(String),
+    /// The name is blank.
+    Empty,
+    /// A playlist holds the trimmed name.
+    Taken(String),
+}
+
+impl PublicPlaylistCopyName {
+    /// Checks `input` against the names of the existing playlists.
+    #[must_use]
+    pub(crate) fn check(input: &str, existing: &[&str]) -> Self {
+        let name = input.trim();
+        if name.is_empty() {
+            Self::Empty
+        } else if existing.contains(&name) {
+            Self::Taken(name.to_owned())
+        } else {
+            Self::Ready(name.to_owned())
+        }
+    }
+
+    /// The message that the dialog shows for a rejected name.
+    #[must_use]
+    pub(crate) fn message(&self) -> Option<String> {
+        match self {
+            Self::Ready(_) => None,
+            Self::Empty => Some(COPY_NAME_EMPTY_TEXT.to_owned()),
+            Self::Taken(name) => Some(format!(
+                "A playlist named \"{name}\" already exists. Enter another name."
+            )),
+        }
+    }
+}
+
+/// The report of a finished copy (ADR 0089 packet 010). It names each
+/// count: the tracks copied, the tracks offered, and the items skipped.
+#[must_use]
+pub(crate) fn public_playlist_copy_report(name: &str, copied: usize, total: usize) -> String {
+    let noun = if total == 1 { "track" } else { "tracks" };
+    format!(
+        "Copied {copied} of {total} {noun} to {name}. {} could not be read.",
+        total.saturating_sub(copied)
+    )
 }
 
 /// One entry of a public playlist page (ADR 0089 packet 009).
@@ -367,6 +498,7 @@ fn non_empty(value: Option<&str>) -> Option<&str> {
 mod tests {
     use super::*;
     use crate::view_models::index_name_list::IndexNameListBatch;
+    use crate::view_models::release_page::TrackRowMenuAction;
 
     fn remote(
         position: Option<i64>,
@@ -518,12 +650,12 @@ mod tests {
             },
             intent.generation,
         ));
-        assert!(public_playlist_list_items(&page, None).is_empty());
+        assert!(public_playlist_list_items(&page, None, None).is_empty());
 
         let mut failed: IndexNameListPage<Feed> = IndexNameListPage::default();
         let intent = failed.begin_load(false).expect("page 1 starts");
         assert!(failed.fail_load("timeout", intent.generation));
-        let items = public_playlist_list_items(&failed, None);
+        let items = public_playlist_list_items(&failed, None, None);
         assert!(matches!(
             items.as_slice(),
             [PublicPlaylistListItemVm::Status(
@@ -582,6 +714,109 @@ mod tests {
                 Some("album-a"),
                 "track-1"
             ))
+        );
+    }
+
+    /// ADR 0089 packet 010: the menu of a public playlist has the copy
+    /// item, with its accessibility label. A copy that runs removes it.
+    #[test]
+    fn adr_0089_copy_to_my_playlists_menu_has_the_item_with_its_label() {
+        let menu = public_playlist_copy_menu("playlist-guid", "Late Night", false)
+            .expect("an idle playlist has a menu");
+        assert_eq!(menu.items.len(), 1);
+        let item = &menu.items[0];
+        assert_eq!(item.action, TrackRowMenuAction::CopyToMyPlaylists);
+        assert_eq!(item.label, "Copy to My Playlists\u{2026}");
+        assert_eq!(
+            item.a11y_label,
+            "Copy the public playlist Late Night to My Playlists"
+        );
+        assert!(!item.destructive);
+        assert!(public_playlist_copy_menu("playlist-guid", "Late Night", true).is_none());
+    }
+
+    /// ADR 0089 packet 010: the copying playlist shows the busy text, and
+    /// no row has a menu while a copy runs.
+    #[test]
+    fn adr_0089_copy_to_my_playlists_busy_row_shows_the_copy_state() {
+        let feeds = [
+            Feed {
+                feed_guid: Some("one".to_owned()),
+                title: Some("First".to_owned()),
+                ..Feed::default()
+            },
+            Feed {
+                feed_guid: Some("two".to_owned()),
+                title: Some("Second".to_owned()),
+                ..Feed::default()
+            },
+        ];
+        let mut page: IndexNameListPage<Feed> = IndexNameListPage::default();
+        let intent = page.begin_load(false).expect("page 1 starts");
+        assert!(page.finish_load(
+            IndexNameListBatch {
+                rows: feeds.to_vec(),
+                cursor: None,
+                has_more: false,
+            },
+            intent.generation,
+        ));
+
+        let idle = public_playlist_list_items(&page, None, None);
+        let PublicPlaylistListItemVm::Row(first) = &idle[0] else {
+            panic!("the first item is a row");
+        };
+        assert!(first.menu.is_some());
+        assert_ne!(first.row.secondary_text, COPYING_TEXT);
+
+        let busy = public_playlist_list_items(&page, None, Some("one"));
+        let PublicPlaylistListItemVm::Row(first) = &busy[0] else {
+            panic!("the first item is a row");
+        };
+        assert_eq!(first.row.secondary_text, COPYING_TEXT);
+        assert!(first.menu.is_none());
+        let PublicPlaylistListItemVm::Row(second) = &busy[1] else {
+            panic!("the second item is a row");
+        };
+        assert!(second.menu.is_none(), "no menu runs while a copy runs");
+    }
+
+    /// ADR 0089 packet 010: a blank name and a name that exists are
+    /// rejected with a message. A free name is trimmed.
+    #[test]
+    fn adr_0089_copy_to_my_playlists_name_is_checked_against_playlists() {
+        let existing = ["Road Trip"];
+        assert_eq!(
+            PublicPlaylistCopyName::check("   ", &existing),
+            PublicPlaylistCopyName::Empty
+        );
+        let taken = PublicPlaylistCopyName::check(" Road Trip ", &existing);
+        assert_eq!(taken, PublicPlaylistCopyName::Taken("Road Trip".to_owned()));
+        assert_eq!(
+            taken.message().as_deref(),
+            Some("A playlist named \"Road Trip\" already exists. Enter another name.")
+        );
+        assert_eq!(
+            PublicPlaylistCopyName::check(" Night ", &existing),
+            PublicPlaylistCopyName::Ready("Night".to_owned())
+        );
+        assert_eq!(
+            PublicPlaylistCopyName::Ready("Night".to_owned()).message(),
+            None
+        );
+    }
+
+    /// ADR 0089 packet 010: the report names the copied count, the offered
+    /// count and the skipped count.
+    #[test]
+    fn adr_0089_copy_to_my_playlists_report_names_each_count() {
+        assert_eq!(
+            public_playlist_copy_report("Road Trip", 12, 15),
+            "Copied 12 of 15 tracks to Road Trip. 3 could not be read."
+        );
+        assert_eq!(
+            public_playlist_copy_report("Solo", 1, 1),
+            "Copied 1 of 1 track to Solo. 0 could not be read."
         );
     }
 }

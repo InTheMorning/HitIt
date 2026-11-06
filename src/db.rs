@@ -2226,6 +2226,17 @@ pub fn playlist_create(conn: &Connection, name: &str) -> Result<i64> {
     Ok(conn.last_insert_rowid())
 }
 
+/// Whether a playlist holds `name` (ADR 0089 packet 010). The name is
+/// trimmed, and the match is exact, as `playlists.name` is `UNIQUE`.
+pub fn playlist_name_taken(conn: &Connection, name: &str) -> Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM playlists WHERE name = ?1)",
+        rusqlite::params![name.trim()],
+        |row| row.get::<_, bool>(0),
+    )
+    .context("check playlist name")
+}
+
 pub fn playlist_rename(conn: &Connection, playlist_id: i64, new_name: &str) -> Result<()> {
     let trimmed = new_name.trim();
     anyhow::ensure!(!trimmed.is_empty(), "Playlist name cannot be empty");

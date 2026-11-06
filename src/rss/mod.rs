@@ -19,6 +19,7 @@ pub(crate) use enrich::invalidate_feed_document;
 #[cfg(test)]
 pub(crate) use enrich::retained_document_for_test;
 pub(crate) use enrich::{check_rss_document, retain_checked_document};
+pub(crate) use host::feed_host;
 pub use host::HostThrottled;
 pub(crate) use identity::validate_nostr_identity;
 pub use identity::{IdentityValidation, NostrIdentity, NostrTlv};

@@ -24,6 +24,7 @@ use gpui_component::input::Input;
 use gpui_component::Size;
 
 use crate::library::LibraryApp;
+use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::music_column_scroll::{music_column_tracked_scrollbar, MusicColumnList};
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::release_download_state::render_release_download_state;
@@ -51,7 +52,6 @@ use crate::view_models::library::{
     PlaylistSidebarVm, ReleasesListItemVm,
 };
 use crate::view_models::list_selection::RowCheckState;
-use crate::view_models::public_playlists::PublicPlaylistListItemVm;
 use crate::view_models::singles_group::SinglesGroupRowVm;
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
@@ -77,7 +77,10 @@ fn row_art(arts: &RowArts, element_id: &str, kind: CollectionKind) -> Collection
 
 /// The logo frame of one collection row from its loaded `image`. A row
 /// with no loaded state shows the entity color.
-fn collection_art(image: Option<CollectionArtImage>, kind: CollectionKind) -> CollectionArt {
+pub(crate) fn collection_art(
+    image: Option<CollectionArtImage>,
+    kind: CollectionKind,
+) -> CollectionArt {
     CollectionArt::new(
         image.unwrap_or(CollectionArtImage::EntityColor),
         kind,
@@ -86,7 +89,7 @@ fn collection_art(image: Option<CollectionArtImage>, kind: CollectionKind) -> Co
 }
 
 /// The leading art of a destination row.
-enum RowArt {
+pub(crate) enum RowArt {
     /// A release cover, with its image when it loaded.
     Cover(Option<Arc<Image>>),
     /// The logo frame of a collection.
@@ -107,22 +110,19 @@ pub(crate) fn render_library_destination_rows(
     render_destination_virtual_list(list_state, item_count, "artists", render_item, cx)
 }
 
-/// Renders one item of the Public playlists list in the Rows view (ADR 0089
-/// packet 009): a playlist row with the logo frame `art`, or the status row
-/// of the page. A row opens its playlist page, and it has no menu.
-pub(crate) fn render_public_playlist_list_item(
-    item: PublicPlaylistListItemVm,
-    art: Option<CollectionArtImage>,
-    actions: IndexListActions,
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    match item {
-        PublicPlaylistListItemVm::Row(row) => {
-            let art = RowArt::Collection(collection_art(art, CollectionKind::Playlist));
-            render_destination_list_row(row, art, LeadingDisclosure::None, None, cx)
-        }
-        PublicPlaylistListItemVm::Status(row) => render_index_list_status_row(row, actions, cx),
-    }
+/// The menu cell of a destination row (ADR 0083 Decision 6).
+#[expect(
+    clippy::large_enum_variant,
+    reason = "a menu cell is built once for each rendered row, so one box for each row adds an allocation for nothing"
+)]
+pub(crate) enum DestinationRowMenu<'a> {
+    /// The row has no menu cell.
+    None,
+    /// A release row. Its menu comes from the release row context.
+    Release(&'a ReleaseRowMenuContext),
+    /// A public playlist row. The cell keeps its width when the menu is
+    /// `None`, for example while a copy runs.
+    Playlist(Option<RowMenu>),
 }
 
 /// Renders one item of the Artists list: a row with the logo frame
@@ -138,7 +138,13 @@ pub(crate) fn render_artists_list_item(
         ArtistsListItemVm::Row(row) => {
             let art = RowArt::Collection(collection_art(art, CollectionKind::Artist));
             // ADR 0084 task 031, decision D2: an Artists row has no menu.
-            render_destination_list_row(row, art, LeadingDisclosure::None, None, cx)
+            render_destination_list_row(
+                row,
+                art,
+                LeadingDisclosure::None,
+                DestinationRowMenu::None,
+                cx,
+            )
         }
         ArtistsListItemVm::Status(row) => render_index_list_status_row(row, actions, cx),
     }
@@ -181,7 +187,7 @@ pub(crate) fn render_releases_list_item(
             row,
             RowArt::Cover(thumbnail),
             LeadingDisclosure::Empty,
-            Some(menu),
+            DestinationRowMenu::Release(menu),
             cx,
         ),
         ReleasesListItemVm::Group(group) => render_singles_group_row(group, art, cx),
@@ -194,7 +200,7 @@ pub(crate) fn render_releases_list_item(
             row,
             RowArt::Cover(thumbnail),
             LeadingDisclosure::Indented,
-            Some(menu),
+            DestinationRowMenu::Release(menu),
             cx,
         ),
     }
@@ -316,7 +322,7 @@ fn render_singles_group_row(
 /// with the cover of a singles group row. The Artists list has no group, so
 /// it keeps no column.
 #[derive(Clone, Copy)]
-enum LeadingDisclosure {
+pub(crate) enum LeadingDisclosure {
     None,
     Empty,
     /// A single row of an open group. The indent comes after the checkbox,
@@ -328,11 +334,11 @@ enum LeadingDisclosure {
 /// only for a release row: the row then has the menu cell of the one
 /// release row menu (ADR 0084 task 031). The view model gives `None` in
 /// selection mode, so the cell is then empty.
-fn render_destination_list_row(
+pub(crate) fn render_destination_list_row(
     row: DestinationListRowVm,
     art: RowArt,
     leading_disclosure: LeadingDisclosure,
-    menu: Option<&ReleaseRowMenuContext>,
+    menu: DestinationRowMenu<'_>,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     let entity_kind = match &row.open {
@@ -380,8 +386,14 @@ fn render_destination_list_row(
         );
     }
 
-    if let Some(context) = menu {
-        list_row = list_row.menu_cell(release_row_menu(row.menu.as_ref(), context));
+    match menu {
+        DestinationRowMenu::None => {}
+        DestinationRowMenu::Release(context) => {
+            list_row = list_row.menu_cell(release_row_menu(row.menu.as_ref(), context));
+        }
+        DestinationRowMenu::Playlist(menu) => {
+            list_row = list_row.menu_cell(menu);
+        }
     }
 
     list_row

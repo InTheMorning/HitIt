@@ -1769,6 +1769,7 @@ impl TopApp {
         &mut self,
         mount: WorkspaceScreenMount,
         show_window_width: f32,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         if matches!(mount, WorkspaceScreenMount::Show) {
@@ -1936,7 +1937,7 @@ impl TopApp {
             Some(FrameNavigationEntry::PublicPlaylist(feed_guid)) => {
                 let feed_guid = feed_guid.clone();
                 let detail_content = self.library.update(cx, |library, cx| {
-                    library.render_public_playlist_page(&feed_guid, cx)
+                    library.render_public_playlist_page(&feed_guid, window, cx)
                 });
                 if fills_detail {
                     WorkspaceSlots::new().detail_slot(detail_content)
@@ -2136,7 +2137,7 @@ impl Render for TopApp {
                     // shows on each section, beside the live status strip.
                     .child(self.download_status_view.clone())
                     // ADR 0060: workspace render delegates to the active app-section mount.
-                    .child(self.render_workspace_content(mount, show_window_width, cx)),
+                    .child(self.render_workspace_content(mount, show_window_width, window, cx)),
             );
         div()
             .size_full()

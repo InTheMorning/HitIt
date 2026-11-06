@@ -1,6 +1,6 @@
 # ADR 0089 Task 010: Copy To My Playlists
 
-Status: Ready - 2026-11-05.
+Status: Implemented - 2026-11-06. V1 to V3 are open. The checks are in section 11 of [pending human checks](../pending-human-checks.md).
 
 Depends on: [packet 009](adr-0089-task-009-public-playlists.md).
 

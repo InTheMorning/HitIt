@@ -175,7 +175,8 @@ impl ReleaseRowCommand {
             | TrackRowMenuAction::InspectSources
             | TrackRowMenuAction::MoveUp
             | TrackRowMenuAction::MoveDown
-            | TrackRowMenuAction::RemoveFromPlaylist => None,
+            | TrackRowMenuAction::RemoveFromPlaylist
+            | TrackRowMenuAction::CopyToMyPlaylists => None,
         }
     }
 }
