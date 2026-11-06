@@ -35,3 +35,5 @@ Each entry names the step, the decision and the reason.
 - Packet 004, My playlists: the page has no sort, and its rows stay in name sequence. Decision 5 says that the curator sets the sequence. A sequence needs stored positions and a move control, and ADR 0089 puts the moves of My playlists in Non-Goals. The final walk asks the operator which holds.
 - Packet 004, view icons: no page has two views yet, so the icons are absent until packet 005.
 - Packet 004, the In Library count: it counts each release that the scope holds, so a singles group of five counts five.
+- Packet 005: the orchestrator divided it into Parts A to D, because the first agent stopped on its size before any edit.
+- Packet 005, Artists: Artists has one sort, A to Z. The packet states the evidence.
