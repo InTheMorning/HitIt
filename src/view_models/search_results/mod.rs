@@ -13,8 +13,10 @@ use crate::view_models::detail_selection::{
     detail_header_action, search_header_action, search_release_rows, search_track_rows,
     DetailPageRows, DetailRowClick, DetailRowKey, DetailSelection,
 };
+use crate::view_models::list_page::ListScope;
 use crate::view_models::list_selection::{FocusStep, SelectionRow};
 use crate::view_models::live_run::RunGeneration;
+use crate::view_models::search_query::library_scope_of;
 use crate::view_models::selection_action_bar::SelectionActionBarVm;
 use crate::view_models::window_groups::WindowGroupTileVm;
 use crate::view_models::workspace::{FrameHeaderActionDisplay, FrameNavigationEntry};
@@ -510,6 +512,12 @@ impl SearchResultsInspectorPageVm {
     #[must_use]
     pub(crate) fn query(&self) -> &str {
         &self.query
+    }
+
+    /// The scope "All | In Library" of the query text (ADR 0089 Decision 4).
+    #[must_use]
+    pub(crate) fn library_scope(&self) -> ListScope {
+        library_scope_of(&self.query)
     }
 
     /// Returns the selected tab.

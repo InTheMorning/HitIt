@@ -32,7 +32,7 @@ use crate::runtime::{
 };
 use crate::theme_profile::ThemeProfile;
 use crate::ui::shells::search_results_inspector::{
-    render_search_results_inspector, SearchResultsHeaderMode, SearchResultsInspectorSlots,
+    render_search_results_inspector, SearchResultsInspectorSlots,
 };
 use crate::ui::shells::window_layers::render_window_layers;
 use crate::ui::shells::workspace::{render_workspace, WorkspaceSlots};
@@ -1560,6 +1560,7 @@ impl TopApp {
         let toggle_entity = entity.clone();
         let failure_entity = entity.clone();
         let save_entity = entity.clone();
+        let scope_entity = entity.clone();
         let inspector_slots = SearchResultsInspectorSlots::new()
             .on_failure_action(move |action, _window, cx| {
                 failure_entity.update(cx, |this, cx| {
@@ -1569,6 +1570,11 @@ impl TopApp {
             .on_tab_select(move |tab, _window, cx| {
                 tab_entity.update(cx, |this, cx| {
                     this.set_search_results_tab(content_frame_id, tab, cx);
+                });
+            })
+            .on_scope_select(move |scope, window, cx| {
+                scope_entity.update(cx, |this, cx| {
+                    this.set_toolbar_library_scope(scope, window, cx);
                 });
             })
             .on_result_select(move |tab, result_id, key, modifiers, window, cx| {
@@ -1608,7 +1614,6 @@ impl TopApp {
         let inspector_content = render_search_results_inspector(
             self.search_results_detail.as_ref().unwrap(),
             &inspector_slots,
-            SearchResultsHeaderMode::Tabbed,
             cx,
         );
         let bar = bar.map(|(bar, rows)| {

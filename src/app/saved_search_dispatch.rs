@@ -12,8 +12,7 @@ use gpui::{div, prelude::*, AnyElement, App, Context, Window};
 
 use crate::ui::shells::saved_search_delete_confirmation::open_saved_search_delete_dialog;
 use crate::ui::shells::search_results_inspector::{
-    render_search_empty_state, render_search_results_inspector, SearchResultsHeaderMode,
-    SearchResultsInspectorSlots,
+    render_search_empty_state, render_search_results_inspector, SearchResultsInspectorSlots,
 };
 use crate::view_models::search_results::{
     delete_saved_search_confirmation, location_after_saved_search_delete, saved_search_restore,
@@ -233,6 +232,7 @@ impl TopApp {
         let select_entity = entity.clone();
         let toggle_entity = entity.clone();
         let failure_entity = entity.clone();
+        let scope_entity = entity.clone();
         let delete_entity = entity;
         let slots = SearchResultsInspectorSlots::new()
             .on_failure_action(move |action, _window, cx: &mut App| {
@@ -265,6 +265,11 @@ impl TopApp {
                     this.toggle_search_result_row(SearchPageSlot::SavedSearch, &key, window, cx);
                 });
             })
+            .on_scope_select(move |scope, window, cx: &mut App| {
+                scope_entity.update(cx, |this, cx| {
+                    this.set_saved_search_library_scope(scope, window, cx);
+                });
+            })
             .header_action(delete_action, move |window, cx: &mut App| {
                 delete_entity.update(cx, |this, cx| this.request_saved_search_delete(window, cx));
             })
@@ -276,8 +281,7 @@ impl TopApp {
         let Some(results) = self.search_page(SearchPageSlot::SavedSearch) else {
             return render_search_empty_state(&SavedSearchPage::deleted_empty_state(), cx);
         };
-        let content =
-            render_search_results_inspector(results, &slots, SearchResultsHeaderMode::Tabbed, cx);
+        let content = render_search_results_inspector(results, &slots, cx);
         let bar = bar.map(|(bar, rows)| {
             self.render_search_action_bar(SearchPageSlot::SavedSearch, bar, &rows, cx)
         });

@@ -2889,6 +2889,32 @@ fn adr_0084_search_list_r10_08_feed_rows_open_the_feed_page() {
     );
 }
 
+/// Situational, ADR 0089 Decision 4 (task 008 Part A): a click on the
+/// "All | In Library" control writes the query field and starts the run by
+/// the path of a typed change. The toolbar path arms the pause through
+/// `start_search_pause`, and the saved-search path arms it through
+/// `start_saved_search_query_pause`. The field text changes without a
+/// `Change` event, so each path must call its pause itself.
+#[test]
+fn adr_0089_task_008_scope_click_runs_by_the_typed_change_path() {
+    let live = compact_source(&read_source(&manifest_path("src/app/search_live.rs")));
+    assert!(
+        live.contains("with_library_scope(&text,scope)")
+            && live.contains("self.global_search_input.update(cx,|input,cx|input.set_value(next,window,cx));self.start_search_pause(cx);"),
+        "ADR 0089 Decision 4: `set_toolbar_library_scope` must write the toolbar field with \
+         `with_library_scope`, then call `start_search_pause`, as a typed change does."
+    );
+    let edit = compact_source(&read_source(&manifest_path(
+        "src/app/saved_search_query_edit.rs",
+    )));
+    assert!(
+        edit.contains("with_library_scope(&text,scope)")
+            && edit.contains("self.start_saved_search_query_pause(cx);"),
+        "ADR 0089 Decision 4: `set_saved_search_library_scope` must write the query field with \
+         `with_library_scope`, then call `start_saved_search_query_pause`."
+    );
+}
+
 /// Situational, ADR 0084 Decisions 2 and 9 (walk of 2026-10-21): a
 /// submitted toolbar search clears the detail column. Before this fix, a
 /// new search kept the Library release page of the earlier search in the
@@ -3358,12 +3384,6 @@ fn adr_0049_inspector_source_ownership_is_guarded() {
         }
     }
 
-    if !search_results_shell_source.contains("SearchResultsHeaderMode::Tabbed") {
-        violations.push(
-            "src/ui/shells/search_results_inspector.rs: ADR 0049 scoped drill-down chrome missing `SearchResultsHeaderMode::Tabbed`"
-                .to_string(),
-        );
-    }
     if !release_page_shell_source.contains("pub(crate) fn render_release_page(") {
         violations.push(
             "src/ui/shells/release_page.rs: ADR 0049 Index release page missing `pub(crate) fn render_release_page(`"
@@ -3936,7 +3956,6 @@ fn adr_0047_task_015_search_submit_commands() {
         // and its own "Select" button.
         ".on_row_toggle(move |key, window, cx|",
         "this.toggle_search_selection_mode(SearchPageSlot::ToolbarSearch, cx);",
-        "SearchResultsHeaderMode::Tabbed,",
     ] {
         if !app_source.contains(required) {
             violations.push(format!(
