@@ -56,6 +56,9 @@ pub const TRACK_NUMBER_WIDTH: Pixels = px(24.0);
 /// ADR 0089 Decision 1: the sidebar column's fixed width. It holds each
 /// destination, and it keeps this width at each window width.
 pub const MUSIC_SIDEBAR_WIDTH: Pixels = px(220.0);
+/// ADR 0089 Decision 1: below this window width the sidebar is replaced by
+/// the tab bar at the bottom of the window. At or above it, the sidebar shows.
+pub const SHELL_TAB_BAR_BREAKPOINT: Pixels = px(940.0);
 /// ADR 0084 Decision 1: the Music detail column's minimum width.
 pub const MUSIC_DETAIL_MIN_WIDTH: Pixels = px(360.0);
 

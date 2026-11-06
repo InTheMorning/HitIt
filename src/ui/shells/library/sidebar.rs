@@ -14,29 +14,13 @@ use gpui::{
 };
 
 use crate::library::{LibraryApp, LibraryAppEvent};
+use crate::ui::composites::tab_bar::sidebar_icon_name as icon_name;
 use crate::ui::composites::track_drag::{PlaylistTrackDragPayload, TrackDragPayload};
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::primitives::Label;
 use crate::ui::style::{color, spacing};
 use crate::ui::tokens::{resolve_color, SemanticColor};
-use crate::view_models::sidebar::{SidebarIcon, SidebarRowVm};
-
-/// Maps a row's semantic icon to a named `IconName` (ADR 0089 Decision 1).
-/// The renderer owns this mapping; the view model names only the semantic
-/// icon.
-const fn icon_name(icon: SidebarIcon) -> IconName {
-    match icon {
-        SidebarIcon::Search => IconName::Search,
-        SidebarIcon::Release => IconName::Release,
-        SidebarIcon::Artist => IconName::Artist,
-        SidebarIcon::Playlist => IconName::Playlist,
-        SidebarIcon::PublicPlaylist => IconName::PublicPlaylist,
-        SidebarIcon::Live => IconName::Live,
-        SidebarIcon::Warning => IconName::Warning,
-        SidebarIcon::Show => IconName::Show,
-        SidebarIcon::Settings => IconName::Settings,
-    }
-}
+use crate::view_models::sidebar::SidebarRowVm;
 
 /// Renders the separator line that follows the upper rows (ADR 0089
 /// Decision 1).
