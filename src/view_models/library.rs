@@ -3284,7 +3284,7 @@ impl LibraryViewModel {
             }
             WindowGroupSource::Releases(list) => {
                 let rows: Vec<&ContentListRowDisplay> = list.rows.iter().collect();
-                releases_layout = NewReleasesLayout::for_list(
+                releases_layout = NewReleasesLayout::for_rows(
                     &rows,
                     &self.snapshot.tree,
                     self.window_length,
@@ -4090,7 +4090,7 @@ impl LibraryViewModel {
                 if !scope.holds(row.download_state.as_ref().map(|state| state.state)) {
                     continue;
                 }
-                let display = library_album_display(&row, album, &key);
+                let display = library_album_display(artist, &row, album, &key);
                 seen.insert(key);
                 rows.push(NewestRow {
                     row,
@@ -4399,6 +4399,11 @@ impl LibraryViewModel {
             mode,
             SelectionActionCounts {
                 selected_count: selection.selected_count(),
+                visible_count: rows
+                    .selection_rows()
+                    .iter()
+                    .map(|row| row.members.len())
+                    .sum(),
                 item_noun: "release",
                 download_count: counts.download,
                 add_count: counts.add_to_playlist,
@@ -4710,11 +4715,13 @@ impl LibraryViewModel {
         &self,
         selection: &ListSelection<TrackKey>,
         mode: SelectionMode,
+        visible_count: usize,
     ) -> Option<SelectionActionBarVm> {
         SelectionActionBarVm::new(
             mode,
             SelectionActionBarInput {
                 selected_count: selection.selected_count(),
+                visible_count,
                 item_noun: "track",
                 not_in_library_count: 0,
                 in_library_count: self.content_list_removable_tracks(selection).len(),
@@ -5778,6 +5785,7 @@ struct NewestRow {
 /// GUID names the album, so the window logic reads its kind, its artist
 /// and its date from the tree (packet 002 decision D3).
 fn library_album_display(
+    artist: &ArtistNode,
     row: &DestinationListRowVm,
     album: &AlbumNode,
     key: &ReleaseKey,
@@ -5791,11 +5799,17 @@ fn library_album_display(
     .with_secondary_text(row.secondary_text.clone());
     display.thumbnail_href.clone_from(&row.thumbnail_href);
     display.newest_item_at = album.tracks.iter().filter_map(|track| track.pub_date).max();
+    // A window group page keeps this row when its album leaves the Library, so
+    // the row holds each fact that places it in its group (ADR 0086 Decision 4).
     display.remote_feed = album
         .feed_guid
         .as_ref()
         .map(|feed_guid| crate::views::FeedView {
             feed_guid: Some(feed_guid.clone()),
+            artist: Some(artist.name.clone()),
+            named_feeds: album.named_feeds.clone(),
+            release_kind: album.metadata_facts.release_kind.clone(),
+            episode_count: i32::try_from(album.tracks.len()).ok(),
             ..crate::views::FeedView::default()
         });
     display
@@ -10176,7 +10190,12 @@ mod tests {
                 .actions
                 .iter()
                 .map(|action| action.kind)
-                .filter(|kind| *kind != SelectionActionKind::Clear)
+                .filter(|kind| {
+                    !matches!(
+                        kind,
+                        SelectionActionKind::Clear | SelectionActionKind::SelectAll
+                    )
+                })
                 .collect();
             let menu: Vec<SelectionActionKind> = row
                 .menu
@@ -15133,6 +15152,19 @@ mod adr_0086_newest_tests {
             action.action,
             SinglesGroupAction::AddToPlaylist(vec![1, 2, 3])
         );
+    }
+
+    /// The page opens while one member is in the Library, and that member then
+    /// leaves the Library. The row stays on the page, in the same group. The
+    /// operator saw the row go on 2026-11-06.
+    #[test]
+    fn adr_0086_window_group_page_removed_member_stays_on_the_page() {
+        let (mut vm, page) = view_model(r01_rows(), false);
+        vm.replace_tree(jsmovie_tree(vec![library_single("a", 1, oct(20), true)]));
+        let key = first_key(&newest_rows(&vm, &page));
+        let rows_before = vm.window_group_page(&key).rows.len();
+        vm.replace_tree(LibraryTree::default());
+        assert_eq!(vm.window_group_page(&key).rows.len(), rows_before);
     }
 
     /// R86-4-10: a busy member disables the main action.

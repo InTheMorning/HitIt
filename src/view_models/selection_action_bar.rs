@@ -4,7 +4,7 @@
 //! The bar shows only in [`SelectionMode::Selecting`].
 //! [`SelectionActionBarVm::new`] gives `None` outside that mode, so a
 //! caller renders nothing. In `Selecting`, with no selected row, the bar
-//! gives "Select items" and no action. Each action is typed: an action
+//! gives "Select items" and "Select all". Each action is typed: an action
 //! that cannot act is absent from [`SelectionActionBarVm::actions`],
 //! never present and disabled.
 
@@ -30,6 +30,8 @@ pub(crate) enum SelectionActionKind {
     MoveToTop,
     /// "Move to bottom" of the playlist page (packet 025).
     MoveToBottom,
+    /// "Select all" selects each row of the list (ADR 0084 Decision 10).
+    SelectAll,
     Clear,
 }
 
@@ -50,6 +52,9 @@ pub(crate) struct SelectionActionVm {
 pub(crate) struct SelectionActionBarInput {
     /// The total number of selected items.
     pub(crate) selected_count: usize,
+    /// The number of items that the list holds. "Select all" shows while the
+    /// selection holds fewer.
+    pub(crate) visible_count: usize,
     /// The singular noun of one selected item, for example "track" or
     /// "release".
     pub(crate) item_noun: &'static str,
@@ -69,6 +74,8 @@ pub(crate) struct SelectionActionBarInput {
 pub(crate) struct SelectionActionCounts {
     /// The total number of selected items.
     pub(crate) selected_count: usize,
+    /// The number of items that the list holds.
+    pub(crate) visible_count: usize,
     /// The singular noun of one selected item, for example "track".
     pub(crate) item_noun: &'static str,
     /// The number of selected items that "Download" acts on.
@@ -86,6 +93,8 @@ pub(crate) struct SelectionActionCounts {
 pub(crate) struct PlaylistSelectionCounts {
     /// The number of selected entries. One track can have two entries.
     pub(crate) selected_count: usize,
+    /// The number of entries of the playlist.
+    pub(crate) visible_count: usize,
     /// The number of distinct selected tracks that are not downloaded.
     pub(crate) download_count: usize,
     /// The number of distinct selected tracks that "Remove from
@@ -107,6 +116,15 @@ pub(crate) struct SelectionActionBarVm {
     pub(crate) actions: Vec<SelectionActionVm>,
 }
 
+fn select_all_action() -> SelectionActionVm {
+    SelectionActionVm {
+        kind: SelectionActionKind::SelectAll,
+        element_id: "music-selection-select-all",
+        a11y_label: "Select each item in this list".to_owned(),
+        label: "Select all".to_owned(),
+    }
+}
+
 impl SelectionActionBarVm {
     /// Builds the bar, or gives `None` outside [`SelectionMode::Selecting`]
     /// (ADR 0084 Decision 10 Amendment, 2026-10-19). In `Selecting`, with
@@ -118,6 +136,7 @@ impl SelectionActionBarVm {
             mode,
             SelectionActionCounts {
                 selected_count: input.selected_count,
+                visible_count: input.visible_count,
                 item_noun: input.item_noun,
                 download_count: input.not_in_library_count,
                 add_count: input.selected_count,
@@ -137,11 +156,14 @@ impl SelectionActionBarVm {
         if counts.selected_count == 0 {
             return Some(Self {
                 count_label: "Select items".to_owned(),
-                actions: Vec::new(),
+                actions: vec![select_all_action()],
             });
         }
         let noun_for = |count: usize| format!("{}{}", counts.item_noun, plural(count));
         let mut actions = Vec::new();
+        if counts.selected_count < counts.visible_count {
+            actions.push(select_all_action());
+        }
         if counts.download_count > 0 {
             let label = format!(
                 "Download {} {}",
@@ -214,7 +236,7 @@ impl SelectionActionBarVm {
         if selected == 0 {
             return Some(Self {
                 count_label: "Select items".to_owned(),
-                actions: Vec::new(),
+                actions: vec![select_all_action()],
             });
         }
         let tracks = |count: usize| format!("{count} track{}", plural(count));
@@ -224,12 +246,16 @@ impl SelectionActionBarVm {
             label,
             a11y_label,
         };
-        let mut actions = vec![action(
+        let mut actions = Vec::new();
+        if selected < counts.visible_count {
+            actions.push(select_all_action());
+        }
+        actions.push(action(
             SelectionActionKind::RemoveFromPlaylist,
             "music-selection-remove-from-playlist",
             format!("Remove {selected} from playlist"),
             format!("Remove {} from playlist", tracks(selected)),
-        )];
+        ));
         if counts.download_count > 0 {
             let label = format!("Download {}", tracks(counts.download_count));
             actions.push(action(
@@ -305,6 +331,7 @@ mod tests {
             SelectionMode::Selecting,
             SelectionActionBarInput {
                 selected_count: 7,
+                visible_count: 10,
                 item_noun: "track",
                 not_in_library_count: 5,
                 in_library_count: 2,
@@ -347,6 +374,7 @@ mod tests {
             SelectionMode::Selecting,
             SelectionActionBarInput {
                 selected_count: 1,
+                visible_count: 10,
                 item_noun: "release",
                 not_in_library_count: 0,
                 in_library_count: 1,
@@ -367,6 +395,7 @@ mod tests {
             SelectionMode::Selecting,
             SelectionActionBarInput {
                 selected_count: 3,
+                visible_count: 10,
                 item_noun: "track",
                 not_in_library_count: 3,
                 in_library_count: 0,
@@ -387,6 +416,7 @@ mod tests {
             SelectionMode::Normal,
             SelectionActionBarInput {
                 selected_count: 0,
+                visible_count: 10,
                 item_noun: "track",
                 not_in_library_count: 0,
                 in_library_count: 0,
@@ -403,6 +433,7 @@ mod tests {
             SelectionMode::Selecting,
             SelectionActionBarInput {
                 selected_count: 0,
+                visible_count: 10,
                 item_noun: "track",
                 not_in_library_count: 0,
                 in_library_count: 0,
@@ -411,6 +442,32 @@ mod tests {
         .expect("Selecting shows a bar even with no selected row");
 
         assert_eq!(bar.count_label, "Select items");
-        assert!(bar.actions.is_empty());
+        let kinds: Vec<_> = bar.actions.iter().map(|action| action.kind).collect();
+        assert_eq!(kinds, vec![SelectionActionKind::SelectAll]);
+    }
+
+    /// "Select all" shows while a row of the list is not selected. The
+    /// operator asked to hide it on 2026-11-06.
+    #[test]
+    fn adr_0084_select_all_is_absent_when_each_row_is_selected() {
+        let bar = |selected_count, mode| {
+            SelectionActionBarVm::new(
+                mode,
+                SelectionActionBarInput {
+                    selected_count,
+                    visible_count: 5,
+                    item_noun: "single",
+                    not_in_library_count: selected_count,
+                    in_library_count: 0,
+                },
+            )
+            .expect("Selecting shows a bar")
+        };
+        assert!(bar(4, SelectionMode::Selecting)
+            .action(SelectionActionKind::SelectAll)
+            .is_some());
+        let all = bar(5, SelectionMode::Selecting);
+        assert!(all.action(SelectionActionKind::SelectAll).is_none());
+        assert_eq!(all.count_label, "5 singles selected");
     }
 }

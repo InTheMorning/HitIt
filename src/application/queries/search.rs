@@ -28,8 +28,9 @@ use crate::view_models::search_query::{
 };
 use crate::view_models::search_results::{
     artist_feed_result_display, index_track_row_id, library_part_runs, ArtistResultDisplay,
-    FeedResultDisplay, IndexSearchRequest, IndexSearchResultRows, LibrarySearchRows,
-    SearchResultItemId, SearchResultOrigin, TrackResultDisplay, INDEX_FEED_PAGE_RESULT_PREFIX,
+    FeedResultDisplay, IndexEntity, IndexFilters, IndexSearchRequest, IndexSearchResultRows,
+    LibrarySearchRows, SearchResultItemId, SearchResultOrigin, TrackResultDisplay,
+    INDEX_FEED_PAGE_RESULT_PREFIX,
 };
 use crate::view_models::workspace::{ReleaseKey, TrackKey};
 use crate::views::TrackView;
@@ -74,7 +75,7 @@ impl ApplicationCommand for FetchIndexSearchResults {
         }
         let rows = fetch_index_search_result_rows(
             &self.endpoint,
-            &self.request.q,
+            &self.request,
             &self.matches,
             context.cancellation(),
         )?;
@@ -451,7 +452,7 @@ fn query_error(error: &anyhow::Error) -> CommandError {
 /// client is blocking.
 fn fetch_index_search_result_rows(
     endpoint: &crate::config::MusicIndexEndpoint,
-    query: &str,
+    request: &IndexSearchRequest,
     matches: &NameFeedMatches,
     cancel: &CancellationToken,
 ) -> Result<IndexSearchResultRows, CommandError> {
@@ -462,14 +463,25 @@ fn fetch_index_search_result_rows(
     // ADR 0075 packet 047, Required Change 2: each row comes from this
     // search's own summary fields. No call below sends a detail request
     // for a returned hit.
+    // ADR 0087 Decision 5: an entity type that cannot match a filter gets
+    // no request. Its result is empty, and it is not a failure.
     stop_if_cancelled(cancel)?;
-    let feed_rows = fetch_index_feed_result_rows(&client, query);
+    let feed_rows = match request.for_entity(IndexEntity::Feed) {
+        Some(feed) => fetch_index_feed_result_rows(&client, &feed),
+        None => Ok(IndexFeedSearchRows::default()),
+    };
     stop_if_cancelled(cancel)?;
-    let track_rows = fetch_index_track_result_rows(&client, query);
+    let track_rows = match request.for_entity(IndexEntity::Track) {
+        Some(track) => fetch_index_track_result_rows(&client, &track),
+        None => Ok(IndexTrackSearchRows::default()),
+    };
     // Packet 010 "The Artists tab": the third request gives the feed rows.
     // Its failure alone shows the other rows.
     stop_if_cancelled(cancel)?;
-    let publisher_rows = fetch_index_feed_page_result_rows(&client, query);
+    let publisher_rows = match request.for_entity(IndexEntity::Publisher) {
+        Some(publisher) => fetch_index_feed_page_result_rows(&client, &publisher),
+        None => Ok(Vec::new()),
+    };
 
     if let (Err(feed_error), Err(track_error), Err(publisher_error)) =
         (&feed_rows, &track_rows, &publisher_rows)
@@ -551,14 +563,15 @@ fn is_bad_request(error: &anyhow::Error) -> bool {
 /// says "Publisher" (ADR 0085 Decision 1).
 fn fetch_index_feed_page_result_rows(
     client: &crate::api::Client,
-    query: &str,
+    request: &IndexSearchRequest,
 ) -> Result<Vec<(SearchResultItemId, ArtistResultDisplay)>> {
     let response = client.search(
-        query,
+        request.q.as_deref(),
         Some("publisher"),
         Some(crate::api::PAGE_LIMIT),
         None,
         Some(&crate::application::request_profiles::INDEX_PUBLISHER_SEARCH),
+        &index_filter_pairs(&request.filters),
     )?;
     Ok(unique_hits(&response.data)
         .filter_map(index_feed_page_result_display)
@@ -628,6 +641,7 @@ fn index_artist_rows(
         .collect())
 }
 
+#[derive(Default)]
 struct IndexFeedSearchRows {
     rows: Vec<(SearchResultItemId, FeedResultDisplay)>,
     artists: Vec<IndexArtistCandidate>,
@@ -636,6 +650,7 @@ struct IndexFeedSearchRows {
     has_more: bool,
 }
 
+#[derive(Default)]
 struct IndexTrackSearchRows {
     rows: Vec<(SearchResultItemId, TrackResultDisplay)>,
     artists: Vec<IndexArtistCandidate>,
@@ -775,20 +790,22 @@ fn unique_hits(hits: &[SearchResult]) -> impl Iterator<Item = &SearchResult> {
 /// the search response's own summary fields (R47-02, R47-03, R47-05).
 fn fetch_index_feed_result_rows(
     client: &crate::api::Client,
-    query: &str,
+    request: &IndexSearchRequest,
 ) -> Result<IndexFeedSearchRows> {
     let response = client.search(
-        query,
+        request.q.as_deref(),
         Some("feed"),
         Some(crate::api::PAGE_LIMIT),
         None,
         None,
+        &index_filter_pairs(&request.filters),
     )?;
+    let names = name_match_terms(request);
     let mut rows = Vec::new();
     let mut artists = Vec::new();
 
     for (index, hit) in unique_hits(&response.data).enumerate() {
-        if let Some(candidate) = index_artist_candidate_from_feed(hit, query) {
+        if let Some(candidate) = index_artist_candidate_from_feed(hit, names.as_deref()) {
             artists.push(candidate);
         }
         rows.push((
@@ -810,20 +827,22 @@ fn fetch_index_feed_result_rows(
 /// through `index_track_result_artwork_url` (R47-02, R47-04).
 fn fetch_index_track_result_rows(
     client: &crate::api::Client,
-    query: &str,
+    request: &IndexSearchRequest,
 ) -> Result<IndexTrackSearchRows> {
     let response = client.search(
-        query,
+        request.q.as_deref(),
         Some("track"),
         Some(crate::api::PAGE_LIMIT),
         None,
         None,
+        &index_filter_pairs(&request.filters),
     )?;
+    let names = name_match_terms(request);
     let mut rows = Vec::new();
     let mut artists = Vec::new();
 
     for (index, hit) in unique_hits(&response.data).enumerate() {
-        artists.extend(index_artist_candidates_from_track(hit, query));
+        artists.extend(index_artist_candidates_from_track(hit, names.as_deref()));
         rows.push((
             index_item_id(INDEX_TRACK_ID_BASE, index),
             index_track_result_display(hit),
@@ -925,10 +944,10 @@ fn index_track_result_artwork_url(hit: &SearchResult) -> Option<String> {
 
 fn index_artist_candidate_from_feed(
     hit: &SearchResult,
-    query: &str,
+    names: Option<&str>,
 ) -> Option<IndexArtistCandidate> {
     let name = non_empty_str(hit.release_artist.as_deref())?;
-    index_artist_name_matches_query(name, query).then(|| {
+    index_artist_name_matches_query(name, names).then(|| {
         IndexArtistCandidate::new(
             name,
             non_empty_str(hit.feed_image_url.as_deref()).map(str::to_string),
@@ -940,14 +959,14 @@ fn index_artist_candidate_from_feed(
 /// `release_artist` fields, not from a fetched track detail.
 fn index_artist_candidates_from_track(
     hit: &SearchResult,
-    query: &str,
+    names: Option<&str>,
 ) -> Vec<IndexArtistCandidate> {
     [hit.track_artist.as_deref(), hit.release_artist.as_deref()]
         .into_iter()
         .filter_map(non_empty_str)
         .collect::<BTreeSet<_>>()
         .into_iter()
-        .filter(|name| index_artist_name_matches_query(name, query))
+        .filter(|name| index_artist_name_matches_query(name, names))
         .map(|name| IndexArtistCandidate::new(name, index_track_result_artwork_url(hit)))
         .collect()
 }
@@ -1158,12 +1177,73 @@ fn present_parts<const N: usize>(parts: [Option<String>; N]) -> Vec<String> {
     parts.into_iter().filter_map(non_empty_string).collect()
 }
 
-fn index_artist_name_matches_query(name: &str, query: &str) -> bool {
+/// The text that an artist row of a search matches (ADR 0087 Decision 5).
+/// It is the `q` of the request. A request with no `q` matches the words of
+/// its `artist:` filter, without the quotes. A request with neither gives
+/// no artist row, because each name would match.
+fn name_match_terms(request: &IndexSearchRequest) -> Option<String> {
+    request.q.clone().or_else(|| {
+        request
+            .filters
+            .artist
+            .as_ref()
+            .map(|artist| artist.replace('"', " "))
+    })
+}
+
+/// `true` when the name holds each word of `terms`. `None` matches no name.
+fn index_artist_name_matches_query(name: &str, terms: Option<&str>) -> bool {
+    let Some(terms) = terms else {
+        return false;
+    };
     let normalized_name = name.to_lowercase();
-    query
+    terms
         .split_whitespace()
         .map(str::to_lowercase)
         .all(|term| normalized_name.contains(&term))
+}
+
+/// The `GET /v1/search` filter parameters of one request (ADR 0087
+/// Decision 5, Stophammer ADR 0080 section 2). Each field is its own
+/// parameter. A date is `YYYY-MM-DD`, and a duration is whole seconds. The
+/// client sends the values to `api::Client::search`, which builds the URL.
+fn index_filter_pairs(filters: &IndexFilters) -> Vec<(&'static str, String)> {
+    let mut pairs: Vec<(&'static str, String)> = Vec::new();
+    let texts = [
+        ("artist", &filters.artist),
+        ("title", &filters.title),
+        ("release", &filters.release),
+    ];
+    for (name, value) in texts {
+        if let Some(value) = value {
+            pairs.push((name, value.clone()));
+        }
+    }
+    for (name, values) in [
+        ("not_artist", &filters.not_artist),
+        ("not_title", &filters.not_title),
+        ("not_release", &filters.not_release),
+        ("not_q", &filters.not_q),
+    ] {
+        pairs.extend(values.iter().map(|value| (name, value.clone())));
+    }
+    if !filters.kinds.is_empty() {
+        let words: Vec<&str> = filters.kinds.iter().map(|kind| kind.word()).collect();
+        pairs.push(("kind", words.join(",")));
+    }
+    if let Some(day) = filters.after {
+        pairs.push(("after", day.format("%Y-%m-%d").to_string()));
+    }
+    if let Some(day) = filters.before {
+        pairs.push(("before", day.format("%Y-%m-%d").to_string()));
+    }
+    if let Some(secs) = filters.min_duration {
+        pairs.push(("min_duration", secs.to_string()));
+    }
+    if let Some(secs) = filters.max_duration {
+        pairs.push(("max_duration", secs.to_string()));
+    }
+    pairs
 }
 
 pub(super) fn non_empty_str(value: Option<&str>) -> Option<&str> {
@@ -1598,7 +1678,7 @@ mod tests {
             feed_image_url: Some("https://example.test/feed.jpg".to_string()),
             ..SearchResult::default()
         };
-        let feed_candidate = index_artist_candidate_from_feed(&feed_hit, "survival")
+        let feed_candidate = index_artist_candidate_from_feed(&feed_hit, Some("survival"))
             .expect("a matching release_artist should produce a candidate");
         assert_eq!(feed_candidate.name, "Survival Guide");
         assert_eq!(
@@ -1613,7 +1693,7 @@ mod tests {
             release_artist: Some("Album Artist".to_string()),
             ..SearchResult::default()
         };
-        let track_candidates = index_artist_candidates_from_track(&track_hit, "survival");
+        let track_candidates = index_artist_candidates_from_track(&track_hit, Some("survival"));
         assert_eq!(
             track_candidates
                 .iter()
@@ -1802,7 +1882,8 @@ mod adr_0075_request_profile_tests {
         let fixture = Fixture::start();
         let client = crate::api::Client::new_with_base_url(fixture.endpoint.clone());
 
-        let rows = fetch_index_feed_result_rows(&client, "needle").unwrap();
+        let rows =
+            fetch_index_feed_result_rows(&client, &IndexSearchRequest::words("needle")).unwrap();
 
         assert_eq!(rows.rows.len(), 1);
         let requests = fixture.requests.lock().unwrap().clone();
@@ -1825,7 +1906,8 @@ mod adr_0075_request_profile_tests {
         let fixture = Fixture::start();
         let client = crate::api::Client::new_with_base_url(fixture.endpoint.clone());
 
-        let rows = fetch_index_track_result_rows(&client, "needle").unwrap();
+        let rows =
+            fetch_index_track_result_rows(&client, &IndexSearchRequest::words("needle")).unwrap();
 
         assert_eq!(rows.rows.len(), 1);
         let requests = fixture.requests.lock().unwrap().clone();
@@ -1914,9 +1996,7 @@ including publisher (ADR 0077 Decision 5). Got: {requests:?}"
         let fixture = Fixture::start();
         FetchIndexSearchResults::new(
             fixture.endpoint.clone(),
-            IndexSearchRequest {
-                q: "live results".to_owned(),
-            },
+            IndexSearchRequest::words("live results"),
             NameFeedMatches::default(),
         )
         .execute(&context(CancellationToken::new()))
@@ -1939,9 +2019,7 @@ including publisher (ADR 0077 Decision 5). Got: {requests:?}"
         token.cancel();
         let error = FetchIndexSearchResults::new(
             fixture.endpoint.clone(),
-            IndexSearchRequest {
-                q: "live results".to_owned(),
-            },
+            IndexSearchRequest::words("live results"),
             NameFeedMatches::default(),
         )
         .execute(&context(token))
@@ -1962,11 +2040,11 @@ mod adr_0084_name_level_query_tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    type Responder = Arc<dyn Fn(&str) -> (u16, String) + Send + Sync>;
+    pub(super) type Responder = Arc<dyn Fn(&str) -> (u16, String) + Send + Sync>;
 
     /// A local HTTP server that answers `expected` requests through
     /// `respond`, and records each request path.
-    fn serve(expected: usize, respond: Responder) -> (String, Arc<Mutex<Vec<String>>>) {
+    pub(super) fn serve(expected: usize, respond: Responder) -> (String, Arc<Mutex<Vec<String>>>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap().to_string();
         let requests = Arc::new(Mutex::new(Vec::new()));
@@ -2228,7 +2306,7 @@ mod adr_0084_name_level_query_tests {
         })
     }
 
-    fn empty_search() -> String {
+    pub(super) fn empty_search() -> String {
         serde_json::json!({"data": [], "pagination": {"has_more": false}}).to_string()
     }
 
@@ -2249,7 +2327,7 @@ mod adr_0084_name_level_query_tests {
         );
         let rows = fetch_index_search_result_rows(
             &endpoint.into(),
-            "Libre",
+            &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
             &CancellationToken::new(),
         )
@@ -2322,7 +2400,7 @@ mod adr_0084_name_level_query_tests {
         );
         let rows = fetch_index_search_result_rows(
             &endpoint.into(),
-            "Libre",
+            &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
             &CancellationToken::new(),
         )
@@ -2380,7 +2458,7 @@ mod adr_0084_name_level_query_tests {
             serve(3, Arc::new(move |_path: &str| (400, rejected.to_owned())));
         let error = fetch_index_search_result_rows(
             &endpoint.into(),
-            "haleen'",
+            &IndexSearchRequest::words("haleen'"),
             &NameFeedMatches::default(),
             &CancellationToken::new(),
         )
@@ -2400,7 +2478,7 @@ mod adr_0084_name_level_query_tests {
         let (endpoint, _requests) = serve(3, Arc::new(|_path: &str| (500, "{}".to_owned())));
         let error = fetch_index_search_result_rows(
             &endpoint.into(),
-            "haleen",
+            &IndexSearchRequest::words("haleen"),
             &NameFeedMatches::default(),
             &CancellationToken::new(),
         )
@@ -2436,7 +2514,7 @@ mod adr_0084_name_level_query_tests {
         );
         let rows = fetch_index_search_result_rows(
             &endpoint.into(),
-            "Libre",
+            &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
             &CancellationToken::new(),
         )
@@ -2447,7 +2525,7 @@ mod adr_0084_name_level_query_tests {
         let (endpoint, _requests) = serve(3, Arc::new(|_path: &str| (500, "{}".to_owned())));
         assert!(fetch_index_search_result_rows(
             &endpoint.into(),
-            "Libre",
+            &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
             &CancellationToken::new()
         )
@@ -2487,7 +2565,7 @@ mod adr_0084_name_level_query_tests {
 
         let rows = fetch_index_search_result_rows(
             &endpoint.as_str().into(),
-            "zz",
+            &IndexSearchRequest::words("zz"),
             &NameFeedMatches::default(),
             &CancellationToken::new(),
         )
@@ -2515,7 +2593,7 @@ mod adr_0084_name_level_query_tests {
 
         let rows = fetch_index_search_result_rows(
             &endpoint.as_str().into(),
-            "zz",
+            &IndexSearchRequest::words("zz"),
             &NameFeedMatches::default(),
             &CancellationToken::new(),
         )
@@ -2554,7 +2632,7 @@ mod adr_0084_name_level_query_tests {
         let IndexSearchPlan::Send(request) = IndexSearchPlan::for_query(&query) else {
             panic!("the query sends the Index search");
         };
-        assert_eq!(Some(request.q.clone()), query.index_q());
+        assert_eq!(request.q, query.index_q());
         let (endpoint, requests) = serve(3, Arc::new(|_: &str| (200, empty_search())));
 
         FetchIndexSearchResults::new(endpoint, request, NameFeedMatches::default())
@@ -2570,6 +2648,226 @@ mod adr_0084_name_level_query_tests {
                 assert!(!path.contains(token), "{path} holds {token}");
             }
         }
+    }
+}
+
+/// ADR 0087 packet 011: each field of a query reaches its Index parameter.
+/// Each test serves recorded responses and reads the query pairs of each
+/// request.
+#[cfg(test)]
+mod adr_0087_index_fields_tests {
+    use super::adr_0084_name_level_query_tests::{empty_search, serve};
+    use super::*;
+    use crate::view_models::search_query::SearchQuery;
+    use crate::view_models::search_results::IndexSearchPlan;
+    use std::sync::Arc;
+
+    /// The request of a query that sends one.
+    fn sent(text: &str) -> IndexSearchRequest {
+        match IndexSearchPlan::for_query(&SearchQuery::parse(text)) {
+            IndexSearchPlan::Send(request) => request,
+            other => panic!("{text} must send a request, got {other:?}"),
+        }
+    }
+
+    /// Runs the command of `request` against `respond`. It gives the paths
+    /// of the requests, each with its query pairs.
+    fn run(
+        request: &IndexSearchRequest,
+        respond: super::adr_0084_name_level_query_tests::Responder,
+        expected: usize,
+    ) -> Vec<(String, Vec<(String, String)>)> {
+        let (endpoint, requests) = serve(expected, respond);
+        let _ = fetch_index_search_result_rows(
+            &endpoint.into(),
+            request,
+            &NameFeedMatches::default(),
+            &CancellationToken::new(),
+        );
+        let paths = requests.lock().unwrap().clone();
+        paths
+            .into_iter()
+            .map(|path| {
+                let url = reqwest::Url::parse(&format!("http://localhost{path}"))
+                    .expect("the request path is a URL");
+                let pairs = url
+                    .query_pairs()
+                    .map(|(key, value)| (key.into_owned(), value.into_owned()))
+                    .collect();
+                (path, pairs)
+            })
+            .collect()
+    }
+
+    fn has(pairs: &[(String, String)], key: &str, value: &str) -> bool {
+        pairs.iter().any(|(k, v)| k == key && v == value)
+    }
+
+    fn types(requests: &[(String, Vec<(String, String)>)]) -> Vec<String> {
+        requests
+            .iter()
+            .filter_map(|(_, pairs)| {
+                pairs
+                    .iter()
+                    .find(|(key, _)| key == "type")
+                    .map(|(_, value)| value.clone())
+            })
+            .collect()
+    }
+
+    /// R87-11-10: a field reaches its parameter, and no request holds `q`
+    /// when the query has no word. A text filter goes to each type that takes
+    /// it.
+    #[test]
+    fn adr_0087_index_fields_r87_11_10_text_field_reaches_each_type() {
+        let requests = run(
+            &sent("title:hey"),
+            Arc::new(|_: &str| (200, empty_search())),
+            3,
+        );
+        assert_eq!(requests.len(), 3, "Got: {requests:?}");
+        for (path, pairs) in &requests {
+            assert!(has(pairs, "title", "hey"), "{path}");
+            assert!(!pairs.iter().any(|(key, _)| key == "q"), "{path} holds q");
+        }
+        assert_eq!(types(&requests), ["feed", "track", "publisher"]);
+    }
+
+    /// R87-11-11: `kind:` and `after:` reach the feed and track requests.
+    /// The publisher type takes neither, so it gets no request.
+    #[test]
+    fn adr_0087_index_fields_r87_11_11_kind_and_date_skip_the_publisher() {
+        let requests = run(
+            &sent("haleen kind:single after:2026-10"),
+            Arc::new(|_: &str| (200, empty_search())),
+            2,
+        );
+        assert_eq!(types(&requests), ["feed", "track"], "Got: {requests:?}");
+        for (path, pairs) in &requests {
+            assert!(has(pairs, "q", "haleen"), "{path}");
+            assert!(has(pairs, "kind", "single"), "{path}");
+            assert!(has(pairs, "after", "2026-10-01"), "{path}");
+            assert!(!pairs.iter().any(|(key, _)| key == "before"), "{path}");
+        }
+    }
+
+    /// R87-11-12: a duration goes to the track request only, in whole
+    /// seconds. An exclusion without a word still has a positive field, so the
+    /// request is sent.
+    #[test]
+    fn adr_0087_index_fields_r87_11_12_duration_goes_to_tracks_only() {
+        let requests = run(
+            &sent("duration:>5m -title:remix"),
+            Arc::new(|_: &str| (200, empty_search())),
+            1,
+        );
+        assert_eq!(types(&requests), ["track"], "Got: {requests:?}");
+        let (_, pairs) = &requests[0];
+        assert!(has(pairs, "min_duration", "301"));
+        assert!(has(pairs, "not_title", "remix"));
+        assert!(!pairs.iter().any(|(key, _)| key == "q"));
+    }
+
+    /// R87-11-13: an exclusion of a word goes to `not_q`, and each Index
+    /// request holds `q` for the word.
+    #[test]
+    fn adr_0087_index_fields_r87_11_13_exclusion_reaches_not_q() {
+        let requests = run(
+            &sent("haleen -remix"),
+            Arc::new(|_: &str| (200, empty_search())),
+            3,
+        );
+        assert_eq!(requests.len(), 3, "Got: {requests:?}");
+        for (path, pairs) in &requests {
+            assert!(has(pairs, "q", "haleen"), "{path}");
+            assert!(has(pairs, "not_q", "remix"), "{path}");
+        }
+    }
+
+    /// R87-11-14: a track row of a filtered search keeps its title and its
+    /// art. The summary fields of the row give them, with no detail request.
+    #[test]
+    fn adr_0087_index_fields_r87_11_14_filtered_track_row_keeps_title_and_art() {
+        let track_rows = serde_json::json!({
+            "data": [{
+                "entity_type": "track",
+                "entity_id": "866fb15f-546e-44b7-a2dc-801ba0006087",
+                "feed_guid": "fe17f4f6-074f-4b2c-a450-611faccfaea2",
+                "title": "Hey! (I Wanted Love)",
+                "feed_title": "Various & Assorted",
+                "track_image_url": "https://example.com/track.png",
+                "feed_image_url": "https://example.com/feed.png",
+                "track_artist": "Matt Finlay",
+                "duration_secs": 254,
+                "pub_date": 1775552158
+            }],
+            "pagination": {"has_more": false, "cursor": null}
+        })
+        .to_string();
+        let (endpoint, requests) = serve(
+            3,
+            Arc::new(move |path: &str| {
+                if path.contains("type=track") {
+                    (200, track_rows.clone())
+                } else {
+                    (200, empty_search())
+                }
+            }),
+        );
+        let rows = fetch_index_search_result_rows(
+            &endpoint.into(),
+            &sent("title:hey"),
+            &NameFeedMatches::default(),
+            &CancellationToken::new(),
+        )
+        .expect("the recorded response decodes");
+
+        assert_eq!(rows.tracks.len(), 1);
+        let (_, row) = &rows.tracks[0];
+        assert_eq!(row.label, "Hey! (I Wanted Love)");
+        assert_eq!(
+            row.thumbnail_href.as_deref(),
+            Some("https://example.com/track.png")
+        );
+        assert_eq!(requests.lock().unwrap().len(), 3);
+    }
+
+    /// R87-11-15: a field query with no word gives no artist row for each
+    /// name in the results. Only the name of the `artist:` filter matches.
+    #[test]
+    fn adr_0087_index_fields_r87_11_15_artist_rows_need_a_name_term() {
+        let track_rows = serde_json::json!({
+            "data": [{
+                "entity_type": "track",
+                "entity_id": "t1",
+                "feed_guid": "f1",
+                "title": "One",
+                "track_artist": "Someone Else",
+                "release_artist": "Someone Else"
+            }],
+            "pagination": {"has_more": false, "cursor": null}
+        })
+        .to_string();
+        let (endpoint, requests) = serve(
+            3,
+            Arc::new(move |path: &str| {
+                if path.contains("type=track") {
+                    (200, track_rows.clone())
+                } else {
+                    (200, empty_search())
+                }
+            }),
+        );
+        let rows = fetch_index_search_result_rows(
+            &endpoint.into(),
+            &sent("title:one"),
+            &NameFeedMatches::default(),
+            &CancellationToken::new(),
+        )
+        .expect("the recorded response decodes");
+
+        assert!(rows.artists.is_empty(), "no name term, no artist row");
+        assert_eq!(requests.lock().unwrap().len(), 3);
     }
 }
 

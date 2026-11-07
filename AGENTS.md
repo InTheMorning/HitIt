@@ -61,6 +61,8 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [musicindex ADR 0043](../musicindex/docs/adr/0043-a-list-sort-can-be-reversed.md), the reverse icon of a sort, is Accepted on 2026-11-06. The [phase plan](docs/plans/musicindex-adr-0043-sort-reverse-phase-plan.md) holds its packets. Packets 001 to 003 are implemented on 2026-11-06, and their check is open in section 13 of [pending human checks](docs/pending-human-checks.md). A list from the Index shows no reverse icon until Stophammer answers request 15.
 
+[ADR 0087 packet 011](docs/tasks/adr-0087-task-011-index-receives-the-fields.md) sends each search field to the Index as its own filter, and ADR 0087 lists the differences from the Library. [Responsiveness task 001](docs/tasks/responsiveness-task-001-no-ui-thread-database-wait.md) removes the hang of a download or a removal. The operator confirmed both on 2026-11-06.
+
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for

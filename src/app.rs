@@ -1605,13 +1605,13 @@ impl TopApp {
         cx: &mut Context<Self>,
     ) -> WorkspaceSlots {
         let entity = cx.entity();
-        let (items, header_action, bar, thumbnail_hrefs, save_action) = {
+        let (items, select_action, bar, thumbnail_hrefs, save_action) = {
             let library = self.library.read(cx);
             let lookup = library.search_lookup();
             let search_results = self.search_results_detail.as_ref().unwrap();
             (
                 search_results.visible_items(&lookup),
-                search_results.header_action(&lookup),
+                search_results.select_action(&lookup),
                 search_results
                     .action_bar(&lookup)
                     .zip(search_results.selection_rows(&lookup)),
@@ -1627,7 +1627,16 @@ impl TopApp {
         let failure_entity = entity.clone();
         let save_entity = entity.clone();
         let scope_entity = entity.clone();
-        let inspector_slots = SearchResultsInspectorSlots::new()
+        let mut inspector_slots = SearchResultsInspectorSlots::new();
+        if let Some(select_action) = select_action {
+            let select_action_entity = entity.clone();
+            inspector_slots = inspector_slots.header_action(select_action, move |window, cx| {
+                select_action_entity.update(cx, |this, cx| {
+                    this.toggle_search_selection_mode(SearchPageSlot::ToolbarSearch, window, cx);
+                });
+            });
+        }
+        let inspector_slots = inspector_slots
             .on_failure_action(move |action, _window, cx| {
                 failure_entity.update(cx, |this, cx| {
                     this.handle_search_failure_action(SearchPageSlot::ToolbarSearch, action, cx);
@@ -1644,10 +1653,7 @@ impl TopApp {
                 });
             })
             .on_sort_select(sort_handler(entity.clone(), SearchPageSlot::ToolbarSearch))
-            .on_reverse_select(reverse_handler(
-                entity.clone(),
-                SearchPageSlot::ToolbarSearch,
-            ))
+            .on_reverse_select(reverse_handler(entity, SearchPageSlot::ToolbarSearch))
             .on_result_select(move |tab, result_id, key, modifiers, window, cx| {
                 select_entity.update(cx, |this, cx| {
                     this.click_search_result_row(
@@ -1690,20 +1696,13 @@ impl TopApp {
         let bar = bar.map(|(bar, rows)| {
             self.render_search_action_bar(SearchPageSlot::ToolbarSearch, bar, &rows, cx)
         });
-        let content =
-            self.render_search_list_frame(SearchPageSlot::ToolbarSearch, inspector_content, bar);
-        let mut slots = slots.content_list(content);
-        if let Some(header_action) = header_action {
-            let header_action_entity = entity;
-            slots = slots
-                .content_list_header_action(header_action)
-                .on_content_list_header_action(move |_window, cx| {
-                    header_action_entity.update(cx, |this, cx| {
-                        this.toggle_search_selection_mode(SearchPageSlot::ToolbarSearch, cx);
-                    });
-                });
-        }
-        slots
+        let content = self.render_search_list_frame(
+            SearchPageSlot::ToolbarSearch,
+            inspector_content,
+            bar,
+            cx,
+        );
+        slots.content_list(content)
     }
 
     /// Gives the page content state of a Music page entry (ADR 0089
@@ -1837,6 +1836,16 @@ impl TopApp {
         // slot, and the list column always shows the Library list. In
         // Settings, the page still fills the content-list slot, as before.
         let fills_detail = matches!(mount, WorkspaceScreenMount::Music);
+        // Task 039, step 6: the detail rows of this frame. Each consumer
+        // below reads this value, so the page is not computed for each call.
+        let detail_rows = if fills_detail {
+            self.detail_page_rows(cx)
+        } else {
+            None
+        };
+        if fills_detail {
+            self.sync_page_keyboard_focus(detail_rows.as_ref(), window, cx);
+        }
 
         // Stage 2: Body switch is exhaustive on nav top
         let current_nav = self
@@ -2032,9 +2041,12 @@ impl TopApp {
                 let header_action_entity = entity.clone();
                 workspace_slots = workspace_slots
                     .content_list_header_action(header_action)
-                    .on_content_list_header_action(move |_window, cx| {
+                    .on_content_list_header_action(move |window, cx| {
                         header_action_entity.update(cx, |this, cx| {
                             this.toggle_list_column_selection_mode(cx);
+                            // The rows take the keys of the mode.
+                            let list = this.library.read(cx).list_column_focus().clone();
+                            window.focus(&list, cx);
                         });
                     });
             }
@@ -2054,16 +2066,17 @@ impl TopApp {
         // focus, its "Select" and "Done" button and its action bar.
         if fills_detail {
             if let Some(content) = workspace_slots.take_detail_slot() {
-                let content = self.render_detail_column_frame(content, cx);
+                let content = self.render_detail_column_frame(content, detail_rows.as_ref(), cx);
                 workspace_slots = workspace_slots.detail_slot(content);
             }
-            if let Some(header_action) = self.detail_column_header_action(cx) {
+            if let Some(header_action) = self.detail_column_header_action(detail_rows.as_ref(), cx)
+            {
                 let header_action_entity = entity.clone();
                 workspace_slots = workspace_slots
                     .detail_header_action(header_action)
-                    .on_detail_header_action(move |_window, cx| {
+                    .on_detail_header_action(move |window, cx| {
                         header_action_entity.update(cx, |this, cx| {
-                            this.toggle_detail_selection_mode(cx);
+                            this.toggle_detail_selection_mode(window, cx);
                         });
                     });
             }

@@ -453,7 +453,26 @@ pub struct LibraryApp {
     /// at most `ALBUM_IDENTITY_BACKFILL_CONCURRENCY` commands run at a
     /// time.
     album_identity_backfill_queue: VecDeque<(i64, String)>,
+    /// One readiness load at a time (ADR 0084 Decision 10 as amended
+    /// 2026-10-24, task 039, step 3).
+    readiness_flight: single_flight::SingleFlight,
+    /// `true` while an Inbox open waits for the next readiness result.
+    readiness_open_pending: bool,
+    /// The show playlist track ids of the last readiness load (task 039,
+    /// step 2). The Inbox uses them without a database read on the main
+    /// thread.
+    inbox_source_track_ids: Vec<i64>,
+    /// One Library tree load at a time (task 039, step 4).
+    tree_flight: single_flight::SingleFlight,
+    /// One playlist sidebar load at a time (task 039, step 4).
+    playlist_flight: single_flight::SingleFlight,
+    /// The steps that read the playlist list. Each one runs after the next
+    /// load that ends with no waiting run.
+    playlist_after: Vec<PlaylistContinuation>,
 }
+
+/// A step that reads the playlist list after a reload.
+type PlaylistContinuation = Box<dyn FnOnce(&mut LibraryApp, &mut gpui::Context<LibraryApp>)>;
 
 pub(crate) struct PlaylistActorState {
     pub(crate) playlist_id: i64,
@@ -471,6 +490,7 @@ mod music_scopes;
 mod public_playlists;
 mod release_page;
 mod saved_searches;
+mod single_flight;
 mod track_page;
 
 pub(crate) use app_impl::playlist_options;

@@ -781,6 +781,9 @@ mod tests {
         results.set_tab(SearchResultsTab::Tracks);
         let action = results.header_action(&lookup).expect("Tracks has Select");
         assert_eq!(action.id, "music-detail-column-select-tracks");
+        let title_row = results.select_action(&lookup).expect("Tracks has Select");
+        assert_eq!(title_row.label, "Select");
+        assert_eq!(title_row.a11y_label, action.a11y_label);
         results.toggle_mode();
         results.select_all(&lookup);
         let bar = results.action_bar(&lookup).expect("Selecting shows a bar");

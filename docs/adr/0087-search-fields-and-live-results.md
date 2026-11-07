@@ -12,6 +12,8 @@ Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md):
 
 Amended 2026-10-24: the operator decided that a live run retains no failed action. Decision 4 now states it. [ADR 0087 task 009](../tasks/adr-0087-task-009-one-error-for-the-latest-text.md) builds it.
 
+Amended 2026-11-06: Decision 5 sends each Index field as its own filter. [ADR 0087 task 011](../tasks/adr-0087-task-011-index-receives-the-fields.md) builds it. The known differences from the Library are in "Known Differences From The Library".
+
 ## Context
 
 On 2026-10-23 the operator asked for a powerful search. The search field must show the field headers when the curator clicks it, as Discord does. The curator must be able to type fields in the query, as in the library search of Mixxx.
@@ -22,7 +24,7 @@ The orchestrator recorded these facts on 2026-10-23:
 - No code parses a query. The Library search is one SQL `LIKE` match against the track title, the artist, the album title, the album artist and the feed title (`db::search_library_tracks`, `src/db.rs:561-601`). It gives at most 50 tracks (`DEFAULT_LOCAL_LIBRARY_SEARCH_LIMIT`).
 - The Index search sends three `GET /v1/search` requests, for `type=feed`, `type=track` and `type=publisher` (`fetch_index_search_result_rows`, `src/application/queries/search.rs:226-275`).
 - Stophammer gives `q` to FTS5 after it removes some operator characters (`sanitize_fts5_query`, `../stophammer/src/search.rs:224-242`). The FTS5 columns are `name`, `title`, `description` and `tags`. Thus `title:foo` works by chance, `artist:foo` gives `400`, and an apostrophe gives `400` (open request 10).
-- No Stophammer route filters a search by release kind, date or duration.
+- The Stophammer contract of release 0.18.1 filters `GET /v1/search` by `artist`, `title`, `release` and `kind`, by date (`after` and `before`, each `YYYY-MM-DD`) and by track duration (`min_duration` and `max_duration`, in integer seconds). Each filter applies to some entity types only. A type that does not accept a filter gives `400`. The text filters and the exclusions are in open request 10. The values were read on 2026-11-06 with read-only GET calls.
 - A saved search stores the raw query text only (`src/db/saved_searches.rs`, migration 21).
 - The popover primitive keeps the keyboard focus inside the popover (`src/ui/primitives/popover.rs`). A field list must keep the focus in the search field.
 
@@ -47,12 +49,12 @@ One parser in the view model layer reads the text. The parser gives a typed quer
 | Field | Values | Library | Index |
 |---|---|---|---|
 | `artist:` | text | The track artist or the album artist | Stophammer filter (Decision 5) |
-| `title:` | text | The track title or the release title | Stophammer filter |
+| `title:` | text | The track title or the release title | Stophammer filter. A track row matches its track title only (Known Differences 1) |
 | `release:` | text | The release title | Stophammer filter |
-| `kind:` | `album`, `ep`, `single`, with commas for more than one | The release kind of ADR 0084 Decision 5 | Stophammer filter |
+| `kind:` | `album`, `ep`, `single`, with commas for more than one | The release kind of ADR 0084 Decision 5 | Stophammer filter. It matches the stated kind only (Known Differences 2) |
 | `in:` | `library`, `index` | Sets the scope | Sets the scope |
-| `after:`, `before:` | a date, `2026-10-01`, or a month, `2026-10` | The release date of ADR 0086 Decision 1, and the `pub_date` of a track | Stophammer filter |
-| `duration:` | `>5m`, `<3:30`, `3m..5m` | The duration of a track | Stophammer filter |
+| `after:`, `before:` | a date, `2026-10-01`, or a month, `2026-10` | The release date of ADR 0086 Decision 1, and the `pub_date` of a track | Stophammer filter. A feed row uses its newest item date (Known Differences 3) |
+| `duration:` | `>5m`, `<3:30`, `3m..5m` | The duration of a track | Stophammer filter for track rows only (Known Differences 4) |
 | `is:` | `downloaded`, `partial`, `ready`, `removed` | The Library state of ADR 0084 Decision 8, the show readiness of ADR 0059, and the "Removed from feed" mark of ADR 0076 | None |
 | `playlist:` | a playlist name | The tracks of that playlist | None |
 | `has:` | `split`, `image` | A value block with payment routes, or an image of its own | None |
@@ -61,6 +63,7 @@ One parser in the view model layer reads the text. The parser gives a typed quer
 - `duration:` applies to tracks. A release row shows when one or more of its tracks match.
 - `is:`, `playlist:` and `has:` apply to the Library only. A query with one of them shows no Index rows. The field list marks these fields "Library only".
 - `in:index` shows no Library rows. A query with `in:index` and a Library-only field shows no rows, and the field list shows the conflict.
+- An excluded `kind:`, `after:`, `before:` or `duration:` has no Index filter. The Index part shows the note of Decision 5.
 
 ### 3. The Field List
 
@@ -91,9 +94,19 @@ After the curator stops typing for a pause, the search runs against the Library 
 
 ### 5. The Index Receives Filters, Never Syntax
 
-v4vmm sends the words and the phrases in `q`, and each Index field as its own parameter. Stophammer never parses the field syntax. [Open request 10](../plans/v4vmm-open-requests.md#10-search-accepts-words-phrases-and-field-filters) asks for these parameters.
+v4vmm sends the words and the phrases in `q`, and each Index field as its own parameter. Stophammer never parses the field syntax. [Open request 10](../plans/v4vmm-open-requests.md#10-search-accepts-words-phrases-and-field-filters) asks for these parameters. Stophammer deployed them in release 0.15.0.
 
-Until Stophammer supports a filter, a query with that field shows no Index rows. The page names the field, for example "MusicIndex cannot filter by after: yet. The Library rows show." The page never shows Index rows that the filter did not reduce.
+- `q` holds the words and the phrases with no `-`. A query with fields and no word sends no `q`.
+- `artist:`, `title:` and `release:` give the parameters `artist`, `title` and `release`. Two values of one field join with a space, so each value applies.
+- A word or a phrase with `-` gives `not_q`. `-artist:`, `-title:` and `-release:` give `not_artist`, `not_title` and `not_release`. Each value is one exclusion.
+- `kind:` gives `kind`. Two `kind:` terms keep the kinds that both have. No shared kind sends no Index request.
+- `after:` gives `after`, and `before:` gives `before`. Each value is `YYYY-MM-DD`. A day gives that day in both. A month gives its first day in `after:`, and its last day in `before:`.
+- `duration:` gives `min_duration` and `max_duration`, in integer seconds. Each limit is included, as `duration:` is.
+- Each entity type takes only some filters. A publisher row has no release, kind, date or duration, so `type=publisher` gets no request when the query has one of them. A feed row has no duration, so `type=feed` gets no request for a duration. Stophammer gives `400` for a filter that a type does not take. v4vmm sends no such filter. Each type gets its own request, so the run still sends at most three requests.
+- A query with exclusions and no positive term sends no request. Stophammer gives `400` with the code `missing_positive_term` for that request.
+- An excluded `kind:`, `after:`, `before:` or `duration:` has no parameter. The Index part shows the note "MusicIndex cannot exclude kind: yet. The Library rows show." The contract has no `not_` form for these fields.
+
+The page never shows Index rows that a filter did not reduce.
 
 ### 6. A Saved Search Keeps Its Text
 
@@ -107,7 +120,8 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 - A Library value goes into SQL only as a bound parameter, with its `LIKE` characters escaped.
 - A Library text term matches at the start of a word, as the Index does. "hey" finds "HeyCitizen" and not "They". The operator decided this on 2026-11-06.
 - No Index request carries field syntax in `q`.
-- Index rows show only when each Index field of the query is applied by Stophammer.
+- Index rows of an entity type show only when Stophammer applies each Index field of the query to that type.
+- No Index request holds a filter that its entity type does not accept.
 - A result of an older run never replaces the result of a newer run.
 
 ## Non-Goals
@@ -117,6 +131,18 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 - Fields for genre, BPM and key. The Library stores them only as file tags.
 - A change to the result tabs or to the search page layout.
 
+## Known Differences From The Library
+
+These differences stay after packet 011 of [ADR 0087 task 011](../tasks/adr-0087-task-011-index-receives-the-fields.md). Each one comes from the Index, not from the parser. The values were read on 2026-11-06 with read-only GET calls.
+
+1. **`title:` on a track.** The Library also matches the release title. The Index `title` filter matches the track title only. On 2026-11-06, `title=assorted&type=track` gave no row, and `release=assorted&type=track` gave 7 rows of the feed "Various & Assorted". The fix is open request 14, part 1. It is not sent.
+2. **`kind:`.** The Index matches only the release kind that a feed states, and most feeds state `unknown`. On 2026-11-06, `kind=single`, `kind=album` and `kind=ep` gave no row, and `kind=unknown` gave rows. So `kind:single`, `kind:album` and `kind:ep` show no Index rows today. The Library gives `single` to one track, `album` to each other release and no `ep`. The fix is open request 14, part 2.
+3. **`after:` and `before:` on a feed.** The Index compares the newest item date of the feed. The Library compares the release date (ADR 0086 Decision 1). A track row uses its `pub_date` in both.
+4. **`duration:`.** The Index filters track rows only. A query with `duration:` shows no feed rows from the Index. The Library shows a release when one of its tracks matches.
+5. **Words in a phrase with a quote.** v4vmm sends `\"` for a quote inside a phrase. The client sanitizer changes each backslash to a space, so the quote does not reach the Index as typed. This also holds for `q` before this packet.
+6. **Artist rows.** A query with no word gives artist rows only for the name of its `artist:` term. A query with no word and no `artist:` term gives no artist row.
+7. **The first page.** The Index part reads the first page of each type, 20 rows. The Library reads at most 50 tracks.
+
 ## Consequences
 
 - A curator can find "the singles of jSmovie after October 1" with one query.
@@ -124,7 +150,7 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 - `is:ready` reads the show readiness of each matched track. On a large Library this can be slow.
 - The app adds one shared composite, the field list, and one parser module.
 - The Library search gets one query builder for each field. The 50-track limit stays.
-- Until Stophammer answers request 10, the Index fields show no Index rows.
+- The Index fields send filters to Stophammer. The known differences of this ADR stay until their open requests are answered.
 
 ## Alternatives Considered
 
@@ -152,7 +178,8 @@ A unit test in the owner layer proves each criterion.
 - The Library query builder binds each value as a parameter and escapes `%`, `_` and `\`.
 - A Library query with each field of Decision 2 gives the expected tracks from a recorded database.
 - A query with a Library-only field gives no Index request.
-- A query with an Index field that the stored contract does not support gives no Index rows and the note of Decision 5.
+- A query with an excluded `kind:`, `after:`, `before:` or `duration:` gives no Index request and the note of Decision 5.
+- Each field of a query reaches its parameter, and a request holds no filter that its entity type does not accept. Packet 011 tests these in `src/application/queries/search.rs` and `src/view_models/search_results/search_run.rs`.
 - No Index request holds a field name in `q`.
 - The field list view model gives the fields for an empty text, the matching fields for `ar`, and the values for `kind:`.
 - The field list view model moves the selection with Up and Down, and Tab puts the selected row into the text.
@@ -168,4 +195,4 @@ A person inspects each criterion in the running app.
 - The values of `artist:` and `playlist:` show and update while the curator types.
 - The results change in place while the curator types, with no flash of old results.
 - The error text of a field that is not correct.
-- The note of Decision 5 for an Index field that Stophammer does not support.
+- The note of Decision 5 for an excluded field that the Index cannot apply.

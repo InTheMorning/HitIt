@@ -239,9 +239,12 @@ fn store_document(
     feed_url: &str,
     body: &[u8],
 ) -> Result<bool> {
+    // The MusicIndex read runs before the lock (ADR 0084 Decision 10 as
+    // amended 2026-10-24, task 039).
+    let updated_at = rss::musicindex_updated_at_for_body(body, endpoint);
     let mut db = lock(conn)?;
     let prior_subscribed = db::feed_is_subscribed_by_url(&db, feed_url).unwrap_or(false);
-    match rss::subscribe_feed_body(&mut db, feed_url, body, endpoint) {
+    match rss::subscribe_feed_body(&mut db, feed_url, body, updated_at) {
         Ok(()) => {
             if !prior_subscribed {
                 db::set_feed_subscribed_by_url(&db, feed_url, false)?;

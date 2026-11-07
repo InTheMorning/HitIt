@@ -4008,7 +4008,7 @@ fn adr_0047_task_015_search_submit_commands() {
         // ADR 0084 packet 010: the search list has its own checkbox wiring
         // and its own "Select" button.
         ".on_row_toggle(move |key, window, cx|",
-        "this.toggle_search_selection_mode(SearchPageSlot::ToolbarSearch, cx);",
+        "this.toggle_search_selection_mode(SearchPageSlot::ToolbarSearch, window, cx);",
     ] {
         if !app_source.contains(required) {
             violations.push(format!(
@@ -12450,7 +12450,7 @@ fn adr_0065_readiness_rows_keep_state_labels_separate_from_actions() {
     for required in [
         "CheckFeedsAndRepairRoutes::new",
         "finish_all_feed_check_with_route_repair",
-        "refresh_current_broadcast_readiness_report()",
+        "refresh_current_broadcast_readiness_report(cx)",
     ] {
         if !check_all.contains(required) {
             violations.push(format!(
@@ -12468,7 +12468,7 @@ fn adr_0065_readiness_rows_keep_state_labels_separate_from_actions() {
         "RepairPaymentRoutesForTrack::new",
         "begin_broadcast_route_repair(track_id)",
         "finish_broadcast_route_repair",
-        "refresh_current_broadcast_readiness_report()",
+        "refresh_current_broadcast_readiness_report(cx)",
     ] {
         if !row_repair.contains(required) {
             violations.push(format!(
@@ -23042,8 +23042,8 @@ closure to continue the pass only under `if trigger == AlbumHydrationTrigger::Ba
         "fn start_async_reload_with_mode(",
         "fn reload_playlists(",
     );
-    let check_at = reload.find("if !this.album_identity_backfill_started {");
-    let call_at = reload.find("this.start_album_identity_backfill(cx);");
+    let check_at = reload.find("if !self.album_identity_backfill_started {");
+    let call_at = reload.find("self.start_album_identity_backfill(cx);");
     assert!(
         matches!((check_at, call_at), (Some(check_at), Some(call_at)) if check_at < call_at),
         "{FIX}"
@@ -23152,6 +23152,9 @@ fn adr_0086_parallel_reads_r86_1_06_feed_detail_reads_use_the_shared_limit() {
 fn window_groups_built_once_violations(library: &str, files: &[(String, String)]) -> Vec<String> {
     const BUILD: &str = "NewReleasesLayout::build(";
     const SHARED: &str = "NewReleasesLayout::for_list(";
+    // The window page builds the same groups without the source copy
+    // (task 039, step 6), so it calls `for_rows`. It is the same build site.
+    const SHARED_ROWS: &str = "NewReleasesLayout::for_rows(";
     let mut violations = Vec::new();
     // ADR 0089 packet 005 part B, requirement 3: the one build site is
     // `NewReleasesLayout::for_list`, which Discover and the Releases list share.
@@ -23166,9 +23169,11 @@ fn window_groups_built_once_violations(library: &str, files: &[(String, String)]
         "recent_music_windows_open",
     ];
     let callers_call = callers.iter().all(|name| {
-        music_open_defects_fn_body(library, name).is_some_and(|body| body.contains(SHARED))
+        music_open_defects_fn_body(library, name)
+            .is_some_and(|body| body.contains(SHARED) || body.contains(SHARED_ROWS))
     });
-    if library.matches(SHARED).count() != callers.len() || !callers_call {
+    let shared_calls = library.matches(SHARED).count() + library.matches(SHARED_ROWS).count();
+    if shared_calls != callers.len() || !callers_call {
         violations.push(format!(
             "src/view_models/library.rs: only `fn newest_releases_rows`, `fn window_group_page` and `fn recent_music_windows_open` call `{SHARED}`"
         ));
@@ -24418,4 +24423,145 @@ fn adr_0089_active_pane_bindings_exclude_the_letter_bar() {
         2,
         "ADR 0089 Decision 9: both active pane binding contexts must exclude LetterBar."
     );
+}
+
+/// A search page shows "Select" in its title row, not in a band of its own.
+/// The operator found the band odd on 2026-11-06.
+#[test]
+fn adr_0089_decision_6_search_page_select_is_in_the_title_row() {
+    let app = read_source(&manifest_path("src/app.rs"));
+    let list = source_between(&app, "fn with_search_results_list(", "\n    }\n");
+    assert!(
+        !list.contains("content_list_header_action") && list.contains("select_action"),
+        "ADR 0089 Decision 6: a search page has \"Select\" in its title row. Give \
+`SearchResultsInspectorSlots::header_action` the view model `select_action`, and not the frame band."
+    );
+}
+
+/// Situational ADR 0084 Decision 10 as amended 2026-10-24, task 039 (step 1).
+/// The MusicIndex feed request waits on the network. A request inside the
+/// function that persists under the database lock blocks every other caller
+/// of that lock, and the main thread waits with them. The fix is to call
+/// `musicindex_updated_at_for_body` before the lock, then pass its value to
+/// `subscribe_feed_body`.
+#[test]
+fn adr_0084_task_039_subscribe_persists_without_a_musicindex_request() {
+    const FIX: &str = "Call rss::musicindex_updated_at_for_body before the database lock, \
+         and pass its value to rss::subscribe_feed_body.";
+    let subscribe = read_source(&manifest_path("src/rss/subscribe.rs"));
+    let start = subscribe
+        .find("pub fn subscribe_feed_body(")
+        .expect("subscribe_feed_body exists");
+    let body = &subscribe[start..];
+    let body = &body[..body.find("\n}\n").expect("the function ends")];
+    assert!(
+        !body.contains("fetch_feed(") && !body.contains("MusicIndexClient"),
+        "ADR 0084 Decision 10 as amended 2026-10-24, task 039: src/rss/subscribe.rs \
+         subscribe_feed_body makes a MusicIndex request under the lock. {FIX}"
+    );
+
+    let callers = [
+        "src/subscribe_service.rs",
+        "src/feed_service.rs",
+        "src/public_playlist_copy.rs",
+    ];
+    let mut violations = Vec::new();
+    for caller in callers {
+        let source = read_source(&manifest_path(caller));
+        for (index, _) in source.match_indices("subscribe_feed_body(") {
+            if index < 400 {
+                continue;
+            }
+            let before = &source[index - 400..index];
+            if before.contains("fetch_feed(") || before.contains("MusicIndexClient") {
+                violations.push(format!("{caller}: a MusicIndex request precedes the lock"));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ADR 0084 Decision 10 as amended 2026-10-24, task 039: a caller of \
+         subscribe_feed_body makes a MusicIndex request under the lock. {FIX}\n{}",
+        violations.join("\n")
+    );
+}
+
+/// Situational ADR 0084 Decision 10 as amended 2026-10-24, task 039 (steps 2
+/// and 4). The readiness report and the playlist sidebar load run off the
+/// main thread. A main-thread call to the old synchronous report, or a
+/// file read inside the database lock, blocks the window during a download
+/// or a removal. The fix is to use `LoadBroadcastReadiness` or
+/// `LoadPlaylistSidebar` through `present_command`.
+#[test]
+fn adr_0084_task_039_readiness_and_playlists_load_off_the_ui_thread() {
+    let app = read_source(&manifest_path("src/library/app_impl.rs"));
+    for forbidden in [
+        "fn fetch_broadcast_readiness_report",
+        "reload_playlists();",
+        "fn inbox_source_track_ids",
+    ] {
+        assert!(
+            !app.contains(forbidden),
+            "ADR 0084 Decision 10 as amended 2026-10-24, task 039: src/library/app_impl.rs \
+             contains `{forbidden}`, a main-thread database wait. Use \
+             LoadBroadcastReadiness or LoadPlaylistSidebar through present_command, \
+             and pass the list or report to the completion."
+        );
+    }
+
+    let broadcast = read_source(&manifest_path("src/application/queries/broadcast.rs"));
+    let command_start = broadcast
+        .find("impl ApplicationCommand for LoadBroadcastReadiness")
+        .expect("the readiness command exists");
+    let command = &broadcast[command_start..];
+    let lock_at = command.find(".lock()").expect("the command takes the lock");
+    let read_at = command
+        .find("plan.read_files()")
+        .expect("the command reads the files");
+    assert!(
+        lock_at < read_at && command[lock_at..read_at].contains("};"),
+        "ADR 0084 Decision 10 as amended 2026-10-24, task 039: LoadBroadcastReadiness \
+         reads the files inside the database lock. Read the rows and stored facts in \
+         the locked block, then call plan.read_files() after the block ends."
+    );
+
+    let runtime = read_source(&manifest_path("src/runtime/broadcast_readiness.rs"));
+    let blocking = &runtime[runtime
+        .find("fn read_broadcast_readiness_blocking")
+        .expect("the actor read exists")..];
+    let blocking = &blocking[..blocking.find("#[cfg(test)]").unwrap_or(blocking.len())];
+    assert!(
+        blocking.contains("broadcast_readiness_plan_from_config")
+            && blocking.find(".and_then(|conn|") < blocking.find("read_files")
+            && !blocking.contains("broadcast_readiness_report("),
+        "ADR 0084 Decision 10 as amended 2026-10-24, task 039: the readiness actor reads \
+         files inside the database lock. Use broadcast_readiness_plan_from_config under \
+         the lock, then plan.read_files() after it."
+    );
+}
+
+/// Situational ADR 0084 Decision 10 as amended 2026-10-24, task 039 (step 3
+/// and 4). A load of the readiness report, the playlist sidebar or the
+/// Library tree starts one run at a time. Each start goes through
+/// `SingleFlight::request`, so a burst of requests gives one more run.
+#[test]
+fn adr_0084_task_039_library_loads_coalesce_through_single_flight() {
+    let app = read_source(&manifest_path("src/library/app_impl.rs"));
+    for (function, flight) in [
+        ("fn request_broadcast_readiness", "readiness_flight"),
+        ("fn request_library_tree_load", "tree_flight"),
+        ("fn request_playlist_load", "playlist_flight"),
+    ] {
+        let start = app
+            .find(function)
+            .unwrap_or_else(|| panic!("{function} exists in src/library/app_impl.rs"));
+        let body = &app[start..];
+        let body = &body[..body.find("\n    }\n").unwrap_or(body.len())];
+        assert!(
+            body.contains(flight) && body.contains(".request("),
+            "ADR 0084 Decision 10 as amended 2026-10-24, task 039: {function} starts a \
+             load without SingleFlight. Call self.{flight}.request, and start the run only \
+             when it returns Some."
+        );
+    }
 }

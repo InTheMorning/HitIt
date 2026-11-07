@@ -15,7 +15,7 @@ use gpui::{
 };
 
 use super::keyboard::primary_modifier_held;
-use super::TopApp;
+use super::{TopApp, WORKSPACE_CONTENT_FRAME_ID};
 use crate::library::playlist_options;
 use crate::ui::composites::{SelectionActionBar, SelectionActionBarPlaylists};
 use crate::view_models::detail_selection::{DetailPageRows, DetailRowClick, DetailRowKey};
@@ -244,15 +244,40 @@ impl TopApp {
         cx.notify();
     }
 
+    /// Keeps the focus mark of each search page with the keyboard focus
+    /// (R-FOCUS-1).
+    pub(super) fn sync_search_keyboard_focus(&mut self, window: &Window, cx: &gpui::App) {
+        for slot in [SearchPageSlot::ToolbarSearch, SearchPageSlot::SavedSearch] {
+            let shows = self.search_page_focus(slot).is_focused(window)
+                && crate::ui::focus_ring::focus_ring_shows(cx);
+            let has_marked_row = self
+                .workspace_layout
+                .frame_nav(WORKSPACE_CONTENT_FRAME_ID)
+                .is_some_and(|nav| nav.marked_entry().is_some());
+            let library = self.library.read(cx);
+            let lookup = library.search_lookup();
+            if let Some(detail) = page_mut(
+                slot,
+                &mut self.search_results_detail,
+                &mut self.saved_search_page,
+            ) {
+                detail.sync_keyboard_focus(shows, has_marked_row, &lookup);
+            }
+        }
+    }
+
     /// The "Select" and "Done" button of a search page.
     pub(super) fn toggle_search_selection_mode(
         &mut self,
         slot: SearchPageSlot,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if let Some(detail) = self.search_page_mut(slot) {
             detail.toggle_mode();
         }
+        // The rows take the keys of the mode, so Ctrl+A and Space act on them.
+        window.focus(&self.search_page_focus(slot).clone(), cx);
         cx.notify();
     }
 
@@ -276,10 +301,15 @@ impl TopApp {
         slot: SearchPageSlot,
         content: AnyElement,
         bar: Option<AnyElement>,
+        cx: &gpui::App,
     ) -> AnyElement {
+        // Tab stops once at a list with rows, and the arrow keys move inside it.
+        let tab_stop = self
+            .search_selection_rows(slot, cx)
+            .is_some_and(|rows| rows.has_selectable_rows());
         div()
             .id(slot.element_id())
-            .track_focus(self.search_page_focus(slot))
+            .track_focus(&self.search_page_focus(slot).clone().tab_stop(tab_stop))
             .size_full()
             .flex()
             .flex_col()
@@ -324,10 +354,14 @@ impl TopApp {
         let clear = cx.listener(move |this, (): &(), window, cx| {
             this.run_search_selection_action(slot, SelectionActionKind::Clear, window, cx);
         });
+        let select_all = cx.listener(move |this, (): &(), window, cx| {
+            this.run_search_selection_action(slot, SelectionActionKind::SelectAll, window, cx);
+        });
         SelectionActionBar::new(bar, playlists)
             .on_download(move |window, cx| download(&(), window, cx))
             .on_remove(move |window, cx| remove(&(), window, cx))
             .on_clear(move |window, cx| clear(&(), window, cx))
+            .on_select_all(move |window, cx| select_all(&(), window, cx))
             .on_add_to_playlist(cx.listener(move |this, playlist_id: &i64, _window, cx| {
                 let selection = this
                     .search_page(slot)
@@ -379,6 +413,7 @@ impl TopApp {
                     detail.clear_rows();
                 }
             }
+            SelectionActionKind::SelectAll => self.select_each_search_row(slot, cx),
             // The search list is no playlist page. "Add to playlist" opens
             // its own popover.
             SelectionActionKind::AddToPlaylist
@@ -437,9 +472,13 @@ impl TopApp {
 
     /// Ctrl+A, for the search list.
     pub(super) fn select_all_search_rows(&mut self, window: &Window, cx: &mut Context<Self>) {
-        let Some(slot) = self.focused_search_page(window, cx) else {
-            return;
-        };
+        if let Some(slot) = self.focused_search_page(window, cx) {
+            self.select_each_search_row(slot, cx);
+        }
+    }
+
+    /// "Select all" of a search bar, and the end of Ctrl+A.
+    fn select_each_search_row(&mut self, slot: SearchPageSlot, cx: &mut Context<Self>) {
         let library = self.library.read(cx);
         let lookup = library.search_lookup();
         if let Some(detail) = page_mut(

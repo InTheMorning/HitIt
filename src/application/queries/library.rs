@@ -80,10 +80,12 @@ impl ApplicationCommand for LoadLibraryTracksTree {
         if context.cancellation().is_cancelled() {
             return Err(CommandError::Cancelled);
         }
-        let conn = self.conn.lock().map_err(|_| poisoned_lock())?;
-        let rows = library_service::library_tracks(&conn).map_err(|error| query_error(&error))?;
+        let rows = {
+            let conn = self.conn.lock().map_err(|_| poisoned_lock())?;
+            library_service::library_tracks(&conn).map_err(|error| query_error(&error))?
+        };
         let count = rows.len();
-        let tree = build_tree(&rows, &conn);
+        let tree = build_tree(&rows, &self.conn)?;
         Ok(CommandOutcome::without_events(LibraryTracksTree {
             count,
             tree,
@@ -110,11 +112,13 @@ impl ApplicationCommand for LoadCachedTracksTree {
         if context.cancellation().is_cancelled() {
             return Err(CommandError::Cancelled);
         }
-        let conn = self.conn.lock().map_err(|_| poisoned_lock())?;
-        let rows = library_service::cached_tracks(&conn).map_err(|error| query_error(&error))?;
+        let rows = {
+            let conn = self.conn.lock().map_err(|_| poisoned_lock())?;
+            library_service::cached_tracks(&conn).map_err(|error| query_error(&error))?
+        };
         Ok(CommandOutcome::without_events(LibraryTracksTree {
             count: rows.len(),
-            tree: build_tree(&rows, &conn),
+            tree: build_tree(&rows, &self.conn)?,
         }))
     }
 }
@@ -374,7 +378,10 @@ impl ApplicationQueryService {
 /// ADR 0084 Decision 4, task 038: the album key is the album text and the
 /// feed id. Two feeds with one title stay two nodes, so each node has one
 /// release identity. One feed with two album texts still gives two nodes.
-pub(crate) fn build_tree(tracks: &[TrackRow], conn: &Connection) -> LibraryTree {
+pub(crate) fn build_tree(
+    tracks: &[TrackRow],
+    reads: &impl TreeReads,
+) -> Result<LibraryTree, CommandError> {
     let mut artist_map: BTreeMap<String, BTreeMap<(String, i64), Vec<TrackRow>>> = BTreeMap::new();
     for track in tracks {
         let row_vm = LibraryTrackRowVm::new(track, None);
@@ -388,98 +395,130 @@ pub(crate) fn build_tree(tracks: &[TrackRow], conn: &Connection) -> LibraryTree 
             .push(track.clone());
     }
 
-    let subscribed_feeds: BTreeMap<i64, db::FeedRow> = db::subscribed_feeds(conn)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|feed| (feed.id, feed))
-        .collect();
+    let subscribed_feeds: BTreeMap<i64, db::FeedRow> = reads.read_db(|conn| {
+        db::subscribed_feeds(conn)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|feed| (feed.id, feed))
+            .collect()
+    })?;
     let mut feed_url_cache: BTreeMap<i64, Option<String>> = BTreeMap::new();
     let mut feed_language_cache: BTreeMap<i64, Option<String>> = BTreeMap::new();
-    let artists = artist_map
-        .into_iter()
-        .map(|(artist_name, album_map)| {
-            let albums = album_map
-                .into_iter()
-                .map(|((album_name, _feed_id), mut tracks)| {
-                    tracks.sort_by_key(|track| track.track_number);
-                    let feed_id = tracks.first().map(|t| t.feed_id);
-                    let feed_guid = tracks.first().and_then(|t| t.feed_guid.clone());
-                    let feed_url = feed_id.and_then(|fid| {
-                        subscribed_feeds.get(&fid).map_or_else(
-                            || {
-                                feed_url_cache
-                                    .entry(fid)
-                                    .or_insert_with(|| db::feed_url_by_id(conn, fid).ok().flatten())
-                                    .clone()
-                            },
-                            |feed| Some(feed.feed_url.clone()),
-                        )
-                    });
-                    // ADR 0075 packet 020: the album page shows the stored
-                    // values of the feed from the stored value projection.
-                    let stored_values =
-                        feed_id.and_then(|fid| stored_values::feed_values(conn, fid).ok());
-                    let description = stored_values.as_ref().and_then(|values| {
-                        LibraryViewModel::display_description_text(
-                            values.description.value.as_deref(),
-                        )
-                        .map(str::to_owned)
-                    });
-                    let language = feed_id.and_then(|fid| {
-                        subscribed_feeds.get(&fid).map_or_else(
-                            || {
-                                feed_language_cache
-                                    .entry(fid)
-                                    .or_insert_with(|| {
-                                        db::feed_language_by_id(conn, fid).ok().flatten()
-                                    })
-                                    .clone()
-                            },
-                            |feed| feed.language.clone(),
-                        )
-                    });
-                    let image_href = tracks
-                        .iter()
-                        .find_map(|t| t.album_image_href.clone())
-                        .or_else(|| tracks.iter().find_map(|t| t.track_image_href.clone()));
-                    // ADR 0085 Decisions 5 and 6: the artist link and the
-                    // role rows of the album need its stored named feeds,
-                    // in their RSS sequence.
-                    let named_feeds = feed_id
-                        .map(|fid| {
-                            db::publisher_relationships::named_feeds(conn, fid).unwrap_or_default()
-                        })
-                        .unwrap_or_default();
-                    AlbumNode {
-                        name: album_name,
-                        feed_id,
-                        feed_guid,
-                        feed_url,
-                        language,
-                        description,
-                        image_href,
-                        named_feeds,
-                        identity_facts: feed_id
-                            .and_then(|fid| crate::local_identity::feed_facts(conn, fid).ok())
-                            .unwrap_or_default(),
-                        metadata_facts: Box::new(
-                            feed_id
-                                .and_then(|fid| crate::local_metadata::feed_facts(conn, fid).ok())
-                                .unwrap_or_default(),
-                        ),
-                        stored_values: stored_values.map(Box::new),
-                        tracks,
-                    }
-                })
-                .collect();
-            ArtistNode {
-                name: artist_name,
-                albums,
-            }
-        })
-        .collect();
+    let mut artists = Vec::new();
+    for (artist_name, album_map) in artist_map {
+        let mut albums = Vec::new();
+        for ((album_name, _feed_id), mut tracks) in album_map {
+            tracks.sort_by_key(|track| track.track_number);
+            let feed_id = tracks.first().map(|t| t.feed_id);
+            let feed_guid = tracks.first().and_then(|t| t.feed_guid.clone());
+            let image_href = tracks
+                .iter()
+                .find_map(|t| t.album_image_href.clone())
+                .or_else(|| tracks.iter().find_map(|t| t.track_image_href.clone()));
+            // Each album reads its stored values under one lock call. The
+            // conversion of the metadata rows runs after the lock is free
+            // (task 039, step 5).
+            let reads = reads.read_db(|conn| {
+                let feed_url = feed_id.and_then(|fid| match subscribed_feeds.get(&fid) {
+                    Some(feed) => Some(feed.feed_url.clone()),
+                    None => feed_url_cache
+                        .entry(fid)
+                        .or_insert_with(|| db::feed_url_by_id(conn, fid).ok().flatten())
+                        .clone(),
+                });
+                // ADR 0075 packet 020: the album page shows the stored
+                // values of the feed from the stored value projection.
+                let stored_values =
+                    feed_id.and_then(|fid| stored_values::feed_values(conn, fid).ok());
+                let language = feed_id.and_then(|fid| match subscribed_feeds.get(&fid) {
+                    Some(feed) => feed.language.clone(),
+                    None => feed_language_cache
+                        .entry(fid)
+                        .or_insert_with(|| db::feed_language_by_id(conn, fid).ok().flatten())
+                        .clone(),
+                });
+                // ADR 0085 Decisions 5 and 6: the artist link and the role
+                // rows of the album need its stored named feeds, in their
+                // RSS sequence.
+                let named_feeds = feed_id
+                    .map(|fid| {
+                        db::publisher_relationships::named_feeds(conn, fid).unwrap_or_default()
+                    })
+                    .unwrap_or_default();
+                let identity_facts = feed_id
+                    .and_then(|fid| crate::local_identity::feed_facts(conn, fid).ok())
+                    .unwrap_or_default();
+                let metadata_rows = feed_id
+                    .and_then(|fid| crate::local_metadata::feed_fact_rows(conn, fid).ok())
+                    .unwrap_or_default();
+                AlbumReads {
+                    feed_url,
+                    language,
+                    stored_values,
+                    named_feeds,
+                    identity_facts,
+                    metadata_rows,
+                }
+            })?;
+            let description = reads.stored_values.as_ref().and_then(|values| {
+                LibraryViewModel::display_description_text(values.description.value.as_deref())
+                    .map(str::to_owned)
+            });
+            albums.push(AlbumNode {
+                name: album_name,
+                feed_id,
+                feed_guid,
+                feed_url: reads.feed_url,
+                language: reads.language,
+                description,
+                image_href,
+                named_feeds: reads.named_feeds,
+                identity_facts: reads.identity_facts,
+                metadata_facts: Box::new(crate::local_metadata::feed_facts_from_fact_rows(
+                    reads.metadata_rows,
+                )),
+                stored_values: reads.stored_values.map(Box::new),
+                tracks,
+            });
+        }
+        artists.push(ArtistNode {
+            name: artist_name,
+            albums,
+        });
+    }
 
-    LibraryTree { artists }
+    Ok(LibraryTree { artists })
+}
+
+/// The stored reads of one album, taken under one lock call.
+struct AlbumReads {
+    feed_url: Option<String>,
+    language: Option<String>,
+    stored_values: Option<FeedStoredValues>,
+    named_feeds: Vec<crate::view_models::named_feeds::NamedFeed>,
+    identity_facts: LocalIdentityFacts,
+    metadata_rows: Vec<db::LocalMetadataFactRow>,
+}
+
+/// A source of database reads for the Library tree (task 039, step 5). A
+/// plain connection reads in place. A shared connection locks for each read,
+/// so the lock is free between two albums.
+pub(crate) trait TreeReads {
+    /// Runs one read with the database.
+    fn read_db<T>(&self, read: impl FnOnce(&Connection) -> T) -> Result<T, CommandError>;
+}
+
+impl TreeReads for Connection {
+    fn read_db<T>(&self, read: impl FnOnce(&Connection) -> T) -> Result<T, CommandError> {
+        Ok(read(self))
+    }
+}
+
+impl TreeReads for SharedConnection {
+    fn read_db<T>(&self, read: impl FnOnce(&Connection) -> T) -> Result<T, CommandError> {
+        let conn = self.lock().map_err(|_| poisoned_lock())?;
+        Ok(read(&conn))
+    }
 }
 
 pub(crate) fn fetch_library_track_context_with_local_fallback(
@@ -3955,7 +3994,7 @@ mod tests {
             task_038_track(2, 2, "g2", "Sense Of Awe", "Haleen", 1),
         ];
 
-        let tree = build_tree(&tracks, &conn);
+        let tree = build_tree(&tracks, &conn).expect("build the tree");
 
         let albums = &tree.artists[0].albums;
         assert_eq!(albums.len(), 2, "two feeds give two releases");
@@ -4000,7 +4039,7 @@ mod tests {
             task_038_track(8, 5, "g5", "Five", "Haleen", 2),
         ];
 
-        let tree = build_tree(&tracks, &conn);
+        let tree = build_tree(&tracks, &conn).expect("build the tree");
 
         for artist in &tree.artists {
             let mut seen = BTreeSet::new();
@@ -4068,7 +4107,7 @@ mod tests {
             task_038_track(2, 2, "g2", "Sense Of Awe", "Haleen", 1),
             task_038_track(3, 3, "g3", "Breathing", "Haleen", 1),
         ];
-        let tree = build_tree(&tracks, &conn);
+        let tree = build_tree(&tracks, &conn).expect("build the tree");
 
         // The MusicIndex singles of P2: g2 is the Library single of feed 2,
         // and g4 is not in the Library.

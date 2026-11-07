@@ -63,9 +63,9 @@ pub(crate) use saved_search::{
 pub(crate) use saved_search_groups::{saved_search_window_page, SearchResultItemVm};
 pub(crate) use saved_search_query::{SavedSearchQueryEdit, SavedSearchQueryKeep};
 pub(crate) use search_run::{
-    library_part_runs, live_run_step, IndexSearchPlan, IndexSearchRequest, IndexSkip,
-    LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger, INDEX_SKIP_ROWS_TEXT,
-    SCOPE_CONFLICT_TEXT, SCOPE_CONFLICT_TITLE,
+    library_part_runs, live_run_step, IndexEntity, IndexFilters, IndexSearchPlan,
+    IndexSearchRequest, IndexSkip, LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger,
+    INDEX_SKIP_ROWS_TEXT, SCOPE_CONFLICT_TEXT, SCOPE_CONFLICT_TITLE,
 };
 pub(crate) use tabs::{SearchResultItemId, SearchResultOrigin, SearchResultsTab, SearchTabCount};
 
@@ -1040,6 +1040,23 @@ impl SearchResultsInspectorPageVm {
         }
     }
 
+    /// The "Select" or "Done" button of the title row of a search page (ADR
+    /// 0089 Decision 6). It has the rule of [`Self::header_action`].
+    #[must_use]
+    pub(crate) fn select_action(
+        &self,
+        lookup: &dyn SearchLibraryLookup,
+    ) -> Option<SearchPageActionDisplay> {
+        let action = self.header_action(lookup)?;
+        Some(SearchPageActionDisplay {
+            id: "music-search-list-select",
+            label: action.label,
+            a11y_label: action.a11y_label,
+            available: true,
+            style: SearchPageActionStyle::Plain,
+        })
+    }
+
     /// The action bar of packet 018, or `None` outside selection mode.
     #[must_use]
     pub(crate) fn action_bar(
@@ -1088,6 +1105,22 @@ impl SearchResultsInspectorPageVm {
     /// "Clear" of the bar: clears the rows and keeps the mode.
     pub(crate) fn clear_rows(&mut self) {
         self.selection.clear_rows();
+    }
+
+    /// Keeps the focus mark with the keyboard focus (R-FOCUS-1).
+    pub(crate) fn sync_keyboard_focus(
+        &mut self,
+        shows: bool,
+        has_marked_row: bool,
+        lookup: &dyn SearchLibraryLookup,
+    ) {
+        match self.selectable_rows(lookup) {
+            Some(rows) => {
+                self.selection
+                    .enter_with_keyboard(shows, has_marked_row, &rows.selection_rows());
+            }
+            None => self.selection.set_focus_mark_shows(shows),
+        }
     }
 
     /// Space: changes the selection of the focused row.

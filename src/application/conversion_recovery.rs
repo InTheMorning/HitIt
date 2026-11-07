@@ -155,9 +155,10 @@ impl ConversionRecovery {
         result
     }
 
-    /// A success supersedes each earlier report of the same track key. A failure
-    /// supersedes only earlier reports that keep no input. A success that keeps no
-    /// staging records no report.
+    /// A success supersedes each earlier report of the same track, because an
+    /// Index job and a Library job of one track have different keys. A failure
+    /// supersedes only earlier reports of its key that keep no input. A success
+    /// that keeps no staging records no report.
     fn record_entry(&self, entry: Entry, result: &Result<SubscribeTrackOutcome>) -> Result<()> {
         let succeeded = result
             .as_ref()
@@ -167,7 +168,21 @@ impl ConversionRecovery {
             .state
             .lock()
             .map_err(|_| anyhow!("conversion owner unavailable"))?;
-        let superseded = supersede(&mut state, &entry.key, None, !succeeded);
+        let mut keys = vec![entry.key.clone()];
+        if succeeded {
+            let track_id = entry.operation.track_id();
+            keys.extend(
+                state
+                    .reports
+                    .iter()
+                    .filter(|row| row.track_id == track_id)
+                    .filter_map(|row| state.report_keys.get(&row.id).cloned()),
+            );
+        }
+        let mut superseded = false;
+        for key in &keys {
+            superseded |= supersede(&mut state, key, None, !succeeded);
+        }
         if keep {
             state.sequence += 1;
             let id = state.sequence;
@@ -858,6 +873,60 @@ mod tests {
         assert_eq!(recovery.subscribe().borrow().len(), 1);
         recovery
             .subscribe_to_at(Arc::clone(&conn), request, None, &config)
+            .unwrap();
+        assert!(recovery.subscribe().borrow().is_empty());
+    }
+
+    /// An Index job fails and a Library job of the same track then succeeds. The
+    /// two jobs have different keys, and the success still removes the failure.
+    /// The operator saw the old failure beside "Downloaded 1 of 1" on 2026-11-06.
+    #[test]
+    fn adr_0066_download_failure_library_success_supersedes_index_failure() {
+        let (_temp, config, conn, _) = fixture();
+        let rss = Arc::new(Mutex::new(String::new()));
+        let body = Arc::clone(&rss);
+        let server = Server::start(move |path, count| match path {
+            "/track.mp3" if count == 1 => (500, b"fixture failure".to_vec()),
+            "/track.mp3" => (200, MP3.to_vec()),
+            "/feed.xml" => (200, body.lock().unwrap().clone().into_bytes()),
+            _ => (404, Vec::new()),
+        });
+        *rss.lock().unwrap() = format!(
+            r#"<rss version="2.0"><channel><title>Feed</title><link>https://feed.test</link><description>Fixture</description><item><guid>feed-track</guid><title>Feed track</title><enclosure url="{}" type="audio/mpeg" length="17"/></item></channel></rss>"#,
+            server.url("/track.mp3")
+        );
+        let track = crate::api::Track {
+            track_guid: Some("feed-track".into()),
+            title: Some("Feed track".into()),
+            ..crate::api::Track::default()
+        };
+        let feed = crate::api::Feed {
+            feed_url: Some(server.url("/feed.xml")),
+            title: Some("Feed".into()),
+            ..crate::api::Feed::default()
+        };
+        let index_request = SubscribeTrackRequest::SearchTrack {
+            track_context: Box::new(crate::metadata::TrackContext::new(track, Some(feed))),
+            musicindex_endpoint: "invalid endpoint".into(),
+            mark_feed_subscribed: false,
+            return_tag_compare: false,
+        };
+        let recovery = ConversionRecovery::default();
+        assert!(recovery
+            .subscribe_to_at(Arc::clone(&conn), index_request, None, &config)
+            .is_err());
+        let failed = recovery.subscribe().borrow().clone();
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].failure, FailureClass::Download);
+        let library_request = SubscribeTrackRequest::LibraryTrack {
+            track: Box::new(
+                crate::db::track_row_by_id(&conn.lock().unwrap(), failed[0].track_id)
+                    .unwrap()
+                    .unwrap(),
+            ),
+        };
+        recovery
+            .subscribe_to_at(Arc::clone(&conn), library_request, None, &config)
             .unwrap();
         assert!(recovery.subscribe().borrow().is_empty());
     }

@@ -139,9 +139,12 @@ pub(crate) fn subscribe_feed_retaining(
     // ADR 0084 Decision 10 as amended 2026-10-24, task 039 (Q3): the GET
     // runs before the database lock, so the main thread does not wait for it.
     let body = rss::fetch_feed_document(&feed_url)?;
+    // The MusicIndex read runs before the lock too (task 039, Q3 for the
+    // MusicIndex feed read).
+    let updated_at = rss::musicindex_updated_at_for_body(&body, &musicindex_endpoint);
     {
         let mut db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
-        rss::subscribe_feed_body(&mut db, &feed_url, &body, &musicindex_endpoint)?;
+        rss::subscribe_feed_body(&mut db, &feed_url, &body, updated_at)?;
         identity_ingest::persist_musicindex_context_by_feed_url(
             &mut db,
             &feed_url,
@@ -383,6 +386,9 @@ fn subscribe_track_from_search_internal(
     // ADR 0084 Decision 10 as amended 2026-10-24, task 039 (Q3): the GET
     // runs before the database lock, so the main thread does not wait for it.
     let body = rss::fetch_feed_document(&feed_url)?;
+    // The MusicIndex read runs before the lock too (task 039, Q3 for the
+    // MusicIndex feed read).
+    let updated_at = rss::musicindex_updated_at_for_body(&body, &musicindex_endpoint);
     let prior_subscribed = {
         let db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
         db::feed_is_subscribed_by_url(&db, &feed_url).unwrap_or(false)
@@ -390,7 +396,7 @@ fn subscribe_track_from_search_internal(
 
     {
         let mut db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
-        rss::subscribe_feed_body(&mut db, &feed_url, &body, &musicindex_endpoint)?;
+        rss::subscribe_feed_body(&mut db, &feed_url, &body, updated_at)?;
         identity_ingest::persist_musicindex_context_by_feed_url(
             &mut db,
             &feed_url,
@@ -415,6 +421,9 @@ fn subscribe_track_from_search_internal(
         })?;
         db::track_row_by_id(&db, id)?.ok_or_else(|| anyhow!("original track no longer exists"))?
     };
+    // A MusicIndex feed read gives its tracks no enclosure. The RSS row that
+    // this request just stored has it, the same as for a release download.
+    fill_missing_download_source_from_local_row(&mut refreshed_context.track, &row);
     let mut operation =
         materialization::Materialization::new(row, refreshed_context, cfg.music_dir.clone());
     operation.return_tag_compare = return_tag_compare;
@@ -1112,6 +1121,44 @@ mod tests {
             .filter(|field| field.frame_id == frame_id)
             .map(|field| field.value)
             .collect()
+    }
+
+    /// The row Download of an Index track reads the track from a MusicIndex
+    /// feed read, which gives no enclosure. The download uses the enclosure
+    /// of the RSS document. `GET /v1/feeds/a70ea2cd-72e7-5a1d-930a-1b0c94dd69a7?include=tracks`
+    /// gave this form on 2026-11-06.
+    #[test]
+    fn index_track_with_no_enclosure_downloads_the_rss_enclosure() {
+        let temp = tempfile::tempdir().unwrap();
+        let server = FixtureServer::start(|base, path| match path {
+            "/feed.xml" => Some(rss_document(base)),
+            "/song-1.mp3" => Some(MP3_BODY.to_vec()),
+            _ => None,
+        });
+        let conn = Connection::open_in_memory().unwrap();
+        db::init_schema(&conn).unwrap();
+        db::migrate_schema(&conn).unwrap();
+        let conn = Arc::new(Mutex::new(conn));
+        let feed = request_feed(&server.base);
+        let mut track = feed.tracks.as_ref().unwrap()[0].clone();
+        track.enclosure_url = None;
+        track.enclosure_type = None;
+        let mut retained = None;
+        let outcome = subscribe_track_retaining(
+            Arc::clone(&conn),
+            &cfg(temp.path()),
+            SubscribeTrackRequest::SearchTrack {
+                track_context: Box::new(TrackContext::new(track, Some(feed))),
+                musicindex_endpoint: server.base.as_str().into(),
+                mark_feed_subscribed: false,
+                return_tag_compare: false,
+            },
+            &mut retained,
+        )
+        .unwrap();
+        drop(server);
+        assert!(outcome.marked_downloaded);
+        assert!(outcome.path.exists());
     }
 
     /// R76-9-01: a download from a request feed with no `source_links`

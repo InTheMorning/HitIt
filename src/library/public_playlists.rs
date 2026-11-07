@@ -257,11 +257,11 @@ impl LibraryApp {
         list_page_head(
             display,
             ListPageHeadHandlers {
-                reverse: None,
                 scope: None,
                 select: None,
                 sort: Some(on_sort),
                 view: Some(on_view),
+                reverse: None,
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
                 actions: Vec::new(),
@@ -393,7 +393,7 @@ impl LibraryApp {
                 this.copying_public_playlist = None;
                 let text = match result {
                     CopyPublicPlaylistResult::Copied(outcome) => {
-                        this.reload_playlists();
+                        this.reload_playlists(cx);
                         public_playlist_copy_report(&outcome.name, outcome.copied, outcome.total)
                     }
                     CopyPublicPlaylistResult::NameTaken(name) => {

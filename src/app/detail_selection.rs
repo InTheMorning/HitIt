@@ -12,7 +12,6 @@
 use gpui::{div, prelude::*, AnyElement, App, Context, Modifiers, SharedString, Window};
 
 use super::search_dispatch::feed_guid_from_view;
-use super::search_selection::SearchPageSlot;
 use super::TopApp;
 use crate::application::library_removal::LibraryRemovalIntent;
 use crate::db::PlaylistEdge;
@@ -117,36 +116,32 @@ impl TopApp {
         }
     }
 
-    /// The "Select" and "Done" button of the detail column header.
-    /// The saved-search page (packet 012) gives its own button, from the
-    /// selection of its view model.
-    pub(super) fn detail_column_header_action(&self, cx: &App) -> Option<FrameHeaderActionDisplay> {
+    /// The "Select" and "Done" button of the detail column header. A saved
+    /// search page has this button in its title row (ADR 0089 Decision 6).
+    pub(super) fn detail_column_header_action(
+        &self,
+        rows: Option<&DetailPageRows>,
+        cx: &App,
+    ) -> Option<FrameHeaderActionDisplay> {
         if matches!(
             self.current_music_entry(),
             Some(FrameNavigationEntry::SavedSearch { .. })
         ) {
-            let library = self.library.read(cx);
-            let lookup = library.search_lookup();
-            return self
-                .search_page(SearchPageSlot::SavedSearch)?
-                .header_action(&lookup);
+            return None;
         }
-        let rows = self.detail_page_rows(cx);
         let mode = self.library.read(cx).detail_selection().mode();
-        detail_header_action(rows.as_ref(), mode)
+        detail_header_action(rows, mode)
     }
 
     /// The click of the "Select" and "Done" button.
-    pub(super) fn toggle_detail_selection_mode(&mut self, cx: &mut Context<Self>) {
-        if matches!(
-            self.current_music_entry(),
-            Some(FrameNavigationEntry::SavedSearch { .. })
-        ) {
-            self.toggle_search_selection_mode(SearchPageSlot::SavedSearch, cx);
-            return;
-        }
-        self.library
-            .update(cx, LibraryApp::toggle_detail_selection_mode);
+    pub(super) fn toggle_detail_selection_mode(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.library.update(cx, |library, cx| {
+            library.toggle_detail_selection_mode(window, cx);
+        });
         cx.notify();
     }
 
@@ -254,6 +249,20 @@ impl TopApp {
             .update(cx, |library, cx| library.end_detail_selecting(window, cx))
     }
 
+    /// Keeps the focus mark of each page with the keyboard focus (R-FOCUS-1).
+    /// It runs before the pages render, so the first draw after a Tab is correct.
+    pub(super) fn sync_page_keyboard_focus(
+        &mut self,
+        rows: Option<&DetailPageRows>,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.library.update(cx, |library, cx| {
+            library.sync_detail_keyboard_focus(rows, window, cx);
+        });
+        self.sync_search_keyboard_focus(window, cx);
+    }
+
     /// The detail column content with its keyboard focus and its action
     /// bar (ADR 0084 packet 018). A click in the column, outside a text
     /// field, gives the column the keyboard focus. The bar shows at the
@@ -261,18 +270,20 @@ impl TopApp {
     pub(super) fn render_detail_column_frame(
         &mut self,
         content: AnyElement,
+        rows: Option<&DetailPageRows>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let focus = self.library.read(cx).detail_column_focus().clone();
-        let rows = self.detail_page_rows(cx);
-        let bar = rows.as_ref().and_then(|rows| {
+        let bar = rows.and_then(|rows| {
             rows.action_bar(self.library.read(cx).detail_selection())
                 .map(|bar| (bar, rows))
         });
         let bar = bar.map(|(bar, rows)| self.render_detail_action_bar(bar, rows, cx));
+        // Tab stops once at a page with rows, and the arrow keys move inside it.
+        let tab_stop = rows.is_some_and(DetailPageRows::has_selectable_rows);
         div()
             .id("music-detail-column")
-            .track_focus(&focus)
+            .track_focus(&focus.tab_stop(tab_stop))
             .size_full()
             .flex()
             .flex_col()
@@ -319,6 +330,9 @@ impl TopApp {
         let clear = cx.listener(|this, (): &(), window, cx| {
             this.run_detail_selection_action(SelectionActionKind::Clear, window, cx);
         });
+        let select_all = cx.listener(|this, (): &(), window, cx| {
+            this.run_detail_selection_action(SelectionActionKind::SelectAll, window, cx);
+        });
         let remove_from_playlist = cx.listener(|this, (): &(), window, cx| {
             this.run_detail_selection_action(SelectionActionKind::RemoveFromPlaylist, window, cx);
         });
@@ -332,6 +346,7 @@ impl TopApp {
             .on_download(move |window, cx| download(&(), window, cx))
             .on_remove(move |window, cx| remove(&(), window, cx))
             .on_clear(move |window, cx| clear(&(), window, cx))
+            .on_select_all(move |window, cx| select_all(&(), window, cx))
             .on_remove_from_playlist(move |window, cx| remove_from_playlist(&(), window, cx))
             .on_move_to_top(move |window, cx| move_to_top(&(), window, cx))
             .on_move_to_bottom(move |window, cx| move_to_bottom(&(), window, cx))
@@ -365,6 +380,11 @@ impl TopApp {
             }
             SelectionActionKind::Clear => {
                 self.library.update(cx, LibraryApp::clear_detail_rows);
+            }
+            SelectionActionKind::SelectAll => {
+                self.library.update(cx, |library, cx| {
+                    library.select_each_detail_row(&rows, cx);
+                });
             }
             SelectionActionKind::RemoveFromPlaylist => {
                 self.library
@@ -413,7 +433,9 @@ impl TopApp {
                 }
                 self.download_index_track_keys(index_rows, cx);
             }
-            DetailPageRows::Releases(_) | DetailPageRows::GroupedReleases { .. } => {
+            DetailPageRows::Releases(_)
+            | DetailPageRows::Singles(_)
+            | DetailPageRows::GroupedReleases { .. } => {
                 // ADR 0084 task 031: the plan and the bar count use the
                 // one availability rule. Thus a release with a job or a
                 // removal gets no second job.
@@ -508,7 +530,9 @@ impl TopApp {
             DetailPageRows::Tracks(_) | DetailPageRows::PlaylistEntries { .. } => {
                 library.add_tracks_to_playlist(track_ids, playlist_id, cx);
             }
-            DetailPageRows::Releases(_) | DetailPageRows::GroupedReleases { .. } => {
+            DetailPageRows::Releases(_)
+            | DetailPageRows::Singles(_)
+            | DetailPageRows::GroupedReleases { .. } => {
                 library.add_albums_to_playlist(&feed_ids, playlist_id, cx);
             }
         });
@@ -538,7 +562,9 @@ impl TopApp {
             DetailPageRows::Tracks(_) | DetailPageRows::PlaylistEntries { .. } => {
                 library.create_playlist_and_add_tracks(name, track_ids, cx);
             }
-            DetailPageRows::Releases(_) | DetailPageRows::GroupedReleases { .. } => {
+            DetailPageRows::Releases(_)
+            | DetailPageRows::Singles(_)
+            | DetailPageRows::GroupedReleases { .. } => {
                 library.create_playlist_and_add_albums(name, feed_ids, cx);
             }
         });
@@ -589,14 +615,16 @@ pub(super) fn detail_removal_items(
                 .collect(),
             "track",
         ),
-        DetailPageRows::Releases(_) | DetailPageRows::GroupedReleases { .. } => (
+        DetailPageRows::Releases(_)
+        | DetailPageRows::Singles(_)
+        | DetailPageRows::GroupedReleases { .. } => (
             rows.selected_releases(selection)
                 .iter()
                 .filter_map(|row| row.library.map(|facts| (facts, row.title.clone())))
                 .filter(|(facts, _)| facts.removable())
                 .map(|(facts, title)| (LibraryRemovalIntent::FeedId(facts.feed_id), title))
                 .collect(),
-            "release",
+            rows.kind().item_noun(),
         ),
         // Packet 025: one item for each distinct downloaded track. One
         // track can have two entries.

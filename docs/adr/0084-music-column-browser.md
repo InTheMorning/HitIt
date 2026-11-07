@@ -187,7 +187,8 @@ Each list of releases and tracks has the same selection model. It has two modes.
 - **Selection mode.** "Select" starts it. Each row shows its checkbox. A plain click changes the selection of the row, and opens no page. The header button reads "Done". The action bar shows at the bottom of the list.
 - Ctrl+click adds a row, Shift+click adds a range, Ctrl+A selects the list, and Space changes the row with keyboard focus. Each of them also starts selection mode.
 - "Done" and Escape end selection mode and clear the selection.
-- The action bar shows the count, the actions for the whole selection and "Clear". An example is "Download 7 tracks". With no selected row, it shows "Select items" and no action.
+- The action bar shows the count, "Select all" while a row is not selected, the actions for the whole selection and "Clear". An example is "Download 7 tracks". With no selected row, it shows "Select items" and "Select all". The operator asked for "Select all" on 2026-11-06. A singles group page and a window group page say "singles" in the bar.
+- "Select" and "Done" give the keyboard focus to the rows, so Ctrl+A and Space act on them.
 - The keyboard focus shows in both modes.
 
 No step needs a drag or a scroll wheel. The selection and the availability of each bar action are view-model state.
