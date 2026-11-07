@@ -16,12 +16,13 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, point, prelude::*, AnyElement, App, ElementId, List, ListAlignment, ListState,
-    Pixels, ScrollHandle, Window,
+    canvas, div, point, prelude::*, AnyElement, App, ElementId, Entity, List, ListAlignment,
+    ListState, Pixels, ScrollHandle, Window,
 };
 use gpui_component::scroll::ScrollableElement;
 
 use crate::ui::tokens::Size;
+use crate::view_models::detail_selection::list_bar_is_pinned;
 use crate::view_models::list_selection::FocusStep;
 use crate::view_models::releases_everything::item_id_runs;
 
@@ -45,9 +46,10 @@ where
 /// across a navigation change, for example Back to "New releases"
 /// (task 006 V3). `container` already has a stable `.id(..)`.
 ///
-/// `probe` is an optional extra layer over the column, for a caller that
-/// reads the scroll position after each change, as `src/ui/composites/
-/// log_frame.rs` reads its own handle. It paints nothing on its own.
+/// `probe` is an optional layer over the column. A caller that reads the
+/// scroll position after each change, as `src/ui/composites/log_frame.rs`
+/// does, passes an empty layer. A caller that draws an overlay, such as the
+/// pinned list bar of [`ListBarPin`], passes that overlay.
 ///
 /// The returned parent is a plain block box, following the gutter
 /// pattern of `src/ui/composites/settings.rs`. `container` gets
@@ -71,6 +73,80 @@ where
         wrapper = wrapper.child(probe);
     }
     wrapper.vertical_scrollbar(scroll).into_any_element()
+}
+
+/// The pinned copy of a list bar above the rows of a Music column (ADR 0090
+/// Decision 5). GPUI has no sticky style, so the caller draws the copy in
+/// an overlay when [`Self::is_pinned`] gives `true`.
+///
+/// The in-flow bar carries [`Self::probe`]. Each paint, the probe records
+/// where the bar is, so the bar position does not depend on the scroll
+/// offset. A render reads the current offset and the recorded position, so
+/// a scroll shows or hides the copy in the same frame. The probe asks for
+/// one more redraw only when the pinned state differs from the state that
+/// the last render showed.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ListBarPin {
+    /// The top of the bar at zero scroll offset, in pixels from the top of
+    /// the viewport. `None` before the first paint of the bar.
+    rest_top: Rc<Cell<Option<f32>>>,
+    /// `true` when the last render drew the pinned copy.
+    shown: Rc<Cell<bool>>,
+}
+
+impl ListBarPin {
+    /// `true` when the pinned copy must show for the scroll container
+    /// `scroll`. A render calls this once. It records the answer for the
+    /// probe.
+    #[must_use]
+    pub(crate) fn is_pinned(&self, scroll: &ScrollHandle) -> bool {
+        let pinned = list_bar_is_pinned(
+            f32::from(scroll.offset().y),
+            f32::from(scroll.max_offset().y),
+            self.rest_top.get(),
+        );
+        self.shown.set(pinned);
+        pinned
+    }
+
+    /// An empty layer over the in-flow bar. It paints nothing. At each
+    /// paint it records the bar position. When the pinned state differs
+    /// from the state of the last render, it asks `entity` for one redraw.
+    #[must_use]
+    pub(crate) fn probe<T: 'static>(
+        &self,
+        scroll: &ScrollHandle,
+        entity: &Entity<T>,
+    ) -> AnyElement {
+        let scroll = scroll.clone();
+        let rest_top = Rc::clone(&self.rest_top);
+        let shown = Rc::clone(&self.shown);
+        let entity = entity.downgrade();
+        canvas(
+            move |bounds, window, _cx| {
+                let viewport = scroll.bounds();
+                let offset = scroll.offset();
+                let top = f32::from(bounds.top() - viewport.top() - offset.y);
+                rest_top.set(Some(top));
+                let pinned = list_bar_is_pinned(
+                    f32::from(offset.y),
+                    f32::from(scroll.max_offset().y),
+                    Some(top),
+                );
+                if pinned != shown.get() {
+                    window.on_next_frame(move |_, cx| {
+                        let _ = entity.update(cx, |_, cx| cx.notify());
+                    });
+                }
+            },
+            |_bounds, (), _window, _cx| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+        .into_any_element()
+    }
 }
 
 /// The state of one virtual Music list (ADR 0084 task 037, decision D1):

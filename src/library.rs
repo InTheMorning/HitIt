@@ -31,7 +31,7 @@ use crate::presentation::collection_art::{
 use crate::presentation::RuntimeHost;
 use crate::runtime::actor::ActorHandle;
 use crate::runtime::musicbrainz_feed_saga::MusicBrainzFeedSagaHandle;
-use crate::ui::composites::music_column_scroll::{MusicColumnList, ScrollReveal};
+use crate::ui::composites::music_column_scroll::{ListBarPin, MusicColumnList, ScrollReveal};
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::index_name_list::IndexNameListPage;
 use crate::view_models::library::{
@@ -396,6 +396,9 @@ pub struct LibraryApp {
     detail_scroll_binding: detail_selection::DetailScrollBinding,
     /// The request to keep the focused detail row in view (packet 018).
     detail_scroll_reveal: ScrollReveal,
+    /// The pinned copy of the list bar of a group page (ADR 0090 Decision
+    /// 5). It keeps the bar position that the last paint recorded.
+    list_bar_pin: ListBarPin,
     /// The saved searches, in `id` order (ADR 0084 Decision 3, packet
     /// 012). The app reads them at start, and again after each save and
     /// each delete.

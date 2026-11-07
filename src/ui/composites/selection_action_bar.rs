@@ -257,15 +257,46 @@ pub(crate) fn list_bar_playlists(playlists: Vec<PlaylistOption>) -> SelectionAct
     }
 }
 
+/// Which copy of the list bar a renderer draws (ADR 0090 Decision 5).
+///
+/// The in-flow copy sits above the rows, and it is the tab stop of each
+/// control. The pinned copy overlays the top of the rows while the in-flow
+/// copy has scrolled away. It has its own element ids, and no control of it
+/// is a tab stop, so only one "Select" or "Done" is a tab stop at a time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ListBarCopy {
+    InFlow,
+    Pinned,
+}
+
+impl ListBarCopy {
+    /// The element id of a control or the bar, unique to this copy.
+    fn element_id(self, id: &str) -> SharedString {
+        match self {
+            Self::InFlow => SharedString::from(id.to_owned()),
+            Self::Pinned => SharedString::from(format!("pinned-{id}")),
+        }
+    }
+
+    /// Applies this copy's tab rule to a control.
+    fn tab_stop_button(self, button: UiButton) -> UiButton {
+        match self {
+            Self::InFlow => button,
+            Self::Pinned => button.out_of_tab_sequence(),
+        }
+    }
+}
+
 /// Renders the list bar above the rows of a group page (ADR 0090). The
 /// mode action is at the left, then the count and the selection actions.
 /// The bar has the selection background only while selecting. Each control
 /// renders from the typed action of `bar`. Each click sends its command to
-/// `on_command`.
+/// `on_command`. `copy` gives the ids and the tab rule of this copy.
 pub(crate) fn render_list_bar(
     bar: ListBarVm,
     playlists: &SelectionActionBarPlaylists,
     on_command: &ListBarHandler,
+    copy: ListBarCopy,
     cx: &App,
 ) -> AnyElement {
     let ListBarVm {
@@ -275,14 +306,11 @@ pub(crate) fn render_list_bar(
     let selecting = selection.is_some();
 
     let mode_command = on_command.clone();
-    let mut children: Vec<AnyElement> =
-        vec![
-            UiButton::styled(SharedString::from(mode_action.id), ControlStyle::Neutral)
-                .label(mode_action.label)
-                .a11y_label(mode_action.a11y_label)
-                .on_click(move |_, window, cx| mode_command(ListBarCommand::Toggle, window, cx))
-                .into_any_element(),
-        ];
+    let mode_button = UiButton::styled(copy.element_id(&mode_action.id), ControlStyle::Neutral)
+        .label(mode_action.label)
+        .a11y_label(mode_action.a11y_label)
+        .on_click(move |_, window, cx| mode_command(ListBarCommand::Toggle, window, cx));
+    let mut children: Vec<AnyElement> = vec![copy.tab_stop_button(mode_button).into_any_element()];
 
     if let Some(selection) = selection {
         children.push(
@@ -295,7 +323,7 @@ pub(crate) fn render_list_bar(
             let (style, command) = match action.kind {
                 SelectionActionKind::AddToPlaylist => {
                     let mut popover = AddToPlaylistPopover::new(AddToPlaylistDisplay {
-                        id: SharedString::from(action.element_id),
+                        id: copy.element_id(action.element_id),
                         playlists: playlists.playlists.clone(),
                         trigger_label: SharedString::from(action.label),
                         trigger_a11y_label: SharedString::from(action.a11y_label),
@@ -311,6 +339,9 @@ pub(crate) fn render_list_bar(
                     popover = popover.on_create(move |name, window, cx| {
                         create_command(ListBarCommand::CreatePlaylist(name.clone()), window, cx);
                     });
+                    if copy == ListBarCopy::Pinned {
+                        popover = popover.trigger_out_of_tab_sequence();
+                    }
                     children.push(popover.into_any_element());
                     continue;
                 }
@@ -327,20 +358,18 @@ pub(crate) fn render_list_bar(
                 }
             };
             let command_handler = on_command.clone();
-            children.push(
-                UiButton::styled(SharedString::from(action.element_id), style)
-                    .label(action.label)
-                    .a11y_label(action.a11y_label)
-                    .on_click(move |_, window, cx| {
-                        command_handler(command.clone(), window, cx);
-                    })
-                    .into_any_element(),
-            );
+            let action_button = UiButton::styled(copy.element_id(action.element_id), style)
+                .label(action.label)
+                .a11y_label(action.a11y_label)
+                .on_click(move |_, window, cx| {
+                    command_handler(command.clone(), window, cx);
+                });
+            children.push(copy.tab_stop_button(action_button).into_any_element());
         }
     }
 
     let mut bar = div()
-        .id("music-list-bar")
+        .id(copy.element_id("music-list-bar").to_string())
         .flex()
         .flex_row()
         .flex_wrap()

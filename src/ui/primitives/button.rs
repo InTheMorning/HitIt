@@ -111,6 +111,7 @@ pub struct Button {
     a11y_label: Option<gpui::SharedString>,
     leading_icon: Option<IconName>,
     narrow_hit_target: bool,
+    out_of_tab_sequence: bool,
     compact_inset: bool,
     on_click: Option<ClickHandler>,
     on_activate: Option<ActivateHandler>,
@@ -139,6 +140,7 @@ impl Button {
             a11y_label: None,
             leading_icon: None,
             narrow_hit_target: false,
+            out_of_tab_sequence: false,
             compact_inset: false,
             on_click: None,
             on_activate: None,
@@ -193,6 +195,14 @@ impl Button {
 
     /// Removes the minimum width of the hit area, for a row of one-letter
     /// buttons that must fit on one line. The minimum height stays.
+    /// Keeps the button out of the Tab sequence. Its click and its visual
+    /// stay. A second copy of a control uses this, so only one copy is a
+    /// tab stop (ADR 0090 Decision 5).
+    pub const fn out_of_tab_sequence(mut self) -> Self {
+        self.out_of_tab_sequence = true;
+        self
+    }
+
     pub const fn narrow_hit_target(mut self) -> Self {
         self.narrow_hit_target = true;
         self
@@ -311,6 +321,9 @@ impl Button {
     /// action stays out, or Tab must pass each button of each row, and so does
     /// a letter of the letter bar.
     fn in_tab_sequence(&self) -> bool {
+        if self.out_of_tab_sequence {
+            return false;
+        }
         let row_action = matches!(
             self.control_style,
             Some(ControlStyle::RowAction | ControlStyle::DestructiveRowAction)

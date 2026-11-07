@@ -18,7 +18,7 @@ Each list of selectable rows has one list bar directly above its rows. The bar s
 | Packet | Content | State |
 |---|---|---|
 | [001](../tasks/adr-0090-task-001-group-page-list-bar.md) | The singles group page and the window group page | Complete |
-| 002 | The bar stays in view during a scroll (Decision 5), on the pages of packet 001 | In progress |
+| [002](../tasks/adr-0090-task-002-list-bar-stays-in-view.md) | The bar stays in view during a scroll (Decision 5), on the pages of packet 001 | Implemented |
 | 003 | The release page | Not started |
 | 004 | The feed page and the name level page | Not started |
 | 005 | The playlist page | Not started |

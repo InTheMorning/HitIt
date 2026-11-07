@@ -18,7 +18,7 @@ use gpui::{
 
 use crate::db;
 use crate::library::LibraryApp;
-use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
+use crate::ui::composites::music_column_scroll::{music_column_tracked_scrollbar, ListBarPin};
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::{
     ActionRow, ActionRowDisplay, CollectionArt, CollectionArtImage, ThumbnailSize,
@@ -28,7 +28,7 @@ use crate::ui::shells::entity::render_album_name_links;
 use crate::ui::shells::library::detail::DetailRowSlot;
 use crate::ui::shells::library::feed_detail::library_release_page_dispatch;
 use crate::ui::shells::library::singles_group::{
-    render_group_list_bar, render_index_single_row, render_main_action,
+    render_group_list_bar_copies, render_index_single_row, render_main_action,
     render_matched_by_name_heading, render_single_row,
 };
 use crate::ui::style::spacing;
@@ -53,6 +53,7 @@ pub(crate) fn render_library_window_group_page(
     page: WindowGroupPageVm,
     header_art: Option<CollectionArtImage>,
     list_bar: Option<ListBarVm>,
+    list_bar_pin: &ListBarPin,
     mb_status: &BTreeMap<i64, MbTrackStatus>,
     playlists: &[db::Playlist],
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
@@ -106,9 +107,9 @@ pub(crate) fn render_library_window_group_page(
             )]),
         );
     }
-    if let Some(bar) = list_bar {
-        content = content.child(render_group_list_bar(bar, playlists, cx));
-    }
+    let (in_flow_bar, pinned_bar) =
+        render_group_list_bar_copies(list_bar, playlists, list_bar_pin, scroll, cx);
+    content = content.children(in_flow_bar);
     let dispatch = library_release_page_dispatch(cx);
     let playlist_displays = playlist_option_displays(playlists);
     // The trailing "Matched by name" rows get the heading of the singles
@@ -159,7 +160,7 @@ pub(crate) fn render_library_window_group_page(
         .child(content);
     // The page holds the scroll handle of the detail column, so a key can
     // keep the focused row in view (ADR 0084 packet 018).
-    music_column_tracked_scrollbar(container, scroll, None)
+    music_column_tracked_scrollbar(container, scroll, pinned_bar)
 }
 
 /// The title, the date span and the link to the singles group page of a
