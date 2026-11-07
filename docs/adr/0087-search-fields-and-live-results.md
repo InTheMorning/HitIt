@@ -5,6 +5,8 @@
 Accepted - 2026-10-23. The operator asked for this design, answered its first four questions and accepted it on 2026-10-23 (see "Operator Answers").
 The [ADR 0087 phase plan](../plans/adr-0087-search-fields-phase-plan.md) holds its packets.
 
+Amended 2026-11-07: [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md) moves the parser, the Index plan and the kind rule to the `musicindex-search` crate, and musicindex ADR 0049 then owns the syntax. Until step 1 of its adoption, the code and the guards stay as they are.
+
 It amends [ADR 0084](0084-music-column-browser.md) Decision 2. The toolbar search field shows a field list and reads fields in the query text. It shows results while the curator types. Search stays a toolbar command, never a section (ADR 0060).
 It amends [ADR 0084](0084-music-column-browser.md) Decision 3: a saved search runs its fields against the Library and the Index.
 

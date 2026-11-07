@@ -63,6 +63,8 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [ADR 0087 packet 011](docs/tasks/adr-0087-task-011-index-receives-the-fields.md) sends each search field to the Index as its own filter, and ADR 0087 lists the differences from the Library. [Responsiveness task 001](docs/tasks/responsiveness-task-001-no-ui-thread-database-wait.md) removes the hang of a download or a removal. The operator confirmed both on 2026-11-06.
 
+[ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md), Accepted on 2026-11-07, moves the search parser, the Index plan and the kind rule to the `musicindex-search` crate. Until its adoption, tell the operator before a change to `search_query.rs`, `search_run.rs` or `release_kind.rs`. v4vmm builds no `kind:` mapping and no sort requests for search.
+
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for
