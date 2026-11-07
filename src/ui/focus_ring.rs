@@ -13,13 +13,27 @@
 
 #![warn(clippy::pedantic)]
 
-use gpui::{App, Global, InteractiveElement, Window};
+use gpui::{canvas, App, Bounds, Global, InteractiveElement, IntoElement, Pixels, Styled, Window};
 
 /// `true` after a key press, until the next mouse button press.
 #[derive(Clone, Copy, Debug, Default)]
 struct FocusRingShows(bool);
 
 impl Global for FocusRingShows {}
+
+/// The request to show a focused control in its scroll column (ADR 0090
+/// invariant "keyboard reach"). GPUI does not scroll to a control that takes
+/// the focus. A key press arms the request, so a wheel scroll never moves the
+/// page back to the focused control.
+#[derive(Clone, Copy, Debug, Default)]
+struct FocusReveal {
+    /// `true` after a key press, until a scroll column reads the control.
+    armed: bool,
+    /// The bounds of the focused control of this frame.
+    bounds: Option<Bounds<Pixels>>,
+}
+
+impl Global for FocusReveal {}
 
 /// Tells if the focused control or row shows its focus ring now.
 #[must_use]
@@ -37,13 +51,59 @@ fn set_focus_ring_shows(shows: bool, window: &mut Window, cx: &mut App) {
 
 /// Starts the key press side of the state, once for the app.
 pub(crate) fn init(cx: &mut App) {
-    cx.intercept_keystrokes(|_, window, cx| set_focus_ring_shows(true, window, cx))
-        .detach();
+    cx.intercept_keystrokes(|_, window, cx| {
+        set_focus_ring_shows(true, window, cx);
+        cx.default_global::<FocusReveal>().armed = true;
+    })
+    .detach();
+}
+
+/// An empty layer in a focused control. Each prepaint gives its bounds to the
+/// scroll column that holds the control.
+pub(crate) fn focused_control_probe() -> impl IntoElement {
+    canvas(
+        |bounds, _window, cx| {
+            if let Some(reveal) = cx.try_global::<FocusReveal>().copied() {
+                if reveal.armed {
+                    cx.set_global(FocusReveal {
+                        bounds: Some(bounds),
+                        ..reveal
+                    });
+                }
+            }
+        },
+        |_bounds, (), _window, _cx| {},
+    )
+    .absolute()
+    .size_full()
+}
+
+/// Forgets the bounds of a control outside the scroll column. A column calls
+/// this before it prepaints its content.
+pub(crate) fn begin_focus_reveal(cx: &mut App) {
+    if let Some(reveal) = cx.try_global::<FocusReveal>().copied() {
+        cx.set_global(FocusReveal {
+            bounds: None,
+            ..reveal
+        });
+    }
+}
+
+/// The bounds of the focused control in the content that a scroll column just
+/// prepainted. This ends the request.
+pub(crate) fn take_focus_reveal(cx: &mut App) -> Option<Bounds<Pixels>> {
+    let reveal = cx.try_global::<FocusReveal>().copied()?;
+    let bounds = reveal.bounds?;
+    cx.set_global(FocusReveal::default());
+    Some(bounds)
 }
 
 /// Puts the mouse button listener on the root element of the window.
 pub(crate) fn track_focus_ring_mouse<E: InteractiveElement>(root: E) -> E {
-    root.capture_any_mouse_down(|_, window, cx| set_focus_ring_shows(false, window, cx))
+    root.capture_any_mouse_down(|_, window, cx| {
+        set_focus_ring_shows(false, window, cx);
+        cx.set_global(FocusReveal::default());
+    })
 }
 
 #[cfg(test)]

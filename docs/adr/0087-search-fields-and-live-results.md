@@ -187,6 +187,7 @@ Later answers of 2026-11-07, relayed by the orchestrator session:
 4. `-remix` alone follows Decision 5. The Library part runs, the page shows the note, and the Index part sends no request.
 5. Each sort can change the rows two times. The page first sorts its rows, and the Index rows then replace them. The operator accepts this.
 6. The operator accepts the look of the sort rows, of `in:library` with the reverse icon, and of the scope All, from the agent screenshots of 2026-11-07.
+7. The subtitle of a saved search with no name of its own names what its query reads: "Library and Index", "Library" or "Index". The orchestrator session directed this correction on 2026-11-07. A query with a scope conflict reads nothing, so its subtitle is "No results".
 
 ## Verification
 

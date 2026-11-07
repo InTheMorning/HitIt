@@ -11,9 +11,11 @@
 #![warn(clippy::pedantic)]
 
 use crate::db::saved_searches::{StoredSavedSearch, StoredStartTab};
+use crate::view_models::search_query::{QueryScope, SearchQuery};
 use crate::view_models::workspace::{FrameNavigationEntry, MusicDestination};
 
 use super::saved_search_query::{saved_search_query_controls, SavedSearchQueryEdit};
+use super::search_run::SCOPE_CONFLICT_TITLE;
 use super::{EmptyStateDisplay, SearchResultsInspectorPageVm, SearchResultsTab};
 
 /// The identity of one saved search: its `saved_searches` row id.
@@ -36,9 +38,15 @@ impl SavedSearch {
     pub(crate) const FRAME_TITLE: &'static str = "Saved search";
 
     /// The subtitle of a saved-search row of the Search page, when the name
-    /// is the query. Each saved search runs against the Library and the Index
-    /// (ADR 0084 Decision 3).
+    /// is the query and the query has no scope. Such a search runs against the
+    /// Library and the Index (ADR 0084 Decision 3).
     pub(crate) const SUBTITLE: &'static str = "Library and Index";
+
+    /// The subtitle when the query reads only the Library (ADR 0087 Decision 4).
+    pub(crate) const SUBTITLE_LIBRARY: &'static str = "Library";
+
+    /// The subtitle when the query reads only the Index (ADR 0087 Decision 4).
+    pub(crate) const SUBTITLE_INDEX: &'static str = "Index";
 
     /// A saved search from its stored row.
     #[must_use]
@@ -50,14 +58,19 @@ impl SavedSearch {
         }
     }
 
-    /// The subtitle of the row: the query when it differs from the name, else
-    /// `SUBTITLE` (operator decision of 2026-11-06).
+    /// The subtitle of the row: the query when it differs from the name
+    /// (operator decision of 2026-11-06), else what the query reads. A query
+    /// with a scope conflict reads nothing, so it gives the words of its page.
     #[must_use]
     pub(crate) fn subtitle(&self) -> &str {
-        if self.query == self.name {
-            Self::SUBTITLE
-        } else {
-            &self.query
+        if self.query != self.name {
+            return &self.query;
+        }
+        match SearchQuery::parse(&self.query).scope() {
+            QueryScope::Everything => Self::SUBTITLE,
+            QueryScope::LibraryOnly => Self::SUBTITLE_LIBRARY,
+            QueryScope::IndexOnly => Self::SUBTITLE_INDEX,
+            QueryScope::Conflict => SCOPE_CONFLICT_TITLE,
         }
     }
 
@@ -599,6 +612,28 @@ mod tests {
     use crate::view_models::workspace::{
         FrameNavigationEntry, FrameNavigationState, MusicDestination,
     };
+    /// ADR 0087 Decision 4, walk of 2026-11-07: the subtitle names what the
+    /// query reads. A saved `-remix in:library` showed "Library and Index".
+    #[test]
+    fn adr_0087_saved_search_subtitle_names_what_the_query_reads() {
+        for (query, subtitle) in [
+            ("haleen", "Library and Index"),
+            ("-remix", "Library and Index"),
+            ("-remix in:library", "Library"),
+            ("haleen in:library", "Library"),
+            ("haleen in:index", "Index"),
+            ("in:index kind:single", "Index"),
+            ("haleen in:library in:index", "No results"),
+        ] {
+            assert_eq!(saved(1, query).subtitle(), subtitle, "{query}");
+        }
+        let named = SavedSearch {
+            name: "Mine".to_owned(),
+            ..saved(1, "haleen in:library")
+        };
+        assert_eq!(named.subtitle(), "haleen in:library");
+    }
+
     fn saved(id: i64, query: &str) -> SavedSearch {
         SavedSearch {
             id: SavedSearchId(id),

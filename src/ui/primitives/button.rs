@@ -24,7 +24,7 @@ use gpui::{
 };
 
 use crate::ui::control_styles::ControlStyle;
-use crate::ui::focus_ring::focus_ring_shows;
+use crate::ui::focus_ring::{focus_ring_shows, focused_control_probe};
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::layouts as layout;
 use crate::ui::tokens::{
@@ -317,6 +317,31 @@ impl Button {
         }
     }
 
+    /// The focus handle of a button in the Tab sequence, and the probe that
+    /// gives its bounds while it has the keyboard focus. A keyed handle tells
+    /// the render if the button has the focus, so the column can show it (ADR
+    /// 0090 invariant "keyboard reach").
+    fn focus_for_reveal(
+        &self,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (Option<gpui::FocusHandle>, Option<impl IntoElement>) {
+        let focus = self.focus_handle.clone().or_else(|| {
+            self.in_tab_sequence().then(|| {
+                let key = format!("{:?}-focus", self.id);
+                window
+                    .use_keyed_state(gpui::SharedString::from(key), cx, |_, cx| cx.focus_handle())
+                    .read(cx)
+                    .clone()
+            })
+        });
+        let probe = focus
+            .as_ref()
+            .is_some_and(|focus| focus.is_focused(window) && focus_ring_shows(cx))
+            .then(focused_control_probe);
+        (focus, probe)
+    }
+
     /// WCAG 2.1.1: each action outside a list row is reachable with Tab. A row
     /// action stays out, or Tab must pass each button of each row, and so does
     /// a letter of the letter bar.
@@ -540,7 +565,7 @@ impl Button {
 }
 
 impl RenderOnce for Button {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let min_hit_target = Self::min_hit_target(cx);
         let font_role = self.font_size.unwrap_or_else(|| self.font_size());
         let font = font_role.scaled(cx);
@@ -555,7 +580,7 @@ impl RenderOnce for Button {
         let label = self.label.clone().unwrap_or_default();
         let on_click = self.on_click.clone();
         let on_activate = self.on_activate.clone();
-        let focus = self.focus_handle.clone();
+        let (focus, reveal_probe) = self.focus_for_reveal(window, cx);
         let disabled = self.disabled;
         let full_width = self.full_width;
         let content_alignment = self.content_alignment;
@@ -589,6 +614,8 @@ impl RenderOnce for Button {
         }
 
         let mut hit_target = hit_target_base(self.id)
+            .relative()
+            .children(reveal_probe)
             .when(!self.narrow_hit_target, |el| el.min_w(min_hit_target))
             .min_h(min_hit_target)
             .flex()
