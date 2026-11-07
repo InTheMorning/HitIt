@@ -410,7 +410,7 @@ Decided by the operator on 2026-10-18. Only the Show page and the Show commands 
 - A command that waits for fresh reads keeps the one-second pace until it ends, also when the operator leaves Show.
 - A request for an immediate read reads all services, the encoder too.
 - The watch sends each read to the app, so a waiting command counts each fresh read. The app redraws only when the state of a unit, the encoder or a command changes. A change of the read time alone causes no redraw.
-- The reason for the encoder pace: each `butt -S` starts the `butt` AppImage. On 2026-10-16, in a 41-second profile, those starts used 72% of the processor samples.
+- The reason for the encoder pace: each `butt -S` starts the `butt` AppImage. On 2026-10-16, in a 41-second profile, those starts used 72% of the processor samples. On 2026-11-06, in a 30-second profile, they used 31%. The read of a local encoder thus starts the binary only while an encoder process runs. An addressed target always runs the command, because it can be on another host.
 
 ## Invariants
 

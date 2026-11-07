@@ -6,13 +6,17 @@
 //! parses the status text into typed stream state and never sends song metadata
 //! to the encoder.
 
+use std::ffi::OsStr;
 use std::io::ErrorKind;
+use std::path::Path;
 
 use anyhow::{anyhow, Result};
 
 use crate::broadcast::control::{CommandOutput, CommandRunner, ProcessCommandRunner};
 
 const DEFAULT_ENCODER_BINARY: &str = "butt";
+/// The longest process name that the kernel keeps in `comm`.
+const PROCESS_NAME_BYTES: usize = 15;
 const STATUS_OPTION: &str = "-S";
 const CONNECT_OPTION: &str = "-s";
 const DISCONNECT_OPTION: &str = "-d";
@@ -325,7 +329,68 @@ impl<R: CommandRunner> EncoderControl<R> {
 /// Returns an error when the command cannot run for a reason other than a
 /// missing binary.
 pub fn status(target: &EncoderTarget) -> Result<EncoderStatus> {
-    EncoderControl::default().status(target)
+    let processes = running_process_names();
+    let search_path = std::env::var_os("PATH").unwrap_or_default();
+    match local_status_without_a_start(target, processes.as_deref(), &search_path) {
+        Some(status) => Ok(status),
+        None => EncoderControl::default().status(target),
+    }
+}
+
+/// The status of a local encoder when the app need not start the binary, or
+/// `None` when it must run the status command. Each start of an `AppImage`
+/// unpacks the program: a capture of 2026-11-06 gave it 31% of the processor
+/// samples while no encoder ran (ADR 0059). `processes` is `None` when the app
+/// cannot list the processes. An addressed target can be on another host, so
+/// its status always runs the command.
+fn local_status_without_a_start(
+    target: &EncoderTarget,
+    processes: Option<&[String]>,
+    search_path: &OsStr,
+) -> Option<EncoderStatus> {
+    if target.is_addressed() {
+        return None;
+    }
+    if !binary_is_present(target.binary_path(), search_path) {
+        return Some(EncoderStatus::not_installed());
+    }
+    let processes = processes?;
+    let name = process_name_of(target.binary_path());
+    let runs = processes
+        .iter()
+        .any(|process| process == name || process == DEFAULT_ENCODER_BINARY);
+    // This is the result of the status command when no local instance answers.
+    (!runs).then(EncoderStatus::unknown)
+}
+
+/// The name that the kernel gives a process of `binary_path`: the file name,
+/// cut to 15 bytes. The cut keeps a whole character.
+fn process_name_of(binary_path: &str) -> &str {
+    let name = binary_path.rsplit('/').next().unwrap_or(binary_path);
+    let mut end = name.len().min(PROCESS_NAME_BYTES);
+    while !name.is_char_boundary(end) {
+        end -= 1;
+    }
+    &name[..end]
+}
+
+fn binary_is_present(binary_path: &str, search_path: &OsStr) -> bool {
+    if binary_path.contains('/') {
+        return Path::new(binary_path).exists();
+    }
+    std::env::split_paths(search_path).any(|directory| directory.join(binary_path).exists())
+}
+
+/// The name of each process, from `/proc`. `None` when `/proc` cannot be read.
+fn running_process_names() -> Option<Vec<String>> {
+    let entries = std::fs::read_dir("/proc").ok()?;
+    Some(
+        entries
+            .flatten()
+            .filter_map(|entry| std::fs::read_to_string(entry.path().join("comm")).ok())
+            .map(|name| name.trim_end().to_owned())
+            .collect(),
+    )
 }
 
 /// Connect to a configured encoder server with the real command runner.
@@ -705,6 +770,55 @@ listeners: 0
             assert_eq!(status.recording, expected_recording);
             assert_eq!(status.signal, expected_signal);
         }
+        Ok(())
+    }
+
+    /// The operator asked what to optimize on 2026-11-06. The status of a
+    /// local encoder starts no binary while no encoder process runs.
+    #[test]
+    fn adr_0059_local_status_starts_no_binary_with_no_encoder_process() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        std::fs::write(temp.path().join("butt"), b"")?;
+        let found = temp.path().as_os_str().to_owned();
+        let local = EncoderTarget::local("butt")?;
+        let names = |list: &[&str]| list.iter().map(|&name| name.to_owned()).collect::<Vec<_>>();
+
+        let other = names(&["systemd", "zsh"]);
+        assert_eq!(
+            local_status_without_a_start(&local, Some(&other), &found),
+            Some(EncoderStatus::unknown())
+        );
+        let running = names(&["systemd", "butt"]);
+        assert_eq!(
+            local_status_without_a_start(&local, Some(&running), &found),
+            None
+        );
+        // With no process list, the app asks the binary.
+        assert_eq!(local_status_without_a_start(&local, None, &found), None);
+        // A missing binary is the not-installed state, as a failed start gives.
+        assert_eq!(
+            local_status_without_a_start(&local, Some(&other), OsStr::new("/nothing-here")),
+            Some(EncoderStatus::not_installed())
+        );
+        // An addressed target can be on another host.
+        let addressed = EncoderTarget::new("butt", Some("192.0.2.1".to_owned()), None)?;
+        assert_eq!(
+            local_status_without_a_start(&addressed, Some(&other), &found),
+            None
+        );
+        // A long file name matches the name that the kernel keeps.
+        assert_eq!(
+            process_name_of("/opt/butt-1.45.0-x86_64.AppImage"),
+            "butt-1.45.0-x86"
+        );
+        let path = temp.path().join("butt-1.45.0-x86_64.AppImage");
+        std::fs::write(&path, b"")?;
+        let appimage = EncoderTarget::local(path.display().to_string())?;
+        let long = names(&["butt-1.45.0-x86"]);
+        assert_eq!(
+            local_status_without_a_start(&appimage, Some(&long), &found),
+            None
+        );
         Ok(())
     }
 
