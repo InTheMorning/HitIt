@@ -276,8 +276,6 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - The keyboard focus (ADR 0089 Decision 9): Tab reaches the sidebar rows and the list. A row shows the focus when the list gets it. A mouse click shows no ring.
 - The letter bar (ADR 0089 Decision 9): Tab stops once at the bar. Left, Right, Home and End move the cursor with no request. Enter or Space runs the letter.
 - Edit Query (ADR 0089 Decision 4): the toolbar field holds the query with its field list. The title shows "Editing: <name>" with Save Query and Cancel. Enter saves, Escape cancels, and leaving the page or a new search cancels.
-- The `has:` field: the operator reported "has: cannot use kle" on 2026-11-06. The meaning of this report is an open question.
-- The path to the saved searches: the operator asked for a path other than Back on 2026-11-06. A click on the sidebar row Search opens the list in the code. Nobody has checked it in the app.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
 
 ## 12. Button Shape, Roles And Selection - Implemented 2026-11-06
