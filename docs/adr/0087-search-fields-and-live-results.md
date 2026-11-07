@@ -170,6 +170,16 @@ These differences stay after packet 011 of [ADR 0087 task 011](../tasks/adr-0087
 2. **`title:` scope.** `title:` matches the track title and the release title. `release:` matches the release title only.
 3. **Order with the remaining work.** The packets of this ADR come after ADR 0086 packet 005 and before ADR 0069 task 002.
 
+## Operator Answers - 2026-11-07
+
+A different session relayed these answers on 2026-11-07. They accept the behavior of commit `c433582`.
+
+1. Results in the scope All have no reverse icon.
+2. The note title has no period at its end: "MusicIndex needs a word or a field to search for".
+3. Each selected sort makes one `GET /v1/node/capabilities`, with no cache.
+
+The operator visual check of these search corrections stays open in [pending human checks](../pending-human-checks.md).
+
 ## Verification
 
 ### Mechanical Criteria
