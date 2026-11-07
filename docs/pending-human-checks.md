@@ -277,6 +277,7 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - The letter bar (ADR 0089 Decision 9): Tab stops once at the bar. Left, Right, Home and End move the cursor with no request. Enter or Space runs the letter.
 - Edit Query (ADR 0089 Decision 4): the toolbar field holds the query with its field list. The title shows "Editing: <name>" with Save Query and Cancel. Enter saves, Escape cancels, and leaving the page or a new search cancels.
 - The list bar stays in view ([ADR 0090 task 002](tasks/adr-0090-task-002-list-bar-stays-in-view.md)): the screenshot run of 2026-11-07 shows the pinned bar, "Done" and "Select" on it, a click on its empty part, and a narrow window. Tab with one stop and "Add to playlist" from the pinned bar stay open.
+- The list bar on the release page ([ADR 0090 task 003](tasks/adr-0090-task-003-release-page-list-bar.md)): the Library form and the Index form, in its visual list.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
 
 ## 12. Button Shape, Roles And Selection - Implemented 2026-11-06

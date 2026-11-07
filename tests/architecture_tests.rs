@@ -24569,14 +24569,16 @@ fn adr_0084_task_039_library_loads_coalesce_through_single_flight() {
     }
 }
 
-/// Situational, ADR 0090 Decision 1 (first page: the singles group page and
-/// the window group page). Each of the two pages shows its list bar above
-/// its rows. The page gives no frame header action and no bottom bar. The
-/// other pages keep their header action and their bottom bar. Delete this
-/// guard with ADR 0090 when the other pages move to the list bar, or when
-/// the record is superseded.
+/// Situational, ADR 0090 Decisions 1 and 2 (the first two pages: the
+/// singles group page, the window group page; then the release page). Each
+/// of these pages shows its list bar above its rows. The page gives no frame
+/// header action and no bottom bar. The feed page, the name level page, the
+/// playlist page, the search pages and the list pages keep their header
+/// action and their bottom bar until their phase plan packets (004 to 007).
+/// Delete this guard with ADR 0090 when the last page moves to the list bar,
+/// or when the record is superseded.
 #[test]
-fn adr_0090_group_pages_have_no_frame_header_action_or_bottom_bar() {
+fn adr_0090_list_bar_pages_have_no_frame_header_action_or_bottom_bar() {
     let detail_selection =
         compact_source(&read_source(&manifest_path("src/app/detail_selection.rs")));
     let singles = compact_source(&read_source(&manifest_path(
@@ -24584,6 +24586,13 @@ fn adr_0090_group_pages_have_no_frame_header_action_or_bottom_bar() {
     )));
     let window = compact_source(&read_source(&manifest_path(
         "src/ui/shells/library/window_group.rs",
+    )));
+    let feed = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/library/feed_detail.rs",
+    )));
+    let search = compact_source(&read_source(&manifest_path("src/app/search_dispatch.rs")));
+    let surface = compact_source(&read_source(&manifest_path(
+        "src/ui/composites/release_detail_surface.rs",
     )));
     let mut violations = Vec::new();
 
@@ -24605,20 +24614,48 @@ fn adr_0090_group_pages_have_no_frame_header_action_or_bottom_bar() {
         ),
         (
             &singles,
-            "render_group_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
+            "render_library_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
             "the list bar of the singles group page",
         ),
         (
             &window,
-            "render_group_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
+            "render_library_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
             "the list bar of the window group page",
+        ),
+        (
+            &feed,
+            "render_library_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
+            "the list bar of the Library release page",
+        ),
+        (
+            &search,
+            "render_list_bar_copies(list_bar,",
+            "the list bar of the Index release page",
+        ),
+        (
+            &surface,
+            "ifletSome(list_bar)=self.list_bar{body=body.child(list_bar);}",
+            "the list bar slot of `ReleaseDetailSurface`",
         ),
     ] {
         if !source.contains(required) {
             violations.push(format!(
-                "ADR 0090 Decision 1: the group pages show a list bar above their rows, with no frame header action and no bottom bar. Missing {what}, expected `{required}`. Restore it in src/app/detail_selection.rs or the page shell. Do not add the bar back to the frame."
+                "ADR 0090 Decision 1: the list bar pages show a list bar above their rows, with no frame header action and no bottom bar. Missing {what}, expected `{required}`. Restore it in src/app/detail_selection.rs or the page shell. Do not add the bar back to the frame."
             ));
         }
+    }
+
+    // musicindex ADR 0028 R-PAGE-1: the header actions come before the
+    // Tracks section, so the list bar sits after the action row and before
+    // the track section (ADR 0090 Decision 1).
+    let actions = surface.find("body=body.child(actions);");
+    let bar = surface.find("ifletSome(list_bar)=self.list_bar{body=body.child(list_bar);}");
+    let section = surface.find("ifletSome(section)=self.track_section{");
+    match (actions, bar, section) {
+        (Some(actions), Some(bar), Some(section)) if actions < bar && bar < section => {}
+        _ => violations.push(
+            "ADR 0090 Decision 1 and musicindex ADR 0028 R-PAGE-1: the list bar of the release page sits after the action row and before the track section, so the section heading stays with its rows. Move the list bar slot in src/ui/composites/release_detail_surface.rs.".to_owned(),
+        ),
     }
 
     assert!(
@@ -24629,14 +24666,19 @@ fn adr_0090_group_pages_have_no_frame_header_action_or_bottom_bar() {
 }
 
 /// Situational, ADR 0090 Decision 5 (the bar stays in view during a scroll).
-/// The two group pages draw their pinned copy from the same renderer as the
-/// in-flow bar, and no second list bar renderer exists. Delete this guard
-/// with ADR 0090 when the last page moves to the list bar (phase plan packet
-/// 007) and the pinned copy is shared by all pages.
+/// Each page with a list bar draws its pinned copy from the one shared
+/// renderer, and no second list bar renderer exists. The pinned copy blocks
+/// a click on the rows that it hides (`.occlude()`), and its popover trigger
+/// stays out of the Tab sequence. Delete this guard with ADR 0090 when the
+/// last page moves to the list bar (phase plan packet 007) and the pinned
+/// copy is shared by all pages.
 #[test]
 fn adr_0090_pinned_copy_comes_from_the_one_list_bar_renderer() {
     let selection_bar = compact_source(&read_source(&manifest_path(
         "src/ui/composites/selection_action_bar.rs",
+    )));
+    let surface = compact_source(&read_source(&manifest_path(
+        "src/ui/composites/release_detail_surface.rs",
     )));
     let singles = compact_source(&read_source(&manifest_path(
         "src/ui/shells/library/singles_group.rs",
@@ -24644,62 +24686,96 @@ fn adr_0090_pinned_copy_comes_from_the_one_list_bar_renderer() {
     let window = compact_source(&read_source(&manifest_path(
         "src/ui/shells/library/window_group.rs",
     )));
+    let feed = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/library/feed_detail.rs",
+    )));
+    let search = compact_source(&read_source(&manifest_path("src/app/search_dispatch.rs")));
     let mut violations = Vec::new();
 
     for (source, required, what) in [
-        (
-            &singles,
-            "render_list_bar(",
-            "the singles group page calls the shared `render_list_bar`",
-        ),
-        (
-            &singles,
-            "ListBarCopy::Pinned",
-            "the singles group page draws the pinned copy",
-        ),
-        (
-            &singles,
-            ".occlude()",
-            "the pinned copy blocks a click on the rows that it hides. The operator run of 2026-11-06 changed a selection through it",
-        ),
-        (
-            &singles,
-            "list_bar_pin.probe(scroll,&cx.entity())",
-            "the singles group page records the bar position with the probe",
-        ),
-        (
-            &singles,
-            "render_group_pinned_list_bar(",
-            "the singles group page draws the pinned copy in its shared helper",
-        ),
-        (
-            &window,
-            "render_group_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
-            "the window group page draws both copies through the singles group helper",
-        ),
         (
             &selection_bar,
             "pub(crate)fnrender_list_bar(",
             "the one list bar renderer of `selection_action_bar.rs`",
         ),
+        (
+            &selection_bar,
+            "pub(crate)fnrender_list_bar_copies<",
+            "the one copies helper of `selection_action_bar.rs`, which draws the in-flow bar and the pinned copy",
+        ),
+        (
+            &selection_bar,
+            "pin.probe(scroll,entity)",
+            "the in-flow bar records its position with the probe of `ListBarPin`",
+        ),
+        (
+            &selection_bar,
+            ".occlude()",
+            "the pinned copy blocks a click on the rows that it hides. The operator run of 2026-11-06 changed a selection through it",
+        ),
+        (
+            &selection_bar,
+            "ListBarCopy::Pinned",
+            "the pinned copy of `render_list_bar` has its own copy rule",
+        ),
+        (
+            &selection_bar,
+            "trigger_out_of_tab_sequence()",
+            "the \"Add to playlist\" trigger of the pinned copy stays out of the Tab sequence",
+        ),
+        (
+            &surface,
+            "music_column_tracked_scrollbar(container,scroll,pinned_list_bar)",
+            "the release page draws the pinned copy over its scroll container",
+        ),
+        (
+            &singles,
+            "render_library_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
+            "the singles group page draws both copies through the shared helper",
+        ),
+        (
+            &window,
+            "render_library_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
+            "the window group page draws both copies through the shared helper",
+        ),
+        (
+            &feed,
+            "render_library_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
+            "the Library release page draws both copies through the shared helper",
+        ),
+        (
+            &search,
+            "render_list_bar_copies(list_bar,",
+            "the Index release page draws both copies through the shared helper",
+        ),
     ] {
         if !source.contains(required) {
             violations.push(format!(
-                "ADR 0090 Decision 5: the pinned copy of a list bar comes from `render_list_bar`, with the probe of `ListBarPin`. Missing {what}, expected `{required}`. Restore the call in src/ui/shells/library/singles_group.rs or window_group.rs. Do not draw a second copy by hand."
+                "ADR 0090 Decision 5: the pinned copy of a list bar comes from `render_list_bar_copies`, which calls `render_list_bar`, with the probe of `ListBarPin`. Missing {what}, expected `{required}`. Restore the call in src/ui/composites/selection_action_bar.rs or the page shell. Do not draw a second copy by hand."
             ));
         }
     }
 
-    // Only one function may draw the list bar: `render_list_bar` in
-    // `selection_action_bar.rs`. Its root id is the one place of the bar.
+    // Only `render_list_bar` in `selection_action_bar.rs` draws the bar, and
+    // only that composite names its root id and its copy rule. The shells
+    // call the shared helper and never the renderer itself.
     for (path, source) in [
         ("src/ui/shells/library/singles_group.rs", &singles),
         ("src/ui/shells/library/window_group.rs", &window),
+        ("src/ui/shells/library/feed_detail.rs", &feed),
+        ("src/app/search_dispatch.rs", &search),
     ] {
-        if source.contains("id(\"music-list-bar\")") || source.contains("\"music-list-bar\"") {
-            violations.push(format!(
-                "ADR 0090 Decision 5: {path} names the bar root id `music-list-bar`. Only `render_list_bar` in src/ui/composites/selection_action_bar.rs names it. Remove the second bar and call `render_list_bar` with `ListBarCopy`."
-            ));
+        for forbidden in [
+            "render_list_bar(",
+            "ListBarCopy::",
+            "id(\"music-list-bar\")",
+            "\"music-list-bar\"",
+        ] {
+            if source.contains(forbidden) {
+                violations.push(format!(
+                    "ADR 0090 Decision 5: {path} contains `{forbidden}`. Only `render_list_bar` and `render_list_bar_copies` in src/ui/composites/selection_action_bar.rs draw the list bar. Remove the second bar and call `render_list_bar_copies`."
+                ));
+            }
         }
     }
 

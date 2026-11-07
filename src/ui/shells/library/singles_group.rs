@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use gpui::{
     div, prelude::*, AnyElement, App, ClickEvent, Context, FocusHandle, FontWeight, Image,
-    ScrollHandle, SharedString, Styled, Window,
+    ScrollHandle, SharedString, Styled,
 };
 
 use crate::ui::primitives::{LabelVariant, SectionHeader};
@@ -28,27 +28,26 @@ use crate::view_models::singles_group::{
 use crate::view_models::workspace::ReleaseKey;
 
 use crate::db;
-use crate::library::{playlist_options, LibraryApp, LibraryAppEvent};
+use crate::library::{playlist_options, LibraryApp};
 use crate::ui::composites::music_column_scroll::{music_column_tracked_scrollbar, ListBarPin};
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::{
-    list_bar_playlists, render_list_bar, ActionRow, ActionRowDisplay, AddToPlaylistDisplay,
-    AddToPlaylistPopover, CollectionArt, CollectionArtImage, ListBarCopy, ListBarHandler,
-    ThumbnailSize,
+    ActionRow, ActionRowDisplay, AddToPlaylistDisplay, AddToPlaylistPopover, CollectionArt,
+    CollectionArtImage, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
-use crate::ui::layouts::OVERLAY_SCROLLBAR_WIDTH;
 use crate::ui::primitives::{Button as UiButton, Label};
 use crate::ui::shells::library::detail::DetailRowSlot;
-use crate::ui::shells::library::feed_detail::library_release_page_dispatch;
+use crate::ui::shells::library::feed_detail::{
+    library_release_page_dispatch, render_library_list_bar_copies,
+};
 use crate::ui::shells::release_page::{render_release_page_track_row, ReleasePageDispatch};
 use crate::ui::style::spacing;
-use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
+use crate::ui::tokens::{FontSize, SemanticColor};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::library::MbTrackStatus;
 use crate::view_models::release_page::ReleaseTrackRowVm;
-use crate::view_models::selection_action_bar::ListBarCommand;
 use crate::view_models::singles_group::{
     SinglesGroupAction, SinglesGroupActionVm, SinglesGroupPageRowVm, SinglesGroupPageVm,
 };
@@ -124,7 +123,7 @@ pub(crate) fn render_library_singles_group_page(
         );
     }
     let (in_flow_bar, pinned_bar) =
-        render_group_list_bar_copies(list_bar, playlists, list_bar_pin, scroll, cx);
+        render_library_list_bar_copies(list_bar, playlists, list_bar_pin, scroll, cx);
     content = content.children(in_flow_bar);
     let dispatch = library_release_page_dispatch(cx);
     let playlist_displays = playlist_option_displays(playlists);
@@ -179,98 +178,6 @@ pub(crate) fn render_library_singles_group_page(
     // ADR 0084 packet 018: the page holds the scroll handle of the detail
     // column, so a key can keep the focused row in view.
     music_column_tracked_scrollbar(container, scroll, pinned_bar)
-}
-
-/// The handler of a group page's list bar. Each command goes to the top
-/// app as a `LibraryAppEvent::ListBar`, and the top app runs it through its
-/// selection path. Both copies of the bar use this handler.
-fn group_list_bar_handler(cx: &mut Context<LibraryApp>) -> ListBarHandler {
-    let entity = cx.entity();
-    Rc::new(
-        move |command: ListBarCommand, _window: &mut Window, cx: &mut App| {
-            entity.update(cx, |_this, cx| {
-                cx.emit(LibraryAppEvent::ListBar(command));
-            });
-        },
-    )
-}
-
-/// The in-flow bar and the pinned copy of a group page's list bar (ADR 0090
-/// Decision 5). The pinned copy is `Some` only once the in-flow bar has
-/// scrolled above the viewport. It overlays the rows.
-pub(super) fn render_group_list_bar_copies(
-    list_bar: Option<ListBarVm>,
-    playlists: &[db::Playlist],
-    list_bar_pin: &ListBarPin,
-    scroll: &ScrollHandle,
-    cx: &mut Context<LibraryApp>,
-) -> (Option<AnyElement>, Option<AnyElement>) {
-    let pinned = list_bar
-        .as_ref()
-        .filter(|_| list_bar_pin.is_pinned(scroll))
-        .map(|bar| render_group_pinned_list_bar(bar.clone(), playlists, cx));
-    let in_flow =
-        list_bar.map(|bar| render_group_list_bar(bar, playlists, list_bar_pin, scroll, cx));
-    (in_flow, pinned)
-}
-
-/// The list bar above the rows of a group page (ADR 0090). It carries the
-/// probe that records its position for the pinned copy (ADR 0090
-/// Decision 5).
-fn render_group_list_bar(
-    bar: ListBarVm,
-    playlists: &[db::Playlist],
-    list_bar_pin: &ListBarPin,
-    scroll: &ScrollHandle,
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let on_command = group_list_bar_handler(cx);
-    let bar_element = render_list_bar(
-        bar,
-        &list_bar_playlists(playlist_options(playlists)),
-        &on_command,
-        ListBarCopy::InFlow,
-        cx,
-    );
-    let probe = list_bar_pin.probe(scroll, &cx.entity());
-    div()
-        .relative()
-        .child(bar_element)
-        .child(probe)
-        .into_any_element()
-}
-
-/// The pinned copy of a group page's list bar (ADR 0090 Decision 5). It
-/// overlays the top of the rows, so it has a background of its own. Its
-/// insets match the in-flow bar, so the bar sits in the same columns. It
-/// uses the same handler and the same view model as the in-flow copy.
-pub(super) fn render_group_pinned_list_bar(
-    bar: ListBarVm,
-    playlists: &[db::Playlist],
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let on_command = group_list_bar_handler(cx);
-    let bar_element = render_list_bar(
-        bar,
-        &list_bar_playlists(playlist_options(playlists)),
-        &on_command,
-        ListBarCopy::Pinned,
-        cx,
-    );
-    // The rows pass below this copy. A click on its empty parts must not reach
-    // a row that it hides.
-    div()
-        .occlude()
-        .absolute()
-        .top_0()
-        .left_0()
-        .w_full()
-        .pt(spacing::LG)
-        .pl(spacing::LG)
-        .pr(spacing::LG + OVERLAY_SCROLLBAR_WIDTH + Spacing::SM.scaled(cx))
-        .bg(color(cx, SemanticColor::SystemBackground))
-        .child(bar_element)
-        .into_any_element()
 }
 
 /// The title, the subtitle and the identity note of a group page.

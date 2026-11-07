@@ -6279,16 +6279,14 @@ impl LibraryApp {
         // ADR 0084 packet 018: each row of a release page and of a singles
         // group page carries the detail selection facts.
         let row_slots = self.library_detail_row_slots();
-        // ADR 0090 Decision 2: a group page has its list bar above its rows.
+        // ADR 0090 Decisions 1 and 2: a group page and a release page have
+        // their list bar above their rows.
         let list_bar = match &self.detail {
-            LibraryDetail::SinglesGroup(_) | LibraryDetail::WindowGroup(_) => {
-                self.library_detail_page_rows().and_then(|rows| {
-                    crate::view_models::detail_selection::ListBarVm::new(
-                        &rows,
-                        &self.detail_selection,
-                    )
-                })
-            }
+            LibraryDetail::SinglesGroup(_)
+            | LibraryDetail::WindowGroup(_)
+            | LibraryDetail::Album(_) => self.library_detail_page_rows().and_then(|rows| {
+                crate::view_models::detail_selection::ListBarVm::new(&rows, &self.detail_selection)
+            }),
             _ => None,
         };
         let scroll = self.detail_scroll_handle();
