@@ -53,7 +53,7 @@ One parser in the view model layer reads the text. The parser gives a typed quer
 | `artist:` | text | The track artist or the album artist | Stophammer filter (Decision 5) |
 | `title:` | text | The track title or the release title | Stophammer filter |
 | `release:` | text | The release title | Stophammer filter |
-| `kind:` | `album`, `ep`, `single`, with commas for more than one | The release kind of ADR 0084 Decision 5 | Stophammer filter. It matches the stated kind only (Known Differences 2) |
+| `kind:` | `album`, `ep`, `single`, with commas for more than one | The release kind of ADR 0084 Decision 5 | Stophammer filter. It sends the kind requests of musicindex ADR 0049 R-QUERY-6 (Known Differences 2) |
 | `in:` | `library`, `index` | Sets the scope | Sets the scope |
 | `after:`, `before:` | a date, `2026-10-01`, or a month, `2026-10` | The release date of ADR 0086 Decision 1, and the `pub_date` of a track | Stophammer filter. A feed row uses its newest item date (Known Differences 3) |
 | `duration:` | `>5m`, `<3:30`, `3m..5m` | The duration of a track | Stophammer filter for track rows only (Known Differences 4) |
@@ -101,11 +101,11 @@ v4vmm sends the words and the phrases in `q`, and each Index field as its own pa
 - `q` holds the words and the phrases with no `-`. A query with fields and no word sends no `q`.
 - `artist:`, `title:` and `release:` give the parameters `artist`, `title` and `release`. Two values of one field join with a space, so each value applies.
 - A word or a phrase with `-` gives `not_q`. `-artist:`, `-title:` and `-release:` give `not_artist`, `not_title` and `not_release`. Each value is one exclusion.
-- `kind:` gives `kind`. Two `kind:` terms keep the kinds that both have. No shared kind sends no Index request.
+- `kind:` gives the parameters of musicindex ADR 0049 R-QUERY-6, which the crate `musicindex-search` builds. `single` gives `kind=unknown` and `tracks=1`. `album` gives `kind=unknown` and `min_tracks=2`. Two `kind:` terms keep the kinds that both have. No shared kind sends no Index request. `ep` sends no Index request, because a count never gives EP.
 - `after:` gives `after`, and `before:` gives `before`. Each value is `YYYY-MM-DD`. A day gives that day in both. A month gives its first day in `after:`, and its last day in `before:`.
 - `duration:` gives `min_duration` and `max_duration`, in integer seconds. Each limit is included, as `duration:` is.
 - Each entity type takes only some filters. A publisher row has no release, kind, date or duration, so `type=publisher` gets no request when the query has one of them. A feed row has no duration, so `type=feed` gets no request for a duration. Stophammer gives `400` for a filter that a type does not take. v4vmm sends no such filter. Each type gets its own request, so the run still sends at most three requests.
-- A query with exclusions and no positive term sends no request. Stophammer gives `400` with the code `missing_positive_term` for that request.
+- A query with exclusions and no positive term sends no request. Stophammer gives `400` with the code `missing_positive_term` for that request. The page shows the note "MusicIndex needs a word or a field to search for. The Library rows show."
 - An excluded `kind:`, `after:`, `before:` or `duration:` has no parameter. The Index part shows the note "MusicIndex cannot exclude kind: yet. The Library rows show." The contract has no `not_` form for these fields.
 
 The page never shows Index rows that a filter did not reduce.
@@ -139,10 +139,10 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 These differences stay after packet 011 of [ADR 0087 task 011](../tasks/adr-0087-task-011-index-receives-the-fields.md). Each one comes from the Index, not from the parser. The values were read on 2026-11-06 with read-only GET calls.
 
 1. Closed on 2026-11-07. Stophammer release 0.19.0 (its ADR 0085) makes the `title` filter of a track match the track title or the title of its feed, as the Library does. On 2026-11-07, `title=assorted&type=track` returned rows. No code in v4vmm changed.
-2. **`kind:`.** The Index matches only the release kind that a feed states, and most feeds state `unknown`. On 2026-11-06, `kind=single`, `kind=album` and `kind=ep` gave no row, and `kind=unknown` gave rows. So `kind:single`, `kind:album` and `kind:ep` show no Index rows today. The Library gives `single` to one track, `album` to each other release and no `ep`. The fix is open request 14, part 2.
+2. **`kind:`.** Closed on 2026-11-07. The crate `musicindex-search` builds the kind requests of musicindex ADR 0049 R-QUERY-6, and v4vmm sends them. `kind:single` sends `kind=unknown&tracks=1`, and `kind:album` sends `kind=unknown&min_tracks=2`. On 2026-11-07, `kind=unknown&tracks=1` and `kind=unknown&min_tracks=2` each gave rows. `kind:ep` still sends no Index request, because a count never gives EP (R-QUERY-6). The Library gives `single` to one track, `album` to each other release and no `ep`. Open request 14, part 2, was declined, and its answer gives the filters that an app sends.
 3. **`after:` and `before:` on a feed.** The Index compares the newest item date of the feed. The Library compares the release date (ADR 0086 Decision 1). A track row uses its `pub_date` in both.
 4. **`duration:`.** The Index filters track rows only. A query with `duration:` shows no feed rows from the Index. The Library shows a release when one of its tracks matches.
-5. **Words in a phrase with a quote.** v4vmm sends `\"` for a quote inside a phrase. The client sanitizer changes each backslash to a space, so the quote does not reach the Index as typed. This also holds for `q` before this packet.
+5. **Words in a phrase with a quote.** Closed on 2026-11-07. The crate `musicindex-search` writes a space for each quote and each backslash (musicindex ADR 0049 R-QUERY-5), and v4vmm sends that text. So `q` and each text filter no longer hold `\"` or `\\`. The FTS5 tokenizer reads each space as a separator, so a phrase matches as before.
 6. **Artist rows.** A query with no word gives artist rows only for the name of its `artist:` term. A query with no word and no `artist:` term gives no artist row.
 7. **The first page.** The Index part reads the first page of each type, 20 rows. The Library reads at most 50 tracks.
 

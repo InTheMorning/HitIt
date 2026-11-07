@@ -19643,6 +19643,10 @@ struct ContractTypeMapping {
 /// since 2026-11-07.
 const CONTRACT_TYPE_MAP: &[ContractTypeMapping] = &[
     ContractTypeMapping {
+        rust_type: "CapabilitiesResponse",
+        schemas: &[ContractSchemaRef::Named("CapabilitiesResponse")],
+    },
+    ContractTypeMapping {
         rust_type: "SearchResponse",
         schemas: &[ContractSchemaRef::Inline {
             path: "/v1/search",

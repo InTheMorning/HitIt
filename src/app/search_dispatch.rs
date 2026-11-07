@@ -45,8 +45,8 @@ use crate::view_models::release_page::{
     ReleaseTrackRowVm,
 };
 use crate::view_models::search_results::{
-    IndexDetailDisplay, IndexDetailKind, IndexSearchPlan, LibrarySearchRows, SavedSearchId,
-    SearchResultTarget, SearchResultsInspectorPageVm, SearchResultsTab, SearchRun,
+    IndexDetailDisplay, IndexDetailKind, IndexOrder, IndexSearchPlan, LibrarySearchRows,
+    SavedSearchId, SearchResultTarget, SearchResultsInspectorPageVm, SearchResultsTab, SearchRun,
     SearchRunTrigger,
 };
 use crate::view_models::track_detail::{TrackNameLinkTarget, TrackPageAction};
@@ -399,9 +399,40 @@ impl TopApp {
             self.musicindex_endpoint.clone(),
             request.clone(),
             self.library.read(cx).name_feed_matches(),
-        );
+        )
+        .with_order(self.index_order_of(slot), run.trigger().index_run());
         let context = self.index_search_context(slot);
         self.dispatch_index_search(slot, run, command, context, None, cx);
+    }
+
+    /// The Index order that the search page `slot` asks for (Stophammer ADR
+    /// 0084). A page with no selected sort gives relevance.
+    fn index_order_of(&self, slot: SearchPageSlot) -> IndexOrder {
+        self.search_page(slot).map_or(
+            IndexOrder::Relevance,
+            SearchResultsInspectorPageVm::index_order,
+        )
+    }
+
+    /// Starts a new Index search of the page `slot` when the Index order of
+    /// the page changed (ADR 0087 Decision 4). The new run takes a new
+    /// generation, so the rows of the older order do not replace its rows.
+    /// A change that keeps the order starts no run.
+    pub(super) fn restart_index_search_for_order(
+        &mut self,
+        slot: SearchPageSlot,
+        before: IndexOrder,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(page) = self.search_page(slot) else {
+            return;
+        };
+        if page.index_order() == before {
+            return;
+        }
+        let text = page.query().to_owned();
+        let run = self.next_search_run(slot, &text);
+        self.start_index_search_for_run(slot, &run, cx);
     }
 
     /// The command context of a new Index request of the search page
@@ -443,18 +474,21 @@ impl TopApp {
         let generation = run.generation();
         self.search_results_detail = Some(
             self.search_results_detail_for_run(&run, cx)
+                .with_list_state_of(self.search_results_detail.as_ref())
                 .with_run_generation(generation),
         );
         if let Some(detail) = &mut self.search_results_detail {
             detail.begin_index_run(generation);
         }
         let id = intent.id;
+        let order = self.index_order_of(SearchPageSlot::ToolbarSearch);
         let command = self.retry_command(
             FetchIndexSearchResults::new(
                 self.musicindex_endpoint.clone(),
                 request.clone(),
                 self.library.read(cx).name_feed_matches(),
-            ),
+            )
+            .with_order(order, run.trigger().index_run()),
             intent,
         );
         let context = self.index_search_context(SearchPageSlot::ToolbarSearch);

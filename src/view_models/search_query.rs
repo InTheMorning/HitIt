@@ -444,9 +444,10 @@ mod tests {
     fn adr_0087_query_parser_r87_1_18_index_q_holds_words_and_phrases_only() {
         let index_q = |text: &str| SearchQuery::parse(text).index_q();
         assert_eq!(index_q(EXAMPLE), Some("\"night drive\"".to_owned()));
+        // musicindex ADR 0049 R-QUERY-5: a quote and a backslash each give a space.
         assert_eq!(
             index_q(r#"haleen "a \"b\"""#),
-            Some(r#"haleen "a \"b\"""#.to_owned())
+            Some(r#"haleen "a  b ""#.to_owned())
         );
         assert_eq!(index_q("artist:x -remix"), None);
         for text in [
