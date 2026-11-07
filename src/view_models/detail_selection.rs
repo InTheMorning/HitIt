@@ -966,6 +966,20 @@ pub(crate) const fn has_list_bar(entry: &FrameNavigationEntry) -> bool {
     )
 }
 
+/// `true` when the list bar of a group page has scrolled above the top of
+/// its viewport, so a pinned copy must show (ADR 0090 Decision 5).
+///
+/// `offset_y` is the scroll offset: 0 at the top, and negative when the
+/// rows have moved up. `max_offset_y` is the scrollable distance, so a page
+/// that does not scroll has 0. `bar_top` is the top of the bar at zero
+/// offset, in pixels from the top of the viewport. `None` means the bar has
+/// no laid-out position yet, so no copy shows. A bar exactly at the top of
+/// the viewport is not pinned, because the bar in the rows is then in view.
+#[must_use]
+pub(crate) fn list_bar_is_pinned(offset_y: f32, max_offset_y: f32, bar_top: Option<f32>) -> bool {
+    bar_top.is_some_and(|top| max_offset_y > 0.0 && top + offset_y < 0.0)
+}
+
 fn header_action_with_id_prefix(
     id_prefix: &str,
     rows: Option<&DetailPageRows>,
@@ -1553,6 +1567,37 @@ mod tests {
         )));
         assert!(!has_list_bar(&release_entry()));
         assert!(!has_list_bar(&FrameNavigationEntry::PlaylistDetail(3)));
+    }
+
+    /// ADR 0090 Decision 5: the pinned copy of the list bar shows when the
+    /// bar has scrolled above the viewport, and not before.
+    #[test]
+    fn adr_0090_list_bar_is_pinned_only_after_its_top_scrolls_above_the_view() {
+        // The bar starts 120 px down. It is in view at 0 and at -119.
+        assert!(!list_bar_is_pinned(0.0, 800.0, Some(120.0)));
+        assert!(!list_bar_is_pinned(-119.0, 800.0, Some(120.0)));
+        // The boundary: a bar exactly at the top of the view is not pinned.
+        assert!(!list_bar_is_pinned(-120.0, 800.0, Some(120.0)));
+        // Past the boundary the bar is above the view, so it is pinned.
+        assert!(list_bar_is_pinned(-121.0, 800.0, Some(120.0)));
+        assert!(list_bar_is_pinned(-800.0, 800.0, Some(120.0)));
+    }
+
+    /// ADR 0090 Decision 5: a page that does not scroll never pins the bar,
+    /// even when the bar sits above the top of the view.
+    #[test]
+    fn adr_0090_list_bar_is_not_pinned_on_a_page_that_does_not_scroll() {
+        assert!(!list_bar_is_pinned(0.0, 0.0, Some(120.0)));
+        assert!(!list_bar_is_pinned(0.0, 0.0, Some(-5.0)));
+        assert!(!list_bar_is_pinned(-10.0, 0.0, Some(-5.0)));
+    }
+
+    /// ADR 0090 Decision 5: a bar with no laid-out position yet is not
+    /// pinned, so no copy shows before the first paint.
+    #[test]
+    fn adr_0090_list_bar_without_a_position_is_not_pinned() {
+        assert!(!list_bar_is_pinned(-500.0, 800.0, None));
+        assert!(!list_bar_is_pinned(0.0, 800.0, None));
     }
 
     /// R18-05: the track bar. "Download" counts only the tracks that are

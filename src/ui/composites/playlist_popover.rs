@@ -82,6 +82,7 @@ pub struct AddToPlaylistPopover {
     create_a11y_label: SharedString,
     disabled: bool,
     trigger_style: Option<ControlStyle>,
+    trigger_in_tab_sequence: bool,
     on_select: Option<SelectHandler>,
     on_create: Option<CreateHandler>,
 }
@@ -139,6 +140,7 @@ impl AddToPlaylistPopover {
             create_a11y_label: display.create_a11y_label,
             disabled: false,
             trigger_style: None,
+            trigger_in_tab_sequence: true,
             on_select: None,
             on_create: None,
         }
@@ -150,6 +152,13 @@ impl AddToPlaylistPopover {
     /// small tinted button.
     pub const fn trigger_style(mut self, style: ControlStyle) -> Self {
         self.trigger_style = Some(style);
+        self
+    }
+
+    /// Keeps the trigger out of the Tab sequence. A second copy of the bar
+    /// uses this, so only one copy is a tab stop (ADR 0090 Decision 5).
+    pub const fn trigger_out_of_tab_sequence(mut self) -> Self {
+        self.trigger_in_tab_sequence = false;
         self
     }
 
@@ -195,6 +204,7 @@ impl RenderOnce for AddToPlaylistPopover {
         let trigger_id = SharedString::from(format!("{}-btn", self.id));
         let disabled = self.disabled;
         let trigger_style = self.trigger_style;
+        let trigger_in_tab_sequence = self.trigger_in_tab_sequence;
 
         Popover::new(self.id)
             .placement(PopoverPlacement::Below)
@@ -225,7 +235,8 @@ impl RenderOnce for AddToPlaylistPopover {
                     )
                     .label(trigger_label)
                     .a11y_label(trigger_a11y_label)
-                    .disabled(disabled),
+                    .disabled(disabled)
+                    .when(!trigger_in_tab_sequence, Button::out_of_tab_sequence),
             )
             .content(move |_window, cx| {
                 let (creating, name_input) = {

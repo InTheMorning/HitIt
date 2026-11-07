@@ -24602,12 +24602,12 @@ fn adr_0090_group_pages_have_no_frame_header_action_or_bottom_bar() {
         ),
         (
             &singles,
-            "render_group_list_bar(bar,playlists,cx)",
+            "render_group_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
             "the list bar of the singles group page",
         ),
         (
             &window,
-            "render_group_list_bar(bar,playlists,cx)",
+            "render_group_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
             "the list bar of the window group page",
         ),
     ] {
@@ -24621,6 +24621,88 @@ fn adr_0090_group_pages_have_no_frame_header_action_or_bottom_bar() {
     assert!(
         violations.is_empty(),
         "ADR 0090 guard failed:\n{}",
+        violations.join("\n")
+    );
+}
+
+/// Situational, ADR 0090 Decision 5 (the bar stays in view during a scroll).
+/// The two group pages draw their pinned copy from the same renderer as the
+/// in-flow bar, and no second list bar renderer exists. Delete this guard
+/// with ADR 0090 when the last page moves to the list bar (phase plan packet
+/// 007) and the pinned copy is shared by all pages.
+#[test]
+fn adr_0090_pinned_copy_comes_from_the_one_list_bar_renderer() {
+    let selection_bar = compact_source(&read_source(&manifest_path(
+        "src/ui/composites/selection_action_bar.rs",
+    )));
+    let singles = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/library/singles_group.rs",
+    )));
+    let window = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/library/window_group.rs",
+    )));
+    let mut violations = Vec::new();
+
+    for (source, required, what) in [
+        (
+            &singles,
+            "render_list_bar(",
+            "the singles group page calls the shared `render_list_bar`",
+        ),
+        (
+            &singles,
+            "ListBarCopy::Pinned",
+            "the singles group page draws the pinned copy",
+        ),
+        (
+            &singles,
+            ".occlude()",
+            "the pinned copy blocks a click on the rows that it hides. The operator run of 2026-11-06 changed a selection through it",
+        ),
+        (
+            &singles,
+            "list_bar_pin.probe(scroll,&cx.entity())",
+            "the singles group page records the bar position with the probe",
+        ),
+        (
+            &singles,
+            "render_group_pinned_list_bar(",
+            "the singles group page draws the pinned copy in its shared helper",
+        ),
+        (
+            &window,
+            "render_group_list_bar_copies(list_bar,playlists,list_bar_pin,scroll,cx)",
+            "the window group page draws both copies through the singles group helper",
+        ),
+        (
+            &selection_bar,
+            "pub(crate)fnrender_list_bar(",
+            "the one list bar renderer of `selection_action_bar.rs`",
+        ),
+    ] {
+        if !source.contains(required) {
+            violations.push(format!(
+                "ADR 0090 Decision 5: the pinned copy of a list bar comes from `render_list_bar`, with the probe of `ListBarPin`. Missing {what}, expected `{required}`. Restore the call in src/ui/shells/library/singles_group.rs or window_group.rs. Do not draw a second copy by hand."
+            ));
+        }
+    }
+
+    // Only one function may draw the list bar: `render_list_bar` in
+    // `selection_action_bar.rs`. Its root id is the one place of the bar.
+    for (path, source) in [
+        ("src/ui/shells/library/singles_group.rs", &singles),
+        ("src/ui/shells/library/window_group.rs", &window),
+    ] {
+        if source.contains("id(\"music-list-bar\")") || source.contains("\"music-list-bar\"") {
+            violations.push(format!(
+                "ADR 0090 Decision 5: {path} names the bar root id `music-list-bar`. Only `render_list_bar` in src/ui/composites/selection_action_bar.rs names it. Remove the second bar and call `render_list_bar` with `ListBarCopy`."
+            ));
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "ADR 0090 Decision 5 guard failed:\n{}",
         violations.join("\n")
     );
 }

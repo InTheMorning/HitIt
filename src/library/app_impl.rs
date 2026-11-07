@@ -62,7 +62,7 @@ use crate::ui::composites::list_page_head::{
 };
 use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::music_column_scroll::{
-    music_column_scrollbar, MusicColumnList, ScrollReveal,
+    music_column_scrollbar, ListBarPin, MusicColumnList, ScrollReveal,
 };
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::playlist_popover::{CreateHandler, SelectHandler};
@@ -1226,6 +1226,7 @@ impl LibraryApp {
             pending_inspect_sources: None,
             spring_load: crate::view_models::library::SpringLoadVm::default(),
             detail_scroll_reveal: ScrollReveal::new(detail_column_scroll.clone()),
+            list_bar_pin: ListBarPin::default(),
             detail_column_scroll,
             detail_scroll_binding: super::detail_selection::DetailScrollBinding::default(),
             saved_searches: Vec::new(),
@@ -6321,6 +6322,7 @@ impl LibraryApp {
             album_cover_color,
             header_art,
             list_bar,
+            &self.list_bar_pin,
             row_slots,
             &scroll,
             &self.detail_column_focus,
