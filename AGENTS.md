@@ -71,6 +71,7 @@ Known open defects:
   [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Proposed, and for the mpv IPC error.
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
+- A toolbar search with only exclusions, such as `-remix`, starts no run. The note of [ADR 0087](docs/adr/0087-search-fields-and-live-results.md) Decision 5 does not show, and the older page stays. No packet owns the change.
 - A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role, and no packet owns the code change.
 
 Stored facts that agents need:
@@ -223,16 +224,23 @@ Copy any pattern worth keeping into the live surface first.
 **Visual proof.** A user-visible layout, hierarchy, or presentation fix is not
 fixed until a person inspects it in the running app.
 
-**Never run the app.** No `cargo run`, no `xvfb-run`,
-and no other headless display attempt. GPUI cannot initialize an X11 client in
-an agent session. That failure is known, it is not a defect, and it carries no
-information. Do not attempt it, do not report it as an unresolved concern, and
-do not describe it as blocking.
-It blocks nothing that any agent could do.
+**Make your own visual check first.** Before you ask a person to check a
+user-visible result, the main agent runs the app on its own Xvfb display and
+judges screenshots. Use scratch `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and
+`XDG_CACHE_HOME` folders, so the run cannot touch the real Library. Use this
+display, because `/tmp/.X11-unix` is read-only in the sandbox:
 
-**Write operator instructions instead.** End the report with an
-`Operator visual check` section that a person can follow at a terminal in a
-desktop session:
+```bash
+Xvfb :77 -screen 0 1440x900x24 -nolisten unix -nolisten local -listen tcp -extension GLX &
+DISPLAY=127.0.0.1:77 target/debug/v4vmm
+```
+
+Never send input to the operator's display. A packet worker does not run the
+app. An agent result does not pass a visual gate.
+
+**Write operator instructions for what stays.** End the report with an
+`Operator visual check` section that holds only the steps that need a person,
+and that a person can follow at a terminal in a desktop session:
 
 - numbered steps, including the commands that reach the state
 - what to look at, and what would count as wrong
