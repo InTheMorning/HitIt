@@ -22,7 +22,7 @@ Music structure in [ADR 0084](docs/adr/0084-music-column-browser.md).
 Phase 4A builds ADR 0084 in the packets of the
 [ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). [ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md) replaces its columns, destinations and Discover.
 Stophammer release 0.13.0 delivered request 9 on 2026-10-21, so packets 026 and 029 wait for nothing outside this repository.
-Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). Stophammer release 0.18.1 is deployed on 2026-11-04.
+Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). Stophammer release 0.19.0 is deployed on 2026-11-07.
 
 Packets 001 to 009, 013 to 015, 018, 019, 036 and 037 are complete. Packets 010 to 012, 016, 017, 020 to 035 are implemented,
 and so are ADR 0083 tasks 006 to 008. The run of 2026-10-20 closed on 2026-10-23. Its unwalked visual checks stay open in
@@ -76,7 +76,7 @@ Known open defects:
 Stored facts that agents need:
 
 - Schema version 23 is current. The migration registry of ADR 0016 owns each schema change.
-- `tests/fixtures/musicindex-openapi-0.18.1.json` is the stored MusicIndex contract. After each Stophammer
+- `tests/fixtures/musicindex-openapi-0.19.0.json` is the stored MusicIndex contract. After each Stophammer
   release, replace it in the same change as the decode changes (ADR 0075 section 6).
 - [Open Stophammer requests](docs/plans/v4vmm-open-requests.md) has an equal copy in the Stophammer
   repository. Update both copies together.
