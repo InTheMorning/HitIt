@@ -1521,6 +1521,50 @@ mod tests {
         Ok(())
     }
 
+    /// ADR 0087 Decision 4: a query with only exclusions lists each Library
+    /// row except the excluded rows, in the scope All and in the scope In
+    /// Library. An empty Library gives no row and no error.
+    #[test]
+    fn adr_0087_library_fields_exclusions_alone_list_the_other_rows() -> anyhow::Result<()> {
+        let search = |conn: &Connection, text: &str| {
+            ApplicationQueryService::new().search_local_library_tracks(
+                conn,
+                &SearchQuery::parse(text),
+                &LibrarySearchFacts::default(),
+                None,
+            )
+        };
+        let conn = setup_test_db()?;
+        for text in ["-remix", "-remix in:library"] {
+            assert!(search(&conn, text)?.tracks.is_empty(), "{text}");
+        }
+
+        let feed_id = create_feed(&conn, "Mixes")?;
+        for title in ["Night Drive", "Night Drive Remix"] {
+            create_track(
+                &conn,
+                feed_id,
+                SearchTrack {
+                    title,
+                    artist: "Artist",
+                    album: "Album",
+                    album_artist: "Album Ensemble",
+                    in_library: true,
+                },
+            )?;
+        }
+        for text in ["-remix", "-remix in:library", "-title:remix"] {
+            let rows = search(&conn, text)?.tracks;
+            let titles: Vec<&str> = rows
+                .iter()
+                .filter_map(|row| row.track_title.as_deref())
+                .collect();
+            assert_eq!(titles, ["Night Drive"], "{text}");
+        }
+        assert!(search(&conn, "-remix in:index")?.tracks.is_empty());
+        Ok(())
+    }
+
     /// R47-03, R47-04 (ADR 0075 packet 047): a track row built from summary
     /// fields alone shows its title, `track_artist`, `release_artist` and
     /// `feed_title`, and its artwork follows Decision C: `track_image_url`
@@ -3322,7 +3366,7 @@ mod adr_0087_library_fields_tests {
         // A connection with no table fails each statement, so an empty
         // result proves that no SQL ran.
         let no_tables = Connection::open_in_memory()?;
-        for text in ["-remix", "!!!", "in:library", "after:yesterday"] {
+        for text in ["-!!!", "!!!", "in:library", "after:yesterday"] {
             let rows = search(&no_tables, text, &facts)?;
             assert!(rows.tracks.is_empty() && rows.releases.is_empty(), "{text}");
             assert_eq!(rows.matched_count, 0, "{text}");

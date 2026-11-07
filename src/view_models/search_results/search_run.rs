@@ -31,7 +31,9 @@ use musicindex_search::query::KindValue;
 
 use crate::db::TrackRow;
 use crate::view_models::live_run::RunGeneration;
-use crate::view_models::search_query::{QueryScope, SearchQuery};
+use crate::view_models::search_query::{
+    FieldValueState, QueryFieldName, QueryScope, SearchQuery, TermKind,
+};
 
 /// The text of the note under the Library rows when the Index part sends no
 /// request because the Index cannot apply a term (ADR 0087 Decision 5).
@@ -152,11 +154,12 @@ impl SearchRun {
         &self.index_plan
     }
 
-    /// `true` when the query holds a term that can run. A run that is not
-    /// runnable opens no page and sends nothing (packet 002 decision D19).
+    /// `true` when the query holds a term that can run, with or without `-`
+    /// (ADR 0087 Decision 4). A run that is not runnable opens no page and
+    /// sends nothing (packet 002 decision D19).
     #[must_use]
     pub(crate) fn is_runnable(&self) -> bool {
-        self.query.has_runnable_content()
+        query_can_run(&self.query)
     }
 
     /// `true` when the Library part runs (packet 002 decision D15).
@@ -205,11 +208,31 @@ pub(crate) fn live_run_step(
     LiveRunStep::Run(run.with_trigger(SearchRunTrigger::Pause))
 }
 
+/// `true` when `query` can run: it holds a positive term that can run, or an
+/// exclusion that can apply (ADR 0087 Decision 4). The Library lists each row
+/// except the excluded rows, and the Index part gives its note.
+fn query_can_run(query: &SearchQuery) -> bool {
+    query.has_runnable_content()
+        || query
+            .terms()
+            .iter()
+            .filter(|term| term.excluded)
+            .any(|term| match &term.kind {
+                TermKind::Word(text) | TermKind::Phrase(text) => {
+                    text.chars().any(char::is_alphanumeric)
+                }
+                TermKind::Field(field) => {
+                    field.name != QueryFieldName::In
+                        && matches!(field.value, FieldValueState::Valid(_))
+                }
+            })
+}
+
 /// `true` when the Library part of `query` runs: the query is runnable, and
 /// its scope is `Everything` or `LibraryOnly` (packet 002 decision D15).
 #[must_use]
 pub(crate) fn library_part_runs(query: &SearchQuery) -> bool {
-    query.has_runnable_content()
+    query_can_run(query)
         && matches!(
             query.scope(),
             QueryScope::Everything | QueryScope::LibraryOnly
@@ -568,7 +591,17 @@ mod tests {
     /// with a word and a field with no value gives `Run`.
     #[test]
     fn adr_0087_live_results_r87_3_05_text_with_no_runnable_term_runs_nothing() {
-        for text in ["", "   ", "!!!", "-remix", "artist:", "in:library"] {
+        for text in [
+            "",
+            "   ",
+            "!!!",
+            "-!!!",
+            "artist:",
+            "-artist:",
+            "-after:yesterday",
+            "in:library",
+            "-in:library",
+        ] {
             assert!(
                 matches!(live_run_step(text, None, true), LiveRunStep::NotRunnable),
                 "R87-3-05: {text:?}"
@@ -578,6 +611,35 @@ mod tests {
             live_run_step("haleen artist:", None, true),
             LiveRunStep::Run(run) if run.text() == "haleen artist:"
         ));
+    }
+
+    /// ADR 0087 Decision 4: a query with only exclusions runs. The Library
+    /// part runs in the scopes that hold the Library, and the Index part sends
+    /// no request. The agent screenshot run of 2026-11-07 found that this
+    /// query started no run, so the note did not show.
+    #[test]
+    fn adr_0087_live_results_exclusions_alone_start_a_run() {
+        for text in ["-remix", "-\"night drive\"", "-title:remix", "-kind:single"] {
+            let LiveRunStep::Run(run) = live_run_step(text, None, true) else {
+                panic!("{text:?} must run");
+            };
+            assert!(run.runs_library(), "{text:?}");
+            assert!(
+                matches!(run.index_plan(), IndexSearchPlan::Skip(_)),
+                "{text:?}"
+            );
+        }
+        let library = SearchRun::new("-remix in:library");
+        assert!(library.is_runnable());
+        assert!(library.runs_library());
+        assert_eq!(
+            *library.index_plan(),
+            IndexSearchPlan::Skip(IndexSkip::LibraryOnly)
+        );
+        assert_eq!(
+            *SearchRun::new("-remix").index_plan(),
+            IndexSearchPlan::Skip(IndexSkip::ExclusionsOnly)
+        );
     }
 
     /// R87-3-06: the query of the mounted page gives `SameQuery`. A

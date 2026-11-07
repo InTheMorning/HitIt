@@ -71,7 +71,7 @@ Known open defects:
   [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Proposed, and for the mpv IPC error.
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
-- A toolbar search with only exclusions, such as `-remix`, starts no run. The note of [ADR 0087](docs/adr/0087-search-fields-and-live-results.md) Decision 5 does not show, and the older page stays. No packet owns the change.
+- With the list bar pinned, Tab passes stops above the viewport that show no focus. [ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) requires keyboard reach, and no packet owns the change.
 - A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role, and no packet owns the code change.
 
 Stored facts that agents need:
