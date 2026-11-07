@@ -4197,6 +4197,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "musicindex-search"
+version = "0.1.0"
+source = "git+https://github.com/InTheMorning/musicindex-lib?rev=3ee38db58e4c65fbc3bea82c586930bfb1160e45#3ee38db58e4c65fbc3bea82c586930bfb1160e45"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
 name = "naga"
 version = "29.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7627,6 +7635,7 @@ dependencies = [
  "lru",
  "markup5ever_rcdom",
  "mime",
+ "musicindex-search",
  "open",
  "quick-xml 0.37.5",
  "reqwest",

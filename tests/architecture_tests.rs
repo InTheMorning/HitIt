@@ -21600,19 +21600,14 @@ after each scroll change."
 }
 
 /// R7-07, situational ADR 0084 Decision 5: no renderer or view model
-/// outside `src/view_models/release_kind.rs` spells out the old static
-/// release-action text. A production line that names a release action
-/// builds its text from `ReleaseKind` instead.
+/// spells out the old static release-action text. A production line that
+/// names a release action builds its text from `ReleaseKind` instead.
 #[test]
 fn adr_0084_release_kind_r7_07_no_hardcoded_download_or_remove_album_literal() {
     let mut files = Vec::new();
     collect_rust_files(&manifest_path("src"), &mut files);
-    let release_kind_path = manifest_path("src/view_models/release_kind.rs");
     let mut violations = Vec::new();
     for file in files {
-        if file == release_kind_path {
-            continue;
-        }
         let source = read_source(&file);
         // Comments may still describe the action informally, and a test
         // may build the old text on purpose to prove a regression stays
@@ -21622,8 +21617,8 @@ fn adr_0084_release_kind_r7_07_no_hardcoded_download_or_remove_album_literal() {
         for forbidden in ["\"Download album\"", "\"Remove album\u{2026}\""] {
             if checked.contains(forbidden) {
                 violations.push(format!(
-                    "{}: ADR 0084 Decision 5 forbids the literal {forbidden} outside \
-release_kind.rs and tests. Build the label from `ReleaseKind` instead.",
+                    "{}: ADR 0084 Decision 5 forbids the literal {forbidden} in production \
+code. Build the label from `ReleaseKind` instead.",
                     rel_path(&file)
                 ));
             }
@@ -21645,7 +21640,6 @@ fn adr_0084_singles_group_r15_09_only_the_owner_groups_singles() {
     let mut files = Vec::new();
     collect_rust_files(&manifest_path("src"), &mut files);
     let owners = [
-        manifest_path("src/view_models/release_kind.rs"),
         manifest_path("src/view_models/singles_group.rs"),
         manifest_path("src/view_models/window_groups.rs"),
     ];
@@ -23484,8 +23478,8 @@ fn adr_0086_saved_search_groups_load_no_extra_page() {
     assert!(!saved_search_groups_violations(&search, &groups, &shell).is_empty());
 }
 
-/// The 11 field tokens of ADR 0087 Decision 2. The owner holds each one as
-/// a literal, so this list and `QUERY_FIELDS` stay equal.
+/// The 11 field tokens of ADR 0087 Decision 2. The crate `musicindex-search`
+/// holds them in its field table (musicindex ADR 0049 R-QUERY-1).
 const ADR_0087_FIELD_TOKENS: [&str; 11] = [
     "artist:",
     "title:",
@@ -23500,13 +23494,9 @@ const ADR_0087_FIELD_TOKENS: [&str; 11] = [
     "has:",
 ];
 
-/// The owner of the field syntax of the Music search query text.
-const ADR_0087_QUERY_PARSER_OWNER: &str = "src/view_models/search_query.rs";
-
 /// Gives one violation for each production string literal in `files` that
-/// starts with a field token, and one for each token that `owner` does not
-/// hold as a literal.
-fn query_field_syntax_violations(owner: &str, files: &[(String, String)]) -> Vec<String> {
+/// starts with a field token.
+fn query_field_syntax_violations(files: &[(String, String)]) -> Vec<String> {
     let mut violations = Vec::new();
     for (path, source) in files {
         let code = code_only(source);
@@ -23516,22 +23506,12 @@ fn query_field_syntax_violations(owner: &str, files: &[(String, String)]) -> Vec
                 .find(|token| literal.starts_with(**token))
             {
                 violations.push(format!(
-                    "ADR 0087 Decision 1 (one parser reads the query text): {path} holds the field \
-syntax literal \"{token}\". Only {ADR_0087_QUERY_PARSER_OWNER} reads field syntax. Call \
-SearchQuery::parse and read its typed terms, or read the token from QUERY_FIELDS."
+                    "ADR 0087 Decision 1 and musicindex ADR 0049 R-QUERY-1 (the crate \
+`musicindex-search` owns the field syntax): {path} holds the field syntax literal \"{token}\". \
+Call SearchQuery::parse from the crate and read its typed terms, or read the token from \
+QUERY_FIELDS."
                 ));
             }
-        }
-    }
-    let owner_code = code_only(owner);
-    let owner_literals = string_literals(production_source(&owner_code));
-    for token in ADR_0087_FIELD_TOKENS {
-        if !owner_literals.iter().any(|literal| literal == token) {
-            violations.push(format!(
-                "ADR 0087 Decision 1 (one parser reads the query text): \
-{ADR_0087_QUERY_PARSER_OWNER} does not hold the field token \"{token}\" as a literal. Keep \
-each token in QUERY_FIELDS, and keep this guard list equal to that table."
-            ));
         }
     }
     violations
@@ -23543,16 +23523,13 @@ each token in QUERY_FIELDS, and keep this guard list equal to that table."
 /// second parser. Delete this guard when ADR 0087 Decision 1 is superseded.
 #[test]
 fn adr_0087_query_parser_r87_1_30_one_parser_reads_field_syntax() {
-    let owner_path = manifest_path(ADR_0087_QUERY_PARSER_OWNER);
-    let owner = read_source(&owner_path);
     let mut paths = Vec::new();
     collect_rust_files(&manifest_path("src"), &mut paths);
     let files: Vec<(String, String)> = paths
         .into_iter()
-        .filter(|path| *path != owner_path)
         .map(|path| (rel_path(&path), read_source(&path)))
         .collect();
-    let violations = query_field_syntax_violations(&owner, &files);
+    let violations = query_field_syntax_violations(&files);
     assert!(violations.is_empty(), "{}", violations.join("\n"));
 
     // A copy of a production file that holds the literal "kind:" fails.
@@ -23565,21 +23542,15 @@ fn adr_0087_query_parser_r87_1_30_one_parser_reads_field_syntax() {
         path.clone(),
         format!("fn second_parser() -> &'static str {{ \"kind:\" }}\n{source}"),
     ));
-    let copy_violations = query_field_syntax_violations(&owner, &copy);
+    let copy_violations = query_field_syntax_violations(&copy);
     assert!(copy_violations
         .iter()
         .any(|violation| violation.contains("\"kind:\"")));
-
-    // An owner with no "has:" literal fails.
-    let without_has = owner.replace("\"has:\"", "\"has\"");
-    assert_ne!(without_has, owner);
-    assert!(!query_field_syntax_violations(&without_has, &files).is_empty());
 }
 
 /// The violations of the typed search path of ADR 0087 packet 002 in
 /// `files`, each Rust file under `src/` by its relative path.
 fn typed_search_path_violations(files: &[(String, String)]) -> Vec<String> {
-    const RUN_OWNER: &str = "src/view_models/search_results/search_run.rs";
     const QUERY_OWNER: &str = "src/application/queries/search.rs";
     const SERVICE_OWNER: &str = "src/library_service.rs";
     const BUILDER_OWNER: &str = "src/db/library_search.rs";
@@ -23587,17 +23558,17 @@ fn typed_search_path_violations(files: &[(String, String)]) -> Vec<String> {
     let mut violations = Vec::new();
     let mut report = |file: &str, violation: &str| {
         violations.push(format!(
-            "ADR 0087 Decision 5 and its invariants: {file} {violation}. The Index request takes an \
-IndexSearchRequest from IndexSearchPlan::for_query, never the query text. A Library value goes \
-into SQL only as a bound parameter through src/db/library_search.rs. Build one SearchRun and pass \
-its plan and its typed query."
+            "ADR 0087 Decision 5 and its invariants: {file} {violation}. The crate `musicindex-search` \
+builds an IndexSearchRequest, only through IndexSearchPlan::for_query, and never from the query \
+text (musicindex ADR 0049 R-QUERY-1). A Library value goes into SQL only as a bound parameter \
+through src/db/library_search.rs. Build one SearchRun and pass its plan and its typed query."
         ));
     };
     let mut builder_seen = false;
     let mut query_seen = false;
     for (file, source) in files {
         let code = code_only(production_source(source));
-        if file != RUN_OWNER && code.contains("IndexSearchRequest {") {
+        if code.contains("IndexSearchRequest {") {
             report(file, "builds an IndexSearchRequest");
         }
         if file != QUERY_OWNER && code.contains("library_service::search_library_tracks(") {
