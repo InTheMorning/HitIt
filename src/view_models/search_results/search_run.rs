@@ -31,9 +31,7 @@ use musicindex_search::query::KindValue;
 
 use crate::db::TrackRow;
 use crate::view_models::live_run::RunGeneration;
-use crate::view_models::search_query::{
-    FieldValueState, QueryFieldName, QueryScope, SearchQuery, TermKind,
-};
+use crate::view_models::search_query::{QueryScope, QueryTerm, SearchQuery};
 
 /// The text of the note under the Library rows when the Index part sends no
 /// request because the Index cannot apply a term (ADR 0087 Decision 5).
@@ -212,20 +210,7 @@ pub(crate) fn live_run_step(
 /// exclusion that can apply (ADR 0087 Decision 4). The Library lists each row
 /// except the excluded rows, and the Index part gives its note.
 fn query_can_run(query: &SearchQuery) -> bool {
-    query.has_runnable_content()
-        || query
-            .terms()
-            .iter()
-            .filter(|term| term.excluded)
-            .any(|term| match &term.kind {
-                TermKind::Word(text) | TermKind::Phrase(text) => {
-                    text.chars().any(char::is_alphanumeric)
-                }
-                TermKind::Field(field) => {
-                    field.name != QueryFieldName::In
-                        && matches!(field.value, FieldValueState::Valid(_))
-                }
-            })
+    query.terms().iter().any(QueryTerm::can_run)
 }
 
 /// `true` when the Library part of `query` runs: the query is runnable, and
