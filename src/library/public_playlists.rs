@@ -257,6 +257,7 @@ impl LibraryApp {
         list_page_head(
             display,
             ListPageHeadHandlers {
+                reverse: None,
                 scope: None,
                 select: None,
                 sort: Some(on_sort),

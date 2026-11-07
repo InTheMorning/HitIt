@@ -2370,6 +2370,45 @@ fn adr_0089_task_008_part_c_newest_puts_dateless_rows_last_and_keeps_query() {
     assert_eq!(vm.query(), "survival guide", "a sort keeps the query");
 }
 
+/// Musicindex ADR 0043 R-LIST-7: the reverse command changes the sequence of
+/// the rows of Results in the scope In Library. Results in the scope All keep
+/// their usual sequence, and the stored state stays.
+#[test]
+fn adr_0043_task_003_reverse_changes_the_sequence_of_library_results() {
+    use crate::view_models::list_page::ListScope;
+    use crate::view_models::search_query::with_library_scope;
+
+    let rows = || IndexSearchResultRows {
+        feeds: vec![
+            dated_release(1, "alpha", "Alpha", Some(100)),
+            dated_release(2, "bravo", "Bravo", None),
+            dated_release(3, "charlie", "Charlie", Some(300)),
+        ],
+        ..no_index_rows()
+    };
+
+    let text = with_library_scope("survival guide", ListScope::InLibrary);
+    let mut library = SearchResultsInspectorPageVm::new(&text);
+    library.replace_index_results(rows());
+    library.set_tab(SearchResultsTab::Releases);
+    assert_eq!(release_labels(&library), ["Charlie", "Alpha", "Bravo"]);
+    library.set_list_reversed(true);
+    assert_eq!(release_labels(&library), ["Bravo", "Alpha", "Charlie"]);
+    library.set_list_reversed(false);
+    assert_eq!(release_labels(&library), ["Charlie", "Alpha", "Bravo"]);
+
+    let mut index = SearchResultsInspectorPageVm::new("survival guide");
+    index.replace_index_results(rows());
+    index.set_tab(SearchResultsTab::Releases);
+    index.set_list_reversed(true);
+    assert!(index.list_state().reversed, "the state stays");
+    assert_eq!(
+        release_labels(&index),
+        ["Charlie", "Alpha", "Bravo"],
+        "a list from the Index keeps its usual sequence"
+    );
+}
+
 /// ADR 0089 Decision 4: the sort A to Z orders each group of the tab All,
 /// and the tab All keeps its group headings.
 #[test]

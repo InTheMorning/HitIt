@@ -288,6 +288,7 @@ Open - the code follows musicindex ADR 0020 R-ACT-1 to R-ACT-3 and ADR 0042. The
 - Pills: a button with a label is a pill on Releases, a search results page, Settings and a confirmation sheet.
 - Circles: each icon button is a circle, such as Back, Forward and the view icons of a list page.
 - Search: the toolbar Search command is a gray pill.
+- Back and Forward (musicindex ADR 0044): each is a gray circle with a chevron in the center. A control that cannot act is dimmed.
 - Gray pills: "Newest", "Select", "In Library", "Cancel", "Website" and "Show more" have the gray fill.
 - Action: "Save search" and "Check all feeds" have the accent label on the accent tint.
 - No fill: a letter that is not selected, a narrow-window tab that is not selected, and an artist link on a track page.
@@ -300,3 +301,20 @@ Open - the code follows musicindex ADR 0020 R-ACT-1 to R-ACT-3 and ADR 0042. The
   - A label touches the edge of a pill.
   - A control moves when it becomes selected.
   - A menu item has pill ends.
+
+## 13. musicindex ADR 0043 Sort Control - Implemented 2026-11-06
+
+Open - packets 001 to 003 of the [phase plan](plans/musicindex-adr-0043-sort-reverse-phase-plan.md) are implemented. The mechanical suite is Green. No person checked the result. Do each check in Light and Dark.
+
+- Setup: do `cargo build --bin v4vmm`, then open `target/debug/v4vmm` in a desktop session.
+- Menu: on Releases, open the sort menu. Each entry has the text color, and only the check mark is blue. Open a menu on a row. Its entries have the text color, and a destructive entry is red.
+- Sequence: on Releases with In Library selected, the title row shows the sort menu, the rows icon, the tiles icon, the reverse icon and Select.
+- Reverse: select the reverse icon. "Newest" becomes "Oldest", the rows change their sequence, and the icon is blue on a tint with a different arrow. No other control moves.
+- Letters: on Artists with In Library selected, select the reverse icon. The sort shows "Z to A", and the letters run from Z to A with "#" last.
+- Other lists: My playlists and search results with In Library selected have the reverse icon.
+- No icon: Releases and Artists with All selected, Public playlists and search results with All selected have no reverse icon. They show the usual names.
+- Each list: reverse Releases, open Artists, then return to Releases. Artists keeps its own order, and Releases stays reversed.
+- Incorrect results:
+  - A blue menu entry that is not a check mark.
+  - A reversed name on a list with no reverse icon.
+  - A control that moves when the icon changes.

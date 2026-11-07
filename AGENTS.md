@@ -59,6 +59,8 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [musicindex ADR 0042](../musicindex/docs/adr/0042-a-button-with-a-label-has-a-fill.md), the neutral button, is implemented here on 2026-11-06 in the [run record](docs/reviews/orchestrated-run-2026-11-06-neutral-button.md). Its check is open in section 12 of [pending human checks](docs/pending-human-checks.md).
 
+[musicindex ADR 0043](../musicindex/docs/adr/0043-a-list-sort-can-be-reversed.md), the reverse icon of a sort, is Accepted on 2026-11-06. The [phase plan](docs/plans/musicindex-adr-0043-sort-reverse-phase-plan.md) holds its packets. Packets 001 to 003 are implemented on 2026-11-06, and their check is open in section 13 of [pending human checks](docs/pending-human-checks.md). A list from the Index shows no reverse icon until Stophammer answers request 15.
+
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for

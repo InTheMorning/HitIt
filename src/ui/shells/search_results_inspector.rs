@@ -17,7 +17,8 @@ use gpui::{
 };
 
 use crate::ui::composites::list_page_head::{
-    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
+    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListReverseHandler,
+    ListScopeHandler, ListSortHandler,
 };
 use crate::ui::composites::music_column_scroll::{
     music_column_scrollbar, music_column_tracked_scrollbar,
@@ -60,6 +61,7 @@ pub(crate) struct SearchResultsInspectorSlots {
     tab_select: Option<TabSelectHandler>,
     scope_select: Option<ListScopeHandler>,
     sort_select: Option<ListSortHandler>,
+    reverse_select: Option<ListReverseHandler>,
     result_select: Option<SearchResultSelectHandler>,
     row_toggle: Option<SearchResultToggleHandler>,
     failure_action: Option<FailureHandler>,
@@ -138,6 +140,17 @@ impl SearchResultsInspectorSlots {
         self.sort_select = Some(Rc::new(move |sort: &ListSort, window, cx| {
             handler(*sort, window, cx);
         }));
+        self
+    }
+
+    /// Supplies the callback of the reverse icon (musicindex ADR 0043
+    /// R-LIST-7). The app sets the reversed state of the page. The query does
+    /// not change.
+    pub(crate) fn on_reverse_select(
+        mut self,
+        handler: impl Fn(bool, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.reverse_select = Some(Rc::new(handler));
         self
     }
 
@@ -236,6 +249,7 @@ pub(crate) fn render_search_results_inspector(
             list_key: vm.list_key(),
             list_state: vm.list_state(),
             sort_select: slots.sort_select.as_ref(),
+            reverse_select: slots.reverse_select.as_ref(),
             status_text: slots.header_status.as_deref().or_else(|| vm.status_text()),
             selected: tab,
             counts: vm.tab_counts(),
@@ -355,6 +369,7 @@ struct InspectorHeader<'a> {
     list_key: ListPageKey,
     list_state: ListPageState,
     sort_select: Option<&'a ListSortHandler>,
+    reverse_select: Option<&'a ListReverseHandler>,
     status_text: Option<&'a str>,
     selected: SearchResultsTab,
     /// The count of each tab, in the order of `SearchResultsTab::ALL`.
@@ -384,6 +399,7 @@ fn render_inspector_header(header: InspectorHeader<'_>, cx: &App) -> AnyElement 
     let handlers = ListPageHeadHandlers {
         scope: header.scope_select.cloned(),
         sort: header.sort_select.cloned(),
+        reverse: header.reverse_select.cloned(),
         actions: header
             .actions
             .iter()

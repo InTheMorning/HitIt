@@ -63,7 +63,7 @@ use crate::view_models::library_removal::{
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
 use crate::view_models::list_page::{
-    ListPageHeadVm, ListPageKey, ListPages, ListScope, ListSort, ListView,
+    ListPageHeadVm, ListPageKey, ListPageState, ListPages, ListScope, ListSort, ListView,
 };
 #[cfg(test)]
 use crate::view_models::list_selection::RowCheckState;
@@ -3618,6 +3618,34 @@ impl LibraryViewModel {
         self.list_pages.set_sort(key, sort);
     }
 
+    /// Sets the reversed state of the list page `key` (musicindex ADR 0043
+    /// R-LIST-7 item 6). The letter and the selection stay.
+    pub(crate) fn set_list_reversed(&mut self, key: ListPageKey, reversed: bool) {
+        self.list_pages.set_reversed(key, reversed);
+    }
+
+    /// The stored state of the list page `key`.
+    #[must_use]
+    pub(crate) fn list_page_state(&self, key: ListPageKey) -> ListPageState {
+        *self.list_pages.get(key)
+    }
+
+    /// The stored reversed state of the list page `key`, whatever its scope.
+    #[must_use]
+    pub(crate) fn list_page_reversed_state(&self, key: ListPageKey) -> bool {
+        self.list_pages.get(key).reversed
+    }
+
+    /// Whether the rows of the list page `key` come in the reversed order
+    /// now. A list that cannot reverse in its scope is never reversed. The
+    /// stored state stays for the scope In Library.
+    #[must_use]
+    pub(crate) fn list_reversed(&self, key: ListPageKey) -> bool {
+        self.list_pages
+            .get(key)
+            .reversed_in(key, self.list_scope(key))
+    }
+
     /// Sets the letter of the list page `key` (ADR 0089 Decision 6).
     pub(crate) fn set_list_letter(&mut self, key: ListPageKey, letter: Option<LetterKey>) {
         self.list_pages.set_letter(key, letter);
@@ -3727,7 +3755,7 @@ impl LibraryViewModel {
 
     #[must_use]
     pub(crate) fn playlist_sidebar(&self) -> PlaylistSidebarVm {
-        PlaylistSidebarVm {
+        let mut sidebar = PlaylistSidebarVm {
             header_id: "playlists-header",
             add_button_id: "playlists-add",
             new_playlist_input_id: "playlist-new-input",
@@ -3770,7 +3798,12 @@ impl LibraryViewModel {
                     ),
                 })
                 .collect(),
+        };
+        // musicindex ADR 0043 R-LIST-7: My playlists has only local rows.
+        if self.list_reversed(ListPageKey::MyPlaylists) {
+            sidebar.rows.reverse();
         }
+        sidebar
     }
 
     /// Entries of the Releases destination list (ADR 0084 Decisions 2, 6
@@ -3926,6 +3959,10 @@ impl LibraryViewModel {
         ReleasesListKey {
             scope,
             sort,
+            reversed: self
+                .list_pages
+                .get(ListPageKey::Releases)
+                .reversed_in(ListPageKey::Releases, scope),
             page: page.revision(),
             // The sort Newest reads the recent pager (ADR 0089 Decision 5).
             recent: (sort == ListSort::Newest).then(|| recent.revision()),
@@ -3995,10 +4032,19 @@ impl LibraryViewModel {
         recent: &RecentFeedsPageVm,
         expanded: &BTreeSet<SinglesGroupKey>,
     ) -> ReleasesListRows {
+        let reversed = self
+            .list_pages
+            .get(ListPageKey::Releases)
+            .reversed_in(ListPageKey::Releases, scope);
         if sort == ListSort::Newest {
-            return self.newest_releases_rows(scope, recent);
+            return self.newest_releases_rows(scope, recent, reversed);
         }
-        let entries = self.releases_list(scope, page, &self.index_feed_singles, expanded);
+        let mut entries = self.releases_list(scope, page, &self.index_feed_singles, expanded);
+        // R-LIST-7 item 9: the whole list reverses. A group keeps its singles
+        // after its own row, because they are part of the entry.
+        if reversed {
+            entries.reverse();
+        }
         // One map of the tree albums for the whole build. A search of the
         // tree for each row costs the row count multiplied by the album
         // count (task 037 Recorded Facts).
@@ -4100,6 +4146,7 @@ impl LibraryViewModel {
         &self,
         scope: ListScope,
         recent: &RecentFeedsPageVm,
+        reversed: bool,
     ) -> ReleasesListRows {
         let tree = &self.snapshot.tree;
         let albums = self.release_album_map();
@@ -4153,6 +4200,11 @@ impl LibraryViewModel {
         } else {
             None
         };
+        // R-LIST-7 item 9: the whole list reverses. A window group is one
+        // item, so it keeps its members.
+        if reversed {
+            items.reverse();
+        }
         // ADR 0086 Decision 3 and ADR 0089 packet 005 Part C: a window group
         // has one selection row, whose members are the group's releases.
         let selection_rows = newest_selection_rows(&items);
@@ -4795,6 +4847,14 @@ impl LibraryViewModel {
         match scope {
             ListScope::InLibrary => {
                 rows.sort_by(|left, right| left.order.cmp(&right.order));
+                // R-LIST-7 item 9: the whole local list reverses.
+                if self
+                    .list_pages
+                    .get(ListPageKey::Artists)
+                    .reversed_in(ListPageKey::Artists, scope)
+                {
+                    rows.reverse();
+                }
                 rows.into_iter().map(|entry| entry.row).collect()
             }
             ListScope::All => artists_everything::everything_rows(rows, page, &matches)
@@ -10136,6 +10196,78 @@ mod tests {
                 .unwrap_or_default();
             assert_eq!(menu, bar, "{}", row.label);
         }
+    }
+
+    /// Musicindex ADR 0043 R-LIST-7 item 9: the reverse command changes the
+    /// sequence of all the rows of each local list, and a list from the Index
+    /// keeps its usual sequence. Only the reversed state changes, so the
+    /// stored state stays when the scope is All.
+    #[test]
+    fn adr_0043_task_003_reverse_changes_the_sequence_of_each_local_list() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(library_tree());
+        vm.set_list_scope(ListPageKey::Releases, ListScope::InLibrary);
+        vm.set_list_scope(ListPageKey::Artists, ListScope::InLibrary);
+        let page = IndexNameListPage::default();
+        let pager = loaded_pager(Vec::new(), false);
+        let release_ids = |vm: &LibraryViewModel, sort| {
+            vm.releases_list_rows(ListScope::InLibrary, sort, &page, &pager, &BTreeSet::new())
+                .item_ids()
+                .to_vec()
+        };
+        let artist_ids = |vm: &LibraryViewModel| {
+            vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default())
+                .into_iter()
+                .map(|row| row.element_id)
+                .collect::<Vec<String>>()
+        };
+        let usual_artists = artist_ids(&vm);
+        let usual_a_to_z = release_ids(&vm, ListSort::AToZ);
+        let usual_newest = release_ids(&vm, ListSort::Newest);
+        assert!(usual_artists.len() > 1 && usual_a_to_z.len() > 1);
+
+        vm.set_list_reversed(ListPageKey::Artists, true);
+        vm.set_list_reversed(ListPageKey::Releases, true);
+        let reversed = |mut ids: Vec<String>| {
+            ids.reverse();
+            ids
+        };
+        assert_eq!(artist_ids(&vm), reversed(usual_artists.clone()));
+        assert_eq!(release_ids(&vm, ListSort::AToZ), reversed(usual_a_to_z));
+        assert_eq!(release_ids(&vm, ListSort::Newest), reversed(usual_newest));
+
+        // A list from the Index keeps its usual sequence and its usual names.
+        vm.set_list_scope(ListPageKey::Artists, ListScope::All);
+        assert!(vm.list_page_state(ListPageKey::Artists).reversed);
+        assert!(!vm.list_reversed(ListPageKey::Artists));
+        assert!(vm
+            .list_page_head(ListPageKey::Artists, None, None)
+            .reverse
+            .is_none());
+        let sort = vm.list_page_head(ListPageKey::Artists, None, None).sort;
+        assert_eq!(sort.map(|sort| sort.label), Some("A to Z"));
+        vm.set_list_scope(ListPageKey::Artists, ListScope::InLibrary);
+        assert_eq!(artist_ids(&vm), reversed(usual_artists));
+
+        let mut alpha = playlist("Alpha");
+        alpha.id = 10;
+        let mut zed = playlist("zed");
+        zed.id = 20;
+        vm.replace_playlists(vec![zed, alpha]);
+        let usual: Vec<i64> = vm
+            .playlist_sidebar()
+            .rows
+            .iter()
+            .map(|row| row.id)
+            .collect();
+        vm.set_list_reversed(ListPageKey::MyPlaylists, true);
+        let flipped: Vec<i64> = vm
+            .playlist_sidebar()
+            .rows
+            .iter()
+            .map(|row| row.id)
+            .collect();
+        assert_eq!(flipped, usual.into_iter().rev().collect::<Vec<i64>>());
     }
 
     /// R31-07 (task 031, decision D2): an Artists row has no release row

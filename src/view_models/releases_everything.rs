@@ -375,6 +375,9 @@ pub(crate) struct ReleasesListKey {
     /// The sort of the page (ADR 0089 Decision 5). A new sort gives a new
     /// merge, even when the rows that it gives are the same.
     pub(crate) sort: ListSort,
+    /// Whether the rows come in the reversed order (musicindex ADR 0043
+    /// R-LIST-7). Only the scope "In Library" reverses.
+    pub(crate) reversed: bool,
     /// The revision of the release name page.
     pub(crate) page: Revision,
     /// The revision of the recent pager. Only the sort Newest reads the
@@ -991,6 +994,7 @@ pub(crate) mod tests {
         let key = ReleasesListKey {
             scope: ListScope::All,
             sort: ListSort::Newest,
+            reversed: false,
             page: Revision::default(),
             recent: None,
             singles: Revision::default(),
@@ -1018,6 +1022,7 @@ pub(crate) mod tests {
         let key = ReleasesListKey {
             scope: ListScope::All,
             sort: ListSort::Newest,
+            reversed: false,
             page: Revision::default(),
             recent: None,
             singles: Revision::default(),
