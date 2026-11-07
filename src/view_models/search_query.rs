@@ -1161,8 +1161,7 @@ fn kinds_state(value: &str) -> FieldValueState {
     for (index, item) in items.iter().copied().enumerate() {
         let Some(kind) = KindValue::from_word(item) else {
             // The last item can be a value that the curator still types.
-            if index + 1 == items.len()
-                && !QueryFieldName::Kind.values_with_prefix(item).is_empty()
+            if index + 1 == items.len() && !QueryFieldName::Kind.values_with_prefix(item).is_empty()
             {
                 break;
             }

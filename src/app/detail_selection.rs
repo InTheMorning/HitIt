@@ -9,21 +9,23 @@
 
 #![warn(clippy::pedantic)]
 
-use gpui::{div, prelude::*, AnyElement, App, Context, Modifiers, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, App, Context, Modifiers, Window};
 
 use super::search_dispatch::feed_guid_from_view;
 use super::TopApp;
 use crate::application::library_removal::LibraryRemovalIntent;
 use crate::db::PlaylistEdge;
 use crate::library::{index_track_job, index_track_job_by_key, playlist_options, LibraryApp};
-use crate::ui::composites::{SelectionActionBar, SelectionActionBarPlaylists};
+use crate::ui::composites::{list_bar_playlists, SelectionActionBar};
 use crate::view_models::detail_selection::{
-    detail_header_action, feed_page_release_rows, index_release_track_rows, DetailListKind,
-    DetailPageRows, DetailRowKey, DetailSelection,
+    detail_header_action, feed_page_release_rows, has_list_bar, index_release_track_rows,
+    DetailListKind, DetailPageRows, DetailRowKey, DetailSelection,
 };
 use crate::view_models::list_selection::FocusStep;
 use crate::view_models::search_results::IndexDetailDisplay;
-use crate::view_models::selection_action_bar::{SelectionActionBarVm, SelectionActionKind};
+use crate::view_models::selection_action_bar::{
+    ListBarCommand, SelectionActionBarVm, SelectionActionKind,
+};
 use crate::view_models::workspace::{
     FrameHeaderActionDisplay, FrameNavigationEntry, ReleasePageSource, TrackKey,
 };
@@ -123,14 +125,35 @@ impl TopApp {
         rows: Option<&DetailPageRows>,
         cx: &App,
     ) -> Option<FrameHeaderActionDisplay> {
-        if matches!(
-            self.current_music_entry(),
-            Some(FrameNavigationEntry::SavedSearch { .. })
-        ) {
+        // ADR 0090 Decision 1: a group page has its "Select" in the list bar.
+        let entry = self.current_music_entry();
+        if matches!(entry, Some(FrameNavigationEntry::SavedSearch { .. }))
+            || entry.as_ref().is_some_and(has_list_bar)
+        {
             return None;
         }
         let mode = self.library.read(cx).detail_selection().mode();
         detail_header_action(rows, mode)
+    }
+
+    /// Runs one command of the list bar of a group page (ADR 0090). The
+    /// bar sends each command here, so each action keeps its one path.
+    pub(super) fn run_list_bar_command(
+        &mut self,
+        command: ListBarCommand,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match command {
+            ListBarCommand::Toggle => self.toggle_detail_selection_mode(window, cx),
+            ListBarCommand::Run(kind) => self.run_detail_selection_action(kind, window, cx),
+            ListBarCommand::AddToPlaylist(playlist_id) => {
+                self.add_detail_selection_to_playlist(playlist_id, cx);
+            }
+            ListBarCommand::CreatePlaylist(name) => {
+                self.create_playlist_and_add_detail_selection(&name, cx);
+            }
+        }
     }
 
     /// The click of the "Select" and "Done" button.
@@ -274,10 +297,20 @@ impl TopApp {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let focus = self.library.read(cx).detail_column_focus().clone();
-        let bar = rows.and_then(|rows| {
-            rows.action_bar(self.library.read(cx).detail_selection())
-                .map(|bar| (bar, rows))
-        });
+        // ADR 0090 Decision 1: a group page shows its bar above its rows, so
+        // it has no bottom bar.
+        let list_bar_page = self
+            .current_music_entry()
+            .as_ref()
+            .is_some_and(has_list_bar);
+        let bar = if list_bar_page {
+            None
+        } else {
+            rows.and_then(|rows| {
+                rows.action_bar(self.library.read(cx).detail_selection())
+                    .map(|bar| (bar, rows))
+            })
+        };
         let bar = bar.map(|(bar, rows)| self.render_detail_action_bar(bar, rows, cx));
         // Tab stops once at a page with rows, and the arrow keys move inside it.
         let tab_stop = rows.is_some_and(DetailPageRows::has_selectable_rows);
@@ -312,12 +345,7 @@ impl TopApp {
         // Packet 025: a playlist page leaves its own playlist out of the
         // "Add to playlist" choices.
         let choices = rows.add_to_playlist_choices(self.library.read(cx).playlists());
-        let playlists = SelectionActionBarPlaylists {
-            playlists: playlist_options(&choices),
-            new_playlist_a11y_label: SharedString::from("Create a new playlist"),
-            back_a11y_label: SharedString::from("Back to playlist choices"),
-            create_a11y_label: SharedString::from("Create playlist and add the selection"),
-        };
+        let playlists = list_bar_playlists(playlist_options(&choices));
         // `cx.listener` gives a handler that reads an event by reference.
         // Download, Remove and Clear act on no event, so each wraps the
         // listener with a throwaway `&()`.

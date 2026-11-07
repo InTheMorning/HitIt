@@ -28,12 +28,14 @@ use crate::ui::shells::entity::render_album_name_links;
 use crate::ui::shells::library::detail::DetailRowSlot;
 use crate::ui::shells::library::feed_detail::library_release_page_dispatch;
 use crate::ui::shells::library::singles_group::{
-    render_index_single_row, render_main_action, render_matched_by_name_heading, render_single_row,
+    render_group_list_bar, render_index_single_row, render_main_action,
+    render_matched_by_name_heading, render_single_row,
 };
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor};
 use crate::view_models::album_page::AlbumNameLinkVm;
 use crate::view_models::collection_art::CollectionKind;
+use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::library::MbTrackStatus;
 use crate::view_models::playlist_option_displays;
 use crate::view_models::singles_group::SinglesGroupPageEntryVm;
@@ -50,6 +52,7 @@ const MAIN_ACTION_ID: &str = "window-group-main-action";
 pub(crate) fn render_library_window_group_page(
     page: WindowGroupPageVm,
     header_art: Option<CollectionArtImage>,
+    list_bar: Option<ListBarVm>,
     mb_status: &BTreeMap<i64, MbTrackStatus>,
     playlists: &[db::Playlist],
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
@@ -102,6 +105,9 @@ pub(crate) fn render_library_window_group_page(
                 cx,
             )]),
         );
+    }
+    if let Some(bar) = list_bar {
+        content = content.child(render_group_list_bar(bar, playlists, cx));
     }
     let dispatch = library_release_page_dispatch(cx);
     let playlist_displays = playlist_option_displays(playlists);

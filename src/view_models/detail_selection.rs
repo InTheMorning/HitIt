@@ -932,6 +932,40 @@ pub(crate) fn search_header_action(
     header_action_with_id_prefix("music-search-list-select", rows, mode)
 }
 
+/// The list bar above the rows of a group page (ADR 0090 Decision 2). The
+/// mode action is "Select" in `Normal` and "Done" in `Selecting`. The
+/// selection actions are present only while selecting.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ListBarVm {
+    /// "Select" in `Normal`, "Done" in `Selecting`.
+    pub(crate) mode_action: FrameHeaderActionDisplay,
+    /// The selection actions. `Some` only in `Selecting`.
+    pub(crate) selection: Option<SelectionActionBarVm>,
+}
+
+impl ListBarVm {
+    /// The list bar of a page with selectable rows. `None` for a page with
+    /// no selectable row, so the page shows no bar.
+    #[must_use]
+    pub(crate) fn new(rows: &DetailPageRows, selection: &DetailSelection) -> Option<Self> {
+        let mode_action = detail_header_action(Some(rows), selection.mode())?;
+        Some(Self {
+            mode_action,
+            selection: rows.action_bar(selection),
+        })
+    }
+}
+
+/// `true` for each page kind whose list bar sits above its rows (ADR 0090
+/// Decision 1). Such a page has no frame header action and no bottom bar.
+#[must_use]
+pub(crate) const fn has_list_bar(entry: &FrameNavigationEntry) -> bool {
+    matches!(
+        entry,
+        FrameNavigationEntry::SinglesGroup(_) | FrameNavigationEntry::WindowGroup(_)
+    )
+}
+
 fn header_action_with_id_prefix(
     id_prefix: &str,
     rows: Option<&DetailPageRows>,
@@ -1409,10 +1443,12 @@ mod tests {
                 key: release_key("single-1"),
             },
         ))];
+        // ADR 0090: a group page has its "Select" in the list bar, not in the
+        // frame header. `adr_0090_list_bar_*` covers that page.
         let group = DetailPageRows::Singles(singles_group_release_rows(&group_rows, |_| None));
-        let group_action = detail_header_action(Some(&group), SelectionMode::Normal)
-            .expect("a group page has the action");
-        assert_eq!(group_action.a11y_label, "Select singles");
+        let group_bar = ListBarVm::new(&group, &DetailSelection::new())
+            .expect("a group page with a row has the list bar");
+        assert_eq!(group_bar.mode_action.a11y_label, "Select singles");
 
         let feed = DetailPageRows::Releases(feed_page_release_rows(
             &[PublisherPageSectionVm {
@@ -1444,6 +1480,79 @@ mod tests {
         assert!(detail_header_action(None, SelectionMode::Normal).is_none());
         let empty = DetailPageRows::Tracks(Vec::new());
         assert!(detail_header_action(Some(&empty), SelectionMode::Normal).is_none());
+    }
+
+    fn single_row(id: i64, guid: &str) -> SinglesGroupPageEntryVm {
+        SinglesGroupPageEntryVm::Library(Box::new(
+            crate::view_models::singles_group::SinglesGroupPageRowVm {
+                track: library_track(id, guid, "Single", true),
+                date_text: None,
+                work: crate::view_models::library::TrackRowWork::Idle,
+                key: release_key(guid),
+            },
+        ))
+    }
+
+    /// ADR 0090 Decision 2: the list bar of a group page gives "Select" in
+    /// `Normal`, and "Done" with the selection actions in `Selecting`.
+    #[test]
+    fn adr_0090_list_bar_gives_select_done_and_the_selection_actions() {
+        let rows = DetailPageRows::Singles(singles_group_release_rows(
+            &[single_row(5, "single-1"), single_row(6, "single-2")],
+            |_| None,
+        ));
+        let mut selection = DetailSelection::new();
+
+        let normal = ListBarVm::new(&rows, &selection).expect("a group page has a list bar");
+        assert_eq!(normal.mode_action.label, "Select");
+        assert_eq!(normal.mode_action.a11y_label, "Select singles");
+        assert!(normal.selection.is_none());
+
+        selection.toggle_mode();
+        selection.toggle_row(&DetailRowKey::Release(release_key("single-1")));
+        selection.toggle_row(&DetailRowKey::Release(release_key("single-2")));
+        let done = ListBarVm::new(&rows, &selection).expect("a group page has a list bar");
+        assert_eq!(done.mode_action.label, "Done");
+        assert_eq!(done.mode_action.a11y_label, "Done selecting singles");
+        let bar = done
+            .selection
+            .expect("Selecting shows the selection actions");
+        assert_eq!(bar.count_label, "2 singles selected");
+        for kind in [SelectionActionKind::Download, SelectionActionKind::Clear] {
+            assert!(bar.action(kind).is_some(), "the bar has {kind:?}");
+        }
+        // Each row is selected, so "Select all" is absent.
+        assert!(bar.action(SelectionActionKind::SelectAll).is_none());
+        // The rows have no Library facts, so "Remove" is absent.
+        assert!(bar.action(SelectionActionKind::Remove).is_none());
+
+        let empty = DetailPageRows::Singles(Vec::new());
+        assert!(ListBarVm::new(&empty, &DetailSelection::new()).is_none());
+    }
+
+    /// ADR 0090 Decision 1: the singles group page and the window group
+    /// page have the list bar. The other pages keep their bottom bar and
+    /// their header action.
+    #[test]
+    fn adr_0090_only_the_group_pages_have_the_list_bar() {
+        let singles = FrameNavigationEntry::SinglesGroup(SinglesGroupKey(ArtistIdentity::Name(
+            "haleen".to_owned(),
+        )));
+        assert!(has_list_bar(&singles));
+        assert!(has_list_bar(&FrameNavigationEntry::WindowGroup(
+            crate::view_models::window_groups::WindowGroupKey {
+                group: SinglesGroupKey(ArtistIdentity::Name("haleen".to_owned())),
+                anchor: release_key("single-1"),
+                anchor_date: 0,
+                window_start: 0,
+                artist: "Haleen".to_owned(),
+                source: crate::view_models::window_groups::WindowGroupSource::SavedSearch(
+                    Vec::new(),
+                ),
+            }
+        )));
+        assert!(!has_list_bar(&release_entry()));
+        assert!(!has_list_bar(&FrameNavigationEntry::PlaylistDetail(3)));
     }
 
     /// R18-05: the track bar. "Download" counts only the tracks that are

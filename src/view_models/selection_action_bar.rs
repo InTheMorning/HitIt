@@ -35,6 +35,21 @@ pub(crate) enum SelectionActionKind {
     Clear,
 }
 
+/// A command of the list bar above the rows of a group page (ADR 0090).
+/// The page renders the bar. The top app runs each command through its
+/// own selection path, so the bar holds no dispatch of its own.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum ListBarCommand {
+    /// "Select" or "Done". It changes the selection mode.
+    Toggle,
+    /// One action of the selection actions.
+    Run(SelectionActionKind),
+    /// "Add to playlist" with the chosen playlist.
+    AddToPlaylist(i64),
+    /// "Create playlist" with the name, then add the selection.
+    CreatePlaylist(String),
+}
+
 /// One typed action of the selection action bar: a label, an
 /// accessibility label and the kind the screen dispatches on.
 #[derive(Clone, Debug, Eq, PartialEq)]

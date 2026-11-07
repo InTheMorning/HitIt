@@ -24565,3 +24565,62 @@ fn adr_0084_task_039_library_loads_coalesce_through_single_flight() {
         );
     }
 }
+
+/// Situational, ADR 0090 Decision 1 (first page: the singles group page and
+/// the window group page). Each of the two pages shows its list bar above
+/// its rows. The page gives no frame header action and no bottom bar. The
+/// other pages keep their header action and their bottom bar. Delete this
+/// guard with ADR 0090 when the other pages move to the list bar, or when
+/// the record is superseded.
+#[test]
+fn adr_0090_group_pages_have_no_frame_header_action_or_bottom_bar() {
+    let detail_selection =
+        compact_source(&read_source(&manifest_path("src/app/detail_selection.rs")));
+    let singles = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/library/singles_group.rs",
+    )));
+    let window = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/library/window_group.rs",
+    )));
+    let mut violations = Vec::new();
+
+    for (source, required, what) in [
+        (
+            &detail_selection,
+            "||entry.as_ref().is_some_and(has_list_bar)",
+            "the frame header action of `detail_column_header_action`",
+        ),
+        (
+            &detail_selection,
+            "letlist_bar_page=self.current_music_entry().as_ref().is_some_and(has_list_bar);",
+            "the bottom bar test of `render_detail_column_frame`",
+        ),
+        (
+            &detail_selection,
+            "iflist_bar_page{None}",
+            "the bottom bar of `render_detail_column_frame`",
+        ),
+        (
+            &singles,
+            "render_group_list_bar(bar,playlists,cx)",
+            "the list bar of the singles group page",
+        ),
+        (
+            &window,
+            "render_group_list_bar(bar,playlists,cx)",
+            "the list bar of the window group page",
+        ),
+    ] {
+        if !source.contains(required) {
+            violations.push(format!(
+                "ADR 0090 Decision 1: the group pages show a list bar above their rows, with no frame header action and no bottom bar. Missing {what}, expected `{required}`. Restore it in src/app/detail_selection.rs or the page shell. Do not add the bar back to the frame."
+            ));
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "ADR 0090 guard failed:\n{}",
+        violations.join("\n")
+    );
+}

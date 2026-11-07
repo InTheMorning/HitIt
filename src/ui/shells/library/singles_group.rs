@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use gpui::{
     div, prelude::*, AnyElement, App, ClickEvent, Context, FocusHandle, FontWeight, Image,
-    ScrollHandle, SharedString, Styled,
+    ScrollHandle, SharedString, Styled, Window,
 };
 
 use crate::ui::primitives::{LabelVariant, SectionHeader};
@@ -28,12 +28,12 @@ use crate::view_models::singles_group::{
 use crate::view_models::workspace::ReleaseKey;
 
 use crate::db;
-use crate::library::{playlist_options, LibraryApp};
+use crate::library::{playlist_options, LibraryApp, LibraryAppEvent};
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::{
-    ActionRow, ActionRowDisplay, AddToPlaylistDisplay, AddToPlaylistPopover, CollectionArt,
-    CollectionArtImage, ThumbnailSize,
+    list_bar_playlists, render_list_bar, ActionRow, ActionRowDisplay, AddToPlaylistDisplay,
+    AddToPlaylistPopover, CollectionArt, CollectionArtImage, ListBarHandler, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button as UiButton, Label};
@@ -43,8 +43,10 @@ use crate::ui::shells::release_page::{render_release_page_track_row, ReleasePage
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor};
 use crate::view_models::collection_art::CollectionKind;
+use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::library::MbTrackStatus;
 use crate::view_models::release_page::ReleaseTrackRowVm;
+use crate::view_models::selection_action_bar::ListBarCommand;
 use crate::view_models::singles_group::{
     SinglesGroupAction, SinglesGroupActionVm, SinglesGroupPageRowVm, SinglesGroupPageVm,
 };
@@ -61,6 +63,7 @@ const MAIN_ACTION_ID: &str = "singles-group-main-action";
 pub(crate) fn render_library_singles_group_page(
     page: SinglesGroupPageVm,
     header_art: Option<CollectionArtImage>,
+    list_bar: Option<ListBarVm>,
     mb_status: &BTreeMap<i64, MbTrackStatus>,
     playlists: &[db::Playlist],
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
@@ -117,6 +120,9 @@ pub(crate) fn render_library_singles_group_page(
             )]),
         );
     }
+    if let Some(bar) = list_bar {
+        content = content.child(render_group_list_bar(bar, playlists, cx));
+    }
     let dispatch = library_release_page_dispatch(cx);
     let playlist_displays = playlist_option_displays(playlists);
     // The trailing "Matched by name" rows get a heading before them
@@ -170,6 +176,30 @@ pub(crate) fn render_library_singles_group_page(
     // ADR 0084 packet 018: the page holds the scroll handle of the detail
     // column, so a key can keep the focused row in view.
     music_column_tracked_scrollbar(container, scroll, None)
+}
+
+/// The list bar above the rows of a group page (ADR 0090). Each command
+/// goes to the top app as a `LibraryAppEvent::ListBar`, and the top app
+/// runs it through its selection path.
+pub(super) fn render_group_list_bar(
+    bar: ListBarVm,
+    playlists: &[db::Playlist],
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    let entity = cx.entity();
+    let on_command: ListBarHandler = Rc::new(
+        move |command: ListBarCommand, _window: &mut Window, cx: &mut App| {
+            entity.update(cx, |_this, cx| {
+                cx.emit(LibraryAppEvent::ListBar(command));
+            });
+        },
+    );
+    render_list_bar(
+        bar,
+        &list_bar_playlists(playlist_options(playlists)),
+        &on_command,
+        cx,
+    )
 }
 
 /// The title, the subtitle and the identity note of a group page.
