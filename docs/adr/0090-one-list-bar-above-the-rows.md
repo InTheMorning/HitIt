@@ -51,6 +51,7 @@ These facts come from a search on 2026-11-06:
 
 - The view model gives the bar its controls, labels and availability. The renderer decides none of them.
 - Each control keeps its accessibility label and its keyboard reach. "Select" and "Done" give the keyboard focus to the rows (ADR 0084 Decision 10).
+- A key that moves the focus to a button in a Music column scrolls the column to show that button, with its focus ring. A wheel scroll does not move back to the focused button. The agent screenshot run of 2026-11-07 found that Tab passed buttons above the viewport with no visible focus. A guard in `src/ui/composites/music_column_scroll.rs` holds this.
 
 ## Non-Goals
 

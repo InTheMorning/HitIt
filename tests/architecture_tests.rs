@@ -6101,7 +6101,7 @@ fn row_context_menu_chrome_has_shared_primitive_contract() {
         "ContextMenuScope::FeedList",
         "ContextMenuScope::TrackList",
         "ControlStyle::RowAction",
-        "ControlStyle::DestructiveRowAction",
+        "ControlStyle::DestructiveMenuItem",
         "Size::MenuRegular",
         "Spacing::SM",
         "Popover::new",

@@ -21,7 +21,8 @@ use gpui::{
 };
 use gpui_component::scroll::ScrollableElement;
 
-use crate::ui::tokens::Size;
+use crate::ui::focus_ring::{begin_focus_reveal, take_focus_reveal};
+use crate::ui::tokens::{Size, Spacing};
 use crate::view_models::detail_selection::list_bar_is_pinned;
 use crate::view_models::list_selection::FocusStep;
 use crate::view_models::releases_everything::item_id_runs;
@@ -63,16 +64,60 @@ pub(crate) fn music_column_tracked_scrollbar<E>(
 where
     E: StatefulInteractiveElement + Styled + IntoElement + 'static,
 {
-    let mut wrapper = div().relative().flex_1().min_h_0().min_w_0().child(
-        container
-            .size_full()
-            .overflow_y_scroll()
-            .track_scroll(scroll),
-    );
+    // GPUI prepaints children in order, so only a control in `container`
+    // gives its bounds between these two layers (ADR 0090 invariant "keyboard
+    // reach").
+    let mut wrapper = div()
+        .relative()
+        .flex_1()
+        .min_h_0()
+        .min_w_0()
+        .child(
+            canvas(
+                |_bounds, _window, cx| begin_focus_reveal(cx),
+                |_bounds, (), _window, _cx| {},
+            )
+            .absolute(),
+        )
+        .child(
+            container
+                .size_full()
+                .overflow_y_scroll()
+                .track_scroll(scroll),
+        )
+        .child(focus_reveal_layer(scroll));
     if let Some(probe) = probe {
         wrapper = wrapper.child(probe);
     }
     wrapper.vertical_scrollbar(scroll).into_any_element()
+}
+
+/// The layer after the content of a Music column. It scrolls the column by
+/// the smallest distance that shows the control that took the focus. A margin
+/// keeps its focus ring clear of the edge of the column.
+fn focus_reveal_layer(scroll: &ScrollHandle) -> impl IntoElement {
+    let scroll = scroll.clone();
+    canvas(
+        move |_bounds, window, cx| {
+            let Some(control) = take_focus_reveal(cx) else {
+                return;
+            };
+            let control = control.dilate(Spacing::SM.scaled(cx));
+            let viewport = scroll.bounds();
+            let offset = scroll.offset();
+            if let Some(offset_y) = reveal_offset_y(
+                (f32::from(viewport.top()), f32::from(viewport.bottom())),
+                (f32::from(control.top()), f32::from(control.bottom())),
+                f32::from(offset.y),
+                f32::from(scroll.max_offset().y),
+            ) {
+                scroll.set_offset(point(offset.x, Pixels::from(offset_y)));
+                window.on_next_frame(|window, _cx| window.refresh());
+            }
+        },
+        |_bounds, (), _window, _cx| {},
+    )
+    .absolute()
 }
 
 /// The pinned copy of a list bar above the rows of a Music column (ADR 0090
@@ -403,6 +448,96 @@ mod tests {
                 .flex_col()
                 .child(music_column_list_scrollbar(rows, self.list.state()))
         }
+    }
+
+    gpui::actions!(focus_reveal_test, [FocusNextControl]);
+
+    struct RevealRoot {
+        focus: gpui::FocusHandle,
+        scroll: ScrollHandle,
+    }
+
+    impl gpui::Render for RevealRoot {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            let button = |id: &'static str| {
+                crate::ui::primitives::button::Button::plain(id)
+                    .label(id)
+                    .on_click(|_, _, _| {})
+            };
+            div()
+                .key_context("RevealRoot")
+                .track_focus(&self.focus)
+                .on_action(|_: &FocusNextControl, window, cx| window.focus_next(cx))
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(button("outside"))
+                .child(music_column_tracked_scrollbar(
+                    div()
+                        .id("reveal-column")
+                        .child(button("inside"))
+                        .child(div().h(gpui::px(5000.))),
+                    &self.scroll,
+                    None,
+                ))
+        }
+    }
+
+    /// ADR 0090 invariant "keyboard reach", walk of 2026-11-07: with the page
+    /// scrolled down, Tab passed buttons above the viewport with no visible
+    /// focus. Tab now shows the button. A button outside the column does not
+    /// move the column, and a later wheel scroll does not move back.
+    #[gpui::test]
+    fn adr_0090_tab_scrolls_a_focused_button_into_view(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+            cx.bind_keys([gpui::KeyBinding::new(
+                "tab",
+                FocusNextControl,
+                Some("RevealRoot"),
+            )]);
+        });
+        let scroll = ScrollHandle::new();
+        let root_scroll = scroll.clone();
+        let (root, cx) = cx.add_window_view(|_, cx| RevealRoot {
+            focus: cx.focus_handle(),
+            scroll: root_scroll,
+        });
+        let focus = cx.update(|_, cx| root.read(cx).focus.clone());
+        let draw = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+        };
+        let down = point(gpui::px(0.), gpui::px(-1000.));
+        cx.update(|window, cx| {
+            window.activate_window();
+            window.focus(&focus, cx);
+        });
+        draw(cx);
+        scroll.set_offset(down);
+        draw(cx);
+
+        cx.simulate_keystrokes("tab");
+        draw(cx);
+        assert_eq!(
+            scroll.offset().y,
+            down.y,
+            "the outside button moves nothing"
+        );
+
+        cx.simulate_keystrokes("tab");
+        draw(cx);
+        assert_eq!(
+            scroll.offset().y,
+            gpui::px(0.),
+            "Tab shows the inside button"
+        );
+
+        scroll.set_offset(down);
+        draw(cx);
+        assert_eq!(scroll.offset().y, down.y, "a wheel scroll stays");
     }
 
     fn row_ids(count: usize) -> Vec<String> {

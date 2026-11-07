@@ -31,6 +31,7 @@ pub enum ControlStyle {
     ToolbarIcon,
     RowAction,
     DestructiveRowAction,
+    DestructiveMenuItem,
     MetadataAction,
     /// A selected tab, segment or letter. It has a tint and an outline, and
     /// no fill (musicindex ADR 0020 R-ACT-1 item 3).
@@ -109,6 +110,15 @@ impl ControlStyle {
                 foreground: Some(SemanticColor::DangerLabel),
                 border: None,
             },
+            // A menu item has the size of the other items of the menu. A plain
+            // button is `Md` with `Body` text.
+            Self::DestructiveMenuItem => ControlStyleSpec {
+                variant: ButtonVariant::Plain,
+                size: ButtonSize::Md,
+                font_size: FontSize::Body,
+                foreground: Some(SemanticColor::DangerLabel),
+                border: None,
+            },
             Self::MetadataAction => ControlStyleSpec {
                 variant: ButtonVariant::Plain,
                 size: ButtonSize::Sm,
@@ -158,6 +168,17 @@ mod tests {
         assert_eq!(spec.font_size, FontSize::Micro);
         assert!(spec.foreground.is_none());
         assert!(spec.border.is_none());
+    }
+
+    /// Walk of 2026-11-07: "Remove single…" was smaller than "Add to playlist"
+    /// in one row menu. A plain menu item is `Md` with `Body` text.
+    #[test]
+    fn destructive_menu_item_has_the_size_of_a_plain_menu_item() {
+        let spec = ControlStyle::DestructiveMenuItem.spec();
+        assert_eq!(spec.variant, ButtonVariant::Plain);
+        assert_eq!(spec.size, ButtonSize::Md);
+        assert_eq!(spec.font_size, FontSize::Body);
+        assert_eq!(spec.foreground, Some(SemanticColor::DangerLabel));
     }
 
     #[test]

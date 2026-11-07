@@ -513,7 +513,7 @@ fn build_menu_content(
         let on_select = item.on_select;
         let on_dismiss = on_dismiss.clone();
         let mut button = if display.destructive {
-            Button::styled(display.id, ControlStyle::DestructiveRowAction)
+            Button::styled(display.id, ControlStyle::DestructiveMenuItem)
         } else {
             Button::plain(display.id)
         }

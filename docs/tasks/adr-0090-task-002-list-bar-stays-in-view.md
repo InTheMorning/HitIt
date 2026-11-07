@@ -84,9 +84,9 @@ The operator run of 2026-11-06 found that a click on an empty part of the pinned
 - The ids of the pinned copy start with `pinned-`. The ids of the in-flow
   copy do not change.
 - Ctrl+A, Space, Escape and the row marks do not change.
-- Focus: a focus on the in-flow button stays there when the copy shows. The
-  button may be above the viewport then, and it is still focused. The buttons
-  of the pinned copy cannot take focus.
+- Focus: a focus on the in-flow button stays there when the copy shows. A key
+  that moves the focus to the button scrolls the column to show it (ADR 0090
+  Invariants). The buttons of the pinned copy cannot take focus.
 - A click on a pinned control runs the same command as the in-flow control.
   A click on "Select" or "Done" moves the focus to the rows, as before.
 - "Add to playlist" in the pinned copy opens its own popover. The popover has
