@@ -55,6 +55,10 @@ pub struct ReleaseDetailBehaviorSlots {
     pub action_overlays: Vec<ReleaseSurfaceElement>,
     pub description_panel: Option<ReleaseSurfaceElement>,
     pub track_rows: Option<Vec<ReleaseSurfaceElement>>,
+    /// The list bar above the track section (ADR 0090 Decision 1).
+    pub list_bar: Option<ReleaseSurfaceElement>,
+    /// The pinned copy of the list bar (ADR 0090 Decision 5).
+    pub pinned_list_bar: Option<AnyElement>,
     pub after_section: Vec<ReleaseSurfaceElement>,
     /// The held scroll handle of the Music detail column (ADR 0084
     /// Decision 10, packet 018).
@@ -113,6 +117,11 @@ pub fn render_release_detail_shell(
             )));
         }
     }
+
+    if let Some(list_bar) = slots.list_bar {
+        surface = surface.list_bar(list_bar);
+    }
+    surface = surface.pinned_list_bar(slots.pinned_list_bar);
 
     let rows = slots.track_rows.unwrap_or_default();
     if !rows.is_empty() {

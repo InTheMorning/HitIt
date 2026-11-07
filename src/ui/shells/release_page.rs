@@ -67,6 +67,12 @@ pub(crate) struct ReleasePageImages<'a> {
     /// dismissal: the focus of the Music detail column (ADR 0083 task
     /// 006). `None` attaches no row menu.
     pub(crate) row_menu_focus: Option<FocusHandle>,
+    /// The list bar above the track rows (ADR 0090 Decision 1). `None`
+    /// when the release has no selectable row.
+    pub(crate) list_bar: Option<AnyElement>,
+    /// The pinned copy of the list bar, which overlays the rows while the
+    /// bar has scrolled away (ADR 0090 Decision 5).
+    pub(crate) pinned_list_bar: Option<AnyElement>,
 }
 
 /// Renders the release page of `vm` for each origin.
@@ -84,6 +90,8 @@ pub(crate) fn render_release_page(
         contributor_thumbnails,
         scroll_handle,
         row_menu_focus,
+        list_bar,
+        pinned_list_bar,
     } = images;
     let open_name_link = {
         let dispatch = Rc::clone(dispatch);
@@ -126,6 +134,8 @@ pub(crate) fn render_release_page(
         )],
         identity_actions: render_feed_identity_actions(&vm.page),
         track_rows: Some(track_rows),
+        list_bar: list_bar.map(ReleaseSurfaceElement::from_element),
+        pinned_list_bar,
         scroll_handle,
         ..ReleaseDetailBehaviorSlots::default()
     };

@@ -26,10 +26,11 @@ use crate::ui::composites::{
 use crate::ui::primitives::Label;
 use crate::ui::shells::entity::render_album_name_links;
 use crate::ui::shells::library::detail::DetailRowSlot;
-use crate::ui::shells::library::feed_detail::library_release_page_dispatch;
+use crate::ui::shells::library::feed_detail::{
+    library_release_page_dispatch, render_library_list_bar_copies,
+};
 use crate::ui::shells::library::singles_group::{
-    render_group_list_bar_copies, render_index_single_row, render_main_action,
-    render_matched_by_name_heading, render_single_row,
+    render_index_single_row, render_main_action, render_matched_by_name_heading, render_single_row,
 };
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor};
@@ -108,7 +109,7 @@ pub(crate) fn render_library_window_group_page(
         );
     }
     let (in_flow_bar, pinned_bar) =
-        render_group_list_bar_copies(list_bar, playlists, list_bar_pin, scroll, cx);
+        render_library_list_bar_copies(list_bar, playlists, list_bar_pin, scroll, cx);
     content = content.children(in_flow_bar);
     let dispatch = library_release_page_dispatch(cx);
     let playlist_displays = playlist_option_displays(playlists);

@@ -19,11 +19,12 @@ use crate::db;
 use crate::feed_service;
 use crate::library::{
     api_track_from_view, index_release_job, index_release_job_by_guid, index_track_job,
-    DownloadJob, DownloadOutcome, LibraryApp,
+    playlist_options, DownloadJob, DownloadOutcome, LibraryApp,
 };
 use crate::library_service;
 use crate::media::cover_color::CoverColor;
 use crate::presentation::present_command;
+use crate::ui::composites::{list_bar_playlists, render_list_bar_copies};
 use crate::ui::shells::release_page::{
     click_modifiers, render_release_page, ReleasePageDispatch, ReleasePageImages,
 };
@@ -31,7 +32,7 @@ use crate::ui::shells::search_results_inspector::render_index_detail_display;
 use crate::ui::shells::track_page::{render_track_page, TrackPageDispatch, TrackPageImages};
 use crate::view_models::album_page::AlbumNameLinkTarget;
 use crate::view_models::artist_identity::{ArtistNameDestination, ArtistNameKey};
-use crate::view_models::detail_selection::{index_release_track_rows, DetailPageRows};
+use crate::view_models::detail_selection::{index_release_track_rows, DetailPageRows, ListBarVm};
 use crate::view_models::library::{
     display_description_text, keyed_description_state, toggle_keyed_description_state,
     DescriptionState, LibraryTrackRowVm, TrackRowWork,
@@ -60,6 +61,7 @@ use crate::view_models::workspace::{
 };
 use crate::views::{FeedView, TrackView};
 
+use super::detail_selection::top_list_bar_handler;
 use super::search_live::{index_result_step, IndexResultStep};
 use super::search_selection::SearchPageSlot;
 use super::{AppTab, TopApp};
@@ -1387,9 +1389,13 @@ impl TopApp {
         // facts, from the same row key.
         let detail_rows =
             DetailPageRows::Tracks(index_release_track_rows(feed_guid.as_deref(), &feed.tracks));
-        let (facts, row_probes, scroll_handle, detail_focus) = {
+        let (facts, row_probes, scroll_handle, detail_focus, list_bar, list_bar_pin, bar_playlists) = {
             let library = self.library.read(cx);
             let selections = library.detail_selection().row_selections(&detail_rows);
+            // ADR 0090 Decision 1: the Index release page has its list bar
+            // above its track rows, with the same view model as the Library form.
+            let list_bar = ListBarVm::new(&detail_rows, library.detail_selection());
+            let bar_playlists = list_bar_playlists(playlist_options(library.playlists()));
             let row_probes = selections
                 .iter()
                 .map(|selection| library.detail_row_probe(selection))
@@ -1410,6 +1416,9 @@ impl TopApp {
                 row_probes,
                 library.detail_scroll_handle(),
                 library.detail_column_focus().clone(),
+                list_bar,
+                library.list_bar_pin(),
+                bar_playlists,
             )
         };
         let vm = release_page_vm(&facts);
@@ -1422,6 +1431,16 @@ impl TopApp {
                     .and_then(|url| self.index_remote_detail_hero_image(url, cx))
             })
             .collect();
+        let handler = top_list_bar_handler(cx);
+        let (list_bar, pinned_list_bar) = render_list_bar_copies(
+            list_bar,
+            &bar_playlists,
+            &handler,
+            &list_bar_pin,
+            &scroll_handle,
+            &cx.entity(),
+            cx,
+        );
         let images = ReleasePageImages {
             hero_image: self.index_feed_hero_image(feed, cx),
             cover_color: index_feed_artwork_url(feed)
@@ -1432,6 +1451,8 @@ impl TopApp {
             contributor_thumbnails: None,
             scroll_handle: Some(scroll_handle),
             row_menu_focus: Some(detail_focus),
+            list_bar,
+            pinned_list_bar,
         };
         let entity = cx.entity();
         let dispatch: ReleasePageDispatch = Rc::new(move |command, _window, cx| {

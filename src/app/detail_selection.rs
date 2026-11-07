@@ -9,6 +9,8 @@
 
 #![warn(clippy::pedantic)]
 
+use std::rc::Rc;
+
 use gpui::{div, prelude::*, AnyElement, App, Context, Modifiers, Window};
 
 use super::search_dispatch::feed_guid_from_view;
@@ -16,7 +18,7 @@ use super::TopApp;
 use crate::application::library_removal::LibraryRemovalIntent;
 use crate::db::PlaylistEdge;
 use crate::library::{index_track_job, index_track_job_by_key, playlist_options, LibraryApp};
-use crate::ui::composites::{list_bar_playlists, SelectionActionBar};
+use crate::ui::composites::{list_bar_playlists, ListBarHandler, SelectionActionBar};
 use crate::view_models::detail_selection::{
     detail_header_action, feed_page_release_rows, has_list_bar, index_release_track_rows,
     DetailListKind, DetailPageRows, DetailRowKey, DetailSelection,
@@ -622,6 +624,18 @@ pub(super) fn detail_library_ids(
         .filter_map(|row| row.library.map(|facts| facts.feed_id))
         .collect();
     (track_ids, feed_ids)
+}
+
+/// The handler of a list bar that the top app renders, such as the Index
+/// release page (ADR 0090). Each command runs through
+/// [`TopApp::run_list_bar_command`], the same path as a `LibraryAppEvent`.
+pub(super) fn top_list_bar_handler(cx: &mut Context<TopApp>) -> ListBarHandler {
+    let entity = cx.entity();
+    Rc::new(move |command, window, cx| {
+        entity.update(cx, |this, cx| {
+            this.run_list_bar_command(command, window, cx);
+        });
+    })
 }
 
 /// The removal items of "Remove n tracks…" and "Remove n releases…": each

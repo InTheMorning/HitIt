@@ -12,13 +12,19 @@
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, App, IntoElement, RenderOnce, SharedString, Window};
+use gpui::{
+    div, prelude::*, AnyElement, App, Entity, IntoElement, RenderOnce, ScrollHandle, SharedString,
+    Window,
+};
 
+use crate::ui::composites::music_column_scroll::ListBarPin;
 use crate::ui::composites::playlist_popover::{
     AddToPlaylistDisplay, AddToPlaylistPopover, PlaylistOption,
 };
 use crate::ui::control_styles::ControlStyle;
+use crate::ui::layouts::OVERLAY_SCROLLBAR_WIDTH;
 use crate::ui::primitives::{Button as UiButton, Label};
+use crate::ui::style::spacing;
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::selection_action_bar::{
@@ -381,4 +387,73 @@ pub(crate) fn render_list_bar(
         bar = bar.bg(color(cx, SemanticColor::SecondarySystemBackground));
     }
     bar.into_any_element()
+}
+
+/// The in-flow bar and the pinned copy of a list bar (ADR 0090 Decision 5).
+/// The pinned copy is `Some` only once the in-flow bar has scrolled above
+/// the viewport, and it overlays the rows. Each host passes its own
+/// `on_command`, so each command reaches the one path of that host. `entity`
+/// is the host that redraws when the pinned state changes.
+pub(crate) fn render_list_bar_copies<T: 'static>(
+    list_bar: Option<ListBarVm>,
+    playlists: &SelectionActionBarPlaylists,
+    on_command: &ListBarHandler,
+    pin: &ListBarPin,
+    scroll: &ScrollHandle,
+    entity: &Entity<T>,
+    cx: &App,
+) -> (Option<AnyElement>, Option<AnyElement>) {
+    let pinned = list_bar
+        .as_ref()
+        .filter(|_| pin.is_pinned(scroll))
+        .map(|bar| render_pinned_list_bar(bar.clone(), playlists, on_command, cx));
+    let in_flow = list_bar
+        .map(|bar| render_in_flow_list_bar(bar, playlists, on_command, pin, scroll, entity, cx));
+    (in_flow, pinned)
+}
+
+/// The list bar above the rows. It carries the probe that records its
+/// position for the pinned copy (ADR 0090 Decision 5).
+fn render_in_flow_list_bar<T: 'static>(
+    bar: ListBarVm,
+    playlists: &SelectionActionBarPlaylists,
+    on_command: &ListBarHandler,
+    pin: &ListBarPin,
+    scroll: &ScrollHandle,
+    entity: &Entity<T>,
+    cx: &App,
+) -> AnyElement {
+    let bar_element = render_list_bar(bar, playlists, on_command, ListBarCopy::InFlow, cx);
+    let probe = pin.probe(scroll, entity);
+    div()
+        .relative()
+        .child(bar_element)
+        .child(probe)
+        .into_any_element()
+}
+
+/// The pinned copy of a list bar (ADR 0090 Decision 5). It overlays the top
+/// of the rows, so it has a background of its own. Its insets match the
+/// in-flow bar, so the bar sits in the same columns.
+fn render_pinned_list_bar(
+    bar: ListBarVm,
+    playlists: &SelectionActionBarPlaylists,
+    on_command: &ListBarHandler,
+    cx: &App,
+) -> AnyElement {
+    let bar_element = render_list_bar(bar, playlists, on_command, ListBarCopy::Pinned, cx);
+    // The rows pass below this copy. A click on its empty parts must not
+    // reach a row that it hides (operator run of 2026-11-06).
+    div()
+        .occlude()
+        .absolute()
+        .top_0()
+        .left_0()
+        .w_full()
+        .pt(spacing::LG)
+        .pl(spacing::LG)
+        .pr(spacing::LG + OVERLAY_SCROLLBAR_WIDTH + Spacing::SM.scaled(cx))
+        .bg(color(cx, SemanticColor::SystemBackground))
+        .child(bar_element)
+        .into_any_element()
 }

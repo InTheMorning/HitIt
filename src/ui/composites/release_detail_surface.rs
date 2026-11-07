@@ -33,8 +33,13 @@ pub struct ReleaseDetailSurface {
     actions_a11y_label: Option<SharedString>,
     details: Option<ReleaseSurfaceElement>,
     panels: Vec<ReleaseSurfaceElement>,
+    /// The list bar above the track section (ADR 0090 Decision 1).
+    list_bar: Option<ReleaseSurfaceElement>,
     track_section: Option<ReleaseTrackSectionDisplay>,
     after_section: Vec<ReleaseSurfaceElement>,
+    /// The pinned copy of the list bar, drawn over the scroll container
+    /// (ADR 0090 Decision 5).
+    pinned_list_bar: Option<AnyElement>,
 }
 
 /// Display-ready track section for a release/feed detail surface.
@@ -59,8 +64,10 @@ impl ReleaseDetailSurface {
             actions_a11y_label: None,
             details: None,
             panels: Vec::new(),
+            list_bar: None,
             track_section: None,
             after_section: Vec::new(),
+            pinned_list_bar: None,
         }
     }
 
@@ -101,6 +108,20 @@ impl ReleaseDetailSurface {
         self
     }
 
+    /// The list bar of ADR 0090. It sits above the track section, so the
+    /// section heading stays with its rows.
+    pub fn list_bar(mut self, list_bar: ReleaseSurfaceElement) -> Self {
+        self.list_bar = Some(list_bar);
+        self
+    }
+
+    /// The pinned copy of the list bar. It shows only with a held scroll
+    /// handle, because the copy follows the scroll position.
+    pub fn pinned_list_bar(mut self, pinned: Option<AnyElement>) -> Self {
+        self.pinned_list_bar = pinned;
+        self
+    }
+
     pub fn track_section(mut self, section: ReleaseTrackSectionDisplay) -> Self {
         self.track_section = Some(section);
         self
@@ -115,6 +136,7 @@ impl ReleaseDetailSurface {
 impl RenderOnce for ReleaseDetailSurface {
     fn render(self, _window: &mut gpui::Window, cx: &mut gpui::App) -> impl IntoElement {
         let scrollable = self.scrollable;
+        let pinned_list_bar = self.pinned_list_bar;
         let id = self.id;
         let mut body = div().flex().flex_col().gap(Spacing::LG.scaled(cx));
 
@@ -132,6 +154,10 @@ impl RenderOnce for ReleaseDetailSurface {
         }
 
         body = body.children(self.panels);
+
+        if let Some(list_bar) = self.list_bar {
+            body = body.child(list_bar);
+        }
 
         if let Some(section) = self.track_section {
             body = body.child(track_section(section, cx));
@@ -155,7 +181,7 @@ impl RenderOnce for ReleaseDetailSurface {
                 .p(Spacing::LG.scaled(cx))
                 .child(page_scroll_content(cx).child(body));
             match &self.scroll_handle {
-                Some(scroll) => music_column_tracked_scrollbar(container, scroll, None),
+                Some(scroll) => music_column_tracked_scrollbar(container, scroll, pinned_list_bar),
                 None => music_column_scrollbar(container, scrollbar_id),
             }
         } else {

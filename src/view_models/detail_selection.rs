@@ -958,11 +958,15 @@ impl ListBarVm {
 
 /// `true` for each page kind whose list bar sits above its rows (ADR 0090
 /// Decision 1). Such a page has no frame header action and no bottom bar.
+/// The release page is the second kind. The other pages keep their header
+/// action and their bottom bar until their phase plan packet.
 #[must_use]
 pub(crate) const fn has_list_bar(entry: &FrameNavigationEntry) -> bool {
     matches!(
         entry,
-        FrameNavigationEntry::SinglesGroup(_) | FrameNavigationEntry::WindowGroup(_)
+        FrameNavigationEntry::SinglesGroup(_)
+            | FrameNavigationEntry::WindowGroup(_)
+            | FrameNavigationEntry::Release(_)
     )
 }
 
@@ -1544,11 +1548,11 @@ mod tests {
         assert!(ListBarVm::new(&empty, &DetailSelection::new()).is_none());
     }
 
-    /// ADR 0090 Decision 1: the singles group page and the window group
-    /// page have the list bar. The other pages keep their bottom bar and
-    /// their header action.
+    /// ADR 0090 Decision 1: the singles group page, the window group page
+    /// and the release page have the list bar. The other pages keep their
+    /// bottom bar and their header action.
     #[test]
-    fn adr_0090_only_the_group_pages_have_the_list_bar() {
+    fn adr_0090_the_group_and_release_pages_have_the_list_bar() {
         let singles = FrameNavigationEntry::SinglesGroup(SinglesGroupKey(ArtistIdentity::Name(
             "haleen".to_owned(),
         )));
@@ -1565,8 +1569,11 @@ mod tests {
                 ),
             }
         )));
-        assert!(!has_list_bar(&release_entry()));
+        assert!(has_list_bar(&release_entry()));
         assert!(!has_list_bar(&FrameNavigationEntry::PlaylistDetail(3)));
+        assert!(!has_list_bar(&FrameNavigationEntry::PublisherDetail(
+            "feed-artist".to_owned()
+        )));
     }
 
     /// ADR 0090 Decision 5: the pinned copy of the list bar shows when the
@@ -1598,6 +1605,61 @@ mod tests {
     fn adr_0090_list_bar_without_a_position_is_not_pinned() {
         assert!(!list_bar_is_pinned(-500.0, 800.0, None));
         assert!(!list_bar_is_pinned(0.0, 800.0, None));
+    }
+
+    /// ADR 0090 Decision 1 and R-PAGE-1: a release page has its list bar
+    /// only when a row can be selected. A release with no selectable row
+    /// has no "Select" and no bar. A release with one selectable track has
+    /// the bar.
+    #[test]
+    fn adr_0090_release_page_list_bar_needs_a_selectable_row() {
+        let unkeyed = DetailPageRows::Tracks(index_release_track_rows(
+            Some(FEED_GUID),
+            &[index_track(None, "Untitled track")],
+        ));
+        assert!(!unkeyed.has_selectable_rows());
+        assert!(ListBarVm::new(&unkeyed, &DetailSelection::new()).is_none());
+        assert!(detail_header_action(Some(&unkeyed), SelectionMode::Normal).is_none());
+
+        let empty = DetailPageRows::Tracks(Vec::new());
+        assert!(ListBarVm::new(&empty, &DetailSelection::new()).is_none());
+
+        let one_track = DetailPageRows::Tracks(library_release_track_rows(
+            &[library_track(1, "t1", "Face Pale", true)],
+            false,
+        ));
+        let bar = ListBarVm::new(&one_track, &DetailSelection::new())
+            .expect("a release with one selectable track has the list bar");
+        assert_eq!(bar.mode_action.label, "Select");
+        assert_eq!(bar.mode_action.a11y_label, "Select tracks");
+    }
+
+    /// ADR 0090 Decision 2: a release page's list bar has the track actions
+    /// while selecting: "Download", "Add to playlist" and "Remove".
+    #[test]
+    fn adr_0090_release_page_list_bar_gives_the_track_actions() {
+        let downloaded = library_track(1, "t1", "Face Pale", true);
+        let missing = library_track(2, "t2", "Haleen", false);
+        let rows = DetailPageRows::Tracks(library_release_track_rows(
+            &[downloaded.clone(), missing.clone()],
+            false,
+        ));
+        let mut selection = DetailSelection::new();
+        selection.toggle_mode();
+        selection.toggle_row(&DetailRowKey::Track(downloaded.track_key()));
+        selection.toggle_row(&DetailRowKey::Track(missing.track_key()));
+
+        let bar = ListBarVm::new(&rows, &selection).expect("a release page has the list bar");
+        assert_eq!(bar.mode_action.label, "Done");
+        assert_eq!(bar.mode_action.a11y_label, "Done selecting tracks");
+        let actions = bar.selection.expect("Selecting shows the track actions");
+        for kind in [
+            SelectionActionKind::Download,
+            SelectionActionKind::AddToPlaylist,
+            SelectionActionKind::Remove,
+        ] {
+            assert!(actions.action(kind).is_some(), "the bar has {kind:?}");
+        }
     }
 
     /// R18-05: the track bar. "Download" counts only the tracks that are

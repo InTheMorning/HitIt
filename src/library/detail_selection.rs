@@ -17,7 +17,7 @@ use gpui::{
 use super::{LibraryApp, LibraryDetail};
 use crate::app::keyboard::primary_modifier_held;
 use crate::db::PlaylistEntryKey;
-use crate::ui::composites::music_column_scroll::{key_scroll, ScrollReveal};
+use crate::ui::composites::music_column_scroll::{key_scroll, ListBarPin, ScrollReveal};
 use crate::ui::shells::library::detail::DetailRowSlot;
 use crate::ui::tokens::Size;
 use crate::view_models::detail_selection::{
@@ -133,6 +133,12 @@ impl LibraryApp {
     /// The held scroll handle of the open detail page.
     pub(crate) fn detail_scroll_handle(&self) -> ScrollHandle {
         self.detail_column_scroll.clone()
+    }
+
+    /// The pinned list bar state of the open detail page (ADR 0090
+    /// Decision 5). The top app shares it with the Index release page.
+    pub(crate) fn list_bar_pin(&self) -> ListBarPin {
+        self.list_bar_pin.clone()
     }
 
     /// The request to keep the focused detail row in view.
