@@ -63,9 +63,9 @@ pub(crate) use saved_search::{
 pub(crate) use saved_search_groups::{saved_search_window_page, SearchResultItemVm};
 pub(crate) use saved_search_query::{SavedSearchQueryEdit, SavedSearchQueryKeep};
 pub(crate) use search_run::{
-    library_part_runs, live_run_step, IndexEntity, IndexSearchPlan, IndexSearchRequest, IndexSkip,
-    LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger, INDEX_SKIP_ROWS_TEXT,
-    SCOPE_CONFLICT_TEXT, SCOPE_CONFLICT_TITLE,
+    library_part_runs, live_run_step, IndexEntity, IndexOrder, IndexSearchPlan, IndexSearchRequest,
+    IndexSkip, LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger,
+    INDEX_EXCLUSIONS_ONLY_TITLE, INDEX_SKIP_ROWS_TEXT, SCOPE_CONFLICT_TEXT, SCOPE_CONFLICT_TITLE,
 };
 pub(crate) use tabs::{SearchResultItemId, SearchResultOrigin, SearchResultsTab, SearchTabCount};
 
@@ -131,6 +131,10 @@ pub(crate) struct SearchResultsInspectorPageVm {
     /// the results page or of a saved search (ADR 0089 Decision 5). A new
     /// run keeps it, see [`Self::with_list_state_of`].
     lists: ListPages,
+    /// Whether the person selected the sort of the page. The default sort of
+    /// a search page is Newest, and that default keeps relevance in the Index
+    /// request (Stophammer ADR 0084). A new run keeps it.
+    index_sort_selected: bool,
 }
 
 impl SearchResultsInspectorPageVm {
@@ -161,6 +165,7 @@ impl SearchResultsInspectorPageVm {
             index_result_shown: false,
             index_result_stop: None,
             lists: ListPages::default(),
+            index_sort_selected: false,
         };
         page.refresh_empty_state();
         page
@@ -202,6 +207,7 @@ impl SearchResultsInspectorPageVm {
     pub(crate) fn with_list_state_of(mut self, previous: Option<&Self>) -> Self {
         if let Some(previous) = previous {
             self.lists = previous.lists.clone();
+            self.index_sort_selected = previous.index_sort_selected;
         }
         self
     }
@@ -227,6 +233,7 @@ impl SearchResultsInspectorPageVm {
     /// change, and the rows follow the sort at the next read.
     pub(crate) fn set_list_sort(&mut self, sort: ListSort) {
         self.lists.set_sort(self.list_key(), sort);
+        self.index_sort_selected = true;
     }
 
     /// The sort of this page. A page with no sort state uses Newest.
@@ -238,6 +245,26 @@ impl SearchResultsInspectorPageVm {
     /// The query does not change, and the rows follow at the next read.
     pub(crate) fn set_list_reversed(&mut self, reversed: bool) {
         self.lists.set_reversed(self.list_key(), reversed);
+    }
+
+    /// The order that the Index part of this page asks for (Stophammer ADR
+    /// 0084). A sort that the person selected gives its sort. A page with no
+    /// selected sort keeps relevance, which is the default of the node, also
+    /// when the page shows Newest by default. The reversed state counts only
+    /// where the page reverses (R-LIST-7).
+    #[must_use]
+    pub(crate) fn index_order(&self) -> IndexOrder {
+        let Some(sort) = self.list_state().sort else {
+            return IndexOrder::Relevance;
+        };
+        if !self.index_sort_selected {
+            return IndexOrder::Relevance;
+        }
+        let reverse = self.reversed();
+        match sort {
+            ListSort::Newest => IndexOrder::Date { reverse },
+            ListSort::AToZ => IndexOrder::Name { reverse },
+        }
     }
 
     /// Whether the rows come in the reversed order now. Only the results of
@@ -458,6 +485,10 @@ impl SearchResultsInspectorPageVm {
         self.index_skip_notice = match skip {
             IndexSkip::Unsupported(terms) => Some(EmptyStateDisplay::new(
                 terms.note_title(),
+                INDEX_SKIP_ROWS_TEXT,
+            )),
+            IndexSkip::ExclusionsOnly => Some(EmptyStateDisplay::new(
+                INDEX_EXCLUSIONS_ONLY_TITLE,
                 INDEX_SKIP_ROWS_TEXT,
             )),
             IndexSkip::NoIndexPart | IndexSkip::LibraryOnly | IndexSkip::Conflict => None,
@@ -1250,6 +1281,9 @@ impl SearchResultsInspectorPageVm {
         self.empty_state = Some(match &self.index_skip {
             Some(IndexSkip::Unsupported(terms)) => {
                 EmptyStateDisplay::new(terms.note_title(), empty.secondary)
+            }
+            Some(IndexSkip::ExclusionsOnly) => {
+                EmptyStateDisplay::new(INDEX_EXCLUSIONS_ONLY_TITLE, empty.secondary)
             }
             Some(IndexSkip::Conflict) => {
                 EmptyStateDisplay::new(SCOPE_CONFLICT_TITLE, SCOPE_CONFLICT_TEXT)

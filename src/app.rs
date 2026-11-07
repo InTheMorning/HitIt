@@ -911,10 +911,13 @@ impl TopApp {
         sort: crate::view_models::list_page::ListSort,
         cx: &mut Context<Self>,
     ) {
-        if let Some(page) = self.search_page_mut(slot) {
-            page.set_list_sort(sort);
-            cx.notify();
-        }
+        let Some(page) = self.search_page_mut(slot) else {
+            return;
+        };
+        let before = page.index_order();
+        page.set_list_sort(sort);
+        self.restart_index_search_for_order(slot, before, cx);
+        cx.notify();
     }
 
     /// Sets the reversed state of the search page `slot` (musicindex ADR 0043
@@ -925,10 +928,13 @@ impl TopApp {
         reversed: bool,
         cx: &mut Context<Self>,
     ) {
-        if let Some(page) = self.search_page_mut(slot) {
-            page.set_list_reversed(reversed);
-            cx.notify();
-        }
+        let Some(page) = self.search_page_mut(slot) else {
+            return;
+        };
+        let before = page.index_order();
+        page.set_list_reversed(reversed);
+        self.restart_index_search_for_order(slot, before, cx);
+        cx.notify();
     }
 
     fn content_list_frame_id(&self) -> Option<WorkspaceFrameId> {

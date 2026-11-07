@@ -20,6 +20,7 @@
 pub(crate) use musicindex_search::plan::{
     IndexEntity, IndexSearchPlan, IndexSearchRequest, IndexSkip,
 };
+pub(crate) use musicindex_search::request::{IndexOrder, IndexRun};
 
 #[cfg(test)]
 use chrono::NaiveDate;
@@ -36,6 +37,12 @@ use crate::view_models::search_query::{QueryScope, SearchQuery};
 /// request because the Index cannot apply a term (ADR 0087 Decision 5).
 pub(crate) const INDEX_SKIP_ROWS_TEXT: &str = "The Library rows show.";
 
+/// The title of the note of a query with exclusions only. `MusicIndex` needs a
+/// word or a field to search for (musicindex ADR 0049 R-QUERY-6 and ADR 0087
+/// Decision 5). The text under the title is [`INDEX_SKIP_ROWS_TEXT`].
+pub(crate) const INDEX_EXCLUSIONS_ONLY_TITLE: &str =
+    "MusicIndex needs a word or a field to search for";
+
 /// The title of the empty state of a query whose scopes cannot apply
 /// together.
 pub(crate) const SCOPE_CONFLICT_TITLE: &str = "No results";
@@ -50,9 +57,22 @@ pub(crate) const SCOPE_CONFLICT_TEXT: &str =
 pub(crate) enum SearchRunTrigger {
     /// The pause after a change of the field text ended.
     Pause,
-    /// Enter, Back, Forward, a page open, a saved search or a retry.
+    /// Enter, Back, Forward, a page open, a saved search, a retry or a
+    /// selected sort.
     #[default]
     Command,
+}
+
+impl SearchRunTrigger {
+    /// The kind of the Index run of this trigger. A pause after a typed change
+    /// is a live run, and it keeps relevance (Stophammer ADR 0084).
+    #[must_use]
+    pub(crate) fn index_run(self) -> IndexRun {
+        match self {
+            Self::Pause => IndexRun::Live,
+            Self::Command => IndexRun::Command,
+        }
+    }
 }
 
 /// The run of one query text: the trimmed text, the typed query and the
@@ -454,9 +474,11 @@ mod tests {
             (sent.filters.min_duration, sent.filters.max_duration),
             (Some(301), Some(599))
         );
+        // musicindex ADR 0049 R-QUERY-6: `ep` has no Index request, so the
+        // shared kind `ep` sends none. Before ADR 0091 step 2 it sent `kind=ep`.
         assert_eq!(
-            request("kind:album,ep kind:ep").filters.kinds,
-            vec![KindValue::Ep]
+            plan("kind:album,ep kind:ep"),
+            IndexSearchPlan::Skip(IndexSkip::NoIndexPart)
         );
         assert_eq!(
             plan("kind:single kind:ep"),
@@ -469,13 +491,14 @@ mod tests {
     /// request.
     #[test]
     fn adr_0087_index_fields_r87_11_07_exclusions_alone_send_nothing() {
+        // The crate gives the cause `ExclusionsOnly` for these (musicindex ADR 0049).
         assert_eq!(
             plan("-remix"),
-            IndexSearchPlan::Skip(IndexSkip::NoIndexPart)
+            IndexSearchPlan::Skip(IndexSkip::ExclusionsOnly)
         );
         assert_eq!(
             plan("-title:remix"),
-            IndexSearchPlan::Skip(IndexSkip::NoIndexPart)
+            IndexSearchPlan::Skip(IndexSkip::ExclusionsOnly)
         );
         assert!(matches!(
             plan("-title:remix haleen"),

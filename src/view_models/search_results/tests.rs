@@ -1765,6 +1765,91 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
     assert!(!empty.is_index_loading());
 }
 
+/// R87-2-26: a query with exclusions only gives the note of the crate cause
+/// `ExclusionsOnly` (musicindex ADR 0049 R-QUERY-6, ADR 0087 Decision 5). The
+/// note says that `MusicIndex` needs a word or a field, and that the Library rows
+/// show. A tab with no rows shows the note as its empty state.
+#[test]
+fn adr_0087_library_fields_r87_2_26_exclusions_only_gives_the_note() {
+    let text = "-remix";
+    let skip = super::IndexSkip::ExclusionsOnly;
+    let local = [local_guid_track(10, 7, "g-library", "i1", "One")];
+    let mut vm = SearchResultsInspectorPageVm::from_local_library_tracks(
+        text,
+        &local,
+        &super::ArtistSearchFacts::default(),
+    );
+    vm.set_tab(SearchResultsTab::Releases);
+
+    vm.set_index_skipped(&skip);
+
+    assert!(!vm.is_index_loading());
+    assert_eq!(vm.index_skip(), Some(&skip));
+    assert!(vm.empty_state().is_none());
+    let notice = vm.index_notice().expect("the tab with rows shows the note");
+    assert_eq!(
+        notice.title,
+        "MusicIndex needs a word or a field to search for"
+    );
+    assert_eq!(notice.secondary, super::INDEX_SKIP_ROWS_TEXT);
+    assert_eq!(notice.secondary, "The Library rows show.");
+    assert!(notice.failure.is_none());
+
+    let mut empty = SearchResultsInspectorPageVm::new(text);
+    empty.set_tab(SearchResultsTab::Releases);
+    empty.set_index_skipped(&skip);
+    assert!(empty.index_notice().is_none());
+    let state = empty.empty_state().expect("the empty tab shows the note");
+    assert_eq!(
+        state.title,
+        "MusicIndex needs a word or a field to search for"
+    );
+    assert!(!empty.is_index_loading());
+}
+
+/// ADR 0091 step 2, Stophammer ADR 0084: the Index order of a page follows
+/// the sort that the person selected. A page with no selected sort keeps
+/// relevance. The reversed state counts only where the page reverses, so an
+/// All page sends no `reverse` (musicindex ADR 0043 R-LIST-7 items 9 and 10).
+/// A pause after a typed change is a live run.
+#[test]
+fn adr_0091_step2_index_order_follows_the_selected_sort() {
+    use super::search_run::IndexRun;
+    use crate::view_models::list_page::ListSort;
+
+    let mut all = SearchResultsInspectorPageVm::new("haleen");
+    assert_eq!(all.index_order(), super::IndexOrder::Relevance);
+    all.set_list_sort(ListSort::Newest);
+    assert_eq!(
+        all.index_order(),
+        super::IndexOrder::Date { reverse: false }
+    );
+    all.set_list_sort(ListSort::AToZ);
+    assert_eq!(
+        all.index_order(),
+        super::IndexOrder::Name { reverse: false }
+    );
+    all.set_list_reversed(true);
+    assert_eq!(
+        all.index_order(),
+        super::IndexOrder::Name { reverse: false }
+    );
+
+    let mut local = SearchResultsInspectorPageVm::new("haleen in:library");
+    local.set_list_sort(ListSort::AToZ);
+    local.set_list_reversed(true);
+    assert_eq!(
+        local.index_order(),
+        super::IndexOrder::Name { reverse: true }
+    );
+
+    assert_eq!(super::SearchRunTrigger::Pause.index_run(), IndexRun::Live);
+    assert_eq!(
+        super::SearchRunTrigger::Command.index_run(),
+        IndexRun::Command
+    );
+}
+
 /// R87-2-25: `Conflict` gives the empty state "No results" with its text.
 /// `LibraryOnly` and `NoIndexPart` give no note and the empty state of
 /// today.

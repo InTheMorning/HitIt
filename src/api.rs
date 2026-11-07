@@ -26,6 +26,15 @@ impl fmt::Display for LiveMetadataReadError {
 
 impl std::error::Error for LiveMetadataReadError {}
 
+/// The node capabilities of `GET /v1/node/capabilities` (Stophammer ADR 0084
+/// section 11). Only the names of `capabilities` are read. A node that lists
+/// `sort` sorts `GET /v1/search` by `sort` and `reverse`.
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub(crate) struct CapabilitiesResponse {
+    pub(crate) capabilities: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct SearchResponse {
@@ -982,10 +991,10 @@ impl Client {
     }
 
     /// Sends `GET /v1/search`. The request sends `q` only when `query` is
-    /// `Some`. Each pair of `filters` is one filter parameter (ADR 0087
-    /// Decision 5). With a profile, the request sends `include` with the
-    /// include list of the profile (ADR 0084 packet 029). Without a profile,
-    /// the request sends no `include`.
+    /// `Some`. Each pair of `filters` is one parameter: a filter (ADR 0087
+    /// Decision 5), or a sort (Stophammer ADR 0084). With a profile, the
+    /// request sends `include` with the include list of the profile (ADR 0084
+    /// packet 029). Without a profile, the request sends no `include`.
     ///
     /// # Errors
     /// Returns an error when the request fails or the response does not
@@ -1027,6 +1036,16 @@ impl Client {
         }
 
         self.get_json(&["v1", "search"], &params)
+    }
+
+    /// Sends `GET /v1/node/capabilities` (Stophammer ADR 0084 section 11). The
+    /// names in `capabilities` tell whether the node sorts search results.
+    ///
+    /// # Errors
+    /// Returns an error when the request fails or the response does not
+    /// decode.
+    pub(crate) fn node_capabilities(&self) -> Result<CapabilitiesResponse> {
+        self.get_json(&["v1", "node", "capabilities"], &[])
     }
 
     /// Fetches one page of the newest feeds of `medium` (`GET

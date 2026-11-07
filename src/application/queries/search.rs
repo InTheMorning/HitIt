@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{anyhow, Result};
-use musicindex_search::request::index_filter_pairs;
+use musicindex_search::request::{index_filter_pairs, index_order_pairs, IndexOrder, IndexRun};
 use rusqlite::Connection;
 
 use crate::api::SearchResult;
@@ -44,6 +44,11 @@ pub(crate) struct FetchIndexSearchResults {
     endpoint: crate::config::MusicIndexEndpoint,
     request: IndexSearchRequest,
     matches: NameFeedMatches,
+    /// The sort that the person selected on the page. Relevance sends no
+    /// sort parameter.
+    order: IndexOrder,
+    /// What started the search. A live run sends no sort parameter.
+    run: IndexRun,
 }
 
 impl FetchIndexSearchResults {
@@ -62,7 +67,19 @@ impl FetchIndexSearchResults {
             endpoint: endpoint.into(),
             request,
             matches,
+            order: IndexOrder::Relevance,
+            run: IndexRun::Command,
         }
+    }
+
+    /// Gives this command the sort `order` of the page, for the search `run`
+    /// (Stophammer ADR 0084). The node gets the sort only when a person
+    /// started the search and the node lists the capability `sort`.
+    #[must_use]
+    pub(crate) fn with_order(mut self, order: IndexOrder, run: IndexRun) -> Self {
+        self.order = order;
+        self.run = run;
+        self
     }
 }
 
@@ -77,6 +94,7 @@ impl ApplicationCommand for FetchIndexSearchResults {
             &self.endpoint,
             &self.request,
             &self.matches,
+            (self.order, self.run),
             context.cancellation(),
         )?;
         Ok(CommandOutcome::without_events(rows))
@@ -454,9 +472,11 @@ fn fetch_index_search_result_rows(
     endpoint: &crate::config::MusicIndexEndpoint,
     request: &IndexSearchRequest,
     matches: &NameFeedMatches,
+    (order, run): (IndexOrder, IndexRun),
     cancel: &CancellationToken,
 ) -> Result<IndexSearchResultRows, CommandError> {
     let client = crate::api::Client::new_with_base_url(endpoint.clone());
+    let sort = index_order_params(&client, order, run);
     let mut rows = IndexSearchResultRows::default();
     let mut artists = BTreeMap::new();
 
@@ -467,19 +487,19 @@ fn fetch_index_search_result_rows(
     // no request. Its result is empty, and it is not a failure.
     stop_if_cancelled(cancel)?;
     let feed_rows = match request.for_entity(IndexEntity::Feed) {
-        Some(feed) => fetch_index_feed_result_rows(&client, &feed),
+        Some(feed) => fetch_index_feed_result_rows(&client, &feed, &sort),
         None => Ok(IndexFeedSearchRows::default()),
     };
     stop_if_cancelled(cancel)?;
     let track_rows = match request.for_entity(IndexEntity::Track) {
-        Some(track) => fetch_index_track_result_rows(&client, &track),
+        Some(track) => fetch_index_track_result_rows(&client, &track, &sort),
         None => Ok(IndexTrackSearchRows::default()),
     };
     // Packet 010 "The Artists tab": the third request gives the feed rows.
     // Its failure alone shows the other rows.
     stop_if_cancelled(cancel)?;
     let publisher_rows = match request.for_entity(IndexEntity::Publisher) {
-        Some(publisher) => fetch_index_feed_page_result_rows(&client, &publisher),
+        Some(publisher) => fetch_index_feed_page_result_rows(&client, &publisher, &sort),
         None => Ok(Vec::new()),
     };
 
@@ -514,6 +534,25 @@ fn fetch_index_search_result_rows(
         rows.artists.extend(feed_page_rows);
     }
     Ok(rows)
+}
+
+/// The `sort` and `reverse` parameters of one Index search (Stophammer ADR
+/// 0084). The node capabilities are read only for a sort that a person
+/// selected in a search that a person started. A failed read gives no
+/// parameter, so the node keeps relevance (the same rows as before the sort).
+fn index_order_params(
+    client: &crate::api::Client,
+    order: IndexOrder,
+    run: IndexRun,
+) -> Vec<(&'static str, String)> {
+    if order == IndexOrder::Relevance || run == IndexRun::Live {
+        return Vec::new();
+    }
+    let capabilities = client
+        .node_capabilities()
+        .map(|node| node.capabilities)
+        .unwrap_or_default();
+    index_order_pairs(order, run, &capabilities)
 }
 
 /// The error of a failed Index search of all three requests (ADR 0087
@@ -564,6 +603,7 @@ fn is_bad_request(error: &anyhow::Error) -> bool {
 fn fetch_index_feed_page_result_rows(
     client: &crate::api::Client,
     request: &IndexSearchRequest,
+    sort: &[(&'static str, String)],
 ) -> Result<Vec<(SearchResultItemId, ArtistResultDisplay)>> {
     let response = client.search(
         request.q.as_deref(),
@@ -571,7 +611,7 @@ fn fetch_index_feed_page_result_rows(
         Some(crate::api::PAGE_LIMIT),
         None,
         Some(&crate::application::request_profiles::INDEX_PUBLISHER_SEARCH),
-        &index_filter_pairs(&request.filters),
+        &[index_filter_pairs(&request.filters), sort.to_vec()].concat(),
     )?;
     Ok(unique_hits(&response.data)
         .filter_map(index_feed_page_result_display)
@@ -791,6 +831,7 @@ fn unique_hits(hits: &[SearchResult]) -> impl Iterator<Item = &SearchResult> {
 fn fetch_index_feed_result_rows(
     client: &crate::api::Client,
     request: &IndexSearchRequest,
+    sort: &[(&'static str, String)],
 ) -> Result<IndexFeedSearchRows> {
     let response = client.search(
         request.q.as_deref(),
@@ -798,7 +839,7 @@ fn fetch_index_feed_result_rows(
         Some(crate::api::PAGE_LIMIT),
         None,
         None,
-        &index_filter_pairs(&request.filters),
+        &[index_filter_pairs(&request.filters), sort.to_vec()].concat(),
     )?;
     let names = name_match_terms(request);
     let mut rows = Vec::new();
@@ -828,6 +869,7 @@ fn fetch_index_feed_result_rows(
 fn fetch_index_track_result_rows(
     client: &crate::api::Client,
     request: &IndexSearchRequest,
+    sort: &[(&'static str, String)],
 ) -> Result<IndexTrackSearchRows> {
     let response = client.search(
         request.q.as_deref(),
@@ -835,7 +877,7 @@ fn fetch_index_track_result_rows(
         Some(crate::api::PAGE_LIMIT),
         None,
         None,
-        &index_filter_pairs(&request.filters),
+        &[index_filter_pairs(&request.filters), sort.to_vec()].concat(),
     )?;
     let names = name_match_terms(request);
     let mut rows = Vec::new();
@@ -1839,8 +1881,8 @@ mod adr_0075_request_profile_tests {
         let fixture = Fixture::start();
         let client = crate::api::Client::new_with_base_url(fixture.endpoint.clone());
 
-        let rows =
-            fetch_index_feed_result_rows(&client, &IndexSearchRequest::words("needle")).unwrap();
+        let rows = fetch_index_feed_result_rows(&client, &IndexSearchRequest::words("needle"), &[])
+            .unwrap();
 
         assert_eq!(rows.rows.len(), 1);
         let requests = fixture.requests.lock().unwrap().clone();
@@ -1864,7 +1906,8 @@ mod adr_0075_request_profile_tests {
         let client = crate::api::Client::new_with_base_url(fixture.endpoint.clone());
 
         let rows =
-            fetch_index_track_result_rows(&client, &IndexSearchRequest::words("needle")).unwrap();
+            fetch_index_track_result_rows(&client, &IndexSearchRequest::words("needle"), &[])
+                .unwrap();
 
         assert_eq!(rows.rows.len(), 1);
         let requests = fixture.requests.lock().unwrap().clone();
@@ -2286,6 +2329,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.into(),
             &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect("the recorded response decodes");
@@ -2359,6 +2403,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.into(),
             &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect("the recorded response decodes");
@@ -2417,6 +2462,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.into(),
             &IndexSearchRequest::words("haleen'"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect_err("each request failed");
@@ -2437,6 +2483,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.into(),
             &IndexSearchRequest::words("haleen"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect_err("each request failed");
@@ -2473,6 +2520,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.into(),
             &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect("one failed request keeps the other rows");
@@ -2484,6 +2532,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.into(),
             &IndexSearchRequest::words("Libre"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new()
         )
         .is_err());
@@ -2524,6 +2573,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.as_str().into(),
             &IndexSearchRequest::words("zz"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect("the feed request passes");
@@ -2552,6 +2602,7 @@ mod adr_0084_name_level_query_tests {
             &endpoint.as_str().into(),
             &IndexSearchRequest::words("zz"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect("the track request passes");
@@ -2634,11 +2685,28 @@ mod adr_0087_index_fields_tests {
         respond: super::adr_0084_name_level_query_tests::Responder,
         expected: usize,
     ) -> Vec<(String, Vec<(String, String)>)> {
+        run_with_order(
+            request,
+            (IndexOrder::Relevance, IndexRun::Command),
+            respond,
+            expected,
+        )
+    }
+
+    /// Runs the command of `request` with the sort `order` of the run `run`.
+    /// It gives the paths of the requests, each with its query pairs.
+    fn run_with_order(
+        request: &IndexSearchRequest,
+        order: (IndexOrder, IndexRun),
+        respond: super::adr_0084_name_level_query_tests::Responder,
+        expected: usize,
+    ) -> Vec<(String, Vec<(String, String)>)> {
         let (endpoint, requests) = serve(expected, respond);
         let _ = fetch_index_search_result_rows(
             &endpoint.into(),
             request,
             &NameFeedMatches::default(),
+            order,
             &CancellationToken::new(),
         );
         let paths = requests.lock().unwrap().clone();
@@ -2702,7 +2770,9 @@ mod adr_0087_index_fields_tests {
         assert_eq!(types(&requests), ["feed", "track"], "Got: {requests:?}");
         for (path, pairs) in &requests {
             assert!(has(pairs, "q", "haleen"), "{path}");
-            assert!(has(pairs, "kind", "single"), "{path}");
+            // musicindex ADR 0049 R-QUERY-6: `single` sends `kind=unknown&tracks=1`.
+            assert!(has(pairs, "kind", "unknown"), "{path}");
+            assert!(has(pairs, "tracks", "1"), "{path}");
             assert!(has(pairs, "after", "2026-10-01"), "{path}");
             assert!(!pairs.iter().any(|(key, _)| key == "before"), "{path}");
         }
@@ -2741,6 +2811,156 @@ mod adr_0087_index_fields_tests {
         }
     }
 
+    /// The answer of `GET /v1/node/capabilities` of a node that lists `sort`
+    /// (Stophammer ADR 0084 section 11), and of the node of 0.19.0.
+    fn capabilities_with_sort() -> (u16, String) {
+        (
+            200,
+            r#"{"api_version":"v1","node_pubkey":"test","capabilities":["query","search","sort"],"entity_types":["feed","track","publisher"],"include_params":{},"search_filters":{}}"#
+                .to_owned(),
+        )
+    }
+
+    /// The responder of a node with the answer `capabilities` to the
+    /// capability read. Each search gets no row.
+    fn node_answers(
+        capabilities: (u16, String),
+    ) -> super::adr_0084_name_level_query_tests::Responder {
+        Arc::new(move |path: &str| {
+            if path.starts_with("/v1/node/capabilities") {
+                capabilities.clone()
+            } else {
+                (200, empty_search())
+            }
+        })
+    }
+
+    /// The search requests of `requests`, without the capability read.
+    fn searches(
+        requests: &[(String, Vec<(String, String)>)],
+    ) -> Vec<&(String, Vec<(String, String)>)> {
+        requests
+            .iter()
+            .filter(|(path, _)| path.starts_with("/v1/search"))
+            .collect()
+    }
+
+    /// ADR 0091 step 2, Stophammer ADR 0084: a sort that the person selected
+    /// sends `sort` and `reverse` to each search, when the node lists the
+    /// capability `sort`. The node is asked first.
+    #[test]
+    fn adr_0091_step2_selected_sort_reaches_each_search_when_the_node_sorts() {
+        let request = sent("haleen");
+        let requests = run_with_order(
+            &request,
+            (IndexOrder::Name { reverse: true }, IndexRun::Command),
+            node_answers(capabilities_with_sort()),
+            4,
+        );
+        assert_eq!(requests[0].0, "/v1/node/capabilities", "{requests:?}");
+        let rows = searches(&requests);
+        assert_eq!(types(&requests), ["feed", "track", "publisher"]);
+        for (path, pairs) in rows {
+            assert!(has(pairs, "sort", "name"), "{path}");
+            assert!(has(pairs, "reverse", "true"), "{path}");
+            assert!(has(pairs, "q", "haleen"), "{path}");
+        }
+
+        let requests = run_with_order(
+            &request,
+            (IndexOrder::Date { reverse: false }, IndexRun::Command),
+            node_answers(capabilities_with_sort()),
+            4,
+        );
+        for (path, pairs) in searches(&requests) {
+            assert!(has(pairs, "sort", "date"), "{path}");
+            assert!(!pairs.iter().any(|(key, _)| key == "reverse"), "{path}");
+        }
+    }
+
+    /// ADR 0091 step 2: with no capability `sort`, or with a failed read of the
+    /// capabilities, no search gets a sort parameter. The rows keep the order
+    /// of relevance.
+    #[test]
+    fn adr_0091_step2_no_capability_or_failed_read_sends_no_sort() {
+        let no_sort = (200, r#"{"capabilities":["query","search"]}"#.to_owned());
+        let failed = (500, String::new());
+        for capabilities in [no_sort, failed] {
+            let requests = run_with_order(
+                &sent("haleen"),
+                (IndexOrder::Name { reverse: false }, IndexRun::Command),
+                node_answers(capabilities),
+                4,
+            );
+            assert_eq!(requests[0].0, "/v1/node/capabilities", "{requests:?}");
+            assert_eq!(searches(&requests).len(), 3, "{requests:?}");
+            for (path, pairs) in searches(&requests) {
+                assert!(!pairs.iter().any(|(key, _)| key == "sort"), "{path}");
+                assert!(!pairs.iter().any(|(key, _)| key == "reverse"), "{path}");
+            }
+        }
+    }
+
+    /// ADR 0091 step 2: a live run and the relevance sort send no sort and read
+    /// no capability. The live run keeps relevance (Stophammer ADR 0084).
+    #[test]
+    fn adr_0091_step2_live_run_and_relevance_send_no_sort() {
+        for (order, run_kind) in [
+            (IndexOrder::Name { reverse: false }, IndexRun::Live),
+            (IndexOrder::Date { reverse: true }, IndexRun::Live),
+            (IndexOrder::Relevance, IndexRun::Command),
+        ] {
+            let requests = run_with_order(
+                &sent("haleen"),
+                (order, run_kind),
+                node_answers(capabilities_with_sort()),
+                3,
+            );
+            assert_eq!(
+                searches(&requests).len(),
+                3,
+                "{order:?} {run_kind:?}: {requests:?}"
+            );
+            assert!(
+                searches(&requests).len() == requests.len(),
+                "{order:?} {run_kind:?} reads no capability: {requests:?}"
+            );
+            for (path, pairs) in searches(&requests) {
+                assert!(!pairs.iter().any(|(key, _)| key == "sort"), "{path}");
+                assert!(!pairs.iter().any(|(key, _)| key == "reverse"), "{path}");
+            }
+        }
+    }
+
+    /// ADR 0091 step 2, musicindex ADR 0049 R-QUERY-6: `kind:single` sends
+    /// `kind=unknown&tracks=1` to the feed and track searches. It sends no
+    /// `kind=single`.
+    #[test]
+    fn adr_0091_step2_kind_single_sends_unknown_and_one_track() {
+        let requests = run(
+            &sent("haleen kind:single"),
+            Arc::new(|_: &str| (200, empty_search())),
+            2,
+        );
+        assert_eq!(types(&requests), ["feed", "track"], "{requests:?}");
+        for (path, pairs) in &requests {
+            assert!(has(pairs, "kind", "unknown"), "{path}");
+            assert!(has(pairs, "tracks", "1"), "{path}");
+            assert!(!has(pairs, "kind", "single"), "{path}");
+            assert!(!pairs.iter().any(|(key, _)| key == "min_tracks"), "{path}");
+        }
+    }
+
+    /// ADR 0091 step 2, musicindex ADR 0049 R-QUERY-6: `kind:ep` has no Index
+    /// request, so its plan skips the Index part with no note of its own.
+    #[test]
+    fn adr_0091_step2_kind_ep_sends_no_index_request() {
+        assert_eq!(
+            IndexSearchPlan::for_query(&SearchQuery::parse("haleen kind:ep")),
+            IndexSearchPlan::Skip(crate::view_models::search_results::IndexSkip::NoIndexPart)
+        );
+    }
+
     /// R87-11-14: a track row of a filtered search keeps its title and its
     /// art. The summary fields of the row give them, with no detail request.
     #[test]
@@ -2775,6 +2995,7 @@ mod adr_0087_index_fields_tests {
             &endpoint.into(),
             &sent("title:hey"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect("the recorded response decodes");
@@ -2819,6 +3040,7 @@ mod adr_0087_index_fields_tests {
             &endpoint.into(),
             &sent("title:one"),
             &NameFeedMatches::default(),
+            (IndexOrder::Relevance, IndexRun::Command),
             &CancellationToken::new(),
         )
         .expect("the recorded response decodes");
