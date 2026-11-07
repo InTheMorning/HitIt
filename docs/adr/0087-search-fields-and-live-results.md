@@ -51,7 +51,7 @@ One parser in the view model layer reads the text. The parser gives a typed quer
 | Field | Values | Library | Index |
 |---|---|---|---|
 | `artist:` | text | The track artist or the album artist | Stophammer filter (Decision 5) |
-| `title:` | text | The track title or the release title | Stophammer filter. A track row matches its track title only (Known Differences 1) |
+| `title:` | text | The track title or the release title | Stophammer filter |
 | `release:` | text | The release title | Stophammer filter |
 | `kind:` | `album`, `ep`, `single`, with commas for more than one | The release kind of ADR 0084 Decision 5 | Stophammer filter. It matches the stated kind only (Known Differences 2) |
 | `in:` | `library`, `index` | Sets the scope | Sets the scope |
@@ -138,7 +138,7 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 
 These differences stay after packet 011 of [ADR 0087 task 011](../tasks/adr-0087-task-011-index-receives-the-fields.md). Each one comes from the Index, not from the parser. The values were read on 2026-11-06 with read-only GET calls.
 
-1. **`title:` on a track.** The Library also matches the release title. The Index `title` filter matches the track title only. On 2026-11-06, `title=assorted&type=track` gave no row, and `release=assorted&type=track` gave 7 rows of the feed "Various & Assorted". The fix is open request 14, part 1. It is not sent.
+1. Closed on 2026-11-07. Stophammer release 0.19.0 (its ADR 0085) makes the `title` filter of a track match the track title or the title of its feed, as the Library does. On 2026-11-07, `title=assorted&type=track` returned rows. No code in v4vmm changed.
 2. **`kind:`.** The Index matches only the release kind that a feed states, and most feeds state `unknown`. On 2026-11-06, `kind=single`, `kind=album` and `kind=ep` gave no row, and `kind=unknown` gave rows. So `kind:single`, `kind:album` and `kind:ep` show no Index rows today. The Library gives `single` to one track, `album` to each other release and no `ep`. The fix is open request 14, part 2.
 3. **`after:` and `before:` on a feed.** The Index compares the newest item date of the feed. The Library compares the release date (ADR 0086 Decision 1). A track row uses its `pub_date` in both.
 4. **`duration:`.** The Index filters track rows only. A query with `duration:` shows no feed rows from the Index. The Library shows a release when one of its tracks matches.
