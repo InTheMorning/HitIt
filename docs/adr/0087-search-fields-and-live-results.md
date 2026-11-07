@@ -116,6 +116,7 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 
 ## Invariants
 
+- The start of a fixed value, such as `has:spl`, is an incomplete value and not an error. The operator asked for this on 2026-11-06.
 - One parser reads the query text. No other code reads field syntax.
 - A Library value goes into SQL only as a bound parameter, with its `LIKE` characters escaped.
 - A Library text term matches at the start of a word, as the Index does. "hey" finds "HeyCitizen" and not "They". The operator decided this on 2026-11-06.

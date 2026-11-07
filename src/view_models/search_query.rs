@@ -1153,12 +1153,19 @@ fn field_value_state(name: QueryFieldName, value: &str, excluded: bool) -> Field
 /// repeated item counts one time.
 fn kinds_state(value: &str) -> FieldValueState {
     let mut kinds = Vec::new();
-    for item in value
+    let items: Vec<&str> = value
         .split(',')
         .map(str::trim)
         .filter(|item| !item.is_empty())
-    {
+        .collect();
+    for (index, item) in items.iter().copied().enumerate() {
         let Some(kind) = KindValue::from_word(item) else {
+            // The last item can be a value that the curator still types.
+            if index + 1 == items.len()
+                && !QueryFieldName::Kind.values_with_prefix(item).is_empty()
+            {
+                break;
+            }
             return FieldValueState::Invalid(FieldValueError::UnknownValue {
                 field: QueryFieldName::Kind,
                 value: item.to_owned(),
@@ -1188,6 +1195,8 @@ fn one_value_state<T>(
     }
     match read(value.trim()) {
         Some(read_value) => FieldValueState::Valid(wrap(read_value)),
+        // The start of a fixed value is a value that the curator still types.
+        None if !field.values_with_prefix(value.trim()).is_empty() => FieldValueState::Incomplete,
         None => FieldValueState::Invalid(FieldValueError::UnknownValue {
             field,
             value: value.to_owned(),
@@ -1638,6 +1647,25 @@ mod tests {
         );
         assert_eq!(query.terms()[1].kind, TermKind::Word("jsmovie".to_owned()));
         assert_eq!(query.terms().len(), 2);
+    }
+
+    /// The operator saw an error until `has:image` was complete on 2026-11-06.
+    #[test]
+    fn adr_0087_start_of_a_fixed_value_is_incomplete_not_an_error() {
+        let state = |text: &str| match only_term(text).kind {
+            TermKind::Field(field) => field.value,
+            other => panic!("not a field: {other:?}"),
+        };
+        for text in ["has:spl", "has:IM", "is:down", "in:lib", "kind:sin"] {
+            assert_eq!(state(text), FieldValueState::Incomplete, "{text}");
+        }
+        for text in ["has:pickle", "is:nope", "kind:sin,nope", "kind:nope,sin"] {
+            assert!(
+                matches!(state(text), FieldValueState::Invalid(_)),
+                "{text} stays an error"
+            );
+        }
+        assert!(matches!(state("kind:album,sin"), FieldValueState::Valid(_)));
     }
 
     #[test]
