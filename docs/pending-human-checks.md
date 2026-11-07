@@ -276,12 +276,15 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - The keyboard focus (ADR 0089 Decision 9): Tab reaches the sidebar rows and the list. A row shows the focus when the list gets it. A mouse click shows no ring.
 - The letter bar (ADR 0089 Decision 9): Tab stops once at the bar. Left, Right, Home and End move the cursor with no request. Enter or Space runs the letter.
 - Edit Query (ADR 0089 Decision 4): the toolbar field holds the query with its field list. The title shows "Editing: <name>" with Save Query and Cancel. Enter saves, Escape cancels, and leaving the page or a new search cancels.
-- The list bar stays in view ([ADR 0090 task 002](tasks/adr-0090-task-002-list-bar-stays-in-view.md)): the screenshot run of 2026-11-07 shows the pinned bar, "Done" and "Select" on it, a click on its empty part, and a narrow window. Tab with one stop and "Add to playlist" from the pinned bar stay open.
+- The list bar stays in view ([ADR 0090 task 002](tasks/adr-0090-task-002-list-bar-stays-in-view.md)): the screenshot run of 2026-11-07 shows the pinned bar, "Done" and "Select" on it, a click on its empty part, and a narrow window. The agent screenshot run of 2026-11-07 shows "Add to playlist" and a download from the pinned bar without a fault. It found a fault: with the bar pinned, Tab passes 7 stops above the viewport that show no focus. The operator decides the change. No packet owns it.
 - The list bar on the release page ([ADR 0090 task 003](tasks/adr-0090-task-003-release-page-list-bar.md)): the Library form and the Index form, in its visual list.
-- The search corrections of ADR 0091 step 2: a sort selected on the results page reloads the rows in that order, `-remix` alone shows its note and no error, and `haleen kind:single` shows Index rows. A live run keeps relevance. The agent screenshot run of 2026-11-07 found a fault: `-remix` alone starts no run, so its note does not show and the older page stays. The other items had no fault in that run. A person has not walked them.
+- The search corrections of ADR 0091 step 2: a sort selected on the results page reloads the rows in that order, `-remix` alone shows its note and no error, and `haleen kind:single` shows Index rows. A live run keeps relevance. The operator accepted the look of the sort rows, of `in:library` with the reverse icon and of the scope All on 2026-11-07. The orchestrator session relayed this answer from the agent screenshots. The operator also accepted that each sort can change the rows two times.
+  - Still open: `-remix` alone. A query with only exclusions now starts a run (ADR 0087 Decision 4). The agent screenshot run shows the note below the Library rows, the note as the empty state in an empty Library, and no note with `in:library`. A person has not walked this.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
 
 ## 12. Button Shape, Roles And Selection - Implemented 2026-11-06
+
+The agent screenshot run of 2026-11-07 walked these items in Light and Dark and found no fault. A person has not walked them.
 
 Open - the code follows musicindex ADR 0020 R-ACT-1 to R-ACT-3 and ADR 0042. The mechanical suite is Green. No person checked the result. Do each check in Light and Dark.
 
@@ -304,6 +307,8 @@ Open - the code follows musicindex ADR 0020 R-ACT-1 to R-ACT-3 and ADR 0042. The
   - A menu item has pill ends.
 
 ## 13. musicindex ADR 0043 Sort Control - Implemented 2026-11-06
+
+The agent screenshot run of 2026-11-07 walked these items and found no fault. It opened the row menu in Light only. A person has not walked them.
 
 Open - packets 001 to 003 of the [phase plan](plans/musicindex-adr-0043-sort-reverse-phase-plan.md) are implemented. The mechanical suite is Green. No person checked the result. Do each check in Light and Dark.
 

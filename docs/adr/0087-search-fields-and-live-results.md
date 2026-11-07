@@ -14,6 +14,8 @@ Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md):
 
 Amended 2026-10-24: the operator decided that a live run retains no failed action. Decision 4 now states it. [ADR 0087 task 009](../tasks/adr-0087-task-009-one-error-for-the-latest-text.md) builds it.
 
+Amended 2026-11-07: Decision 4 runs a query with only exclusions, so that the note of Decision 5 shows.
+
 Amended 2026-11-06: Decision 5 sends each Index field as its own filter. [ADR 0087 task 011](../tasks/adr-0087-task-011-index-receives-the-fields.md) builds it. The known differences from the Library are in "Known Differences From The Library".
 
 ## Context
@@ -89,7 +91,7 @@ A click in the empty search field opens the field list under the field. Each row
 After the curator stops typing for a pause, the search runs against the Library and the Index. Enter runs it at once. A named token holds the pause, 300 ms at first.
 
 - Each run has a generation. The app drops a result of an older generation.
-- A text with no word, phrase or correct field runs nothing, as today.
+- A text with no word, phrase or correct field runs nothing. A term with `-` counts, so `-remix` runs. The Library part lists each row except the excluded rows, and the Index part sends no request (Decision 5). `-!!!`, `-artist:` and `in:library` alone run nothing.
 - The mounted search page updates in place. A run does not add a new page to the navigation stack. Enter, or a click on a result, keeps the page in the stack (ADR 0084 Decision 9).
 - Each run sends at most three Index requests, the same as one search today.
 - A live run retains no failed action of ADR 0066. Enter retains it.
@@ -179,6 +181,12 @@ A different session relayed these answers on 2026-11-07. They accept the behavio
 3. Each selected sort makes one `GET /v1/node/capabilities`, with no cache.
 
 The operator visual check of these search corrections stays open in [pending human checks](../pending-human-checks.md).
+
+Later answers of 2026-11-07, relayed by the orchestrator session:
+
+4. `-remix` alone follows Decision 5. The Library part runs, the page shows the note, and the Index part sends no request.
+5. Each sort can change the rows two times. The page first sorts its rows, and the Index rows then replace them. The operator accepts this.
+6. The operator accepts the look of the sort rows, of `in:library` with the reverse icon, and of the scope All, from the agent screenshots of 2026-11-07.
 
 ## Verification
 

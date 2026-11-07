@@ -288,6 +288,31 @@ mod tests {
     /// ADR 0089 Decision 4 (operator decision of 2026-11-06): two saved
     /// searches that hold one query keep their own seen sets. Each count
     /// follows its own id.
+    /// ADR 0087 Decision 4: a saved query with only exclusions counts its
+    /// Library rows and sends no Index request. The endpoint of this test does
+    /// not answer, so a request would give `Unavailable`.
+    #[test]
+    fn a_query_with_only_exclusions_counts_library_rows_with_no_index_request() {
+        let conn = setup_db();
+        let id = insert_saved(&conn, "-remix");
+        insert_track(&conn, "item-1", "Night Drive");
+        insert_track(&conn, "item-2", "Night Drive Remix");
+        let request = request_for(id, "-remix");
+
+        assert_eq!(
+            count_saved_search(&conn, &endpoint(), &request, 0),
+            NewResultCount::Count(0)
+        );
+
+        insert_track(&conn, "item-3", "Morning Remix");
+        insert_track(&conn, "item-4", "Morning Walk");
+        assert_eq!(
+            count_saved_search(&conn, &endpoint(), &request, 0),
+            NewResultCount::Count(1),
+            "only the new row that is not excluded counts"
+        );
+    }
+
     #[test]
     fn two_saved_searches_with_one_query_count_separately() {
         let conn = setup_db();
