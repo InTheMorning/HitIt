@@ -32,7 +32,7 @@ The v4vmm operator reviewed each item on 2026-09-24 and 2026-09-25.
 | 11 | A feed search hit gives its release date and its named feeds | API field and include additions | Draft - 2026-10-23. Not sent. On 2026-10-25 the v4vmm operator decided to send it after the walk of the saved search checks |
 | 12 | A track gives its season, and the index keeps the license | API field and parser additions | Draft - 2026-11-04. The v4vmm operator agreed on 2026-11-04 that v4vmm writes this request. No v4vmm packet waits for it |
 | 13 | A total for each list of feeds and names | API field addition | Draft - 2026-11-05. Not sent. v4vmm ADR 0089 shows no count for All until a total exists |
-| 14 | The title filter of a track and the kind filter of unknown feeds | Search correction and API parameter addition | Draft - 2026-11-06. Not sent. The v4vmm operator decides when to send it |
+| 14 | The title filter of a track and the kind filter of unknown feeds | Search correction and API parameter addition | Sent - 2026-11-06. Waits for the Stophammer answer |
 | 15 | A sort direction for each list of feeds and names | API parameter addition | Answered - 2026-11-06. Stophammer ADR 0084 is Accepted and not built |
 
 ### 1. Album Summary Fields In Each Publisher Relationship Entry
@@ -421,9 +421,9 @@ The weakest part: the count is useful but not necessary. v4vmm shows no count fo
 1. A track `title` filter also matches the title of the feed of the track, as the `release` filter does.
 2. One request gives the R-WORD-1 rule. `kind=single` also matches a feed with `release_kind` `unknown` and one track. `kind=album` also matches a feed with `release_kind` `unknown` and two or more tracks. Each of these uses one parameter, so that v4vmm sends one request for each type.
 
-The v4vmm operator decides when this request goes to Stophammer. Until then, `kind:single`, `kind:album` and `kind:ep` show no Index rows, and a track `title:` shows no track of a release title only.
+The v4vmm operator sent this request on 2026-11-06. Until Stophammer answers, `kind:single`, `kind:album` and `kind:ep` show no Index rows, and a track `title:` shows no track of a release title only.
 
-**Status.** Draft - 2026-11-06. Not sent. The v4vmm operator decides when to send it.
+**Status.** Sent - 2026-11-06. Waits for the Stophammer answer.
 
 ### 15. A Sort Direction For Each List Of Feeds And Names
 
