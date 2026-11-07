@@ -75,6 +75,23 @@ pub(crate) fn feed_facts(conn: &Connection, feed_id: i64) -> Result<FeedMetadata
     Ok(sourced_feed_facts(conn, feed_id)?.musicindex)
 }
 
+/// The raw `MusicIndex` fact rows of a feed. The caller reads them under the
+/// database lock, then converts them with [`feed_facts_from_fact_rows`]
+/// after the lock is released (task 039, step 5).
+pub(crate) fn feed_fact_rows(
+    conn: &Connection,
+    feed_id: i64,
+) -> Result<Vec<db::LocalMetadataFactRow>> {
+    let rows = db::local_metadata_facts(conn, LocalMetadataOwner::Feed(feed_id))?;
+    Ok(split_by_source(rows).0)
+}
+
+/// Converts the rows of [`feed_fact_rows`] into the `MusicIndex` facts of a
+/// feed. It reads no database.
+pub(crate) fn feed_facts_from_fact_rows(rows: Vec<db::LocalMetadataFactRow>) -> FeedMetadataFacts {
+    feed_facts_from_rows(rows)
+}
+
 pub(crate) fn sourced_feed_facts(
     conn: &Connection,
     feed_id: i64,

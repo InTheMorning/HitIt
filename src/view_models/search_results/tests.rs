@@ -1729,13 +1729,13 @@ fn unsupported_skip(text: &str) -> super::IndexSkip {
     skip
 }
 
-/// R87-2-24: a skipped Index part with an unsupported field gives the note
-/// of ADR 0087 Decision 5. A tab with Library rows gives it through
-/// `index_notice`. An empty tab gives it through `empty_state`. The page
-/// shows no loading rows.
+/// R87-2-24: a skipped Index part with an excluded field that the Index
+/// cannot apply gives the note of ADR 0087 Decision 5. A tab with Library
+/// rows gives it through `index_notice`. An empty tab gives it through
+/// `empty_state`. The page shows no loading rows.
 #[test]
 fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
-    let text = "haleen after:2026-10-01";
+    let text = "haleen -after:2026-10-01";
     let skip = unsupported_skip(text);
     let local = [local_guid_track(10, 7, "g-library", "i1", "One")];
     let mut vm = SearchResultsInspectorPageVm::from_local_library_tracks(
@@ -1751,17 +1751,17 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
     assert_eq!(vm.index_skip(), Some(&skip));
     assert!(vm.empty_state().is_none());
     let notice = vm.index_notice().expect("the tab with rows shows the note");
-    assert_eq!(notice.title, "MusicIndex cannot filter by after: yet");
+    assert_eq!(notice.title, "MusicIndex cannot exclude after: yet");
     assert_eq!(notice.secondary, super::INDEX_SKIP_ROWS_TEXT);
     assert!(notice.failure.is_none());
 
-    let mut empty = SearchResultsInspectorPageVm::new("zzzz kind:ep");
+    let mut empty = SearchResultsInspectorPageVm::new("zzzz -kind:ep");
     empty.set_tab(SearchResultsTab::Releases);
-    empty.set_index_skipped(&unsupported_skip("zzzz kind:ep"));
+    empty.set_index_skipped(&unsupported_skip("zzzz -kind:ep"));
     assert!(empty.index_notice().is_none());
     let state = empty.empty_state().expect("the empty tab shows the note");
-    assert_eq!(state.title, "MusicIndex cannot filter by kind: yet");
-    assert_eq!(state.secondary, "No releases matched \"zzzz kind:ep\".");
+    assert_eq!(state.title, "MusicIndex cannot exclude kind: yet");
+    assert_eq!(state.secondary, "No releases matched \"zzzz -kind:ep\".");
     assert!(!empty.is_index_loading());
 }
 

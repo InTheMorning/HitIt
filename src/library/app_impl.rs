@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use super::download_queue::{DownloadJob, DownloadOutcome, JobIdentity};
+use super::single_flight::{Finish, Run, SingleFlight};
 use super::PlaylistActorState;
 use super::{InspectorFrame, LazyPanel, LibraryApp, LibraryDetail, PlaylistDetail, ThumbnailState};
 use crate::app::keyboard::primary_modifier_held;
@@ -28,13 +29,16 @@ use crate::application::errors::command::CommandError;
 use crate::application::library_removal::{
     removal_referring_playlist_names, LibraryRemovalIntent, LibraryRemovalTarget,
 };
-use crate::application::queries::broadcast::BroadcastReadinessReport;
+use crate::application::queries::broadcast::{
+    BroadcastReadinessLoad, BroadcastReadinessReport, LoadBroadcastReadiness,
+};
 use crate::application::queries::feed::FetchRecentFeedsPage;
 use crate::application::queries::images::{FetchCoverColor, FetchThumbnail};
 use crate::application::queries::library::{
     AlbumHydrationTrigger, AlbumIdentityHydration, CompareLibraryTrack, FetchLibraryTrackContext,
-    HydrateAlbumIdentity, LibraryTrackCompare, LoadLibraryTracksTree,
+    HydrateAlbumIdentity, LibraryTrackCompare, LibraryTracksTree, LoadLibraryTracksTree,
 };
+use crate::application::queries::playlist::{LoadPlaylistSidebar, PlaylistSidebarLoad};
 use crate::application::{ApplicationServices, AsyncCommandRunner, CommandContext};
 use crate::db::{self, TrackRow};
 use crate::feed_service::track_row_to_track_context;
@@ -950,13 +954,13 @@ impl LibraryApp {
             command,
             CommandContext::next(),
             cx,
-            move |this, _changed, _cx| {
-                this.refresh_current_broadcast_readiness_report();
+            move |this, _changed, cx| {
+                this.refresh_current_broadcast_readiness_report(cx);
                 this.reload_playlist_rss_track_marks(track_id);
             },
-            |this, error, _cx| {
+            |this, error, cx| {
                 this.vm.set_error_status(error);
-                this.refresh_current_broadcast_readiness_report();
+                this.refresh_current_broadcast_readiness_report(cx);
             },
         );
     }
@@ -990,81 +994,84 @@ impl LibraryApp {
 
     /// Opens the Inbox destination from an already-fetched report (ADR 0084
     /// Decision 2, ADR 0089 Decision 3). Show's "Open" calls this with its
-    /// own cached report, so this makes no readiness query.
+    /// own cached report, so this makes no readiness query. It uses the
+    /// show playlist ids of the last readiness load (task 039, step 2).
     pub(crate) fn show_broadcast_readiness_report(
         &mut self,
         report: &BroadcastReadinessReport,
         cx: &mut Context<Self>,
     ) {
-        let source_track_ids = self.inbox_source_track_ids();
-        self.vm.show_inbox_report(report, &source_track_ids);
+        self.vm
+            .show_inbox_report(report, &self.inbox_source_track_ids);
         cx.notify();
     }
 
-    /// Opens the Inbox destination from a fresh query (ADR 0084 Decision 2:
-    /// a sidebar click). The render path makes no query: this runs only
-    /// from an explicit destination-select event.
-    fn open_inbox_destination(&mut self) {
-        if let Some(report) = self.fetch_broadcast_readiness_report() {
-            let source_track_ids = self.inbox_source_track_ids();
-            self.vm.show_inbox_report(&report, &source_track_ids);
-        }
+    /// Opens the Inbox destination from a fresh load (ADR 0084 Decision 2: a
+    /// sidebar click). The render path makes no query: this runs only from
+    /// an explicit destination-select event. The Inbox keeps its last state
+    /// until the load ends (task 039, step 2).
+    fn open_inbox_destination(&mut self, cx: &mut Context<Self>) {
+        self.readiness_open_pending = true;
+        self.request_broadcast_readiness(cx);
     }
 
     /// Keeps the Inbox count current (ADR 0084 Decision 2): on load, after
     /// a feed check or a repair, and after a download or a removal. It
     /// replaces the active list's rows only when the Inbox is already open.
-    fn refresh_current_broadcast_readiness_report(&mut self) {
-        if let Some(report) = self.fetch_broadcast_readiness_report() {
-            let source_track_ids = self.inbox_source_track_ids();
-            self.vm.refresh_inbox_report(&report, &source_track_ids);
+    fn refresh_current_broadcast_readiness_report(&mut self, cx: &mut Context<Self>) {
+        self.request_broadcast_readiness(cx);
+    }
+
+    /// Starts the readiness load, or sets the run-again flag when one runs
+    /// (task 039, step 3). The file tags are read off the main thread.
+    fn request_broadcast_readiness(&mut self, cx: &mut Context<Self>) {
+        let runner = &self.command_runner;
+        let generation = runner.session().generation();
+        let Some(run) = self
+            .readiness_flight
+            .request(generation, |live| runner.session().accepts(live))
+        else {
+            return;
+        };
+        let command = LoadBroadcastReadiness::new(Arc::clone(&self.conn), self.music_dir.clone());
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            move |this, load, cx| this.finish_broadcast_readiness(run, Ok(load), cx),
+            move |this, error, cx| this.finish_broadcast_readiness(run, Err(error), cx),
+        );
+    }
+
+    /// Applies the result of one readiness run. A result of a run that is not
+    /// current is dropped.
+    fn finish_broadcast_readiness(
+        &mut self,
+        run: Run,
+        result: Result<BroadcastReadinessLoad, CommandError>,
+        cx: &mut Context<Self>,
+    ) {
+        let again = match self.readiness_flight.finish(run) {
+            Finish::Stale => return,
+            Finish::Done => false,
+            Finish::RunAgain => true,
+        };
+        match result {
+            Ok(load) => {
+                self.inbox_source_track_ids = load.source_track_ids;
+                if std::mem::take(&mut self.readiness_open_pending) {
+                    self.vm
+                        .show_inbox_report(&load.report, &self.inbox_source_track_ids);
+                } else {
+                    self.vm
+                        .refresh_inbox_report(&load.report, &self.inbox_source_track_ids);
+                }
+            }
+            Err(error) => self.vm.set_error_status(error),
         }
-    }
-
-    /// The track ids of the show playlist, in its sequence (ADR 0089
-    /// Decision 3, Answer 3). The show playlist is the playlist of the
-    /// playback session that is not stopped. It is empty with no session,
-    /// or when the session names no playlist.
-    fn inbox_source_track_ids(&self) -> Vec<i64> {
-        let Ok(conn) = self.conn.lock() else {
-            return Vec::new();
-        };
-        let playlist_id = crate::db::playback_session(&conn, crate::playback::DEFAULT_SESSION_ID)
-            .ok()
-            .flatten()
-            .filter(|session| session.state != "stopped")
-            .and_then(|session| session.playlist_id);
-        let Some(playlist_id) = playlist_id else {
-            return Vec::new();
-        };
-        self.application_services
-            .query_service()
-            .playlist_tracks(&conn, playlist_id)
-            .map(|rows| rows.into_iter().map(|row| row.id).collect())
-            .unwrap_or_default()
-    }
-
-    /// The broadcast readiness report, from the Library connection and
-    /// `music_dir`. Each caller already runs off the render path, in a
-    /// command completion or an explicit destination-select event.
-    fn fetch_broadcast_readiness_report(&mut self) -> Option<BroadcastReadinessReport> {
-        let conn = match self.conn.lock() {
-            Ok(conn) => conn,
-            Err(_) => {
-                self.vm.set_error_status("database lock poisoned");
-                return None;
-            }
-        };
-        match self
-            .application_services
-            .query_service()
-            .broadcast_readiness_report(&conn, &self.music_dir)
-        {
-            Ok(report) => Some(report),
-            Err(error) => {
-                self.vm.set_error_status(error);
-                None
-            }
+        if again {
+            self.request_broadcast_readiness(cx);
         }
     }
 
@@ -1228,6 +1235,12 @@ impl LibraryApp {
             music_page_open: false,
             album_identity_backfill_started: false,
             album_identity_backfill_queue: VecDeque::new(),
+            readiness_flight: SingleFlight::new(),
+            readiness_open_pending: false,
+            inbox_source_track_ids: Vec::new(),
+            tree_flight: SingleFlight::new(),
+            playlist_flight: SingleFlight::new(),
+            playlist_after: Vec::new(),
         };
         // ADR 0084 Decision 3, packet 012: Discover shows the saved
         // searches from the first render.
@@ -1366,7 +1379,7 @@ impl LibraryApp {
         self.tag_update_snapshot = Some(handle.latest());
         bridge_watch(
             handle.subscribe(),
-            |this: &mut Self, snapshot, _cx| {
+            |this: &mut Self, snapshot, cx| {
                 // A confirm changed file tags. The readiness list reads the
                 // route frames again.
                 let wrote = this
@@ -1375,7 +1388,7 @@ impl LibraryApp {
                     .is_some_and(|previous| previous.last_write != snapshot.last_write);
                 this.tag_update_snapshot = Some(snapshot);
                 if wrote {
-                    this.refresh_current_broadcast_readiness_report();
+                    this.refresh_current_broadcast_readiness_report(cx);
                 }
             },
             cx,
@@ -1535,68 +1548,155 @@ impl LibraryApp {
         }
         cx.notify();
 
-        // Playlists are a small single-table query: keep them on the
-        // foreground for now so the playlist sidebar stays responsive
-        // and we don't grow a second async path until proven needed.
-        self.reload_playlists();
+        self.reload_playlists(cx);
         if mode == LibraryReloadMode::PreserveDetail {
             self.refresh_selected_detail(cx);
         }
 
+        self.request_library_tree_load(cx);
+    }
+
+    /// Starts the Library tree load, or sets the run-again flag when one
+    /// runs (task 039, step 4). Each completion of a run starts the waiting
+    /// run, so the last request always gets a result.
+    fn request_library_tree_load(&mut self, cx: &mut Context<Self>) {
+        let runner = &self.command_runner;
+        let generation = runner.session().generation();
+        let Some(run) = self
+            .tree_flight
+            .request(generation, |live| runner.session().accepts(live))
+        else {
+            return;
+        };
         let command = LoadLibraryTracksTree::new(Arc::clone(&self.conn));
         present_command(
             &self.command_runner,
             command,
             CommandContext::next(),
             cx,
-            |this, result, cx| {
-                this.vm.replace_tree(result.tree);
-                this.vm.finish_library_reload(result.count);
-                // ADR 0089 Decision 5: the scope "All" of the active list
-                // sends its first name request after a Library load, once.
-                this.request_default_name_list(cx);
-                // ADR 0084 Decision 2: the Inbox count stays
-                // current on each Library load.
-                this.refresh_current_broadcast_readiness_report();
-                // ADR 0084 Decision 10: a removal drops the removed
-                // items from both selections through `retain_visible`.
-                // Every reload re-syncs them, so a stale selected key
-                // never outlives the row it named.
-                let releases_visible = this.releases_visible_members();
-                this.releases_selection.retain_visible(&releases_visible);
-                let tracks_visible = this.content_list_visible_track_keys();
-                this.track_selection.retain_visible(&tracks_visible);
-                // ADR 0084 packet 018: the same for the detail selection
-                // of a Library page. The feed page and the Index page
-                // keep each row after a removal.
-                if let Some(rows) = this.library_detail_page_rows() {
-                    this.detail_selection.retain_visible(&rows.members());
-                }
-                // ADR 0084 task 034, decision D2: the first successful
-                // Library tree load of the session starts the
-                // once-per-session identity backfill pass.
-                if !this.album_identity_backfill_started {
-                    this.start_album_identity_backfill(cx);
-                }
-            },
-            |this, err, _cx| this.vm.set_error_status(err),
+            move |this, result, cx| this.finish_library_tree_load(run, Ok(result), cx),
+            move |this, err, cx| this.finish_library_tree_load(run, Err(err), cx),
         );
     }
 
-    pub(crate) fn reload_playlists(&mut self) {
-        let conn = self.conn.lock().expect("lock db");
-        match self.application_services.query_service().playlists(&conn) {
-            Ok(list) => self.vm.replace_playlists(list),
-            Err(err) => self.vm.fail_playlist_load(err),
+    fn finish_library_tree_load(
+        &mut self,
+        run: Run,
+        result: Result<LibraryTracksTree, CommandError>,
+        cx: &mut Context<Self>,
+    ) {
+        let again = match self.tree_flight.finish(run) {
+            Finish::Stale => return,
+            Finish::Done => false,
+            Finish::RunAgain => true,
+        };
+        match result {
+            Ok(result) => self.apply_library_tree(result, cx),
+            Err(err) => self.vm.set_error_status(err),
         }
-        // ADR 0084 Decision 12: one read gives the art of each playlist
-        // row. A failed read shows each row in the entity color.
-        let covers = self
-            .application_services
-            .query_service()
-            .playlist_cover_images(&conn)
-            .unwrap_or_default();
-        self.vm.replace_playlist_covers(covers);
+        if again {
+            self.request_library_tree_load(cx);
+        }
+    }
+
+    /// Applies one loaded Library tree to the view model, and the selections
+    /// and the backfill that follow a load.
+    fn apply_library_tree(&mut self, result: LibraryTracksTree, cx: &mut Context<Self>) {
+        self.vm.replace_tree(result.tree);
+        self.vm.finish_library_reload(result.count);
+        // ADR 0089 Decision 5: the scope "All" of the active list
+        // sends its first name request after a Library load, once.
+        self.request_default_name_list(cx);
+        // ADR 0084 Decision 2: the Inbox count stays
+        // current on each Library load.
+        self.refresh_current_broadcast_readiness_report(cx);
+        // ADR 0084 Decision 10: a removal drops the removed
+        // items from both selections through `retain_visible`.
+        // Every reload re-syncs them, so a stale selected key
+        // never outlives the row it named.
+        let releases_visible = self.releases_visible_members();
+        self.releases_selection.retain_visible(&releases_visible);
+        let tracks_visible = self.content_list_visible_track_keys();
+        self.track_selection.retain_visible(&tracks_visible);
+        // ADR 0084 packet 018: the same for the detail selection
+        // of a Library page. The feed page and the Index page
+        // keep each row after a removal.
+        if let Some(rows) = self.library_detail_page_rows() {
+            self.detail_selection.retain_visible(&rows.members());
+        }
+        // ADR 0084 task 034, decision D2: the first successful
+        // Library tree load of the session starts the
+        // once-per-session identity backfill pass.
+        if !self.album_identity_backfill_started {
+            self.start_album_identity_backfill(cx);
+        }
+    }
+
+    /// Reads the playlist list and the cover of each playlist in the
+    /// background (task 039, step 4). The sidebar keeps its last list until
+    /// the result arrives.
+    pub(crate) fn reload_playlists(&mut self, cx: &mut Context<Self>) {
+        self.request_playlist_load(cx);
+    }
+
+    /// Reloads the playlists, then runs `after` with the new list. A caller
+    /// that selects or adds to a playlist uses this, because it reads the
+    /// list (task 039, step 4).
+    pub(crate) fn reload_playlists_then(
+        &mut self,
+        cx: &mut Context<Self>,
+        after: impl FnOnce(&mut Self, &mut Context<Self>) + 'static,
+    ) {
+        self.playlist_after.push(Box::new(after));
+        self.request_playlist_load(cx);
+    }
+
+    fn request_playlist_load(&mut self, cx: &mut Context<Self>) {
+        let runner = &self.command_runner;
+        let generation = runner.session().generation();
+        let Some(run) = self
+            .playlist_flight
+            .request(generation, |live| runner.session().accepts(live))
+        else {
+            return;
+        };
+        let command = LoadPlaylistSidebar::new(Arc::clone(&self.conn));
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            move |this, load, cx| this.finish_playlist_load(run, Ok(load), cx),
+            move |this, error, cx| this.finish_playlist_load(run, Err(error), cx),
+        );
+    }
+
+    fn finish_playlist_load(
+        &mut self,
+        run: Run,
+        result: Result<PlaylistSidebarLoad, CommandError>,
+        cx: &mut Context<Self>,
+    ) {
+        let again = match self.playlist_flight.finish(run) {
+            Finish::Stale => return,
+            Finish::Done => false,
+            Finish::RunAgain => true,
+        };
+        match result {
+            Ok(load) => {
+                self.vm.replace_playlists(load.playlists);
+                self.vm.replace_playlist_covers(load.covers);
+            }
+            Err(error) => self.vm.fail_playlist_load(error),
+        }
+        if again {
+            self.request_playlist_load(cx);
+            return;
+        }
+        // The waiting continuations read the list that the last run loaded.
+        for after in std::mem::take(&mut self.playlist_after) {
+            after(self, cx);
+        }
     }
 
     pub(crate) fn playlists(&self) -> &[db::Playlist] {
@@ -1826,14 +1926,17 @@ impl LibraryApp {
             cx,
             |this, result, cx| {
                 this.vm.close_creating_playlist();
-                this.reload_playlists();
+                let playlist_id = result.playlist_id();
                 // ADR 0084 Decision 2: "+" opens the playlist from the
-                // Playlists destination, in the current path.
-                this.open_page(
-                    FrameNavigationEntry::PlaylistDetail(result.playlist_id()),
-                    NavigationPathStart::CurrentPath,
-                    cx,
-                );
+                // Playlists destination, in the current path. The page
+                // reads the list, so it opens after the reload.
+                this.reload_playlists_then(cx, move |this, cx| {
+                    this.open_page(
+                        FrameNavigationEntry::PlaylistDetail(playlist_id),
+                        NavigationPathStart::CurrentPath,
+                        cx,
+                    );
+                });
             },
             |this, err, _cx| this.vm.fail_playlist_create(err),
         );
@@ -1851,10 +1954,11 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, (), cx| {
-                this.reload_playlists();
-                if this.vm.is_playlist_selected(id) {
-                    this.select_playlist(id, cx);
-                }
+                this.reload_playlists_then(cx, move |this, cx| {
+                    if this.vm.is_playlist_selected(id) {
+                        this.select_playlist(id, cx);
+                    }
+                });
             },
             |this, err, _cx| this.vm.fail_playlist_rename(err),
         );
@@ -1995,11 +2099,11 @@ impl LibraryApp {
             command,
             CommandContext::next(),
             cx,
-            move |this, (), _cx| {
+            move |this, (), cx| {
                 if this.vm.clear_playlist_selection_if(id) {
                     this.detail = LibraryDetail::None;
                 }
-                this.reload_playlists();
+                this.reload_playlists(cx);
             },
             |this, err, _cx| this.vm.fail_playlist_delete(err),
         );
@@ -2018,11 +2122,12 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, (), cx| {
-                this.reload_playlists();
                 this.reload_playlist_rss_marks(playlist_id);
-                if this.vm.is_playlist_selected(playlist_id) {
-                    this.select_playlist(playlist_id, cx);
-                }
+                this.reload_playlists_then(cx, move |this, cx| {
+                    if this.vm.is_playlist_selected(playlist_id) {
+                        this.select_playlist(playlist_id, cx);
+                    }
+                });
             },
             |this, err, _cx| this.vm.fail_playlist_track_remove(err),
         );
@@ -2083,16 +2188,17 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, changed, cx| {
-                this.reload_playlists();
-                this.reload_playlist_rss_track_marks(track_id);
-                if let Some(playlist_id) = changed
+                let selected = changed
                     .iter()
                     .copied()
-                    .find(|playlist_id| this.vm.is_playlist_selected(*playlist_id))
-                {
-                    this.select_playlist(playlist_id, cx);
-                }
-                this.refresh_current_broadcast_readiness_report();
+                    .find(|playlist_id| this.vm.is_playlist_selected(*playlist_id));
+                this.reload_playlists_then(cx, move |this, cx| {
+                    if let Some(playlist_id) = selected {
+                        this.select_playlist(playlist_id, cx);
+                    }
+                });
+                this.reload_playlist_rss_track_marks(track_id);
+                this.refresh_current_broadcast_readiness_report(cx);
             },
             |this, err, _cx| this.vm.fail_playlist_track_remove(err),
         );
@@ -2175,13 +2281,14 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, (), cx| {
-                this.reload_playlists();
                 this.reload_playlist_rss_marks(playlist_id);
-                this.refresh_current_broadcast_readiness_report();
+                this.refresh_current_broadcast_readiness_report(cx);
                 this.detail_selection.clear_rows();
-                if this.vm.is_playlist_selected(playlist_id) {
-                    this.select_playlist(playlist_id, cx);
-                }
+                this.reload_playlists_then(cx, move |this, cx| {
+                    if this.vm.is_playlist_selected(playlist_id) {
+                        this.select_playlist(playlist_id, cx);
+                    }
+                });
             },
             |this, err, _cx| this.vm.fail_playlist_track_remove(err),
         );
@@ -2211,8 +2318,10 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, result, cx| {
-                this.reload_playlists();
-                this.add_track_to_playlist(track_id, result.playlist_id(), cx);
+                let playlist_id = result.playlist_id();
+                this.reload_playlists_then(cx, move |this, cx| {
+                    this.add_track_to_playlist(track_id, playlist_id, cx);
+                });
             },
             |this, err, _cx| this.vm.fail_playlist_create(err),
         );
@@ -2285,8 +2394,10 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, result, cx| {
-                this.reload_playlists();
-                this.add_albums_to_playlist(&feed_ids, result.playlist_id(), cx);
+                let playlist_id = result.playlist_id();
+                this.reload_playlists_then(cx, move |this, cx| {
+                    this.add_albums_to_playlist(&feed_ids, playlist_id, cx);
+                });
             },
             |this, err, _cx| this.vm.fail_playlist_create(err),
         );
@@ -2312,7 +2423,7 @@ impl LibraryApp {
             command,
             CommandContext::next(),
             cx,
-            move |this, outcome, _cx| {
+            move |this, outcome, cx| {
                 this.vm.finish_playlist_append(
                     &intent,
                     PlaylistAppendOutcome::new(
@@ -2321,11 +2432,11 @@ impl LibraryApp {
                         outcome.failed().len(),
                     ),
                 );
-                this.reload_playlists();
+                this.reload_playlists(cx);
             },
-            |this, err, _cx| {
+            |this, err, cx| {
                 this.vm.fail_playlist_append(err);
-                this.reload_playlists();
+                this.reload_playlists(cx);
             },
         );
     }
@@ -2717,7 +2828,7 @@ impl LibraryApp {
             // location fills the list column with its items and clears
             // the detail column.
             FrameNavigationEntry::Destination(destination) => {
-                self.show_destination_list(*destination);
+                self.show_destination_list(*destination, cx);
                 // ADR 0089 packet 011: the Live list reads again each time
                 // its page shows, so a Back to it starts a new read.
                 if *destination == MusicDestination::Live {
@@ -2779,7 +2890,7 @@ impl LibraryApp {
     /// Fills the list column with the items of `destination` (ADR 0084
     /// Decision 2). Each branch reuses data this entity already holds or
     /// already loads: no new query runs on the render path.
-    fn show_destination_list(&mut self, destination: MusicDestination) {
+    fn show_destination_list(&mut self, destination: MusicDestination, cx: &mut Context<Self>) {
         self.vm.set_active_destination(destination);
         // ADR 0084 Decision 10: a change of destination clears both
         // selections, including the keyboard focus: the new
@@ -2803,7 +2914,7 @@ impl LibraryApp {
                 // `ContentListPageVm` state of their own.
             }
             MusicDestination::Inbox => {
-                self.open_inbox_destination();
+                self.open_inbox_destination(cx);
             }
         }
     }
@@ -2879,16 +2990,16 @@ impl LibraryApp {
             command,
             CommandContext::next(),
             cx,
-            |this, outcome, _cx| {
+            |this, outcome, cx| {
                 let repair = retain_feed_check_evidence(&mut this.vm, &outcome);
                 this.vm.finish_all_feed_check_with_route_repair(repair);
-                this.refresh_current_broadcast_readiness_report();
+                this.refresh_current_broadcast_readiness_report(cx);
                 this.scan_tag_updates();
             },
-            |this, error, _cx| {
+            |this, error, cx| {
                 retain_library_query_failure(&mut this.vm, &error);
                 this.vm.set_feed_check_error(error);
-                this.refresh_current_broadcast_readiness_report();
+                this.refresh_current_broadcast_readiness_report(cx);
             },
         );
     }
@@ -2939,14 +3050,14 @@ impl LibraryApp {
             command,
             CommandContext::next(),
             cx,
-            |this, outcome, _cx| {
+            |this, outcome, cx| {
                 let completion = broadcast_route_repair_completion(&outcome);
                 this.vm.finish_broadcast_route_repair(&completion);
-                this.refresh_current_broadcast_readiness_report();
+                this.refresh_current_broadcast_readiness_report(cx);
             },
-            move |this, error, _cx| {
+            move |this, error, cx| {
                 this.vm.fail_broadcast_route_repair(track_id, error);
-                this.refresh_current_broadcast_readiness_report();
+                this.refresh_current_broadcast_readiness_report(cx);
             },
         );
     }
@@ -3332,7 +3443,7 @@ impl LibraryApp {
                 this.record_selection_removal_result(target, None);
                 this.apply_library_removal_result_to_selected_detail(result.target());
                 // A mounted readiness list drops the removed track in place.
-                this.refresh_current_broadcast_readiness_report();
+                this.refresh_current_broadcast_readiness_report(cx);
                 this.refresh_origin_playlist_actor();
                 this.start_async_reload_preserving_detail(cx);
             },
@@ -4539,9 +4650,13 @@ impl LibraryApp {
     /// Ctrl+A (ADR 0084 Decision 10): starts selection mode and selects
     /// every member of every visible row (Amendment, 2026-10-19).
     pub(crate) fn select_all_visible(&mut self, window: &Window, cx: &mut Context<Self>) {
-        if !self.list_column_has_focus(window, cx) {
-            return;
+        if self.list_column_has_focus(window, cx) {
+            self.select_each_list_row(cx);
         }
+    }
+
+    /// "Select all" of the list column bar, and the end of Ctrl+A.
+    fn select_each_list_row(&mut self, cx: &mut Context<Self>) {
         match self.vm.active_destination() {
             MusicDestination::Releases => {
                 self.releases_selection_mode = SelectionMode::Selecting;
@@ -4837,8 +4952,11 @@ impl LibraryApp {
     /// Decision 10), or `None` outside `Selecting` mode (Amendment,
     /// 2026-10-19).
     pub(crate) fn content_list_selection_action_bar(&self) -> Option<SelectionActionBarVm> {
-        self.vm
-            .content_list_selection_action_bar(&self.track_selection, self.track_selection_mode)
+        self.vm.content_list_selection_action_bar(
+            &self.track_selection,
+            self.track_selection_mode,
+            self.content_list_visible_rows().len(),
+        )
     }
 
     /// Runs a Download, Remove or Clear action of the Releases list's
@@ -4864,6 +4982,7 @@ impl LibraryApp {
                 self.download_release_plan(plan, cx);
             }
             SelectionActionKind::Remove => self.request_releases_selection_removal(window, cx),
+            SelectionActionKind::SelectAll => self.select_each_list_row(cx),
             SelectionActionKind::Clear => {
                 self.releases_selection.clear();
                 cx.notify();
@@ -4923,6 +5042,7 @@ impl LibraryApp {
             | SelectionActionKind::MoveToTop
             | SelectionActionKind::MoveToBottom => {}
             SelectionActionKind::Remove => self.request_content_list_selection_removal(window, cx),
+            SelectionActionKind::SelectAll => self.select_each_list_row(cx),
             SelectionActionKind::Clear => {
                 self.track_selection.clear();
                 cx.notify();
@@ -4993,8 +5113,10 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, result, cx| {
-                this.reload_playlists();
-                this.add_tracks_to_playlist(track_ids.clone(), result.playlist_id(), cx);
+                let playlist_id = result.playlist_id();
+                this.reload_playlists_then(cx, move |this, cx| {
+                    this.add_tracks_to_playlist(track_ids.clone(), playlist_id, cx);
+                });
             },
             |this, err, _cx| this.vm.fail_playlist_create(err),
         );
@@ -6039,10 +6161,14 @@ impl LibraryApp {
         let clear = cx.listener(move |this, (): &(), window, cx| {
             run(this, SelectionActionKind::Clear, window, cx);
         });
+        let select_all = cx.listener(move |this, (): &(), window, cx| {
+            run(this, SelectionActionKind::SelectAll, window, cx);
+        });
         SelectionActionBar::new(bar, playlists)
             .on_download(move |window, cx| download(&(), window, cx))
             .on_remove(move |window, cx| remove(&(), window, cx))
             .on_clear(move |window, cx| clear(&(), window, cx))
+            .on_select_all(move |window, cx| select_all(&(), window, cx))
             .on_add_to_playlist(cx.listener(move |this, playlist_id: &i64, _window, cx| {
                 add(this, *playlist_id, cx);
             }))
@@ -6293,7 +6419,8 @@ mod tests {
             ..TrackRow::default()
         };
 
-        let tree = crate::application::queries::library::build_tree(&[track], &conn);
+        let tree = crate::application::queries::library::build_tree(&[track], &conn)
+            .expect("build the tree");
         let album = &tree.artists[0].albums[0];
 
         assert_eq!(album.feed_id, Some(feed_id));
@@ -6335,7 +6462,8 @@ mod tests {
             ..TrackRow::default()
         };
 
-        let tree = crate::application::queries::library::build_tree(&[track], &conn);
+        let tree = crate::application::queries::library::build_tree(&[track], &conn)
+            .expect("build the tree");
         let album = &tree.artists[0].albums[0];
 
         assert_eq!(

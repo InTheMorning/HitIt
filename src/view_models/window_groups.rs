@@ -596,10 +596,7 @@ impl NewReleasesLayout {
         length: WindowLength,
         has_more: bool,
     ) -> Self {
-        let mut layout = Self::build(rows, tree, length);
-        if !has_more {
-            layout.mark_list_end();
-        }
+        let mut layout = Self::for_rows(rows, tree, length, has_more);
         // Each group key names the list that holds its rows (ADR 0089
         // Decision 5).
         let source = WindowGroupSource::Releases(Rc::new(ReleasesWindowRows {
@@ -607,6 +604,23 @@ impl NewReleasesLayout {
             closed: !has_more,
         }));
         layout.attach_source(&source);
+        layout
+    }
+
+    /// The layout of `rows` with no page source on each tile. The window
+    /// page reads its rows from its own key, so it needs no copy of the rows
+    /// (task 039, step 6).
+    #[must_use]
+    pub(crate) fn for_rows(
+        rows: &[&ContentListRowDisplay],
+        tree: &LibraryTree,
+        length: WindowLength,
+        has_more: bool,
+    ) -> Self {
+        let mut layout = Self::build(rows, tree, length);
+        if !has_more {
+            layout.mark_list_end();
+        }
         layout
     }
 
@@ -1271,7 +1285,7 @@ mod tests {
         assert!(entry.opens_detail_page());
         assert_eq!(
             DetailListKind::for_entry(&entry),
-            Some(DetailListKind::Releases)
+            Some(DetailListKind::Singles)
         );
     }
 

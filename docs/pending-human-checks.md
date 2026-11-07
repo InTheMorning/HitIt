@@ -275,9 +275,9 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - The search field list (ADR 0087 Decision 3), reported in the walk of 2026-11-06: a click on the page or the sidebar closes the list. A click on a list row keeps it open. A click on Search opens no list, and no list opens when the window gets the focus again.
 - The keyboard focus (ADR 0089 Decision 9): Tab reaches the sidebar rows and the list. A row shows the focus when the list gets it. A mouse click shows no ring.
 - The letter bar (ADR 0089 Decision 9): Tab stops once at the bar. Left, Right, Home and End move the cursor with no request. Enter or Space runs the letter.
-- The hand pass of 2026-11-06: Escape closes the Inspect Sources sheet after Compare ID3, also while "Reading ID3..." shows. A saved search row has the mark after Back, and its menu is the "⋯" icon. The copy report shows beside the public playlist title. A My playlists row has "⋯" with Rename and Delete…, and after Back it has the outline only.
 - Edit Query (ADR 0089 Decision 4): the toolbar field holds the query with its field list. The title shows "Editing: <name>" with Save Query and Cancel. Enter saves, Escape cancels, and leaving the page or a new search cancels.
-- Saved search names (ADR 0087 Decision 6, migration 23): a row shows its name, and the query as a second line when they differ. Duplicate keeps the query and writes "<name> copy". A rename to a name that another row holds shows a message and changes nothing. Back up the database before the first start, because a return to an older build needs the backup.
+- The `has:` field: the operator reported "has: cannot use kle" on 2026-11-06. The meaning of this report is an open question.
+- The path to the saved searches: the operator asked for a path other than Back on 2026-11-06. A click on the sidebar row Search opens the list in the code. Nobody has checked it in the app.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
 
 ## 12. Button Shape, Roles And Selection - Implemented 2026-11-06

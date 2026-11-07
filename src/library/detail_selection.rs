@@ -202,7 +202,7 @@ impl LibraryApp {
             }
             LibraryDetail::SinglesGroup(key) => {
                 let page = self.vm.singles_group_page(key);
-                Some(DetailPageRows::Releases(singles_group_release_rows(
+                Some(DetailPageRows::Singles(singles_group_release_rows(
                     &page.rows,
                     |key| self.vm.library_release_facts(key),
                 )))
@@ -211,7 +211,7 @@ impl LibraryApp {
             // a singles group page.
             LibraryDetail::WindowGroup(key) => {
                 let page = self.vm.window_group_page(key);
-                Some(DetailPageRows::Releases(singles_group_release_rows(
+                Some(DetailPageRows::Singles(singles_group_release_rows(
                     &page.rows,
                     |key| self.vm.library_release_facts(key),
                 )))
@@ -380,9 +380,34 @@ impl LibraryApp {
     }
 
     /// The "Select" and "Done" button of the detail column header.
-    pub(crate) fn toggle_detail_selection_mode(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn toggle_detail_selection_mode(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.detail_selection.toggle_mode();
+        // The rows take the keys of the mode, so Ctrl+A and Space act on them.
+        window.focus(&self.detail_column_focus.clone(), cx);
         cx.notify();
+    }
+
+    /// Keeps the focus mark with the keyboard focus of the detail column
+    /// (R-FOCUS-1). `is_focused` is true in the first draw after a Tab.
+    pub(crate) fn sync_detail_keyboard_focus(
+        &mut self,
+        rows: Option<&DetailPageRows>,
+        window: &Window,
+        cx: &App,
+    ) {
+        let shows = self.detail_column_focus.is_focused(window)
+            && crate::ui::focus_ring::focus_ring_shows(cx);
+        match rows {
+            Some(rows) => {
+                self.detail_selection
+                    .enter_with_keyboard(shows, false, &rows.selection_rows());
+            }
+            None => self.detail_selection.set_focus_mark_shows(shows),
+        }
     }
 
     /// "Clear" of the detail bar: clears the rows and keeps the mode.
@@ -454,9 +479,13 @@ impl LibraryApp {
         if !self.detail_column_has_focus(window, cx) {
             return;
         }
-        let Some(rows) = rows.filter(|rows| rows.has_selectable_rows()) else {
-            return;
-        };
+        if let Some(rows) = rows.filter(|rows| rows.has_selectable_rows()) {
+            self.select_each_detail_row(rows, cx);
+        }
+    }
+
+    /// "Select all" of the detail bar, and the end of Ctrl+A.
+    pub(crate) fn select_each_detail_row(&mut self, rows: &DetailPageRows, cx: &mut Context<Self>) {
         self.detail_selection.select_all(&rows.selection_rows());
         self.clear_pending_detail_scroll();
         cx.notify();

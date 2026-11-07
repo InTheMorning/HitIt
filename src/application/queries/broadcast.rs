@@ -11,7 +11,8 @@
 
 #![warn(clippy::pedantic)]
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 use rusqlite::Connection;
@@ -19,6 +20,8 @@ use serde::Serialize;
 
 use crate::api::PaymentRoute;
 use crate::application::application_query_service::ApplicationQueryService;
+use crate::application::command_bus::{ApplicationCommand, CommandOutcome, CommandResult};
+use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
 use crate::audio_tags::{read_audio_tags, AudioTags};
 use crate::db::{self, LocalMetadataOwner, LocalMetadataValue, TrackRow};
@@ -194,10 +197,19 @@ impl ApplicationQueryService {
 ///
 /// Returns an error when local library rows cannot be read. Unreadable tag data
 /// is classified as not ready.
-pub(crate) fn broadcast_readiness_report(conn: &Connection) -> Result<BroadcastReadinessReport> {
+/// Plans the readiness report with the configured music directory. Call it
+/// under the database lock, then read the files with the lock released
+/// (task 039, step 1).
+///
+/// # Errors
+///
+/// Returns an error when the configuration or the stored rows cannot be read.
+pub(crate) fn broadcast_readiness_plan_from_config(
+    conn: &Connection,
+) -> Result<BroadcastReadinessPlan> {
     let cfg_path = config::config_path()?;
     let music_dir = config::ConfigSnapshot::read_existing(&cfg_path)?.music_dir?;
-    broadcast_readiness_report_for_music_dir(conn, &music_dir)
+    broadcast_readiness_plan(conn, &music_dir)
 }
 
 /// Builds the broadcast readiness report with a configured music directory.
@@ -210,38 +222,120 @@ pub(crate) fn broadcast_readiness_report_for_music_dir(
     conn: &Connection,
     music_dir: &Path,
 ) -> Result<BroadcastReadinessReport> {
-    let tracks = library_service::library_tracks(conn).context("load local library tracks")?;
-    readiness_report_from_tracks(conn, &tracks, music_dir)
+    Ok(broadcast_readiness_plan(conn, music_dir)?.read_files())
 }
 
-fn readiness_report_from_tracks(
+/// The database part of the readiness report (task 039, step 2). The plan
+/// reads the rows and the stored facts. The file part of each track is
+/// read later, with no database connection.
+#[derive(Debug)]
+pub(crate) struct BroadcastReadinessPlan {
+    tracks: Vec<PlannedReadiness>,
+}
+
+/// One track of the plan. A track that needs no file read is decided
+/// already.
+#[derive(Debug)]
+enum PlannedReadiness {
+    Decided(BroadcastReadinessTrack),
+    TagRead(Box<TagReadPlan>),
+}
+
+/// The stored facts of one track whose embedded tags must be read.
+#[derive(Debug)]
+struct TagReadPlan {
+    track: TrackRow,
+    title: String,
+    path: PathBuf,
+    stored: Option<Vec<PaymentRoute>>,
+    no_routes: Option<&'static str>,
+}
+
+/// Plans the broadcast readiness report of the Library. Call it under the
+/// database lock, then release the lock before [`BroadcastReadinessPlan::read_files`].
+///
+/// # Errors
+///
+/// Returns an error when local library rows or stored facts cannot be read.
+pub(crate) fn broadcast_readiness_plan(
     conn: &Connection,
-    tracks: &[TrackRow],
     music_dir: &Path,
-) -> Result<BroadcastReadinessReport> {
-    let mut report = BroadcastReadinessReport::default();
-
-    for track in tracks {
-        let item = readiness_track(conn, track, music_dir)?;
-        report.summary.record(item.state);
-        report.tracks.push(item);
-    }
-
-    Ok(report)
+) -> Result<BroadcastReadinessPlan> {
+    let tracks = library_service::library_tracks(conn).context("load local library tracks")?;
+    let tracks = tracks
+        .iter()
+        .map(|track| plan_readiness_track(conn, track, music_dir))
+        .collect::<Result<Vec<_>>>()?;
+    Ok(BroadcastReadinessPlan { tracks })
 }
 
-fn readiness_track(
+impl BroadcastReadinessPlan {
+    /// Reads the embedded tags of each planned file. It takes no database
+    /// connection, so it runs with the database lock free (task 039, step 2).
+    #[must_use]
+    pub(crate) fn read_files(self) -> BroadcastReadinessReport {
+        let mut report = BroadcastReadinessReport::default();
+        for planned in self.tracks {
+            let item = match planned {
+                PlannedReadiness::Decided(item) => item,
+                PlannedReadiness::TagRead(plan) => plan.read(),
+            };
+            report.summary.record(item.state);
+            report.tracks.push(item);
+        }
+        report
+    }
+}
+
+impl TagReadPlan {
+    fn read(self) -> BroadcastReadinessTrack {
+        let Self {
+            track,
+            title,
+            path,
+            stored,
+            no_routes,
+        } = self;
+        let no_routes_upstream = no_routes.is_some();
+        match read_audio_tags(&path).context("read embedded audio tags") {
+            Ok(tags) if audio_tags_have_ready_value_routes(&tags) => {
+                readiness_track_from_tags(&track, title, path.as_path(), &tags, stored.as_deref())
+            }
+            Ok(tags) => {
+                readiness_track_from_missing_tag(&track, title, path.as_path(), no_routes, &tags)
+            }
+            Err(error) => BroadcastReadinessTrack {
+                track_id: track.id,
+                title,
+                artist: track.artist_name.clone(),
+                album: track.album_title.clone(),
+                path: Some(path.display().to_string()),
+                state: if no_routes_upstream {
+                    BroadcastReadinessState::NoRoutesUpstream
+                } else {
+                    BroadcastReadinessState::NoRouteTag
+                },
+                reason: no_routes.map_or_else(
+                    || format!("Value routes tag could not be read: {error:#}"),
+                    str::to_owned,
+                ),
+            },
+        }
+    }
+}
+
+fn plan_readiness_track(
     conn: &Connection,
     track: &TrackRow,
     music_dir: &Path,
-) -> Result<BroadcastReadinessTrack> {
+) -> Result<PlannedReadiness> {
     let title = track
         .track_title
         .clone()
         .or_else(|| track.feed_title.clone())
         .unwrap_or_else(|| "Untitled".to_string());
     if let Some(removed_at_us) = db::rss_field_holds::unconfirmed_removed_at(conn, track.id)? {
-        return Ok(BroadcastReadinessTrack {
+        return Ok(PlannedReadiness::Decided(BroadcastReadinessTrack {
             track_id: track.id,
             title,
             artist: track.artist_name.clone(),
@@ -252,14 +346,14 @@ fn readiness_track(
                 .map(|path| path.resolve(music_dir).display().to_string()),
             state: BroadcastReadinessState::RemovedFromFeed,
             reason: removed_from_feed_reason(removed_at_us),
-        });
+        }));
     }
     let Some(path) = track
         .local_path
         .as_ref()
         .map(|path| path.resolve(music_dir))
     else {
-        return Ok(BroadcastReadinessTrack {
+        return Ok(PlannedReadiness::Decided(BroadcastReadinessTrack {
             track_id: track.id,
             title,
             artist: track.artist_name.clone(),
@@ -270,11 +364,11 @@ fn readiness_track(
             // downloaded, and the operator fixes it with a download.
             state: BroadcastReadinessState::NotDownloaded,
             reason: "Track is in the library and has no downloaded file.".to_owned(),
-        });
+        }));
     };
 
     if !path.is_file() {
-        return Ok(BroadcastReadinessTrack {
+        return Ok(PlannedReadiness::Decided(BroadcastReadinessTrack {
             track_id: track.id,
             title,
             artist: track.artist_name.clone(),
@@ -282,7 +376,7 @@ fn readiness_track(
             path: Some(path.display().to_string()),
             state: BroadcastReadinessState::FileMissing,
             reason: "Recorded local file is missing.".to_owned(),
-        });
+        }));
     }
 
     let stored = db::payment_routes::stored_route(conn, track.id)?;
@@ -293,39 +387,80 @@ fn readiness_track(
             track_has_no_upstream_payment_routes(conn, track)?.then_some(NO_UPSTREAM_ROUTES_REASON)
         }
     };
-    let no_routes_upstream = no_routes.is_some();
-    match read_audio_tags(&path).context("read embedded audio tags") {
-        Ok(tags) if audio_tags_have_ready_value_routes(&tags) => Ok(readiness_track_from_tags(
-            track,
-            title,
-            path.as_path(),
-            &tags,
-            stored.as_deref(),
-        )),
-        Ok(tags) => Ok(readiness_track_from_missing_tag(
-            track,
-            title,
-            path.as_path(),
-            no_routes,
-            &tags,
-        )),
-        Err(error) => Ok(BroadcastReadinessTrack {
-            track_id: track.id,
-            title,
-            artist: track.artist_name.clone(),
-            album: track.album_title.clone(),
-            path: Some(path.display().to_string()),
-            state: if no_routes_upstream {
-                BroadcastReadinessState::NoRoutesUpstream
-            } else {
-                BroadcastReadinessState::NoRouteTag
-            },
-            reason: no_routes.map_or_else(
-                || format!("Value routes tag could not be read: {error:#}"),
-                str::to_owned,
-            ),
-        }),
+    Ok(PlannedReadiness::TagRead(Box::new(TagReadPlan {
+        track: track.clone(),
+        title,
+        path,
+        stored,
+        no_routes,
+    })))
+}
+
+/// The readiness report and the show playlist track ids, for the Inbox
+/// (task 039, step 2). The command reads the rows under a short lock and
+/// the file tags with no lock.
+#[derive(Clone, Debug)]
+pub(crate) struct LoadBroadcastReadiness {
+    conn: Arc<Mutex<Connection>>,
+    music_dir: PathBuf,
+}
+
+impl LoadBroadcastReadiness {
+    /// Creates the readiness load for the Library connection and `music_dir`.
+    #[must_use]
+    pub(crate) const fn new(conn: Arc<Mutex<Connection>>, music_dir: PathBuf) -> Self {
+        Self { conn, music_dir }
     }
+}
+
+/// The output of [`LoadBroadcastReadiness`].
+#[derive(Clone, Debug)]
+pub(crate) struct BroadcastReadinessLoad {
+    pub(crate) report: BroadcastReadinessReport,
+    /// The track ids of the show playlist, in its sequence. Empty with no
+    /// playback session, or when the session names no playlist.
+    pub(crate) source_track_ids: Vec<i64>,
+}
+
+impl ApplicationCommand for LoadBroadcastReadiness {
+    type Output = BroadcastReadinessLoad;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        if context.cancellation().is_cancelled() {
+            return Err(CommandError::Cancelled);
+        }
+        let (plan, source_track_ids) = {
+            let conn = self
+                .conn
+                .lock()
+                .map_err(|_| CommandError::Other("database lock poisoned".to_string()))?;
+            let plan = broadcast_readiness_plan(&conn, &self.music_dir)
+                .map_err(|error| CommandError::Query(format!("{error:#}")))?;
+            (plan, show_source_track_ids(&conn))
+        };
+        Ok(CommandOutcome::without_events(BroadcastReadinessLoad {
+            report: plan.read_files(),
+            source_track_ids,
+        }))
+    }
+}
+
+/// The track ids of the show playlist, in its sequence (ADR 0089 Decision 3,
+/// Answer 3). The show playlist is the playlist of the playback session that
+/// is not stopped.
+fn show_source_track_ids(conn: &Connection) -> Vec<i64> {
+    let playlist_id = db::playback_session(conn, crate::playback::DEFAULT_SESSION_ID)
+        .ok()
+        .flatten()
+        .filter(|session| session.state != "stopped")
+        .and_then(|session| session.playlist_id);
+    let Some(playlist_id) = playlist_id else {
+        return Vec::new();
+    };
+    ApplicationQueryService::new()
+        .playlist_tracks(conn, playlist_id)
+        .map(|rows| rows.into_iter().map(|row| row.id).collect())
+        .unwrap_or_default()
 }
 
 fn readiness_track_from_tags(
@@ -824,6 +959,30 @@ mod tests {
             BroadcastReadinessState::NoRoutesUpstream
         );
         assert_eq!(report.tracks[0].reason, NO_RSS_RECIPIENTS_REASON);
+        Ok(())
+    }
+
+    /// ADR 0084 Decision 10 as amended 2026-10-24, task 039 (step 2). The
+    /// file part of the readiness report reads the tags with the database
+    /// lock held by this test. Only the plan step reads the rows.
+    #[test]
+    fn adr_0084_task_039_readiness_files_are_read_with_the_lock_free() -> anyhow::Result<()> {
+        let conn = setup_test_db()?;
+        let temp = tempfile::tempdir()?;
+        let feed_id = create_feed(&conn)?;
+        let path = tagged_audio_file(
+            &temp,
+            "ready.mp3",
+            r#"[{"recipient_name":"Artist","route_type":"node","split":100.0}]"#,
+        )?;
+        create_track(&conn, temp.path(), feed_id, "Ready Track", &path)?;
+        let shared = Mutex::new(conn);
+
+        let plan = broadcast_readiness_plan(&shared.lock().unwrap(), temp.path())?;
+        let _held = shared.lock().unwrap();
+        let report = plan.read_files();
+
+        assert_eq!(report.summary.ready, 1, "the file read needs no connection");
         Ok(())
     }
 }

@@ -168,3 +168,12 @@ The operator walked the writes by hand and found these faults, now corrected: Es
 
 The operator asked why `title:hey` listed rows with no "hey" in their title. The Library matched inside a word, so "hey" found "They". The operator decided on 2026-11-06 that a Library text term matches at the start of a word (ADR 0087 Invariants), and that `title:` keeps the release title.
 
+The operator walked the recheck on 2026-11-06 and passed each step except the report on `has:`. The operator then found these faults, now corrected:
+
+- The row Download of an Index track failed with "no supported audio enclosure". A MusicIndex feed read gives its tracks no enclosure, and the download did not use the RSS row that it stored. The download now fills the missing enclosure from that row, as a release download does.
+- A later success did not remove the old failure report, because an Index job and a Library job of one track have different keys. A success now removes each earlier report of its track.
+- A removal took the row off an open window group page. The page keeps its rows from the time it opened, and a Library row held only its feed GUID. A Library row now holds its artist, links, kind and track count. Nobody has reproduced the exact page open in a test: the test opens the page with the member in the Library. The operator's screenshots are consistent with this path.
+
+The operator then found these selection faults on 2026-11-06, now corrected. "Select" on a search page had its own band, and ADR 0089 Decision 6 puts it in the title row. No list had a "Select all". Ctrl+A did nothing after a click on "Select", because the button kept the focus and the handlers read the focus of the rows. The Ctrl+A key press also showed the ring on the button. A page row showed the focus mark while the focus was in the sidebar, and Tab could not reach the rows of a page or of a search list.
+
+The operator walked the checks of these corrections on 2026-11-06, and they pass. The questions on `has:` and the path to the saved searches stay open in section 11.

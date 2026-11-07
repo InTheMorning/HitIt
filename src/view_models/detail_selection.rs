@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 
 use crate::db::{Playlist, PlaylistEdge, PlaylistEntryKey, TrackRow};
 use crate::view_models::list_selection::{
-    FocusStep, ListSelection, RowSelectionVm, SelectionMode, SelectionRow,
+    keyboard_entry_step, FocusStep, ListSelection, RowSelectionVm, SelectionMode, SelectionRow,
 };
 use crate::view_models::publisher_page::{PublisherPageSectionVm, TitleDisplay};
 use crate::view_models::release_row_actions::{
@@ -71,6 +71,8 @@ pub(crate) enum DetailListKind {
     Tracks,
     /// The release rows of a singles group page or a feed page.
     Releases,
+    /// The rows of a singles group page or a window group page.
+    Singles,
     /// The entry rows of a playlist page (packet 025).
     PlaylistEntries,
 }
@@ -84,10 +86,12 @@ impl DetailListKind {
     pub(crate) const fn for_entry(entry: &FrameNavigationEntry) -> Option<Self> {
         match entry {
             FrameNavigationEntry::Release(_) => Some(Self::Tracks),
-            FrameNavigationEntry::SinglesGroup(_)
-            | FrameNavigationEntry::PublisherDetail(_)
-            | FrameNavigationEntry::ArtistName(_)
-            | FrameNavigationEntry::WindowGroup(_) => Some(Self::Releases),
+            FrameNavigationEntry::SinglesGroup(_) | FrameNavigationEntry::WindowGroup(_) => {
+                Some(Self::Singles)
+            }
+            FrameNavigationEntry::PublisherDetail(_) | FrameNavigationEntry::ArtistName(_) => {
+                Some(Self::Releases)
+            }
             FrameNavigationEntry::PlaylistDetail(_) => Some(Self::PlaylistEntries),
             _ => None,
         }
@@ -97,13 +101,15 @@ impl DetailListKind {
         match self {
             Self::Tracks | Self::PlaylistEntries => "tracks",
             Self::Releases => "releases",
+            Self::Singles => "singles",
         }
     }
 
-    const fn item_noun(self) -> &'static str {
+    pub(crate) const fn item_noun(self) -> &'static str {
         match self {
             Self::Tracks | Self::PlaylistEntries => "track",
             Self::Releases => "release",
+            Self::Singles => "single",
         }
     }
 }
@@ -284,8 +290,11 @@ impl DetailPlaylistEntryRow {
 pub(crate) enum DetailPageRows {
     /// The track rows of a release page.
     Tracks(Vec<DetailTrackRow>),
-    /// The release rows of a singles group page or a feed page.
+    /// The release rows of a feed page.
     Releases(Vec<DetailReleaseRow>),
+    /// The rows of a singles group page or a window group page. The bar says
+    /// "singles", as the title of the page does.
+    Singles(Vec<DetailReleaseRow>),
     /// The release rows of the Discover "New releases" view (ADR 0086
     /// packet 004). `rows` holds each shown release and each member of
     /// each group, in item order. The action bar counts these rows.
@@ -309,6 +318,7 @@ impl DetailPageRows {
     pub(crate) const fn kind(&self) -> DetailListKind {
         match self {
             Self::Tracks(_) => DetailListKind::Tracks,
+            Self::Singles(_) => DetailListKind::Singles,
             Self::Releases(_) | Self::GroupedReleases { .. } => DetailListKind::Releases,
             Self::PlaylistEntries { .. } => DetailListKind::PlaylistEntries,
         }
@@ -322,7 +332,7 @@ impl DetailPageRows {
                 .iter()
                 .filter_map(|row| row.key.clone().map(DetailRowKey::Track))
                 .collect(),
-            Self::Releases(rows) | Self::GroupedReleases { rows, .. } => rows
+            Self::Releases(rows) | Self::Singles(rows) | Self::GroupedReleases { rows, .. } => rows
                 .iter()
                 .map(|row| DetailRowKey::Release(row.key.clone()))
                 .collect(),
@@ -353,7 +363,7 @@ impl DetailPageRows {
     pub(crate) fn has_selectable_rows(&self) -> bool {
         match self {
             Self::Tracks(rows) => rows.iter().any(|row| row.key.is_some()),
-            Self::Releases(rows) => !rows.is_empty(),
+            Self::Releases(rows) | Self::Singles(rows) => !rows.is_empty(),
             Self::GroupedReleases { tiles, .. } => !tiles.is_empty(),
             Self::PlaylistEntries { rows, .. } => !rows.is_empty(),
         }
@@ -368,7 +378,7 @@ impl DetailPageRows {
                 .find(|row| row.key.as_ref() == Some(key))
                 .map(|row| row.title.as_str()),
             (
-                Self::Releases(rows) | Self::GroupedReleases { rows, .. },
+                Self::Releases(rows) | Self::Singles(rows) | Self::GroupedReleases { rows, .. },
                 DetailRowKey::Release(key),
             ) => rows
                 .iter()
@@ -386,7 +396,10 @@ impl DetailPageRows {
     pub(crate) fn playlist_entry(&self, key: &PlaylistEntryKey) -> Option<&DetailPlaylistEntryRow> {
         match self {
             Self::PlaylistEntries { rows, .. } => rows.iter().find(|row| &row.key == key),
-            Self::Tracks(_) | Self::Releases(_) | Self::GroupedReleases { .. } => None,
+            Self::Tracks(_)
+            | Self::Releases(_)
+            | Self::Singles(_)
+            | Self::GroupedReleases { .. } => None,
         }
     }
 
@@ -405,7 +418,10 @@ impl DetailPageRows {
                         .is_selected(&DetailRowKey::PlaylistEntry(row.key))
                 })
                 .collect(),
-            Self::Tracks(_) | Self::Releases(_) | Self::GroupedReleases { .. } => Vec::new(),
+            Self::Tracks(_)
+            | Self::Releases(_)
+            | Self::Singles(_)
+            | Self::GroupedReleases { .. } => Vec::new(),
         }
     }
 
@@ -415,7 +431,10 @@ impl DetailPageRows {
     pub(crate) fn add_to_playlist_choices(&self, playlists: &[Playlist]) -> Vec<Playlist> {
         let open = match self {
             Self::PlaylistEntries { playlist_id, .. } => Some(*playlist_id),
-            Self::Tracks(_) | Self::Releases(_) | Self::GroupedReleases { .. } => None,
+            Self::Tracks(_)
+            | Self::Releases(_)
+            | Self::Singles(_)
+            | Self::GroupedReleases { .. } => None,
         };
         playlists
             .iter()
@@ -438,9 +457,10 @@ impl DetailPageRows {
                     })
                 })
                 .collect(),
-            Self::Releases(_) | Self::GroupedReleases { .. } | Self::PlaylistEntries { .. } => {
-                Vec::new()
-            }
+            Self::Releases(_)
+            | Self::Singles(_)
+            | Self::GroupedReleases { .. }
+            | Self::PlaylistEntries { .. } => Vec::new(),
         }
     }
 
@@ -448,7 +468,7 @@ impl DetailPageRows {
     #[must_use]
     pub(crate) fn selected_releases(&self, selection: &DetailSelection) -> Vec<&DetailReleaseRow> {
         match self {
-            Self::Releases(rows) | Self::GroupedReleases { rows, .. } => rows
+            Self::Releases(rows) | Self::Singles(rows) | Self::GroupedReleases { rows, .. } => rows
                 .iter()
                 .filter(|row| {
                     selection
@@ -512,6 +532,7 @@ impl DetailPageRows {
                 let selected = self.selected_tracks(selection);
                 SelectionActionCounts {
                     selected_count: selected.len(),
+                    visible_count: self.members().len(),
                     item_noun: DetailListKind::Tracks.item_noun(),
                     download_count: selected.iter().filter(|row| !row.downloaded).count(),
                     add_count: selected
@@ -524,12 +545,13 @@ impl DetailPageRows {
             // ADR 0084 task 031: the release row menu and this bar count
             // through the one availability rule. The detail rows hold no
             // job fact of an Index release.
-            Self::Releases(_) | Self::GroupedReleases { .. } => {
+            Self::Releases(_) | Self::Singles(_) | Self::GroupedReleases { .. } => {
                 let selected = self.selected_releases(selection);
                 let counts = ReleaseActionCounts::of(selected.iter().map(|row| row.state()));
                 SelectionActionCounts {
                     selected_count: selected.len(),
-                    item_noun: DetailListKind::Releases.item_noun(),
+                    visible_count: self.members().len(),
+                    item_noun: self.kind().item_noun(),
                     download_count: counts.download,
                     add_count: counts.add_to_playlist,
                     remove_count: counts.remove,
@@ -563,6 +585,7 @@ impl DetailPageRows {
             mode,
             PlaylistSelectionCounts {
                 selected_count: count,
+                visible_count: total,
                 download_count: distinct(|row| !row.downloaded),
                 remove_count: distinct(DetailPlaylistEntryRow::removable),
                 at_top: selected
@@ -585,6 +608,7 @@ pub(crate) struct DetailSelection {
     entry: Option<FrameNavigationEntry>,
     selection: ListSelection<DetailRowKey>,
     mode: SelectionMode,
+    focus_mark_hidden: bool,
 }
 
 impl DetailSelection {
@@ -639,6 +663,31 @@ impl DetailSelection {
         self.selection.focused()
     }
 
+    /// R-FOCUS-1: a row shows the focus only while its list has the keyboard
+    /// focus, so one place at a time shows it. The list keeps its focused row,
+    /// and that row shows the mark again when the list gets the focus again.
+    pub(crate) fn set_focus_mark_shows(&mut self, shows: bool) {
+        self.focus_mark_hidden = !shows;
+    }
+
+    fn row_shows_focus(&self, key: &DetailRowKey) -> bool {
+        !self.focus_mark_hidden && self.selection.focused() == Some(key)
+    }
+
+    /// A list gets the keyboard focus from a key: `shows` is true. The focus
+    /// goes to the first row when the list has no focused row.
+    pub(crate) fn enter_with_keyboard(
+        &mut self,
+        shows: bool,
+        has_marked_row: bool,
+        visible: &[SelectionRow<DetailRowKey, DetailRowKey>],
+    ) {
+        self.set_focus_mark_shows(shows);
+        if let Some(step) = keyboard_entry_step(shows, self.focused().is_some(), has_marked_row) {
+            self.selection.move_focus(step, visible);
+        }
+    }
+
     /// The selection facts of a row with `key`, named `title`. A row with
     /// no key gets [`RowSelectionVm::none`]: no checkbox and no focus.
     #[must_use]
@@ -649,7 +698,7 @@ impl DetailSelection {
         RowSelectionVm::for_row(
             title,
             self.selection.is_selected(key),
-            self.selection.focused() == Some(key),
+            self.row_shows_focus(key),
             self.mode.is_selecting(),
         )
     }
@@ -665,7 +714,9 @@ impl DetailSelection {
                     self.row_selection(key.as_ref(), &row.title)
                 })
                 .collect(),
-            DetailPageRows::Releases(rows) | DetailPageRows::GroupedReleases { rows, .. } => rows
+            DetailPageRows::Releases(rows)
+            | DetailPageRows::Singles(rows)
+            | DetailPageRows::GroupedReleases { rows, .. } => rows
                 .iter()
                 .map(|row| {
                     self.row_selection(Some(&DetailRowKey::Release(row.key.clone())), &row.title)
@@ -751,7 +802,7 @@ impl DetailSelection {
         RowSelectionVm::for_group_row(
             title,
             self.selection.row_check_state(&row.members),
-            self.selection.focused() == Some(&row.id),
+            self.row_shows_focus(&row.id),
             self.mode.is_selecting(),
         )
     }
@@ -1311,6 +1362,27 @@ mod tests {
         assert_eq!(selection.selected_count(), 2);
     }
 
+    /// R-FOCUS-1: the focused row shows the mark only while the list has the
+    /// keyboard focus. It keeps its place, and the mark returns with the focus.
+    #[test]
+    fn focus_mark_follows_the_keyboard_focus_and_the_list_keeps_its_row() {
+        let rows = vec![
+            SelectionRow::of_one(DetailRowKey::Release(ReleaseKey::LibraryFeed(1))),
+            SelectionRow::of_one(DetailRowKey::Release(ReleaseKey::LibraryFeed(2))),
+        ];
+        let key = rows[0].id.clone();
+        let mut selection = DetailSelection::new();
+        selection.enter_with_keyboard(false, false, &rows);
+        assert_eq!(selection.focused(), None);
+        selection.enter_with_keyboard(true, false, &rows);
+        assert!(selection.row_selection(Some(&key), "One").focused);
+        selection.enter_with_keyboard(false, false, &rows);
+        assert_eq!(selection.focused(), Some(&key));
+        assert!(!selection.row_selection(Some(&key), "One").focused);
+        selection.enter_with_keyboard(true, false, &rows);
+        assert!(selection.row_selection(Some(&key), "One").focused);
+    }
+
     /// R18-04: the detail header action reads "Select" and "Done" with an
     /// accessibility label on the three pages. It is absent on a track
     /// page and on a release with no track.
@@ -1337,10 +1409,10 @@ mod tests {
                 key: release_key("single-1"),
             },
         ))];
-        let group = DetailPageRows::Releases(singles_group_release_rows(&group_rows, |_| None));
+        let group = DetailPageRows::Singles(singles_group_release_rows(&group_rows, |_| None));
         let group_action = detail_header_action(Some(&group), SelectionMode::Normal)
             .expect("a group page has the action");
-        assert_eq!(group_action.a11y_label, "Select releases");
+        assert_eq!(group_action.a11y_label, "Select singles");
 
         let feed = DetailPageRows::Releases(feed_page_release_rows(
             &[PublisherPageSectionVm {
@@ -1694,6 +1766,7 @@ mod tests {
         assert_eq!(
             bar_labels(&rows, &selection),
             [
+                "Select all",
                 "Remove 3 from playlist",
                 "Download 1 track",
                 "Add 3 to playlist",

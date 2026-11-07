@@ -14,7 +14,7 @@ use rusqlite::Connection;
 use tokio::sync::{mpsc, oneshot, watch};
 
 use crate::application::queries::broadcast::{
-    broadcast_readiness_report, BroadcastReadinessReport,
+    broadcast_readiness_plan_from_config, BroadcastReadinessPlan, BroadcastReadinessReport,
 };
 
 const BROADCAST_READINESS_POLL_INTERVAL: Duration = Duration::from_mins(5);
@@ -138,11 +138,17 @@ async fn read_broadcast_readiness(
     tokio::task::spawn_blocking(move || read_broadcast_readiness_blocking(&conn)).await
 }
 
+/// Reads the report. The rows and the stored facts are read under the
+/// database lock. The file tags are read after the lock is released
+/// (ADR 0084 Decision 10 as amended 2026-10-24, task 039, step 1).
 fn read_broadcast_readiness_blocking(conn: &Arc<Mutex<Connection>>) -> BroadcastReadinessSnapshot {
     let report = conn
         .lock()
         .map_err(|_| "database lock poisoned".to_owned())
-        .and_then(|conn| broadcast_readiness_report(&conn).map_err(|error| format!("{error:#}")));
+        .and_then(|conn| {
+            broadcast_readiness_plan_from_config(&conn).map_err(|error| format!("{error:#}"))
+        })
+        .map(BroadcastReadinessPlan::read_files);
     match report {
         Ok(report) => BroadcastReadinessSnapshot {
             report: Some(report),

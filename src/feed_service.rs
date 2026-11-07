@@ -379,9 +379,13 @@ pub fn ensure_feed_in_db(
         }
     }
     let url = feed_url.ok_or_else(|| anyhow!("feed URL unknown; cannot auto-subscribe"))?;
+    // Both reads of the subscribe run before the database lock (ADR 0084
+    // Decision 10 as amended 2026-10-24, task 039).
+    let body = crate::rss::fetch_feed_document(url)?;
+    let updated_at = crate::rss::musicindex_updated_at_for_body(&body, musicindex_endpoint);
     {
         let mut db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
-        crate::rss::subscribe_feed(&mut db, url, musicindex_endpoint)?;
+        crate::rss::subscribe_feed_body(&mut db, url, &body, updated_at)?;
     }
     let db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
     db::find_feed_id_by_guid(&db, feed_guid)?

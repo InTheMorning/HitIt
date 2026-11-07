@@ -45,6 +45,7 @@ pub(crate) struct SelectionActionBar {
     on_download: Option<RunHandler>,
     on_remove: Option<RunHandler>,
     on_clear: Option<RunHandler>,
+    on_select_all: Option<RunHandler>,
     on_add_to_playlist: Option<SelectHandler>,
     on_create_playlist: Option<CreateHandler>,
     on_remove_from_playlist: Option<RunHandler>,
@@ -60,6 +61,7 @@ impl SelectionActionBar {
             on_download: None,
             on_remove: None,
             on_clear: None,
+            on_select_all: None,
             on_add_to_playlist: None,
             on_create_playlist: None,
             on_remove_from_playlist: None,
@@ -92,6 +94,15 @@ impl SelectionActionBar {
         handler: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_move_to_bottom = Some(Rc::new(handler));
+        self
+    }
+
+    /// "Select all" of each bar (ADR 0084 Decision 10).
+    pub(crate) fn on_select_all(
+        mut self,
+        handler: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_select_all = Some(Rc::new(handler));
         self
     }
 
@@ -140,6 +151,7 @@ impl RenderOnce for SelectionActionBar {
             on_remove_from_playlist,
             on_move_to_top,
             on_move_to_bottom,
+            on_select_all,
         } = self;
 
         let mut children: Vec<AnyElement> = vec![Label::new(bar.count_label)
@@ -148,7 +160,7 @@ impl RenderOnce for SelectionActionBar {
             .into_any_element()];
 
         for action in bar.actions {
-            children.push(match action.kind {
+            let (style, handler) = match action.kind {
                 SelectionActionKind::AddToPlaylist => {
                     let mut popover = AddToPlaylistPopover::new(AddToPlaylistDisplay {
                         id: SharedString::from(action.element_id),
@@ -168,51 +180,28 @@ impl RenderOnce for SelectionActionBar {
                         popover =
                             popover.on_create(move |name, window, cx| handler(name, window, cx));
                     }
-                    popover.into_any_element()
+                    children.push(popover.into_any_element());
+                    continue;
                 }
-                SelectionActionKind::Download => action_button(
-                    action.element_id,
-                    action.label,
-                    action.a11y_label,
-                    ControlStyle::Secondary,
-                    on_download.clone(),
-                ),
-                SelectionActionKind::Remove => action_button(
-                    action.element_id,
-                    action.label,
-                    action.a11y_label,
-                    ControlStyle::Destructive,
-                    on_remove.clone(),
-                ),
-                SelectionActionKind::RemoveFromPlaylist => action_button(
-                    action.element_id,
-                    action.label,
-                    action.a11y_label,
-                    ControlStyle::Destructive,
-                    on_remove_from_playlist.clone(),
-                ),
-                SelectionActionKind::MoveToTop => action_button(
-                    action.element_id,
-                    action.label,
-                    action.a11y_label,
-                    ControlStyle::Secondary,
-                    on_move_to_top.clone(),
-                ),
-                SelectionActionKind::MoveToBottom => action_button(
-                    action.element_id,
-                    action.label,
-                    action.a11y_label,
-                    ControlStyle::Secondary,
-                    on_move_to_bottom.clone(),
-                ),
-                SelectionActionKind::Clear => action_button(
-                    action.element_id,
-                    action.label,
-                    action.a11y_label,
-                    ControlStyle::Neutral,
-                    on_clear.clone(),
-                ),
-            });
+                SelectionActionKind::Download => (ControlStyle::Secondary, on_download.clone()),
+                SelectionActionKind::Remove => (ControlStyle::Destructive, on_remove.clone()),
+                SelectionActionKind::RemoveFromPlaylist => {
+                    (ControlStyle::Destructive, on_remove_from_playlist.clone())
+                }
+                SelectionActionKind::MoveToTop => (ControlStyle::Secondary, on_move_to_top.clone()),
+                SelectionActionKind::MoveToBottom => {
+                    (ControlStyle::Secondary, on_move_to_bottom.clone())
+                }
+                SelectionActionKind::SelectAll => (ControlStyle::Neutral, on_select_all.clone()),
+                SelectionActionKind::Clear => (ControlStyle::Neutral, on_clear.clone()),
+            };
+            children.push(action_button(
+                action.element_id,
+                action.label,
+                action.a11y_label,
+                style,
+                handler,
+            ));
         }
 
         div()

@@ -350,7 +350,12 @@ mod tests {
             .actions
             .iter()
             .map(|action| action.kind)
-            .filter(|kind| *kind != SelectionActionKind::Clear)
+            .filter(|kind| {
+                !matches!(
+                    kind,
+                    SelectionActionKind::Clear | SelectionActionKind::SelectAll
+                )
+            })
             .collect()
     }
 

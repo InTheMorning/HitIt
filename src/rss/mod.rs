@@ -23,4 +23,4 @@ pub(crate) use host::feed_host;
 pub use host::HostThrottled;
 pub(crate) use identity::validate_nostr_identity;
 pub use identity::{IdentityValidation, NostrIdentity, NostrTlv};
-pub use subscribe::{fetch_feed_document, subscribe_feed, subscribe_feed_body};
+pub use subscribe::{fetch_feed_document, musicindex_updated_at_for_body, subscribe_feed_body};

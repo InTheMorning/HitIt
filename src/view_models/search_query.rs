@@ -633,19 +633,6 @@ impl SearchQuery {
         (!parts.is_empty()).then(|| parts.join(" "))
     }
 
-    /// The terms that the Index must apply as a filter: each correct field
-    /// other than `in:`, and each word or phrase with `-`.
-    #[must_use]
-    pub fn index_filter_terms(&self) -> Vec<&QueryTerm> {
-        self.terms
-            .iter()
-            .filter(|term| match &term.kind {
-                TermKind::Word(_) | TermKind::Phrase(_) => term.excluded,
-                TermKind::Field(field) => is_valid_filter(field),
-            })
-            .collect()
-    }
-
     /// `true` when the query holds one term without `-` that can run: a word
     /// or a phrase with an alphanumeric character, or a correct field other
     /// than `in:` (ADR 0087 Decision 4).
@@ -694,7 +681,7 @@ fn is_valid_filter(field: &FieldTerm) -> bool {
 
 /// Writes a phrase in double quotes, with each quote and each backslash
 /// escaped.
-fn quote_phrase(phrase: &str) -> String {
+pub(crate) fn quote_phrase(phrase: &str) -> String {
     let mut out = String::with_capacity(phrase.len() + 2);
     out.push(QUOTE);
     for ch in phrase.chars() {
@@ -1719,21 +1706,6 @@ mod tests {
                 assert!(!q.contains(info.token), "{q:?} holds {}", info.token);
             }
         }
-    }
-
-    #[test]
-    fn adr_0087_query_parser_r87_1_19_index_filter_terms_give_fields_and_exclusions() {
-        let query = SearchQuery::parse(EXAMPLE);
-        let filters: Vec<&QueryTerm> = query.index_filter_terms();
-        assert_eq!(filters.len(), 4);
-        assert!(filters
-            .iter()
-            .all(|term| matches!(term.kind, TermKind::Field(_))));
-        let query = SearchQuery::parse("in:index -remix");
-        let filters = query.index_filter_terms();
-        assert_eq!(filters.len(), 1);
-        assert_eq!(filters[0].kind, TermKind::Word("remix".to_owned()));
-        assert!(filters[0].excluded);
     }
 
     #[test]

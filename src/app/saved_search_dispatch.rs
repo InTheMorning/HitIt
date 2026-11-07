@@ -218,7 +218,7 @@ impl TopApp {
         let header_title = page.header_title();
         let header_status = page.header_status().map(str::to_owned);
         let header_actions = page.header_actions();
-        let (items, bar, thumbnail_hrefs) = {
+        let (items, select_action, bar, thumbnail_hrefs) = {
             let library = self.library.read(cx);
             let lookup = library.search_lookup();
             let Some(results) = page.results() else {
@@ -226,6 +226,7 @@ impl TopApp {
             };
             (
                 results.visible_items(&lookup),
+                results.select_action(&lookup),
                 results
                     .action_bar(&lookup)
                     .zip(results.selection_rows(&lookup)),
@@ -284,6 +285,14 @@ impl TopApp {
             .with_arts(arts)
             .with_items(items)
             .with_scroll(self.search_page_scroll(SearchPageSlot::SavedSearch));
+        if let Some(select_action) = select_action {
+            let select_action_entity = action_entity.clone();
+            slots = slots.header_action(select_action, move |window, cx: &mut App| {
+                select_action_entity.update(cx, |this, cx| {
+                    this.toggle_search_selection_mode(SearchPageSlot::SavedSearch, window, cx);
+                });
+            });
+        }
         for (action, display) in header_actions {
             let action_entity = action_entity.clone();
             slots = slots.header_action(display, move |window, cx: &mut App| {
@@ -299,7 +308,7 @@ impl TopApp {
         let bar = bar.map(|(bar, rows)| {
             self.render_search_action_bar(SearchPageSlot::SavedSearch, bar, &rows, cx)
         });
-        let frame = self.render_search_list_frame(SearchPageSlot::SavedSearch, content, bar);
+        let frame = self.render_search_list_frame(SearchPageSlot::SavedSearch, content, bar, cx);
         div()
             .size_full()
             .flex()

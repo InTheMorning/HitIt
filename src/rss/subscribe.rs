@@ -396,22 +396,41 @@ pub fn fetch_feed_document(feed_url: &str) -> Result<Vec<u8>> {
     Ok(body.to_vec())
 }
 
-pub fn subscribe_feed(
-    conn: &mut Connection,
-    feed_url: &str,
+/// Reads the MusicIndex `updated_at` of the feed that `body` names. The
+/// read is best-effort: a parse error, a missing GUID, a closed endpoint
+/// or a failed request gives `None`. The caller holds no database lock
+/// while it runs (ADR 0084 Decision 10 as amended 2026-10-24, task 039).
+#[must_use]
+pub fn musicindex_updated_at_for_body(
+    body: &[u8],
     musicindex_endpoint: &crate::config::MusicIndexEndpoint,
-) -> Result<()> {
-    let body = fetch_feed_document(feed_url)?;
-    subscribe_feed_body(conn, feed_url, &body, musicindex_endpoint)
+) -> Option<i64> {
+    let document = parse_feed_document(body).ok()?;
+    let feed_guid = document.channel.feed_guid.clone();
+    match (feed_guid.as_deref(), musicindex_endpoint.require()) {
+        (Some(guid), Ok(endpoint)) => {
+            let client = MusicIndexClient::new_with_base_url(endpoint);
+            match client.fetch_feed(guid, None) {
+                Ok(api_feed) => api_feed.updated_at,
+                Err(err) => {
+                    eprintln!("fetch MusicIndex feed for baseline updated_at: {err:#}");
+                    None
+                }
+            }
+        }
+        _ => None,
+    }
 }
 
 /// Stores a fetched RSS document of `feed_url` (the step after
-/// [`fetch_feed_document`]). The caller holds the database lock.
+/// [`fetch_feed_document`]). The caller holds the database lock, so it
+/// passes the value of [`musicindex_updated_at_for_body`] that it read
+/// before the lock. This function makes no request.
 pub fn subscribe_feed_body(
     conn: &mut Connection,
     feed_url: &str,
     body: &[u8],
-    musicindex_endpoint: &crate::config::MusicIndexEndpoint,
+    musicindex_updated_at: Option<i64>,
 ) -> Result<()> {
     // --- parse ---
     let document = parse_feed_document(body)?;
@@ -420,26 +439,16 @@ pub fn subscribe_feed_body(
     // RSS values of the compared slots ---
     let (feed_id, upserted) =
         persist_subscribed_document(conn, feed_url, &document, unix_now_us())?;
-    let feed_guid = document.channel.feed_guid.clone();
 
-    // Best-effort: capture MusicIndex feed `updated_at` so freshly-subscribed
-    // feeds aren't immediately marked stale by the auto-update checker.
+    // Best-effort: the MusicIndex feed `updated_at` keeps a freshly
+    // subscribed feed from being marked stale by the auto-update checker.
     // ADR 0076 Decision 5 and ADR 0075 packet 020: a subscribe reads RSS, so
     // it writes no MusicIndex value into a compared slot. The feed
     // description stays the RSS value, and its hold decides later
     // MusicIndex writes.
-    if let (Some(guid), Ok(endpoint)) = (feed_guid.as_deref(), musicindex_endpoint.require()) {
-        let client = MusicIndexClient::new_with_base_url(endpoint);
-        match client.fetch_feed(guid, None) {
-            Ok(api_feed) => {
-                if let Some(updated_at) = api_feed.updated_at {
-                    if let Err(err) = db::set_feed_musicindex_updated_at(conn, feed_id, updated_at)
-                    {
-                        eprintln!("set baseline musicindex_updated_at: {err:#}");
-                    }
-                }
-            }
-            Err(err) => eprintln!("fetch MusicIndex feed for baseline updated_at: {err:#}"),
+    if let Some(updated_at) = musicindex_updated_at {
+        if let Err(err) = db::set_feed_musicindex_updated_at(conn, feed_id, updated_at) {
+            eprintln!("set baseline musicindex_updated_at: {err:#}");
         }
     }
 
@@ -970,7 +979,9 @@ mod tests {
             .unwrap();
         });
         let mut conn = setup_test_db()?;
-        subscribe_feed(&mut conn, &url, &"invalid endpoint".into())?;
+        let body = super::fetch_feed_document(&url)?;
+        let updated_at = super::musicindex_updated_at_for_body(&body, &"invalid endpoint".into());
+        super::subscribe_feed_body(&mut conn, &url, &body, updated_at)?;
         server.join().unwrap();
         let id = db::find_track_id(&conn, Some(&url), Some("known-track"), None)?.unwrap();
         conn.execute("UPDATE tracks SET is_in_library = 1 WHERE id = ?1", [id])?;

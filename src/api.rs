@@ -981,25 +981,29 @@ impl Client {
         self
     }
 
-    /// Sends `GET /v1/search`. With a profile, the request sends `include`
-    /// with the include list of the profile (ADR 0084 packet 029). Without a
-    /// profile, the request sends no `include`.
+    /// Sends `GET /v1/search`. The request sends `q` only when `query` is
+    /// `Some`. Each pair of `filters` is one filter parameter (ADR 0087
+    /// Decision 5). With a profile, the request sends `include` with the
+    /// include list of the profile (ADR 0084 packet 029). Without a profile,
+    /// the request sends no `include`.
     ///
     /// # Errors
     /// Returns an error when the request fails or the response does not
     /// decode.
     pub(crate) fn search(
         &self,
-        query: &str,
+        query: Option<&str>,
         entity_type: Option<&str>,
         limit: Option<i32>,
         cursor: Option<&str>,
         profile: Option<&RequestProfile>,
+        filters: &[(&'static str, String)],
     ) -> Result<SearchResponse> {
-        let mut params = vec![
-            ("q", query.to_string()),
-            ("limit", limit.unwrap_or(PAGE_LIMIT).to_string()),
-        ];
+        let mut params = Vec::new();
+        if let Some(query) = query {
+            params.push(("q", query.to_string()));
+        }
+        params.push(("limit", limit.unwrap_or(PAGE_LIMIT).to_string()));
 
         if let Some(entity_type) = entity_type {
             params.push(("type", entity_type.to_string()));
@@ -1008,6 +1012,8 @@ impl Client {
         if let Some(cursor) = cursor {
             params.push(("cursor", cursor.to_string()));
         }
+
+        params.extend(filters.iter().map(|(name, value)| (*name, value.clone())));
 
         if let Some(profile) = profile {
             debug_assert_eq!(
@@ -1669,7 +1675,7 @@ pub(crate) mod tests {
         let client =
             Client::new_with_base_url("https://secret:credential@invalid host/?token=hidden");
         let error = client
-            .search("local", None, None, None, None)
+            .search(Some("local"), None, None, None, None, &[])
             .unwrap_err()
             .to_string();
         assert!(error.contains("musicindex_endpoint"));

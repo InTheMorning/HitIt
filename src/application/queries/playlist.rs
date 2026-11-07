@@ -1,10 +1,61 @@
 //! Playlist local query family.
 
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+
 use rusqlite::Connection;
 
 use crate::application::application_query_service::ApplicationQueryService;
+use crate::application::command_bus::{ApplicationCommand, CommandOutcome, CommandResult};
+use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
 use crate::{db, playlist_service};
+
+/// Reads the playlist list and the cover of each playlist in the background
+/// (ADR 0084 Decision 12; task 039, step 4). The sidebar keeps its last list
+/// until the result arrives.
+#[derive(Clone, Debug)]
+pub(crate) struct LoadPlaylistSidebar {
+    conn: Arc<Mutex<Connection>>,
+}
+
+impl LoadPlaylistSidebar {
+    /// Creates the playlist sidebar load for the Library connection.
+    #[must_use]
+    pub(crate) const fn new(conn: Arc<Mutex<Connection>>) -> Self {
+        Self { conn }
+    }
+}
+
+/// The output of [`LoadPlaylistSidebar`].
+#[derive(Clone, Debug)]
+pub(crate) struct PlaylistSidebarLoad {
+    pub(crate) playlists: Vec<db::Playlist>,
+    pub(crate) covers: BTreeMap<i64, Vec<String>>,
+}
+
+impl ApplicationCommand for LoadPlaylistSidebar {
+    type Output = PlaylistSidebarLoad;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        if context.cancellation().is_cancelled() {
+            return Err(CommandError::Cancelled);
+        }
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| CommandError::Other("database lock poisoned".to_string()))?;
+        let query = ApplicationQueryService::new();
+        let playlists = query.playlists(&conn)?;
+        // A failed cover read shows each row in the entity color (ADR 0084
+        // Decision 12), so it gives no error.
+        let covers = query.playlist_cover_images(&conn).unwrap_or_default();
+        Ok(CommandOutcome::without_events(PlaylistSidebarLoad {
+            playlists,
+            covers,
+        }))
+    }
+}
 
 impl ApplicationQueryService {
     /// Lists local playlists.
