@@ -6,6 +6,8 @@ Accepted - 2026-10-08. The operator accepted this text on 2026-10-08. The operat
 
 Amended 2026-10-19: the operator found the hidden checkboxes unclear and asked for the selection mode of Apple Photos, Files and Mail. Decision 10 now gives a "Select" button and a selection mode.
 
+Amended 2026-11-06: [ADR 0090](0090-one-list-bar-above-the-rows.md) replaces the position of "Select", "Done" and the action bar in Decision 10. The rest of Decision 10 stays.
+
 Amended 2026-10-25 by operator decision: musicindex ADR 0027 R-SHELL-1 replaces Decision 1. The shell is a stack: a list is a page at full width, and an item opens over it. Its numbers are musicindex numbers. A new v4vmm ADR records the destinations, the start page and the scopes of the [research request](../plans/research-ui-shell-and-search-request.md), which change Decisions 2, 3 and 8.
 
 Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): ADR 0089 supersedes Decisions 2, 3 and 8. The location breadcrumb of Decision 9 goes. The other decisions stay. The app keeps the replaced behavior until the packets of ADR 0089 land.

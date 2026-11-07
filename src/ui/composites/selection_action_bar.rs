@@ -20,7 +20,10 @@ use crate::ui::composites::playlist_popover::{
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button as UiButton, Label};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
-use crate::view_models::selection_action_bar::{SelectionActionBarVm, SelectionActionKind};
+use crate::view_models::detail_selection::ListBarVm;
+use crate::view_models::selection_action_bar::{
+    ListBarCommand, SelectionActionBarVm, SelectionActionKind,
+};
 
 type RunHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 type SelectHandler = Rc<dyn Fn(&i64, &mut Window, &mut App) + 'static>;
@@ -237,4 +240,116 @@ fn action_button(
             }
         })
         .into_any_element()
+}
+
+/// The handler of the list bar of a group page. It receives each command
+/// of the bar (ADR 0090).
+pub(crate) type ListBarHandler = Rc<dyn Fn(ListBarCommand, &mut Window, &mut App) + 'static>;
+
+/// The playlist choices and the labels of the "Add to playlist" popover of
+/// a list bar.
+pub(crate) fn list_bar_playlists(playlists: Vec<PlaylistOption>) -> SelectionActionBarPlaylists {
+    SelectionActionBarPlaylists {
+        playlists,
+        new_playlist_a11y_label: SharedString::from("Create a new playlist"),
+        back_a11y_label: SharedString::from("Back to playlist choices"),
+        create_a11y_label: SharedString::from("Create playlist and add the selection"),
+    }
+}
+
+/// Renders the list bar above the rows of a group page (ADR 0090). The
+/// mode action is at the left, then the count and the selection actions.
+/// The bar has the selection background only while selecting. Each control
+/// renders from the typed action of `bar`. Each click sends its command to
+/// `on_command`.
+pub(crate) fn render_list_bar(
+    bar: ListBarVm,
+    playlists: &SelectionActionBarPlaylists,
+    on_command: &ListBarHandler,
+    cx: &App,
+) -> AnyElement {
+    let ListBarVm {
+        mode_action,
+        selection,
+    } = bar;
+    let selecting = selection.is_some();
+
+    let mode_command = on_command.clone();
+    let mut children: Vec<AnyElement> =
+        vec![
+            UiButton::styled(SharedString::from(mode_action.id), ControlStyle::Neutral)
+                .label(mode_action.label)
+                .a11y_label(mode_action.a11y_label)
+                .on_click(move |_, window, cx| mode_command(ListBarCommand::Toggle, window, cx))
+                .into_any_element(),
+        ];
+
+    if let Some(selection) = selection {
+        children.push(
+            Label::new(selection.count_label)
+                .size(FontSize::Caption)
+                .color(SemanticColor::SecondaryLabel)
+                .into_any_element(),
+        );
+        for action in selection.actions {
+            let (style, command) = match action.kind {
+                SelectionActionKind::AddToPlaylist => {
+                    let mut popover = AddToPlaylistPopover::new(AddToPlaylistDisplay {
+                        id: SharedString::from(action.element_id),
+                        playlists: playlists.playlists.clone(),
+                        trigger_label: SharedString::from(action.label),
+                        trigger_a11y_label: SharedString::from(action.a11y_label),
+                        new_playlist_a11y_label: playlists.new_playlist_a11y_label.clone(),
+                        back_a11y_label: playlists.back_a11y_label.clone(),
+                        create_a11y_label: playlists.create_a11y_label.clone(),
+                    });
+                    let select_command = on_command.clone();
+                    popover = popover.on_select(move |playlist_id, window, cx| {
+                        select_command(ListBarCommand::AddToPlaylist(*playlist_id), window, cx);
+                    });
+                    let create_command = on_command.clone();
+                    popover = popover.on_create(move |name, window, cx| {
+                        create_command(ListBarCommand::CreatePlaylist(name.clone()), window, cx);
+                    });
+                    children.push(popover.into_any_element());
+                    continue;
+                }
+                SelectionActionKind::Download
+                | SelectionActionKind::MoveToTop
+                | SelectionActionKind::MoveToBottom => {
+                    (ControlStyle::Secondary, ListBarCommand::Run(action.kind))
+                }
+                SelectionActionKind::Remove | SelectionActionKind::RemoveFromPlaylist => {
+                    (ControlStyle::Destructive, ListBarCommand::Run(action.kind))
+                }
+                SelectionActionKind::SelectAll | SelectionActionKind::Clear => {
+                    (ControlStyle::Neutral, ListBarCommand::Run(action.kind))
+                }
+            };
+            let command_handler = on_command.clone();
+            children.push(
+                UiButton::styled(SharedString::from(action.element_id), style)
+                    .label(action.label)
+                    .a11y_label(action.a11y_label)
+                    .on_click(move |_, window, cx| {
+                        command_handler(command.clone(), window, cx);
+                    })
+                    .into_any_element(),
+            );
+        }
+    }
+
+    let mut bar = div()
+        .id("music-list-bar")
+        .flex()
+        .flex_row()
+        .flex_wrap()
+        .items_center()
+        .gap(Spacing::SM.scaled(cx))
+        .py(Spacing::SM.scaled(cx))
+        .children(children);
+    if selecting {
+        bar = bar.bg(color(cx, SemanticColor::SecondarySystemBackground));
+    }
+    bar.into_any_element()
 }

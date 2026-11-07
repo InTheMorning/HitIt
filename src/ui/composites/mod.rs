@@ -104,7 +104,10 @@ pub use release_detail_surface::{
 };
 pub use segmented_control::{Segment, SegmentDisplay, SegmentedControl, SegmentedControlStyle};
 pub(crate) use selectable_text::SelectableText;
-pub(crate) use selection_action_bar::{SelectionActionBar, SelectionActionBarPlaylists};
+pub(crate) use selection_action_bar::{
+    list_bar_playlists, render_list_bar, ListBarHandler, SelectionActionBar,
+    SelectionActionBarPlaylists,
+};
 pub(crate) use show_card::ShowCard;
 pub(crate) use show_detail_panel::{ShowDetailPanel, ShowDetailPanelDisplay, ShowDetailPanelSlots};
 pub(crate) use show_log_pane::{ShowLogPane, ShowLogPaneSlots};

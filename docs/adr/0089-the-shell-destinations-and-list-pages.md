@@ -114,7 +114,7 @@ The scope of Releases and Artists is the segmented control "All | In Library", b
 - The library icon is muted. A warning or a danger keeps its status color.
 - The main action of an album or a track in the Library is Play.
 - Adding to a playlist is in the item menu only.
-- The selection model of ADR 0084 Decision 10 stays. Its "Select" button moves to the title row of the list page.
+- The selection model of ADR 0084 Decision 10 stays. Its "Select" button moves to the title row of the list page. [ADR 0090](0090-one-list-bar-above-the-rows.md) replaces this position, packet by packet.
 
 ### 7. The Now-Playing Panel Is On The Right
 

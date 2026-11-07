@@ -45,6 +45,7 @@ use crate::view_models::list_selection::{ListSelection, SelectionMode};
 use crate::view_models::public_playlists::PublicPlaylistPages;
 use crate::view_models::recent_feeds::RecentFeedsPageVm;
 use crate::view_models::releases_everything::ReleasesListCache;
+use crate::view_models::selection_action_bar::ListBarCommand;
 use crate::view_models::singles_group::SinglesGroupKey;
 use crate::view_models::window_groups::WindowGroupKey;
 use crate::view_models::workspace::{
@@ -79,6 +80,9 @@ pub(crate) struct PlaylistDetail {
 
 #[derive(Clone, Debug)]
 pub(crate) enum LibraryAppEvent {
+    /// A click on the list bar above the rows of a group page (ADR 0090).
+    /// The top app runs the command through its selection path.
+    ListBar(ListBarCommand),
     PlayPlaylistAt {
         track_id: i64,
         playlist_id: i64,

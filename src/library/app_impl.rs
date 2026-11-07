@@ -6278,6 +6278,18 @@ impl LibraryApp {
         // ADR 0084 packet 018: each row of a release page and of a singles
         // group page carries the detail selection facts.
         let row_slots = self.library_detail_row_slots();
+        // ADR 0090 Decision 2: a group page has its list bar above its rows.
+        let list_bar = match &self.detail {
+            LibraryDetail::SinglesGroup(_) | LibraryDetail::WindowGroup(_) => {
+                self.library_detail_page_rows().and_then(|rows| {
+                    crate::view_models::detail_selection::ListBarVm::new(
+                        &rows,
+                        &self.detail_selection,
+                    )
+                })
+            }
+            _ => None,
+        };
         let scroll = self.detail_scroll_handle();
         // ADR 0084 Decision 12: a singles group page and a playlist page
         // show their header art in the logo frame.
@@ -6308,6 +6320,7 @@ impl LibraryApp {
             &track_named_feeds,
             album_cover_color,
             header_art,
+            list_bar,
             row_slots,
             &scroll,
             &self.detail_column_focus,

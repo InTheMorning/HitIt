@@ -90,6 +90,8 @@ index results and the library together. `Show` is broadcasting. Search is a
 toolbar command on each page, and the Search destination holds the saved
 searches. ADR 0089.
 
+**One list bar above the rows.** A list of selectable rows has one bar directly above its rows, with selection at its left and sort and view at its right. ADR 0090. The singles group page and the window group page have it, and the [phase plan](docs/plans/adr-0090-list-bar-phase-plan.md) moves each other page.
+
 **Curation shows nothing operational.** While nothing plays and no show is
 active, `Music` and `Settings` show no queue, no transport, and no broadcast
 status. A surface that cannot act is absent, not disabled. ADR 0089 Decision 7.

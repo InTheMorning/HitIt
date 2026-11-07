@@ -20,6 +20,7 @@ use crate::ui::shells::library::playlist_detail::{
 use crate::ui::shells::library::singles_group::render_library_singles_group_page;
 use crate::ui::shells::library::track_detail::render_library_track_detail;
 use crate::ui::shells::library::window_group::render_library_window_group_page;
+use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::library::{LibraryChromeDisplay, LibraryViewModel, MbTrackStatus};
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::named_feeds::NamedFeed;
@@ -52,6 +53,7 @@ pub(crate) fn render_library_detail(
     track_named_feeds: &[NamedFeed],
     album_cover_color: Option<CoverColor>,
     header_art: Option<CollectionArtImage>,
+    list_bar: Option<ListBarVm>,
     row_slots: Vec<DetailRowSlot>,
     scroll: &ScrollHandle,
     detail_focus: &FocusHandle,
@@ -96,6 +98,7 @@ pub(crate) fn render_library_detail(
         LibraryDetail::SinglesGroup(key) => render_library_singles_group_page(
             library_vm.singles_group_page(key),
             header_art,
+            list_bar,
             mb_status,
             playlists,
             album_thumbs,
@@ -111,6 +114,7 @@ pub(crate) fn render_library_detail(
         LibraryDetail::WindowGroup(key) => render_library_window_group_page(
             library_vm.window_group_page(key),
             header_art,
+            list_bar,
             mb_status,
             playlists,
             album_thumbs,
