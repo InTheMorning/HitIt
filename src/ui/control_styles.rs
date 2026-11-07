@@ -24,6 +24,9 @@ pub enum ControlStyle {
     Unfilled,
     /// `Secondary` at the size of a row.
     CompactAction,
+    /// Back and Forward: a circle with the neutral fill (musicindex ADR 0044
+    /// R-NAV-4).
+    NeutralIcon,
     Destructive,
     ToolbarIcon,
     RowAction,
@@ -68,6 +71,13 @@ impl ControlStyle {
                 variant: ButtonVariant::Plain,
                 size: ButtonSize::Md,
                 font_size: FontSize::Body,
+                foreground: None,
+                border: None,
+            },
+            Self::NeutralIcon => ControlStyleSpec {
+                variant: ButtonVariant::Neutral,
+                size: ButtonSize::Sm,
+                font_size: FontSize::Caption,
                 foreground: None,
                 border: None,
             },
@@ -131,7 +141,7 @@ impl ControlStyle {
     pub const fn prefers_tooltip(self) -> bool {
         matches!(
             self,
-            Self::ToolbarIcon | Self::RowAction | Self::DestructiveRowAction
+            Self::ToolbarIcon | Self::NeutralIcon | Self::RowAction | Self::DestructiveRowAction
         )
     }
 }
@@ -184,6 +194,15 @@ mod tests {
         assert!(ControlStyle::DestructiveRowAction.prefers_tooltip());
         assert!(!ControlStyle::Primary.prefers_tooltip());
         assert!(!ControlStyle::Neutral.prefers_tooltip());
+    }
+
+    /// musicindex ADR 0044 R-NAV-4: Back and Forward have the neutral fill.
+    #[test]
+    fn neutral_icon_has_the_neutral_fill() {
+        let spec = ControlStyle::NeutralIcon.spec();
+        assert_eq!(spec.variant, ButtonVariant::Neutral);
+        assert_eq!(spec.size, ButtonSize::Sm);
+        assert!(spec.foreground.is_none());
     }
 
     /// musicindex ADR 0020 R-ACT-1 item 3: a selected tab has a tint and an

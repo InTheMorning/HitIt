@@ -234,6 +234,19 @@ impl SearchResultsInspectorPageVm {
         self.list_state().sort.unwrap_or(ListSort::Newest)
     }
 
+    /// Sets the reversed state of this page (musicindex ADR 0043 R-LIST-7).
+    /// The query does not change, and the rows follow at the next read.
+    pub(crate) fn set_list_reversed(&mut self, reversed: bool) {
+        self.lists.set_reversed(self.list_key(), reversed);
+    }
+
+    /// Whether the rows come in the reversed order now. Only the results of
+    /// the scope In Library reverse, because each of their rows is local.
+    fn reversed(&self) -> bool {
+        self.list_state()
+            .reversed_in(self.list_key(), self.library_scope())
+    }
+
     /// Returns this page with the run generation `generation` (packet 003).
     #[must_use]
     pub(crate) fn with_run_generation(mut self, generation: RunGeneration) -> Self {
@@ -612,6 +625,9 @@ impl SearchResultsInspectorPageVm {
             .collect();
         // An artist row has no date, so Newest keeps the order of the run.
         sort::sort_rows(&mut rows, self.sort(), |_| None, |row| row.label.as_str());
+        if self.reversed() {
+            rows.reverse();
+        }
         rows
     }
 
@@ -637,6 +653,9 @@ impl SearchResultsInspectorPageVm {
             },
             |row| row.label.as_str(),
         );
+        if self.reversed() {
+            rows.reverse();
+        }
         rows
     }
 
@@ -645,6 +664,9 @@ impl SearchResultsInspectorPageVm {
     fn sorted_tracks(&self) -> Vec<TrackResultDisplay> {
         let mut rows = self.tracks.rows();
         sort::sort_rows(&mut rows, self.sort(), |_| None, |row| row.label.as_str());
+        if self.reversed() {
+            rows.reverse();
+        }
         rows
     }
 

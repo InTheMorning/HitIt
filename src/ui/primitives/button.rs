@@ -37,9 +37,10 @@ use super::tooltip::Tooltip;
 ///
 /// * **Filled** — high-emphasis primary action. Solid accent fill.
 /// * **Tinted** — medium-emphasis. The accent tint with accent text.
-/// * **Plain** — an icon button or a menu item. Transparent background, accent
-///   text. With a text label and centered content it draws as Neutral
-///   (musicindex ADR 0042 R-ACT-6).
+/// * **Plain** — an icon button or a menu item. Transparent background. An icon
+///   button is accent. A menu item has the text color, and its icon is accent
+///   (musicindex ADR 0043 R-LIST-6 item 3). With a text label and centered content
+///   it draws as Neutral (musicindex ADR 0042 R-ACT-6).
 /// * **Neutral** — a command that changes no stored data. The text color on the
 ///   neutral fill (musicindex ADR 0042 R-ACT-5).
 /// * **Destructive** — dangerous action. A red label on the danger tint, never
@@ -422,6 +423,35 @@ impl Button {
         );
     }
 
+    fn visual_base(&self, radius: gpui::Pixels, cx: &App) -> gpui::Div {
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(Spacing::XS.scaled(cx))
+            .h(self.height(cx))
+            .rounded(radius)
+            .font_weight(FontWeight::SEMIBOLD)
+    }
+
+    /// A row of a menu or a list of choices: plain, with its content at the
+    /// leading edge.
+    fn is_menu_item(&self) -> bool {
+        matches!(self.variant, ButtonVariant::Plain)
+            && matches!(self.content_alignment, ButtonContentAlignment::Leading)
+    }
+
+    /// R-LIST-6 item 3: the check mark of a menu item is accent, and each other
+    /// icon has the color of its label. A foreground of the caller, such as the
+    /// red of a destructive item, stays on its icon too.
+    fn icon_color(&self, label_color: Rgba, cx: &App, appearance: Option<Appearance>) -> Rgba {
+        if self.is_menu_item() && self.foreground.is_none() {
+            resolve_color(cx, SemanticColor::Accent, appearance)
+        } else {
+            label_color
+        }
+    }
+
     /// R-ACT-6 item 1: a button with a text label has a fill. A menu item is a
     /// row, and `Unfilled` names the other items of item 2.
     fn effective_variant(&self) -> ButtonVariant {
@@ -458,9 +488,14 @@ impl Button {
                 let mut hover =
                     resolve_color(cx, SemanticColor::SecondarySystemBackground, appearance);
                 hover.a = 0.6;
+                let foreground = if self.is_menu_item() {
+                    SemanticColor::Label
+                } else {
+                    SemanticColor::Accent
+                };
                 (
                     gpui::transparent_black().into(),
-                    resolve_color(cx, SemanticColor::Accent, appearance),
+                    resolve_color(cx, foreground, appearance),
                     hover,
                 )
             }
@@ -502,9 +537,9 @@ impl RenderOnce for Button {
         self.debug_assert_label_reservation_fits(font_role, cx);
 
         let (bg, fg, hover_bg) = self.resolved_colors(cx, appearance);
+        let icon_color = self.icon_color(fg, cx, appearance);
 
         let label = self.label.clone().unwrap_or_default();
-        let leading_icon = self.leading_icon;
         let on_click = self.on_click.clone();
         let on_activate = self.on_activate.clone();
         let focus = self.focus_handle.clone();
@@ -514,18 +549,14 @@ impl RenderOnce for Button {
         let label_treatment = self.label_treatment;
         let tooltip = self.effective_tooltip();
         let in_tab_sequence = self.in_tab_sequence();
+        let leading_icon = self.leading_icon;
+        let icon_only = self.is_icon_only();
 
-        let mut visual = div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap(Spacing::XS.scaled(cx))
-            .h(self.height(cx))
-            .rounded(radius)
+        let mut visual = self
+            .visual_base(radius, cx)
             .bg(bg)
             .text_color(fg)
-            .text_size(font)
-            .font_weight(FontWeight::SEMIBOLD);
+            .text_size(font);
 
         visual = self.with_width(visual, cx);
 
@@ -598,11 +629,16 @@ impl RenderOnce for Button {
         }
 
         if let Some(icon) = leading_icon {
-            visual = visual.child(Icon::new(icon).size(IconSize::Transport).color(fg));
+            visual = visual.child(button_icon(icon, icon_color));
         }
         let label = div()
             .when(label_treatment.line_through(), Styled::line_through)
             .child(label);
+        // An empty label takes a gap of its own, and that gap moves the icon of
+        // an icon button away from the center of its circle.
+        if icon_only {
+            return hit_target.child(visual);
+        }
         if let Some(description) = self.description {
             visual = visual.h_auto().py(Spacing::SM.scaled(cx)).min_w_0();
             hit_target.child(visual.child(button_description(label, description, cx)))
@@ -622,6 +658,16 @@ fn hit_target_base(id: ElementId) -> gpui::Stateful<gpui::Div> {
     #[cfg(test)]
     let target = target.debug_selector(move || selector);
     target
+}
+
+fn button_icon(icon: IconName, color: Rgba) -> gpui::Div {
+    let element = div()
+        .flex()
+        .flex_none()
+        .child(Icon::new(icon).size(IconSize::Transport).color(color));
+    #[cfg(test)]
+    let element = element.debug_selector(|| "button-icon".to_owned());
+    element
 }
 
 fn keyboard_button_focus(
@@ -768,6 +814,23 @@ mod tests {
         );
     }
 
+    /// musicindex ADR 0043 R-LIST-6 item 3: a menu item has the text color and an
+    /// accent icon. A destructive item keeps its red on both. Fix: `is_menu_item`.
+    #[test]
+    fn a_menu_item_has_the_text_color_and_an_accent_icon() {
+        let item = Button::plain("menu").label("Newest").align_leading();
+        assert!(item.is_menu_item());
+        assert!(item.foreground.is_none());
+
+        let centered = Button::plain("centered").label("Open");
+        assert!(!centered.is_menu_item());
+
+        let red = Button::styled("remove", ControlStyle::DestructiveRowAction)
+            .label("Remove")
+            .align_leading();
+        assert_eq!(red.foreground, Some(SemanticColor::DangerLabel));
+    }
+
     #[test]
     fn leading_icon_uses_semantic_icon_role() {
         let button = Button::plain("new-playlist").leading_icon(IconName::Add);
@@ -861,6 +924,42 @@ mod tests {
                 gpui::MouseClickEvent::default()
             )));
         }
+    }
+
+    struct IconRoot;
+
+    impl gpui::Render for IconRoot {
+        fn render(
+            &mut self,
+            _: &mut gpui::Window,
+            _: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            div().size_full().child(
+                Button::styled("centered", ControlStyle::ToolbarIcon)
+                    .leading_icon(IconName::RowsView)
+                    .a11y_label("Rows"),
+            )
+        }
+    }
+
+    /// Walk of 2026-11-06: an empty label took a gap, so the icon was off the
+    /// center of its circle. Fix: an icon button renders no label.
+    #[gpui::test]
+    fn an_icon_is_in_the_center_of_its_circle(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_component::init);
+        let (_root, cx) = cx.add_window_view(|_, _| IconRoot);
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+        let button = cx.debug_bounds("centered").expect("the button has bounds");
+        let icon = cx.debug_bounds("button-icon").expect("the icon has bounds");
+        let offset_x = f32::from(button.center().x) - f32::from(icon.center().x);
+        let offset_y = f32::from(button.center().y) - f32::from(icon.center().y);
+        assert!(
+            offset_x.abs() < 0.5 && offset_y.abs() < 0.5,
+            "the icon is {offset_x} px and {offset_y} px off the center"
+        );
     }
 
     struct ClickRoot {

@@ -83,6 +83,23 @@ impl ListPageKey {
         }
     }
 
+    /// Whether the page can reverse all its rows in `scope` (musicindex ADR
+    /// 0043 R-LIST-7 items 9 and 10). A list reverses only when each of its
+    /// rows is local: Releases and Artists with the scope In Library, My
+    /// playlists, and Results with the scope In Library. A list from the
+    /// Index cannot reverse until the Index gives a direction, so its
+    /// reversed state has no effect.
+    #[must_use]
+    pub(crate) const fn reverses_in(self, scope: ListScope) -> bool {
+        match self {
+            Self::Releases | Self::Artists | Self::Results => {
+                matches!(scope, ListScope::InLibrary)
+            }
+            Self::MyPlaylists => true,
+            Self::PublicPlaylists | Self::Live | Self::SavedSearch => false,
+        }
+    }
+
     /// The sorts that the page offers, in menu order. The first sort is the
     /// default (ADR 0089 Decision 5). A page with no sort gives none.
     #[must_use]
@@ -107,12 +124,15 @@ pub(crate) enum ListSort {
 }
 
 impl ListSort {
-    /// The visible label of the sort.
+    /// The visible name of the sort. A reversed list names its reversed
+    /// order (musicindex ADR 0043 R-LIST-7 item 5).
     #[must_use]
-    pub(crate) const fn label(self) -> &'static str {
-        match self {
-            Self::Newest => "Newest",
-            Self::AToZ => "A to Z",
+    pub(crate) const fn name(self, reversed: bool) -> &'static str {
+        match (self, reversed) {
+            (Self::Newest, false) => "Newest",
+            (Self::Newest, true) => "Oldest",
+            (Self::AToZ, false) => "A to Z",
+            (Self::AToZ, true) => "Z to A",
         }
     }
 
@@ -204,9 +224,20 @@ pub(crate) struct ListPageState {
     /// The letter that the letter bar selected, or `None`. The letter bar
     /// shows only with the sort A to Z.
     pub(crate) letter: Option<LetterKey>,
+    /// Whether the order of the list is reversed (musicindex ADR 0043
+    /// R-LIST-7 item 6). It starts false, and a new sort keeps it.
+    pub(crate) reversed: bool,
 }
 
 impl ListPageState {
+    /// Whether the order of the page `key` is reversed in `scope`. A list
+    /// that cannot reverse in `scope` is never reversed, whatever the
+    /// stored state is. The stored state stays for a later scope.
+    #[must_use]
+    pub(crate) const fn reversed_in(self, key: ListPageKey, scope: ListScope) -> bool {
+        self.reversed && key.reverses_in(scope)
+    }
+
     /// The state of `key` at the start (ADR 0089 Decision 5 table).
     #[must_use]
     pub(crate) const fn default_for(key: ListPageKey) -> Self {
@@ -216,12 +247,14 @@ impl ListPageState {
                 view: ListView::Rows,
                 scope: Some(ListScope::All),
                 letter: None,
+                reversed: false,
             },
             ListPageKey::Artists => Self {
                 sort: Some(ListSort::AToZ),
                 view: ListView::Rows,
                 scope: Some(ListScope::All),
                 letter: None,
+                reversed: false,
             },
             // ADR 0089 Decision 5: rows, no sort and no scope.
             ListPageKey::MyPlaylists | ListPageKey::Live => Self {
@@ -229,6 +262,7 @@ impl ListPageState {
                 view: ListView::Rows,
                 scope: None,
                 letter: None,
+                reversed: false,
             },
             // ADR 0089 Decision 5: Newest, tiles, and no scope.
             ListPageKey::PublicPlaylists => Self {
@@ -236,6 +270,7 @@ impl ListPageState {
                 view: ListView::Tiles,
                 scope: None,
                 letter: None,
+                reversed: false,
             },
             // The query holds the scope of a search page (ADR 0089 Decision
             // 4), so the page state has none.
@@ -244,6 +279,7 @@ impl ListPageState {
                 view: ListView::Rows,
                 scope: None,
                 letter: None,
+                reversed: false,
             },
         }
     }
@@ -322,6 +358,16 @@ impl ListPages {
         let state = self.get_mut(key);
         state.sort = Some(sort);
         state.letter = None;
+    }
+
+    /// Sets the reversed state of `key`. A page with no sort keeps false,
+    /// except My playlists, which reverses the sequence of the curator. Each
+    /// page keeps its own state.
+    pub(crate) fn set_reversed(&mut self, key: ListPageKey, reversed: bool) {
+        if key.sorts().is_empty() && key != ListPageKey::MyPlaylists {
+            return;
+        }
+        self.get_mut(key).reversed = reversed;
     }
 
     /// Sets the letter that the letter bar of `key` selected.
@@ -418,6 +464,47 @@ pub(crate) struct ListViewControlVm {
     pub(crate) options: Vec<ListViewOptionVm>,
 }
 
+/// The icon of the reverse button. It is a typed name, so the view model
+/// carries no renderer type. The renderer maps it to an icon.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ListReverseIcon {
+    /// The usual order.
+    SortUsual,
+    /// The reversed order.
+    SortReversed,
+}
+
+/// The reverse button of a list page (musicindex ADR 0043 R-LIST-7).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ListReverseVm {
+    /// Stable element id.
+    pub(crate) id: &'static str,
+    /// The label, the tooltip and the accessibility label.
+    pub(crate) label: &'static str,
+    /// Whether the order is reversed. Assistive technology reads it.
+    pub(crate) pressed: bool,
+    /// The icon. It differs in the reversed order, so color is not the only
+    /// sign of the state.
+    pub(crate) icon: ListReverseIcon,
+}
+
+impl ListReverseVm {
+    /// The reverse button for the state `reversed`.
+    #[must_use]
+    pub(crate) const fn new(reversed: bool) -> Self {
+        Self {
+            id: "music-list-reverse",
+            label: "Reverse the Order",
+            pressed: reversed,
+            icon: if reversed {
+                ListReverseIcon::SortReversed
+            } else {
+                ListReverseIcon::SortUsual
+            },
+        }
+    }
+}
+
 /// The title row of a list page (ADR 0089 Decision 6, R-LIST-1 item 4):
 /// the title at the left, then the sort, the view icons and Select at the
 /// right. The scope control sits below the title.
@@ -436,6 +523,9 @@ pub(crate) struct ListPageHeadVm {
     /// The view icons. `None` when the page offers one view only, so no
     /// view icon shows.
     pub(crate) view: Option<ListViewControlVm>,
+    /// The reverse button, or `None` when the list cannot reverse its whole
+    /// order (R-LIST-7 item 10). It sits after the view icons.
+    pub(crate) reverse: Option<ListReverseVm>,
     /// The Select action of the page, or `None` when no item can be
     /// selected.
     pub(crate) select: Option<FrameHeaderActionDisplay>,
@@ -456,15 +546,20 @@ impl ListPageHeadVm {
         library_count: Option<usize>,
         select: Option<FrameHeaderActionDisplay>,
     ) -> Self {
+        let scope = state.scope.unwrap_or_default();
+        let reversed = state.reversed_in(key, scope);
         Self {
             title: key.title().to_owned(),
             scope: state
                 .scope
                 .map(|selected| scope_control(key, selected, library_count)),
-            sort: state.sort.map(|sort| sort_button(key, sort)),
+            sort: state.sort.map(|sort| sort_button(key, sort, reversed)),
             letters: (state.sort == Some(ListSort::AToZ))
-                .then(|| LetterBarVm::new(key, state.letter)),
+                .then(|| ordered_letters(LetterBarVm::new(key, state.letter), reversed)),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
+            reverse: key
+                .reverses_in(scope)
+                .then(|| ListReverseVm::new(state.reversed)),
             select,
             actions: Vec::new(),
         }
@@ -480,9 +575,21 @@ impl ListPageHeadVm {
             sort: None,
             letters: None,
             view: None,
+            reverse: None,
             select: None,
             actions: action.into_iter().collect(),
         }
+    }
+
+    /// This title row with the reverse button of the page `key` in `state`.
+    /// A page that cannot reverse keeps no button.
+    #[must_use]
+    pub(crate) fn with_reverse_of(mut self, key: ListPageKey, state: ListPageState) -> Self {
+        let scope = state.scope.unwrap_or_default();
+        self.reverse = key
+            .reverses_in(scope)
+            .then(|| ListReverseVm::new(state.reversed));
+        self
     }
 
     /// The title row of a search page (ADR 0089 Decision 4): the title, the
@@ -498,14 +605,18 @@ impl ListPageHeadVm {
         scope: ListScope,
         actions: Vec<SearchPageActionDisplay>,
     ) -> Self {
+        let reversed = state.reversed_in(key, scope);
         Self {
             title,
             scope: Some(search_scope_control(scope)),
-            sort: state.sort.map(|sort| sort_button(key, sort)),
+            sort: state.sort.map(|sort| sort_button(key, sort, reversed)),
             letters: None,
             // Rows only: the search keys offer no view icon (ADR 0089 packet
             // 008 Part C, deviation, see `ListPageKey::views`).
             view: None,
+            reverse: key
+                .reverses_in(scope)
+                .then(|| ListReverseVm::new(state.reversed)),
             select: None,
             actions,
         }
@@ -618,7 +729,17 @@ pub(crate) const fn needs_first_page(scope: ListScope, page_not_started: bool) -
     matches!(scope, ListScope::All) && page_not_started
 }
 
-fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
+/// The letters of a reversed A to Z list run from Z to A (R-LIST-7 item 7).
+/// The letter "#" stays last.
+fn ordered_letters(mut bar: LetterBarVm, reversed: bool) -> LetterBarVm {
+    if reversed {
+        let named = bar.letters.len().saturating_sub(1);
+        bar.letters[..named].reverse();
+    }
+    bar
+}
+
+fn sort_button(key: ListPageKey, sort: ListSort, reversed: bool) -> ListSortButtonVm {
     let id = match key {
         ListPageKey::Releases => "music-list-sort-releases",
         ListPageKey::Artists => "music-list-sort-artists",
@@ -630,8 +751,8 @@ fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
     };
     ListSortButtonVm {
         id,
-        label: sort.label(),
-        a11y_label: format!("Sort {} by {}", key.noun(), sort.label()),
+        label: sort.name(reversed),
+        a11y_label: format!("Sort {} by {}", key.noun(), sort.name(reversed)),
         options: key
             .sorts()
             .iter()
@@ -641,8 +762,12 @@ fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
                 ListSortOptionVm {
                     id: option.option_id(),
                     sort: option,
-                    label: option.label(),
-                    a11y_label: format!("Sort {} by {}{current}", key.noun(), option.label()),
+                    label: option.name(reversed),
+                    a11y_label: format!(
+                        "Sort {} by {}{current}",
+                        key.noun(),
+                        option.name(reversed)
+                    ),
                     selected,
                 }
             })
@@ -653,6 +778,155 @@ fn sort_button(key: ListPageKey, sort: ListSort) -> ListSortButtonVm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// R-LIST-7 item 5: each sort has its reversed name, in the button and
+    /// in each menu entry.
+    #[test]
+    fn adr_0043_task_002_reversed_names_show_in_button_and_menu() {
+        assert_eq!(ListSort::Newest.name(false), "Newest");
+        assert_eq!(ListSort::Newest.name(true), "Oldest");
+        assert_eq!(ListSort::AToZ.name(false), "A to Z");
+        assert_eq!(ListSort::AToZ.name(true), "Z to A");
+        let state = ListPageState {
+            reversed: true,
+            scope: Some(ListScope::InLibrary),
+            ..ListPageState::default_for(ListPageKey::Releases)
+        };
+        let sort = ListPageHeadVm::new(ListPageKey::Releases, state, None, None)
+            .sort
+            .expect("Releases has a sort");
+        assert_eq!(sort.label, "Oldest");
+        assert!(sort.a11y_label.contains("Oldest"));
+        let labels: Vec<&str> = sort.options.iter().map(|option| option.label).collect();
+        assert_eq!(labels, ["Oldest", "Z to A"]);
+        assert!(sort.options[0].a11y_label.contains("Oldest"));
+    }
+
+    /// R-LIST-7 item 6: each list keeps its own reversed state. The state
+    /// starts false, and a new sort keeps it. A page with no sort keeps false.
+    #[test]
+    fn adr_0043_task_002_each_list_keeps_its_own_reversed_state() {
+        let mut pages = ListPages::default();
+        assert!(!pages.get(ListPageKey::Releases).reversed);
+        pages.set_reversed(ListPageKey::Releases, true);
+        assert!(pages.get(ListPageKey::Releases).reversed);
+        assert!(!pages.get(ListPageKey::Artists).reversed);
+        assert!(!pages.get(ListPageKey::PublicPlaylists).reversed);
+        pages.set_sort(ListPageKey::Releases, ListSort::AToZ);
+        assert!(
+            pages.get(ListPageKey::Releases).reversed,
+            "a new sort keeps it"
+        );
+        pages.set_reversed(ListPageKey::Live, true);
+        assert!(!pages.get(ListPageKey::Live).reversed);
+        pages.set_reversed(ListPageKey::MyPlaylists, true);
+        assert!(pages.get(ListPageKey::MyPlaylists).reversed);
+    }
+
+    /// R-LIST-7 item 7: the letters of a reversed A to Z list run from Z to
+    /// A, and "#" stays last. The reverse button has its typed icon.
+    #[test]
+    fn adr_0043_task_002_reversed_letters_run_from_z_to_a() {
+        let mut state = ListPageState {
+            scope: Some(ListScope::InLibrary),
+            ..ListPageState::default_for(ListPageKey::Artists)
+        };
+        let labels = |state| {
+            ListPageHeadVm::new(ListPageKey::Artists, state, None, None)
+                .letters
+                .expect("A to Z shows the letter bar")
+                .letters
+                .into_iter()
+                .map(|letter| letter.label)
+                .collect::<Vec<String>>()
+        };
+        let usual = labels(state);
+        assert_eq!((usual[0].as_str(), usual[25].as_str()), ("A", "Z"));
+        state.reversed = true;
+        let reversed = labels(state);
+        assert_eq!(reversed.len(), 27);
+        assert_eq!((reversed[0].as_str(), reversed[25].as_str()), ("Z", "A"));
+        assert_eq!(reversed[26], "#");
+
+        let usual = ListReverseVm::new(false);
+        assert!(!usual.pressed);
+        assert_eq!(usual.icon, ListReverseIcon::SortUsual);
+        let reversed = ListReverseVm::new(true);
+        assert!(reversed.pressed);
+        assert_eq!(reversed.icon, ListReverseIcon::SortReversed);
+        assert_eq!(reversed.label, "Reverse the Order");
+    }
+
+    /// R-LIST-7 items 9 and 10: a list with only local rows has the reverse
+    /// button, after the view icons in the title row, and each list from
+    /// the Index has none. A reversed state has no effect on a list from
+    /// the Index: its names and its letters stay usual, and the stored
+    /// state stays for the scope In Library.
+    #[test]
+    fn adr_0043_task_003_only_local_lists_have_the_reverse_button() {
+        let local = |key, scope| ListPageState {
+            reversed: true,
+            scope,
+            sort: Some(ListSort::AToZ),
+            ..ListPageState::default_for(key)
+        };
+        for key in [ListPageKey::Releases, ListPageKey::Artists] {
+            let head = ListPageHeadVm::new(key, local(key, Some(ListScope::InLibrary)), None, None);
+            let reverse = head.reverse.expect("In Library reverses");
+            assert!(reverse.pressed);
+            assert_eq!(head.sort.expect("sort").label, "Z to A");
+            let letters = head.letters.expect("letters");
+            assert_eq!(letters.letters[0].label, "Z");
+
+            let head = ListPageHeadVm::new(key, local(key, Some(ListScope::All)), None, None);
+            assert!(head.reverse.is_none(), "{key:?} from the Index");
+            assert_eq!(head.sort.expect("sort").label, "A to Z");
+            assert_eq!(head.letters.expect("letters").letters[0].label, "A");
+        }
+        let playlists = ListPageHeadVm::titled("My playlists", None).with_reverse_of(
+            ListPageKey::MyPlaylists,
+            ListPageState {
+                reversed: true,
+                ..ListPageState::default_for(ListPageKey::MyPlaylists)
+            },
+        );
+        assert!(playlists.reverse.is_some_and(|reverse| reverse.pressed));
+        for key in [
+            ListPageKey::PublicPlaylists,
+            ListPageKey::Live,
+            ListPageKey::SavedSearch,
+        ] {
+            let state = ListPageState {
+                reversed: true,
+                ..ListPageState::default_for(key)
+            };
+            assert!(
+                ListPageHeadVm::new(key, state, None, None)
+                    .reverse
+                    .is_none(),
+                "{key:?}"
+            );
+        }
+        let state = ListPageState {
+            reversed: true,
+            ..ListPageState::default_for(ListPageKey::Results)
+        };
+        for (scope, shows) in [(ListScope::All, false), (ListScope::InLibrary, true)] {
+            let head = ListPageHeadVm::for_search(
+                ListPageKey::Results,
+                state,
+                String::new(),
+                scope,
+                Vec::new(),
+            );
+            assert_eq!(head.reverse.is_some(), shows, "{scope:?}");
+            let label = head.sort.expect("sort").label;
+            assert_eq!(label, if shows { "Oldest" } else { "Newest" });
+        }
+        let mut pages = ListPages::default();
+        pages.set_reversed(ListPageKey::Releases, true);
+        assert!(pages.get(ListPageKey::Releases).reversed, "the state stays");
+    }
 
     /// ADR 0089 Decision 5 table, for the rows that packet 004 has.
     #[test]

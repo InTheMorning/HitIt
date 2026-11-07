@@ -1,8 +1,8 @@
 //! The title row of a Music list page (ADR 0089 Decision 6, musicindex ADR
 //! 0027 R-LIST-1 item 4).
 //!
-//! The title is at the left. The sort menu, the view icons and the Select
-//! action are at the right. The scope control sits below the title, at the
+//! The title is at the left. The sort menu, the view icons, the reverse
+//! icon and the Select action are at the right. The scope control sits below the title, at the
 //! left, and the letter bar sits below the scope control. The view model
 //! gives each text, each id and each availability fact. This composite only
 //! lays them out.
@@ -27,10 +27,10 @@ use crate::ui::icons::IconName;
 use crate::ui::primitives::{
     Button, ContextMenu, ContextMenuItem, ContextMenuItemDisplay, ContextMenuScope,
 };
-use crate::ui::tokens::{FontSize, Size, Spacing};
+use crate::ui::tokens::{FontSize, SemanticColor, Size, Spacing};
 use crate::view_models::list_page::{
-    ListPageHeadVm, ListScope, ListScopeControlVm, ListSort, ListSortButtonVm, ListView,
-    ListViewControlVm,
+    ListPageHeadVm, ListReverseIcon, ListReverseVm, ListScope, ListScopeControlVm, ListSort,
+    ListSortButtonVm, ListView, ListViewControlVm,
 };
 use crate::view_models::search_results::{SearchPageActionDisplay, SearchPageActionStyle};
 
@@ -46,6 +46,10 @@ pub(crate) type ListHeadButtonHandler = Rc<dyn Fn(&mut Window, &mut App) + 'stat
 /// The callback of a view icon (R-LIST-1 item 3).
 pub(crate) type ListViewHandler = Rc<dyn Fn(&ListView, &mut Window, &mut App) + 'static>;
 
+/// The callback of the reverse icon (musicindex ADR 0043 R-LIST-7). It gets
+/// the reversed state that the click asks for.
+pub(crate) type ListReverseHandler = Rc<dyn Fn(bool, &mut Window, &mut App) + 'static>;
+
 /// The callbacks of the title row. A `None` callback leaves its control
 /// without a click.
 #[derive(Default)]
@@ -58,6 +62,8 @@ pub(crate) struct ListPageHeadHandlers {
     pub(crate) sort: Option<ListSortHandler>,
     /// The view icon click (R-LIST-1 item 3).
     pub(crate) view: Option<ListViewHandler>,
+    /// The reverse icon click (R-LIST-7).
+    pub(crate) reverse: Option<ListReverseHandler>,
     /// The letter click of the letter bar.
     pub(crate) letter: Option<LetterHandler>,
     /// The keyboard side of the letter bar.
@@ -87,6 +93,10 @@ pub(crate) fn list_page_head(
 
     if let Some(view) = display.view {
         trailing = trailing.child(view_icons(view, handlers.view.as_ref(), cx));
+    }
+
+    if let Some(reverse) = display.reverse {
+        trailing = trailing.child(reverse_icon(&reverse, handlers.reverse.as_ref()));
     }
 
     if let Some(select) = display.select {
@@ -231,6 +241,10 @@ fn view_icons(
             .a11y_label(option.a11y_label.clone())
             .tooltip(option.a11y_label)
             .selected(option.selected);
+        // R-LIST-7 item 8: a view icon that is not current is muted.
+        if !option.selected {
+            button = button.foreground(SemanticColor::SecondaryLabel);
+        }
         if let Some(handler) = on_view {
             let handler = handler.clone();
             button = button.on_activate(move |window, cx| handler(&view, window, cx));
@@ -238,6 +252,29 @@ fn view_icons(
         icons = icons.child(button);
     }
     icons.into_any_element()
+}
+
+/// The reverse icon of a list page (R-LIST-7). It is muted in the usual
+/// order, and it has the tint of a selected button in the reversed order.
+fn reverse_icon(display: &ListReverseVm, on_reverse: Option<&ListReverseHandler>) -> AnyElement {
+    let icon = match display.icon {
+        ListReverseIcon::SortUsual => IconName::SortUsual,
+        ListReverseIcon::SortReversed => IconName::SortReversed,
+    };
+    let requested = !display.pressed;
+    let mut button = Button::styled(SharedString::from(display.id), ControlStyle::ToolbarIcon)
+        .leading_icon(icon)
+        .a11y_label(display.label)
+        .tooltip(display.label)
+        .selected(display.pressed);
+    if !display.pressed {
+        button = button.foreground(SemanticColor::SecondaryLabel);
+    }
+    if let Some(handler) = on_reverse {
+        let handler = handler.clone();
+        button = button.on_activate(move |window, cx| handler(requested, window, cx));
+    }
+    button.into_any_element()
 }
 
 /// The scope control of a list page: a `SegmentedControl` with the

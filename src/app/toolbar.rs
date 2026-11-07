@@ -130,7 +130,7 @@ fn render_toolbar_navigation(
         .flex_shrink_0();
     if let Some(back) = display.back {
         controls = controls.child(
-            UiButton::styled(back.id, ControlStyle::ToolbarIcon)
+            UiButton::styled(back.id, ControlStyle::NeutralIcon)
                 .leading_icon(IconName::ChevronLeft)
                 .tooltip(back.label)
                 .a11y_label(back.label)
@@ -142,7 +142,7 @@ fn render_toolbar_navigation(
     }
     if let Some(forward) = display.forward {
         controls = controls.child(
-            UiButton::styled(forward.id, ControlStyle::ToolbarIcon)
+            UiButton::styled(forward.id, ControlStyle::NeutralIcon)
                 .leading_icon(IconName::ChevronRight)
                 .tooltip(forward.label)
                 .a11y_label(forward.label)

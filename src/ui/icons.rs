@@ -75,6 +75,11 @@ pub enum IconName {
     /// The rows view icon of a list page (ADR 0089 Decision 5, R-LIST-1
     /// item 3).
     RowsView,
+    /// The reverse icon of a list in its usual order (musicindex ADR 0043
+    /// R-LIST-7 item 3).
+    SortUsual,
+    /// The reverse icon of a list in its reversed order (R-LIST-7 item 4).
+    SortReversed,
     /// The download button of a track row (ADR 0083 task 006).
     CloudDownload,
     /// A download job that waits in the queue (ADR 0083 task 006).
@@ -131,6 +136,8 @@ impl IconName {
             | Self::Settings
             | Self::TilesView
             | Self::RowsView
+            | Self::SortUsual
+            | Self::SortReversed
             | Self::CloudDownload
             | Self::Queued
             | Self::InProgress
@@ -183,6 +190,8 @@ impl IconName {
             | Self::Settings
             | Self::TilesView
             | Self::RowsView
+            | Self::SortUsual
+            | Self::SortReversed
             | Self::Dash
             | Self::CloudDownload
             | Self::Queued
@@ -218,6 +227,8 @@ impl IconName {
             Self::Settings => Some(LucideIconName::Settings),
             Self::TilesView => Some(LucideIconName::LayoutGrid),
             Self::RowsView => Some(LucideIconName::LayoutList),
+            Self::SortUsual => Some(LucideIconName::ArrowDownWideNarrow),
+            Self::SortReversed => Some(LucideIconName::ArrowUpNarrowWide),
             // ADR 0084 Decision 10, Operator Correction, 2026-10-18: the
             // mixed mark of a group row checkbox.
             Self::Dash => Some(LucideIconName::Minus),
@@ -287,6 +298,8 @@ impl IconName {
             | Self::Settings
             | Self::TilesView
             | Self::RowsView
+            | Self::SortUsual
+            | Self::SortReversed
             | Self::CloudDownload
             | Self::Queued
             | Self::InProgress
@@ -522,6 +535,8 @@ gpui_kit_assets::icon_assets!(
         RadioTower,
         Radio,
         Settings,
+        ArrowDownWideNarrow,
+        ArrowUpNarrowWide,
         LayoutGrid,
         LayoutList
     ]
@@ -596,6 +611,8 @@ mod tests {
 
     const NON_CATALOG_IMAGE_ICON_NAMES: &[IconName] = &[
         IconName::Add,
+        IconName::SortUsual,
+        IconName::SortReversed,
         IconName::Back,
         IconName::ChevronLeft,
         IconName::ChevronRight,

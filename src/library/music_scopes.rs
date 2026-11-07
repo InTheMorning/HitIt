@@ -138,6 +138,23 @@ impl LibraryApp {
         cx.notify();
     }
 
+    /// Sets the reversed state of the list page `key` (musicindex ADR 0043
+    /// R-LIST-7). The mounted list builds again in place. The letter, the
+    /// selection and the Select state stay, because only a new sort ends
+    /// them.
+    pub(crate) fn set_list_reversed(
+        &mut self,
+        key: ListPageKey,
+        reversed: bool,
+        cx: &mut Context<Self>,
+    ) {
+        if self.vm.list_page_reversed_state(key) == reversed {
+            return;
+        }
+        self.vm.set_list_reversed(key, reversed);
+        cx.notify();
+    }
+
     /// Sets the view of the list page `key` (ADR 0089 Decision 5, R-LIST-1
     /// item 3). Each page keeps its own view. The rows and the tiles show
     /// the same items, so the selection stays.

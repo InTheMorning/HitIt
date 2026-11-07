@@ -63,6 +63,20 @@ pub(super) fn sort_handler(
     }
 }
 
+/// The reverse callback of a search page `slot` of the app `entity`
+/// (musicindex ADR 0043 R-LIST-7). The reverse changes the rows, and the query
+/// does not change.
+pub(super) fn reverse_handler(
+    entity: gpui::Entity<TopApp>,
+    slot: SearchPageSlot,
+) -> impl Fn(bool, &mut gpui::Window, &mut gpui::App) + 'static {
+    move |reversed, _window, cx| {
+        entity.update(cx, |this, cx| {
+            this.set_search_list_reversed(slot, reversed, cx);
+        });
+    }
+}
+
 /// The kind of a row click from its modifier keys, by the rule of the
 /// detail column (packet 018).
 fn row_click(modifiers: Modifiers) -> DetailRowClick {
