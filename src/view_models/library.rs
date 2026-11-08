@@ -4963,7 +4963,9 @@ impl LibraryViewModel {
         }));
         match scope {
             ListScope::InLibrary => {
-                rows.sort_by(|left, right| left.order.cmp(&right.order));
+                // Local rows only: the text order of the reader (musicindex
+                // ADR 0053 R-LIST-12 item 1).
+                rows.sort_by(|left, right| left.order.local_cmp(&right.order));
                 // R-LIST-7 item 9: the whole local list reverses.
                 if self
                     .list_pages
@@ -5777,10 +5779,11 @@ impl LibraryViewModel {
     }
 
     /// Advance the playlist sort order one step.
-    /// The playlists sort by name, A to Z (ADR 0089 Decision 5: the
-    /// sidebar has no sort control).
+    /// The playlists sort by name, A to Z, in the language of the reader
+    /// (ADR 0089 Decision 5: the sidebar has no sort control; musicindex ADR
+    /// 0053 R-LIST-12).
     fn sort_playlists_by_name(playlists: &mut [db::Playlist]) {
-        playlists.sort_by_key(|playlist| playlist.name.to_lowercase());
+        crate::view_models::name_order::sort_by_name(playlists, |playlist| &playlist.name);
     }
 
     fn pending_feed_update_label(count: usize) -> String {
@@ -9432,6 +9435,20 @@ mod tests {
             vm.feed_update_state().status_message.as_deref(),
             Some("Checked 3 feeds; all feeds up to date; no route repairs needed")
         );
+    }
+
+    /// Musicindex ADR 0053 R-LIST-12: the My playlists list reads a number
+    /// as a number and ignores case.
+    #[test]
+    fn adr_0053_r12_my_playlists_read_numbers_and_ignore_case() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_playlists(vec![
+            playlist("Mix 10"),
+            playlist("mix 2"),
+            playlist("Alpha"),
+        ]);
+        let names: Vec<&str> = vm.playlists().iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, ["Alpha", "mix 2", "Mix 10"]);
     }
 
     #[test]

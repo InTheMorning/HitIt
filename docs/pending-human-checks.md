@@ -299,4 +299,5 @@ Open - the packets below are implemented, and the mechanical suite is Green. The
 - Packet 6 and [ADR 0090 task 004](tasks/adr-0090-task-004-feed-and-name-page-list-bar.md): open "Reward", then the artist link "Advocateworldwide". The Select bar is above "Albums and EPs", and the page has no bottom bar. "Singles" has "A to Z", rows, tiles and the reverse icon at the right of its heading. "Albums and EPs" (4 rows) has no control.
 - Packet 6, selection: select a row in "Albums and EPs" and a tile in "Singles": the bar shows "2 releases selected".
 - Packet 6, not checked by the agent: a Library feed page with 8 releases or more shows Newest. A name level page with 8 releases or more. The narrow window wrap of the bar.
+- Packet 7: on a Library list with A to Z, a name with a number such as "Track 2" comes before "Track 10", and "abba" and "ABBA" are adjacent. The agent screenshots of 2026-11-08 show no such names in the seeded Library.
 - Wrong: a control that does nothing, rows in an incorrect sequence, or no selection after a sort. A sort control on a list that R-LIST-9 does not give one is also wrong.

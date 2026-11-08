@@ -34,6 +34,7 @@ use crate::view_models::library::{
 };
 use crate::view_models::list_page::ListSort;
 use crate::view_models::list_selection::RowSelectionVm;
+use crate::view_models::name_order;
 use crate::view_models::named_feeds::{index_named_feeds, NamedFeed};
 use crate::view_models::publisher_page::PublisherPageVm;
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
@@ -217,7 +218,7 @@ impl<'a> SinglesGroup<'a> {
         members.extend(self.index_singles.iter().map(GroupMember::Index));
         members.sort_by(|left, right| {
             newest_date_first(left.date(), right.date())
-                .then_with(|| left.sort_key().cmp(&right.sort_key()))
+                .then_with(|| name_order::compare_names(&left.sort_key(), &right.sort_key()))
         });
         members
     }
@@ -596,7 +597,7 @@ fn everything_groups<'a>(
             matched.sort_by(newest_first);
             index_singles.sort_by(|left, right| {
                 newest_date_first(left.date, right.date)
-                    .then_with(|| left.sort_key.cmp(&right.sort_key))
+                    .then_with(|| name_order::compare_names(&left.sort_key, &right.sort_key))
             });
             let feed_guid = match &identity {
                 ArtistIdentity::Publisher(feed_guid) => Some(feed_guid.as_str()),
@@ -652,12 +653,8 @@ fn newest_date_first(left: Option<i64>, right: Option<i64>) -> Ordering {
 /// The order of the singles in a group: newest first, a single with no
 /// date last, and equal dates by the lowercase release name.
 fn newest_first(left: &GroupSingle<'_>, right: &GroupSingle<'_>) -> Ordering {
-    newest_date_first(left.date, right.date).then_with(|| {
-        left.album
-            .name
-            .to_lowercase()
-            .cmp(&right.album.name.to_lowercase())
-    })
+    newest_date_first(left.date, right.date)
+        .then_with(|| name_order::compare_names(&left.album.name, &right.album.name))
 }
 
 /// The group that has the key `key`, when one exists.
@@ -1141,7 +1138,7 @@ pub(crate) fn order_group_rows(
     let (own, matched) = rows.split_at_mut(split);
     for part in [own, matched] {
         if sort == ListSort::AToZ {
-            part.sort_by_cached_key(|row| name_sort_key(row.title()));
+            name_order::sort_by_name(part, |row| row.title());
         }
         if reversed {
             part.reverse();
@@ -3560,8 +3557,9 @@ mod tests {
             .iter()
             .map(|row| name_sort_key(row.title()))
             .collect();
+        // Musicindex ADR 0053 R-LIST-12: "index 2" comes before "index 10".
         let mut sorted = names.clone();
-        sorted.sort();
+        sorted.sort_by(|a, b| name_order::compare_names(a, b));
         assert_eq!(names, sorted, "A to Z orders by the visible title");
         assert_ne!(keys(&page), newest);
         vm.set_list_reversed(ListPageKey::SinglesGroup, true);
@@ -3592,5 +3590,30 @@ mod tests {
             grouped.push(digit);
         }
         grouped.chars().rev().collect()
+    }
+
+    /// Musicindex ADR 0053 R-LIST-12: the A to Z of a group page reads a
+    /// number as a number and ignores case.
+    #[test]
+    fn adr_0053_r12_group_page_a_to_z_reads_numbers_and_ignores_case() {
+        let index_row = |title: &str| {
+            SinglesGroupPageEntryVm::Index(SinglesGroupIndexRowVm {
+                element_id: format!("row-{title}"),
+                key: ReleaseKey::from_index_feed_guid(format!("guid-{title}")),
+                title: title.to_owned(),
+                date_text: None,
+                duration: None,
+                image_url: None,
+                work: TrackRowWork::Idle,
+            })
+        };
+        let mut rows = vec![
+            index_row("Track 10"),
+            index_row("track 2"),
+            index_row("Alpha"),
+        ];
+        order_group_rows(&mut rows, 0, ListSort::AToZ, false);
+        let order: Vec<&str> = rows.iter().map(SinglesGroupPageEntryVm::title).collect();
+        assert_eq!(order, ["Alpha", "track 2", "Track 10"]);
     }
 }

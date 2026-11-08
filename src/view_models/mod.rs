@@ -88,6 +88,7 @@ pub(crate) mod live_status;
 pub mod metadata;
 pub mod musicbrainz_panel;
 pub(crate) mod name_level_page;
+pub(crate) mod name_order;
 pub(crate) mod named_feeds;
 pub mod paged_playlist_detail;
 pub(crate) mod pagination;

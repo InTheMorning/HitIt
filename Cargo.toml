@@ -47,6 +47,11 @@ encoding_rs = "=0.8.35"
 mime = "=0.3.17"
 lru = "0.12"
 
+# musicindex ADR 0053 R-LIST-12: text order of the language of the reader.
+icu_collator = "~2.1"
+icu_locale_core = "~2.1"
+sys-locale = "0.3"
+
 # Async view-model runtime (ADR 0040).
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
 tokio-util = { version = "0.7", features = ["rt"] }

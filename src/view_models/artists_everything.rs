@@ -66,6 +66,16 @@ impl ArtistOrderKey {
         }
     }
 
+    /// The order of two positions in a list of local rows only (musicindex
+    /// ADR 0053 R-LIST-12 item 1). The names compare in the language of the
+    /// reader. Equal names keep the order of [`Ord`]. A list that merges
+    /// rows with node rows uses [`Ord`], because the node owns that order.
+    #[must_use]
+    pub(crate) fn local_cmp(&self, other: &Self) -> std::cmp::Ordering {
+        crate::view_models::name_order::compare_names(&self.sort_key, &other.sort_key)
+            .then_with(|| self.cmp(other))
+    }
+
     /// The position of a `MusicIndex` row. `MusicIndex` gives the sort key, so
     /// this position is the position of the row in its pages.
     fn index(row: &ArtistNameRow) -> Self {
@@ -652,5 +662,20 @@ mod tests {
             FeedLinkClass::Artist,
             "the artist role is read without case"
         );
+    }
+
+    /// Musicindex ADR 0053 R-LIST-12: the order of local artist rows reads a
+    /// number as a number and ignores case. The order of [`Ord`], which the
+    /// scope All uses with the node, stays the code point order.
+    #[test]
+    fn adr_0053_r12_local_artist_order_reads_numbers_and_ignores_case() {
+        let key = |name: &str| ArtistOrderKey::name(name.to_lowercase());
+        let mut keys = [key("Act 10"), key("act 2"), key("Alpha")];
+        keys.sort_by(ArtistOrderKey::local_cmp);
+        assert_eq!(
+            keys.iter().map(|k| k.sort_key.as_str()).collect::<Vec<_>>(),
+            ["act 2", "act 10", "alpha"]
+        );
+        assert!(key("act 10") < key("act 2"), "the node order is kept");
     }
 }

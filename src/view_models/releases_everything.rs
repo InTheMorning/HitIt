@@ -72,6 +72,16 @@ impl ReleaseOrderKey {
         }
     }
 
+    /// The order of two positions in a list of local rows only (musicindex
+    /// ADR 0053 R-LIST-12 item 1). The names compare in the language of the
+    /// reader. Equal names keep the order of [`Ord`]. A list that merges
+    /// rows with node rows uses [`Ord`], because the node owns that order.
+    #[must_use]
+    fn local_cmp(&self, other: &Self) -> std::cmp::Ordering {
+        crate::view_models::name_order::compare_names(&self.sort_key, &other.sort_key)
+            .then_with(|| self.cmp(other))
+    }
+
     /// The position of a singles group row with the label `label`, in both
     /// scopes (packet 026 decision D5, operator answer of 2026-10-24, and
     /// packet 036 decision D1).
@@ -236,7 +246,9 @@ pub(crate) fn loaded_index_release_title(
 /// The Library entries in the order of [`ReleaseOrderKey`] (decision D6).
 #[must_use]
 pub(crate) fn library_entries(mut library: Vec<LibraryReleaseEntry>) -> Vec<ReleasesListEntryVm> {
-    library.sort_by(|left, right| left.order.cmp(&right.order));
+    // The scope "In Library" holds only local rows, so the app sorts by the
+    // text order of the reader (musicindex ADR 0053 R-LIST-12 item 1).
+    library.sort_by(|left, right| left.order.local_cmp(&right.order));
     library.into_iter().map(|entry| entry.entry).collect()
 }
 
@@ -1361,5 +1373,25 @@ pub(crate) mod tests {
             ],
             "a moved row is removed and added, and the others keep their items"
         );
+    }
+
+    /// Musicindex ADR 0053 R-LIST-12: the order of local release rows reads
+    /// a number as a number and ignores case. The order of [`Ord`], which
+    /// the scope All uses with the node, stays the code point order.
+    #[test]
+    fn adr_0053_r12_local_release_order_reads_numbers_and_ignores_case() {
+        let key = |title: &str| {
+            ReleaseOrderKey::release(
+                title,
+                ReleaseKey::from_index_feed_guid(format!("g-{title}")),
+            )
+        };
+        let mut keys = [key("Track 10"), key("track 2"), key("Alpha")];
+        keys.sort_by(ReleaseOrderKey::local_cmp);
+        assert_eq!(
+            keys.iter().map(|k| k.sort_key.as_str()).collect::<Vec<_>>(),
+            ["alpha", "track 2", "track 10"]
+        );
+        assert!(key("track 10") < key("track 2"), "the node order is kept");
     }
 }
