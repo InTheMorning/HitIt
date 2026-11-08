@@ -55,6 +55,7 @@ pub(crate) mod selection_action_bar;
 pub mod show_card;
 pub mod show_detail_panel;
 pub mod show_log_pane;
+pub mod sidebar_glow;
 pub mod skeleton_inspector;
 pub mod skeleton_track_row;
 pub mod split_pane;
