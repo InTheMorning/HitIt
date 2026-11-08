@@ -19,6 +19,8 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use musicindex_search::name_order::order_key;
+
 use crate::api::Feed;
 use crate::view_models::download_progress::DownloadPhase;
 use crate::view_models::index_feed_singles::IndexFeedSingles;
@@ -58,8 +60,13 @@ enum ReleaseOrderTie {
 /// Stophammer sort key, then the release key.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct ReleaseOrderKey {
+    /// The order key of the name (Stophammer ADR 0090). A Library row and a
+    /// node row compare by it.
     sort_key: String,
     tie: ReleaseOrderTie,
+    /// The plain sort key of the name, for the order of a list of local rows
+    /// only. It is the last field, so it decides no merge order.
+    local: String,
 }
 
 impl ReleaseOrderKey {
@@ -67,8 +74,9 @@ impl ReleaseOrderKey {
     #[must_use]
     pub(crate) fn release(label: &str, key: ReleaseKey) -> Self {
         Self {
-            sort_key: name_sort_key(label),
+            sort_key: order_key(label),
             tie: ReleaseOrderTie::Release(key),
+            local: name_sort_key(label),
         }
     }
 
@@ -78,7 +86,7 @@ impl ReleaseOrderKey {
     /// rows with node rows uses [`Ord`], because the node owns that order.
     #[must_use]
     fn local_cmp(&self, other: &Self) -> std::cmp::Ordering {
-        crate::view_models::name_order::compare_names(&self.sort_key, &other.sort_key)
+        crate::view_models::name_order::compare_names(&self.local, &other.local)
             .then_with(|| self.cmp(other))
     }
 
@@ -88,8 +96,9 @@ impl ReleaseOrderKey {
     #[must_use]
     pub(crate) fn group(label: &str, key: SinglesGroupKey) -> Self {
         Self {
-            sort_key: name_sort_key(label),
+            sort_key: order_key(label),
             tie: ReleaseOrderTie::Group(key),
+            local: name_sort_key(label),
         }
     }
 
@@ -98,13 +107,12 @@ impl ReleaseOrderKey {
     /// for a row with no feed GUID.
     fn index(feed: &Feed) -> Option<Self> {
         let feed_guid = feed.feed_guid.as_deref().filter(|guid| !guid.is_empty())?;
-        let sort_key = feed
-            .sort_name
-            .clone()
-            .unwrap_or_else(|| name_sort_key(feed.title.as_deref().unwrap_or_default()));
+        let title = feed.title.as_deref().unwrap_or_default();
+        let sort_key = feed.sort_name.clone().unwrap_or_else(|| order_key(title));
         Some(Self {
             sort_key,
             tie: ReleaseOrderTie::Release(ReleaseKey::FeedGuid(feed_guid.to_owned())),
+            local: name_sort_key(title),
         })
     }
 }
@@ -1377,7 +1385,7 @@ pub(crate) mod tests {
 
     /// Musicindex ADR 0053 R-LIST-12: the order of local release rows reads
     /// a number as a number and ignores case. The order of [`Ord`], which
-    /// the scope All uses with the node, stays the code point order.
+    /// the scope All uses with the node, is the order of `order_key`.
     #[test]
     fn adr_0053_r12_local_release_order_reads_numbers_and_ignores_case() {
         let key = |title: &str| {
@@ -1389,9 +1397,97 @@ pub(crate) mod tests {
         let mut keys = [key("Track 10"), key("track 2"), key("Alpha")];
         keys.sort_by(ReleaseOrderKey::local_cmp);
         assert_eq!(
-            keys.iter().map(|k| k.sort_key.as_str()).collect::<Vec<_>>(),
+            keys.iter().map(|k| k.local.as_str()).collect::<Vec<_>>(),
             ["alpha", "track 2", "track 10"]
         );
-        assert!(key("track 10") < key("track 2"), "the node order is kept");
+        assert!(
+            key("track 10") > key("track 2"),
+            "the order key reads numbers by value"
+        );
+    }
+
+    /// A node release row of `name`, with the node key of the name.
+    fn node_release(name: &str) -> Feed {
+        serde_json::from_value(serde_json::json!({
+            "feed_guid": format!("node-{name}"), "title": name,
+            "sort_name": order_key(name), "release_artist": "Node",
+            "release_kind": "unknown", "episode_count": 1, "publisher_feed_guid": null
+        }))
+        .expect("a node row decodes")
+    }
+
+    fn order_key_library() -> Vec<LibraryReleaseEntry> {
+        ["Zēmar Red", "Øystein Berge", "1point3", "$2 Holla", "abba"]
+            .into_iter()
+            .map(|name| library_row(name, ReleaseKey::FeedGuid(format!("lib-{name}"))))
+            .collect()
+    }
+
+    fn order_key_merge(has_more: bool, node_names: &[&str], reversed: bool) -> Vec<String> {
+        let page = loaded_page(
+            node_names.iter().map(|n| node_release(n)).collect(),
+            has_more,
+        );
+        everything_entries(
+            order_key_library(),
+            &BTreeSet::new(),
+            &page,
+            |_| None,
+            |_| false,
+            reversed,
+        )
+        .iter()
+        .map(|entry| entry.label().to_owned())
+        .collect()
+    }
+
+    /// ADR 0091 with Stophammer ADR 0090: a Library row merges by the order
+    /// key of its name, as the node key of the same name, in both directions.
+    #[test]
+    fn adr_0091_order_key_library_rows_merge_at_the_node_positions() {
+        let nodes = ["Mango", "10 Cent", "Zulu", "Aaron"];
+        let expected = [
+            "$2 Holla",
+            "1point3",
+            "10 Cent",
+            "Aaron",
+            "abba",
+            "Mango",
+            "Øystein Berge",
+            "Zēmar Red",
+            "Zulu",
+        ];
+        assert_eq!(order_key_merge(false, &nodes, false), expected);
+        let mut reversed = expected;
+        reversed.reverse();
+        assert_eq!(order_key_merge(false, &nodes, true), reversed);
+    }
+
+    /// ADR 0091: the watermark holds a Library row until its node neighbour
+    /// loaded, in both directions.
+    #[test]
+    fn adr_0091_order_key_watermark_holds_a_library_row_until_the_node_loads() {
+        assert_eq!(
+            order_key_merge(true, &["10 Cent", "Mango"], false),
+            ["$2 Holla", "1point3", "10 Cent", "abba", "Mango"]
+        );
+        assert_eq!(
+            order_key_merge(true, &["Zulu", "Mango"], true),
+            ["Zulu", "Zēmar Red", "Øystein Berge", "Mango"]
+        );
+    }
+
+    /// ADR 0091: a letter jump keeps the Library rows that the node `from`
+    /// keeps, by the order key of the name.
+    #[test]
+    fn adr_0091_order_key_letter_jump_lines_up_with_the_node() {
+        use crate::view_models::letter_bar::{name_at_or_after, LetterKey};
+        assert!(name_at_or_after("Øystein Berge", Some("o"), false));
+        assert!(!name_at_or_after("abba", Some("o"), false));
+        assert!(!name_at_or_after("$2 Holla", Some("a"), false));
+        assert!(name_at_or_after("Zēmar Red", Some("z"), false));
+        assert_eq!(LetterKey::of_name("Zēmar Red"), LetterKey::Letter('Z'));
+        assert_eq!(LetterKey::of_name("Øystein"), LetterKey::Letter('O'));
+        assert_eq!(LetterKey::of_name("1point3"), LetterKey::Other);
     }
 }
