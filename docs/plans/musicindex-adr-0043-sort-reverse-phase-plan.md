@@ -1,6 +1,6 @@
 # musicindex ADR 0043 Sort Reverse Phase Plan
 
-Status: Open. Created 2026-11-06. Packets 001 to 004 are complete or implemented. The operator passed the visual check of packets 001 to 003 on 2026-11-07, from the agent screenshots (`shots2/c1-sortmenu.png`, `c3-reversed.png`, `d1-art-rev.png`, `d2-rel-kept.png`, `d4-myplaylists.png`, `d5-public.png`, `o2-dark-inlib.png`, `o3-dark-rev.png`), through the orchestrator session. Packet 005 waits for the Stophammer answer.
+Status: Open. Created 2026-11-06. Packets 001 to 004 are complete or implemented. The operator passed the visual check of packets 001 to 003 on 2026-11-07, from the agent screenshots (`shots2/c1-sortmenu.png`, `c3-reversed.png`, `d1-art-rev.png`, `d2-rel-kept.png`, `d4-myplaylists.png`, `d5-public.png`, `o2-dark-inlib.png`, `o3-dark-rev.png`), through the orchestrator session. Packet 005 waits for the shared list rule of the website session. It does not wait for Stophammer: the live node gives `reverse=true` on each of these routes (checked on 2026-11-07).
 
 Owner of the rules: musicindex ADR 0043 R-LIST-6 and R-LIST-7. This plan states no rule.
 
@@ -27,7 +27,7 @@ Each v4vmm list with a sort has the approved control. A list that can reverse al
 | Results | All | `/v1/search` and pages of local rows | Absent until packet 005 |
 | Live | None | No sort | No control |
 
-The MusicIndex API 0.18.1 has no sort direction on these routes, and its cursors go forward.
+The MusicIndex API 0.18.1 had no sort direction on these routes. The stored contract 0.19.0 and the live node of 2026-11-07 give `reverse=true` on `/v1/feeds/recent`, `/v1/feeds/by-name` and `/v1/artist-names`, and `sort` and `reverse` on `/v1/search`, under the capability `sort`. A reversed list keeps its sequence across the next page of its cursor.
 
 ## Sequence
 
