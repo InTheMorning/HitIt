@@ -42,6 +42,11 @@ actions!(
         // focused singles group.
         OpenFocusedGroup,
         CloseFocusedGroup,
+        // ADR 0092: the row menu of the focused row opens from the keyboard,
+        // and a playlist row moves in the Curator Order.
+        OpenRowMenu,
+        MoveRowUp,
+        MoveRowDown,
     ]
 );
 
@@ -81,6 +86,9 @@ pub(super) enum AppKeyCommand {
     SelectAllVisible,
     OpenFocusedGroup,
     CloseFocusedGroup,
+    OpenRowMenu,
+    MoveRowUp,
+    MoveRowDown,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -230,6 +238,32 @@ pub(super) const APP_KEY_BINDING_SPECS: &[AppKeyBindingSpec] = &[
         label: "Close Group",
         scope: AppKeyScope::ActivePane,
     },
+    // ADR 0092 Decision 2: the platform keys of a context menu.
+    AppKeyBindingSpec {
+        command: AppKeyCommand::OpenRowMenu,
+        keystroke: "shift-f10",
+        label: "Open Row Menu",
+        scope: AppKeyScope::ActivePane,
+    },
+    AppKeyBindingSpec {
+        command: AppKeyCommand::OpenRowMenu,
+        keystroke: "menu",
+        label: "Open Row Menu",
+        scope: AppKeyScope::ActivePane,
+    },
+    // ADR 0092 Decision 3: the keys that move a playlist row.
+    AppKeyBindingSpec {
+        command: AppKeyCommand::MoveRowUp,
+        keystroke: "alt-up",
+        label: "Move Row Up",
+        scope: AppKeyScope::ActivePane,
+    },
+    AppKeyBindingSpec {
+        command: AppKeyCommand::MoveRowDown,
+        keystroke: "alt-down",
+        label: "Move Row Down",
+        scope: AppKeyScope::ActivePane,
+    },
 ];
 
 pub(super) fn install_key_bindings(cx: &mut App) {
@@ -313,6 +347,9 @@ impl AppKeyBindingSpec {
             AppKeyCommand::CloseFocusedGroup => {
                 KeyBinding::new(keystroke, CloseFocusedGroup, context)
             }
+            AppKeyCommand::OpenRowMenu => KeyBinding::new(keystroke, OpenRowMenu, context),
+            AppKeyCommand::MoveRowUp => KeyBinding::new(keystroke, MoveRowUp, context),
+            AppKeyCommand::MoveRowDown => KeyBinding::new(keystroke, MoveRowDown, context),
         }
     }
 
@@ -544,6 +581,48 @@ impl TopApp {
                 });
             }
             AppTab::Show | AppTab::Settings => {}
+        }
+    }
+
+    /// Shift+F10 and the Menu key (ADR 0092 Decision 2).
+    pub(super) fn handle_open_row_menu(
+        &mut self,
+        _: &OpenRowMenu,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.tab == AppTab::Music {
+            self.library.update(cx, |library, cx| {
+                library.open_focused_row_menu(window, cx);
+            });
+        }
+    }
+
+    /// Alt+Up (ADR 0092 Decision 3).
+    pub(super) fn handle_move_row_up(
+        &mut self,
+        _: &MoveRowUp,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.tab == AppTab::Music {
+            self.library.update(cx, |library, cx| {
+                library.move_focused_playlist(true, window, cx);
+            });
+        }
+    }
+
+    /// Alt+Down (ADR 0092 Decision 3).
+    pub(super) fn handle_move_row_down(
+        &mut self,
+        _: &MoveRowDown,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.tab == AppTab::Music {
+            self.library.update(cx, |library, cx| {
+                library.move_focused_playlist(false, window, cx);
+            });
         }
     }
 
@@ -840,6 +919,123 @@ mod tests {
         });
     }
 
+    /// ADR 0092: while a pointer menu is open, Down, Up, Return and Space
+    /// never reach the pane, and Return runs the focused entry.
+    #[gpui::test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one scene holds the pane and the menu"
+    )]
+    fn adr_0092_menu_keys_never_reach_the_pane(cx: &mut gpui::TestAppContext) {
+        use std::{cell::Cell, rc::Rc};
+
+        use gpui::{div, point, prelude::*, px, FocusHandle, Render};
+
+        use crate::ui::primitives::context_menu::{
+            ContextMenuItem, ContextMenuItemDisplay, PointerContextMenu,
+        };
+
+        struct PaneMenuTest {
+            pane: FocusHandle,
+            pane_keys: Rc<Cell<usize>>,
+            runs: Rc<Cell<usize>>,
+        }
+
+        impl Render for PaneMenuTest {
+            fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+                let runs = Rc::clone(&self.runs);
+                let count = |this: &Self| Rc::clone(&this.pane_keys);
+                let (down, up, confirm, space) =
+                    (count(self), count(self), count(self), count(self));
+                div()
+                    .size_full()
+                    .key_context(ACTIVE_PANE_KEY_CONTEXT)
+                    .track_focus(&self.pane)
+                    .on_action(cx.listener(move |_, _: &MoveSelectionDown, _, _| {
+                        down.set(down.get() + 1);
+                    }))
+                    .on_action(cx.listener(move |_, _: &MoveSelectionUp, _, _| {
+                        up.set(up.get() + 1);
+                    }))
+                    .on_action(cx.listener({
+                        let other = Rc::clone(&self.pane_keys);
+                        move |_, _: &MoveRowDown, _, _| other.set(other.get() + 1)
+                    }))
+                    .on_action(cx.listener({
+                        let other = Rc::clone(&self.pane_keys);
+                        move |_, _: &OpenFocusedGroup, _, _| other.set(other.get() + 1)
+                    }))
+                    .on_action(cx.listener({
+                        let other = Rc::clone(&self.pane_keys);
+                        move |_, _: &MoveSelectionPageDown, _, _| other.set(other.get() + 1)
+                    }))
+                    .on_action(cx.listener({
+                        let other = Rc::clone(&self.pane_keys);
+                        move |_, _: &OpenRowMenu, _, _| other.set(other.get() + 1)
+                    }))
+                    .on_action(cx.listener(move |_, _: &ConfirmSelection, _, _| {
+                        confirm.set(confirm.get() + 1);
+                    }))
+                    .on_action(cx.listener(move |_, _: &ToggleFocusedSelection, _, _| {
+                        space.set(space.get() + 1);
+                    }))
+                    .child(
+                        PointerContextMenu::new(
+                            "pane-menu",
+                            point(px(20.0), px(20.0)),
+                            self.pane.clone(),
+                            |_, _| {},
+                        )
+                        .item(
+                            ContextMenuItem::new(ContextMenuItemDisplay {
+                                id: "first".into(),
+                                label: "First".into(),
+                                a11y_label: "First".into(),
+                                destructive: false,
+                                disabled: false,
+                            })
+                            .on_select(move |_, _| runs.set(runs.get() + 1)),
+                        )
+                        .item(ContextMenuItem::new(
+                            ContextMenuItemDisplay {
+                                id: "second".into(),
+                                label: "Second".into(),
+                                a11y_label: "Second".into(),
+                                destructive: false,
+                                disabled: false,
+                            },
+                        )),
+                    )
+            }
+        }
+
+        cx.update(gpui_component::init);
+        cx.update(install_key_bindings);
+        cx.update(crate::ui::primitives::context_menu::init);
+        let pane_keys = Rc::new(Cell::new(0));
+        let runs = Rc::new(Cell::new(0));
+        let (shared_keys, shared_runs) = (Rc::clone(&pane_keys), Rc::clone(&runs));
+        let (_, cx) = cx.add_window_view(move |_, cx| PaneMenuTest {
+            pane: cx.focus_handle(),
+            pane_keys: shared_keys,
+            runs: shared_runs,
+        });
+        cx.update(|window, cx| {
+            window.activate_window();
+            let _ = window.draw(cx);
+        });
+        for _ in 0..2 {
+            cx.update(|window, cx| {
+                let _ = window.draw(cx);
+            });
+        }
+        cx.simulate_keystrokes("down up down up alt-down right pagedown shift-f10");
+        assert_eq!(pane_keys.get(), 0, "Down and Up stay in the menu");
+        cx.simulate_keystrokes("space");
+        assert_eq!(pane_keys.get(), 0, "Space stays in the menu");
+        assert_eq!(runs.get(), 1, "Space runs the focused entry");
+    }
+
     fn assert_action<A: Action>(keymap: &Keymap, key: &str, contexts: &[KeyContext]) {
         let (bindings, pending) =
             keymap.bindings_for_input(&[Keystroke::parse(key).expect("test key parses")], contexts);
@@ -1000,6 +1196,9 @@ mod tests {
             AppKeyCommand::SelectAllVisible,
             AppKeyCommand::OpenFocusedGroup,
             AppKeyCommand::CloseFocusedGroup,
+            AppKeyCommand::OpenRowMenu,
+            AppKeyCommand::MoveRowUp,
+            AppKeyCommand::MoveRowDown,
         ] {
             assert!(
                 commands.contains(&command),

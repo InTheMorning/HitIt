@@ -295,6 +295,13 @@ pub struct LibraryApp {
     /// The scroll of the Playlists list (ADR 0089 Decision 1). The Library
     /// holds it, so the offset survives a page opened over the list.
     playlists_scroll: ScrollHandle,
+    /// The keyboard cursor of the My playlists list, by playlist id (ADR 0092
+    /// Decision 1). The id keeps the cursor on a playlist that moves. A change
+    /// of destination clears it.
+    playlists_selection: ListSelection<i64>,
+    /// The request to keep the focused playlist row in view (ADR 0092
+    /// Decision 1).
+    playlists_reveal: ScrollReveal,
     /// The loaded MusicIndex artist name pages of the Artists scope
     /// "Everything" (packet 016 decision D9). They stay until the app
     /// stops.

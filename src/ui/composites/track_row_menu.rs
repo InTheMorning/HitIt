@@ -18,8 +18,8 @@
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, AnyElement, App, Div, Entity, FocusHandle, IntoElement, Pixels, Point,
-    RenderOnce, SharedString, Window,
+    canvas, div, prelude::*, AnyElement, App, Div, Entity, FocusHandle, Global, IntoElement,
+    Pixels, Point, RenderOnce, SharedString, Window,
 };
 use gpui_component::{input::InputState, v_flex};
 
@@ -74,8 +74,29 @@ pub(crate) struct TrackRowMenuHandlers {
     pub(crate) create_playlist: CreateHandler,
 }
 
+/// The request of a key to open the row menu `0` at the next render of its
+/// row (ADR 0092 Decision 2). The row that owns the menu takes the request in
+/// [`row_menu_state`] and opens its menu at the menu cell.
+#[derive(Default)]
+struct RowMenuOpenRequest(Option<SharedString>);
+
+impl Global for RowMenuOpenRequest {}
+
+/// Asks the row menu `menu_id` to open at the next render of its row (ADR
+/// 0092 Decision 2). The caller notifies the list that holds the row. The
+/// menu then opens at the "⋯" cell of the row, and Escape gives the focus back
+/// to the list.
+pub(crate) fn request_row_menu_open(menu_id: &str, cx: &mut App) {
+    cx.set_global(RowMenuOpenRequest(Some(SharedString::from(
+        menu_id.to_owned(),
+    ))));
+}
+
 /// The keyed state of one row menu.
 pub(crate) struct TrackRowMenuState {
+    /// Where the menu cell of the row was at the last paint. A key opens the
+    /// menu there (ADR 0092 Decision 2).
+    anchor: Option<Point<Pixels>>,
     /// The pointer position of the open right-click menu.
     pointer: Option<Point<Pixels>>,
     /// The playlist level shows its create mode.
@@ -104,15 +125,30 @@ pub(crate) fn row_menu_state(
     window: &mut Window,
     cx: &mut App,
 ) -> Entity<TrackRowMenuState> {
-    window.use_keyed_state(
+    let state = window.use_keyed_state(
         SharedString::from(format!("{menu_id}-row-state")),
         cx,
         |window, cx| TrackRowMenuState {
+            anchor: None,
             pointer: None,
             creating: false,
             name_input: cx.new(|cx| InputState::new(window, cx).placeholder("Playlist name")),
         },
-    )
+    );
+    // ADR 0092 Decision 2: a key asked for this menu, so it opens in this
+    // render, and the request ends.
+    let requested = cx
+        .try_global::<RowMenuOpenRequest>()
+        .is_some_and(|request| request.0.as_deref() == Some(menu_id));
+    if requested {
+        cx.set_global(RowMenuOpenRequest(None));
+        let at = state
+            .read(cx)
+            .anchor
+            .unwrap_or_else(|| window.mouse_position());
+        state.update(cx, |state, _| state.open_at(at));
+    }
+    state
 }
 
 /// The items of the "⋯" menu and of the right-click menu (ADR 0083
@@ -319,7 +355,18 @@ impl RenderOnce for TrackRowMenuCell {
                 .invisible()
                 .group_hover(TRACK_ROW_GROUP, Styled::visible),
         };
-        cell.child(trigger)
+        // ADR 0092 Decision 2: the probe records where the cell is, so a key
+        // opens the menu at the cell.
+        let anchor_state = state.clone();
+        let anchor = canvas(
+            move |bounds, _window, cx| {
+                anchor_state.update(cx, |state, _| state.anchor = Some(bounds.bottom_left()));
+            },
+            |_, (), _, _| {},
+        )
+        .absolute()
+        .size_full();
+        cell.relative().child(anchor).child(trigger)
     }
 }
 

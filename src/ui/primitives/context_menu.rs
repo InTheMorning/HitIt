@@ -17,6 +17,7 @@ use gpui::{
     IntoElement, KeyBinding, MouseButton, Pixels, Point, RenderOnce, SharedString, Window,
 };
 
+use super::button::MenuActivate;
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
 use crate::ui::primitives::{
@@ -42,16 +43,111 @@ pub(crate) struct MenuLevelControls {
 }
 
 const POINTER_MENU_KEY_CONTEXT: &str = "PointerContextMenu";
+/// The movement and activation keys leave a text field of the menu alone.
+const POINTER_MENU_ENTRY_KEY_CONTEXT: &str = "PointerContextMenu && !Input";
 
-actions!(pointer_context_menu, [Dismiss]);
+/// The list keys of the pane that do nothing while a menu has the focus.
+const SWALLOWED_KEYS: &[&str] = &[
+    "alt-up",
+    "alt-down",
+    "left",
+    "right",
+    "pageup",
+    "pagedown",
+    "shift-f10",
+    "menu",
+];
 
-/// Install the pointer menu's Escape binding before opening windows (ADR 0071).
+/// The most entries that one menu walk visits. It bounds the walk.
+const MENU_WALK_LIMIT: usize = 512;
+
+actions!(
+    pointer_context_menu,
+    [Dismiss, FocusNext, FocusPrev, FocusFirst, FocusLast, SwallowKey]
+);
+
+/// The keys of a pointer menu with the action each one runs. Escape closes
+/// the menu. The other keys move the focus between its entries or run the
+/// focused entry. Each action stops at the menu, so the pane never gets it
+/// while the menu is open (ADR 0071, ADR 0092).
+fn pointer_menu_key_bindings() -> Vec<KeyBinding> {
+    [
+        KeyBinding::new("escape", Dismiss, Some(POINTER_MENU_KEY_CONTEXT)),
+        KeyBinding::new("down", FocusNext, Some(POINTER_MENU_ENTRY_KEY_CONTEXT)),
+        KeyBinding::new("up", FocusPrev, Some(POINTER_MENU_ENTRY_KEY_CONTEXT)),
+        KeyBinding::new("home", FocusFirst, Some(POINTER_MENU_ENTRY_KEY_CONTEXT)),
+        KeyBinding::new("end", FocusLast, Some(POINTER_MENU_ENTRY_KEY_CONTEXT)),
+        KeyBinding::new("enter", MenuActivate, Some(POINTER_MENU_ENTRY_KEY_CONTEXT)),
+        KeyBinding::new("space", MenuActivate, Some(POINTER_MENU_ENTRY_KEY_CONTEXT)),
+    ]
+    .into_iter()
+    .chain(
+        SWALLOWED_KEYS
+            .iter()
+            .map(|key| KeyBinding::new(key, SwallowKey, Some(POINTER_MENU_ENTRY_KEY_CONTEXT))),
+    )
+    .collect()
+}
+
+/// Install the key bindings of the pointer menu before opening windows
+/// (ADR 0071).
 pub(crate) fn init(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new(
-        "escape",
-        Dismiss,
-        Some(POINTER_MENU_KEY_CONTEXT),
-    )]);
+    cx.bind_keys(pointer_menu_key_bindings());
+}
+
+/// A move of the focus between the entries of a menu.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MenuFocusStep {
+    Next,
+    Prev,
+    First,
+    Last,
+}
+
+/// The entry that a step reaches, from the entry `current` of `len` entries.
+/// `Next` and `Prev` wrap at the ends. No entry gives `None`.
+fn stepped_index(len: usize, current: Option<usize>, step: MenuFocusStep) -> Option<usize> {
+    if len == 0 {
+        return None;
+    }
+    Some(match step {
+        MenuFocusStep::First => 0,
+        MenuFocusStep::Last => len - 1,
+        MenuFocusStep::Next => current.map_or(0, |index| (index + 1) % len),
+        MenuFocusStep::Prev => current.map_or(len - 1, |index| (index + len - 1) % len),
+    })
+}
+
+/// The focus handles of the entries of a menu, in Tab order. GPUI gives no
+/// list of the tab stops inside one element. Thus the walk starts at the menu
+/// and follows `focus_next` until the focus leaves the menu. The focus ends on
+/// the last entry, so the caller sets the focus after the walk.
+fn menu_entries(menu: &FocusHandle, window: &mut Window, cx: &mut App) -> Vec<FocusHandle> {
+    let mut entries: Vec<FocusHandle> = Vec::new();
+    menu.focus(window, cx);
+    for _ in 0..MENU_WALK_LIMIT {
+        window.focus_next(cx);
+        let Some(focused) = window.focused(cx) else {
+            break;
+        };
+        if focused == *menu || !menu.contains_focused(window, cx) || entries.contains(&focused) {
+            break;
+        }
+        entries.push(focused);
+    }
+    entries
+}
+
+/// Moves the focus to another entry of the menu. A menu with no entry that
+/// takes the focus keeps the focus on itself.
+fn step_menu_focus(menu: &FocusHandle, step: MenuFocusStep, window: &mut Window, cx: &mut App) {
+    let current = window.focused(cx);
+    let entries = menu_entries(menu, window, cx);
+    let index = current.and_then(|current| entries.iter().position(|entry| *entry == current));
+    match stepped_index(entries.len(), index, step) {
+        Some(target) => entries[target].focus(window, cx),
+        None => menu.focus(window, cx),
+    }
 }
 
 struct ContextMenuState {
@@ -64,6 +160,9 @@ struct ContextMenuState {
 /// The second-level state of a [`PointerContextMenu`].
 struct PointerMenuLevel {
     level: Option<usize>,
+    /// `true` after the menu took the focus and before the focus reached the
+    /// first entry.
+    focus_entry_pending: bool,
 }
 
 /// The open state of a [`ContextMenu`] that its host holds (ADR 0084 task
@@ -175,12 +274,33 @@ impl RenderOnce for PointerContextMenu {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let focus = window.use_keyed_state(self.id.clone(), cx, |_, cx| cx.focus_handle());
         let focus = focus.read(cx).clone();
+        let level_key = SharedString::from(format!("{}-level", self.id));
+        let level_state = window.use_keyed_state(level_key, cx, |_, _| PointerMenuLevel {
+            level: None,
+            focus_entry_pending: false,
+        });
         if !focus.contains_focused(window, cx) {
             focus.focus(window, cx);
+            // The entries paint after this render. The next render moves the
+            // focus to the first entry that takes it, so Return runs an
+            // entry at once. A change of the level loses the focus and does
+            // this again.
+            level_state.update(cx, |state, _| state.focus_entry_pending = true);
+            window.refresh();
+            // `refresh` during a draw can be lost on a real display. This
+            // callback runs after the entries paint. It acts only while the
+            // focus is still on the menu itself.
+            let menu = focus.clone();
+            window.on_next_frame(move |window, cx| {
+                if window.focused(cx).is_some_and(|focused| focused == menu) {
+                    step_menu_focus(&menu, MenuFocusStep::First, window, cx);
+                    window.refresh();
+                }
+            });
+        } else if level_state.read(cx).focus_entry_pending {
+            level_state.update(cx, |state, _| state.focus_entry_pending = false);
+            step_menu_focus(&focus, MenuFocusStep::First, window, cx);
         }
-        let level_key = SharedString::from(format!("{}-level", self.id));
-        let level_state =
-            window.use_keyed_state(level_key, cx, |_, _| PointerMenuLevel { level: None });
         let dismiss: SelectHandler = {
             let level_state = level_state.clone();
             Rc::new(move |window, cx| {
@@ -226,6 +346,14 @@ impl RenderOnce for PointerContextMenu {
                 escape_dismiss(window, cx);
                 cx.stop_propagation();
             })
+            .on_action(step_action::<FocusNext>(&focus, MenuFocusStep::Next))
+            .on_action(step_action::<FocusPrev>(&focus, MenuFocusStep::Prev))
+            .on_action(step_action::<FocusFirst>(&focus, MenuFocusStep::First))
+            .on_action(step_action::<FocusLast>(&focus, MenuFocusStep::Last))
+            // An entry runs this action itself. It reaches the menu only when
+            // no entry has the focus, and then the key does nothing.
+            .on_action(|_: &MenuActivate, _, cx| cx.stop_propagation())
+            .on_action(|_: &SwallowKey, _, cx| cx.stop_propagation())
             .child(
                 Surface::new(SurfaceElevation::Floating)
                     .padding(Spacing::SM)
@@ -256,6 +384,18 @@ impl RenderOnce for PointerContextMenu {
                     ),
             ),
         )
+    }
+}
+
+/// The handler of a focus-step action of the menu with the focus handle `menu`.
+fn step_action<A: 'static>(
+    menu: &FocusHandle,
+    step: MenuFocusStep,
+) -> impl Fn(&A, &mut Window, &mut App) + 'static {
+    let menu = menu.clone();
+    move |_, window, cx| {
+        step_menu_focus(&menu, step, window, cx);
+        cx.stop_propagation();
     }
 }
 
@@ -614,6 +754,140 @@ mod tests {
         assert_eq!(item.display.label, SharedString::from("Remove"));
         assert!(item.display.destructive);
         assert!(item.on_select.is_some());
+    }
+
+    #[test]
+    fn adr_0092_menu_step_wraps_at_both_ends() {
+        use MenuFocusStep::{First, Last, Next, Prev};
+        assert_eq!(stepped_index(3, Some(2), Next), Some(0));
+        assert_eq!(stepped_index(3, Some(0), Prev), Some(2));
+        assert_eq!(stepped_index(3, Some(0), Next), Some(1));
+        assert_eq!(stepped_index(3, Some(1), Prev), Some(0));
+        assert_eq!(stepped_index(3, Some(1), First), Some(0));
+        assert_eq!(stepped_index(3, Some(1), Last), Some(2));
+        assert_eq!(stepped_index(3, None, Next), Some(0));
+        assert_eq!(stepped_index(3, None, Prev), Some(2));
+        assert_eq!(stepped_index(0, None, Next), None);
+        assert_eq!(stepped_index(1, Some(0), Next), Some(0));
+    }
+
+    #[test]
+    fn adr_0092_menu_key_table_binds_each_menu_key() {
+        let bindings = pointer_menu_key_bindings();
+        let keys: Vec<String> = bindings
+            .iter()
+            .map(|binding| binding.keystrokes()[0].unparse())
+            .collect();
+        for key in [
+            "escape",
+            "down",
+            "up",
+            "home",
+            "end",
+            "enter",
+            "space",
+            "alt-up",
+            "alt-down",
+            "left",
+            "right",
+            "pageup",
+            "pagedown",
+            "shift-f10",
+            "menu",
+        ] {
+            assert!(keys.iter().any(|bound| bound == key), "{key} is bound");
+        }
+    }
+
+    struct MenuKeyTest {
+        pane: FocusHandle,
+        selected: Rc<std::cell::RefCell<Vec<&'static str>>>,
+    }
+
+    impl gpui::Render for MenuKeyTest {
+        fn render(&mut self, _: &mut Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
+            let item = |id: &'static str, disabled: bool| {
+                let selected = Rc::clone(&self.selected);
+                ContextMenuItem::new(ContextMenuItemDisplay {
+                    id: id.into(),
+                    label: id.into(),
+                    a11y_label: id.into(),
+                    destructive: false,
+                    disabled,
+                })
+                .on_select(move |_, _| selected.borrow_mut().push(id))
+            };
+            div().size_full().track_focus(&self.pane).child(
+                PointerContextMenu::new(
+                    "key-test-menu",
+                    gpui::point(gpui::px(20.0), gpui::px(20.0)),
+                    self.pane.clone(),
+                    |_, _| {},
+                )
+                .item(item("off", true))
+                .item(item("one", false))
+                .item(item("two", false))
+                .item(item("three", false)),
+            )
+        }
+    }
+
+    fn open_key_test(
+        cx: &mut gpui::TestAppContext,
+    ) -> (
+        Rc<std::cell::RefCell<Vec<&'static str>>>,
+        &mut gpui::VisualTestContext,
+    ) {
+        cx.update(gpui_component::init);
+        cx.update(init);
+        let selected = Rc::new(std::cell::RefCell::new(Vec::new()));
+        let shared = Rc::clone(&selected);
+        let (_view, cx) = cx.add_window_view(move |_, cx| MenuKeyTest {
+            pane: cx.focus_handle(),
+            selected: shared,
+        });
+        cx.update(|window, cx| {
+            window.activate_window();
+            let _ = window.draw(cx);
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        (selected, cx)
+    }
+
+    /// ADR 0092: Down and Up move between the entries and wrap, Return runs
+    /// the focused entry, and a disabled entry never takes the focus.
+    #[gpui::test]
+    fn adr_0092_menu_keys_move_focus_wrap_and_run_the_entry(cx: &mut gpui::TestAppContext) {
+        let (selected, cx) = open_key_test(cx);
+        // A run of an entry closes the menu in the app. Here the menu stays
+        // and takes the focus again, so each run starts at the first entry.
+        // The first enabled entry has the focus at once.
+        for keys in [
+            "enter",
+            "up enter",
+            "down enter",
+            "down down enter",
+            "down down down enter",
+            "end enter",
+            "end home enter",
+            "space",
+        ] {
+            cx.simulate_keystrokes(keys);
+            // Two draws: the first gives the focus back to the menu, and the
+            // second moves it to the first entry.
+            for _ in 0..2 {
+                cx.update(|window, cx| {
+                    let _ = window.draw(cx);
+                });
+            }
+        }
+        assert_eq!(
+            *selected.borrow(),
+            vec!["one", "three", "two", "three", "one", "three", "one", "one"]
+        );
     }
 
     #[test]

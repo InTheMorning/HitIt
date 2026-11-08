@@ -16401,13 +16401,22 @@ fn adr_0069_keyboard_buttons_show_focus_without_layout_shift() {
         "keyboard_button_focus(hit_target, appearance, focus, cx)",
         ".tab_index(0)",
         ".rounded(radius)",
-        "keyboard_activation_key(event)",
+        "on_keyboard_activate(hit_target, handler)",
     ] {
         assert!(
             keyboard.contains(required),
             "Situational ADR 0069: keyboard buttons must share focus and activation: {required}"
         );
     }
+    assert!(
+        source_between(
+            &button,
+            "fn on_keyboard_activate(",
+            "fn keyboard_activation_key("
+        )
+        .contains("keyboard_activation_key(event)"),
+        "Situational ADR 0069: the shared key-down activation must test keyboard_activation_key"
+    );
     let focus = source_between(
         &button,
         "fn keyboard_button_focus(",

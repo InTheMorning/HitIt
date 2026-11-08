@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted - 2026-11-08. The orchestrator session made this decision on 2026-11-08 to apply the keyboard reach invariant of [ADR 0090](0090-one-list-bar-above-the-rows.md). The orchestrator session relayed it to this session, and on that date no person checked the keys.
+Accepted - 2026-11-08. The orchestrator session made this decision on 2026-11-08 to apply the keyboard reach invariant of [ADR 0090](0090-one-list-bar-above-the-rows.md). The orchestrator session relayed it to this session, and on that date no person checked the keys. Implemented on 2026-11-08 for My playlists, Releases and the Inbox. A list with no list focus (Artists, Public playlists, Live, Search) has the keys when it has a list focus.
+
+A pointer menu owns its keys while it is open. The first entry takes the focus. Up and Down move through the entries, and Home and End go to the first and the last entry. Return and Space run the entry. No key of the list goes to the pane.
 
 ## Context
 

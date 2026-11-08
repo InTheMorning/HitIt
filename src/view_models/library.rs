@@ -678,6 +678,9 @@ pub(crate) struct PlaylistSidebarRowVm {
     /// `true` when this row opens the page that Back left open over the
     /// Playlists list (R-NAV-2 item 2).
     pub(crate) marked: bool,
+    /// `true` when the row has the keyboard cursor and the list shows it
+    /// (ADR 0092 Decision 1).
+    pub(crate) focused: bool,
     /// The item menu of the row: Rename and Delete (ADR 0089 Decision 6).
     pub(crate) menu: TrackRowMenuVm,
     /// The delete confirmation of the playlist page. "Delete…" in the menu
@@ -3909,6 +3912,7 @@ impl LibraryViewModel {
                     },
                     selected: self.selected_playlist_id == Some(playlist.id),
                     marked: false,
+                    focused: false,
                     menu: playlist_row_menu_with_moves(
                         playlist.id,
                         &playlist.name,

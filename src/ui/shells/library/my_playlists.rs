@@ -20,7 +20,7 @@ use gpui::{
 use crate::library::LibraryApp;
 use crate::ui::composites::content_tile::tile_text_line;
 use crate::ui::composites::list_row::RowMenu;
-use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
+use crate::ui::composites::music_column_scroll::{music_column_tracked_scrollbar, ScrollReveal};
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::selectable_tile::SelectableTile;
 use crate::ui::composites::track_drag::{
@@ -51,9 +51,10 @@ pub(crate) fn render_my_playlists(
     row_menus: BTreeMap<i64, RowMenu>,
     new_playlist_input: &gpui::Entity<gpui_component::input::InputState>,
     arts: &RowArts,
-    scroll: &ScrollHandle,
+    scroll: (&ScrollHandle, &ScrollReveal),
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
+    let (scroll, reveal) = scroll;
     let new_row = sidebar.creating_playlist.then(|| {
         render_new_playlist_row(
             sidebar.new_playlist_input_id,
@@ -64,7 +65,7 @@ pub(crate) fn render_my_playlists(
         )
     });
     match view {
-        ListView::Rows => render_rows(sidebar, row_menus, new_row, arts, scroll, cx),
+        ListView::Rows => render_rows(sidebar, row_menus, new_row, arts, (scroll, reveal), cx),
         ListView::Tiles => render_tiles(&sidebar, new_row, arts, scroll, cx),
     }
 }
@@ -76,9 +77,10 @@ fn render_rows(
     mut row_menus: BTreeMap<i64, RowMenu>,
     new_row: Option<AnyElement>,
     arts: &RowArts,
-    scroll: &ScrollHandle,
+    scroll: (&ScrollHandle, &ScrollReveal),
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
+    let (scroll, reveal) = scroll;
     let mut items: Vec<AnyElement> = new_row.into_iter().collect();
     // ADR 0083 task 008, D6: a drop uses the add path of the menu item.
     let on_add =
@@ -101,6 +103,7 @@ fn render_rows(
             type_tag,
             selected,
             marked,
+            focused,
             drag,
             shown_index,
             ..
@@ -113,6 +116,10 @@ fn render_rows(
             })
             .selected(selected)
             .marked(marked)
+            // ADR 0092 Decision 1: the focused row shows the focus ring, and
+            // a move of the cursor keeps the row in view.
+            .focused(focused)
+            .scroll_probe(focused.then(|| reveal.probe()))
             .playlist_drag(drag)
             // ADR 0089 Decision 6: each list row has the item menu cell.
             .menu_cell(row_menus.remove(&playlist_id))

@@ -144,6 +144,7 @@ use crate::view_models::release_row_actions::{
     ReleaseRowCommand, ReleaseRowMenuVm, ReleaseRowTarget,
 };
 use crate::view_models::releases_everything::{ReleasesDownloadPlan, ReleasesListRows};
+use crate::view_models::row_keys::{content_list_row_keys, releases_row_keys, RowKeysVm};
 use crate::view_models::search_field_values::LibraryFieldValues;
 use crate::view_models::search_page::SearchPageAction;
 use crate::view_models::search_page::{HowToSearchDisclosure, SearchPageVm};
@@ -1151,6 +1152,7 @@ impl LibraryApp {
         let vm = LibraryViewModel::new();
         let detail_column_scroll = gpui::ScrollHandle::new();
         let inbox_scroll = gpui::ScrollHandle::new();
+        let playlists_scroll = gpui::ScrollHandle::new();
         let releases_tiles_scroll = gpui::ScrollHandle::new();
         let artists_tiles_scroll = gpui::ScrollHandle::new();
         let mut app = Self {
@@ -1199,7 +1201,9 @@ impl LibraryApp {
             release_name_page: IndexNameListPage::default(),
             inbox_scroll,
             search_page_scroll: gpui::ScrollHandle::new(),
-            playlists_scroll: gpui::ScrollHandle::new(),
+            playlists_scroll: playlists_scroll.clone(),
+            playlists_selection: ListSelection::new(),
+            playlists_reveal: ScrollReveal::new(playlists_scroll),
             expanded_singles_groups: BTreeSet::new(),
             download_queue: super::DownloadQueue::default(),
             releases_selection: ListSelection::new(),
@@ -2951,6 +2955,7 @@ impl LibraryApp {
         // 2026-10-19: it also ends selection mode for both lists.
         self.releases_selection = ListSelection::new();
         self.track_selection = ListSelection::new();
+        self.playlists_selection = ListSelection::new();
         self.releases_selection_mode = SelectionMode::Normal;
         self.track_selection_mode = SelectionMode::Normal;
         match destination {
@@ -4577,6 +4582,7 @@ impl LibraryApp {
         let has_focused_row = match self.vm.active_destination() {
             MusicDestination::Releases => self.releases_selection.focused().is_some(),
             MusicDestination::Inbox => self.track_selection.focused().is_some(),
+            MusicDestination::Playlists => self.playlists_selection.focused().is_some(),
             _ => return,
         };
         let Some(step) = keyboard_entry_step(
@@ -4603,8 +4609,105 @@ impl LibraryApp {
                     self.inbox_scroll.scroll_to_item(0);
                 }
             }
+            MusicDestination::Playlists => {
+                let visible = self.playlist_selection_rows();
+                if self
+                    .playlists_selection
+                    .move_focus(step, &visible)
+                    .is_some()
+                {
+                    self.playlists_reveal.request();
+                }
+            }
             _ => {}
         }
+    }
+
+    /// The rows of the My playlists list that take the keyboard cursor, in
+    /// the shown order (ADR 0092 Decision 1). The Tiles view has no row.
+    fn playlist_selection_rows(&self) -> Vec<SelectionRow<i64, i64>> {
+        if self.vm.list_view(ListPageKey::MyPlaylists) != ListView::Rows {
+            return Vec::new();
+        }
+        self.vm
+            .playlist_sidebar()
+            .rows
+            .iter()
+            .map(|row| SelectionRow::of_one(row.id))
+            .collect()
+    }
+
+    /// The key actions of the focused row of the list column (ADR 0092). The
+    /// view model decides each one.
+    fn focused_row_keys(&self) -> RowKeysVm {
+        match self.vm.active_destination() {
+            MusicDestination::Releases => releases_row_keys(
+                self.releases_rows().items(),
+                self.releases_selection.focused(),
+                self.releases_selection_mode.is_selecting(),
+            ),
+            MusicDestination::Inbox if !self.track_selection_mode.is_selecting() => {
+                content_list_row_keys(&self.vm.content_list_rows_with_selection(
+                    &self.track_selection,
+                    self.track_selection_mode,
+                    true,
+                ))
+            }
+            MusicDestination::Playlists => self
+                .vm
+                .playlist_sidebar()
+                .row_keys(self.playlists_selection.focused().copied()),
+            _ => RowKeysVm::none(),
+        }
+    }
+
+    /// Shift+F10 and the Menu key (ADR 0092 Decision 2): opens the row menu of
+    /// the focused row of the list column. Gives `false` when the key does
+    /// nothing. Escape closes the menu and gives the focus to the list again.
+    pub(crate) fn open_focused_row_menu(
+        &mut self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if !self.list_column_has_focus(window, cx) {
+            return false;
+        }
+        let keys = self.focused_row_keys();
+        let Some(menu_id) = keys.menu_id.filter(|_| keys.open_menu.available) else {
+            return false;
+        };
+        crate::ui::composites::track_row_menu::request_row_menu_open(&menu_id, cx);
+        cx.notify();
+        true
+    }
+
+    /// Alt+Up (`up` true) and Alt+Down (ADR 0092 Decision 3): moves the
+    /// focused playlist one place in the Curator Order. The path is the path
+    /// of the drag and of the menu, so the list builds again in place, and the
+    /// cursor stays on the moved playlist. Gives `false` when the key does
+    /// nothing.
+    pub(crate) fn move_focused_playlist(
+        &mut self,
+        up: bool,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if !self.list_column_has_focus(window, cx)
+            || self.vm.active_destination() != MusicDestination::Playlists
+        {
+            return false;
+        }
+        let Some(target) = self
+            .vm
+            .playlist_sidebar()
+            .key_move(self.playlists_selection.focused().copied(), up)
+        else {
+            return false;
+        };
+        self.playlists_selection.focus_row(target.playlist_id);
+        self.playlists_reveal.request();
+        self.move_playlist_to(target.playlist_id, target.to_index, cx);
+        true
     }
 
     pub(crate) fn move_selection_focus(
@@ -4642,9 +4745,19 @@ impl LibraryApp {
                 }
                 cx.notify();
             }
+            MusicDestination::Playlists => {
+                let visible = self.playlist_selection_rows();
+                if self
+                    .playlists_selection
+                    .move_focus(step, &visible)
+                    .is_some()
+                {
+                    self.playlists_reveal.request();
+                }
+                cx.notify();
+            }
             MusicDestination::Search
             | MusicDestination::Artists
-            | MusicDestination::Playlists
             | MusicDestination::PublicPlaylists
             | MusicDestination::Live => {}
         }
@@ -4800,9 +4913,26 @@ impl LibraryApp {
                 );
                 true
             }
+            MusicDestination::Playlists => {
+                let Some(focused) = self.playlists_selection.focused().copied() else {
+                    return false;
+                };
+                if !self
+                    .playlist_selection_rows()
+                    .iter()
+                    .any(|row| row.id == focused)
+                {
+                    return false;
+                }
+                self.open_page(
+                    FrameNavigationEntry::PlaylistDetail(focused),
+                    NavigationPathStart::ListRow,
+                    cx,
+                );
+                true
+            }
             MusicDestination::Search
             | MusicDestination::Artists
-            | MusicDestination::Playlists
             | MusicDestination::PublicPlaylists
             | MusicDestination::Live => false,
         }
@@ -5762,7 +5892,11 @@ impl LibraryApp {
                 let sidebar = self
                     .vm
                     .playlist_sidebar()
-                    .with_marked(self.marked_entry.as_ref());
+                    .with_marked(self.marked_entry.as_ref())
+                    .with_focus(
+                        self.playlists_selection.focused().copied(),
+                        self.list_row_focus_shows,
+                    );
                 page_head = Some(self.render_playlists_page_head(&sidebar, cx));
                 let mut arts = RowArts::new();
                 for row in &sidebar.rows {
@@ -5777,7 +5911,7 @@ impl LibraryApp {
                     row_menus,
                     &self.new_playlist_input,
                     &arts,
-                    &self.playlists_scroll,
+                    (&self.playlists_scroll, &self.playlists_reveal),
                     cx,
                 )
             }
@@ -5786,6 +5920,9 @@ impl LibraryApp {
         let (has_row_focus, row_count) = match self.vm.active_destination() {
             MusicDestination::Releases => (true, self.releases_rows().selection_rows().len()),
             MusicDestination::Inbox => (true, self.content_list_visible_rows().len()),
+            // ADR 0092 Decision 1: the Rows view of My playlists is a list
+            // with row focus. The Tiles view has no row focus.
+            MusicDestination::Playlists => (true, self.playlist_selection_rows().len()),
             _ => (false, 0),
         };
         let list_tab_stop = list_is_tab_stop(has_row_focus, row_count);
