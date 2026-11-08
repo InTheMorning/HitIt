@@ -392,11 +392,21 @@ mod tests {
     /// with each row of the query loaded.
     fn saved_page(rows: Vec<FeedResultDisplay>) -> SearchResultsInspectorPageVm {
         let mut vm = SearchResultsInspectorPageVm::new("q").into_saved_search(&saved_search());
-        // A saved search groups only with Newest, and a query with a word
-        // defaults to Relevance (musicindex ADR 0053 R-LIST-9).
-        vm.set_list_sort(crate::view_models::list_page::ListSort::Newest);
         vm.replace_index_results(index_rows(rows));
         vm
+    }
+
+    /// Operator answer of 2026-11-08 on musicindex ADR 0053 packet 2: a saved
+    /// search starts with Newest, also with a word, and keeps its window
+    /// groups. The results page of the same query starts with Relevance.
+    #[test]
+    fn adr_0053_r9_saved_search_starts_with_newest() {
+        use crate::view_models::list_page::ListSort;
+
+        let saved = SearchResultsInspectorPageVm::new("haleen").into_saved_search(&saved_search());
+        assert_eq!(saved.list_state().sort, Some(ListSort::Newest));
+        let results = SearchResultsInspectorPageVm::new("haleen");
+        assert_eq!(results.list_state().sort, Some(ListSort::Relevance));
     }
 
     /// The five rows of R86-5-01: Library singles of one key on Oct 8 and
