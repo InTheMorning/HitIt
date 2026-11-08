@@ -171,13 +171,16 @@ pub(crate) fn render_public_playlist_tile(
 /// The page of a public playlist, with its title and art at the top and
 /// its entries below. `header_art` is the loaded art of the playlist.
 /// `header_menu` is the "More actions" cell of the page. `status` is the
-/// busy text while a copy runs (ADR 0089 packet 010). `rows` are the
-/// entries, each from [`render_public_playlist_item`].
+/// busy text while a copy runs (ADR 0089 packet 010). `heading` is the
+/// heading row above the entries, or `None` for a short playlist (musicindex
+/// ADR 0053 R-LIST-11 item 3). `rows` are the entries, each from
+/// [`render_public_playlist_item`].
 pub(crate) fn render_public_playlist_page_body(
     page: &PublicPlaylistPageVm,
     header_art: CollectionArtImage,
     header_menu: AnyElement,
     status: Option<&str>,
+    heading: Option<AnyElement>,
     rows: Vec<AnyElement>,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -212,6 +215,7 @@ pub(crate) fn render_public_playlist_page_body(
     let content = page_scroll_content(cx)
         .gap(spacing::SM)
         .child(header)
+        .children(heading)
         .children(rows);
     div()
         .id("public-playlist-page")

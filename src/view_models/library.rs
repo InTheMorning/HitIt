@@ -3646,6 +3646,16 @@ impl LibraryViewModel {
         *self.list_pages.get(key)
     }
 
+    /// Whether the tracks of a release page, `rows` of them, come in the
+    /// reversed order now. A list below the count of its controls is never
+    /// reversed (musicindex ADR 0053 R-LIST-9).
+    #[must_use]
+    pub(crate) fn release_tracks_reversed(&self, rows: usize) -> bool {
+        self.list_pages
+            .get(ListPageKey::ReleaseTracks)
+            .reversed_for_rows(ListPageKey::ReleaseTracks, rows)
+    }
+
     /// The stored reversed state of the list page `key`, whatever its scope.
     #[must_use]
     pub(crate) fn list_page_reversed_state(&self, key: ListPageKey) -> bool {

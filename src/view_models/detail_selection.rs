@@ -961,6 +961,20 @@ impl ListBarVm {
         })
     }
 
+    /// This bar with the controls of the list page `key` in `state` for a
+    /// list of `rows` rows. A list below the count of its controls has none,
+    /// so the bar keeps its mode action only (musicindex ADR 0053 R-LIST-9).
+    #[must_use]
+    pub(crate) fn with_list_controls_for_rows(
+        mut self,
+        key: ListPageKey,
+        state: ListPageState,
+        rows: usize,
+    ) -> Self {
+        self.controls = ListBarControlsVm::for_rows(key, state, rows);
+        self
+    }
+
     /// This bar with the right end controls of the list page `key` in
     /// `state` (ADR 0090 Decision 2, musicindex ADR 0053 R-LIST-9).
     #[must_use]
@@ -2250,5 +2264,63 @@ mod tests {
             ],
             "a release with no release key gives no selection row"
         );
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9: the list bar of a release page has the
+    /// sort and the reverse icon from 8 tracks, and no view icons. With 7
+    /// tracks the bar keeps its mode action only.
+    #[test]
+    fn adr_0053_r9_order_release_bar_has_controls_from_eight_tracks() {
+        let key = ListPageKey::ReleaseTracks;
+        let state = ListPageState {
+            reversed: true,
+            ..ListPageState::default_for(key)
+        };
+        let tracks = |count: i64| -> Vec<TrackRow> {
+            (1..=count)
+                .map(|id| library_track(id, &format!("t{id}"), &format!("Track {id}"), true))
+                .collect()
+        };
+        for (count, has_controls) in [(7, false), (8, true)] {
+            let rows = DetailPageRows::Tracks(library_release_track_rows(&tracks(count), false));
+            let bar = ListBarVm::new(&rows, &DetailSelection::new())
+                .expect("a release page has a list bar")
+                .with_list_controls_for_rows(key, state, usize::try_from(count).expect("count"));
+            assert_eq!(bar.controls.is_some(), has_controls, "{count} tracks");
+            if let Some(controls) = bar.controls {
+                assert!(controls.sort.is_some());
+                assert!(controls.view.is_none());
+                assert!(controls.reverse.expect("reverses").pressed);
+            }
+        }
+    }
+
+    /// The selectable rows follow the shown order of a reversed release page.
+    /// With 7 tracks the stored reverse has no effect.
+    #[test]
+    fn adr_0053_r9_order_selectable_rows_follow_the_reverse() {
+        let key = ListPageKey::ReleaseTracks;
+        let state = ListPageState {
+            reversed: true,
+            ..ListPageState::default_for(key)
+        };
+        let tracks: Vec<TrackRow> = (1..=8)
+            .map(|id| library_track(id, &format!("t{id}"), &format!("Track {id}"), true))
+            .collect();
+        for (count, first) in [(8_usize, 7_usize), (7, 0)] {
+            let source = &tracks[..count];
+            let shown = crate::view_models::list_page::in_shown_order(
+                source,
+                state.reversed_for_rows(key, count),
+            );
+            let rows = DetailPageRows::Tracks(library_release_track_rows(&shown, false));
+            let selectable = rows.selection_rows();
+            assert_eq!(selectable.len(), count);
+            assert_eq!(
+                selectable.first().map(|row| row.id.clone()),
+                Some(DetailRowKey::Track(tracks[first].track_key())),
+                "{count} tracks"
+            );
+        }
     }
 }

@@ -23,6 +23,7 @@ use crate::view_models::detail_selection::{
     detail_header_action, feed_page_release_rows, has_list_bar, index_release_track_rows,
     DetailListKind, DetailPageRows, DetailRowKey, DetailSelection,
 };
+use crate::view_models::list_page::{in_shown_order, ListPageKey};
 use crate::view_models::list_selection::FocusStep;
 use crate::view_models::search_results::IndexDetailDisplay;
 use crate::view_models::selection_action_bar::{
@@ -51,6 +52,27 @@ impl TopApp {
         cx: &App,
     ) -> IndexDetailDisplay {
         let activation_id = format!("index-feed:{feed_guid}");
+        let mut detail =
+            self.index_release_page_detail_in_feed_order(feed_guid, &activation_id, cx);
+        // Musicindex ADR 0053 R-LIST-9: the tracks come in the shown order,
+        // so the render, the selection and each row command read the same
+        // sequence.
+        if let Some(feed) = detail.feed.as_mut() {
+            let library = self.library.read(cx);
+            let reversed = library.release_tracks_reversed(feed.tracks.len());
+            feed.tracks = in_shown_order(&feed.tracks, reversed);
+        }
+        detail
+    }
+
+    /// The display of the Index release page of `feed_guid`, with the
+    /// tracks in the order of the feed.
+    fn index_release_page_detail_in_feed_order(
+        &self,
+        feed_guid: &str,
+        activation_id: &str,
+        cx: &App,
+    ) -> IndexDetailDisplay {
         let label = self
             .release_page_labels
             .get(feed_guid)
@@ -59,7 +81,7 @@ impl TopApp {
         self.index_feed_detail_is_pending(feed_guid)
             .then(|| {
                 self.library.read(cx).recent_music_index_feed_detail(
-                    &activation_id,
+                    activation_id,
                     feed_guid,
                     &label,
                 )
@@ -155,10 +177,24 @@ impl TopApp {
             ListBarCommand::CreatePlaylist(name) => {
                 self.create_playlist_and_add_detail_selection(&name, cx);
             }
-            // The Library host of the page runs the sort, the view and the
-            // reverse commands (ADR 0090 Decision 2). They never reach the
-            // top app.
-            ListBarCommand::Sort(_) | ListBarCommand::View(_) | ListBarCommand::Reverse(_) => {}
+            // The Library host of a Library page runs the sort, the view and
+            // the reverse commands (ADR 0090 Decision 2). The Index release
+            // page is the top app's own, so its sort and its reverse reach
+            // the one state of the release tracks here (musicindex ADR 0053
+            // R-LIST-9). The release page has no view icons.
+            ListBarCommand::Sort(sort) => {
+                self.library.update(cx, |library, cx| {
+                    library.set_list_sort(ListPageKey::ReleaseTracks, sort, cx);
+                });
+                cx.notify();
+            }
+            ListBarCommand::Reverse(reversed) => {
+                self.library.update(cx, |library, cx| {
+                    library.set_list_reversed(ListPageKey::ReleaseTracks, reversed, cx);
+                });
+                cx.notify();
+            }
+            ListBarCommand::View(_) => {}
         }
     }
 

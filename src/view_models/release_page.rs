@@ -26,6 +26,7 @@ use crate::view_models::library::{
     DescriptionDisclosureDisplay, DescriptionState, LibraryAlbumDetailVm, LibraryTrackRowVm,
     LibraryViewModel, MbTrackStatus, TrackDragVm, TrackRowWork,
 };
+use crate::view_models::list_page::in_shown_order;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::singles_group::SinglesGroupPageRowVm;
@@ -135,8 +136,14 @@ impl ReleasePageFacts {
         // ADR 0084 Decisions 4 and 8 (operator decision of 2026-10-16): the
         // release page reads no list filter. It always shows each track of
         // the release, each with its own state word.
-        let library_tracks = album
-            .release_track_rows()
+        // Musicindex ADR 0053 R-LIST-9: the rows come in the shown order, so
+        // the selection, the row index of each command and the row lookup of
+        // the host read the same sequence.
+        let shown = in_shown_order(
+            album.release_track_rows(),
+            library_vm.release_tracks_reversed(album.release_track_rows().len()),
+        );
+        let library_tracks = shown
             .iter()
             .map(|track| LibraryTrackFacts {
                 track: track.clone(),
@@ -2348,5 +2355,31 @@ mod tests {
             .rows
             .iter()
             .all(|row| row.drag.is_none()));
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9: a reversed release page of 8 tracks
+    /// shows its rows in the opposite sequence, and each row keeps its own
+    /// track number. With 7 tracks the stored reverse has no effect.
+    #[test]
+    fn adr_0053_r9_order_release_rows_follow_the_reverse() {
+        let mut library = LibraryViewModel::default();
+        library.set_list_reversed(
+            crate::view_models::list_page::ListPageKey::ReleaseTracks,
+            true,
+        );
+        let numbers = |count: i64| -> Vec<String> {
+            let mut album = recorded_album();
+            album.tracks = (1..=count)
+                .map(|id| library_track(id, &format!("g{id}"), &format!("Track {id}"), true))
+                .collect();
+            let facts = ReleasePageFacts::from_library_album(&album, &BTreeMap::new(), &library);
+            release_page_vm(&facts)
+                .rows
+                .iter()
+                .map(|row| row.row.number.clone().expect("a track number"))
+                .collect()
+        };
+        assert_eq!(numbers(8), ["8", "7", "6", "5", "4", "3", "2", "1"]);
+        assert_eq!(numbers(7), ["1", "2", "3", "4", "5", "6", "7"]);
     }
 }

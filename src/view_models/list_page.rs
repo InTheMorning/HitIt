@@ -46,6 +46,16 @@ pub(crate) enum ListPageKey {
     /// The page of one window group of New releases. It has the sorts and
     /// the views of a singles group page. All such pages share one state.
     WindowGroup,
+    /// The tracks of a release page, outside an editor (musicindex ADR 0053
+    /// R-LIST-9 row "The tracks of a release, outside an editor"). All
+    /// release pages share one state. It has one sort, Feed Order, and it
+    /// reverses locally.
+    ReleaseTracks,
+    /// The entries of a public playlist page, outside an editor (musicindex
+    /// ADR 0053 R-LIST-9 row "The items of a playlist, outside an editor").
+    /// All such pages share one state. It has one sort, Playlist Order, and
+    /// it reverses locally.
+    PublicPlaylistItems,
 }
 
 impl ListPageKey {
@@ -59,6 +69,8 @@ impl ListPageKey {
             Self::Live => "live items",
             Self::Results | Self::SavedSearch => "results",
             Self::SinglesGroup | Self::WindowGroup => "singles",
+            Self::ReleaseTracks => "tracks",
+            Self::PublicPlaylistItems => "items",
         }
     }
 
@@ -74,6 +86,8 @@ impl ListPageKey {
             Self::Results => "Results",
             Self::SavedSearch => "Saved search",
             Self::SinglesGroup | Self::WindowGroup => "Singles",
+            Self::ReleaseTracks => "Tracks",
+            Self::PublicPlaylistItems => "Items",
         }
     }
 
@@ -88,9 +102,13 @@ impl ListPageKey {
             Self::Releases | Self::PublicPlaylists | Self::SinglesGroup | Self::WindowGroup => {
                 &[ListView::Rows, ListView::Tiles]
             }
-            Self::Artists | Self::MyPlaylists | Self::Live | Self::Results | Self::SavedSearch => {
-                &[ListView::Rows]
-            }
+            Self::Artists
+            | Self::MyPlaylists
+            | Self::Live
+            | Self::Results
+            | Self::SavedSearch
+            | Self::ReleaseTracks
+            | Self::PublicPlaylistItems => &[ListView::Rows],
         }
     }
 
@@ -106,7 +124,11 @@ impl ListPageKey {
             Self::Releases | Self::Artists | Self::Results | Self::SavedSearch => {
                 matches!(scope, ListScope::InLibrary)
             }
-            Self::MyPlaylists | Self::SinglesGroup | Self::WindowGroup => true,
+            Self::MyPlaylists
+            | Self::SinglesGroup
+            | Self::WindowGroup
+            | Self::ReleaseTracks
+            | Self::PublicPlaylistItems => true,
             Self::PublicPlaylists | Self::Live => false,
         }
     }
@@ -144,10 +166,43 @@ impl ListPageKey {
                 &[ListSort::Relevance, ListSort::AToZ, ListSort::Newest]
             }
             Self::Artists => &[ListSort::AToZ],
+            Self::ReleaseTracks => &[ListSort::FeedOrder],
+            Self::PublicPlaylistItems => &[ListSort::PlaylistOrder],
             Self::MyPlaylists | Self::Live => &[],
         }
     }
+
+    /// Whether a list of `rows` rows shows the sort and reverse controls of
+    /// the page. The tracks of a release and the entries of a playlist
+    /// show them from [`SECTION_CONTROL_MIN_ROWS`] rows (musicindex ADR 0053
+    /// R-LIST-9). Another page shows them whatever its row count is.
+    #[must_use]
+    pub(crate) const fn offers_controls_for(self, rows: usize) -> bool {
+        match self {
+            Self::ReleaseTracks | Self::PublicPlaylistItems => rows >= SECTION_CONTROL_MIN_ROWS,
+            _ => true,
+        }
+    }
 }
+
+/// `items` in the shown order: the reverse of the source order when
+/// `reversed`, else the source order. The list of a release page and of a
+/// playlist page reverses here, so each row lookup, each selection and each
+/// command reads the same order as the rows (musicindex ADR 0053 R-LIST-9).
+#[must_use]
+pub(crate) fn in_shown_order<T: Clone>(items: &[T], reversed: bool) -> Vec<T> {
+    if reversed {
+        items.iter().rev().cloned().collect()
+    } else {
+        items.to_vec()
+    }
+}
+
+/// The count of rows from which a list of a release page or of a playlist
+/// page shows its sort and its reverse icon (musicindex ADR 0053 R-LIST-9).
+/// The operator accepted the count of 8 items. A list with fewer rows shows
+/// no control and keeps its default order, whatever the stored state is.
+pub(crate) const SECTION_CONTROL_MIN_ROWS: usize = 8;
 
 /// The sort of a list page (ADR 0089 Decision 5, R-LIST-1 item 1).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -159,6 +214,12 @@ pub(crate) enum ListSort {
     Newest,
     /// The items by name, A to Z.
     AToZ,
+    /// The tracks of a release in the order of the feed. Only the key
+    /// `ReleaseTracks` offers it (musicindex ADR 0053 R-LIST-9).
+    FeedOrder,
+    /// The entries of a playlist in the order of the playlist. Only the key
+    /// `PublicPlaylistItems` offers it (musicindex ADR 0053 R-LIST-9).
+    PlaylistOrder,
 }
 
 impl ListSort {
@@ -172,6 +233,10 @@ impl ListSort {
             (Self::Newest, true) => "Oldest",
             (Self::AToZ, false) => "A to Z",
             (Self::AToZ, true) => "Z to A",
+            (Self::FeedOrder, false) => "Feed Order",
+            (Self::FeedOrder, true) => "Feed Order, Reversed",
+            (Self::PlaylistOrder, false) => "Playlist Order",
+            (Self::PlaylistOrder, true) => "Playlist Order, Reversed",
         }
     }
 
@@ -182,6 +247,8 @@ impl ListSort {
             Self::Relevance => "music-list-sort-relevance",
             Self::Newest => "music-list-sort-newest",
             Self::AToZ => "music-list-sort-a-to-z",
+            Self::FeedOrder => "music-list-sort-feed-order",
+            Self::PlaylistOrder => "music-list-sort-playlist-order",
         }
     }
 }
@@ -307,6 +374,15 @@ impl ListPageState {
         self.reversed && !self.is_relevance() && key.reverses_in(scope)
     }
 
+    /// Whether a list of `rows` rows of the page `key` comes in the reversed
+    /// order. A list below the count of its controls is never reversed,
+    /// whatever the stored state is (musicindex ADR 0053 R-LIST-9). The
+    /// stored state stays for a longer list.
+    #[must_use]
+    pub(crate) fn reversed_for_rows(self, key: ListPageKey, rows: usize) -> bool {
+        key.offers_controls_for(rows) && self.reversed_in(key, ListScope::All)
+    }
+
     /// Whether the sort is Relevance, which never reverses (musicindex ADR
     /// 0053 R-LIST-9).
     #[must_use]
@@ -390,6 +466,24 @@ impl ListPageState {
                 reversed: false,
                 index_sorts: NodeSorts::NotListed,
             },
+            // Musicindex ADR 0053 R-LIST-9: one sort that keeps the order
+            // of the source, rows only, no scope.
+            ListPageKey::ReleaseTracks => Self {
+                sort: Some(ListSort::FeedOrder),
+                view: ListView::Rows,
+                scope: None,
+                letter: None,
+                reversed: false,
+                index_sorts: NodeSorts::NotListed,
+            },
+            ListPageKey::PublicPlaylistItems => Self {
+                sort: Some(ListSort::PlaylistOrder),
+                view: ListView::Rows,
+                scope: None,
+                letter: None,
+                reversed: false,
+                index_sorts: NodeSorts::NotListed,
+            },
         }
     }
 }
@@ -407,6 +501,8 @@ pub(crate) struct ListPages {
     saved_search: ListPageState,
     singles_group: ListPageState,
     window_group: ListPageState,
+    release_tracks: ListPageState,
+    public_playlist_items: ListPageState,
 }
 
 impl Default for ListPages {
@@ -421,6 +517,8 @@ impl Default for ListPages {
             saved_search: ListPageState::default_for(ListPageKey::SavedSearch),
             singles_group: ListPageState::default_for(ListPageKey::SinglesGroup),
             window_group: ListPageState::default_for(ListPageKey::WindowGroup),
+            release_tracks: ListPageState::default_for(ListPageKey::ReleaseTracks),
+            public_playlist_items: ListPageState::default_for(ListPageKey::PublicPlaylistItems),
         }
     }
 }
@@ -439,6 +537,8 @@ impl ListPages {
             ListPageKey::SavedSearch => &self.saved_search,
             ListPageKey::SinglesGroup => &self.singles_group,
             ListPageKey::WindowGroup => &self.window_group,
+            ListPageKey::ReleaseTracks => &self.release_tracks,
+            ListPageKey::PublicPlaylistItems => &self.public_playlist_items,
         }
     }
 
@@ -454,6 +554,8 @@ impl ListPages {
             ListPageKey::SavedSearch => &mut self.saved_search,
             ListPageKey::SinglesGroup => &mut self.singles_group,
             ListPageKey::WindowGroup => &mut self.window_group,
+            ListPageKey::ReleaseTracks => &mut self.release_tracks,
+            ListPageKey::PublicPlaylistItems => &mut self.public_playlist_items,
         }
     }
 
@@ -470,6 +572,8 @@ impl ListPages {
             &mut self.saved_search,
             &mut self.singles_group,
             &mut self.window_group,
+            &mut self.release_tracks,
+            &mut self.public_playlist_items,
         ] {
             state.index_sorts = node;
         }
@@ -671,6 +775,42 @@ impl ListBarControlsVm {
     }
 }
 
+impl ListBarControlsVm {
+    /// The controls of the page `key` in `state` for a list of `rows` rows.
+    /// `None` when the list is below the count of its controls (musicindex
+    /// ADR 0053 R-LIST-9).
+    #[must_use]
+    pub(crate) fn for_rows(key: ListPageKey, state: ListPageState, rows: usize) -> Option<Self> {
+        key.offers_controls_for(rows).then(|| Self::new(key, state))
+    }
+}
+
+/// The heading row above the entries of a list that has no list bar (musicindex
+/// ADR 0053 R-LIST-11 item 3): the count at the left, the sort menu and the
+/// reverse icon at the right.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct SectionHeadingVm {
+    /// The count of the entries, for example "12 items".
+    pub(crate) count_text: String,
+    /// The sort menu and the reverse icon. It has no view icons.
+    pub(crate) controls: ListBarControlsVm,
+}
+
+impl SectionHeadingVm {
+    /// The heading of the page `key` in `state` for `rows` entries. `None`
+    /// when the list is below the count of its controls, so the page has no
+    /// heading (musicindex ADR 0053 R-LIST-9). A heading has 8 entries or
+    /// more, so its noun is always plural.
+    #[must_use]
+    pub(crate) fn new(key: ListPageKey, state: ListPageState, rows: usize) -> Option<Self> {
+        let controls = ListBarControlsVm::for_rows(key, state, rows)?;
+        Some(Self {
+            count_text: format!("{rows} {}", key.noun()),
+            controls,
+        })
+    }
+}
+
 /// The title row of a list page (ADR 0089 Decision 6, R-LIST-1 item 4):
 /// the title at the left, then the sort, the view icons and Select at the
 /// right. The scope control sits below the title.
@@ -856,7 +996,9 @@ fn scope_control(
         ListPageKey::Live
         | ListPageKey::PublicPlaylists
         | ListPageKey::SinglesGroup
-        | ListPageKey::WindowGroup => (
+        | ListPageKey::WindowGroup
+        | ListPageKey::ReleaseTracks
+        | ListPageKey::PublicPlaylistItems => (
             "music-scope-public-playlists",
             "music-scope-public-playlists-all",
             "music-scope-public-playlists-in-library",
@@ -919,6 +1061,8 @@ fn sort_button(key: ListPageKey, sort: ListSort, reversed: bool) -> ListSortButt
         ListPageKey::SavedSearch => "music-list-sort-saved-search",
         ListPageKey::SinglesGroup => "music-list-sort-singles-group",
         ListPageKey::WindowGroup => "music-list-sort-window-group",
+        ListPageKey::ReleaseTracks => "music-list-sort-release-tracks",
+        ListPageKey::PublicPlaylistItems => "music-list-sort-playlist-items",
     };
     ListSortButtonVm {
         id,
@@ -1798,5 +1942,104 @@ mod tests {
                 assert!(all.reverse.is_none(), "{key:?}");
             }
         }
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 rows "The tracks of a release, outside an
+    /// editor" and "The items of a playlist, outside an editor": each key
+    /// offers its one sort, starts with it, has no view icons, and reverses.
+    /// The reversed names follow R-LIST-7 item 5.
+    #[test]
+    fn adr_0053_r9_order_keys_offer_one_sort_and_reverse() {
+        let cases = [
+            (
+                ListPageKey::ReleaseTracks,
+                ListSort::FeedOrder,
+                "Feed Order",
+                "Feed Order, Reversed",
+                "music-list-sort-feed-order",
+            ),
+            (
+                ListPageKey::PublicPlaylistItems,
+                ListSort::PlaylistOrder,
+                "Playlist Order",
+                "Playlist Order, Reversed",
+                "music-list-sort-playlist-order",
+            ),
+        ];
+        for (key, sort, name, reversed_name, option_id) in cases {
+            assert_eq!(key.sorts(), [sort]);
+            assert_eq!(key.views(), [ListView::Rows]);
+            assert!(key.reverses_in(ListScope::All));
+            let state = ListPageState::default_for(key);
+            assert_eq!(state.sort, Some(sort));
+            assert_eq!(state.scope, None);
+            assert_eq!(sort.name(false), name);
+            assert_eq!(sort.name(true), reversed_name);
+            assert_eq!(sort.option_id(), option_id);
+
+            let usual = ListBarControlsVm::new(key, state);
+            assert_eq!(usual.sort.expect("one sort").label, name);
+            assert!(usual.view.is_none(), "no view icons");
+            assert!(!usual.reverse.expect("reverses").pressed);
+
+            let reversed = ListBarControlsVm::new(
+                key,
+                ListPageState {
+                    reversed: true,
+                    ..state
+                },
+            );
+            let sort_button = reversed.sort.expect("one sort");
+            assert_eq!(sort_button.label, reversed_name);
+            assert_eq!(sort_button.options.len(), 1);
+            assert!(reversed.reverse.expect("reverses").pressed);
+        }
+    }
+
+    /// Each kind keeps one state: a change of the release tracks does not
+    /// change the entries of a playlist.
+    #[test]
+    fn adr_0053_r9_order_keys_keep_their_own_state() {
+        let mut pages = ListPages::default();
+        pages.set_reversed(ListPageKey::ReleaseTracks, true);
+        assert!(pages.get(ListPageKey::ReleaseTracks).reversed);
+        assert!(!pages.get(ListPageKey::PublicPlaylistItems).reversed);
+    }
+
+    /// A list below `SECTION_CONTROL_MIN_ROWS` rows has no control and is
+    /// never reversed. The stored state stays.
+    #[test]
+    fn adr_0053_r9_order_controls_start_at_the_count_of_eight() {
+        assert_eq!(SECTION_CONTROL_MIN_ROWS, 8);
+        for key in [ListPageKey::ReleaseTracks, ListPageKey::PublicPlaylistItems] {
+            let state = ListPageState {
+                reversed: true,
+                ..ListPageState::default_for(key)
+            };
+            assert!(ListBarControlsVm::for_rows(key, state, 7).is_none());
+            assert!(!state.reversed_for_rows(key, 7));
+            assert!(ListBarControlsVm::for_rows(key, state, 8).is_some());
+            assert!(state.reversed_for_rows(key, 8));
+            assert!(state.reversed, "the stored state stays");
+        }
+        // A group page shows its controls whatever its count is.
+        assert!(ListBarControlsVm::for_rows(
+            ListPageKey::SinglesGroup,
+            ListPageState::default_for(ListPageKey::SinglesGroup),
+            1
+        )
+        .is_some());
+    }
+
+    /// The heading names the count, and "1 item" for one entry.
+    #[test]
+    fn adr_0053_r9_order_heading_names_the_count() {
+        let key = ListPageKey::PublicPlaylistItems;
+        let state = ListPageState::default_for(key);
+        let heading = SectionHeadingVm::new(key, state, 12).expect("12 entries have a heading");
+        assert_eq!(heading.count_text, "12 items");
+        assert!(SectionHeadingVm::new(key, state, 7).is_none());
+        assert_eq!(in_shown_order(&[1, 2, 3], true), [3, 2, 1]);
+        assert_eq!(in_shown_order(&[1, 2, 3], false), [1, 2, 3]);
     }
 }
