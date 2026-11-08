@@ -106,6 +106,9 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
         SemanticColor::OnAccent => hex(0x00_0000),
         SemanticColor::Focus => hex(0xff_f06a),
         SemanticColor::AccentTint => tint(0x66_d9ff, 0.18),
+        // No sidebar glow under Increase Contrast (musicindex ADR 0056
+        // R-SIDE-1 item 4).
+        SemanticColor::SidebarGlowTop => tint(0x66_d9ff, 0.0),
         SemanticColor::AccentOutline => tint(0x66_d9ff, 0.34),
         SemanticColor::DangerTint => tint(0xff_6b6b, 0.16),
         SemanticColor::ButtonFill => tint(0x76_7680, 0.24),
@@ -185,6 +188,9 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
         SemanticColor::AccentPressed => hex(0x00_32a8),
         SemanticColor::OnAccent => hex(0xff_ffff),
         SemanticColor::Focus => hex(0x00_40dd),
+        // No sidebar glow under Increase Contrast (musicindex ADR 0056
+        // R-SIDE-1 item 4).
+        SemanticColor::SidebarGlowTop => tint(0x00_40dd, 0.0),
         SemanticColor::AccentTint => tint(0x00_40dd, 0.12),
         SemanticColor::AccentOutline => tint(0x00_40dd, 0.40),
         SemanticColor::DangerTint => tint(0xb0_0020, 0.10),
@@ -258,6 +264,23 @@ const fn hex(rgb: u32) -> Rgba {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// musicindex ADR 0056 R-SIDE-1 item 4: the light and dark profiles have
+    /// the sidebar glow, and the high-contrast profiles have none.
+    #[test]
+    fn adr_0056_high_contrast_profiles_have_no_glow() {
+        for profile in [
+            ThemeProfile::HighContrastDark,
+            ThemeProfile::HighContrastLight,
+        ] {
+            let glow = resolve_profile_color(profile, SemanticColor::SidebarGlowTop);
+            assert!(glow.a.abs() < f32::EPSILON, "{profile:?}");
+        }
+        for profile in [ThemeProfile::Dark, ThemeProfile::Light] {
+            let glow = resolve_profile_color(profile, SemanticColor::SidebarGlowTop);
+            assert!(glow.a > 0.0, "{profile:?}");
+        }
+    }
 
     #[test]
     fn system_profile_follows_supplied_appearance() {

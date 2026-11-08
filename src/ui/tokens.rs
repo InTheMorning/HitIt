@@ -101,6 +101,11 @@ pub enum SemanticColor {
     // Selection.
     SelectedContent,
 
+    /// The glow at the top edge of the sidebar (musicindex ADR 0056
+    /// R-SIDE-1): the accent of each theme at 9 % opacity
+    /// (`sidebar-glow-top` in the shared copy at `src/assets/tokens.json`).
+    SidebarGlowTop,
+
     // Separators.
     Separator,
     OpaqueSeparator,
@@ -244,6 +249,7 @@ impl SemanticColor {
             // visible against the canvas.
             Self::Focus => hex(0x57_95ff),
             Self::AccentTint => hex_alpha(0x2d_7bff, 0.18),
+            Self::SidebarGlowTop => hex_alpha(0x2d_7bff, 0.09),
             Self::AccentOutline => hex_alpha(0x2d_7bff, 0.34),
             Self::DangerTint => hex_alpha(0xff_6961, 0.16),
             Self::ButtonFill => hex_alpha(0x76_7680, 0.24),
@@ -351,6 +357,7 @@ impl SemanticColor {
             // visible against the canvas.
             Self::Focus => hex(0x3b_7cde),
             Self::AccentTint => hex_alpha(0x0a_5bd6, 0.12),
+            Self::SidebarGlowTop => hex_alpha(0x0a_5bd6, 0.09),
             Self::AccentOutline => hex_alpha(0x0a_5bd6, 0.40),
             Self::DangerTint => hex_alpha(0xc4_1e3a, 0.10),
             Self::ButtonFill => hex_alpha(0x78_7880, 0.14),
@@ -452,6 +459,45 @@ impl TypeDot {
     #[must_use]
     pub fn ring_width(cx: &App) -> Pixels {
         scale_chrome_px(Self::HOLLOW_RING_PX, ScaleFactor::current(cx))
+    }
+}
+
+// -----------------------------------------------------------------------------
+// SidebarGlow — musicindex ADR 0056 R-SIDE-1.
+// -----------------------------------------------------------------------------
+
+/// The glow at the top of the sidebar. The length matches
+/// `sidebar.glow-length-px` in the shared copy at `src/assets/tokens.json`,
+/// and a test checks it.
+pub struct SidebarGlow;
+
+impl SidebarGlow {
+    /// Distance from the top edge where the glow has no color, in pixels at
+    /// 1.0×.
+    pub const LENGTH_PX: f32 = 320.0;
+
+    /// Length of the glow, scaled by the active [`ScaleFactor`].
+    #[must_use]
+    pub fn length(cx: &App) -> Pixels {
+        scale_chrome_px(Self::LENGTH_PX, ScaleFactor::current(cx))
+    }
+
+    /// The vertical gradient from `top` at the top edge to the same color
+    /// with no opacity at the bottom edge of the glow layer.
+    #[must_use]
+    pub fn background(top: Rgba) -> gpui::Background {
+        let [from, to] = Self::stops(top);
+        gpui::linear_gradient(180.0, from, to)
+    }
+
+    /// The two color stops of the glow gradient.
+    #[must_use]
+    pub fn stops(top: Rgba) -> [gpui::LinearColorStop; 2] {
+        let clear = Rgba { a: 0.0, ..top };
+        [
+            gpui::linear_color_stop(top, 0.0),
+            gpui::linear_color_stop(clear, 1.0),
+        ]
     }
 }
 
@@ -1476,6 +1522,55 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// musicindex ADR 0056 R-SIDE-1: the glow color of each theme and the glow
+    /// length match the shared copy in `src/assets/tokens.json`. Fix: copy the
+    /// value from that file.
+    #[test]
+    fn adr_0056_glow_tokens_match_the_shared_tokens() {
+        let shared: serde_json::Value =
+            serde_json::from_str(include_str!("../assets/tokens.json")).expect("valid JSON");
+        for (appearance, key, expected) in [
+            (Appearance::Dark, "dark", "rgba(45, 123, 255, .09)"),
+            (Appearance::Light, "light", "rgba(10, 91, 214, .09)"),
+        ] {
+            assert_eq!(
+                shared["color"][key]["sidebar-glow-top"].as_str(),
+                Some(expected),
+                "{key} value in the file"
+            );
+            let color = SemanticColor::SidebarGlowTop.resolve(appearance);
+            let channel = |value: f32| (value * 255.0).round();
+            let alpha = format!("{:.2}", color.a);
+            let alpha = alpha.trim_end_matches('0').trim_start_matches('0');
+            let actual = format!(
+                "rgba({}, {}, {}, {alpha})",
+                channel(color.r),
+                channel(color.g),
+                channel(color.b),
+            );
+            assert_eq!(actual, expected, "{key} token");
+        }
+        assert_eq!(
+            shared["sidebar"]["glow-length-px"].as_f64(),
+            Some(f64::from(SidebarGlow::LENGTH_PX))
+        );
+        assert!((SidebarGlow::LENGTH_PX - 320.0).abs() < f32::EPSILON);
+    }
+
+    /// musicindex ADR 0056 R-SIDE-1 item 1: the gradient runs from the glow
+    /// color at the top to the same color with no opacity at the bottom.
+    #[test]
+    fn adr_0056_glow_gradient_fades_to_clear() {
+        let top = SemanticColor::SidebarGlowTop.resolve(Appearance::Dark);
+        let [stop_from, stop_to] = SidebarGlow::stops(top);
+        let from = Rgba::from(stop_from.color);
+        let to = Rgba::from(stop_to.color);
+        assert!((from.a - top.a).abs() < 1e-4);
+        assert!(to.a.abs() < f32::EPSILON);
+        assert!(stop_from.percentage.abs() < f32::EPSILON);
+        assert!((stop_to.percentage - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]

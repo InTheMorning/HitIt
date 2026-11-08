@@ -73,6 +73,10 @@ pub mod color {
     pub fn bg_sidebar() -> Rgba {
         role(SemanticColor::SidebarBackground)
     }
+    /// musicindex ADR 0056 R-SIDE-1: the color at the top edge of the sidebar glow.
+    pub fn sidebar_glow_top() -> Rgba {
+        role(SemanticColor::SidebarGlowTop)
+    }
     pub fn bg_selected() -> Rgba {
         role(SemanticColor::SelectedContent)
     }

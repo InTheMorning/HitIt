@@ -5573,7 +5573,8 @@ impl LibraryApp {
             .flex_1()
             .min_h_0()
             .overflow_hidden()
-            .bg(color::bg_sidebar())
+            // The sidebar color and the glow of musicindex ADR 0056 come
+            // from the shell container that holds this column.
             .child(destinations_scroll)
             .child({
                 let FeedUpdateDisplay {

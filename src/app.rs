@@ -686,7 +686,12 @@ impl TopApp {
     /// Renders the sidebar column of the sidebar form (ADR 0089 Decision 1).
     /// It holds the application mark and the sidebar rows.
     fn render_sidebar_shell(&self, cx: &mut Context<Self>) -> Div {
+        // musicindex ADR 0056 R-SIDE-1: the glow layer sits on this fixed
+        // container, first, so the content draws over it and the content
+        // scroll does not move it. It has no handler, so clicks reach the rows.
+        let glow = crate::ui::composites::sidebar_glow::sidebar_glow_layer(cx);
         div()
+            .relative()
             .flex()
             .flex_col()
             .flex_shrink_0()
@@ -695,6 +700,7 @@ impl TopApp {
             .min_h_0()
             .overflow_hidden()
             .bg(crate::ui::style::color::bg_sidebar())
+            .child(glow)
             .child(render_app_mark(cx))
             .child(
                 div()
