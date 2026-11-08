@@ -74,7 +74,6 @@ Known open defects:
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
 - A Music column that scrolls with `music_column_scrollbar`, with no scroll handle, does not scroll to show a button that takes the keyboard focus. These are the destinations list, the Index detail panes, the search notice page and Settings. [ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) Invariants require keyboard reach, and no packet owns the change.
-- In the scope All, Releases and Artists merge Library rows by `name_sort_key`, which folds only the case. Since Stophammer candidate v0.19.0-rc.6 (Stophammer ADR 0090) the node key also folds accents, reads numbers by value and puts a name that starts with no letter in a "#" group first. A Library row whose name starts with a digit, a symbol or an accent can show at an incorrect position. The fix uses `order_key` of the `musicindex-search` crate, which the lib session builds. v4vmm makes no copy of the rule. The fix waits for the commit of the crate.
 - A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role, and no packet owns the code change.
 
 Stored facts that agents need:

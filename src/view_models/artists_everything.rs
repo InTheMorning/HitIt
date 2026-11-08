@@ -15,6 +15,8 @@ use crate::view_models::artist_identity::{
     ArtistNameKey, NameFeedMatch, NameFeedMatches, ARTIST_NAME_ROW_MARK, ARTIST_ROW_SEPARATOR,
 };
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
+use musicindex_search::name_order::{order_key, sort_key};
+
 use crate::view_models::index_name_list::{watermark_shows, IndexNameListPage};
 use crate::view_models::library::{
     release_row_slug_text, DestinationListRowTarget, DestinationListRowVm,
@@ -40,29 +42,40 @@ pub(crate) enum ArtistRowKind {
 /// feed GUID. The key of a name row is its sort key.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct ArtistOrderKey {
+    /// The order key of the name (Stophammer ADR 0090). A Library row and a
+    /// node row compare by it.
     sort_key: String,
     kind: ArtistRowKind,
     key: String,
+    /// The plain sort key of the name, for the order of a list of local rows
+    /// only. It is the last field, so it decides no merge order.
+    local: String,
 }
 
 impl ArtistOrderKey {
-    /// The position of a feed row with the sort key `sort_key`.
+    /// The position of a Library feed row. `name_key` is the plain sort key
+    /// of the name. The position takes its order key from it, as the node
+    /// gives `sort_name` (Stophammer ADR 0090).
     #[must_use]
-    pub(crate) fn feed(sort_key: String, feed_guid: &str) -> Self {
+    pub(crate) fn feed(name_key: String, feed_guid: &str) -> Self {
         Self {
-            sort_key,
+            sort_key: order_key(&name_key),
             kind: ArtistRowKind::Feed,
             key: feed_guid.to_owned(),
+            local: name_key,
         }
     }
 
-    /// The position of a name row with the sort key `sort_key`.
+    /// The position of a Library name row. `name_key` is the plain sort key
+    /// of the name, and also the key of the row. The position takes its
+    /// order key from it (Stophammer ADR 0090).
     #[must_use]
-    pub(crate) fn name(sort_key: String) -> Self {
+    pub(crate) fn name(name_key: String) -> Self {
         Self {
-            key: sort_key.clone(),
-            sort_key,
+            sort_key: order_key(&name_key),
+            key: name_key.clone(),
             kind: ArtistRowKind::Name,
+            local: name_key,
         }
     }
 
@@ -72,7 +85,7 @@ impl ArtistOrderKey {
     /// rows with node rows uses [`Ord`], because the node owns that order.
     #[must_use]
     pub(crate) fn local_cmp(&self, other: &Self) -> std::cmp::Ordering {
-        crate::view_models::name_order::compare_names(&self.sort_key, &other.sort_key)
+        crate::view_models::name_order::compare_names(&self.local, &other.local)
             .then_with(|| self.cmp(other))
     }
 
@@ -87,6 +100,7 @@ impl ArtistOrderKey {
             sort_key: row.sort_name.clone(),
             kind,
             key: row.key.clone(),
+            local: sort_key(&row.name),
         }
     }
 }
@@ -835,16 +849,80 @@ mod tests {
 
     /// Musicindex ADR 0053 R-LIST-12: the order of local artist rows reads a
     /// number as a number and ignores case. The order of [`Ord`], which the
-    /// scope All uses with the node, stays the code point order.
+    /// scope All uses with the node, is the order of `order_key`.
     #[test]
     fn adr_0053_r12_local_artist_order_reads_numbers_and_ignores_case() {
         let key = |name: &str| ArtistOrderKey::name(name.to_lowercase());
         let mut keys = [key("Act 10"), key("act 2"), key("Alpha")];
         keys.sort_by(ArtistOrderKey::local_cmp);
         assert_eq!(
-            keys.iter().map(|k| k.sort_key.as_str()).collect::<Vec<_>>(),
+            keys.iter().map(|k| k.local.as_str()).collect::<Vec<_>>(),
             ["act 2", "act 10", "alpha"]
         );
-        assert!(key("act 10") < key("act 2"), "the node order is kept");
+        assert!(
+            key("act 10") > key("act 2"),
+            "the order key reads numbers by value"
+        );
+    }
+
+    fn order_key_node(name: &str) -> ArtistNameRow {
+        ArtistNameRow {
+            kind: ArtistNameKind::Name,
+            name: name.to_owned(),
+            sort_name: order_key(name),
+            key: sort_key(name),
+            ..ArtistNameRow::default()
+        }
+    }
+
+    fn order_key_merge(has_more: bool, node_names: &[&str], reversed: bool) -> Vec<String> {
+        let library = ["Zēmar Red", "Øystein Berge", "1point3", "$2 Holla", "abba"]
+            .into_iter()
+            .map(|name| library_row(name, ArtistOrderKey::name(sort_key(name))))
+            .collect();
+        let page = loaded(
+            node_names.iter().map(|name| order_key_node(name)).collect(),
+            has_more,
+        );
+        everything_rows(library, &page, &no_match(), reversed)
+            .into_iter()
+            .map(|row| row.label)
+            .collect()
+    }
+
+    /// ADR 0091 with Stophammer ADR 0090: a Library row merges by the order
+    /// key of its name, as the node key of the same name, in both directions.
+    #[test]
+    fn adr_0091_order_key_library_artists_merge_at_the_node_positions() {
+        let nodes = ["Mango", "10 Cent", "Zulu", "Aaron"];
+        let expected = [
+            "$2 Holla",
+            "1point3",
+            "10 Cent",
+            "Aaron",
+            "abba",
+            "Mango",
+            "Øystein Berge",
+            "Zēmar Red",
+            "Zulu",
+        ];
+        assert_eq!(order_key_merge(false, &nodes, false), expected);
+        let mut reversed = expected;
+        reversed.reverse();
+        assert_eq!(order_key_merge(false, &nodes, true), reversed);
+    }
+
+    /// ADR 0091: the watermark holds a Library row until its node neighbour
+    /// loaded, in both directions.
+    #[test]
+    fn adr_0091_order_key_artists_watermark_holds_a_library_row() {
+        assert_eq!(
+            order_key_merge(true, &["10 Cent", "Mango"], false),
+            ["$2 Holla", "1point3", "10 Cent", "abba", "Mango"]
+        );
+        assert_eq!(
+            order_key_merge(true, &["Zulu", "Mango"], true),
+            ["Zulu", "Zēmar Red", "Øystein Berge", "Mango"]
+        );
     }
 }

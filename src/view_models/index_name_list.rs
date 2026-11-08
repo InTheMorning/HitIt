@@ -11,18 +11,11 @@
 use crate::view_models::recent_feeds::{RecentFeedsPageState, RecentFeedsPageVm};
 use crate::view_models::releases_everything::Revision;
 
-/// The sort key of a name (Stophammer ADR 0070 §1, ADR 0084 Decision 7).
-/// It removes the white space at the two ends, makes each internal run of
-/// white space one space, and makes each character Unicode lowercase. It
-/// keeps an article such as "The" and each punctuation mark. Rust `String`
-/// order is code point order, as the Stophammer order is.
-#[must_use]
-pub(crate) fn name_sort_key(text: &str) -> String {
-    text.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
-}
+/// The identity key of a name (Stophammer ADR 0070 §1, ADR 0084 Decision 7).
+/// The crate `musicindex-search` owns it as `sort_key`. A list that merges
+/// Library rows with node rows compares by `order_key` of the same module
+/// (Stophammer ADR 0090), never by this key.
+pub(crate) use musicindex_search::name_order::sort_key as name_sort_key;
 
 /// The watermark of packet 016 decision D7. While `MusicIndex` has more
 /// pages, a row shows only when its order position is at or before the

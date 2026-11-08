@@ -10,16 +10,19 @@
 
 #![warn(clippy::pedantic)]
 
-use crate::view_models::index_name_list::{from_keeps, name_sort_key};
+use musicindex_search::name_order::order_key;
+
+use crate::view_models::index_name_list::from_keeps;
 use crate::view_models::list_page::ListPageKey;
 
 /// Whether the name `name` shows at the start `from` of a name list (ADR
-/// 0089 Decision 6). `from` is a sort key, as the request sends it. `None`
+/// 0089 Decision 6). The name is read as its order key (Stophammer ADR
+/// 0090), as the node reads it. `from` is a sort key, as the request sends it. `None`
 /// shows every name. `reversed` follows the order of the node list
 /// ([`from_keeps`]).
 #[must_use]
 pub(crate) fn name_at_or_after(name: &str, from: Option<&str>, reversed: bool) -> bool {
-    from_keeps(&name_sort_key(name), from, reversed)
+    from_keeps(&order_key(name), from, reversed)
 }
 
 /// One key of the letter bar. `Other` is the key "#", for a name that starts
@@ -36,7 +39,7 @@ impl LetterKey {
     /// The key of the name `name`. The name is read in its sort key form.
     #[must_use]
     pub(crate) fn of_name(name: &str) -> Self {
-        match name_sort_key(name).chars().next() {
+        match order_key(name).chars().next() {
             Some(first) if first.is_ascii_alphabetic() => Self::Letter(first.to_ascii_uppercase()),
             _ => Self::Other,
         }

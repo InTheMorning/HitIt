@@ -9,7 +9,8 @@
 //! locale.
 //!
 //! A list that must match the order of the node does not use this order.
-//! The node owns that order (R-LIST-8 item 3). See `name_sort_key`.
+//! The node owns that order (R-LIST-8 item 3). See `order_key` of the crate
+//! `musicindex-search`.
 
 #![warn(clippy::pedantic)]
 

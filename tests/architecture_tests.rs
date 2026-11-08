@@ -24855,3 +24855,14 @@ fn adr_0090_pinned_copy_comes_from_the_one_list_bar_renderer() {
         violations.join("\n")
     );
 }
+
+/// ADR 0091 with Stophammer ADR 0090: the order key of the shared crate
+/// gives the keys of the node vector file. A change of the toolchain or of
+/// the lock file that moves a Unicode table fails here. Fix: compare the
+/// versions with Stophammer, then pin a crate commit that matches.
+#[test]
+fn adr_0091_name_order_vectors_pass() {
+    if let Err(message) = musicindex_search::name_order::check_vectors() {
+        panic!("{message}");
+    }
+}

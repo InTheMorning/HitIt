@@ -319,7 +319,7 @@ pub(crate) mod tests {
     ) -> Feed {
         serde_json::from_value(serde_json::json!({
             "feed_guid": release_guid, "title": title,
-            "sort_name": crate::view_models::index_name_list::name_sort_key(title),
+            "sort_name": musicindex_search::name_order::order_key(title),
             "release_artist": "Haleen", "release_kind": "unknown", "episode_count": 1,
             "newest_item_at": newest_item_at,
             "image_url": format!("https://img.test/{release_guid}.jpg"),
