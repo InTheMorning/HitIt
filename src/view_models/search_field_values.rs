@@ -129,8 +129,8 @@ impl LibraryFieldValues {
 
     /// The entries of `field` that match the typed `prefix`.
     ///
-    /// The match key is the sort key of the prefix with its quote and its
-    /// escapes read. An entry matches when its key holds the match key. The
+    /// `prefix` is the typed value with its quote and its escapes read, as
+    /// the crate gives it. The match key is the sort key of the prefix. An entry matches when its key holds the match key. The
     /// entries whose key starts with the match key come first. Each group
     /// is in key order. The result has at most [`LIBRARY_VALUE_ROW_LIMIT`]
     /// entries. A field other than `artist:`, `release:` and `playlist:`
@@ -150,7 +150,7 @@ impl LibraryFieldValues {
             | QueryFieldName::Is
             | QueryFieldName::Has => return Vec::new(),
         };
-        let match_key = name_sort_key(&unquote_field_value_prefix(prefix));
+        let match_key = name_sort_key(prefix);
         let starts = list
             .iter()
             .filter(|entry| entry.key.starts_with(&match_key));

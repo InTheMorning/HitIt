@@ -2998,7 +2998,7 @@ mod adr_0087_index_fields_tests {
     }
 
     /// ADR 0091 step 2, musicindex ADR 0049 R-QUERY-6: `kind:ep` has no Index
-    /// request, so its plan skips the Index part with no note of its own.
+    /// request, so its plan skips the Index part.
     #[test]
     fn adr_0091_step2_kind_ep_sends_no_index_request() {
         assert_eq!(

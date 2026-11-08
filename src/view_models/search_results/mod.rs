@@ -15,6 +15,9 @@ use crate::view_models::detail_selection::{
 use crate::view_models::list_page::{ListPageKey, ListPageState, ListPages, ListScope, ListSort};
 use crate::view_models::list_selection::{FocusStep, SelectionRow};
 use crate::view_models::live_run::RunGeneration;
+use musicindex_search::field_list::Library;
+use musicindex_search::note::{scope_note, search_note, SearchNote};
+
 use crate::view_models::search_query::{library_scope_of, SearchQuery};
 use crate::view_models::selection_action_bar::SelectionActionBarVm;
 use crate::view_models::window_groups::WindowGroupTileVm;
@@ -41,6 +44,8 @@ pub(crate) use empty_state::EmptyStateDisplay;
 pub(crate) use failure::{SearchFailureAction, SearchFailureAvailability};
 pub(crate) use index_detail::{IndexDetailDisplay, IndexDetailKind, IndexSearchResultRows};
 pub(crate) use index_result_note::{IndexResultDiagnostic, IndexResultStopReason};
+#[cfg(test)]
+pub(crate) use musicindex_search::plan::IndexSkip;
 pub(crate) use new_results::{new_result_count, new_results_text, NewResultCount, NewResultsText};
 pub(crate) use paged_tab::SearchResultsPagedTab;
 pub(crate) use results::{
@@ -64,8 +69,7 @@ pub(crate) use saved_search_groups::{saved_search_window_page, SearchResultItemV
 pub(crate) use saved_search_query::{SavedSearchQueryEdit, SavedSearchQueryKeep};
 pub(crate) use search_run::{
     library_part_runs, live_run_step, IndexEntity, IndexOrder, IndexSearchPlan, IndexSearchRequest,
-    IndexSkip, LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger,
-    INDEX_EXCLUSIONS_ONLY_TITLE, INDEX_SKIP_ROWS_TEXT, SCOPE_CONFLICT_TEXT, SCOPE_CONFLICT_TITLE,
+    LibrarySearchRows, LiveRunStep, SearchRun, SearchRunTrigger, INDEX_SKIP_ROWS_TEXT,
 };
 pub(crate) use tabs::{SearchResultItemId, SearchResultOrigin, SearchResultsTab, SearchTabCount};
 
@@ -79,6 +83,16 @@ use self::saved_search_groups::{
 /// The count of loading rows while the Index part of a run loads (ADR 0087
 /// packet 007 decision D2). The rows show after the rows of the active tab.
 pub(crate) const INDEX_PENDING_ROW_COUNT: usize = 3;
+
+/// The notes of the tabs that get no Index request while the plan sends one
+/// (musicindex ADR 0052 R-QUERY-8 item 4).
+#[derive(Clone, Debug, Default)]
+struct TabScopeNotes {
+    /// The note of the Releases tab.
+    releases: Option<SearchNote>,
+    /// The note of the Artists tab and of the Labels tab.
+    artists: Option<SearchNote>,
+}
 
 /// GPUI-free page contract for the search results in the list column.
 #[derive(Debug)]
@@ -94,12 +108,12 @@ pub(crate) struct SearchResultsInspectorPageVm {
     tracks: SearchResultsPagedTab<TrackResultDisplay>,
     index_loading: bool,
     index_error: Option<EmptyStateDisplay>,
-    /// The cause of an Index part that sends no request (ADR 0087 Decision
-    /// 5, packet 002). It is not an Index error.
-    index_skip: Option<IndexSkip>,
-    /// The note under the rows of a skipped Index part, when the Index
-    /// cannot apply a term of the query.
-    index_skip_notice: Option<EmptyStateDisplay>,
+    /// The note of a text that sends no Index request (ADR 0087 Decision 5,
+    /// musicindex ADR 0052 R-QUERY-8, ADR 0091). It is not an Index error.
+    index_note: Option<SearchNote>,
+    /// The note of the Releases tab and of the Artists tab when the plan
+    /// sends a request and the tab gets none (R-QUERY-8 item 4).
+    scope_notes: TabScopeNotes,
     empty_state: Option<EmptyStateDisplay>,
     /// The page entry of this view model: `FrameNavigationEntry::Search`
     /// for the toolbar search, or `FrameNavigationEntry::SavedSearch` for
@@ -153,8 +167,8 @@ impl SearchResultsInspectorPageVm {
             tracks: SearchResultsPagedTab::empty(),
             index_loading: false,
             index_error: None,
-            index_skip: None,
-            index_skip_notice: None,
+            index_note: None,
+            scope_notes: TabScopeNotes::default(),
             empty_state: None,
             entry,
             selection,
@@ -493,30 +507,41 @@ impl SearchResultsInspectorPageVm {
         self.index_loading = true;
         self.index_result_shown = false;
         self.index_error = None;
-        self.index_skip = None;
-        self.index_skip_notice = None;
+        self.index_note = None;
         self.refresh_empty_state();
     }
 
-    /// Records that the Index part sends no request, and its cause (ADR
-    /// 0087 Decision 5, packet 002 decision D17). A skip is not an Index
-    /// error, so the page shows no loading rows and no error.
-    pub(crate) fn set_index_skipped(&mut self, skip: &IndexSkip) {
+    /// Records the note of a text that sends no Index request (ADR 0087
+    /// Decision 5, packet 002 decision D17). The crate gives the title and
+    /// the text (musicindex ADR 0052 R-QUERY-8, ADR 0091). A skip is not an
+    /// Index error, so the page shows no loading rows and no error.
+    pub(crate) fn set_index_skipped(&mut self, query: &SearchQuery, plan: &IndexSearchPlan) {
         self.index_loading = false;
         self.index_error = None;
-        self.index_skip_notice = match skip {
-            IndexSkip::Unsupported(terms) => Some(EmptyStateDisplay::new(
-                terms.note_title(),
-                INDEX_SKIP_ROWS_TEXT,
-            )),
-            IndexSkip::ExclusionsOnly => Some(EmptyStateDisplay::new(
-                INDEX_EXCLUSIONS_ONLY_TITLE,
-                INDEX_SKIP_ROWS_TEXT,
-            )),
-            IndexSkip::NoIndexPart | IndexSkip::LibraryOnly | IndexSkip::Conflict => None,
-        };
-        self.index_skip = Some(skip.clone());
+        self.index_note = search_note(query, plan, Library::Present);
         self.refresh_empty_state();
+    }
+
+    /// Records the notes of the tabs that get no request while the plan
+    /// sends one (R-QUERY-8 item 4). The Releases tab reads the feed note,
+    /// and the Artists and Labels tabs read the publisher note.
+    pub(crate) fn set_scope_notes(&mut self, query: &SearchQuery, plan: &IndexSearchPlan) {
+        self.scope_notes = TabScopeNotes {
+            releases: scope_note(query, plan, IndexEntity::Feed),
+            artists: scope_note(query, plan, IndexEntity::Publisher),
+        };
+        self.refresh_empty_state();
+    }
+
+    /// The note of the Index part for the active tab, or `None`.
+    fn tab_index_note(&self) -> Option<&SearchNote> {
+        self.index_note.as_ref().or(match self.tab {
+            SearchResultsTab::Releases => self.scope_notes.releases.as_ref(),
+            SearchResultsTab::Artists | SearchResultsTab::Labels => {
+                self.scope_notes.artists.as_ref()
+            }
+            SearchResultsTab::All | SearchResultsTab::Tracks => None,
+        })
     }
 
     /// Returns whether the async remote Index search is pending. The
@@ -790,18 +815,26 @@ impl SearchResultsInspectorPageVm {
     /// (packet 007 decision D6). It also shows after the loading rows of a
     /// tab with no rows. When the page shows it as the empty state, this
     /// function does not give it again.
-    pub(crate) fn index_notice(&self) -> Option<&EmptyStateDisplay> {
+    ///
+    /// The note of the crate comes with one sentence of v4vmm about its
+    /// Library rows, which show above the note (R-QUERY-8 item 2).
+    pub(crate) fn index_notice(&self) -> Option<EmptyStateDisplay> {
         if let Some((_, note)) = &self.index_result_stop {
             if self.empty_state.is_none() {
-                return Some(note);
+                return Some(note.clone());
             }
         }
         if self.is_empty(self.tab) {
             return None;
         }
-        self.index_error
-            .as_ref()
-            .or(self.index_skip_notice.as_ref())
+        self.index_error.clone().or_else(|| {
+            self.tab_index_note().map(|note| {
+                EmptyStateDisplay::new(
+                    note.title.clone(),
+                    format!("{} {INDEX_SKIP_ROWS_TEXT}", note.text),
+                )
+            })
+        })
     }
 
     /// Returns the visible row thumbnail hrefs of the active tab.
@@ -1299,18 +1332,9 @@ impl SearchResultsInspectorPageVm {
             self.empty_state = Some(note.clone());
             return;
         }
-        let empty = empty_state_for(self.tab, &self.query);
-        self.empty_state = Some(match &self.index_skip {
-            Some(IndexSkip::Unsupported(terms)) => {
-                EmptyStateDisplay::new(terms.note_title(), empty.secondary)
-            }
-            Some(IndexSkip::ExclusionsOnly) => {
-                EmptyStateDisplay::new(INDEX_EXCLUSIONS_ONLY_TITLE, empty.secondary)
-            }
-            Some(IndexSkip::Conflict) => {
-                EmptyStateDisplay::new(SCOPE_CONFLICT_TITLE, SCOPE_CONFLICT_TEXT)
-            }
-            Some(IndexSkip::NoIndexPart | IndexSkip::LibraryOnly) | None => empty,
+        self.empty_state = Some(match self.tab_index_note() {
+            Some(note) => EmptyStateDisplay::new(note.title.clone(), note.text.clone()),
+            None => empty_state_for(self.tab, &self.query),
         });
     }
 }
@@ -1333,12 +1357,6 @@ impl SearchResultsInspectorPageVm {
             matched_count: tracks.len(),
         };
         Self::from_library_search(query, &rows, artist_facts)
-    }
-
-    /// The cause of a skipped Index part, or `None`.
-    #[must_use]
-    pub(crate) fn index_skip(&self) -> Option<&IndexSkip> {
-        self.index_skip.as_ref()
     }
 
     /// Returns the release rows.

@@ -11,22 +11,24 @@
 //! 0087 packet 005). Each value row has a source mark in words. A loading
 //! row and an error row tell the state of the `MusicIndex` request.
 //!
-//! This module reads the query text only through `search_query`: the
-//! `cursor_term` function, the `SearchQuery` parser and the field table. It
-//! has no GPUI type and no I/O. The renderer only composes the rows.
+//! The crate `musicindex-search` gives the field rows, the fixed value rows,
+//! the range of each edit, the field and prefix of the name rows and the
+//! field error (musicindex ADR 0052 R-QUERY-7, ADR 0091). This module has no
+//! GPUI type and no I/O. The renderer only composes the rows.
 
 #![warn(clippy::pedantic)]
 
 use std::ops::Range;
+
+use musicindex_search::field_list::{field_list_rows, FieldListRow, Library};
 
 use crate::view_models::index_name_list::name_sort_key;
 use crate::view_models::search_field_values::{
     artist_value_request_key, FieldValueRows, FieldValueSource, IndexArtistValues,
 };
 use crate::view_models::search_query::{
-    cursor_term, fields_with_prefix, quote_field_value, unquote_field_value_prefix, CursorPartial,
-    FieldValueState, FixedValueInfo, QueryFieldInfo, QueryFieldName, QueryScope, SearchQuery,
-    TermKind,
+    cursor_term, quote_field_value, FixedValueInfo, QueryFieldInfo, QueryFieldName, QueryScope,
+    SearchQuery,
 };
 
 /// The note of a row that `in:index` makes unavailable.
@@ -348,41 +350,28 @@ impl FieldListVm {
         let cursor = selection.start.min(text.len());
         let query = SearchQuery::parse(text);
         let scope = query.scope();
-        let term = cursor_term(text, cursor);
-        let mut rows = match &term.partial {
-            CursorPartial::FieldName { prefix } => {
-                // An empty prefix shows each field: the list is the help for
-                // the next term (ADR 0087 Decision 3).
-                let start = term.range.start;
-                let edit_range = start..cursor.max(start);
-                fields_with_prefix(prefix)
-                    .into_iter()
-                    .map(|info| field_row(info, edit_range.clone(), scope))
-                    .collect()
-            }
-            CursorPartial::FieldValue {
-                field,
-                prefix,
-                value_range,
-            } => {
-                let add_space = value_range.end == term.range.end
-                    && !text[value_range.end..]
-                        .chars()
-                        .next()
-                        .is_some_and(char::is_whitespace);
-                let edit = ValueEdit {
-                    range: value_range.clone(),
-                    add_space,
-                };
-                let mut rows: Vec<FieldListRowVm> = field
-                    .values_with_prefix(&unquote_field_value_prefix(prefix))
-                    .into_iter()
-                    .map(|value| value_row(*field, value, &edit, scope))
-                    .collect();
-                let library = values.library.matching(*field, prefix);
+        // The crate decides the field rows, the fixed value rows, the range
+        // that an edit replaces, the name request and the field error
+        // (musicindex ADR 0052 R-QUERY-7, ADR 0091). This module adds the
+        // names, the marks, the availability and the edits.
+        let list = field_list_rows(text, cursor, Library::Present);
+        let mut rows: Vec<FieldListRowVm> = Vec::new();
+        if let Some(range) = list.edit.clone() {
+            let add_space = range.end == cursor_term(text, cursor).range.end
+                && !text[range.end..]
+                    .chars()
+                    .next()
+                    .is_some_and(char::is_whitespace);
+            let edit = ValueEdit { range, add_space };
+            rows.extend(list.rows.iter().map(|row| match row {
+                FieldListRow::Field(info) => field_row(info, edit.range.clone(), scope),
+                FieldListRow::Value { field, value } => value_row(*field, value, &edit, scope),
+            }));
+            if let Some(request) = &list.names {
+                let library = values.library.matching(request.field, &request.prefix);
                 rows.extend(library.iter().enumerate().map(|(position, entry)| {
                     text_value_row(
-                        *field,
+                        request.field,
                         &entry.text,
                         FieldValueSource::Library,
                         position,
@@ -390,13 +379,13 @@ impl FieldListVm {
                         scope,
                     )
                 }));
-                if *field == QueryFieldName::Artist {
+                if request.field == QueryFieldName::Artist {
                     let request_key = artist_value_request_key(text, cursor);
                     if request_key.is_some() && request_key.as_deref() == values.index.key() {
                         let library_keys: Vec<&str> =
                             library.iter().map(|entry| entry.key.as_str()).collect();
                         rows.extend(index_rows(
-                            *field,
+                            request.field,
                             values.index,
                             &library_keys,
                             &edit,
@@ -405,11 +394,9 @@ impl FieldListVm {
                         ));
                     }
                 }
-                rows
             }
-            CursorPartial::Other => Vec::new(),
-        };
-        let notices = notices(&query, scope, cursor);
+        }
+        let notices = notices(list.error, scope);
         if rows.is_empty() && notices.is_empty() {
             return None;
         }
@@ -750,19 +737,10 @@ fn push_note(label: &mut String, note: Option<&str>) {
     }
 }
 
-/// The notices for the query and the cursor. The field error comes first.
-fn notices(query: &SearchQuery, scope: QueryScope, cursor: usize) -> Vec<FieldListNoticeVm> {
+/// The notices for the field error under the cursor and the scope. The field
+/// error comes first.
+fn notices(error: Option<String>, scope: QueryScope) -> Vec<FieldListNoticeVm> {
     let mut notices = Vec::new();
-    let error = query.terms().iter().find_map(|term| {
-        let under_cursor = term.span.start <= cursor && cursor <= term.span.end;
-        match &term.kind {
-            TermKind::Field(field) if under_cursor => match &field.value {
-                FieldValueState::Invalid(error) => Some(error.message()),
-                FieldValueState::Valid(_) | FieldValueState::Incomplete => None,
-            },
-            _ => None,
-        }
-    });
     if let Some(text) = error {
         notices.push(FieldListNoticeVm {
             kind: FieldListNoticeKind::FieldError,
@@ -1607,5 +1585,78 @@ mod tests {
         assert_eq!(labels(&vm), vec!["single"]);
         assert_eq!(vm.rows[0].edit.range, 5..8);
         assert_eq!(tab_text("kind:\"si", 8), ("kind:single ".to_owned(), 12));
+    }
+
+    /// ADR 0091, crate pin 634e4cc: `ki` shows the field rows of the crate.
+    #[test]
+    fn adr_0091_pin_634e4cc_field_rows_for_a_name_prefix() {
+        let vm = build_end("ki", FieldListOpening::Open).expect("the list shows");
+        assert_eq!(labels(&vm), vec!["kind:"]);
+        assert_eq!(vm.rows[0].edit.range, 0..2);
+        assert_eq!(vm.rows[0].edit.text, "kind:");
+    }
+
+    /// ADR 0091, crate pin 634e4cc: `kind:s` shows the fixed value rows of the
+    /// crate. The edit replaces the typed value.
+    #[test]
+    fn adr_0091_pin_634e4cc_value_rows_for_a_value_prefix() {
+        let vm = build_end("kind:s", FieldListOpening::Open).expect("the list shows");
+        assert_eq!(labels(&vm), vec!["single"]);
+        assert_eq!(vm.rows[0].edit.range, 5..6);
+        assert_eq!(vm.rows[0].edit.text, "single ");
+    }
+
+    /// ADR 0091, crate pin 634e4cc: the Library is present, so `in:` shows
+    /// its two values and `is:` shows its rows with the mark "Library only".
+    #[test]
+    fn adr_0091_pin_634e4cc_library_present_shows_the_library_rows() {
+        let vm = build_end("in:", FieldListOpening::Open).expect("the list shows");
+        assert_eq!(labels(&vm), vec!["library", "index"]);
+        let vm = build_end("i", FieldListOpening::Open).expect("the list shows");
+        assert_eq!(labels(&vm), vec!["in:", "is:"]);
+        assert_eq!(row(&vm, "is:").mark, Some(FieldListMark::LibraryOnly));
+    }
+
+    /// ADR 0091, crate pin 634e4cc: the name request of `playlist:` has the
+    /// typed prefix with its quote read. The Library names match that prefix.
+    #[test]
+    fn adr_0091_pin_634e4cc_name_request_gives_the_library_names() {
+        use crate::view_models::search_field_values::LibraryFieldValues;
+
+        let library =
+            LibraryFieldValues::from_texts(&[], &[], &["Friday Mix", "Night Drive", "Friends"]);
+        let rows = FieldValueRows {
+            library: &library,
+            index: &IndexArtistValues::NotRequested,
+        };
+        for text in ["playlist:fri", "playlist:\"fri"] {
+            let vm = FieldListVm::build(
+                text,
+                text.len()..text.len(),
+                &state(FieldListOpening::Open),
+                &rows,
+            )
+            .expect("the list shows");
+            assert_eq!(labels(&vm), vec!["Friday Mix", "Friends"], "{text}");
+            assert_eq!(
+                vm.rows[0].mark,
+                Some(FieldListMark::Source(FieldValueSource::Library))
+            );
+        }
+    }
+
+    /// ADR 0091, crate pin 634e4cc: the notice of the field error has the
+    /// message of the crate.
+    #[test]
+    fn adr_0091_pin_634e4cc_field_error_gives_the_crate_message() {
+        let text = "after:yesterday";
+        let vm = build_end(text, FieldListOpening::Open).expect("the list shows");
+        let expected = field_list_rows(text, text.len(), Library::Present)
+            .error
+            .expect("the crate gives the error");
+        assert_eq!(vm.notices.len(), 1);
+        assert_eq!(vm.notices[0].kind, FieldListNoticeKind::FieldError);
+        assert_eq!(vm.notices[0].text, expected);
+        assert!(expected.starts_with("after:"), "{expected}");
     }
 }
