@@ -6,7 +6,7 @@
 //! from their own data. This module turns that value into the
 //! confirmation level of ADR 0085 Decision 2, the sections of Decision 3,
 //! the frame title of Decision 7, the header roles of ADR 0082 Decision 4,
-//! the "Shares albums with" entries of Decision 5, the title, and the
+//! the "Shares releases with" entries of Decision 5, the title, and the
 //! confirmed and unconfirmed artist counts. No renderer computes these
 //! facts. [`PublisherPageVm`] computes each one, and
 //! `src/ui/shells/publisher.rs` composes a screen from it.
@@ -141,7 +141,7 @@ pub(crate) struct PublisherPageFacts {
     pub(crate) other_albums_failure: Option<String>,
 }
 
-/// One entry of "Shares albums with" (ADR 0082 Decision 5): another feed
+/// One entry of "Shares releases with" (ADR 0082 Decision 5): another feed
 /// that shares a confirmed album with the feed this page describes. The
 /// owning query builds one of these from each `co_credited_feeds` item of
 /// the response.
@@ -317,7 +317,7 @@ pub(crate) struct PublisherPageSectionVm {
     pub(crate) view: ListView,
 }
 
-/// One "Shares albums with" entry, ready to view (ADR 0082 Decision 5).
+/// One "Shares releases with" entry, ready to view (ADR 0082 Decision 5).
 /// `PublisherPageVm::shares_albums_with` builds one of these from each
 /// `co_credited_feeds` item that carries a feed GUID.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -335,14 +335,17 @@ pub(crate) struct CoCreditedFeedVm {
 }
 
 impl CoCreditedFeedVm {
-    /// The word a shared album count shows when no role is stated.
+    /// The word a shared release count shows when no role is stated.
     const NO_ROLES_LABEL: &'static str = "No stated role";
-    /// The word after the count when it is exactly one.
-    const SHARED_ALBUM_LABEL: &'static str = "shared album";
+    /// The word after the count when it is exactly one. The count holds
+    /// releases of each kind, and the response gives no track counts, so
+    /// the text gives the total (musicindex ADR 0023 R-WORD-9 item 5,
+    /// R-SCOPE-1 item 2).
+    const SHARED_RELEASE_LABEL: &'static str = "shared release";
     /// The word after the count when it is zero or more than one.
-    const SHARED_ALBUMS_LABEL: &'static str = "shared albums";
+    const SHARED_RELEASES_LABEL: &'static str = "shared releases";
 
-    /// The roles and the shared album count, ready to view (ADR 0082
+    /// The roles and the shared release count, ready to view (ADR 0082
     /// Decision 5). The screen composes no text of its own. An absent
     /// count shows the roles alone: this method invents no count.
     #[must_use]
@@ -354,12 +357,12 @@ impl CoCreditedFeedVm {
         };
         match self.album_count {
             Some(count) => {
-                let album_word = if count == 1 {
-                    Self::SHARED_ALBUM_LABEL
+                let release_word = if count == 1 {
+                    Self::SHARED_RELEASE_LABEL
                 } else {
-                    Self::SHARED_ALBUMS_LABEL
+                    Self::SHARED_RELEASES_LABEL
                 };
-                format!("{roles} \u{2014} {count} {album_word}")
+                format!("{roles} \u{2014} {count} {release_word}")
             }
             None => roles,
         }
@@ -601,8 +604,8 @@ impl PublisherPageVm {
     /// the artists of the albums that this feed lists without a link back.
     pub(crate) const UNCONFIRMED_ARTISTS_LABEL: &'static str =
         "Artists this feed lists without a link back";
-    /// Caption of the "Shares albums with" section (ADR 0082 Decision 5).
-    pub(crate) const SHARES_ALBUMS_WITH_LABEL: &'static str = "Shares albums with";
+    /// Caption of the "Shares releases with" section (ADR 0082 Decision 5).
+    pub(crate) const SHARES_ALBUMS_WITH_LABEL: &'static str = "Shares releases with";
 
     /// Heading of the discography section for an Album or an EP (ADR 0085
     /// Decision 3, ADR 0084 Decision 6).
@@ -1144,7 +1147,7 @@ impl PublisherPageVm {
         urls
     }
 
-    /// "Shares albums with" (ADR 0082 Decision 5): one entry for each
+    /// "Shares releases with" (ADR 0082 Decision 5): one entry for each
     /// `co_credited_feeds` item, with its title, its roles, its album
     /// count, and the GUID of the feed page it opens. An entry with no
     /// feed GUID has no page to open, so this drops it.
@@ -2054,7 +2057,7 @@ mod tests {
         );
     }
 
-    /// R82-2-07: a `co_credited_feeds` entry gives a "Shares albums with"
+    /// R82-2-07: a `co_credited_feeds` entry gives a "Shares releases with"
     /// row with its title, its roles, its album count, and an action that
     /// opens its feed page, with no "publisher" text (ADR 0085 Decision
     /// 1).
@@ -2086,7 +2089,7 @@ mod tests {
         );
         assert_eq!(
             entries[0].roles_and_count_text(),
-            "artist, label \u{2014} 3 shared albums"
+            "artist, label \u{2014} 3 shared releases"
         );
     }
 

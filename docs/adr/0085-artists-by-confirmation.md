@@ -73,7 +73,7 @@ Each feed and each credit name in Artists has one level. The level comes from th
 - A feed with agreed roles, none of which is `artist`, is not in Artists. Decision 4 shows it.
 - A one-side `artist` role does not confirm an artist. The feed stays an unverified artist, and its page shows the stated role with its side.
 - A feed that albums name only after their primary named feed, with no agreed role, is not in Artists. The release page shows it (Decision 6).
-- A feed that no album names is not in Artists. Its page opens from "Shares albums with" and from search.
+- A feed that no album names is not in Artists. Its page opens from "Shares releases with" and from search.
 - The Artists list shows no level word. Only the artist page shows the level (Decision 3).
 - "Unverified" tells that nothing confirms the role. The app uses "artist" as its default word for a named feed, not as a derived fact.
 
@@ -99,7 +99,7 @@ The page of a feed has no type. It shows the level of Decision 2 in its header, 
 
 - An "As <roles>" section of Decision 3 shows only when a feed states a role other than `artist`.
 - The header lists the agreed roles, as ADR 0082 Decision 4 gives.
-- "Shares albums with" stays as ADR 0082 Decision 5 gives. Each row shows the feed title, its roles and the count of shared albums, with no source text.
+- "Shares releases with" stays as ADR 0082 Decision 5 gives. Each row shows the feed title, its roles and the count of shared releases, with no source text. The count holds releases of each kind, so the words are "release" and "releases" (musicindex ADR 0023 R-SCOPE-1 item 2 and R-WORD-9 item 5, 2026-11-08).
 - A Labels destination is a subsequent decision. The operator makes it when many feeds have a label role.
   MusicIndex 0.7.0 gives no count of those feeds. A request to Stophammer is a candidate, and this ADR does not make it.
 
