@@ -78,7 +78,7 @@ impl PaymentRouteRepairTrackResult {
             title,
             status: PaymentRouteRepairStatus::NoRoutesUpstream,
             frames_written: 0,
-            reason: Some("MusicIndex has no payment routes for this track or feed.".to_owned()),
+            reason: Some("Music Index has no payment routes for this track or feed.".to_owned()),
         }
     }
 
@@ -432,7 +432,7 @@ fn repair_loaded_payment_routes_track<C: PaymentRouteApi>(
             return PaymentRouteRepairTrackResult::failed(
                 track.id,
                 title,
-                format!("fetch MusicIndex payment routes: {error:#}"),
+                format!("fetch Music Index payment routes: {error:#}"),
             );
         }
     };

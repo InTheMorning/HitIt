@@ -104,7 +104,7 @@ impl SettingsContent {
         match self {
             Self::Scale => "UI scale",
             Self::Theme => "Theme",
-            Self::Endpoint => "MusicIndex endpoint",
+            Self::Endpoint => "Music Index endpoint",
             Self::MusicDirectory => "Music directory",
             Self::FlacPath => "Audio converter (optional)",
             Self::BackgroundReports => "Background tools",

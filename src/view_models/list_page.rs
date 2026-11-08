@@ -634,7 +634,7 @@ fn search_scope_control(selected: ListScope) -> ListScopeControlVm {
                 id: "music-scope-search-all",
                 scope: ListScope::All,
                 label: "All",
-                a11y_label: "Show all results, Library and MusicIndex".to_owned(),
+                a11y_label: "Show all results, Library and Music Index".to_owned(),
                 count_text: None,
             },
             ListScopeOptionVm {
@@ -706,7 +706,7 @@ fn scope_control(
                 id: all_id,
                 scope: ListScope::All,
                 label: "All",
-                a11y_label: format!("Show all {noun}, Library and MusicIndex"),
+                a11y_label: format!("Show all {noun}, Library and Music Index"),
                 count_text: None,
             },
             ListScopeOptionVm {

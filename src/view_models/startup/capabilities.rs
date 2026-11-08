@@ -440,7 +440,7 @@ pub fn dependency_title(dependency: Dependency) -> &'static str {
     match dependency {
         Dependency::BackgroundRuntime => "Background runtime",
         Dependency::ThumbnailMaintenance => "Thumbnail maintenance",
-        Dependency::MusicIndex => "MusicIndex",
+        Dependency::MusicIndex => "Music Index",
         Dependency::Playback => "Built-in playback",
         Dependency::Publisher => "Relay sender host",
         Dependency::Producer => "Drop-file publication",
@@ -865,7 +865,7 @@ mod tests {
             [
                 "Background runtime",
                 "Thumbnail maintenance",
-                "MusicIndex",
+                "Music Index",
                 "Built-in playback",
                 "Relay sender host",
                 "Drop-file publication",
@@ -961,7 +961,7 @@ mod tests {
         vm.observations.get_mut(&source).unwrap().failure = None;
         vm.worker_available = false;
         let rows = vm.rows(true);
-        assert!(rows.iter().any(|row| row.label == "MusicIndex"));
+        assert!(rows.iter().any(|row| row.label == "Music Index"));
         assert!(vm.rows(false).is_empty());
         for action in rows.iter().flat_map(|row| &row.actions) {
             assert_eq!(

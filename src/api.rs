@@ -1396,7 +1396,7 @@ impl Client {
         {
             let mut segments = url
                 .path_segments_mut()
-                .map_err(|_| anyhow!("MusicIndex endpoint cannot be a base URL"))?;
+                .map_err(|_| anyhow!("Music Index endpoint cannot be a base URL"))?;
             for segment in path_segments {
                 segments.push(&sanitize_api_path_segment(segment)?);
             }

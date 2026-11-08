@@ -33,7 +33,7 @@ use crate::db::TrackRow;
 use crate::view_models::live_run::RunGeneration;
 use crate::view_models::search_query::{QueryScope, QueryTerm, SearchQuery};
 
-/// The text of the note under the Library rows when the Index part sends no
+/// The text of the note with the Library rows when the Index part sends no
 /// request because the Index cannot apply a term (ADR 0087 Decision 5).
 pub(crate) const INDEX_SKIP_ROWS_TEXT: &str = "The Library rows show.";
 
@@ -41,7 +41,7 @@ pub(crate) const INDEX_SKIP_ROWS_TEXT: &str = "The Library rows show.";
 /// word or a field to search for (musicindex ADR 0049 R-QUERY-6 and ADR 0087
 /// Decision 5). The text under the title is [`INDEX_SKIP_ROWS_TEXT`].
 pub(crate) const INDEX_EXCLUSIONS_ONLY_TITLE: &str =
-    "MusicIndex needs a word or a field to search for";
+    "Music Index needs a word or a field to search for";
 
 /// The title of the empty state of a query whose scopes cannot apply
 /// together.

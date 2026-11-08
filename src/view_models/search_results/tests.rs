@@ -284,7 +284,7 @@ fn adr_0084_search_list_r10_02_one_release_row_for_each_item() {
     assert_eq!(
         rows[1].download_state.as_ref().map(|state| state.state),
         Some(ReleaseDownloadState::NotDownloaded),
-        "a MusicIndex row the Library does not hold still shows its state (ADR 0083 Decision 6)"
+        "a Music Index row the Library does not hold still shows its state (ADR 0083 Decision 6)"
     );
     assert_eq!(
         rows[1].badge, None,
@@ -1040,7 +1040,7 @@ fn adr_0087_one_index_error_r87_9_05_older_run_error_does_not_reach_newer_page()
         std::time::SystemTime::UNIX_EPOCH,
     ));
     let notice = newer.index_notice().expect("the newer run shows its note");
-    assert_eq!(notice.title, "MusicIndex search unavailable");
+    assert_eq!(notice.title, "Music Index search unavailable");
     assert!(newer.empty_state().is_none());
     let lookup = RecordedLibrary::default();
     assert_eq!(rows(&newer, &lookup).len(), 2, "the Library rows stay");
@@ -1056,10 +1056,10 @@ fn index_error_surfaces_when_the_tab_has_no_rows() {
         std::time::SystemTime::UNIX_EPOCH,
     );
     let empty = vm.empty_state().expect("index error should surface");
-    assert_eq!(empty.title, "MusicIndex search unavailable");
+    assert_eq!(empty.title, "Music Index search unavailable");
     assert!(empty
         .secondary
-        .contains("App could not get search results from MusicIndex."));
+        .contains("App could not get search results from Music Index."));
 }
 
 /// Walk of 2026-10-21: an HTTP `400` reply to the search is a query error.
@@ -1090,10 +1090,10 @@ fn adr_0084_search_list_rejected_query_shows_a_note_with_the_library_rows() {
     assert_eq!(rows(&vm, &lookup).len(), 1, "the Library row stays");
     assert!(vm.empty_state().is_none());
     let notice = vm.index_notice().expect("the Index part shows a note");
-    assert_eq!(notice.title, "MusicIndex did not accept the query");
+    assert_eq!(notice.title, "Music Index did not accept the query");
     assert_eq!(
         notice.secondary,
-        "MusicIndex did not accept the query \"haleen'\". Change the query, then search again."
+        "Music Index did not accept the query \"haleen'\". Change the query, then search again."
     );
     for forbidden in ["Edit endpoint", "Check your connection", "unavailable"] {
         assert!(!notice.secondary.contains(forbidden), "{forbidden}");
@@ -1118,7 +1118,7 @@ fn adr_0084_search_list_rejected_query_shows_a_note_with_the_library_rows() {
     let empty = no_rows
         .empty_state()
         .expect("the empty state shows the note");
-    assert_eq!(empty.title, "MusicIndex did not accept the query");
+    assert_eq!(empty.title, "Music Index did not accept the query");
 }
 
 /// R28-06 (packet 028 D5): with Library rows and an unavailable
@@ -1145,10 +1145,10 @@ fn adr_0084_search_open_defects_r28_06_unavailable_index_gives_a_note_after_the_
     assert_eq!(rows(&vm, &lookup).len(), 1, "the Library row stays");
     assert!(vm.empty_state().is_none());
     let notice = vm.index_notice().expect("the Index part shows a note");
-    assert_eq!(notice.title, "MusicIndex search unavailable");
+    assert_eq!(notice.title, "Music Index search unavailable");
     assert!(notice
         .secondary
-        .contains("App could not get search results from MusicIndex."));
+        .contains("App could not get search results from Music Index."));
     let failure = notice.failure.as_ref().expect("the note keeps its report");
     assert_eq!(
         failure.action(SearchFailureAction::ToggleDetails).label,
@@ -1166,7 +1166,7 @@ fn adr_0084_search_open_defects_r28_06_unavailable_index_gives_a_note_after_the_
     assert!(no_rows.index_notice().is_none());
     assert_eq!(
         no_rows.empty_state().map(|empty| empty.title.as_str()),
-        Some("MusicIndex search unavailable")
+        Some("Music Index search unavailable")
     );
 }
 
@@ -1789,7 +1789,7 @@ fn adr_0087_library_fields_r87_2_26_exclusions_only_gives_the_note() {
     let notice = vm.index_notice().expect("the tab with rows shows the note");
     assert_eq!(
         notice.title,
-        "MusicIndex needs a word or a field to search for"
+        "Music Index needs a word or a field to search for"
     );
     assert_eq!(notice.secondary, super::INDEX_SKIP_ROWS_TEXT);
     assert_eq!(notice.secondary, "The Library rows show.");
@@ -1802,7 +1802,7 @@ fn adr_0087_library_fields_r87_2_26_exclusions_only_gives_the_note() {
     let state = empty.empty_state().expect("the empty tab shows the note");
     assert_eq!(
         state.title,
-        "MusicIndex needs a word or a field to search for"
+        "Music Index needs a word or a field to search for"
     );
     assert!(!empty.is_index_loading());
 }
@@ -2086,7 +2086,7 @@ fn adr_0087_live_index_rows_d6_older_run_note() {
     assert_eq!(diagnostic.page_generation, generation[1]);
     assert_eq!(diagnostic.reason, super::IndexResultStopReason::OlderRun);
     let note = vm.index_notice().expect("the note shows after the rows");
-    assert_eq!(note.title, "MusicIndex rows for \"survival\" did not show");
+    assert_eq!(note.title, "Music Index rows for \"survival\" did not show");
     assert_eq!(
         note.secondary,
         "The result came from search run 1, but a newer search run started. The page shows run 2."
@@ -2125,7 +2125,7 @@ fn adr_0087_live_index_rows_d6_page_generation_note() {
         super::IndexResultStopReason::PageGeneration
     );
     let empty = vm.empty_state().expect("a page with no row shows the note");
-    assert_eq!(empty.title, "MusicIndex rows for \"fittest\" did not show");
+    assert_eq!(empty.title, "Music Index rows for \"fittest\" did not show");
     assert_eq!(
         empty.secondary,
         "The result came from search run 2, and the page shows run 1."

@@ -36,24 +36,24 @@ const NOTE_INDEX_SCOPE: &str = "Not available with in:index";
 const NOTE_LIBRARY_SCOPE: &str = "Not available with a Library-only field or in:library";
 
 /// The label of the row that waits for the `MusicIndex` names.
-const LOADING_LABEL: &str = "Loading names from MusicIndex";
+const LOADING_LABEL: &str = "Loading names from Music Index";
 
 /// The accessibility label of the loading row.
-const LOADING_A11Y_LABEL: &str = "Loading artist names from MusicIndex";
+const LOADING_A11Y_LABEL: &str = "Loading artist names from Music Index";
 
 /// The label of the row of a failed `MusicIndex` name request.
-const INDEX_ERROR_LABEL: &str = "Names from MusicIndex did not load";
+const INDEX_ERROR_LABEL: &str = "Names from Music Index did not load";
 
 /// The note of the error row.
 const INDEX_ERROR_NOTE: &str = "The Library names show. The next change of the text tries again.";
 
 /// The accessibility label of the error row.
 const INDEX_ERROR_A11Y_LABEL: &str =
-    "Artist names from MusicIndex did not load. The Library names show.";
+    "Artist names from Music Index did not load. The Library names show.";
 
 /// The text of the scope conflict notice.
 const SCOPE_CONFLICT_TEXT: &str =
-    "This query asks for the Library only and for MusicIndex only. It shows no rows.";
+    "This query asks for the Library only and for Music Index only. It shows no rows.";
 
 /// The open state of the field list.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -618,7 +618,7 @@ fn text_value_row(
     };
     let source_words = match source {
         FieldValueSource::Library => "from the Library",
-        FieldValueSource::Index => "from MusicIndex",
+        FieldValueSource::Index => "from Music Index",
     };
     let source_id = match source {
         FieldValueSource::Library => "library",
@@ -983,7 +983,7 @@ mod tests {
         assert_eq!(kinds, vec![FieldListNoticeKind::ScopeConflict]);
         assert_eq!(
             vm.notices[0].text,
-            "This query asks for the Library only and for MusicIndex only. It shows no rows."
+            "This query asks for the Library only and for Music Index only. It shows no rows."
         );
     }
 
@@ -1414,7 +1414,7 @@ mod tests {
             .iter()
             .map(|row| row.mark.expect("each value row has a mark").label())
             .collect();
-        assert_eq!(marks, vec!["Library", "Library", "Library", "MusicIndex"]);
+        assert_eq!(marks, vec!["Library", "Library", "Library", "Music Index"]);
         assert_eq!(
             vm.rows[0].element_id,
             "search-field-list-value-artist-library-0"
@@ -1425,7 +1425,7 @@ mod tests {
         );
         assert_eq!(
             vm.rows[3].a11y_label,
-            "Value Halo Child for artist:, from MusicIndex"
+            "Value Halo Child for artist:, from Music Index"
         );
         assert_eq!(
             vm.rows[0].a11y_label,
@@ -1529,7 +1529,7 @@ mod tests {
             FieldListRowAvailability::Unavailable(FieldListRowUnavailable::Loading)
         );
         assert_eq!(row.action, FieldListRowAction::Inert);
-        assert_eq!(row.label, "Loading names from MusicIndex");
+        assert_eq!(row.label, "Loading names from Music Index");
         assert_eq!(row.element_id, "search-field-list-loading-artist");
         assert_eq!(row.edit.range, 10..10);
         assert!(row.edit.text.is_empty());
@@ -1554,7 +1554,7 @@ mod tests {
                 field: QueryFieldName::Artist
             }
         );
-        assert_eq!(row.label, "Names from MusicIndex did not load");
+        assert_eq!(row.label, "Names from Music Index did not load");
         assert_eq!(
             row.note.as_deref(),
             Some("The Library names show. The next change of the text tries again.")

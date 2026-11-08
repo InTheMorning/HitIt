@@ -107,8 +107,8 @@ v4vmm sends the words and the phrases in `q`, and each Index field as its own pa
 - `after:` gives `after`, and `before:` gives `before`. Each value is `YYYY-MM-DD`. A day gives that day in both. A month gives its first day in `after:`, and its last day in `before:`.
 - `duration:` gives `min_duration` and `max_duration`, in integer seconds. Each limit is included, as `duration:` is.
 - Each entity type takes only some filters. A publisher row has no release, kind, date or duration, so `type=publisher` gets no request when the query has one of them. A feed row has no duration, so `type=feed` gets no request for a duration. Stophammer gives `400` for a filter that a type does not take. v4vmm sends no such filter. Each type gets its own request, so the run still sends at most three requests.
-- A query with exclusions and no positive term sends no request. Stophammer gives `400` with the code `missing_positive_term` for that request. The page shows the note "MusicIndex needs a word or a field to search for. The Library rows show."
-- An excluded `kind:`, `after:`, `before:` or `duration:` has no parameter. The Index part shows the note "MusicIndex cannot exclude kind: yet. The Library rows show." The contract has no `not_` form for these fields.
+- A query with exclusions and no positive term sends no request. Stophammer gives `400` with the code `missing_positive_term` for that request. The page shows the note "Music Index needs a word or a field to search for. The Library rows show."
+- An excluded `kind:`, `after:`, `before:` or `duration:` has no parameter. The Index part shows the note "Music Index cannot exclude kind: yet. The Library rows show." The crate `musicindex-search` gives the first sentence, and it gives "MusicIndex" until the crate follows musicindex ADR 0023 R-WORD-8. The contract has no `not_` form for these fields.
 
 The page never shows Index rows that a filter did not reduce.
 
@@ -188,6 +188,8 @@ Later answers of 2026-11-07, relayed by the orchestrator session:
 5. Each sort can change the rows two times. The page first sorts its rows, and the Index rows then replace them. The operator accepts this.
 6. The operator accepts the look of the sort rows, of `in:library` with the reverse icon, and of the scope All, from the agent screenshots of 2026-11-07.
 7. The subtitle of a saved search with no name of its own names what its query reads: "Library and Index", "Library" or "Index". The orchestrator session directed this correction on 2026-11-07. A query with a scope conflict reads nothing, so its subtitle is "No results".
+8. The operator passed the look of the `-remix` note (`shots2/t1-remix-pause.png`, `shots2/m11.png`), the Dark theme of the search pages (`shots2/o1-dark-note.png`) and the Phase 3 check of the search move plan, `haleen kind:single` (`shots/s6-kind-single.png`, `shots2/b2-kind-tracks.png`), from the agent screenshots in `/tmp/claude-1000/-home-citizen-build-v4vmm/d4edb497-6260-481e-8270-1c6baa78e1dc/scratchpad/xv`, through the orchestrator session on 2026-11-07. A later real use can reopen each item.
+9. The note of the Index part is above the rows, outside their scroll container, so a long list does not hide it and each row keeps its index. The operator decided this on 2026-11-07, through the orchestrator session.
 
 ## Verification
 

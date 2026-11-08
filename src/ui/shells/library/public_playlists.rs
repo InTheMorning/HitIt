@@ -309,7 +309,7 @@ pub(crate) fn render_public_playlist_failed(
         .gap(spacing::XS)
         .p(spacing::LG)
         .child(
-            Label::new("MusicIndex did not answer the playlist request.")
+            Label::new("Music Index did not answer the playlist request.")
                 .size(FontSize::Caption)
                 .color(SemanticColor::Danger),
         )
@@ -324,7 +324,7 @@ pub(crate) fn render_public_playlist_failed(
                 ControlStyle::Neutral,
             )
             .label("Try again")
-            .a11y_label("Send the MusicIndex playlist request again")
+            .a11y_label("Send the Music Index playlist request again")
             .on_click(cx.listener(|this, _: &ClickEvent, _window, cx| {
                 this.retry_public_playlist(cx);
             })),

@@ -1179,7 +1179,7 @@ mod tests {
             .summary_rows()
             .iter()
             .any(|row| row.label == "Feed publication date"
-                && row.value == "Jan 1, 2024 (MusicIndex)"));
+                && row.value == "Jan 1, 2024 (Music Index)"));
     }
 
     /// ADR 0084 task 015, operator decision of 2026-10-17: the shared

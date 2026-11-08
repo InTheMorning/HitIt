@@ -139,7 +139,7 @@ pub(crate) const ROUTE_OUT_OF_DATE_REASON: &str = "Payment route in file is out 
 pub(crate) const NO_RSS_RECIPIENTS_REASON: &str =
     "RSS has no payment recipients for this track or feed.";
 
-const NO_UPSTREAM_ROUTES_REASON: &str = "MusicIndex has no payment routes for this track or feed.";
+const NO_UPSTREAM_ROUTES_REASON: &str = "Music Index has no payment routes for this track or feed.";
 
 /// The reason of a `RemovedFromFeed` track (ADR 0076 Decision 7), with the
 /// recorded time of the check that set the mark, in UTC.

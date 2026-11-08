@@ -66,17 +66,17 @@ const PUBLISHER_LEVEL_LABEL: &str = "Artist feed";
 const EMPTY_GROUP_MESSAGE: &str = "This artist has fewer than two singles.";
 /// The row of a group page while the request for the `MusicIndex` singles
 /// of its feed runs (packet 026 Part B).
-const LOADING_INDEX_SINGLES_LABEL: &str = "Loading MusicIndex singles";
+const LOADING_INDEX_SINGLES_LABEL: &str = "Loading Music Index singles";
 /// The report of the error row of a group page.
 const INDEX_SINGLES_FAILED_MESSAGE: &str =
-    "The MusicIndex singles did not load. The Library singles show.";
+    "The Music Index singles did not load. The Library singles show.";
 /// The accessibility label of "Try again" on the error row of a group page.
 const RETRY_INDEX_SINGLES_A11Y_LABEL: &str =
-    "Try again to load the MusicIndex singles of this artist feed";
+    "Try again to load the Music Index singles of this artist feed";
 /// The note of a group page when more releases name the feed than the app
 /// read (packet 026 decision D11).
 const MORE_INDEX_SINGLES_NOTE: &str =
-    "MusicIndex has more releases of this artist. This page shows the singles of its 1,000 newest releases.";
+    "Music Index has more releases of this artist. This page shows the singles of its 1,000 newest releases.";
 /// The title of a group page with no group.
 const EMPTY_GROUP_TITLE: &str = "Singles";
 
@@ -2985,7 +2985,7 @@ mod tests {
             page.index_status,
             Some(IndexListStatusRowVm::Loading {
                 element_id: "singles-group-index-loading".to_owned(),
-                label: "Loading MusicIndex singles",
+                label: "Loading Music Index singles",
             })
         );
         assert_eq!(row_keys(&page), ["guid-3", "guid-2", "guid-1"]);
@@ -3011,7 +3011,7 @@ mod tests {
         };
         assert_eq!(
             message,
-            "The MusicIndex singles did not load. The Library singles show."
+            "The Music Index singles did not load. The Library singles show."
         );
         assert_eq!(
             detail,

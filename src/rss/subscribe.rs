@@ -413,7 +413,7 @@ pub fn musicindex_updated_at_for_body(
             match client.fetch_feed(guid, None) {
                 Ok(api_feed) => api_feed.updated_at,
                 Err(err) => {
-                    eprintln!("fetch MusicIndex feed for baseline updated_at: {err:#}");
+                    eprintln!("fetch Music Index feed for baseline updated_at: {err:#}");
                     None
                 }
             }

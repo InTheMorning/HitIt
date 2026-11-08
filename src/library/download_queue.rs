@@ -245,7 +245,7 @@ impl QueuedJob {
         let (Some(feed_key), true) = (feed_key, track_present) else {
             return Err(DownloadRefusal {
                 reason: format!(
-                    "The app did not download {label}: the app needs a feed GUID and a track GUID to read the track from MusicIndex."
+                    "The app did not download {label}: the app needs a feed GUID and a track GUID to read the track from Music Index."
                 ),
                 label,
             });
@@ -290,7 +290,7 @@ impl QueuedJob {
         if feed.is_none() && feed_guid.is_none() {
             return Err(DownloadRefusal {
                 reason: format!(
-                    "The app did not download {label}: the app needs a feed GUID to read the release from MusicIndex."
+                    "The app did not download {label}: the app needs a feed GUID to read the release from Music Index."
                 ),
                 label,
             });

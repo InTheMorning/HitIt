@@ -397,7 +397,7 @@ fn differences_summary(run: &PlaylistRssRun) -> Option<String> {
     let count = run.differences.len();
     let feeds = stale_feeds(run).len();
     Some(format!(
-        "The check wrote {count} RSS {} to the stored values. MusicIndex has older data for {feeds} {}. The app keeps each earlier value as evidence and writes no audio tag.",
+        "The check wrote {count} RSS {} to the stored values. Music Index has older data for {feeds} {}. The app keeps each earlier value as evidence and writes no audio tag.",
         if count == 1 { "value" } else { "values" },
         if feeds == 1 { "feed" } else { "feeds" },
     ))
@@ -469,7 +469,7 @@ fn podping_links(playlist_id: i64, run: &PlaylistRssRun) -> Vec<PodpingLinkDispl
                 ),
                 feed_id: difference.feed_id,
                 text: format!(
-                    "MusicIndex has older data for {feed}. Open podping.me and submit {address} to ask MusicIndex to read the feed again. The app sends no podping."
+                    "Music Index has older data for {feed}. Open podping.me and submit {address} to ask Music Index to read the feed again. The app sends no podping."
                 ),
                 label: "Open podping.me",
                 a11y_label: format!("Open podping.me in the browser for {feed}"),

@@ -763,10 +763,10 @@ fn plural(count: usize) -> &'static str {
 fn feed_apply_message(tracks_refreshed: usize, feed_errors: &[String]) -> String {
     let mut parts = Vec::new();
     parts.push(if tracks_refreshed == 0 {
-        "Stored no MusicIndex track record. No audio file changed".to_owned()
+        "Stored no Music Index track record. No audio file changed".to_owned()
     } else {
         format!(
-            "Stored the MusicIndex record of {tracks_refreshed} track{}. No audio file changed",
+            "Stored the Music Index record of {tracks_refreshed} track{}. No audio file changed",
             plural(tracks_refreshed)
         )
     });
@@ -895,7 +895,7 @@ mod tests {
         // ADR 0076 Decision 8: the message does not claim a file write.
         assert_eq!(
             outcome.value().message(),
-            "Stored no MusicIndex track record. No audio file changed"
+            "Stored no Music Index track record. No audio file changed"
         );
         assert_eq!(outcome.events(), feed_update_events());
 
@@ -1665,7 +1665,7 @@ mod observation_tests {
         assert_eq!(result.tracks_refreshed(), 1);
         assert_eq!(
             result.message(),
-            "Stored the MusicIndex record of 1 track. No audio file changed"
+            "Stored the Music Index record of 1 track. No audio file changed"
         );
         assert_eq!(fixture.taken_requests().len(), 4);
         assert_eq!(result.observation_receipts().len(), 4);

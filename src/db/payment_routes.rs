@@ -201,7 +201,7 @@ pub(crate) fn store_musicindex_route(
     if routes.is_empty() {
         return Ok(false);
     }
-    let json = serde_json::to_string(routes).context("encode the MusicIndex payment route")?;
+    let json = serde_json::to_string(routes).context("encode the Music Index payment route")?;
     let changed = conn
         .execute(
             "UPDATE tracks SET payment_routes_json = ?2
@@ -210,7 +210,7 @@ pub(crate) fn store_musicindex_route(
                AND (SELECT f.payment_routes_json FROM feeds f WHERE f.id = tracks.feed_id) IS NULL",
             params![track_id, json],
         )
-        .context("store the MusicIndex payment route")?;
+        .context("store the Music Index payment route")?;
     Ok(changed > 0)
 }
 
@@ -259,7 +259,7 @@ pub(crate) fn refresh_feed_route(conn: &Connection, feed_id: i64, raw: Option<&s
              WHERE feed_id = ?1 AND item_value_json IS NULL AND payment_routes_json IS NOT NULL",
             [feed_id],
         )
-        .context("clear MusicIndex track routes")?;
+        .context("clear Music Index track routes")?;
     }
     Ok(())
 }

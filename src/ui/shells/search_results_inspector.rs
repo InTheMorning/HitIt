@@ -524,8 +524,9 @@ fn detail_metadata_row(label: &str, value: &str, cx: &App) -> AnyElement {
 
 /// The rows of the active tab, then `pending_rows` loading rows while the
 /// `MusicIndex` results load (ADR 0087 packet 007 decision D2). The view
-/// model gives the count. `index_notice` is the note of the Index part
-/// after the rows, when the view model gives one (walk of 2026-10-21).
+/// model gives the count. `index_notice` is the note of the Index part,
+/// above the rows and outside their scroll container, when the view model
+/// gives one (operator decision of 2026-11-07).
 fn render_active_result_list(
     tab: SearchResultsTab,
     pending_rows: usize,
@@ -581,11 +582,12 @@ fn render_active_result_list(
         .chain((0..pending_rows).map(|index| render_pending_result_row(tab, index)))
         .collect();
     let notice = index_notice.map(|notice| {
-        // The note is a child of the scroll container with the rows, so it
-        // must not shrink under them (packet 028 review).
+        // The note stays in view above a long list, and it is not a child of
+        // the scroll container, so each row keeps its index (packet 028 D2).
         div()
             .flex_shrink_0()
-            .pt(Spacing::MD.scaled(cx))
+            .px(Spacing::MD.scaled(cx))
+            .pb(Spacing::SM.scaled(cx))
             .child(empty_state_content(
                 notice,
                 LabelVariant::Caption,
@@ -595,8 +597,8 @@ fn render_active_result_list(
     });
     // Packet 028 D2: each row is a direct child of the scroll container, in
     // the order of the view model rows. Thus `scroll_to_item` finds the
-    // focused row by its index. The loading rows and the note are after
-    // the rows. The right
+    // focused row by its index. The loading rows are after the rows. The
+    // right
     // padding keeps the clearance of `page_scroll_content` and adds the
     // column inset.
     let container = page_scroll_content(cx)
@@ -607,9 +609,17 @@ fn render_active_result_list(
         .pl(Spacing::MD.scaled(cx))
         .pr(OVERLAY_SCROLLBAR_WIDTH + Spacing::SM.scaled(cx) + Spacing::MD.scaled(cx))
         .pb(Spacing::MD.scaled(cx))
-        .children(children)
-        .children(notice);
-    music_column_tracked_scrollbar(container, &slots.scroll, None)
+        .children(children);
+    let rows = music_column_tracked_scrollbar(container, &slots.scroll, None);
+    div()
+        .flex()
+        .flex_col()
+        .flex_1()
+        .min_h_0()
+        .min_w_0()
+        .children(notice)
+        .child(rows)
+        .into_any_element()
 }
 
 fn render_empty_state(

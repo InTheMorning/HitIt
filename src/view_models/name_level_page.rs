@@ -353,13 +353,13 @@ impl NameLevelPageVm {
     pub(crate) const RELEASES_LABEL: &'static str = "Releases";
     /// The loading text of the `MusicIndex` part.
     pub(crate) const LOADING_TEXT: &'static str =
-        "Loading the releases of this name from MusicIndex.";
+        "Loading the releases of this name from Music Index.";
     /// The report of a failed `MusicIndex` request.
-    pub(crate) const FAILURE_REPORT: &'static str = "The app could not load the releases of this name from MusicIndex. The releases in the Library stay on this page.";
+    pub(crate) const FAILURE_REPORT: &'static str = "The app could not load the releases of this name from Music Index. The releases in the Library stay on this page.";
     /// The text that tells that `MusicIndex` has more releases (decision
     /// D10).
     pub(crate) const MORE_RELEASES_TEXT: &'static str =
-        "MusicIndex has more releases for this name. This page shows the first 1,000.";
+        "Music Index has more releases for this name. This page shows the first 1,000.";
     /// The label of the open action of the notice of decision D16.
     pub(crate) const OPEN_ARTIST_PAGE_LABEL: &'static str = "Open the artist page";
 
@@ -519,7 +519,7 @@ impl NameLevelPageVm {
         let loaded = matches!(self.facts.index, NameLevelIndexState::Loaded { .. });
         (loaded && self.facts.matched_feed.is_none() && self.rows().is_empty()).then(|| {
             format!(
-                "No release in the Library or in MusicIndex names {} as its artist and names no artist feed.",
+                "No release in the Library or in Music Index names {} as its artist and names no artist feed.",
                 self.label()
             )
         })
@@ -768,7 +768,7 @@ mod tests {
         ));
         assert_eq!(
             empty.empty_message().as_deref(),
-            Some("No release in the Library or in MusicIndex names Haleen as its artist and names no artist feed.")
+            Some("No release in the Library or in Music Index names Haleen as its artist and names no artist feed.")
         );
     }
 
