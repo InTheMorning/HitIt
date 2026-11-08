@@ -308,14 +308,14 @@ mod tests {
             }
             .note_title()
         };
-        assert_eq!(title(vec!["kind:"]), "MusicIndex cannot exclude kind: yet");
+        assert_eq!(title(vec!["kind:"]), "Music Index cannot exclude kind: yet");
         assert_eq!(
             title(vec!["kind:", "after:"]),
-            "MusicIndex cannot exclude kind: and after: yet"
+            "Music Index cannot exclude kind: and after: yet"
         );
         assert_eq!(
             title(vec!["after:", "before:", "duration:"]),
-            "MusicIndex cannot exclude after:, before: and duration: yet"
+            "Music Index cannot exclude after:, before: and duration: yet"
         );
     }
 

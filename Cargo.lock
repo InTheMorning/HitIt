@@ -3285,7 +3285,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4199,7 +4199,7 @@ dependencies = [
 [[package]]
 name = "musicindex-search"
 version = "0.1.0"
-source = "git+https://github.com/InTheMorning/musicindex-lib?rev=968409e03a0d264f481a6f6ecd687d1560a1b8a3#968409e03a0d264f481a6f6ecd687d1560a1b8a3"
+source = "git+https://github.com/InTheMorning/musicindex-lib?rev=11d99e593847fb3d61b175032ce3e9fbad690022#11d99e593847fb3d61b175032ce3e9fbad690022"
 dependencies = [
  "chrono",
 ]
