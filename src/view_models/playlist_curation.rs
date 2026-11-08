@@ -19,6 +19,7 @@ use crate::view_models::collection_art::CollectionArtVm;
 use crate::view_models::library::{PlaylistSidebarRowVm, PlaylistSidebarVm, RowTypeTag};
 use crate::view_models::list_page::{ListSort, ListView};
 use crate::view_models::name_order::compare_names;
+use crate::view_models::row_keys::RowKeysVm;
 use crate::view_models::workspace::FrameNavigationEntry;
 
 /// The word between the first and the second part of a tile line.
@@ -54,6 +55,61 @@ pub(crate) fn ordered_playlists(
 #[must_use]
 pub(crate) fn can_reorder(sort: ListSort, reversed: bool, view: ListView) -> bool {
     sort == ListSort::CuratorOrder && !reversed && view == ListView::Rows
+}
+
+/// One move of a playlist by a key (ADR 0092 Decision 3): the playlist and
+/// the place in the shown list that it moves to. The playlist keeps the
+/// keyboard cursor, so the cursor follows the playlist and not the place.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct PlaylistKeyMove {
+    /// The playlist that moves, and that keeps the cursor.
+    pub(crate) playlist_id: i64,
+    /// The place that the playlist moves to, from 0.
+    pub(crate) to_index: usize,
+}
+
+impl PlaylistSidebarVm {
+    /// Puts the keyboard cursor on the row `focused`, when `shows` is true
+    /// (ADR 0092 Decision 1). A list that does not have the keyboard focus
+    /// shows no cursor.
+    #[must_use]
+    pub(crate) fn with_focus(mut self, focused: Option<i64>, shows: bool) -> Self {
+        for row in &mut self.rows {
+            row.focused = shows && focused == Some(row.id);
+        }
+        self
+    }
+
+    /// The key actions of the row `focused`: the availability of the menu key
+    /// and of the move keys (ADR 0092 Decisions 2 and 3). The row menu gives
+    /// "Move up" and "Move down" under the same rule as the drag, so the keys
+    /// and the menu share one source.
+    #[must_use]
+    pub(crate) fn row_keys(&self, focused: Option<i64>) -> RowKeysVm {
+        let row = focused.and_then(|id| self.rows.iter().find(|row| row.id == id));
+        RowKeysVm::from_menu(row.map(|row| &row.menu))
+    }
+
+    /// The move that Alt+Up (`up` true) or Alt+Down makes on the row
+    /// `focused`. `None` when the key does nothing.
+    #[must_use]
+    pub(crate) fn key_move(&self, focused: Option<i64>, up: bool) -> Option<PlaylistKeyMove> {
+        let keys = self.row_keys(focused);
+        let action = if up { &keys.move_up } else { &keys.move_down };
+        if !action.available {
+            return None;
+        }
+        let row = self.rows.iter().find(|row| Some(row.id) == focused)?;
+        let to_index = if up {
+            row.shown_index.checked_sub(1)?
+        } else {
+            row.shown_index.checked_add(1)?
+        };
+        Some(PlaylistKeyMove {
+            playlist_id: row.id,
+            to_index,
+        })
+    }
 }
 
 /// The drag fact of a playlist row. A row with this fact starts a drag, and
@@ -262,6 +318,100 @@ mod tests {
         assert_eq!(vm.playlist_sidebar().tiles().len(), 4);
     }
 
+    /// ADR 0092 Decisions 2 and 3: the row keys of each condition. The first
+    /// row has no Move up, the last row has no Move down, and A to Z, Newest,
+    /// reversed and Tiles give no move key. The menu key stays for each
+    /// condition that shows a row with a menu.
+    #[test]
+    fn adr_0092_playlist_row_keys_follow_the_condition() {
+        use crate::view_models::library::LibraryViewModel;
+        use crate::view_models::list_page::ListPageKey;
+        let key = ListPageKey::MyPlaylists;
+        let mut vm = LibraryViewModel::new();
+        vm.replace_playlists(sample());
+        let sidebar = vm.playlist_sidebar();
+        let ids: Vec<i64> = sidebar.rows.iter().map(|row| row.id).collect();
+        assert_eq!(ids, [2, 3, 1, 4]);
+
+        let first = sidebar.row_keys(Some(2));
+        assert!(first.open_menu.available);
+        assert!(!first.move_up.available && first.move_down.available);
+        let middle = sidebar.row_keys(Some(3));
+        assert!(middle.move_up.available && middle.move_down.available);
+        let last = sidebar.row_keys(Some(4));
+        assert!(last.move_up.available && !last.move_down.available);
+        assert_eq!(sidebar.row_keys(None), RowKeysVm::none());
+        assert_eq!(sidebar.row_keys(Some(99)), RowKeysVm::none());
+
+        let has_no_move_key = |sidebar: &PlaylistSidebarVm| {
+            ids.iter().all(|id| {
+                let keys = sidebar.row_keys(Some(*id));
+                keys.open_menu.available
+                    && !keys.move_up.available
+                    && !keys.move_down.available
+                    && sidebar.key_move(Some(*id), true).is_none()
+                    && sidebar.key_move(Some(*id), false).is_none()
+            })
+        };
+        vm.set_list_reversed(key, true);
+        assert!(has_no_move_key(&vm.playlist_sidebar()), "reversed");
+        vm.set_list_reversed(key, false);
+        for sort in [ListSort::AToZ, ListSort::Newest] {
+            vm.set_list_sort(key, sort);
+            assert!(has_no_move_key(&vm.playlist_sidebar()), "{sort:?}");
+        }
+        vm.set_list_sort(key, ListSort::CuratorOrder);
+        vm.set_list_view(key, ListView::Tiles);
+        assert!(has_no_move_key(&vm.playlist_sidebar()), "tiles");
+    }
+
+    /// ADR 0092 Decision 3: a key move names the moved playlist, so the
+    /// cursor stays on it, and it gives the place of the neighbor row. The
+    /// first row does not move up, and the last row does not move down.
+    #[test]
+    fn adr_0092_key_move_targets_the_moved_playlist() {
+        use crate::view_models::library::LibraryViewModel;
+        let mut vm = LibraryViewModel::new();
+        vm.replace_playlists(sample());
+        let sidebar = vm.playlist_sidebar();
+        assert_eq!(sidebar.key_move(Some(2), true), None);
+        assert_eq!(
+            sidebar.key_move(Some(2), false),
+            Some(PlaylistKeyMove {
+                playlist_id: 2,
+                to_index: 1
+            })
+        );
+        assert_eq!(
+            sidebar.key_move(Some(1), true),
+            Some(PlaylistKeyMove {
+                playlist_id: 1,
+                to_index: 1
+            })
+        );
+        assert_eq!(sidebar.key_move(Some(4), false), None);
+        assert_eq!(sidebar.key_move(None, true), None);
+    }
+
+    /// ADR 0092 Decision 1: the cursor shows on the focused row, and only
+    /// while the list shows it.
+    #[test]
+    fn adr_0092_cursor_shows_only_with_the_list_focus() {
+        use crate::view_models::library::LibraryViewModel;
+        let mut vm = LibraryViewModel::new();
+        vm.replace_playlists(sample());
+        let shown = vm.playlist_sidebar().with_focus(Some(3), true);
+        let focused: Vec<i64> = shown
+            .rows
+            .iter()
+            .filter(|row| row.focused)
+            .map(|row| row.id)
+            .collect();
+        assert_eq!(focused, [3]);
+        let hidden = vm.playlist_sidebar().with_focus(Some(3), false);
+        assert!(hidden.rows.iter().all(|row| !row.focused));
+    }
+
     /// A tile carries the art of its row and opens the playlist page.
     #[test]
     fn adr_0053_r9_curated_tile_carries_the_row_art_and_open_target() {
@@ -281,6 +431,7 @@ mod tests {
                 CollectionKind::Playlist,
             ),
             marked: true,
+            focused: false,
             menu: crate::view_models::library::playlist_row_menu_with_moves(
                 7, "Focus", false, false,
             ),

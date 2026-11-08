@@ -93,6 +93,14 @@ type ActivateHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 
 const BUTTON_KEY_CONTEXT: &str = "ActionButton";
 
+gpui::actions!(
+    pointer_context_menu_entry,
+    [
+        /// Runs the focused button. A pointer menu binds Return and Space to it.
+        MenuActivate
+    ]
+);
+
 /// A tint grows by this alpha under the pointer.
 pub(crate) const TINT_HOVER_ALPHA_STEP: f32 = 0.03;
 
@@ -685,12 +693,7 @@ impl RenderOnce for Button {
                     .rounded(radius);
             }
             if let Some(handler) = on_activate.or(on_key_activate) {
-                hit_target = hit_target.on_key_down(move |event, window, cx| {
-                    if keyboard_activation_key(event) {
-                        cx.stop_propagation();
-                        handler(window, cx);
-                    }
-                });
+                hit_target = on_keyboard_activate(hit_target, handler);
             }
         }
 
@@ -782,6 +785,26 @@ fn button_description(
 
 fn pointer_activation_click(event: &ClickEvent) -> bool {
     matches!(event, ClickEvent::Mouse(_))
+}
+
+/// Runs `handler` on Return and Space. A pointer menu binds those keys to
+/// [`MenuActivate`], so the pane cannot take the key before the entry (ADR
+/// 0092).
+fn on_keyboard_activate(
+    target: gpui::Stateful<gpui::Div>,
+    handler: ActivateHandler,
+) -> gpui::Stateful<gpui::Div> {
+    let action_handler = handler.clone();
+    target
+        .on_action(move |_: &MenuActivate, window, cx| action_handler(window, cx))
+        .on_key_down(move |event, window, cx| {
+            // GPUI also clicks on key-up. Key-down owns keyboard activation
+            // (ADR 0069).
+            if keyboard_activation_key(event) {
+                cx.stop_propagation();
+                handler(window, cx);
+            }
+        })
 }
 
 fn keyboard_activation_key(event: &KeyDownEvent) -> bool {
