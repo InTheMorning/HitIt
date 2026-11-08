@@ -124,8 +124,11 @@ impl TopApp {
             | FrameNavigationEntry::PlaylistDetail(_) => library.library_detail_page_rows(),
             FrameNavigationEntry::PublisherDetail(_) => {
                 let (vm, _) = self.publisher_page_vm(cx)?;
+                // Musicindex ADR 0053 R-LIST-9: the rows come in the shown
+                // order of each section.
+                let sections = self.ordered_release_sections(vm.sections(), cx);
                 Some(DetailPageRows::Releases(feed_page_release_rows(
-                    &vm.sections(),
+                    &sections,
                     |key| library.library_release_facts(key),
                 )))
             }
@@ -133,8 +136,9 @@ impl TopApp {
             // through the feed page rows, with no new selection code.
             FrameNavigationEntry::ArtistName(_) => {
                 let vm = self.name_level_page_vm(cx)?;
+                let sections = self.ordered_release_sections(vm.sections(), cx);
                 Some(DetailPageRows::Releases(feed_page_release_rows(
-                    &vm.sections(),
+                    &sections,
                     |key| library.library_release_facts(key),
                 )))
             }
@@ -149,7 +153,7 @@ impl TopApp {
         rows: Option<&DetailPageRows>,
         cx: &App,
     ) -> Option<FrameHeaderActionDisplay> {
-        // ADR 0090 Decision 1: a group page has its "Select" in the list bar.
+        // ADR 0090 Decision 1: a list bar page has its "Select" in the list bar.
         let entry = self.current_music_entry();
         if matches!(entry, Some(FrameNavigationEntry::SavedSearch { .. }))
             || entry.as_ref().is_some_and(has_list_bar)

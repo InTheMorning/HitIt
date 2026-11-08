@@ -14,6 +14,7 @@ use std::collections::BTreeSet;
 
 use crate::view_models::artist_identity::{name_label, ArtistNameKey};
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
+use crate::view_models::list_page::ListView;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::publisher_page::{
     PublisherPageAlbumVm, PublisherPageHeaderFact, PublisherPageSectionVm, PublisherPageVm,
@@ -257,7 +258,13 @@ pub(crate) fn name_level_rows(
                     .cmp(&right.row.title.text().to_lowercase())
             })
     });
-    dated.into_iter().map(|(_, row)| row).collect()
+    dated
+        .into_iter()
+        .map(|(date, mut row)| {
+            row.row.date = date;
+            row
+        })
+        .collect()
 }
 
 fn row_vm(
@@ -286,6 +293,7 @@ fn row_vm(
         selection: RowSelectionVm::none(),
         kind,
         menu: None,
+        date: None,
     }
 }
 
@@ -470,6 +478,8 @@ impl NameLevelPageVm {
                     rows,
                     note: None,
                     status: None,
+                    controls: None,
+                    view: ListView::Rows,
                 });
             }
         }

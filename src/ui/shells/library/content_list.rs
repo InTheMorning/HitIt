@@ -21,22 +21,19 @@ use gpui::{
 
 use crate::library::LibraryApp;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
-use crate::ui::composites::thumbnail::logo_placeholder;
 use crate::ui::composites::{
     EntityKind, ListRow, ListRowA11yLabel, SkeletonTrackRow, TagBadge, TagBadgeDisplay, Thumbnail,
     ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
-use crate::ui::primitives::{
-    Button as UiButton, Checkbox, CheckboxState, Image as ImagePrimitive, ImageSize, Label,
-};
+use crate::ui::primitives::{Button as UiButton, Checkbox, CheckboxState, Label};
 pub(crate) use crate::ui::shells::library::content_list_row_actions::ContentListMenuContext;
 use crate::ui::shells::library::content_list_row_actions::{
     content_list_row_menu, render_content_list_row_action,
 };
 use crate::ui::shells::library::content_list_scroll::attach_content_list_scroll;
 use crate::ui::shells::library::content_list_state::render_content_list_state;
-use crate::ui::tokens::{FontSize, Radius, SemanticColor, Spacing};
+use crate::ui::tokens::{FontSize, SemanticColor, Spacing};
 use crate::view_models::library::{
     ContentListEntityKind, ContentListLoadMoreDisplay, ContentListLoadingStateDisplay,
     ContentListPageStateDisplay, ContentListPageVm, ContentListRowDisplay,
@@ -221,29 +218,6 @@ fn render_content_row_checkbox(
         this.toggle_content_row(target, &row_id, cx);
     }));
     Some(checkbox.into_any_element())
-}
-
-/// The artwork of a content tile: the cover, or the logo shape when no image
-/// loaded. The Releases list tiles share it (ADR 0089 packet 005 Part
-/// C).
-pub(crate) fn render_content_list_tile_artwork(
-    thumbnail: Option<Arc<Image>>,
-    artwork_size: gpui::Pixels,
-    cx: &App,
-) -> AnyElement {
-    match thumbnail {
-        // ADR 0083 Decision 4: `Size::ContentTileArtwork` shares the `Xl`
-        // footprint (152 px), so `ImageSize::Xl` renders the same dimension
-        // and gives the content tile its artwork shadow.
-        Some(image) => ImagePrimitive::new(image)
-            .size(ImageSize::Xl)
-            .radius(Radius::MD)
-            .into_any_element(),
-        // musicindex ADR 0021 R-ART-2: a release tile with no cover, or with a
-        // cover that did not load, shows the logo shape. Only artwork has a
-        // shadow (R-ART-4 item 3).
-        None => logo_placeholder(EntityKind::Release, artwork_size, cx),
-    }
 }
 
 /// The text of a content-list row: the title, the secondary text, and a

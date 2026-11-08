@@ -24,21 +24,28 @@ use crate::application::queries::feed::FetchIndexPublisherPage;
 use crate::application::queries::library::FetchLibraryPublisherPage;
 use crate::application::queries::search::FetchNameLevelReleases;
 use crate::application::{ApplicationCommand, CommandContext};
+use crate::library::playlist_options;
 use crate::presentation::collection_art::collection_art_image;
 use crate::presentation::present_command;
 use crate::ui::composites::release_section_list::{
-    ClickReleaseCallback, ReleaseSectionRows, ToggleReleaseCallback,
+    ClickReleaseCallback, ReleaseSectionRows, SectionCommandCallback, ToggleReleaseCallback,
 };
-use crate::ui::composites::ThumbnailSize;
+use crate::ui::composites::{list_bar_playlists, render_list_bar_copies, ThumbnailSize};
 use crate::ui::shells::publisher::{render_publisher_page, render_publisher_page_status};
-use crate::view_models::detail_selection::DetailRowKey;
+use crate::view_models::detail_selection::{
+    feed_page_release_rows, DetailPageRows, DetailRowKey, ListBarVm,
+};
 use crate::view_models::name_level_page::NameLevelIndexState;
 use crate::view_models::publisher_page::{
     MatchedByNameFacts, PublisherPageContext, PublisherPageFacts, PublisherPageLoadDisplay,
     PublisherPageSectionVm, PublisherPageVm, TitleDisplay,
 };
+use crate::view_models::release_section_order::{
+    order_release_sections, ReleaseSectionCommand, ReleaseSectionId,
+};
 use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart, ReleaseKey};
 
+use super::detail_selection::top_list_bar_handler;
 use super::TopApp;
 
 /// Loading lifecycle of the mounted publisher page.
@@ -381,7 +388,7 @@ impl TopApp {
                 let Some((vm, context)) = self.publisher_page_vm(cx) else {
                     return render_publisher_page_status(&PublisherPageLoadDisplay::empty(), cx);
                 };
-                let sections = vm.sections();
+                let sections = self.ordered_release_sections(vm.sections(), cx);
                 // ADR 0077 packet 004, orchestrator fix 5: `image_url` on
                 // each album already comes from packet 003 (Index) and this
                 // packet's own Library query. Resolve it through the same
@@ -429,7 +436,7 @@ impl TopApp {
                     &album_thumbs,
                     header_art,
                     on_open_publisher,
-                    &rows,
+                    rows,
                     cx,
                 )
             }
@@ -450,6 +457,17 @@ impl TopApp {
         cx: &mut Context<Self>,
     ) -> ReleaseSectionRows {
         let library = self.library.read(cx);
+        // ADR 0090 task 004: the page has one list bar above its first
+        // section. It reads the rows of all sections in the shown order, so
+        // a selection spans the sections.
+        let bar_rows = DetailPageRows::Releases(feed_page_release_rows(&sections, |key| {
+            library.library_release_facts(key)
+        }));
+        let list_bar = ListBarVm::new(&bar_rows, library.detail_selection());
+        let bar_playlists = list_bar_playlists(playlist_options(
+            &bar_rows.add_to_playlist_choices(library.playlists()),
+        ));
+        let list_bar_pin = library.list_bar_pin();
         for section in &mut sections {
             for row in &mut section.rows {
                 let key = row
@@ -484,6 +502,16 @@ impl TopApp {
         );
         let scroll = library.detail_scroll_handle();
         let reveal = library.detail_scroll_reveal().clone();
+        let handler = top_list_bar_handler(cx);
+        let (list_bar, pinned_list_bar) = render_list_bar_copies(
+            list_bar,
+            &bar_playlists,
+            &handler,
+            &list_bar_pin,
+            &scroll,
+            &cx.entity(),
+            cx,
+        );
         let entity = cx.entity();
         let on_click_release: ClickReleaseCallback = Rc::new(
             move |key: &ReleaseKey, label: String, modifiers: Modifiers, _window, cx: &mut App| {
@@ -499,6 +527,14 @@ impl TopApp {
                 let key = DetailRowKey::Release(key.clone());
                 entity.update(cx, |this, cx| this.toggle_detail_row(&key, cx));
             });
+        let entity = cx.entity();
+        let on_section_command: SectionCommandCallback = Rc::new(
+            move |id: &ReleaseSectionId, command, _window, cx: &mut App| {
+                entity.update(cx, |this, cx| {
+                    this.run_release_section_command(id, command, cx);
+                });
+            },
+        );
         ReleaseSectionRows {
             sections,
             scroll,
@@ -506,7 +542,37 @@ impl TopApp {
             on_click_release,
             on_toggle_release,
             menu,
+            on_section_command,
+            list_bar,
+            pinned_list_bar,
         }
+    }
+
+    /// The sections of a feed page or of a name level page in the shown order
+    /// of each section, with the controls of its heading (musicindex ADR 0053
+    /// R-LIST-9). The render, the selection, the focus order and each row
+    /// command read these sections.
+    pub(super) fn ordered_release_sections(
+        &self,
+        sections: Vec<PublisherPageSectionVm>,
+        cx: &App,
+    ) -> Vec<PublisherPageSectionVm> {
+        let library = self.library.read(cx);
+        order_release_sections(sections, |heading| library.release_section_state(heading))
+    }
+
+    /// Runs one command of a section heading. The state of the section
+    /// changes, and the page builds again in place with no request.
+    fn run_release_section_command(
+        &mut self,
+        section: &ReleaseSectionId,
+        command: ReleaseSectionCommand,
+        cx: &mut Context<Self>,
+    ) {
+        self.library.update(cx, |library, cx| {
+            library.run_release_section_command(section, command, cx);
+        });
+        cx.notify();
     }
 
     /// The frame title of the mounted feed page, from its loaded facts

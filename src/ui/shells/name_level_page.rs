@@ -43,10 +43,14 @@ pub(crate) fn render_name_level_page(
     vm: &NameLevelPageVm,
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
     header_art: CollectionArtImage,
-    rows: &ReleaseSectionRows,
+    mut rows: ReleaseSectionRows,
     on_open_feed: impl Fn(&str, &mut Window, &mut App) + 'static,
     cx: &App,
 ) -> AnyElement {
+    // ADR 0090 task 004: the list bar sits after the header and the notices,
+    // and before the first section. Its pinned copy overlays the rows.
+    let list_bar = rows.list_bar.take();
+    let pinned_list_bar = rows.pinned_list_bar.take();
     let mut body = page_scroll_content(cx)
         .gap(Spacing::LG.scaled(cx))
         .child(render_header(vm, header_art));
@@ -63,8 +67,9 @@ pub(crate) fn render_name_level_page(
                 .color(SemanticColor::TertiaryLabel),
         );
     }
+    body = body.children(list_bar);
     for section in &rows.sections {
-        body = body.child(render_release_section(section, album_thumbs, rows, cx));
+        body = body.child(render_release_section(section, album_thumbs, &rows, cx));
     }
     let container = div()
         .id("name-level-page")
@@ -77,7 +82,7 @@ pub(crate) fn render_name_level_page(
         .child(body);
     // ADR 0084 packet 018: the page holds the scroll handle of the detail
     // column, so a key can keep the focused row in view.
-    music_column_tracked_scrollbar(container, &rows.scroll, None)
+    music_column_tracked_scrollbar(container, &rows.scroll, pinned_list_bar)
 }
 
 fn render_header(vm: &NameLevelPageVm, header_art: CollectionArtImage) -> AnyElement {

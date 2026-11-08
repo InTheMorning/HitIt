@@ -17,12 +17,12 @@ use gpui::{
 };
 
 use crate::library::LibraryApp;
+use crate::ui::composites::content_tile::{render_content_list_tile_artwork, tile_text_line};
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::release_download_state::render_release_download_state;
 use crate::ui::composites::selectable_tile::SelectableTile;
 use crate::ui::composites::{CollectionArt, CollectionArtImage, ThumbnailSize};
-use crate::ui::primitives::{Checkbox, Label};
-use crate::ui::shells::library::content_list::render_content_list_tile_artwork;
+use crate::ui::primitives::Checkbox;
 use crate::ui::shells::library::content_list_scroll::attach_list_scroll_with;
 use crate::ui::shells::library::destination_lists::checkbox_state_for;
 use crate::ui::shells::library::index_list_status::{
@@ -273,26 +273,4 @@ fn render_singles_group_tile(
         this.click_singles_group_row(&open_key, &single_keys, event.modifiers(), cx);
     }))
     .into_any_element()
-}
-
-/// One line of text in a tile, at the width of the cover. The title has
-/// the primary color, and the secondary line has the tertiary color.
-pub(crate) fn tile_text_line(
-    text: String,
-    size: FontSize,
-    weight: FontWeight,
-    color: SemanticColor,
-    width: gpui::Pixels,
-) -> AnyElement {
-    div()
-        .w(width)
-        .min_w_0()
-        .child(
-            Label::new(text)
-                .size(size)
-                .weight(weight)
-                .color(color)
-                .truncated(),
-        )
-        .into_any_element()
 }

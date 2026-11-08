@@ -339,6 +339,8 @@ fn publisher_page_facts_from_feed(publisher_feed_guid: &str, feed: &Feed) -> Pub
             named_rank: entry.album_names_rank,
             track_count: entry.remote_episode_count,
             two_way_validated: entry.two_way_validated,
+            // The Index response gives no date for an album.
+            newest_date: None,
         })
         .collect();
     let co_credited_feeds = feed

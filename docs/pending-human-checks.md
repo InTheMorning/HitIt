@@ -296,4 +296,7 @@ Open - the packets below are implemented, and the mechanical suite is Green. The
 - Packet 5: open "Reward" from Releases (9 tracks). The list bar shows "Feed Order" and the reverse icon at the right. The reverse shows "Feed Order, Reversed", and each track keeps its number. A release with 7 tracks shows Select only.
 - Packet 5, public playlist: open "Boostagram Ball Playlist 1 to 25". The heading above the entries shows "278 items" and "Playlist Order". The reverse keeps the number of each entry.
 - Packet 5, not checked by the agent: a Library release with 8 tracks or more. Select some tracks in the reversed sequence, and use "Add to playlist". The tracks go in the sequence of the selection.
+- Packet 6 and [ADR 0090 task 004](tasks/adr-0090-task-004-feed-and-name-page-list-bar.md): open "Reward", then the artist link "Advocateworldwide". The Select bar is above "Albums and EPs", and the page has no bottom bar. "Singles" has "A to Z", rows, tiles and the reverse icon at the right of its heading. "Albums and EPs" (4 rows) has no control.
+- Packet 6, selection: select a row in "Albums and EPs" and a tile in "Singles": the bar shows "2 releases selected".
+- Packet 6, not checked by the agent: a Library feed page with 8 releases or more shows Newest. A name level page with 8 releases or more. The narrow window wrap of the bar.
 - Wrong: a control that does nothing, rows in an incorrect sequence, or no selection after a sort. A sort control on a list that R-LIST-9 does not give one is also wrong.

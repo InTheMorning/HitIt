@@ -197,8 +197,20 @@ pub(crate) fn sort_menu(
     on_sort: Option<&ListSortHandler>,
     pinned: bool,
 ) -> AnyElement {
+    sort_menu_scoped(display, on_sort, pinned, None)
+}
+
+/// [`sort_menu`] with the element id inside `scope`. A page with more than
+/// one such control, as the release sections of a feed page, gives each
+/// control its own scope, so the controls share no element state.
+pub(crate) fn sort_menu_scoped(
+    display: ListSortButtonVm,
+    on_sort: Option<&ListSortHandler>,
+    pinned: bool,
+    scope: Option<&str>,
+) -> AnyElement {
     let mut menu = ContextMenu::new(
-        control_id(display.id, pinned),
+        control_id(display.id, pinned, scope),
         ContextMenuScope::WorkspaceFrame,
         SharedString::from(display.a11y_label),
     )
@@ -236,6 +248,18 @@ pub(crate) fn view_icons(
     pinned: bool,
     cx: &App,
 ) -> AnyElement {
+    view_icons_scoped(display, on_view, pinned, None, cx)
+}
+
+/// [`view_icons`] with the element ids inside `scope`, as
+/// [`sort_menu_scoped`].
+pub(crate) fn view_icons_scoped(
+    display: ListViewControlVm,
+    on_view: Option<&ListViewHandler>,
+    pinned: bool,
+    scope: Option<&str>,
+    cx: &App,
+) -> AnyElement {
     let mut icons = div()
         .flex()
         .flex_row()
@@ -247,11 +271,14 @@ pub(crate) fn view_icons(
             ListView::Tiles => IconName::TilesView,
         };
         let view = option.view;
-        let mut button = Button::styled(control_id(option.id, pinned), ControlStyle::ToolbarIcon)
-            .leading_icon(icon)
-            .a11y_label(option.a11y_label.clone())
-            .tooltip(option.a11y_label)
-            .selected(option.selected);
+        let mut button = Button::styled(
+            control_id(option.id, pinned, scope),
+            ControlStyle::ToolbarIcon,
+        )
+        .leading_icon(icon)
+        .a11y_label(option.a11y_label.clone())
+        .tooltip(option.a11y_label)
+        .selected(option.selected);
         if pinned {
             button = button.out_of_tab_sequence();
         }
@@ -276,16 +303,30 @@ pub(crate) fn reverse_icon(
     on_reverse: Option<&ListReverseHandler>,
     pinned: bool,
 ) -> AnyElement {
+    reverse_icon_scoped(display, on_reverse, pinned, None)
+}
+
+/// [`reverse_icon`] with the element id inside `scope`, as
+/// [`sort_menu_scoped`].
+pub(crate) fn reverse_icon_scoped(
+    display: &ListReverseVm,
+    on_reverse: Option<&ListReverseHandler>,
+    pinned: bool,
+    scope: Option<&str>,
+) -> AnyElement {
     let icon = match display.icon {
         ListReverseIcon::SortUsual => IconName::SortUsual,
         ListReverseIcon::SortReversed => IconName::SortReversed,
     };
     let requested = !display.pressed;
-    let mut button = Button::styled(control_id(display.id, pinned), ControlStyle::ToolbarIcon)
-        .leading_icon(icon)
-        .a11y_label(display.label)
-        .tooltip(display.label)
-        .selected(display.pressed);
+    let mut button = Button::styled(
+        control_id(display.id, pinned, scope),
+        ControlStyle::ToolbarIcon,
+    )
+    .leading_icon(icon)
+    .a11y_label(display.label)
+    .tooltip(display.label)
+    .selected(display.pressed);
     if pinned {
         button = button.out_of_tab_sequence();
     }
@@ -299,12 +340,13 @@ pub(crate) fn reverse_icon(
     button.into_any_element()
 }
 
-/// The element id of a control. The pinned copy of a list bar has its own.
-fn control_id(id: &'static str, pinned: bool) -> SharedString {
-    if pinned {
-        SharedString::from(format!("pinned-{id}"))
-    } else {
-        SharedString::from(id)
+/// The element id of a control. The pinned copy of a list bar has its own,
+/// and a control with a `scope` has an id inside it.
+fn control_id(id: &'static str, pinned: bool, scope: Option<&str>) -> SharedString {
+    match (pinned, scope) {
+        (true, _) => SharedString::from(format!("pinned-{id}")),
+        (false, Some(scope)) => SharedString::from(format!("{scope}:{id}")),
+        (false, None) => SharedString::from(id),
     }
 }
 

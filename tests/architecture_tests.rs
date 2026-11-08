@@ -24545,11 +24545,11 @@ fn adr_0084_task_039_library_loads_coalesce_through_single_flight() {
 }
 
 /// Situational, ADR 0090 Decisions 1 and 2 (the first two pages: the
-/// singles group page, the window group page; then the release page). Each
-/// of these pages shows its list bar above its rows. The page gives no frame
-/// header action and no bottom bar. The feed page, the name level page, the
-/// playlist page, the search pages and the list pages keep their header
-/// action and their bottom bar until their phase plan packets (004 to 007).
+/// singles group page, the window group page; then the release page, the
+/// feed page and the name level page). Each of these pages shows its list bar
+/// above its rows. The page gives no frame header action and no bottom bar.
+/// The playlist page, the search pages and the list pages keep their header
+/// action and their bottom bar until their phase plan packets (005 to 007).
 /// Delete this guard with ADR 0090 when the last page moves to the list bar,
 /// or when the record is superseded.
 #[test]
@@ -24569,9 +24569,57 @@ fn adr_0090_list_bar_pages_have_no_frame_header_action_or_bottom_bar() {
     let surface = compact_source(&read_source(&manifest_path(
         "src/ui/composites/release_detail_surface.rs",
     )));
+    let feed_dispatch = compact_source(&read_source(&manifest_path(
+        "src/app/publisher_dispatch.rs",
+    )));
+    let name_dispatch = compact_source(&read_source(&manifest_path(
+        "src/app/name_level_dispatch.rs",
+    )));
+    let feed_shell = compact_source(&read_source(&manifest_path("src/ui/shells/publisher.rs")));
+    let name_shell = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/name_level_page.rs",
+    )));
+    let has_list_bar_arms = compact_source(&read_source(&manifest_path(
+        "src/view_models/detail_selection.rs",
+    )));
     let mut violations = Vec::new();
 
     for (source, required, what) in [
+        (
+            &has_list_bar_arms,
+            "|FrameNavigationEntry::PublisherDetail(_)|FrameNavigationEntry::ArtistName(_))",
+            "`has_list_bar` for the feed page and the name level page (ADR 0090 task 004)",
+        ),
+        (
+            &feed_dispatch,
+            "render_list_bar_copies(list_bar,",
+            "the list bar of the feed page and of the name level page, built in `release_section_rows`",
+        ),
+        (
+            &name_dispatch,
+            "self.release_section_rows(sections,cx)",
+            "the list bar of the name level page, which reads the rows of `release_section_rows`",
+        ),
+        (
+            &feed_shell,
+            "body=body.children(list_bar);",
+            "the list bar of the feed page above its first section",
+        ),
+        (
+            &feed_shell,
+            "music_column_tracked_scrollbar(container,&rows.scroll,pinned_list_bar)",
+            "the pinned copy of the feed page",
+        ),
+        (
+            &name_shell,
+            "body=body.children(list_bar);",
+            "the list bar of the name level page above its first section",
+        ),
+        (
+            &name_shell,
+            "music_column_tracked_scrollbar(container,&rows.scroll,pinned_list_bar)",
+            "the pinned copy of the name level page",
+        ),
         (
             &detail_selection,
             "||entry.as_ref().is_some_and(has_list_bar)",
@@ -24646,7 +24694,8 @@ fn adr_0090_list_bar_pages_have_no_frame_header_action_or_bottom_bar() {
 /// a click on the rows that it hides (`.occlude()`), and its popover trigger
 /// stays out of the Tab sequence. Delete this guard with ADR 0090 when the
 /// last page moves to the list bar (phase plan packet 007) and the pinned
-/// copy is shared by all pages.
+/// copy is shared by all pages. The feed page and the name level page draw
+/// theirs through `release_section_rows` (ADR 0090 task 004).
 #[test]
 fn adr_0090_pinned_copy_comes_from_the_one_list_bar_renderer() {
     let selection_bar = compact_source(&read_source(&manifest_path(
@@ -24665,9 +24714,31 @@ fn adr_0090_pinned_copy_comes_from_the_one_list_bar_renderer() {
         "src/ui/shells/library/feed_detail.rs",
     )));
     let search = compact_source(&read_source(&manifest_path("src/app/search_dispatch.rs")));
+    let feed_dispatch = compact_source(&read_source(&manifest_path(
+        "src/app/publisher_dispatch.rs",
+    )));
+    let feed_shell = compact_source(&read_source(&manifest_path("src/ui/shells/publisher.rs")));
+    let name_shell = compact_source(&read_source(&manifest_path(
+        "src/ui/shells/name_level_page.rs",
+    )));
     let mut violations = Vec::new();
 
     for (source, required, what) in [
+        (
+            &feed_dispatch,
+            "render_list_bar_copies(list_bar,",
+            "the feed page and the name level page draw both copies through the shared helper",
+        ),
+        (
+            &feed_shell,
+            "music_column_tracked_scrollbar(container,&rows.scroll,pinned_list_bar)",
+            "the feed page draws the pinned copy over its scroll container",
+        ),
+        (
+            &name_shell,
+            "music_column_tracked_scrollbar(container,&rows.scroll,pinned_list_bar)",
+            "the name level page draws the pinned copy over its scroll container",
+        ),
         (
             &selection_bar,
             "pub(crate)fnrender_list_bar(",
@@ -24739,6 +24810,9 @@ fn adr_0090_pinned_copy_comes_from_the_one_list_bar_renderer() {
         ("src/ui/shells/library/window_group.rs", &window),
         ("src/ui/shells/library/feed_detail.rs", &feed),
         ("src/app/search_dispatch.rs", &search),
+        ("src/app/publisher_dispatch.rs", &feed_dispatch),
+        ("src/ui/shells/publisher.rs", &feed_shell),
+        ("src/ui/shells/name_level_page.rs", &name_shell),
     ] {
         for forbidden in [
             "render_list_bar(",

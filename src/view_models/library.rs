@@ -3690,6 +3690,28 @@ impl LibraryViewModel {
         self.list_pages.set_view(key, view);
     }
 
+    /// The stored state of the release section with the heading `heading`
+    /// (musicindex ADR 0053 R-LIST-9). Each heading keeps its own state.
+    #[must_use]
+    pub(crate) fn release_section_state(&self, heading: &str) -> ListPageState {
+        self.list_pages.section_state(heading)
+    }
+
+    /// Sets the sort of the release section `heading`.
+    pub(crate) fn set_release_section_sort(&mut self, heading: &str, sort: ListSort) {
+        self.list_pages.set_section_sort(heading, sort);
+    }
+
+    /// Sets the view of the release section `heading`.
+    pub(crate) fn set_release_section_view(&mut self, heading: &str, view: ListView) {
+        self.list_pages.set_section_view(heading, view);
+    }
+
+    /// Sets the reversed state of the release section `heading`.
+    pub(crate) fn set_release_section_reversed(&mut self, heading: &str, reversed: bool) {
+        self.list_pages.set_section_reversed(heading, reversed);
+    }
+
     /// The title row of the list page `key` (ADR 0089 Decision 6).
     /// `library_count` and `select` are the facts that the view model does
     /// not read itself.

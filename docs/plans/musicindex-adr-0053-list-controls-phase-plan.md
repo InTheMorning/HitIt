@@ -1,10 +1,14 @@
 # musicindex ADR 0053 List Controls Phase Plan
 
-Status: Open. Created 2026-11-07. Packet 1 is implemented on 2026-11-08 (`b3b391d`). Packet 2 is implemented on 2026-11-08 (`90b6a8c`). Packet 4 is implemented on 2026-11-08 (`367e72c`). Packet 5 is implemented on 2026-11-08.
+Status: Open. Created 2026-11-07.
+
+Packet 1 is implemented on 2026-11-08 (`b3b391d`). Packet 2 is implemented on 2026-11-08 (`90b6a8c`). Packet 4 is implemented on 2026-11-08 (`367e72c`). Packet 5 is implemented on 2026-11-08 (`2c5c7ea`). Packet 6 is implemented on 2026-11-08, with ADR 0090 task 004.
+
+Packet 6 note: a section offers Newest only when each of its rows has a date (R-LIST-9 item 1). A Library feed page row has the newest publish date of its tracks. An Index feed page row has no date, so its sections offer A to Z only. Packet 9 can give them Newest with `artist_key` on `/v1/feeds/recent`.
 
 The public playlist page has no list bar, so its control is at the right end of a heading above its entries (R-LIST-11 item 3).
 
-Packet 3 waits for the decision on the stored Curator Order. Packets 6 and 7 are started. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
+Packet 3 waits for the decision on the stored Curator Order. Packet 7 is started. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
 
 Packet 2 note: when the query of a saved search has a word, the page starts with Relevance. Its Releases then show no window groups of ADR 0086 until the person selects Newest. A saved search with no word starts with Newest and keeps its groups. Packet 8 waits for packets 1 to 7.
 

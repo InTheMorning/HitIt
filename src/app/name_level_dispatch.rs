@@ -166,7 +166,8 @@ impl TopApp {
         // ADR 0084 Decision 12: the name level gives no image. Its art is
         // the logo mosaic, or the entity color.
         let header_art = collection_art_image(self, &vm.collection_art(), ThumbnailSize::XXl, cx);
-        let rows = self.release_section_rows(vm.sections(), cx);
+        let sections = self.ordered_release_sections(vm.sections(), cx);
+        let rows = self.release_section_rows(sections, cx);
         let entity = cx.entity();
         let on_open_feed = move |feed_guid: &str, _window: &mut Window, cx: &mut App| {
             let feed_guid = feed_guid.to_owned();
@@ -174,7 +175,7 @@ impl TopApp {
                 this.open_publisher_page(feed_guid, PublisherPageContext::Library, cx);
             });
         };
-        render_name_level_page(&vm, &album_thumbs, header_art, &rows, on_open_feed, cx)
+        render_name_level_page(&vm, &album_thumbs, header_art, rows, on_open_feed, cx)
     }
 }
 
