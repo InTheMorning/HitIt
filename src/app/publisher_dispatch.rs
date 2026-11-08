@@ -413,7 +413,7 @@ impl TopApp {
                 // square, else the logo mosaic of its album images.
                 let header_art =
                     collection_art_image(self, &vm.collection_art(), ThumbnailSize::XXl, cx);
-                // ADR 0082 Decision 5: a "Shares albums with" entry opens
+                // ADR 0082 Decision 5: a "Shares releases with" entry opens
                 // the Index shape of its own feed page. The data behind
                 // every entry comes from the one Index request
                 // (`fetch_index_publisher_page_albums`), on the Library

@@ -117,5 +117,5 @@ Mechanical, phrased at the owning layer:
 
 Visual, for the operator after the visual pause ends:
 
-- A publisher page shows the groups and subgroups, the agreed roles in the header, and "Shares albums with" when the list has entries.
+- A publisher page shows the groups and subgroups, the agreed roles in the header, and "Shares releases with" when the list has entries.
 - An album page shows its publisher with the role and its source.
