@@ -117,6 +117,14 @@ impl LibraryApp {
         if self.vm.list_sort(key) == Some(sort) {
             return;
         }
+        // Musicindex ADR 0053 R-LIST-9: a group page sorts rows that the
+        // app already holds. No request starts and the selection stays,
+        // because it is by item.
+        if matches!(key, ListPageKey::SinglesGroup | ListPageKey::WindowGroup) {
+            self.vm.set_list_sort(key, sort);
+            cx.notify();
+            return;
+        }
         // ADR 0089 packet 009: the Public playlists list reads another
         // endpoint in each sort, so a new sort starts its list again.
         if key == ListPageKey::PublicPlaylists {
@@ -192,7 +200,9 @@ impl LibraryApp {
             ListPageKey::MyPlaylists
             | ListPageKey::Live
             | ListPageKey::Results
-            | ListPageKey::SavedSearch => {}
+            | ListPageKey::SavedSearch
+            | ListPageKey::SinglesGroup
+            | ListPageKey::WindowGroup => {}
         }
     }
 
@@ -293,7 +303,9 @@ impl LibraryApp {
             ListPageKey::MyPlaylists
             | ListPageKey::Live
             | ListPageKey::Results
-            | ListPageKey::SavedSearch => {}
+            | ListPageKey::SavedSearch
+            | ListPageKey::SinglesGroup
+            | ListPageKey::WindowGroup => {}
         }
     }
 
@@ -328,7 +340,9 @@ impl LibraryApp {
             | ListPageKey::PublicPlaylists
             | ListPageKey::Live
             | ListPageKey::Results
-            | ListPageKey::SavedSearch => {}
+            | ListPageKey::SavedSearch
+            | ListPageKey::SinglesGroup
+            | ListPageKey::WindowGroup => {}
         }
     }
 

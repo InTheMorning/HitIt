@@ -29,17 +29,16 @@ use crate::ui::shells::library::detail::DetailRowSlot;
 use crate::ui::shells::library::feed_detail::{
     library_release_page_dispatch, render_library_list_bar_copies,
 };
-use crate::ui::shells::library::singles_group::{
-    render_index_single_row, render_main_action, render_matched_by_name_heading, render_single_row,
-};
+use crate::ui::shells::library::group_entries::{render_group_entries, GroupEntries};
+use crate::ui::shells::library::singles_group::render_main_action;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor};
 use crate::view_models::album_page::AlbumNameLinkVm;
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::library::MbTrackStatus;
+use crate::view_models::list_page::ListView;
 use crate::view_models::playlist_option_displays;
-use crate::view_models::singles_group::SinglesGroupPageEntryVm;
 use crate::view_models::window_group_page::WindowGroupPageVm;
 
 /// The element id of the main action of a window group page.
@@ -59,6 +58,7 @@ pub(crate) fn render_library_window_group_page(
     playlists: &[db::Playlist],
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
     row_slots: Vec<DetailRowSlot>,
+    view: ListView,
     scroll: &ScrollHandle,
     detail_focus: &FocusHandle,
     cx: &mut Context<LibraryApp>,
@@ -115,40 +115,20 @@ pub(crate) fn render_library_window_group_page(
     let playlist_displays = playlist_option_displays(playlists);
     // The trailing "Matched by name" rows get the heading of the singles
     // group page before them (packet 004 decision D6).
-    let heading_at = matched_by_name.as_ref().map_or(rows.len(), |heading| {
-        rows.len().saturating_sub(heading.count)
-    });
-    let mut row_elements: Vec<AnyElement> = Vec::with_capacity(rows.len() + 1);
-    for (index, (row, slot)) in rows.iter().zip(row_slots).enumerate() {
-        if index == heading_at {
-            if let Some(heading) = &matched_by_name {
-                row_elements.push(render_matched_by_name_heading(heading));
-            }
-        }
-        row_elements.push(match row {
-            SinglesGroupPageEntryVm::Library(row) => render_single_row(
-                row,
-                index,
-                mb_status,
-                album_thumbs,
-                &playlist_displays,
-                slot,
-                detail_focus,
-                &dispatch,
-                cx,
-            ),
-            SinglesGroupPageEntryVm::Index(row) => {
-                render_index_single_row(row, album_thumbs, slot, detail_focus, cx)
-            }
-        });
-    }
-    content = content.child(
-        div()
-            .flex()
-            .flex_col()
-            .gap(spacing::XXS)
-            .children(row_elements),
-    );
+    content = content.child(render_group_entries(
+        &GroupEntries {
+            rows: &rows,
+            matched_by_name: matched_by_name.as_ref(),
+            view,
+            mb_status,
+            album_thumbs,
+            playlists: &playlist_displays,
+            detail_focus,
+            dispatch: &dispatch,
+        },
+        row_slots,
+        cx,
+    ));
 
     let container = div()
         .id("window-group-page")

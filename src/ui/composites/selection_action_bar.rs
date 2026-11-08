@@ -17,6 +17,9 @@ use gpui::{
     Window,
 };
 
+use crate::ui::composites::list_page_head::{
+    reverse_icon, sort_menu, view_icons, ListReverseHandler, ListSortHandler, ListViewHandler,
+};
 use crate::ui::composites::music_column_scroll::ListBarPin;
 use crate::ui::composites::playlist_popover::{
     AddToPlaylistDisplay, AddToPlaylistPopover, PlaylistOption,
@@ -27,6 +30,7 @@ use crate::ui::primitives::{Button as UiButton, Label};
 use crate::ui::style::spacing;
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::detail_selection::ListBarVm;
+use crate::view_models::list_page::ListBarControlsVm;
 use crate::view_models::selection_action_bar::{
     ListBarCommand, SelectionActionBarVm, SelectionActionKind,
 };
@@ -308,6 +312,7 @@ pub(crate) fn render_list_bar(
     let ListBarVm {
         mode_action,
         selection,
+        controls,
     } = bar;
     let selecting = selection.is_some();
 
@@ -374,6 +379,19 @@ pub(crate) fn render_list_bar(
         }
     }
 
+    // ADR 0090 Decisions 2, 3 and 6: the left group holds the mode action
+    // and the selection actions. The right group holds the sort menu, the
+    // view icons and the reverse icon, and it stays in selection mode. In a
+    // narrow window each group wraps, and the two ends stay on separate
+    // lines.
+    let left = div()
+        .flex()
+        .flex_row()
+        .flex_wrap()
+        .items_center()
+        .min_w_0()
+        .gap(Spacing::SM.scaled(cx))
+        .children(children);
     let mut bar = div()
         .id(copy.element_id("music-list-bar").to_string())
         .flex()
@@ -382,11 +400,62 @@ pub(crate) fn render_list_bar(
         .items_center()
         .gap(Spacing::SM.scaled(cx))
         .py(Spacing::SM.scaled(cx))
-        .children(children);
+        .child(left);
+    if let Some(right) = render_list_bar_controls(controls, on_command, copy, cx) {
+        bar = bar.child(right);
+    }
     if selecting {
         bar = bar.bg(color(cx, SemanticColor::SecondarySystemBackground));
     }
     bar.into_any_element()
+}
+
+/// The right end of the list bar: the sort menu, the view icons and the
+/// reverse icon, in that sequence (musicindex ADR 0043 R-LIST-6, ADR 0053
+/// R-LIST-9). Each control comes from the typed state of `controls`. `None`
+/// when the bar has no control. The renderers are those of the list page
+/// head.
+fn render_list_bar_controls(
+    controls: Option<ListBarControlsVm>,
+    on_command: &ListBarHandler,
+    copy: ListBarCopy,
+    cx: &App,
+) -> Option<AnyElement> {
+    let ListBarControlsVm {
+        sort,
+        view,
+        reverse,
+    } = controls?;
+    let pinned = copy == ListBarCopy::Pinned;
+    let mut right = div()
+        .flex()
+        .flex_row()
+        .flex_wrap()
+        .items_center()
+        .ml_auto()
+        .gap(Spacing::XS.scaled(cx));
+    if let Some(sort) = sort {
+        let command = on_command.clone();
+        let handler: ListSortHandler = Rc::new(move |sort, window, cx| {
+            command(ListBarCommand::Sort(*sort), window, cx);
+        });
+        right = right.child(sort_menu(sort, Some(&handler), pinned));
+    }
+    if let Some(view) = view {
+        let command = on_command.clone();
+        let handler: ListViewHandler = Rc::new(move |view, window, cx| {
+            command(ListBarCommand::View(*view), window, cx);
+        });
+        right = right.child(view_icons(view, Some(&handler), pinned, cx));
+    }
+    if let Some(reverse) = reverse {
+        let command = on_command.clone();
+        let handler: ListReverseHandler = Rc::new(move |reversed, window, cx| {
+            command(ListBarCommand::Reverse(reversed), window, cx);
+        });
+        right = right.child(reverse_icon(&reverse, Some(&handler), pinned));
+    }
+    Some(right.into_any_element())
 }
 
 /// The in-flow bar and the pinned copy of a list bar (ADR 0090 Decision 5).

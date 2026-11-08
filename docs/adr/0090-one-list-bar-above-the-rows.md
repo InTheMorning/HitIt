@@ -57,7 +57,7 @@ These facts come from a search on 2026-11-06:
 ## Non-Goals
 
 - A change to the sort, view or reverse rules of musicindex ADR 0043.
-- Sort or view controls on a group page. The first page shows the controls that the page has today.
+- The sorts and views of each list. [musicindex ADR 0053](../../../musicindex/docs/adr/0053-which-lists-have-a-sort-a-reverse-and-a-view.md) R-LIST-9 gives them. On the group pages, these controls are at the right end of this bar. Packet 4 of its [phase plan](../plans/musicindex-adr-0053-list-controls-phase-plan.md) puts them there.
 
 ## Verification
 

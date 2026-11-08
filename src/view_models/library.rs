@@ -3294,6 +3294,7 @@ impl LibraryViewModel {
                 (&releases_layout, rows)
             }
         };
+        let (sort, reversed) = self.group_list_order(ListPageKey::WindowGroup);
         WindowGroupPageVm::build(
             key,
             layout,
@@ -3302,6 +3303,7 @@ impl LibraryViewModel {
             &self.index_feed_singles,
             &self.busy,
         )
+        .ordered(sort, reversed)
     }
 
     /// The destination whose list the list column currently shows (ADR
@@ -4851,11 +4853,24 @@ impl LibraryViewModel {
     /// available.
     #[must_use]
     pub(crate) fn singles_group_page(&self, key: &SinglesGroupKey) -> SinglesGroupPageVm {
+        let (sort, reversed) = self.group_list_order(ListPageKey::SinglesGroup);
         SinglesGroupPageVm::from_tree(
             &self.snapshot.tree,
             &self.index_feed_singles,
             key,
             &self.busy,
+        )
+        .ordered(sort, reversed)
+    }
+
+    /// The sort and the reversed state of a group page list (ADR 0090
+    /// Decision 2, musicindex ADR 0053 R-LIST-9). `key` is
+    /// `ListPageKey::SinglesGroup` or `ListPageKey::WindowGroup`.
+    fn group_list_order(&self, key: ListPageKey) -> (ListSort, bool) {
+        let state = self.list_pages.get(key);
+        (
+            state.sort.unwrap_or(ListSort::Newest),
+            state.reversed_in(key, ListScope::All),
         )
     }
 

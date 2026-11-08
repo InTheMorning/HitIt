@@ -1,6 +1,8 @@
 # musicindex ADR 0053 List Controls Phase Plan
 
-Status: Open. Created 2026-11-07. Packet 1 is implemented on 2026-11-08 (`b3b391d`). Packet 2 is implemented on 2026-11-08. Packets 3 to 7 are started.
+Status: Open. Created 2026-11-07. Packet 1 is implemented on 2026-11-08 (`b3b391d`). Packet 2 is implemented on 2026-11-08 (`90b6a8c`). Packet 4 is implemented on 2026-11-08.
+
+Packet 3 waits for the decision on the stored Curator Order. Packets 5 to 7 are started. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
 
 Packet 2 note: when the query of a saved search has a word, the page starts with Relevance. Its Releases then show no window groups of ADR 0086 until the person selects Newest. A saved search with no word starts with Newest and keeps its groups. Packet 8 waits for packets 1 to 7.
 

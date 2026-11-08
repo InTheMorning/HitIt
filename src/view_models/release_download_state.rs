@@ -11,6 +11,8 @@
 
 #![warn(clippy::pedantic)]
 
+use crate::view_models::release_page::DownloadSlotState;
+
 /// The download state of a release row (ADR 0083 Decision 6, amended
 /// 2026-10-22).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -149,6 +151,22 @@ impl ReleaseDownloadStateVm {
         }
     }
 
+    /// The state of a tile from the download slot of its row, so a tile
+    /// on a group page shows the same fact as its row (ADR 0083 Decision
+    /// 6, musicindex ADR 0053 R-LIST-9). A removal gives no icon, as the
+    /// row slot is empty.
+    #[must_use]
+    pub(crate) fn of_slot(slot: DownloadSlotState) -> Option<Self> {
+        let state = match slot {
+            DownloadSlotState::Download => ReleaseDownloadState::NotDownloaded,
+            DownloadSlotState::Queued => ReleaseDownloadState::Queued,
+            DownloadSlotState::Downloading => ReleaseDownloadState::Downloading,
+            DownloadSlotState::Downloaded => ReleaseDownloadState::Downloaded,
+            DownloadSlotState::Empty => return None,
+        };
+        Some(Self::of_state(state))
+    }
+
     fn of_state(state: ReleaseDownloadState) -> Self {
         let word = state.word();
         let count_text = state.count_text();
@@ -168,6 +186,30 @@ impl ReleaseDownloadStateVm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Musicindex ADR 0053 R-LIST-9: a group tile shows the download fact
+    /// of its row, and a removal shows no icon.
+    #[test]
+    fn adr_0053_r9_group_tile_state_follows_the_row_slot() {
+        let state = |slot| ReleaseDownloadStateVm::of_slot(slot).map(|vm| vm.state);
+        assert_eq!(
+            state(DownloadSlotState::Download),
+            Some(ReleaseDownloadState::NotDownloaded)
+        );
+        assert_eq!(
+            state(DownloadSlotState::Queued),
+            Some(ReleaseDownloadState::Queued)
+        );
+        assert_eq!(
+            state(DownloadSlotState::Downloading),
+            Some(ReleaseDownloadState::Downloading)
+        );
+        assert_eq!(
+            state(DownloadSlotState::Downloaded),
+            Some(ReleaseDownloadState::Downloaded)
+        );
+        assert_eq!(state(DownloadSlotState::Empty), None);
+    }
 
     #[test]
     fn of_tracks_gives_not_downloaded_for_zero_of_zero_or_zero_downloaded() {

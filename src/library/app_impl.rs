@@ -6290,6 +6290,7 @@ impl LibraryApp {
             | LibraryDetail::WindowGroup(_)
             | LibraryDetail::Album(_) => self.library_detail_page_rows().and_then(|rows| {
                 crate::view_models::detail_selection::ListBarVm::new(&rows, &self.detail_selection)
+                    .map(|bar| self.with_group_list_controls(bar))
             }),
             _ => None,
         };

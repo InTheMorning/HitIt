@@ -282,3 +282,15 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - The search corrections of ADR 0091 step 2: a sort selected on the results page reloads the rows in that order, `-remix` alone shows its note and no error, and `haleen kind:single` shows Index rows. A live run keeps relevance. The operator accepted the look of the sort rows, of `in:library` with the reverse icon and of the scope All on 2026-11-07. The orchestrator session relayed this answer from the agent screenshots. The operator also accepted that each sort can change the rows two times.
   - The agent screenshot run of 2026-11-07 also shows three corrections: a saved search with no name of its own names what its query reads ("Library", "Index", "Library and Index" or "No results"), the two entries of a row menu have one text size in Light and Dark, and Tab scrolls a page to show a focused button. A later run shows two more: Tab reaches "Add to playlist", "…", "Website" and "RSS" of a page header, and Enter or Space opens the menus. Rows, tiles and page headers with no cover show the logo shape of musicindex ADR 0021 R-ART-2 in Light and Dark.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
+
+## 12. musicindex ADR 0053 The List Controls - 2026-11-08
+
+Open - the packets below are implemented, and the mechanical suite is Green. The main agent checked each packet on its own Xvfb display in Light and Dark. No person checked them. The [phase plan](plans/musicindex-adr-0053-list-controls-phase-plan.md) owns the packets.
+
+- Build: run `cargo build --bin v4vmm`, then open `target/debug/v4vmm` in a desktop session. The checks change no stored data.
+- Packet 1: Releases All, Artists All and Public playlists show the reverse icon. "Oldest" starts at the oldest release. "Z to A" starts at Z, and a letter starts at the last name of that letter.
+- Packet 2: search `haleen` shows "Relevance" and no reverse icon. The menu lists Relevance, A to Z and Newest. "In Library" with A to Z shows the reverse icon. `kind:single` starts with Newest.
+- Packet 4: open a window group from Releases, for example "6 Singles". The list bar has Select at the left, and the sort menu, the rows icon, the tiles icon and the reverse icon at the right. A to Z, Z to A and tiles change the page in place.
+- Packet 4, tiles and Select: the tiles show the download icon. In Select mode the right end stays. The singles group page keeps its own sort and view.
+- Packet 4, not checked by the agent: make the window narrower than 940 px. The bar wraps, and its two ends stay on separate lines. Scroll down until the bar pins, and use the sort menu on the pinned bar.
+- Wrong: a control that does nothing, rows in the wrong order, a lost selection after a sort, or a sort control on a list that R-LIST-9 does not give one.

@@ -155,6 +155,10 @@ impl TopApp {
             ListBarCommand::CreatePlaylist(name) => {
                 self.create_playlist_and_add_detail_selection(&name, cx);
             }
+            // The Library host of the page runs the sort, the view and the
+            // reverse commands (ADR 0090 Decision 2). They never reach the
+            // top app.
+            ListBarCommand::Sort(_) | ListBarCommand::View(_) | ListBarCommand::Reverse(_) => {}
         }
     }
 

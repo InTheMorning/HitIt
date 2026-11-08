@@ -18,6 +18,7 @@
 use std::collections::BTreeSet;
 
 use crate::db::{Playlist, PlaylistEdge, PlaylistEntryKey, TrackRow};
+use crate::view_models::list_page::{ListBarControlsVm, ListPageKey, ListPageState};
 use crate::view_models::list_selection::{
     keyboard_entry_step, FocusStep, ListSelection, RowSelectionVm, SelectionMode, SelectionRow,
 };
@@ -941,6 +942,10 @@ pub(crate) struct ListBarVm {
     pub(crate) mode_action: FrameHeaderActionDisplay,
     /// The selection actions. `Some` only in `Selecting`.
     pub(crate) selection: Option<SelectionActionBarVm>,
+    /// The sort, view and reverse controls at the right end of the bar
+    /// (ADR 0090 Decision 2, musicindex ADR 0053 R-LIST-9). `None` for a
+    /// page whose list has none. They stay in selection mode (Decision 3).
+    pub(crate) controls: Option<ListBarControlsVm>,
 }
 
 impl ListBarVm {
@@ -952,7 +957,16 @@ impl ListBarVm {
         Some(Self {
             mode_action,
             selection: rows.action_bar(selection),
+            controls: None,
         })
+    }
+
+    /// This bar with the right end controls of the list page `key` in
+    /// `state` (ADR 0090 Decision 2, musicindex ADR 0053 R-LIST-9).
+    #[must_use]
+    pub(crate) fn with_list_controls(mut self, key: ListPageKey, state: ListPageState) -> Self {
+        self.controls = Some(ListBarControlsVm::new(key, state));
+        self
     }
 }
 
@@ -1546,6 +1560,71 @@ mod tests {
 
         let empty = DetailPageRows::Singles(Vec::new());
         assert!(ListBarVm::new(&empty, &DetailSelection::new()).is_none());
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9: the list bar of a group page holds the
+    /// sort button, the view icons and the reverse button, in `Normal` and
+    /// in `Selecting`. The bar of the release page holds none.
+    #[test]
+    fn adr_0053_r9_group_list_bar_holds_the_right_end_controls() {
+        let rows = DetailPageRows::Singles(singles_group_release_rows(
+            &[single_row(5, "single-1"), single_row(6, "single-2")],
+            |_| None,
+        ));
+        let key = ListPageKey::SinglesGroup;
+        let state = ListPageState::default_for(key);
+        let mut selection = DetailSelection::new();
+        let normal = ListBarVm::new(&rows, &selection)
+            .expect("a group page has a list bar")
+            .with_list_controls(key, state);
+        let controls = normal.controls.expect("a group bar has controls");
+        assert!(controls.sort.is_some());
+        assert!(controls.view.is_some());
+        assert!(controls.reverse.is_some());
+
+        selection.toggle_mode();
+        let selecting = ListBarVm::new(&rows, &selection)
+            .expect("a group page has a list bar")
+            .with_list_controls(key, state);
+        assert!(selecting.selection.is_some());
+        assert_eq!(selecting.controls, Some(controls));
+
+        let release = DetailPageRows::Tracks(library_release_track_rows(
+            &[library_track(1, "t1", "Face Pale", true)],
+            false,
+        ));
+        let bar = ListBarVm::new(&release, &DetailSelection::new())
+            .expect("a release page has a list bar");
+        assert_eq!(bar.controls, None);
+    }
+
+    /// The selectable rows follow the shown order after a sort.
+    #[test]
+    fn adr_0053_r9_group_selectable_rows_follow_the_shown_order() {
+        let mut rows = vec![
+            single_row(1, "single-1"),
+            single_row(2, "single-2"),
+            single_row(3, "single-3"),
+        ];
+        crate::view_models::singles_group::order_group_rows(
+            &mut rows,
+            0,
+            crate::view_models::list_page::ListSort::Newest,
+            true,
+        );
+        let shown: Vec<ReleaseKey> = rows.iter().map(|row| row.key().clone()).collect();
+        let detail = DetailPageRows::Singles(singles_group_release_rows(&rows, |_| None));
+        let selectable: Vec<DetailRowKey> = detail
+            .selection_rows()
+            .iter()
+            .map(|row| row.id.clone())
+            .collect();
+        let expected: Vec<DetailRowKey> = shown.into_iter().map(DetailRowKey::Release).collect();
+        assert_eq!(selectable, expected);
+        assert_eq!(
+            expected.first(),
+            Some(&DetailRowKey::Release(release_key("single-3")))
+        );
     }
 
     /// ADR 0090 Decision 1: the singles group page, the window group page

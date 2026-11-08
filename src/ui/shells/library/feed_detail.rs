@@ -118,8 +118,13 @@ fn library_list_bar_handler(cx: &mut Context<LibraryApp>) -> ListBarHandler {
     let entity = cx.entity();
     Rc::new(
         move |command: ListBarCommand, _window: &mut Window, cx: &mut gpui::App| {
-            entity.update(cx, |_this, cx| {
-                cx.emit(LibraryAppEvent::ListBar(command));
+            entity.update(cx, |this, cx| match command {
+                // ADR 0090 Decision 2: the host of the page runs the sort,
+                // the view and the reverse commands in place.
+                ListBarCommand::Sort(sort) => this.set_group_list_sort(sort, cx),
+                ListBarCommand::View(view) => this.set_group_list_view(view, cx),
+                ListBarCommand::Reverse(reversed) => this.set_group_list_reversed(reversed, cx),
+                command => cx.emit(LibraryAppEvent::ListBar(command)),
             });
         },
     )
