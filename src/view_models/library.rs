@@ -2497,6 +2497,7 @@ fn artist_name_row(
     let secondary_text = artist_row_count_text(members.len(), scope);
     LibraryArtistRow {
         order: ArtistOrderKey::name(key.to_owned()),
+        newest_at: members.iter().filter_map(|member| member.newest_date).max(),
         row: DestinationListRowVm {
             marked: false,
             element_id: format!("music-artist-row-name:{}", release_row_slug_text(key)),
@@ -2620,10 +2621,18 @@ fn confirmed_feed_roles(members: &[&AlbumNode], feed_guid: &str) -> Vec<String> 
     words
 }
 
+/// The Library releases of the names that match one artist feed (ADR 0084
+/// Decision 7, "Matched by name"): their count and their newest date.
+#[derive(Clone, Copy, Debug, Default)]
+struct MatchedNames {
+    count: usize,
+    newest_at: Option<i64>,
+}
+
 fn artist_feed_row(
     feed_guid: String,
     members: &[&AlbumNode],
-    matched_count: usize,
+    matched: MatchedNames,
     feed_images: &FeedImages<'_>,
     scope: ListScope,
 ) -> LibraryArtistRow {
@@ -2641,7 +2650,14 @@ fn artist_feed_row(
         newest_album_images(members),
     ));
     let feed_roles = confirmed_feed_roles(members, &feed_guid);
+    let matched_count = matched.count;
+    let newest_at = members
+        .iter()
+        .filter_map(|album| album.tracks.iter().filter_map(|track| track.pub_date).max())
+        .chain(matched.newest_at)
+        .max();
     LibraryArtistRow {
+        newest_at,
         order: ArtistOrderKey::feed(name_sort_key(&title), &feed_guid),
         row: DestinationListRowVm {
             marked: false,
@@ -3638,6 +3654,15 @@ impl LibraryViewModel {
     #[must_use]
     pub(crate) fn list_index_reversed(&self, key: ListPageKey) -> bool {
         self.list_pages.get(key).index_reversed(key)
+    }
+
+    /// The sort that the node request of the Artists list sends now
+    /// (musicindex ADR 0053 R-LIST-9, Stophammer ADR 0089).
+    #[must_use]
+    pub(crate) fn artist_node_sort(&self) -> crate::api::ArtistNameSort {
+        self.list_pages
+            .get(ListPageKey::Artists)
+            .artist_node_sort(ListPageKey::Artists)
     }
 
     /// The stored state of the list page `key`.
@@ -4943,12 +4968,16 @@ impl LibraryViewModel {
             }
         }
 
-        let mut matched_counts: BTreeMap<String, usize> = BTreeMap::new();
+        let mut matched_names: BTreeMap<String, MatchedNames> = BTreeMap::new();
         let mut rows: Vec<LibraryArtistRow> = Vec::new();
         for (key, members) in self.name_level_members_by_key() {
             match matches.get(&key) {
                 NameFeedMatch::MatchedFeed(feed_guid) => {
-                    *matched_counts.entry(feed_guid).or_default() += members.len();
+                    let names = matched_names.entry(feed_guid).or_default();
+                    names.count += members.len();
+                    names.newest_at = names
+                        .newest_at
+                        .max(members.iter().filter_map(|member| member.newest_date).max());
                 }
                 NameFeedMatch::Ambiguous | NameFeedMatch::NoFeed => {
                     rows.push(artist_name_row(&key, &members, scope));
@@ -4958,23 +4987,38 @@ impl LibraryViewModel {
 
         let feed_images = self.snapshot.tree.feed_images();
         rows.extend(feed_members.into_iter().map(|(feed_guid, members)| {
-            let matched_count = matched_counts.get(&feed_guid).copied().unwrap_or(0);
-            artist_feed_row(feed_guid, &members, matched_count, &feed_images, scope)
+            let names = matched_names.get(&feed_guid).copied().unwrap_or_default();
+            artist_feed_row(feed_guid, &members, names, &feed_images, scope)
         }));
+        let state = self.list_pages.get(ListPageKey::Artists);
+        // Musicindex ADR 0053 R-LIST-9 item 1: a stored Newest that the scope
+        // cannot give reads as A to Z.
+        let newest = state.effective_sort(ListPageKey::Artists, scope) == Some(ListSort::Newest);
         match scope {
+            ListScope::InLibrary if newest => {
+                // The newest Library release of each row. The reverse gives
+                // the oldest first, and a row with no date stays last (the
+                // rule of the node, Stophammer ADR 0089).
+                let reversed = state.reversed_in(ListPageKey::Artists, scope);
+                artists_everything::sort_by_newest(&mut rows, reversed);
+                rows.into_iter().map(|entry| entry.row).collect()
+            }
             ListScope::InLibrary => {
                 // Local rows only: the text order of the reader (musicindex
                 // ADR 0053 R-LIST-12 item 1).
                 rows.sort_by(|left, right| left.order.local_cmp(&right.order));
                 // R-LIST-7 item 9: the whole local list reverses.
-                if self
-                    .list_pages
-                    .get(ListPageKey::Artists)
-                    .reversed_in(ListPageKey::Artists, scope)
-                {
+                if state.reversed_in(ListPageKey::Artists, scope) {
                     rows.reverse();
                 }
                 rows.into_iter().map(|entry| entry.row).collect()
+            }
+            ListScope::All if newest => {
+                // The node lists the rows by date with `sort=date`
+                // (musicindex ADR 0053 R-LIST-9, Stophammer ADR 0089). It
+                // has no `from` text, so the letter filter does not apply.
+                let reversed = self.list_index_reversed(ListPageKey::Artists);
+                artists_everything::everything_rows_newest(rows, page, &matches, reversed)
             }
             ListScope::All => {
                 // The node direction of the Index rows (musicindex ADR 0053
@@ -10652,6 +10696,80 @@ mod tests {
             assert!(tile.second_line.starts_with(&word));
             assert!(tile.second_line.ends_with(&row.secondary_text));
         }
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 row "Artists, Labels": Artists with the
+    /// sort Newest in the scope In Library orders its rows by the newest
+    /// Library release of each artist, newest first. A row with no date comes
+    /// last, also in the reversed order, which gives the oldest first.
+    #[test]
+    fn adr_0053_r9_artists_newest_in_library_orders_by_date_with_no_date_last() {
+        let mut tree = library_tree();
+        tree.artists[0].albums[0].tracks[0].pub_date = Some(100);
+        tree.artists[0].albums[1].tracks[0].pub_date = Some(300);
+        let mut boards = tree.artists[1].clone();
+        boards.name = "Boards".into();
+        boards.albums[0].name = "Boards Album".into();
+        boards.albums[0].feed_id = Some(40);
+        boards.albums[0].tracks[0].pub_date = Some(200);
+        tree.artists.push(boards);
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(tree);
+        vm.set_list_scope(ListPageKey::Artists, ListScope::InLibrary);
+        vm.set_list_sort(ListPageKey::Artists, ListSort::Newest);
+        let page = IndexNameListPage::default();
+        let labels = |vm: &LibraryViewModel| -> Vec<String> {
+            vm.artists_list(ListScope::InLibrary, &page)
+                .into_iter()
+                .map(|row| row.label)
+                .collect()
+        };
+        assert_eq!(labels(&vm), ["Aphex Twin", "Boards", "Autechre"]);
+        vm.set_list_reversed(ListPageKey::Artists, true);
+        assert_eq!(
+            labels(&vm),
+            ["Boards", "Aphex Twin", "Autechre"],
+            "the oldest first, and the row with no date stays last"
+        );
+        vm.set_list_sort(ListPageKey::Artists, ListSort::AToZ);
+        vm.set_list_reversed(ListPageKey::Artists, false);
+        assert_eq!(labels(&vm), ["Aphex Twin", "Autechre", "Boards"]);
+    }
+
+    /// A stored Newest reads as A to Z in the scope All while the node does
+    /// not list `artist_newest`. The rows follow the name order, and the node
+    /// request stays by name.
+    #[test]
+    fn adr_0053_r9_artists_newest_stored_sort_gives_name_rows_in_all_without_the_capability() {
+        let mut tree = library_tree();
+        tree.artists[1].albums[0].tracks[0].pub_date = Some(900);
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(tree);
+        vm.set_list_sort(ListPageKey::Artists, ListSort::Newest);
+        let page = IndexNameListPage::default();
+        let labels = |vm: &LibraryViewModel, scope| -> Vec<String> {
+            vm.artists_list(scope, &page)
+                .into_iter()
+                .map(|row| row.label)
+                .collect()
+        };
+        assert_eq!(
+            labels(&vm, ListScope::All),
+            ["Aphex Twin", "Autechre"],
+            "A to Z, though Autechre is the newest"
+        );
+        assert_eq!(vm.artist_node_sort(), crate::api::ArtistNameSort::Name);
+        assert_eq!(
+            labels(&vm, ListScope::InLibrary),
+            ["Autechre", "Aphex Twin"]
+        );
+
+        vm.set_index_sorts(NodeSorts {
+            sort: true,
+            artist_newest: true,
+        });
+        assert_eq!(vm.artist_node_sort(), crate::api::ArtistNameSort::Date);
+        assert_eq!(labels(&vm, ListScope::All), ["Autechre", "Aphex Twin"]);
     }
 
     /// musicindex ADR 0053 R-LIST-10: the tiles come in the sequence of the

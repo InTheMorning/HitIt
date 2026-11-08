@@ -11,6 +11,7 @@ This record makes these changes:
 - It amends [ADR 0086](0086-new-releases-singles-window.md): New releases is not a page, and Releases uses the window groups with the sort Newest.
 - It amends [ADR 0087](0087-search-fields-and-live-results.md): saved searches move from Discover to the Search page.
 - It amends [ADR 0046](0046-workspace-frame-architecture.md): Music has no separate list frame and detail frame.
+- The [amendment of 2026-11-08](#amendment---2026-11-08-the-stored-curator-order) stores the Curator Order of My playlists, from an operator answer on musicindex ADR 0053.
 - `AGENTS.md` and the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md) state this record. Each packet deletes the guards of the rules that it replaces, in the same change.
 
 ## Context
@@ -89,15 +90,16 @@ In each other condition, it can be a view of one run.
 
 ### 5. Each List Page Has Its Defaults
 
-R-LIST-1 gives the form of sort and view. This table gives the defaults (R-LIST-1 item 6). Each page keeps its own sort, view and scope.
+R-LIST-1 gives the form of sort and view. musicindex ADR 0053 R-LIST-9 gives the sorts of each kind of list, and its [phase plan](../plans/musicindex-adr-0053-list-controls-phase-plan.md) applies them here. This table gives the defaults (R-LIST-1 item 6, R-LIST-10 item 3). Each page keeps its own sort, view and scope.
 
 | Page | Sort at the start | View at the start | Scope |
 | --- | --- | --- | --- |
 | Releases | Newest | Rows | All |
 | Artists | A to Z | Rows | All |
-| My playlists | None. The curator sets the sequence | Rows | None |
+| My playlists | Curator Order ([amendment of 2026-11-08](#amendment---2026-11-08-the-stored-curator-order)) | Rows | None |
 | Public playlists | Newest | Tiles | None |
-| The results and a saved search | Newest | Rows | In the query (Decision 4) |
+| The results | Relevance when the query has a word, else Newest | Rows | In the query (Decision 4) |
+| A saved search | Newest | Rows | In the query (Decision 4) |
 
 The scope of Releases and Artists is the segmented control "All | In Library", below the title at the left. All is the default.
 
@@ -175,6 +177,18 @@ The operator accepted each recommendation:
 4. **Releases uses two groups.** The window group of ADR 0086 applies with the sort Newest, and the group of ADR 0084 Decision 6 applies with the sort A to Z. The mockup uses only Decision 6.
 5. **All shows no count.** The Index gives no total. In Library shows its count, and open request 13 asks for a total.
 
+## Amendment - 2026-11-08: The Stored Curator Order
+
+This amendment applies an operator answer. musicindex ADR 0053 R-LIST-9 gives a playlist that a person curates the sorts Curator Order, A to Z and Newest. Curator Order is the default. On 2026-11-08 the operator chose that the curator sets this sequence. The orchestrator session relayed the answer (answer 7 of the [phase plan](../plans/musicindex-adr-0053-list-controls-phase-plan.md)).
+
+1. **The sequence is stored.** The table `playlists` gets the column `position`. The migration of schema 24 fills it from the name sequence of today, so no playlist moves. The migration registry of ADR 0016 owns the change.
+2. **A new playlist goes last.** It gets the next free position.
+3. **The curator drags a row to move it.** On My playlists with the sort Curator Order, the curator drags a playlist row to a new position. The app writes the new positions in one transaction. With A to Z or Newest, a row has no drag.
+4. **Newest uses the time that the curator made the playlist** (`created_at`), newest first. An edit does not make a playlist new.
+5. **The reverse icon reverses each sort.** Curator Order reversed shows "Curator Order, Reversed" (musicindex ADR 0043 R-LIST-7 item 5).
+
+The folders of My playlists and a move into a folder stay a Non-Goal.
+
 ## Open Points
 
 The research request leaves these open, and this record does not decide them:
@@ -195,7 +209,7 @@ The research request leaves these open, and this record does not decide them:
 ## Non-Goals
 
 - The new tokens and the design rules ADR. They come after this record, as the overhaul plan orders.
-- The folders, moves and renames of My playlists. The operator plans them for later.
+- The folders of My playlists, a move into a folder, and the renames. The operator plans them for later. The drag of the Curator Order is in the [amendment of 2026-11-08](#amendment---2026-11-08-the-stored-curator-order).
 - The audition player and the cue of ADR 0068.
 
 ## Consequences

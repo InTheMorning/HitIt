@@ -139,6 +139,18 @@ impl LibraryApp {
             cx.notify();
             return;
         }
+        // Musicindex ADR 0053 R-LIST-9: the Artists node list reads the sort
+        // from its request, so a new sort starts the list again at page 1,
+        // with no `from` text. A list that never started loads with its state.
+        if key == ListPageKey::Artists {
+            self.vm.set_list_sort(key, sort);
+            if !self.artist_name_page.is_not_started() {
+                let intent = self.artist_name_page.begin_from(None);
+                self.send_artist_name_request(intent, cx);
+            }
+            cx.notify();
+            return;
+        }
         // The by-name list starts again at its first page. The sort Newest
         // reads the recent pager instead, which keeps its own state.
         if sort == ListSort::AToZ {
@@ -169,6 +181,15 @@ impl LibraryApp {
         self.vm.set_list_reversed(key, reversed);
         self.restart_index_list_for_reverse(key, cx);
         cx.notify();
+    }
+
+    /// The sort and the direction of the Artists node request now. A change
+    /// of this pair after a load needs a new first page.
+    fn artists_node_request(&self) -> (crate::api::ArtistNameSort, bool) {
+        (
+            self.vm.artist_node_sort(),
+            self.vm.list_index_reversed(ListPageKey::Artists),
+        )
     }
 
     /// Starts the Index list of `key` again when its reverse changed
@@ -230,7 +251,20 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, node, cx| {
+                let before = this.artists_node_request();
                 this.vm.set_index_sorts(node);
+                // The first Artists request can leave before this answer. A
+                // node that lists `artist_newest` gives the sort Newest, so
+                // the loaded list starts again with the request that the
+                // answer gives (musicindex ADR 0053 R-LIST-9).
+                if this.artists_node_request() != before && !this.artist_name_page.is_not_started()
+                {
+                    let from = (this.vm.artist_node_sort() == crate::api::ArtistNameSort::Name)
+                        .then(|| this.artist_name_page.from().map(str::to_owned))
+                        .flatten();
+                    let intent = this.artist_name_page.begin_from(from);
+                    this.send_artist_name_request(intent, cx);
+                }
                 cx.notify();
             },
             move |this, _error, _cx| {
@@ -614,9 +648,12 @@ impl LibraryApp {
     ) {
         let endpoint = self.musicindex_endpoint.clone();
         let reverse = self.vm.list_index_reversed(ListPageKey::Artists);
+        // Musicindex ADR 0053 R-LIST-9: the node list of the sort Newest
+        // sends `sort=date`, and the command sends no `from` with it.
+        let sort = self.vm.artist_node_sort();
         self.send_name_request(
             intent,
-            |cursor, from| FetchArtistNamePage::new(endpoint, cursor, from, reverse),
+            |cursor, from| FetchArtistNamePage::new(endpoint, cursor, from, reverse, sort),
             |this| &mut this.artist_name_page,
             cx,
         );

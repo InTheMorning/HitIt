@@ -96,6 +96,34 @@ impl ArtistOrderKey {
 pub(crate) struct LibraryArtistRow {
     pub(crate) order: ArtistOrderKey,
     pub(crate) row: DestinationListRowVm,
+    /// The newest release date of the row, in Unix seconds, or `None` when
+    /// it has none. The sort Newest reads it (musicindex ADR 0053 R-LIST-9).
+    /// A Library row takes the newest date of its Library releases. A node
+    /// row takes `newest_release_at` (Stophammer ADR 0089).
+    pub(crate) newest_at: Option<i64>,
+}
+
+/// The position of a row in the sort Newest (musicindex ADR 0053 R-LIST-9).
+/// The usual order is the newest first and the reversed order is the oldest
+/// first. A row with no date comes last in both directions, which is the
+/// rule of the node (Stophammer ADR 0089).
+fn date_position(date: Option<i64>, reversed: bool) -> (bool, i128) {
+    match date {
+        None => (true, 0),
+        Some(date) if reversed => (false, i128::from(date)),
+        Some(date) => (false, -i128::from(date)),
+    }
+}
+
+/// Sorts `rows` for the sort Newest (musicindex ADR 0053 R-LIST-9): by date
+/// in the direction of `reversed`, a row with no date last, and equal dates
+/// by the names in the language of the reader.
+pub(crate) fn sort_by_newest(rows: &mut [LibraryArtistRow], reversed: bool) {
+    rows.sort_by(|left, right| {
+        date_position(left.newest_at, reversed)
+            .cmp(&date_position(right.newest_at, reversed))
+            .then_with(|| left.order.local_cmp(&right.order))
+    });
 }
 
 /// The class of one feed by its link facts (ADR 0085 Decision 2). The
@@ -244,6 +272,35 @@ pub(crate) fn index_artist_row(row: &ArtistNameRow) -> DestinationListRowVm {
     }
 }
 
+/// The shown node rows of `page` that the Library rows do not replace: a
+/// node row with the key of a Library row of the same kind gives no row, and
+/// a name row that matches one Library artist feed gives no row (ADR 0084
+/// Decision 7, "Matched by name").
+fn index_entries(
+    library: &[LibraryArtistRow],
+    page: &IndexNameListPage<ArtistNameRow>,
+    matches: &NameFeedMatches,
+) -> Vec<LibraryArtistRow> {
+    let library_keys: BTreeSet<(ArtistRowKind, &str)> = library
+        .iter()
+        .map(|entry| (entry.order.kind, entry.order.key.as_str()))
+        .collect();
+    page.rows()
+        .iter()
+        .filter(|row| classify_index_artist(row).is_shown())
+        .filter(|row| {
+            row.kind != ArtistNameKind::Name
+                || !matches!(matches.get(&row.key), NameFeedMatch::MatchedFeed(_))
+        })
+        .map(|row| LibraryArtistRow {
+            order: ArtistOrderKey::index(row),
+            row: index_artist_row(row),
+            newest_at: row.newest_release_at,
+        })
+        .filter(|entry| !library_keys.contains(&(entry.order.kind, entry.order.key.as_str())))
+        .collect()
+}
+
 /// The Artists rows in the scope "Everything" (packet 016 decisions D5 to
 /// D8):
 ///
@@ -270,24 +327,7 @@ pub(crate) fn everything_rows(
 ) -> Vec<DestinationListRowVm> {
     // ADR 0089 Decision 5: while page 1 loads, the Library rows show at
     // once. The page has no row yet, so no `MusicIndex` row shows.
-    let library_keys: BTreeSet<(ArtistRowKind, &str)> = library
-        .iter()
-        .map(|entry| (entry.order.kind, entry.order.key.as_str()))
-        .collect();
-    let index_rows: Vec<LibraryArtistRow> = page
-        .rows()
-        .iter()
-        .filter(|row| classify_index_artist(row).is_shown())
-        .filter(|row| {
-            row.kind != ArtistNameKind::Name
-                || !matches!(matches.get(&row.key), NameFeedMatch::MatchedFeed(_))
-        })
-        .map(|row| LibraryArtistRow {
-            order: ArtistOrderKey::index(row),
-            row: index_artist_row(row),
-        })
-        .filter(|entry| !library_keys.contains(&(entry.order.kind, entry.order.key.as_str())))
-        .collect();
+    let index_rows = index_entries(&library, page, matches);
 
     let last_loaded = page.rows().last().map(ArtistOrderKey::index);
     let mut rows: Vec<LibraryArtistRow> = library
@@ -306,6 +346,41 @@ pub(crate) fn everything_rows(
     if reversed {
         rows.reverse();
     }
+    rows.into_iter().map(|entry| entry.row).collect()
+}
+
+/// The Artists rows in the scope "All" with the sort Newest (musicindex ADR
+/// 0053 R-LIST-9, Stophammer ADR 0089). It merges the Library rows with the
+/// loaded node rows by date, with the rules of [`everything_rows`] for the
+/// duplicates and the unmatched names.
+///
+/// The node lists its rows by `newest_release_at`, the newest first. With
+/// `reversed` it lists the oldest first. A row with no date comes last in
+/// both directions. While the node has more pages, a row shows only at or
+/// before the position of the last loaded node row, so a row never moves
+/// after it shows. The date watermark of the Releases list
+/// (`releases_everything::newest_merge_order`) has the same rule.
+#[must_use]
+pub(crate) fn everything_rows_newest(
+    library: Vec<LibraryArtistRow>,
+    page: &IndexNameListPage<ArtistNameRow>,
+    matches: &NameFeedMatches,
+    reversed: bool,
+) -> Vec<DestinationListRowVm> {
+    let index_rows = index_entries(&library, page, matches);
+    let last_loaded = page
+        .rows()
+        .last()
+        .map(|row| date_position(row.newest_release_at, reversed));
+    let mut rows: Vec<LibraryArtistRow> = library
+        .into_iter()
+        .chain(index_rows)
+        .filter(|entry| {
+            !page.has_more()
+                || last_loaded.is_some_and(|last| date_position(entry.newest_at, reversed) <= last)
+        })
+        .collect();
+    sort_by_newest(&mut rows, reversed);
     rows.into_iter().map(|entry| entry.row).collect()
 }
 
@@ -360,6 +435,7 @@ mod tests {
 
     fn library_row(label: &str, order: ArtistOrderKey) -> LibraryArtistRow {
         LibraryArtistRow {
+            newest_at: None,
             order,
             row: DestinationListRowVm {
                 marked: false,
@@ -378,6 +454,99 @@ mod tests {
                 download_state: None,
             },
         }
+    }
+
+    fn dated_node_row(name: &str, date: Option<i64>) -> ArtistNameRow {
+        ArtistNameRow {
+            kind: ArtistNameKind::Name,
+            name: name.to_owned(),
+            sort_name: name.to_lowercase(),
+            key: name.to_lowercase(),
+            newest_release_at: date,
+            ..ArtistNameRow::default()
+        }
+    }
+
+    fn dated_library_row(label: &str, date: Option<i64>) -> LibraryArtistRow {
+        LibraryArtistRow {
+            newest_at: date,
+            ..library_row(label, ArtistOrderKey::name(label.to_lowercase()))
+        }
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 and Stophammer ADR 0089: the scope All
+    /// with the sort Newest merges the Library rows and the node rows by
+    /// date, newest first. The date watermark holds back a row that the next
+    /// node page can still precede, and a row with no date comes last.
+    #[test]
+    fn adr_0053_r9_artists_newest_merge_by_date_with_the_watermark() {
+        let library = || {
+            vec![
+                dated_library_row("L1", Some(500)),
+                dated_library_row("L2", Some(50)),
+                dated_library_row("L3", None),
+            ]
+        };
+        let labels = |rows: &[DestinationListRowVm]| -> Vec<String> {
+            rows.iter().map(|row| row.label.clone()).collect()
+        };
+        let node = vec![
+            dated_node_row("N1", Some(400)),
+            dated_node_row("N2", Some(300)),
+        ];
+
+        let partial =
+            everything_rows_newest(library(), &loaded(node.clone(), true), &no_match(), false);
+        assert_eq!(
+            labels(&partial),
+            ["L1", "N1", "N2"],
+            "an older Library row and a row with no date wait for their page"
+        );
+
+        let complete = everything_rows_newest(library(), &loaded(node, false), &no_match(), false);
+        assert_eq!(labels(&complete), ["L1", "N1", "N2", "L2", "L3"]);
+
+        let node_reversed = vec![
+            dated_node_row("N2", Some(300)),
+            dated_node_row("N1", Some(400)),
+        ];
+        let partial_reversed = everything_rows_newest(
+            library(),
+            &loaded(node_reversed.clone(), true),
+            &no_match(),
+            true,
+        );
+        assert_eq!(
+            labels(&partial_reversed),
+            ["L2", "N2", "N1"],
+            "reversed: the oldest first, and a newer row waits for its page"
+        );
+        let complete_reversed =
+            everything_rows_newest(library(), &loaded(node_reversed, false), &no_match(), true);
+        assert_eq!(
+            labels(&complete_reversed),
+            ["L2", "N2", "N1", "L1", "L3"],
+            "a row with no date stays last in the reversed order"
+        );
+
+        let loading =
+            everything_rows_newest(library(), &IndexNameListPage::default(), &no_match(), false);
+        assert_eq!(loading.len(), 3, "page 1 loads: the Library rows show");
+    }
+
+    /// An artist that is a Library row and a node row shows once, as the
+    /// Library row, with the sort Newest too.
+    #[test]
+    fn adr_0053_r9_artists_newest_merge_shows_a_shared_artist_once() {
+        let library = vec![dated_library_row("Shared", Some(100))];
+        let node = vec![
+            dated_node_row("Shared", Some(900)),
+            dated_node_row("Other", Some(800)),
+        ];
+        let rows = everything_rows_newest(library, &loaded(node, false), &no_match(), false);
+        let labels: Vec<&str> = rows.iter().map(|row| row.label.as_str()).collect();
+        assert_eq!(labels, ["Other", "Shared"]);
+        assert_eq!(rows[1].element_id, "library:Shared");
     }
 
     /// R16-08: each row of the table of decision D11.
