@@ -59,7 +59,7 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [musicindex ADR 0042](../musicindex/docs/adr/0042-a-button-with-a-label-has-a-fill.md), the neutral button, is implemented here on 2026-11-06 in the [run record](docs/reviews/orchestrated-run-2026-11-06-neutral-button.md). The operator passed its check on 2026-11-07.
 
-[musicindex ADR 0043](../musicindex/docs/adr/0043-a-list-sort-can-be-reversed.md), the reverse icon of a sort, is Accepted on 2026-11-06. The [phase plan](docs/plans/musicindex-adr-0043-sort-reverse-phase-plan.md) holds its packets. Packets 001 to 003 are implemented on 2026-11-06, and the operator passed their check on 2026-11-07. A list from the Index shows no reverse icon yet. Stophammer gives `reverse` for `/v1/search` (request 15).
+[musicindex ADR 0043](../musicindex/docs/adr/0043-a-list-sort-can-be-reversed.md), the reverse icon of a sort, is Accepted on 2026-11-06. The [phase plan](docs/plans/musicindex-adr-0043-sort-reverse-phase-plan.md) holds its packets. Packets 001 to 003 are implemented on 2026-11-06, and the operator passed their check on 2026-11-07. A list from the Index shows no reverse icon yet. The live node gives `reverse=true` on `/v1/feeds/recent`, `/v1/feeds/by-name`, `/v1/artist-names` and `/v1/search` under the capability `sort` (request 15), so packet 005 waits for the shared list rule, not for Stophammer.
 
 [ADR 0087 packet 011](docs/tasks/adr-0087-task-011-index-receives-the-fields.md) sends each search field to the Index as its own filter, and ADR 0087 lists the differences from the Library. [Responsiveness task 001](docs/tasks/responsiveness-task-001-no-ui-thread-database-wait.md) removes the hang of a download or a removal. The operator confirmed both on 2026-11-06.
 
