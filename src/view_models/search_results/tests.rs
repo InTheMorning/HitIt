@@ -1751,7 +1751,7 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
     assert_eq!(vm.index_skip(), Some(&skip));
     assert!(vm.empty_state().is_none());
     let notice = vm.index_notice().expect("the tab with rows shows the note");
-    assert_eq!(notice.title, "MusicIndex cannot exclude after: yet");
+    assert_eq!(notice.title, "Music Index cannot exclude after: yet");
     assert_eq!(notice.secondary, super::INDEX_SKIP_ROWS_TEXT);
     assert!(notice.failure.is_none());
 
@@ -1760,7 +1760,7 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
     empty.set_index_skipped(&unsupported_skip("zzzz -kind:ep"));
     assert!(empty.index_notice().is_none());
     let state = empty.empty_state().expect("the empty tab shows the note");
-    assert_eq!(state.title, "MusicIndex cannot exclude kind: yet");
+    assert_eq!(state.title, "Music Index cannot exclude kind: yet");
     assert_eq!(state.secondary, "No releases matched \"zzzz -kind:ep\".");
     assert!(!empty.is_index_loading());
 }

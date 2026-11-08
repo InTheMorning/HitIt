@@ -63,7 +63,7 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [ADR 0087 packet 011](docs/tasks/adr-0087-task-011-index-receives-the-fields.md) sends each search field to the Index as its own filter, and ADR 0087 lists the differences from the Library. [Responsiveness task 001](docs/tasks/responsiveness-task-001-no-ui-thread-database-wait.md) removes the hang of a download or a removal. The operator confirmed both on 2026-11-06.
 
-[ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md), Accepted on 2026-11-07, moves the search parser, the Index plan and the kind rule to the `musicindex-search` crate. The crate is pinned at `968409e`, which gives `QueryTerm::can_run`. The crate builds the `kind:` requests, the text of `q` and the sort parameters. v4vmm builds no `kind:` mapping and no sort parameter of its own. It passes the crate's sort parameters for a sort that the person selected, when the node lists `sort`.
+[ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md), Accepted on 2026-11-07, moves the search parser, the Index plan and the kind rule to the `musicindex-search` crate. The crate is pinned at `11d99e5`, which gives `QueryTerm::can_run` and the name "Music Index" in its notes. The crate builds the `kind:` requests, the text of `q` and the sort parameters. v4vmm builds no `kind:` mapping and no sort parameter of its own. It passes the crate's sort parameters for a sort that the person selected, when the node lists `sort`.
 
 Known open defects:
 

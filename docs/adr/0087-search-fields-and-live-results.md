@@ -108,7 +108,7 @@ v4vmm sends the words and the phrases in `q`, and each Index field as its own pa
 - `duration:` gives `min_duration` and `max_duration`, in integer seconds. Each limit is included, as `duration:` is.
 - Each entity type takes only some filters. A publisher row has no release, kind, date or duration, so `type=publisher` gets no request when the query has one of them. A feed row has no duration, so `type=feed` gets no request for a duration. Stophammer gives `400` for a filter that a type does not take. v4vmm sends no such filter. Each type gets its own request, so the run still sends at most three requests.
 - A query with exclusions and no positive term sends no request. Stophammer gives `400` with the code `missing_positive_term` for that request. The page shows the note "Music Index needs a word or a field to search for. The Library rows show."
-- An excluded `kind:`, `after:`, `before:` or `duration:` has no parameter. The Index part shows the note "Music Index cannot exclude kind: yet. The Library rows show." The crate `musicindex-search` gives the first sentence, and it gives "MusicIndex" until the crate follows musicindex ADR 0023 R-WORD-8. The contract has no `not_` form for these fields.
+- An excluded `kind:`, `after:`, `before:` or `duration:` has no parameter. The Index part shows the note "Music Index cannot exclude kind: yet. The Library rows show." The crate `musicindex-search` gives the first sentence. The contract has no `not_` form for these fields.
 
 The page never shows Index rows that a filter did not reduce.
 
