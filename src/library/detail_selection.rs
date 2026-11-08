@@ -22,9 +22,10 @@ use crate::ui::shells::library::detail::DetailRowSlot;
 use crate::ui::tokens::Size;
 use crate::view_models::detail_selection::{
     library_release_track_rows, playlist_entry_rows, singles_group_release_rows, DetailPageRows,
-    DetailRowClick, DetailRowKey, DetailSelection, LibraryReleaseFacts,
+    DetailRowClick, DetailRowKey, DetailSelection, LibraryReleaseFacts, ListBarVm,
 };
 use crate::view_models::library::{ContentListSelectionTarget, PlaylistDetailVm};
+use crate::view_models::list_page::{ListPageKey, ListSort, ListView};
 use crate::view_models::list_selection::{FocusStep, RowSelectionVm};
 use crate::view_models::workspace::{
     DetailScrollTarget, FrameNavigationEntry, NavigationLocationId, NavigationPathStart, ReleaseKey,
@@ -120,6 +121,48 @@ fn whole_pixels(offset: Pixels) -> u32 {
 }
 
 impl LibraryApp {
+    /// The list page key of the open group page, or `None` for another page
+    /// (ADR 0090 Decision 2, musicindex ADR 0053 R-LIST-9).
+    pub(crate) fn group_list_key(&self) -> Option<ListPageKey> {
+        match &self.detail {
+            LibraryDetail::SinglesGroup(_) => Some(ListPageKey::SinglesGroup),
+            LibraryDetail::WindowGroup(_) => Some(ListPageKey::WindowGroup),
+            _ => None,
+        }
+    }
+
+    /// The list bar of the open group page with its right end controls
+    /// (ADR 0090 Decision 2). A page that is not a group page gives `bar`
+    /// unchanged.
+    pub(crate) fn with_group_list_controls(&self, bar: ListBarVm) -> ListBarVm {
+        match self.group_list_key() {
+            Some(key) => bar.with_list_controls(key, self.vm.list_page_state(key)),
+            None => bar,
+        }
+    }
+
+    /// Sets the sort of the open group page. The page builds again in
+    /// place, and the selection stays.
+    pub(crate) fn set_group_list_sort(&mut self, sort: ListSort, cx: &mut Context<Self>) {
+        if let Some(key) = self.group_list_key() {
+            self.set_list_sort(key, sort, cx);
+        }
+    }
+
+    /// Sets the view of the open group page.
+    pub(crate) fn set_group_list_view(&mut self, view: ListView, cx: &mut Context<Self>) {
+        if let Some(key) = self.group_list_key() {
+            self.set_list_view(key, view, cx);
+        }
+    }
+
+    /// Sets the reversed state of the open group page.
+    pub(crate) fn set_group_list_reversed(&mut self, reversed: bool, cx: &mut Context<Self>) {
+        if let Some(key) = self.group_list_key() {
+            self.set_list_reversed(key, reversed, cx);
+        }
+    }
+
     /// The focus handle of the Music detail column.
     pub(crate) fn detail_column_focus(&self) -> &FocusHandle {
         &self.detail_column_focus

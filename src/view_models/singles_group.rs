@@ -32,6 +32,7 @@ use crate::view_models::library::{
     singles_type_tag, tree_name_feed_matches, AlbumNode, ArtistNode, BusyItems,
     DestinationListRowVm, LibraryTree, RowTypeTag, TrackRowWork,
 };
+use crate::view_models::list_page::ListSort;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::named_feeds::{index_named_feeds, NamedFeed};
 use crate::view_models::publisher_page::PublisherPageVm;
@@ -1106,6 +1107,46 @@ impl SinglesGroupPageEntryVm {
             Self::Index(row) => &row.key,
         }
     }
+
+    /// The visible title of the row: the title of a Library single, else
+    /// its item GUID, and the title of a `MusicIndex` single.
+    fn title(&self) -> &str {
+        match self {
+            Self::Library(row) => row
+                .track
+                .track_title
+                .as_deref()
+                .filter(|title| !title.trim().is_empty())
+                .unwrap_or(&row.track.item_guid),
+            Self::Index(row) => &row.title,
+        }
+    }
+}
+
+/// Puts the rows of a group page in the order of the list bar (ADR 0090
+/// Decision 2, musicindex ADR 0053 R-LIST-9 row "A group of singles").
+///
+/// Newest keeps the order that the builder gave, newest first. A to Z orders
+/// by the sort key of the visible title, the same key as the other local A
+/// to Z lists. `reversed` reverses the result. The last `matched_count`
+/// rows are the "Matched by name" part. Each part gets the order in its own
+/// place, so the heading and its count stay true.
+pub(crate) fn order_group_rows(
+    rows: &mut [SinglesGroupPageEntryVm],
+    matched_count: usize,
+    sort: ListSort,
+    reversed: bool,
+) {
+    let split = rows.len().saturating_sub(matched_count);
+    let (own, matched) = rows.split_at_mut(split);
+    for part in [own, matched] {
+        if sort == ListSort::AToZ {
+            part.sort_by_cached_key(|row| name_sort_key(row.title()));
+        }
+        if reversed {
+            part.reverse();
+        }
+    }
 }
 
 /// The page of one singles group (ADR 0084 Decision 6).
@@ -1158,6 +1199,18 @@ pub(crate) struct MatchedByNameHeadingVm {
 }
 
 impl SinglesGroupPageVm {
+    /// This page with its rows in the order of the list bar (ADR 0090
+    /// Decision 2). See [`order_group_rows`].
+    #[must_use]
+    pub(crate) fn ordered(mut self, sort: ListSort, reversed: bool) -> Self {
+        let matched = self
+            .matched_by_name
+            .as_ref()
+            .map_or(0, |heading| heading.count);
+        order_group_rows(&mut self.rows, matched, sort, reversed);
+        self
+    }
+
     /// Builds the page of the group `key` from the current tree and the
     /// loaded `MusicIndex` singles. The page is not scoped (packet 026
     /// decision D12): it reads the groups of "Everything".
@@ -3351,6 +3404,179 @@ mod tests {
             MORE_INDEX_SINGLES_NOTE.ends_with(&expected),
             "MORE_INDEX_SINGLES_NOTE must name {total} newest releases, the product of \
              FEED_SINGLES_MAX_PAGES and FEED_SINGLES_PAGE_LIMIT; got {MORE_INDEX_SINGLES_NOTE:?}"
+        );
+    }
+
+    /// A Library single row of a group page with the title `title`.
+    fn titled_row(id: i64, title: &str) -> SinglesGroupPageEntryVm {
+        let mut row_track = track(id, id, Some(id), true);
+        row_track.track_title = Some(title.to_owned());
+        SinglesGroupPageEntryVm::Library(Box::new(SinglesGroupPageRowVm {
+            track: row_track,
+            date_text: None,
+            work: TrackRowWork::Idle,
+            key: ReleaseKey::LibraryFeed(id),
+        }))
+    }
+
+    fn row_titles(rows: &[SinglesGroupPageEntryVm]) -> Vec<&str> {
+        rows.iter().map(SinglesGroupPageEntryVm::title).collect()
+    }
+
+    /// The rows of a group page in the order of the builder: three own
+    /// rows, newest first, then two "Matched by name" rows.
+    fn group_page_rows() -> Vec<SinglesGroupPageEntryVm> {
+        vec![
+            titled_row(1, "Charlie"),
+            titled_row(2, "alpha"),
+            titled_row(3, "Bravo"),
+            titled_row(4, "zed"),
+            titled_row(5, "Able"),
+        ]
+    }
+
+    fn matched_heading() -> MatchedByNameHeadingVm {
+        MatchedByNameHeadingVm {
+            heading: PublisherPageVm::MATCHED_BY_NAME_HEADING,
+            note: PublisherPageVm::MATCHED_BY_NAME_NOTE,
+            count: 2,
+        }
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 row "A group of singles": the rows of
+    /// a singles group page follow Newest, A to Z, Oldest and Z to A. The
+    /// "Matched by name" part has its own order, and its heading count
+    /// stays.
+    #[test]
+    fn adr_0053_r9_group_singles_page_rows_follow_each_sort() {
+        let page = |sort, reversed| {
+            let mut page = SinglesGroupPageVm {
+                title: String::new(),
+                subtitle: None,
+                identity_note: None,
+                rows: group_page_rows(),
+                index_status: None,
+                more_note: None,
+                main_action: None,
+                empty_message: None,
+                art: None,
+                matched_by_name: Some(matched_heading()),
+            };
+            page = page.ordered(sort, reversed);
+            page
+        };
+        let newest = page(ListSort::Newest, false);
+        assert_eq!(
+            row_titles(&newest.rows),
+            ["Charlie", "alpha", "Bravo", "zed", "Able"]
+        );
+        let a_to_z = page(ListSort::AToZ, false);
+        assert_eq!(
+            row_titles(&a_to_z.rows),
+            ["alpha", "Bravo", "Charlie", "Able", "zed"]
+        );
+        let oldest = page(ListSort::Newest, true);
+        assert_eq!(
+            row_titles(&oldest.rows),
+            ["Bravo", "alpha", "Charlie", "Able", "zed"]
+        );
+        let z_to_a = page(ListSort::AToZ, true);
+        assert_eq!(
+            row_titles(&z_to_a.rows),
+            ["Charlie", "Bravo", "alpha", "zed", "Able"]
+        );
+        for page in [&newest, &a_to_z, &oldest, &z_to_a] {
+            assert_eq!(page.matched_by_name.as_ref().map(|h| h.count), Some(2));
+        }
+    }
+
+    /// The window group page orders its rows with the same rule. A
+    /// `MusicIndex` row sorts by its title.
+    #[test]
+    fn adr_0053_r9_group_window_page_rows_follow_each_sort() {
+        let mut rows = group_page_rows();
+        rows[1] = SinglesGroupPageEntryVm::Index(SinglesGroupIndexRowVm {
+            element_id: "index-row".to_owned(),
+            key: ReleaseKey::from_index_feed_guid("guid-index"),
+            title: "alpha".to_owned(),
+            date_text: None,
+            duration: None,
+            image_url: None,
+            work: TrackRowWork::Idle,
+        });
+        let page = |sort, reversed| {
+            crate::view_models::window_group_page::WindowGroupPageVm {
+                title: String::new(),
+                date_span: None,
+                rows: rows.clone(),
+                matched_by_name: Some(matched_heading()),
+                main_action: None,
+                all_singles_link: None,
+                art: None,
+                empty_message: None,
+            }
+            .ordered(sort, reversed)
+        };
+        assert_eq!(
+            row_titles(&page(ListSort::AToZ, false).rows),
+            ["alpha", "Bravo", "Charlie", "Able", "zed"]
+        );
+        assert_eq!(
+            row_titles(&page(ListSort::Newest, true).rows),
+            ["Bravo", "alpha", "Charlie", "Able", "zed"]
+        );
+        assert_eq!(
+            row_titles(&page(ListSort::AToZ, true).rows),
+            ["Charlie", "Bravo", "alpha", "zed", "Able"]
+        );
+        assert_eq!(
+            page(ListSort::Newest, false)
+                .matched_by_name
+                .map(|heading| heading.count),
+            Some(2)
+        );
+    }
+
+    /// The list state of a group key reaches the page that the view model
+    /// builds: A to Z, then the reversed order. Each kind keeps its own
+    /// state.
+    #[test]
+    fn adr_0053_r9_group_view_model_page_follows_the_list_state() {
+        use crate::view_models::list_page::ListPageKey;
+        let mut vm = crate::view_models::library::LibraryViewModel::new();
+        vm.replace_tree(haleen_feed_tree());
+        let generation = vm.index_feed_singles_mut().begin_request();
+        vm.index_feed_singles_mut().record(
+            HALEEN,
+            FeedReleaseList::complete(haleen_index_rows()),
+            generation,
+        );
+        let newest: Vec<String> = row_keys(&vm.singles_group_page(&haleen_key()));
+        vm.set_list_sort(ListPageKey::SinglesGroup, ListSort::AToZ);
+        let page = vm.singles_group_page(&haleen_key());
+        let keys = |page: &SinglesGroupPageVm| row_keys(page);
+        let names: Vec<String> = page
+            .rows
+            .iter()
+            .map(|row| name_sort_key(row.title()))
+            .collect();
+        let mut sorted = names.clone();
+        sorted.sort();
+        assert_eq!(names, sorted, "A to Z orders by the visible title");
+        assert_ne!(keys(&page), newest);
+        vm.set_list_reversed(ListPageKey::SinglesGroup, true);
+        let mut reversed_names: Vec<String> = vm
+            .singles_group_page(&haleen_key())
+            .rows
+            .iter()
+            .map(|row| name_sort_key(row.title()))
+            .collect();
+        reversed_names.reverse();
+        assert_eq!(reversed_names, sorted, "Z to A reverses A to Z");
+        // The window group kind keeps its own state.
+        assert_eq!(
+            vm.list_page_state(ListPageKey::WindowGroup).sort,
+            Some(ListSort::Newest)
         );
     }
 

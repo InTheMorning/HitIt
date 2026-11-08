@@ -22,13 +22,14 @@ use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::library::{
     AlbumNode, ArtistNode, BusyItems, ContentListRowDisplay, ContentListRowKind, LibraryTree,
 };
+use crate::view_models::list_page::ListSort;
 use crate::view_models::publisher_page::PublisherPageVm;
 use crate::view_models::releases_everything::ReleasesDownloadPlan;
 use crate::view_models::search_results::FeedResultDisplay;
 use crate::view_models::singles_group::{
-    find_group, library_single_row, singles_group_link, singles_groups_everything,
-    singles_main_action, GroupSingle, MatchedByNameHeadingVm, SinglesGroupActionVm,
-    SinglesGroupIndexRowVm, SinglesGroupPageEntryVm,
+    find_group, library_single_row, order_group_rows, singles_group_link,
+    singles_groups_everything, singles_main_action, GroupSingle, MatchedByNameHeadingVm,
+    SinglesGroupActionVm, SinglesGroupIndexRowVm, SinglesGroupPageEntryVm,
 };
 use crate::view_models::window_groups::{
     window_span_text, NewReleasesLayout, NewReleasesLayoutItem, WindowGroupKey,
@@ -144,6 +145,18 @@ impl WindowMember<'_> {
 }
 
 impl WindowGroupPageVm {
+    /// This page with its rows in the order of the list bar (ADR 0090
+    /// Decision 2). See [`order_group_rows`].
+    #[must_use]
+    pub(crate) fn ordered(mut self, sort: ListSort, reversed: bool) -> Self {
+        let matched = self
+            .matched_by_name
+            .as_ref()
+            .map_or(0, |heading| heading.count);
+        order_group_rows(&mut self.rows, matched, sort, reversed);
+        self
+    }
+
     /// Builds the page of the window `key` (packet 004 "The rows of the
     /// page").
     ///

@@ -22,6 +22,7 @@ pub mod destination_lists;
 pub mod destination_row_second_line;
 pub mod detail;
 pub mod feed_detail;
+pub mod group_entries;
 pub mod inbox;
 pub mod index_list_status;
 pub mod live_page;

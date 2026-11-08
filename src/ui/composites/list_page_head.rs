@@ -88,15 +88,15 @@ pub(crate) fn list_page_head(
         .gap(Spacing::XS.scaled(cx));
 
     if let Some(sort) = display.sort {
-        trailing = trailing.child(sort_menu(sort, handlers.sort.as_ref()));
+        trailing = trailing.child(sort_menu(sort, handlers.sort.as_ref(), false));
     }
 
     if let Some(view) = display.view {
-        trailing = trailing.child(view_icons(view, handlers.view.as_ref(), cx));
+        trailing = trailing.child(view_icons(view, handlers.view.as_ref(), false, cx));
     }
 
     if let Some(reverse) = display.reverse {
-        trailing = trailing.child(reverse_icon(&reverse, handlers.reverse.as_ref()));
+        trailing = trailing.child(reverse_icon(&reverse, handlers.reverse.as_ref(), false));
     }
 
     if let Some(select) = display.select {
@@ -189,16 +189,25 @@ fn title_action(
 
 /// The sort menu of a list page (R-LIST-1 item 1). Its trigger shows the
 /// current sort. Each entry of the menu is one sort, and the current sort
-/// has a check mark.
-fn sort_menu(display: ListSortButtonVm, on_sort: Option<&ListSortHandler>) -> AnyElement {
+/// has a check mark. A `pinned` copy of a list bar has its own element ids
+/// and no tab stop (ADR 0090 Decision 5). The list bar above the rows uses
+/// this function too (ADR 0090 Decision 2).
+pub(crate) fn sort_menu(
+    display: ListSortButtonVm,
+    on_sort: Option<&ListSortHandler>,
+    pinned: bool,
+) -> AnyElement {
     let mut menu = ContextMenu::new(
-        SharedString::from(display.id),
+        control_id(display.id, pinned),
         ContextMenuScope::WorkspaceFrame,
         SharedString::from(display.a11y_label),
     )
     .trigger_label(SharedString::from(display.label))
     .trigger_style(ControlStyle::Neutral)
     .trigger_icon(IconName::ChevronDown);
+    if pinned {
+        menu = menu.trigger_out_of_tab_sequence();
+    }
     for option in display.options {
         let sort = option.sort;
         let mut item = ContextMenuItem::new(ContextMenuItemDisplay {
@@ -219,10 +228,12 @@ fn sort_menu(display: ListSortButtonVm, on_sort: Option<&ListSortHandler>) -> An
 }
 
 /// The view icons of a list page (R-LIST-1 item 3). Each icon is one
-/// button. The current view has the tint of a selected button.
-fn view_icons(
+/// button. The current view has the tint of a selected button. `pinned` is
+/// as for [`sort_menu`].
+pub(crate) fn view_icons(
     display: ListViewControlVm,
     on_view: Option<&ListViewHandler>,
+    pinned: bool,
     cx: &App,
 ) -> AnyElement {
     let mut icons = div()
@@ -236,11 +247,14 @@ fn view_icons(
             ListView::Tiles => IconName::TilesView,
         };
         let view = option.view;
-        let mut button = Button::styled(SharedString::from(option.id), ControlStyle::ToolbarIcon)
+        let mut button = Button::styled(control_id(option.id, pinned), ControlStyle::ToolbarIcon)
             .leading_icon(icon)
             .a11y_label(option.a11y_label.clone())
             .tooltip(option.a11y_label)
             .selected(option.selected);
+        if pinned {
+            button = button.out_of_tab_sequence();
+        }
         // R-LIST-7 item 8: a view icon that is not current is muted.
         if !option.selected {
             button = button.foreground(SemanticColor::SecondaryLabel);
@@ -256,17 +270,25 @@ fn view_icons(
 
 /// The reverse icon of a list page (R-LIST-7). It is muted in the usual
 /// order, and it has the tint of a selected button in the reversed order.
-fn reverse_icon(display: &ListReverseVm, on_reverse: Option<&ListReverseHandler>) -> AnyElement {
+/// `pinned` is as for [`sort_menu`].
+pub(crate) fn reverse_icon(
+    display: &ListReverseVm,
+    on_reverse: Option<&ListReverseHandler>,
+    pinned: bool,
+) -> AnyElement {
     let icon = match display.icon {
         ListReverseIcon::SortUsual => IconName::SortUsual,
         ListReverseIcon::SortReversed => IconName::SortReversed,
     };
     let requested = !display.pressed;
-    let mut button = Button::styled(SharedString::from(display.id), ControlStyle::ToolbarIcon)
+    let mut button = Button::styled(control_id(display.id, pinned), ControlStyle::ToolbarIcon)
         .leading_icon(icon)
         .a11y_label(display.label)
         .tooltip(display.label)
         .selected(display.pressed);
+    if pinned {
+        button = button.out_of_tab_sequence();
+    }
     if !display.pressed {
         button = button.foreground(SemanticColor::SecondaryLabel);
     }
@@ -275,6 +297,15 @@ fn reverse_icon(display: &ListReverseVm, on_reverse: Option<&ListReverseHandler>
         button = button.on_activate(move |window, cx| handler(requested, window, cx));
     }
     button.into_any_element()
+}
+
+/// The element id of a control. The pinned copy of a list bar has its own.
+fn control_id(id: &'static str, pinned: bool) -> SharedString {
+    if pinned {
+        SharedString::from(format!("pinned-{id}"))
+    } else {
+        SharedString::from(id)
+    }
 }
 
 /// The scope control of a list page: a `SegmentedControl` with the

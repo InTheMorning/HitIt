@@ -23,6 +23,7 @@ use crate::ui::shells::library::track_detail::render_library_track_detail;
 use crate::ui::shells::library::window_group::render_library_window_group_page;
 use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::library::{LibraryChromeDisplay, LibraryViewModel, MbTrackStatus};
+use crate::view_models::list_page::ListPageKey;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::named_feeds::NamedFeed;
 
@@ -109,6 +110,7 @@ pub(crate) fn render_library_detail(
             playlists,
             album_thumbs,
             row_slots,
+            library_vm.list_view(ListPageKey::SinglesGroup),
             scroll,
             detail_focus,
             cx,
@@ -126,6 +128,7 @@ pub(crate) fn render_library_detail(
             playlists,
             album_thumbs,
             row_slots,
+            library_vm.list_view(ListPageKey::WindowGroup),
             scroll,
             detail_focus,
             cx,

@@ -39,6 +39,13 @@ pub(crate) enum ListPageKey {
     Results,
     /// The page of a saved search.
     SavedSearch,
+    /// The page of one singles group. All such pages share one state
+    /// (musicindex ADR 0053 R-LIST-9 row "A group of singles"). It is
+    /// never a destination and never in the sidebar.
+    SinglesGroup,
+    /// The page of one window group of New releases. It has the sorts and
+    /// the views of a singles group page. All such pages share one state.
+    WindowGroup,
 }
 
 impl ListPageKey {
@@ -51,6 +58,7 @@ impl ListPageKey {
             Self::MyPlaylists | Self::PublicPlaylists => "playlists",
             Self::Live => "live items",
             Self::Results | Self::SavedSearch => "results",
+            Self::SinglesGroup | Self::WindowGroup => "singles",
         }
     }
 
@@ -65,6 +73,7 @@ impl ListPageKey {
             Self::Live => "Live",
             Self::Results => "Results",
             Self::SavedSearch => "Saved search",
+            Self::SinglesGroup | Self::WindowGroup => "Singles",
         }
     }
 
@@ -76,7 +85,9 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn views(self) -> &'static [ListView] {
         match self {
-            Self::Releases | Self::PublicPlaylists => &[ListView::Rows, ListView::Tiles],
+            Self::Releases | Self::PublicPlaylists | Self::SinglesGroup | Self::WindowGroup => {
+                &[ListView::Rows, ListView::Tiles]
+            }
             Self::Artists | Self::MyPlaylists | Self::Live | Self::Results | Self::SavedSearch => {
                 &[ListView::Rows]
             }
@@ -95,7 +106,7 @@ impl ListPageKey {
             Self::Releases | Self::Artists | Self::Results | Self::SavedSearch => {
                 matches!(scope, ListScope::InLibrary)
             }
-            Self::MyPlaylists => true,
+            Self::MyPlaylists | Self::SinglesGroup | Self::WindowGroup => true,
             Self::PublicPlaylists | Self::Live => false,
         }
     }
@@ -126,7 +137,9 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn sorts(self) -> &'static [ListSort] {
         match self {
-            Self::Releases | Self::PublicPlaylists => &[ListSort::Newest, ListSort::AToZ],
+            Self::Releases | Self::PublicPlaylists | Self::SinglesGroup | Self::WindowGroup => {
+                &[ListSort::Newest, ListSort::AToZ]
+            }
             Self::Results | Self::SavedSearch => {
                 &[ListSort::Relevance, ListSort::AToZ, ListSort::Newest]
             }
@@ -363,8 +376,13 @@ impl ListPageState {
                 index_sorts: NodeSorts::NotListed,
             },
             // The query holds the scope of a search page (ADR 0089 Decision
-            // 4), so the page state has none.
-            ListPageKey::Results | ListPageKey::SavedSearch => Self {
+            // 4), so the page state has none. A group page has no scope
+            // either (musicindex ADR 0053 R-LIST-9 row "A group of
+            // singles": Newest, rows, reverse).
+            ListPageKey::Results
+            | ListPageKey::SavedSearch
+            | ListPageKey::SinglesGroup
+            | ListPageKey::WindowGroup => Self {
                 sort: Some(ListSort::Newest),
                 view: ListView::Rows,
                 scope: None,
@@ -387,6 +405,8 @@ pub(crate) struct ListPages {
     live: ListPageState,
     results: ListPageState,
     saved_search: ListPageState,
+    singles_group: ListPageState,
+    window_group: ListPageState,
 }
 
 impl Default for ListPages {
@@ -399,6 +419,8 @@ impl Default for ListPages {
             live: ListPageState::default_for(ListPageKey::Live),
             results: ListPageState::default_for(ListPageKey::Results),
             saved_search: ListPageState::default_for(ListPageKey::SavedSearch),
+            singles_group: ListPageState::default_for(ListPageKey::SinglesGroup),
+            window_group: ListPageState::default_for(ListPageKey::WindowGroup),
         }
     }
 }
@@ -415,6 +437,8 @@ impl ListPages {
             ListPageKey::Live => &self.live,
             ListPageKey::Results => &self.results,
             ListPageKey::SavedSearch => &self.saved_search,
+            ListPageKey::SinglesGroup => &self.singles_group,
+            ListPageKey::WindowGroup => &self.window_group,
         }
     }
 
@@ -428,6 +452,8 @@ impl ListPages {
             ListPageKey::Live => &mut self.live,
             ListPageKey::Results => &mut self.results,
             ListPageKey::SavedSearch => &mut self.saved_search,
+            ListPageKey::SinglesGroup => &mut self.singles_group,
+            ListPageKey::WindowGroup => &mut self.window_group,
         }
     }
 
@@ -442,6 +468,8 @@ impl ListPages {
             &mut self.live,
             &mut self.results,
             &mut self.saved_search,
+            &mut self.singles_group,
+            &mut self.window_group,
         ] {
             state.index_sorts = node;
         }
@@ -608,6 +636,37 @@ impl ListReverseVm {
             } else {
                 ListReverseIcon::SortUsual
             },
+        }
+    }
+}
+
+/// The controls at the right end of a list bar above the rows (ADR 0090
+/// Decision 2, musicindex ADR 0053 R-LIST-9). The sequence is the sort menu,
+/// the view icons and the reverse icon (musicindex ADR 0043 R-LIST-6). A
+/// part is `None` when the page does not offer it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ListBarControlsVm {
+    /// The sort menu, or `None` when the page has no sort.
+    pub(crate) sort: Option<ListSortButtonVm>,
+    /// The view icons, or `None` when the page offers one view only.
+    pub(crate) view: Option<ListViewControlVm>,
+    /// The reverse icon, or `None` when the list cannot reverse.
+    pub(crate) reverse: Option<ListReverseVm>,
+}
+
+impl ListBarControlsVm {
+    /// The controls of the page `key` in `state`. The sort names follow the
+    /// reversed order (R-LIST-7 item 5).
+    #[must_use]
+    pub(crate) fn new(key: ListPageKey, state: ListPageState) -> Self {
+        let scope = state.scope.unwrap_or_default();
+        let reversed = state.order_reversed(key, scope);
+        Self {
+            sort: state.sort.map(|sort| sort_button(key, sort, reversed)),
+            view: (key.views().len() > 1).then(|| view_control(key, state.view)),
+            reverse: state
+                .shows_reverse(key, scope)
+                .then(|| ListReverseVm::new(state.reversed)),
         }
     }
 }
@@ -792,9 +851,12 @@ fn scope_control(
             "music-scope-playlists-all",
             "music-scope-playlists-in-library",
         ),
-        // Public playlists and Live have no scope, so no scope control uses
-        // these ids.
-        ListPageKey::Live | ListPageKey::PublicPlaylists => (
+        // Public playlists, Live and the group pages have no scope, so no
+        // scope control uses these ids.
+        ListPageKey::Live
+        | ListPageKey::PublicPlaylists
+        | ListPageKey::SinglesGroup
+        | ListPageKey::WindowGroup => (
             "music-scope-public-playlists",
             "music-scope-public-playlists-all",
             "music-scope-public-playlists-in-library",
@@ -855,6 +917,8 @@ fn sort_button(key: ListPageKey, sort: ListSort, reversed: bool) -> ListSortButt
         ListPageKey::Live => "music-list-sort-live",
         ListPageKey::Results => "music-list-sort-results",
         ListPageKey::SavedSearch => "music-list-sort-saved-search",
+        ListPageKey::SinglesGroup => "music-list-sort-singles-group",
+        ListPageKey::WindowGroup => "music-list-sort-window-group",
     };
     ListSortButtonVm {
         id,
@@ -885,6 +949,59 @@ fn sort_button(key: ListPageKey, sort: ListSort, reversed: bool) -> ListSortButt
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Musicindex ADR 0053 R-LIST-9 row "A group of singles": the two group
+    /// keys offer Newest and A to Z, rows and tiles, and reverse. They start
+    /// with Newest and Rows. Each kind keeps its own state.
+    #[test]
+    fn adr_0053_r9_group_keys_offer_sort_view_and_reverse() {
+        let mut pages = ListPages::default();
+        for key in [ListPageKey::SinglesGroup, ListPageKey::WindowGroup] {
+            assert_eq!(key.sorts(), [ListSort::Newest, ListSort::AToZ]);
+            assert_eq!(key.views(), [ListView::Rows, ListView::Tiles]);
+            assert!(key.reverses_in(ListScope::All));
+            assert!(key.reverses_in(ListScope::InLibrary));
+            let state = ListPageState::default_for(key);
+            assert_eq!(state.sort, Some(ListSort::Newest));
+            assert_eq!(state.view, ListView::Rows);
+            assert_eq!(state.scope, None);
+            assert!(!state.reversed);
+        }
+        pages.set_sort(ListPageKey::SinglesGroup, ListSort::AToZ);
+        pages.set_view(ListPageKey::SinglesGroup, ListView::Tiles);
+        pages.set_reversed(ListPageKey::SinglesGroup, true);
+        let window = pages.get(ListPageKey::WindowGroup);
+        assert_eq!(window.sort, Some(ListSort::Newest));
+        assert_eq!(window.view, ListView::Rows);
+        assert!(!window.reversed);
+        assert!(pages.get(ListPageKey::SinglesGroup).reversed);
+    }
+
+    /// The controls of a group list bar hold the sort menu, the view icons
+    /// and the reverse icon. A reversed list names "Oldest" and "Z to A".
+    #[test]
+    fn adr_0053_r9_group_bar_controls_name_the_reversed_order() {
+        let key = ListPageKey::SinglesGroup;
+        let usual = ListBarControlsVm::new(key, ListPageState::default_for(key));
+        let sort = usual.sort.expect("a group has a sort");
+        assert_eq!(sort.label, "Newest");
+        let labels: Vec<&str> = sort.options.iter().map(|option| option.label).collect();
+        assert_eq!(labels, ["Newest", "A to Z"]);
+        assert_eq!(usual.view.expect("two views").options.len(), 2);
+        assert!(!usual.reverse.expect("a group reverses").pressed);
+
+        let state = ListPageState {
+            reversed: true,
+            sort: Some(ListSort::AToZ),
+            ..ListPageState::default_for(key)
+        };
+        let reversed = ListBarControlsVm::new(key, state);
+        let sort = reversed.sort.expect("a group has a sort");
+        assert_eq!(sort.label, "Z to A");
+        let labels: Vec<&str> = sort.options.iter().map(|option| option.label).collect();
+        assert_eq!(labels, ["Oldest", "Z to A"]);
+        assert!(reversed.reverse.expect("a group reverses").pressed);
+    }
 
     /// R-LIST-7 item 5: each sort has its reversed name, in the button and
     /// in each menu entry.

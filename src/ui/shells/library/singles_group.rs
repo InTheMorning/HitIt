@@ -18,13 +18,12 @@ use gpui::{
 };
 
 use crate::ui::primitives::{LabelVariant, SectionHeader};
+use crate::ui::shells::library::group_entries::{render_group_entries, GroupEntries};
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
 use crate::view_models::index_name_list::IndexListStatusRowVm;
-use crate::view_models::singles_group::{
-    MatchedByNameHeadingVm, SinglesGroupIndexRowVm, SinglesGroupPageEntryVm,
-};
+use crate::view_models::singles_group::{MatchedByNameHeadingVm, SinglesGroupIndexRowVm};
 use crate::view_models::workspace::ReleaseKey;
 
 use crate::db;
@@ -47,6 +46,8 @@ use crate::ui::tokens::{FontSize, SemanticColor};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::detail_selection::ListBarVm;
 use crate::view_models::library::MbTrackStatus;
+use crate::view_models::list_page::ListView;
+use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_page::ReleaseTrackRowVm;
 use crate::view_models::singles_group::{
     SinglesGroupAction, SinglesGroupActionVm, SinglesGroupPageRowVm, SinglesGroupPageVm,
@@ -70,6 +71,7 @@ pub(crate) fn render_library_singles_group_page(
     playlists: &[db::Playlist],
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
     row_slots: Vec<DetailRowSlot>,
+    view: ListView,
     scroll: &ScrollHandle,
     detail_focus: &FocusHandle,
     cx: &mut Context<LibraryApp>,
@@ -130,40 +132,20 @@ pub(crate) fn render_library_singles_group_page(
     // The trailing "Matched by name" rows get a heading before them
     // (operator decision of 2026-10-22, packet 032). `rows` stays one
     // flat list; the heading's own row count gives its position.
-    let heading_at = matched_by_name.as_ref().map_or(rows.len(), |heading| {
-        rows.len().saturating_sub(heading.count)
-    });
-    let mut row_elements: Vec<AnyElement> = Vec::with_capacity(rows.len() + 1);
-    for (index, (row, slot)) in rows.iter().zip(row_slots).enumerate() {
-        if index == heading_at {
-            if let Some(heading) = &matched_by_name {
-                row_elements.push(render_matched_by_name_heading(heading));
-            }
-        }
-        row_elements.push(match row {
-            SinglesGroupPageEntryVm::Library(row) => render_single_row(
-                row,
-                index,
-                mb_status,
-                album_thumbs,
-                &playlist_displays,
-                slot,
-                detail_focus,
-                &dispatch,
-                cx,
-            ),
-            SinglesGroupPageEntryVm::Index(row) => {
-                render_index_single_row(row, album_thumbs, slot, detail_focus, cx)
-            }
-        });
-    }
-    content = content.child(
-        div()
-            .flex()
-            .flex_col()
-            .gap(spacing::XXS)
-            .children(row_elements),
-    );
+    content = content.child(render_group_entries(
+        &GroupEntries {
+            rows: &rows,
+            matched_by_name: matched_by_name.as_ref(),
+            view,
+            mb_status,
+            album_thumbs,
+            playlists: &playlist_displays,
+            detail_focus,
+            dispatch: &dispatch,
+        },
+        row_slots,
+        cx,
+    ));
     content = content.children(render_index_part(index_status, more_note, cx));
 
     let container = div()
@@ -366,16 +348,7 @@ pub(super) fn render_index_single_row(
     detail_focus: &FocusHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
-    let vm = ReleaseTrackRowVm::index_single(
-        row.title.clone(),
-        row.duration.clone(),
-        row.date_text.clone(),
-        row.image_url.clone(),
-        row.key.clone(),
-        row.element_id.clone(),
-        slot.selection,
-        row.work,
-    );
+    let vm = index_single_vm(row, slot.selection);
     let thumbnail = vm
         .thumbnail_url
         .as_deref()
@@ -398,7 +371,7 @@ pub(super) fn render_index_single_row(
 /// 2026-10-22). The row has no Library track, so a shared, index-based
 /// dispatch cannot look it up: each row keeps its own key and title, and
 /// sends its commands to `LibraryApp::run_singles_group_index_row_command`.
-fn index_single_dispatch(
+pub(super) fn index_single_dispatch(
     key: ReleaseKey,
     title: String,
     cx: &Context<LibraryApp>,
@@ -409,4 +382,21 @@ fn index_single_dispatch(
             this.run_singles_group_index_row_command(&key, &title, &command, window, cx);
         });
     })
+}
+
+/// The track row view model of a `MusicIndex` single of a group page.
+pub(super) fn index_single_vm(
+    row: &SinglesGroupIndexRowVm,
+    selection: RowSelectionVm,
+) -> ReleaseTrackRowVm {
+    ReleaseTrackRowVm::index_single(
+        row.title.clone(),
+        row.duration.clone(),
+        row.date_text.clone(),
+        row.image_url.clone(),
+        row.key.clone(),
+        row.element_id.clone(),
+        selection,
+        row.work,
+    )
 }

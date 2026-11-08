@@ -11,6 +11,7 @@
 #![warn(clippy::pedantic)]
 
 use crate::view_models::format::plural;
+use crate::view_models::list_page::{ListSort, ListView};
 use crate::view_models::list_selection::SelectionMode;
 
 /// The ellipsis that marks an action that opens a further dialog (HIG
@@ -48,6 +49,14 @@ pub(crate) enum ListBarCommand {
     AddToPlaylist(i64),
     /// "Create playlist" with the name, then add the selection.
     CreatePlaylist(String),
+    /// A sort of the sort menu at the right end of the bar (ADR 0090
+    /// Decision 2, musicindex ADR 0053 R-LIST-9).
+    Sort(ListSort),
+    /// A view icon at the right end of the bar.
+    View(ListView),
+    /// The reverse icon. It carries the reversed state that the click asks
+    /// for.
+    Reverse(bool),
 }
 
 /// One typed action of the selection action bar: a label, an
