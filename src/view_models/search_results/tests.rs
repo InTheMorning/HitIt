@@ -2654,7 +2654,12 @@ fn adr_0053_r9_relevance_keeps_run_order_and_never_reverses() {
         ListScope::InLibrary,
         Vec::new(),
     );
-    assert!(head.reverse.is_none());
+    assert!(head
+        .sort
+        .expect("a sort menu")
+        .options
+        .iter()
+        .all(|option| !(option.reversed && option.sort == ListSort::Relevance)));
 
     vm.set_list_sort(ListSort::AToZ);
     assert_eq!(release_labels(&vm), ["Charlie", "Bravo", "Alpha"]);

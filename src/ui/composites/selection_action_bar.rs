@@ -18,7 +18,7 @@ use gpui::{
 };
 
 use crate::ui::composites::list_page_head::{
-    reverse_icon, sort_menu, view_icons, ListReverseHandler, ListSortHandler, ListViewHandler,
+    reverse_toggle, sort_menu, view_icons, ListReverseHandler, ListSortHandler, ListViewHandler,
 };
 use crate::ui::composites::music_column_scroll::ListBarPin;
 use crate::ui::composites::playlist_popover::{
@@ -381,7 +381,7 @@ pub(crate) fn render_list_bar(
 
     // ADR 0090 Decisions 2, 3 and 6: the left group holds the mode action
     // and the selection actions. The right group holds the sort menu, the
-    // view icons and the reverse icon, and it stays in selection mode. In a
+    // view icons and the Reverse toggle, and it stays in selection mode. In a
     // narrow window each group wraps, and the two ends stay on separate
     // lines.
     let left = div()
@@ -410,9 +410,9 @@ pub(crate) fn render_list_bar(
     bar.into_any_element()
 }
 
-/// The right end of the list bar: the sort menu, the view icons and the
-/// reverse icon, in that sequence (musicindex ADR 0043 R-LIST-6, ADR 0053
-/// R-LIST-9). Each control comes from the typed state of `controls`. `None`
+/// The right end of the list bar: the sort menu and the view icons, or the
+/// Reverse toggle of a list with one fixed order (musicindex ADR 0054
+/// R-LIST-13 and R-LIST-14, ADR 0053 R-LIST-9). Each control comes from the typed state of `controls`. `None`
 /// when the bar has no control. The renderers are those of the list page
 /// head.
 fn render_list_bar_controls(
@@ -424,7 +424,7 @@ fn render_list_bar_controls(
     let ListBarControlsVm {
         sort,
         view,
-        reverse,
+        reverse_toggle: toggle,
     } = controls?;
     let pinned = copy == ListBarCopy::Pinned;
     let mut right = div()
@@ -436,8 +436,8 @@ fn render_list_bar_controls(
         .gap(Spacing::XS.scaled(cx));
     if let Some(sort) = sort {
         let command = on_command.clone();
-        let handler: ListSortHandler = Rc::new(move |sort, window, cx| {
-            command(ListBarCommand::Sort(*sort), window, cx);
+        let handler: ListSortHandler = Rc::new(move |sort, reversed, window, cx| {
+            command(ListBarCommand::Sort(*sort, reversed), window, cx);
         });
         right = right.child(sort_menu(sort, Some(&handler), pinned));
     }
@@ -448,12 +448,12 @@ fn render_list_bar_controls(
         });
         right = right.child(view_icons(view, Some(&handler), pinned, cx));
     }
-    if let Some(reverse) = reverse {
+    if let Some(toggle) = toggle {
         let command = on_command.clone();
         let handler: ListReverseHandler = Rc::new(move |reversed, window, cx| {
             command(ListBarCommand::Reverse(reversed), window, cx);
         });
-        right = right.child(reverse_icon(&reverse, Some(&handler), pinned));
+        right = right.child(reverse_toggle(&toggle, Some(&handler), pinned));
     }
     Some(right.into_any_element())
 }

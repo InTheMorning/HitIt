@@ -49,12 +49,14 @@ pub(crate) enum ListBarCommand {
     AddToPlaylist(i64),
     /// "Create playlist" with the name, then add the selection.
     CreatePlaylist(String),
-    /// A sort of the sort menu at the right end of the bar (ADR 0090
-    /// Decision 2, musicindex ADR 0053 R-LIST-9).
-    Sort(ListSort),
+    /// An entry of the sort menu at the right end of the bar: the sort and
+    /// its direction together (ADR 0090 Decision 2, musicindex ADR 0054
+    /// R-LIST-13).
+    Sort(ListSort, bool),
     /// A view icon at the right end of the bar.
     View(ListView),
-    /// The reverse icon. It carries the reversed state that the click asks
+    /// The Reverse toggle of a list with one fixed order (musicindex ADR
+    /// 0054 R-LIST-14). It carries the reversed state that the click asks
     /// for.
     Reverse(bool),
 }

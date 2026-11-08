@@ -6,7 +6,7 @@
 //! Each release section has its own sort, view and reverse state, by the
 //! text of its heading (musicindex ADR 0043 R-LIST-7 item 6). From
 //! `SECTION_CONTROL_MIN_ROWS` rows, the heading of a section has the sort
-//! menu, the view icons and the reverse icon. A section with fewer rows has
+//! menu and the view icons. A section with fewer rows has
 //! no control, and it keeps its default order and the Rows view, whatever
 //! the stored state is. [`order_release_sections`] puts the rows of each
 //! section in the shown order, so the render, the selection, the focus order
@@ -45,7 +45,7 @@ impl ReleaseSectionId {
 pub(crate) struct ReleaseSectionControlsVm {
     /// The section that the controls change.
     pub(crate) id: ReleaseSectionId,
-    /// The sort menu, the view icons and the reverse icon.
+    /// The sort menu and the view icons.
     pub(crate) controls: ListBarControlsVm,
 }
 
@@ -53,13 +53,11 @@ pub(crate) struct ReleaseSectionControlsVm {
 /// [`ReleaseSectionId`] of the section.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ReleaseSectionCommand {
-    /// A choice in the sort menu.
-    Sort(ListSort),
+    /// A choice in the sort menu: the sort and its direction together
+    /// (musicindex ADR 0054 R-LIST-13).
+    Sort(ListSort, bool),
     /// A click on a view icon.
     View(ListView),
-    /// A click on the reverse icon. It carries the state that the click asks
-    /// for.
-    Reverse(bool),
 }
 
 /// Gives each section its controls, its view and the order of its rows.
@@ -241,9 +239,22 @@ mod tests {
         assert_eq!(controls.id.heading(), "Albums");
         let parts = &controls.controls;
         let sort = parts.sort.as_ref().expect("a sort menu");
-        let labels: Vec<_> = sort.options.iter().map(|option| option.sort).collect();
-        assert_eq!(labels, [ListSort::Newest, ListSort::AToZ]);
+        let labels: Vec<_> = sort
+            .options
+            .iter()
+            .map(|option| (option.sort, option.reversed))
+            .collect();
+        assert_eq!(
+            labels,
+            [
+                (ListSort::Newest, false),
+                (ListSort::Newest, true),
+                (ListSort::AToZ, false),
+                (ListSort::AToZ, true)
+            ]
+        );
         assert_eq!(sort.label, "Oldest", "a reversed Newest reads Oldest");
+        assert!(sort.options[1].selected, "the check is on Oldest");
         let views: Vec<_> = parts
             .view
             .as_ref()
@@ -253,7 +264,7 @@ mod tests {
             .map(|option| option.view)
             .collect();
         assert_eq!(views, [ListView::Rows, ListView::Tiles]);
-        assert!(parts.reverse.as_ref().expect("a reverse icon").pressed);
+        assert!(parts.reverse_toggle.is_none(), "no reverse control");
         assert_eq!(result[0].view, ListView::Tiles);
     }
 
@@ -381,11 +392,15 @@ mod tests {
         let result = ordered(&pages, vec![section("Albums", &EIGHT)]);
         let controls = result[0].controls.as_ref().expect("8 rows have controls");
         let sort = controls.controls.sort.as_ref().expect("a sort menu");
-        let offered: Vec<_> = sort.options.iter().map(|option| option.sort).collect();
-        assert_eq!(offered, [ListSort::AToZ]);
+        let offered: Vec<_> = sort
+            .options
+            .iter()
+            .map(|option| (option.sort, option.reversed))
+            .collect();
+        assert_eq!(offered, [(ListSort::AToZ, false), (ListSort::AToZ, true)]);
         assert_eq!(sort.label, "A to Z");
         assert!(sort.options[0].selected);
-        assert!(controls.controls.reverse.is_some());
+        assert!(controls.controls.reverse_toggle.is_none());
         assert_eq!(
             controls
                 .controls
@@ -433,7 +448,12 @@ mod tests {
             .as_ref()
             .and_then(|controls| controls.controls.sort.as_ref())
             .expect("a sort menu");
-        let offered: Vec<_> = sort.options.iter().map(|option| option.sort).collect();
+        let offered: Vec<_> = sort
+            .options
+            .iter()
+            .filter(|option| !option.reversed)
+            .map(|option| option.sort)
+            .collect();
         assert_eq!(offered, [ListSort::Newest, ListSort::AToZ]);
         assert_eq!(sort.label, "Newest");
         assert_eq!(titles(&result[0]), newest_first());
@@ -446,7 +466,12 @@ mod tests {
             .as_ref()
             .and_then(|controls| controls.controls.sort.as_ref())
             .expect("a sort menu");
-        assert_eq!(sort.options.len(), 1, "a row with no date removes Newest");
+        assert!(
+            sort.options
+                .iter()
+                .all(|option| option.sort == ListSort::AToZ),
+            "a row with no date removes Newest"
+        );
         assert_eq!(sort.label, "A to Z");
     }
 

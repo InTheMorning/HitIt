@@ -6,7 +6,7 @@
 //! Order follows the stored `position` of each playlist, and the curator
 //! sets it. A to Z reads the name in the language of the reader
 //! (`compare_names`). Newest reads `created_at`, so an edit does not make a
-//! playlist new. The reverse icon reverses the shown sequence of each sort.
+//! playlist new. A reversed entry of the sort menu reverses the shown sequence of each sort.
 //!
 //! Only the sort Curator Order, not reversed, in the Rows view, gives a
 //! playlist row a drag and the menu items Move Up and Move Down. This module

@@ -87,7 +87,7 @@ pub use bootstrap::run_app;
 
 use search_dispatch::{RemoteCoverColorState, RemoteDetailThumbnailState};
 use search_field_list::{FieldValueRequest, SearchFieldListView};
-use search_selection::{reverse_handler, sort_handler, SearchPageSlot, SearchRowClick};
+use search_selection::{sort_handler, SearchPageSlot, SearchRowClick};
 use settings::render_settings;
 use show::{build_live_status_strip, build_show_screen};
 use toolbar::{render_app_mark, render_toolbar};
@@ -903,28 +903,14 @@ impl TopApp {
         }
     }
 
-    /// Sets the sort of the search page `slot` (ADR 0089 Decision 4). The
-    /// rows follow the sort, and the query does not change.
-    fn set_search_list_sort(
+    /// Sets the sort and the direction of the search page `slot` together
+    /// (ADR 0089 Decision 4, musicindex ADR 0054 R-LIST-13). The rows follow
+    /// the entry, and the query does not change. A change of the Index order
+    /// starts one new Index search.
+    fn set_search_list_order(
         &mut self,
         slot: SearchPageSlot,
         sort: crate::view_models::list_page::ListSort,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(page) = self.search_page_mut(slot) else {
-            return;
-        };
-        let before = page.index_order();
-        page.set_list_sort(sort);
-        self.restart_index_search_for_order(slot, before, cx);
-        cx.notify();
-    }
-
-    /// Sets the reversed state of the search page `slot` (musicindex ADR 0043
-    /// R-LIST-7). The rows follow the state, and the query does not change.
-    fn set_search_list_reversed(
-        &mut self,
-        slot: SearchPageSlot,
         reversed: bool,
         cx: &mut Context<Self>,
     ) {
@@ -932,6 +918,7 @@ impl TopApp {
             return;
         };
         let before = page.index_order();
+        page.set_list_sort(sort);
         page.set_list_reversed(reversed);
         self.restart_index_search_for_order(slot, before, cx);
         cx.notify();
@@ -1662,7 +1649,6 @@ impl TopApp {
                 });
             })
             .on_sort_select(sort_handler(entity.clone(), SearchPageSlot::ToolbarSearch))
-            .on_reverse_select(reverse_handler(entity, SearchPageSlot::ToolbarSearch))
             .on_result_select(move |tab, result_id, key, modifiers, window, cx| {
                 select_entity.update(cx, |this, cx| {
                     this.click_search_result_row(

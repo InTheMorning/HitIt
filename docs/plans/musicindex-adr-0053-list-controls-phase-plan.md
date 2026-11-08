@@ -14,7 +14,7 @@ The public playlist page has no list bar, so its control is at the right end of 
 
 Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is committed as `bfb8674`. Packet 9 is committed as `70d8f23`.
 
-Packet 3 is implemented on 2026-11-08 with migration 24. Each packet of this plan is implemented. musicindex ADR 0054 then replaces the reverse icon of these packets.
+Packet 3 is implemented on 2026-11-08 with migration 24. Each packet of this plan is implemented. musicindex ADR 0054 replaces the reverse icon of these packets on 2026-11-08. The sort menu lists the reversed entries. A list with one fixed sequence has the toggle "Reverse".
 
 Packet 9 note: Artists offers Newest in the scope In Library from the newest Library release date of each artist. It offers Newest in the scope All when the node lists `artist_newest`. The stored contract is the live contract of Stophammer candidate v0.19.0-rc.5 (git `a0c0c5a`), with `newest_release_at`. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
 
@@ -35,13 +35,13 @@ Owner of the rules: [musicindex ADR 0053](../../../musicindex/docs/adr/0053-whic
 
 ## Goal
 
-Each v4vmm list shows the sorts, the reverse icon and the view icons of its R-LIST-9 kind. No other list shows a control.
+Each v4vmm list shows the sorts, the directions and the view icons of its R-LIST-9 kind, in the controls of musicindex ADR 0054. No other list shows a control.
 
 ## Answers Of 2026-11-07
 
 The orchestrator session relayed these answers from the accepted musicindex ADR 0053. Each packet that uses an answer records it in its commit.
 
-1. Results in the scope All have no reverse icon. ADR 0087 Operator Answers item 1 stays, because merged rows of two sources have no one order (musicindex ADR 0043 R-LIST-7 item 10, ADR 0053 R-LIST-8 item 3).
+1. Results in the scope All have no reversed entry. ADR 0087 Operator Answers item 1 stays, because merged rows of two sources have no one order (musicindex ADR 0043 R-LIST-7 item 10, ADR 0053 R-LIST-8 item 3).
 2. Artists show Newest in the scope In Library, from local dates. The scope All shows Newest when Stophammer gives `sort=date` on `/v1/artist-names`. A sort shows in a scope only when that scope can give it.
 3. Artists have rows and tiles in both scopes. A name with no feed shows the shared logo placeholder. This is packet 8.
 4. The My playlist page is an editor, because the curator drags its items. It has no sort control (R-LIST-8 item 1).

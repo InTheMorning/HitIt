@@ -3682,7 +3682,7 @@ impl LibraryViewModel {
     }
 
     /// Sets whether the node lists `sort` (musicindex ADR 0053 R-LIST-8
-    /// item 4). The reverse button of each Index list follows it.
+    /// item 4). The reversed entries of each Index list follow it.
     pub(crate) fn set_index_sorts(&mut self, node: NodeSorts) {
         self.list_pages.set_index_sorts(node);
     }
@@ -3771,7 +3771,9 @@ impl LibraryViewModel {
         self.list_pages.set_section_view(heading, view);
     }
 
-    /// Sets the reversed state of the release section `heading`.
+    /// Sets the reversed state of the release section `heading`. The sort
+    /// menu of the section gives the sort and the direction together
+    /// (musicindex ADR 0054 R-LIST-13).
     pub(crate) fn set_release_section_reversed(&mut self, heading: &str, reversed: bool) {
         self.list_pages.set_section_reversed(heading, reversed);
     }
@@ -3841,7 +3843,7 @@ impl LibraryViewModel {
     }
 
     pub(crate) fn replace_playlists(&mut self, mut playlists: Vec<db::Playlist>) {
-        Self::sort_playlists_by_name(&mut playlists);
+        Self::sort_playlists_by_position(&mut playlists);
         self.snapshot.playlists = playlists;
         self.rebuild_field_values();
     }
@@ -5881,13 +5883,20 @@ impl LibraryViewModel {
         self.renaming_playlist_id == Some(playlist_id)
     }
 
-    /// Sorts the stored playlists by name, A to Z, in the language of the
-    /// reader (musicindex ADR 0053 R-LIST-12). The playlist menus and the
-    /// field values read this order. The My playlists list sorts again in
-    /// `playlist_sidebar`, by its own sort (ADR 0089 amendment of
-    /// 2026-11-08).
-    fn sort_playlists_by_name(playlists: &mut [db::Playlist]) {
-        crate::view_models::name_order::sort_by_name(playlists, |playlist| &playlist.name);
+    /// Sorts the stored playlists by `position`, the order of My playlists
+    /// in Curator Order, not reversed (the decision of 2026-11-08 under
+    /// musicindex ADR 0054). The "Add to playlist" menus read this order. A
+    /// tie falls to the name, A to Z in the language of the reader (musicindex
+    /// ADR 0053 R-LIST-12), then to the id. The My playlists list sorts
+    /// again in `playlist_sidebar`, by its own sort, and the values of the
+    /// field `playlist:` sort by name in `LibraryFieldValues`.
+    fn sort_playlists_by_position(playlists: &mut [db::Playlist]) {
+        playlists.sort_by(|a, b| {
+            a.position
+                .cmp(&b.position)
+                .then_with(|| crate::view_models::name_order::compare_names(&a.name, &b.name))
+                .then_with(|| a.id.cmp(&b.id))
+        });
     }
 
     fn pending_feed_update_label(count: usize) -> String {
@@ -9556,6 +9565,46 @@ mod tests {
         assert_eq!(names, ["Alpha", "mix 2", "Mix 10"]);
     }
 
+    /// The decision of 2026-11-08 under musicindex ADR 0054: the stored
+    /// playlists, which the "Add to playlist" menus list, follow `position`,
+    /// the order of My playlists in Curator Order, not reversed. The values of
+    /// the field `playlist:` stay A to Z.
+    #[test]
+    fn adr_0054_add_to_playlist_list_follows_position() {
+        let mut vm = LibraryViewModel::new();
+        let mut alpha = playlist("Alpha");
+        alpha.id = 10;
+        alpha.position = 2;
+        let mut zed = playlist("zed");
+        zed.id = 20;
+        zed.position = 0;
+        let mut mid = playlist("Mid");
+        mid.id = 30;
+        mid.position = 1;
+        vm.replace_playlists(vec![alpha, zed, mid]);
+        let names = |vm: &LibraryViewModel| -> Vec<String> {
+            vm.playlists().iter().map(|p| p.name.clone()).collect()
+        };
+        assert_eq!(names(&vm), ["zed", "Mid", "Alpha"]);
+        // A reversed My playlists list does not reverse the menu.
+        vm.set_list_reversed(ListPageKey::MyPlaylists, true);
+        assert_eq!(names(&vm), ["zed", "Mid", "Alpha"]);
+        let field_values = vm.field_values();
+        let values: Vec<&str> = field_values
+            .matching(
+                crate::view_models::search_query::QueryFieldName::Playlist,
+                "",
+            )
+            .into_iter()
+            .map(|entry| entry.text.as_str())
+            .collect();
+        assert_eq!(
+            values,
+            ["Alpha", "Mid", "zed"],
+            "the field values are A to Z"
+        );
+    }
+
     #[test]
     fn library_view_model_replaces_and_sorts_playlists_by_active_sort() {
         let mut vm = LibraryViewModel::new();
@@ -10496,11 +10545,10 @@ mod tests {
         vm.set_list_scope(ListPageKey::Artists, ListScope::All);
         assert!(vm.list_page_state(ListPageKey::Artists).reversed);
         assert!(!vm.list_reversed(ListPageKey::Artists));
-        assert!(vm
-            .list_page_head(ListPageKey::Artists, None, None)
-            .reverse
-            .is_none());
         let sort = vm.list_page_head(ListPageKey::Artists, None, None).sort;
+        assert!(sort
+            .as_ref()
+            .is_some_and(|sort| sort.options.iter().all(|option| !option.reversed)));
         assert_eq!(sort.map(|sort| sort.label), Some("A to Z"));
         vm.set_list_scope(ListPageKey::Artists, ListScope::InLibrary);
         assert_eq!(artist_ids(&vm), reversed(usual_artists));

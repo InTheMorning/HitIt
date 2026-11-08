@@ -245,10 +245,10 @@ impl LibraryApp {
         let letter_keys = self.letter_bar_keys(ListPageKey::PublicPlaylists, cx);
         let entity = cx.entity();
         let sort_entity = entity.clone();
-        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+        let on_sort: ListSortHandler = Rc::new(move |sort, reversed, _window, cx| {
             let sort = *sort;
             sort_entity.update(cx, |this, cx| {
-                this.set_list_sort(ListPageKey::PublicPlaylists, sort, cx);
+                this.set_list_order(ListPageKey::PublicPlaylists, sort, reversed, cx);
             });
         });
         let letter_entity = entity.clone();
@@ -256,12 +256,6 @@ impl LibraryApp {
             let letter = *letter;
             letter_entity.update(cx, |this, cx| {
                 this.set_list_letter(ListPageKey::PublicPlaylists, Some(letter), cx);
-            });
-        });
-        let reverse_entity = entity.clone();
-        let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
-            reverse_entity.update(cx, |this, cx| {
-                this.set_list_reversed(ListPageKey::PublicPlaylists, reversed, cx);
             });
         });
         let view_entity = entity;
@@ -278,7 +272,6 @@ impl LibraryApp {
                 select: None,
                 sort: Some(on_sort),
                 view: Some(on_view),
-                reverse: Some(on_reverse),
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
                 actions: Vec::new(),
@@ -626,8 +619,8 @@ impl LibraryApp {
     }
 
     /// The heading row above the entries of `page`, or `None` when the page
-    /// has none (musicindex ADR 0053 R-LIST-11 item 3). The sort and the
-    /// reverse icon change the one state of the entries of a playlist, and
+    /// has none (musicindex ADR 0053 R-LIST-11 item 3). The Reverse
+    /// toggle changes the one state of the entries of a playlist, and
     /// the page builds again in place.
     fn render_public_playlist_heading(
         page: &PublicPlaylistPageVm,
@@ -635,24 +628,12 @@ impl LibraryApp {
     ) -> Option<AnyElement> {
         let heading = page.heading.clone()?;
         let entity = cx.entity();
-        let sort_entity = entity.clone();
-        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
-            let sort = *sort;
-            sort_entity.update(cx, |this, cx| {
-                this.set_list_sort(ListPageKey::PublicPlaylistItems, sort, cx);
-            });
-        });
         let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
             entity.update(cx, |this, cx| {
                 this.set_list_reversed(ListPageKey::PublicPlaylistItems, reversed, cx);
             });
         });
-        Some(section_heading(
-            heading,
-            Some(&on_sort),
-            Some(&on_reverse),
-            cx,
-        ))
+        Some(section_heading(heading, None, Some(&on_reverse), cx))
     }
 
     /// Renders the item page of the playlist `feed_guid` (ADR 0089 packet
@@ -669,7 +650,7 @@ impl LibraryApp {
                 let header_art = collection_art_image(self, &page.art, ThumbnailSize::Xl, cx);
                 // Musicindex ADR 0053 R-LIST-9: the page shows its entries in
                 // the order of the stored state, and the heading row has the
-                // sort and the reverse icon from the count of the controls.
+                // Reverse toggle from the count of the controls.
                 let page = page.shown(self.vm.list_page_state(ListPageKey::PublicPlaylistItems));
                 let heading = Self::render_public_playlist_heading(&page, cx);
                 let mut rows = Vec::new();

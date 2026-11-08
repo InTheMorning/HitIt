@@ -185,11 +185,12 @@ This amendment applies an operator answer. musicindex ADR 0053 R-LIST-9 gives a 
 2. **A new playlist goes last.** It gets the next free position.
 3. **The curator drags a row to move it.** On My playlists with the sort Curator Order, the curator drags a playlist row to a new position. The app writes the new positions in one transaction. With A to Z or Newest, a row has no drag.
 4. **Newest uses the time that the curator made the playlist** (`created_at`), newest first. An edit does not make a playlist new.
-5. **The reverse icon reverses each sort.** Curator Order reversed shows "Curator Order, Reversed" (musicindex ADR 0043 R-LIST-7 item 5).
+5. **Each sort has a reversed entry.** The sort menu lists "Curator Order, Reversed" after "Curator Order", "Z to A" after "A to Z", and "Oldest" after "Newest" (musicindex ADR 0054 R-LIST-13).
+6. **The "Add to playlist" menus follow the Curator Order.** The curator puts the playlists that they use most at the top. The orchestrator session decided this on 2026-11-08 to apply the operator answer on the Curator Order.
 
 The folders of My playlists and a move into a folder stay a Non-Goal.
 
-Packet 3 of the phase plan implements this amendment on 2026-11-08. The row menu also has "Move up" and "Move down" in Curator Order, so the keyboard can move a playlist. The "Add to playlist" menus keep the A to Z sequence.
+Packet 3 of the phase plan implements this amendment on 2026-11-08. The row menu also has "Move up" and "Move down" in Curator Order, so the keyboard can move a playlist. The work of musicindex ADR 0054 on 2026-11-08 implements items 5 and 6.
 
 ## Open Points
 

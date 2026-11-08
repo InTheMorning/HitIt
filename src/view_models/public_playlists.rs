@@ -931,12 +931,13 @@ mod tests {
         let shown = page.shown(usual);
         let heading = shown.heading.expect("12 entries have a heading");
         assert_eq!(heading.count_text, "12 items");
-        assert_eq!(
-            heading.controls.sort.expect("one sort").label,
-            "Playlist Order"
+        assert!(
+            heading.controls.sort.is_none(),
+            "one fixed order has no sort menu"
         );
         assert!(heading.controls.view.is_none());
-        assert!(heading.controls.reverse.is_some());
+        let toggle = heading.controls.reverse_toggle.expect("the Reverse toggle");
+        assert_eq!(toggle.a11y_label, "Reverse, now Playlist Order");
 
         let shown = page.shown(reversed);
         let numbers: Vec<usize> = shown.items.iter().map(|item| item.number).collect();
@@ -946,10 +947,10 @@ mod tests {
                 .heading
                 .expect("heading")
                 .controls
-                .sort
-                .expect("sort")
-                .label,
-            "Playlist Order, Reversed"
+                .reverse_toggle
+                .expect("the Reverse toggle")
+                .a11y_label,
+            "Reverse, now Playlist Order, Reversed"
         );
 
         let short = PublicPlaylistPageVm::from_feed(&playlist(Some("Set"), items(7)));

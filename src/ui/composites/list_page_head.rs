@@ -1,8 +1,8 @@
 //! The title row of a Music list page (ADR 0089 Decision 6, musicindex ADR
 //! 0027 R-LIST-1 item 4).
 //!
-//! The title is at the left. The sort menu, the view icons, the reverse
-//! icon and the Select action are at the right. The scope control sits below the title, at the
+//! The title is at the left. The sort menu, the view icons and the Select
+//! action are at the right. The scope control sits below the title, at the
 //! left, and the letter bar sits below the scope control. The view model
 //! gives each text, each id and each availability fact. This composite only
 //! lays them out.
@@ -29,16 +29,18 @@ use crate::ui::primitives::{
 };
 use crate::ui::tokens::{FontSize, SemanticColor, Size, Spacing};
 use crate::view_models::list_page::{
-    ListPageHeadVm, ListReverseIcon, ListReverseVm, ListScope, ListScopeControlVm, ListSort,
-    ListSortButtonVm, ListView, ListViewControlVm,
+    ListPageHeadVm, ListScope, ListScopeControlVm, ListSort, ListSortButtonVm, ListView,
+    ListViewControlVm, ReverseToggleVm,
 };
 use crate::view_models::search_results::{SearchPageActionDisplay, SearchPageActionStyle};
 
 /// The callback of a scope selection (ADR 0089 Decision 5).
 pub(crate) type ListScopeHandler = Rc<dyn Fn(&ListScope, &mut Window, &mut App) + 'static>;
 
-/// The callback of a sort choice in the sort menu (R-LIST-1 item 1).
-pub(crate) type ListSortHandler = Rc<dyn Fn(&ListSort, &mut Window, &mut App) + 'static>;
+/// The callback of a choice in the sort menu (R-LIST-1 item 1). It gets the
+/// sort and the direction of the entry together (musicindex ADR 0054
+/// R-LIST-13).
+pub(crate) type ListSortHandler = Rc<dyn Fn(&ListSort, bool, &mut Window, &mut App) + 'static>;
 
 /// The callback of a title row button, such as "Select".
 pub(crate) type ListHeadButtonHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
@@ -46,8 +48,8 @@ pub(crate) type ListHeadButtonHandler = Rc<dyn Fn(&mut Window, &mut App) + 'stat
 /// The callback of a view icon (R-LIST-1 item 3).
 pub(crate) type ListViewHandler = Rc<dyn Fn(&ListView, &mut Window, &mut App) + 'static>;
 
-/// The callback of the reverse icon (musicindex ADR 0043 R-LIST-7). It gets
-/// the reversed state that the click asks for.
+/// The callback of the Reverse toggle (musicindex ADR 0054 R-LIST-14). It
+/// gets the reversed state that the click asks for.
 pub(crate) type ListReverseHandler = Rc<dyn Fn(bool, &mut Window, &mut App) + 'static>;
 
 /// The callbacks of the title row. A `None` callback leaves its control
@@ -62,8 +64,6 @@ pub(crate) struct ListPageHeadHandlers {
     pub(crate) sort: Option<ListSortHandler>,
     /// The view icon click (R-LIST-1 item 3).
     pub(crate) view: Option<ListViewHandler>,
-    /// The reverse icon click (R-LIST-7).
-    pub(crate) reverse: Option<ListReverseHandler>,
     /// The letter click of the letter bar.
     pub(crate) letter: Option<LetterHandler>,
     /// The keyboard side of the letter bar.
@@ -93,10 +93,6 @@ pub(crate) fn list_page_head(
 
     if let Some(view) = display.view {
         trailing = trailing.child(view_icons(view, handlers.view.as_ref(), false, cx));
-    }
-
-    if let Some(reverse) = display.reverse {
-        trailing = trailing.child(reverse_icon(&reverse, handlers.reverse.as_ref(), false));
     }
 
     if let Some(select) = display.select {
@@ -188,8 +184,8 @@ fn title_action(
 }
 
 /// The sort menu of a list page (R-LIST-1 item 1). Its trigger shows the
-/// current sort. Each entry of the menu is one sort, and the current sort
-/// has a check mark. A `pinned` copy of a list bar has its own element ids
+/// current entry. Each entry of the menu is one sort in one direction
+/// (musicindex ADR 0054 R-LIST-13), and the current entry has a check mark. A `pinned` copy of a list bar has its own element ids
 /// and no tab stop (ADR 0090 Decision 5). The list bar above the rows uses
 /// this function too (ADR 0090 Decision 2).
 pub(crate) fn sort_menu(
@@ -221,7 +217,7 @@ pub(crate) fn sort_menu_scoped(
         menu = menu.trigger_out_of_tab_sequence();
     }
     for option in display.options {
-        let sort = option.sort;
+        let (sort, reversed) = (option.sort, option.reversed);
         let mut item = ContextMenuItem::new(ContextMenuItemDisplay {
             id: SharedString::from(option.id),
             label: SharedString::from(option.label),
@@ -232,7 +228,7 @@ pub(crate) fn sort_menu_scoped(
         .checked(option.selected);
         if let Some(handler) = on_sort {
             let handler = handler.clone();
-            item = item.on_select(move |window, cx| handler(&sort, window, cx));
+            item = item.on_select(move |window, cx| handler(&sort, reversed, window, cx));
         }
         menu = menu.item(item);
     }
@@ -295,43 +291,39 @@ pub(crate) fn view_icons_scoped(
     icons.into_any_element()
 }
 
-/// The reverse icon of a list page (R-LIST-7). It is muted in the usual
-/// order, and it has the tint of a selected button in the reversed order.
-/// `pinned` is as for [`sort_menu`].
-pub(crate) fn reverse_icon(
-    display: &ListReverseVm,
+/// The Reverse toggle of a list with one fixed order (musicindex ADR 0054
+/// R-LIST-14). It is a text button in the Neutral style, and in the reversed
+/// order it has the style of a selected control. `pinned` is as for
+/// [`sort_menu`].
+pub(crate) fn reverse_toggle(
+    display: &ReverseToggleVm,
     on_reverse: Option<&ListReverseHandler>,
     pinned: bool,
 ) -> AnyElement {
-    reverse_icon_scoped(display, on_reverse, pinned, None)
+    reverse_toggle_scoped(display, on_reverse, pinned, None)
 }
 
-/// [`reverse_icon`] with the element id inside `scope`, as
+/// [`reverse_toggle`] with the element id inside `scope`, as
 /// [`sort_menu_scoped`].
-pub(crate) fn reverse_icon_scoped(
-    display: &ListReverseVm,
+pub(crate) fn reverse_toggle_scoped(
+    display: &ReverseToggleVm,
     on_reverse: Option<&ListReverseHandler>,
     pinned: bool,
     scope: Option<&str>,
 ) -> AnyElement {
-    let icon = match display.icon {
-        ListReverseIcon::SortUsual => IconName::SortUsual,
-        ListReverseIcon::SortReversed => IconName::SortReversed,
-    };
     let requested = !display.pressed;
-    let mut button = Button::styled(
-        control_id(display.id, pinned, scope),
-        ControlStyle::ToolbarIcon,
-    )
-    .leading_icon(icon)
-    .a11y_label(display.label)
-    .tooltip(display.label)
-    .selected(display.pressed);
+    let style = if display.pressed {
+        ControlStyle::SelectedTab
+    } else {
+        ControlStyle::Neutral
+    };
+    let mut button = Button::styled(control_id(display.id, pinned, scope), style)
+        .label(display.label)
+        .a11y_label(display.a11y_label.clone())
+        .tooltip(display.a11y_label.clone())
+        .selected(display.pressed);
     if pinned {
         button = button.out_of_tab_sequence();
-    }
-    if !display.pressed {
-        button = button.foreground(SemanticColor::SecondaryLabel);
     }
     if let Some(handler) = on_reverse {
         let handler = handler.clone();

@@ -3,7 +3,7 @@
 //!
 //! `FetchNodeSorts` reads `GET /v1/node/capabilities` once. The answer tells
 //! whether the node lists `sort`. A node that lists it takes `reverse` on
-//! the Index lists, so their reverse button shows.
+//! the Index lists, so their reversed menu entries show.
 
 #![warn(clippy::pedantic)]
 

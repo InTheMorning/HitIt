@@ -23,7 +23,7 @@ These facts come from a search on 2026-11-06:
 ## Decision
 
 1. A list of selectable rows on a page has one list bar, directly above its rows.
-2. In normal mode, the left end has "Select". The right end has the sort menu, the rows icon, the tiles icon and the reverse icon, in the sequence of R-LIST-6. A control that the list does not have is absent.
+2. In normal mode, the left end has "Select". The right end has the sort menu, the rows icon and the tiles icon (musicindex ADR 0054 R-LIST-13). A list with one fixed sequence has the toggle "Reverse" there (R-LIST-14). A control that the list does not have is absent.
 3. In selection mode, the left end has "Done", the count, "Select all", the actions for the selection and "Clear". The right end does not change, so a curator can sort while selecting. Selection is by item, so a new order keeps it.
 4. The bar has the selection background in selection mode, and each row shows its checkbox. These two facts show the mode change.
 5. The bar stays in view while the rows scroll.

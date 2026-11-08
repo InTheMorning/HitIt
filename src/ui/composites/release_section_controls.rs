@@ -3,7 +3,7 @@
 //! or a name", R-LIST-10, R-LIST-11 item 3).
 //!
 //! From `SECTION_CONTROL_MIN_ROWS` rows, a section of a feed page or of a
-//! name level page has its sort menu, its view icons and its reverse icon at
+//! name level page has its sort menu and its view icons at
 //! the right end of its heading. The view model gives each control, its id
 //! and its state. This composite lays them out with the renderers of the
 //! list page head, and it draws the Tiles view with the tile parts of the
@@ -22,8 +22,7 @@ use gpui::{
 
 use crate::ui::composites::content_tile::{render_content_list_tile_artwork, tile_text_line};
 use crate::ui::composites::list_page_head::{
-    reverse_icon_scoped, sort_menu_scoped, view_icons_scoped, ListReverseHandler, ListSortHandler,
-    ListViewHandler,
+    sort_menu_scoped, view_icons_scoped, ListSortHandler, ListViewHandler,
 };
 use crate::ui::composites::release_download_state::render_release_download_state;
 use crate::ui::composites::release_section_list::{
@@ -37,8 +36,8 @@ use crate::view_models::publisher_page::PublisherPageAlbumVm;
 use crate::view_models::release_section_order::{ReleaseSectionCommand, ReleaseSectionControlsVm};
 
 /// The heading of a section with controls: the heading text at the left, and
-/// the sort menu, the view icons and the reverse icon at the right end, in
-/// the sequence of musicindex ADR 0043 R-LIST-6. A narrow window wraps the
+/// the sort menu and the view icons at the right end (musicindex ADR 0054
+/// R-LIST-13). A narrow window wraps the
 /// controls below the text. The element id of each control holds the heading,
 /// so two sections of one page share no state.
 pub(crate) fn render_section_heading_with_controls(
@@ -49,12 +48,7 @@ pub(crate) fn render_section_heading_with_controls(
 ) -> AnyElement {
     let ReleaseSectionControlsVm {
         id,
-        controls:
-            ListBarControlsVm {
-                sort,
-                view,
-                reverse,
-            },
+        controls: ListBarControlsVm { sort, view, .. },
     } = controls;
     let scope = format!("section-controls:{}", id.heading());
     let scope = scope.as_str();
@@ -67,8 +61,13 @@ pub(crate) fn render_section_heading_with_controls(
         .gap(Spacing::XS.scaled(cx));
     if let Some(sort) = sort {
         let (command, id) = (on_command.clone(), id.clone());
-        let handler: ListSortHandler = Rc::new(move |sort, window, cx| {
-            command(&id, ReleaseSectionCommand::Sort(*sort), window, cx);
+        let handler: ListSortHandler = Rc::new(move |sort, reversed, window, cx| {
+            command(
+                &id,
+                ReleaseSectionCommand::Sort(*sort, reversed),
+                window,
+                cx,
+            );
         });
         right = right.child(sort_menu_scoped(sort, Some(&handler), false, Some(scope)));
     }
@@ -83,18 +82,6 @@ pub(crate) fn render_section_heading_with_controls(
             false,
             Some(scope),
             cx,
-        ));
-    }
-    if let Some(reverse) = reverse {
-        let (command, id) = (on_command.clone(), id.clone());
-        let handler: ListReverseHandler = Rc::new(move |reversed, window, cx| {
-            command(&id, ReleaseSectionCommand::Reverse(reversed), window, cx);
-        });
-        right = right.child(reverse_icon_scoped(
-            &reverse,
-            Some(&handler),
-            false,
-            Some(scope),
         ));
     }
     div()

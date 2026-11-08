@@ -96,7 +96,6 @@ impl LibraryApp {
                 select: None,
                 sort: None,
                 view: None,
-                reverse: None,
                 letter: None,
                 letter_keys: None,
                 actions: Vec::new(),
