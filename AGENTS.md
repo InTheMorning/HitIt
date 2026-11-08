@@ -232,10 +232,11 @@ display, because `/tmp/.X11-unix` is read-only in the sandbox:
 
 ```bash
 Xvfb :77 -screen 0 1440x900x24 -nolisten unix -nolisten local -listen tcp -extension GLX &
+DISPLAY=127.0.0.1:77 openbox &
 DISPLAY=127.0.0.1:77 target/debug/v4vmm
 ```
 
-Never send input to the operator's display. A packet worker does not run the
+Openbox makes the window active. Without a window manager, the search field list does not open. Never send input to the operator's display. A packet worker does not run the
 app. An agent result does not pass a visual gate.
 
 **Write operator instructions for what stays.** End the report with an
