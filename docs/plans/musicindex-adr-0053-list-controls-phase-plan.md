@@ -14,7 +14,7 @@ The public playlist page has no list bar, so its control is at the right end of 
 
 Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is implemented on 2026-11-08. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
 
-Packet 2 note: when the query of a saved search has a word, the page starts with Relevance. Its Releases then show no window groups of ADR 0086 until the person selects Newest. A saved search with no word starts with Newest and keeps its groups. Packet 8 waits for packets 1 to 7.
+Packet 2 note: a saved search page starts with Newest, also when its query has a word. Thus it keeps the window groups of ADR 0086 (answer 6). A new search from the toolbar starts with Relevance when its query has a word.
 
 ## Node Facts Of 2026-11-08
 
@@ -42,6 +42,13 @@ The orchestrator session relayed these answers from the accepted musicindex ADR 
 3. Artists have rows and tiles in both scopes. A name with no feed shows the shared logo placeholder. This is packet 8.
 4. The My playlist page is an editor, because the curator drags its items. It has no sort control (R-LIST-8 item 1).
 5. Below 8 rows, the list bar of a release page keeps Select and shows no sort control.
+
+The orchestrator session relayed these operator answers on 2026-11-08:
+
+6. A saved search opens with Newest and its window groups, also when its query has a word. A new search from the toolbar keeps Relevance.
+7. Packet 3 uses a stored Curator Order: the column `playlists.position`, with a migration that keeps the name order of today. A new playlist goes last. The curator drags a row of My playlists in Curator Order to move it. Newest uses `created_at`. A change to a v4vmm ADR records the schema and the new edit.
+8. A section of an item page offers Newest only when each of its rows has a date (R-LIST-9 item 1).
+9. Packet 9 comes first, then packet 3.
 
 ## Packets
 

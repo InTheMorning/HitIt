@@ -251,11 +251,18 @@ impl SearchResultsInspectorPageVm {
     /// Relevance when the query has a word, else Newest (musicindex ADR 0053
     /// R-LIST-9). A word is free text that is not a field term, so the query
     /// `in:library haleen` has one and the query `kind:single` has none.
+    ///
+    /// A saved search page starts with Newest, also with a word, so it shows
+    /// the window groups of ADR 0086. The operator chose this on 2026-11-08,
+    /// and the orchestrator session relayed the answer.
     fn effective_sort(&self) -> ListSort {
         if self.index_sort_selected {
             if let Some(sort) = self.lists.get(self.list_key()).sort {
                 return sort;
             }
+        }
+        if matches!(self.entry, FrameNavigationEntry::SavedSearch { .. }) {
+            return ListSort::Newest;
         }
         if SearchQuery::parse(&self.query).index_q().is_some() {
             ListSort::Relevance
