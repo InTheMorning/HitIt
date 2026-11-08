@@ -392,6 +392,9 @@ mod tests {
     /// with each row of the query loaded.
     fn saved_page(rows: Vec<FeedResultDisplay>) -> SearchResultsInspectorPageVm {
         let mut vm = SearchResultsInspectorPageVm::new("q").into_saved_search(&saved_search());
+        // A saved search groups only with Newest, and a query with a word
+        // defaults to Relevance (musicindex ADR 0053 R-LIST-9).
+        vm.set_list_sort(crate::view_models::list_page::ListSort::Newest);
         vm.replace_index_results(index_rows(rows));
         vm
     }
@@ -546,6 +549,8 @@ mod tests {
             &ArtistSearchFacts::default(),
         )
         .into_saved_search(&saved_search());
+        // A saved search groups only with Newest (musicindex ADR 0053 R-LIST-9).
+        vm.set_list_sort(crate::view_models::list_page::ListSort::Newest);
         vm.set_tab(SearchResultsTab::Releases);
         vm.replace_index_results(index_rows(vec![
             index_single("both", Some(oct(1)), "jSmovie"),

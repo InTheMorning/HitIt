@@ -20,6 +20,8 @@ pub(super) fn sort_rows<Row>(
     label: impl Fn(&Row) -> &str,
 ) {
     match sort {
+        // Relevance keeps the order of the run (musicindex ADR 0053 R-LIST-9).
+        ListSort::Relevance => {}
         ListSort::Newest => rows.sort_by(|a, b| newest_first(date(a), date(b))),
         ListSort::AToZ => rows.sort_by_key(|row| label(row).to_lowercase()),
     }
@@ -65,5 +67,14 @@ mod tests {
         sort_rows(&mut rows, ListSort::AToZ, |row| row.1, |row| row.0);
         let order: Vec<&str> = rows.iter().map(|row| row.0).collect();
         assert_eq!(order, ["Alpha", "beta", "gamma"]);
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9: Relevance keeps the order of the run.
+    #[test]
+    fn adr_0053_r9_relevance_keeps_the_run_order() {
+        let mut rows = vec![("beta", Some(1)), ("Alpha", Some(9)), ("gamma", None)];
+        sort_rows(&mut rows, ListSort::Relevance, |row| row.1, |row| row.0);
+        let order: Vec<&str> = rows.iter().map(|row| row.0).collect();
+        assert_eq!(order, ["beta", "Alpha", "gamma"]);
     }
 }
