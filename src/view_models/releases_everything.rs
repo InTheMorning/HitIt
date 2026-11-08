@@ -23,7 +23,7 @@ use crate::api::Feed;
 use crate::view_models::download_progress::DownloadPhase;
 use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::index_name_list::{
-    name_sort_key, watermark_shows, IndexListStatusRowVm, IndexNameListPage,
+    from_keeps, name_sort_key, watermark_shows, IndexListStatusRowVm, IndexNameListPage,
 };
 use crate::view_models::library::{
     release_row_slug, releases_selection_rows, DestinationListRowTarget, DestinationListRowVm,
@@ -252,6 +252,10 @@ pub(crate) fn library_entries(mut library: Vec<LibraryReleaseEntry>) -> Vec<Rele
 /// - The entries come in the order of [`ReleaseOrderKey`].
 /// - While `MusicIndex` has more pages, an entry shows only at or before
 ///   the last loaded `MusicIndex` row.
+/// - With `reversed`, the node lists its rows in the other direction
+///   (musicindex ADR 0053 R-LIST-8 item 4). The entries then come in the
+///   reverse order, `from` starts at the last key that starts with it, and
+///   an entry shows only at or after the last loaded `MusicIndex` row.
 ///
 /// `download_phase` gives the phase of a download job of a `MusicIndex`
 /// release's own key, when one is queued or running (ADR 0084 task 033,
@@ -265,6 +269,7 @@ pub(crate) fn everything_entries(
     page: &IndexNameListPage<Feed>,
     download_phase: impl Fn(&ReleaseKey) -> Option<DownloadPhase>,
     failed: impl Fn(&ReleaseKey) -> bool,
+    reversed: bool,
 ) -> Vec<ReleasesListEntryVm> {
     let mut seen: BTreeSet<ReleaseKey> = BTreeSet::new();
     let index_entries: Vec<LibraryReleaseEntry> = page
@@ -291,23 +296,81 @@ pub(crate) fn everything_entries(
 
     let last_loaded = page.rows().iter().rev().find_map(ReleaseOrderKey::index);
     let from = page.from();
-    library_entries(
-        library
-            .into_iter()
-            .chain(index_entries)
-            .filter(|entry| at_or_after_from(&entry.order, from))
-            .filter(|entry| watermark_shows(&entry.order, last_loaded.as_ref(), page.has_more()))
-            .collect(),
-    )
+    let mut merged: Vec<LibraryReleaseEntry> = library
+        .into_iter()
+        .chain(index_entries)
+        .filter(|entry| from_keeps(&entry.order.sort_key, from, reversed))
+        .filter(|entry| {
+            watermark_shows(
+                &entry.order,
+                last_loaded.as_ref(),
+                page.has_more(),
+                reversed,
+            )
+        })
+        .collect();
+    merged.sort_by(|left, right| left.order.cmp(&right.order));
+    if reversed {
+        merged.reverse();
+    }
+    merged.into_iter().map(|entry| entry.entry).collect()
 }
 
-/// Whether an entry of order `order` shows at the start `from` of the name
-/// list (ADR 0089 Decision 6, the letter bar). `None` shows every entry.
-fn at_or_after_from(order: &ReleaseOrderKey, from: Option<&str>) -> bool {
-    match from {
-        None => true,
-        Some(from) => order.sort_key.as_str() >= from,
+/// The last loaded row of the recent pager, for [`newest_merge_order`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LastLoadedDate {
+    /// The pager has loaded no row.
+    NoRow,
+    /// The last loaded row has the date `newest_item_at`.
+    Dated(i64),
+    /// The last loaded row has no date.
+    Undated,
+}
+
+impl LastLoadedDate {
+    /// The fact of the last loaded row: `date` is its `newest_item_at`,
+    /// and `loaded` tells whether the pager has a row.
+    #[must_use]
+    pub(crate) fn of(loaded: bool, date: Option<i64>) -> Self {
+        match (loaded, date) {
+            (false, _) => Self::NoRow,
+            (true, Some(date)) => Self::Dated(date),
+            (true, None) => Self::Undated,
+        }
     }
+}
+
+/// The merge order of the sort Newest in the scope "All" (ADR 0089
+/// Decision 5; musicindex ADR 0053 R-LIST-8 item 4). `date` gives the
+/// `newest_item_at` of an item. Usual order: newest first, and an item
+/// with no date last. With `reversed`, the node lists the oldest first and
+/// an item with no date still comes last. `last_loaded` is the date of the
+/// last loaded pager row. While the
+/// pager has more pages, a reversed list shows only the items at or before
+/// that position, so an item never moves after it shows. The usual order
+/// has no date watermark.
+#[must_use]
+pub(crate) fn newest_merge_order<T>(
+    mut items: Vec<T>,
+    date: impl Fn(&T) -> Option<i64>,
+    last_loaded: LastLoadedDate,
+    has_more: bool,
+    reversed: bool,
+) -> Vec<T> {
+    if !reversed {
+        items.sort_by_key(|item| std::cmp::Reverse(date(item)));
+        return items;
+    }
+    // An item with no date has the largest position, so it comes last.
+    let position = |date: Option<i64>| (date.is_none(), date);
+    let last = match last_loaded {
+        LastLoadedDate::NoRow => None,
+        LastLoadedDate::Dated(date) => Some(position(Some(date))),
+        LastLoadedDate::Undated => Some(position(None)),
+    };
+    items.retain(|item| !has_more || last.is_some_and(|last| position(date(item)) <= last));
+    items.sort_by_key(|item| position(date(item)));
+    items
 }
 
 /// A change of the Releases scope (packet 016 decision D15 and Required
@@ -378,6 +441,10 @@ pub(crate) struct ReleasesListKey {
     /// Whether the rows come in the reversed order (musicindex ADR 0043
     /// R-LIST-7). Only the scope "In Library" reverses.
     pub(crate) reversed: bool,
+    /// Whether the Index request reverses and the scope "All" merges in
+    /// the node direction (musicindex ADR 0053 R-LIST-8 item 4). A change
+    /// builds the merge again.
+    pub(crate) index_reversed: bool,
     /// The revision of the release name page.
     pub(crate) page: Revision,
     /// The revision of the recent pager. Only the sort Newest reads the
@@ -762,6 +829,7 @@ pub(crate) mod tests {
             &loaded_page(recorded_rows(), false),
             |_| None,
             |_| false,
+            false,
         );
         assert_eq!(
             labels(&complete),
@@ -797,6 +865,7 @@ pub(crate) mod tests {
             &loaded_page(recorded_rows(), true),
             |_| None,
             |_| false,
+            false,
         );
         assert_eq!(
             labels(&partial),
@@ -817,7 +886,8 @@ pub(crate) mod tests {
         let mut page = IndexNameListPage::<Feed>::default();
         let _ = page.begin_load(false);
         let library = vec![library_row("Zebra", ReleaseKey::FeedGuid("zebra".into()))];
-        let entries = everything_entries(library, &BTreeSet::new(), &page, |_| None, |_| false);
+        let entries =
+            everything_entries(library, &BTreeSet::new(), &page, |_| None, |_| false, false);
         assert_eq!(labels(&entries), ["Zebra"]);
     }
 
@@ -921,6 +991,7 @@ pub(crate) mod tests {
             &loaded_page(recorded_rows(), false),
             |found| (*found == key).then_some(DownloadPhase::InFlight),
             |_| false,
+            false,
         );
         let motive_state = entries
             .iter()
@@ -934,6 +1005,175 @@ pub(crate) mod tests {
             })
             .expect("the Motive to Kill row");
         assert_eq!(motive_state.state, ReleaseDownloadState::Downloading);
+    }
+
+    /// A loaded page of `rows` that starts at the `from` text.
+    fn loaded_page_from(rows: Vec<Feed>, from: &str, has_more: bool) -> IndexNameListPage<Feed> {
+        let mut page = IndexNameListPage::default();
+        let intent = page
+            .begin_from(Some(from.to_owned()))
+            .expect("the page starts");
+        assert!(page.finish_load(
+            IndexNameListBatch {
+                rows,
+                cursor: has_more.then(|| "next".to_owned()),
+                has_more,
+            },
+            intent.generation,
+        ));
+        page
+    }
+
+    /// The recorded rows in the order of a reversed node list: Z to A.
+    fn reversed_rows() -> Vec<Feed> {
+        let mut rows = recorded_rows();
+        rows.reverse();
+        rows
+    }
+
+    fn reversed_library() -> Vec<LibraryReleaseEntry> {
+        vec![
+            library_row("Zebra", ReleaseKey::FeedGuid("zebra".into())),
+            library_row("Motive to Kill", ReleaseKey::LibraryFeed(7)),
+            library_row("!Bang", ReleaseKey::FeedGuid("bang".into())),
+        ]
+    }
+
+    /// Musicindex ADR 0053 R-LIST-8 item 4: with the node reverse, the
+    /// merge of the scope All comes Z to A, and the watermark compares the
+    /// other way. A Library row below the last loaded `MusicIndex` row waits
+    /// for its page, and shows once that position is loaded.
+    #[test]
+    fn adr_0053_r8_releases_merge_reverses_with_the_node() {
+        let keys = BTreeSet::new();
+        let entries = |page: &IndexNameListPage<Feed>, reversed| {
+            everything_entries(
+                reversed_library(),
+                &keys,
+                page,
+                |_| None,
+                |_| false,
+                reversed,
+            )
+        };
+        let partial = entries(&loaded_page(reversed_rows(), true), true);
+        assert_eq!(
+            labels(&partial),
+            [
+                "Zebra",
+                "Motive to Kill",
+                "Motive to Kill",
+                "1 Take First Freestyle (No Edit)",
+                "#LIII4PRESIDENT",
+            ],
+            "the row below the last loaded row waits for its page"
+        );
+        let ReleasesListEntryVm::Release(first_motive) = &partial[1] else {
+            panic!("a release row");
+        };
+        assert_eq!(
+            first_motive.open,
+            DestinationListRowTarget::Release(ReleaseKey::LibraryFeed(7)),
+            "the tie order reverses with the list"
+        );
+
+        let complete = entries(&loaded_page(reversed_rows(), false), true);
+        assert_eq!(
+            labels(&complete),
+            [
+                "Zebra",
+                "Motive to Kill",
+                "Motive to Kill",
+                "1 Take First Freestyle (No Edit)",
+                "#LIII4PRESIDENT",
+                "!Bang",
+            ],
+            "the row shows once its position is loaded"
+        );
+    }
+
+    /// Musicindex ADR 0053 R-LIST-8 item 4: with the node reverse, `from`
+    /// starts at the last key that starts with it and runs down.
+    #[test]
+    fn adr_0053_r8_releases_from_works_in_the_reversed_direction() {
+        let rows: Vec<Feed> = reversed_rows().into_iter().skip(1).collect();
+        let page = loaded_page_from(rows, "1 t", false);
+        let entries = everything_entries(
+            reversed_library(),
+            &BTreeSet::new(),
+            &page,
+            |_| None,
+            |_| false,
+            true,
+        );
+        assert_eq!(
+            labels(&entries),
+            [
+                "1 Take First Freestyle (No Edit)",
+                "#LIII4PRESIDENT",
+                "!Bang"
+            ],
+            "keys above the text do not show"
+        );
+        assert!(from_keeps("1 take", Some("1 t"), true));
+        assert!(from_keeps("#liii", Some("1 t"), true));
+        assert!(!from_keeps("motive", Some("1 t"), true));
+        assert!(from_keeps("motive", None, true));
+    }
+
+    /// Musicindex ADR 0053 R-LIST-8 item 4: the sort Newest in the scope All
+    /// comes oldest first with the node reverse. An item with no date comes
+    /// last in both directions. The watermark compares the other way.
+    #[test]
+    fn adr_0053_r8_newest_merge_reverses_with_the_node() {
+        let dates = |items: &[(&'static str, Option<i64>)]| -> Vec<&'static str> {
+            items.iter().map(|(name, _)| *name).collect()
+        };
+        let items = vec![
+            ("library-new", Some(300)),
+            ("undated", None),
+            ("library-mid", Some(200)),
+            ("index-old", Some(100)),
+        ];
+        let date = |item: &(&'static str, Option<i64>)| item.1;
+
+        let usual =
+            newest_merge_order(items.clone(), date, LastLoadedDate::Dated(100), true, false);
+        assert_eq!(
+            dates(&usual),
+            ["library-new", "library-mid", "index-old", "undated"],
+            "the usual order has no date watermark"
+        );
+
+        let partial =
+            newest_merge_order(items.clone(), date, LastLoadedDate::Dated(100), true, true);
+        assert_eq!(
+            dates(&partial),
+            ["index-old"],
+            "newer rows wait for their page"
+        );
+
+        let next = newest_merge_order(items.clone(), date, LastLoadedDate::Dated(200), true, true);
+        assert_eq!(dates(&next), ["index-old", "library-mid"]);
+
+        let complete =
+            newest_merge_order(items.clone(), date, LastLoadedDate::Dated(300), false, true);
+        assert_eq!(
+            dates(&complete),
+            ["index-old", "library-mid", "library-new", "undated"],
+            "a row with no date comes last"
+        );
+
+        let undated_loaded =
+            newest_merge_order(items.clone(), date, LastLoadedDate::Undated, true, true);
+        assert_eq!(
+            undated_loaded.len(),
+            4,
+            "the pager reached the undated rows"
+        );
+
+        let loading = newest_merge_order(items, date, LastLoadedDate::NoRow, false, true);
+        assert_eq!(loading.len(), 4, "page 1 loads: the Library rows show");
     }
 
     /// R16-18: a scope change clears the selection and ends selection
@@ -995,6 +1235,7 @@ pub(crate) mod tests {
             scope: ListScope::All,
             sort: ListSort::Newest,
             reversed: false,
+            index_reversed: false,
             page: Revision::default(),
             recent: None,
             singles: Revision::default(),
@@ -1023,6 +1264,7 @@ pub(crate) mod tests {
             scope: ListScope::All,
             sort: ListSort::Newest,
             reversed: false,
+            index_reversed: false,
             page: Revision::default(),
             recent: None,
             singles: Revision::default(),
@@ -1046,9 +1288,12 @@ pub(crate) mod tests {
     fn adr_0089_releases_from_hides_entries_before_the_letter() {
         let before = ReleaseOrderKey::release("Abba", ReleaseKey::FeedGuid("a".into()));
         let at = ReleaseOrderKey::release("Beck", ReleaseKey::FeedGuid("b".into()));
-        assert!(!at_or_after_from(&before, Some("b")));
-        assert!(at_or_after_from(&at, Some("b")));
-        assert!(at_or_after_from(&before, None), "no letter shows all");
+        assert!(!from_keeps(&before.sort_key, Some("b"), false));
+        assert!(from_keeps(&at.sort_key, Some("b"), false));
+        assert!(
+            from_keeps(&before.sort_key, None, false),
+            "no letter shows all"
+        );
     }
 
     /// R37-06 (ADR 0084 task 037, Design step 8): the id comparison gives

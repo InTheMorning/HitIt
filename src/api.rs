@@ -1059,8 +1059,9 @@ impl Client {
         limit: Option<i32>,
         cursor: Option<&str>,
         medium: FeedMedium,
+        reverse: bool,
     ) -> Result<RecentFeedsResponse> {
-        let params = recent_feeds_params(limit.unwrap_or(PAGE_LIMIT), cursor, medium);
+        let params = recent_feeds_params(limit.unwrap_or(PAGE_LIMIT), cursor, medium, reverse);
         self.get_json(&["v1", "feeds", "recent"], &params)
     }
 
@@ -1110,6 +1111,7 @@ impl Client {
     /// /v1/artist-names`, ADR 0084 packet 016). The profile gives the
     /// `include` value. `from` starts the page at the first row whose sort
     /// key is at or after it (ADR 0084 packet 017, the search name check).
+    /// `reverse` sends `reverse=true` (musicindex ADR 0053 R-LIST-8 item 4).
     ///
     /// # Errors
     /// Returns an error when the request fails or the response does not
@@ -1120,16 +1122,14 @@ impl Client {
         cursor: Option<&str>,
         from: Option<&str>,
         profile: &RequestProfile,
+        reverse: bool,
     ) -> Result<ArtistNamesResponse> {
         debug_assert_eq!(
             profile.path_shape(),
             RequestPathShape::ArtistNameList,
             "ADR 0084 packet 016: {profile:?} must name the artist name list path shape"
         );
-        let mut params = name_list_params(limit, cursor, profile);
-        if let Some(from) = from {
-            params.push(("from", from.to_string()));
-        }
+        let params = artist_names_params(limit, cursor, from, profile, reverse);
         self.get_json(&["v1", "artist-names"], &params)
     }
 
@@ -1138,10 +1138,15 @@ impl Client {
     /// `include` value. The default medium of the endpoint is `music`.
     /// `artist_key` keeps only the releases that the `name` row of that key
     /// counts (Stophammer ADR 0071 section 4, ADR 0084 packet 017).
+    /// `reverse` sends `reverse=true` (musicindex ADR 0053 R-LIST-8 item 4).
     ///
     /// # Errors
     /// Returns an error when the request fails or the response does not
     /// decode.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "each name list query value is a request input, and the reverse value adds one (musicindex ADR 0053 R-LIST-8 item 4)"
+    )]
     pub(crate) fn fetch_feeds_by_name(
         &self,
         limit: i32,
@@ -1150,13 +1155,15 @@ impl Client {
         from: Option<&str>,
         medium: FeedMedium,
         profile: &RequestProfile,
+        reverse: bool,
     ) -> Result<FeedNamesResponse> {
         debug_assert_eq!(
             profile.path_shape(),
             RequestPathShape::FeedNameList,
             "ADR 0084 packet 016: {profile:?} must name the release name list path shape"
         );
-        let params = feeds_by_name_params(limit, cursor, artist_key, from, medium, profile);
+        let params =
+            feeds_by_name_params(limit, cursor, artist_key, from, medium, profile, reverse);
         self.get_json(&["v1", "feeds", "by-name"], &params)
     }
 
@@ -1459,11 +1466,21 @@ impl FeedMedium {
     }
 }
 
+/// Adds `reverse=true` to `params` when `reverse` is true. A request
+/// that is not reversed sends no `reverse` value (Stophammer ADR 0084
+/// section 3). Only a node that lists `sort` accepts the value.
+fn push_reverse(params: &mut Vec<(&'static str, String)>, reverse: bool) {
+    if reverse {
+        params.push(("reverse", "true".to_owned()));
+    }
+}
+
 /// The query of `GET /v1/feeds/recent` (ADR 0089 Decision 5).
 fn recent_feeds_params(
     limit: i32,
     cursor: Option<&str>,
     medium: FeedMedium,
+    reverse: bool,
 ) -> Vec<(&'static str, String)> {
     let mut params = vec![
         ("limit", limit.to_string()),
@@ -1472,6 +1489,25 @@ fn recent_feeds_params(
     if let Some(cursor) = cursor {
         params.push(("cursor", cursor.to_string()));
     }
+    push_reverse(&mut params, reverse);
+    params
+}
+
+/// The query of `GET /v1/artist-names` (ADR 0084 packet 016, musicindex ADR
+/// 0053 R-LIST-8 item 4). `from` starts the list at a sort key, and
+/// `reverse` gives Z to A.
+fn artist_names_params(
+    limit: i32,
+    cursor: Option<&str>,
+    from: Option<&str>,
+    profile: &RequestProfile,
+    reverse: bool,
+) -> Vec<(&'static str, String)> {
+    let mut params = name_list_params(limit, cursor, profile);
+    if let Some(from) = from {
+        params.push(("from", from.to_string()));
+    }
+    push_reverse(&mut params, reverse);
     params
 }
 
@@ -1496,12 +1532,14 @@ fn feeds_by_name_params(
     from: Option<&str>,
     medium: FeedMedium,
     profile: &RequestProfile,
+    reverse: bool,
 ) -> Vec<(&'static str, String)> {
     let mut params = name_list_params(limit, cursor, profile);
     params.push(("medium", medium.query_value().to_owned()));
     if let Some(from) = from {
         params.push(("from", from.to_string()));
     }
+    push_reverse(&mut params, reverse);
     if let Some(artist_key) = artist_key {
         params.insert(0, ("artist_key", artist_key.to_string()));
     }
@@ -1740,7 +1778,7 @@ pub(crate) mod tests {
         let recent = client
             .build_url(
                 &["v1", "feeds", "recent"],
-                &recent_feeds_params(20, None, FeedMedium::Music),
+                &recent_feeds_params(20, None, FeedMedium::Music, false),
             )
             .expect("url");
         let pairs: Vec<(String, String)> = recent
@@ -1760,6 +1798,7 @@ pub(crate) mod tests {
                     Some("b"),
                     FeedMedium::Music,
                     &crate::application::request_profiles::INDEX_RELEASE_NAME_LIST,
+                    false,
                 ),
             )
             .expect("url");
@@ -1781,6 +1820,7 @@ pub(crate) mod tests {
                     None,
                     FeedMedium::Music,
                     &crate::application::request_profiles::INDEX_RELEASE_NAME_LIST,
+                    false,
                 ),
             )
             .expect("url");
@@ -1796,7 +1836,7 @@ pub(crate) mod tests {
         let recent = client
             .build_url(
                 &["v1", "feeds", "recent"],
-                &recent_feeds_params(20, None, FeedMedium::MusicL),
+                &recent_feeds_params(20, None, FeedMedium::MusicL, false),
             )
             .expect("url");
         assert!(recent
@@ -1813,6 +1853,7 @@ pub(crate) mod tests {
                     Some("b"),
                     FeedMedium::MusicL,
                     &crate::application::request_profiles::INDEX_PUBLIC_PLAYLIST_LIST,
+                    false,
                 ),
             )
             .expect("url");
@@ -1823,6 +1864,79 @@ pub(crate) mod tests {
         assert!(pairs.contains(&("medium".to_owned(), "musicL".to_owned())));
         assert!(pairs.contains(&("from".to_owned(), "b".to_owned())));
         assert!(!pairs.iter().any(|(key, _)| key == "include"));
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4: each reversible Index list
+    /// route sends `reverse=true` only when the request asks for it. The
+    /// name lists keep their other query values.
+    #[test]
+    fn adr_0053_reverse_is_sent_only_when_asked() {
+        use super::{artist_names_params, feeds_by_name_params, recent_feeds_params, FeedMedium};
+        let client = Client::new();
+        let has_reverse = |url: &reqwest::Url| {
+            url.query_pairs()
+                .any(|(key, value)| key == "reverse" && value == "true")
+        };
+
+        let recent_on = client
+            .build_url(
+                &["v1", "feeds", "recent"],
+                &recent_feeds_params(20, Some("c1"), FeedMedium::Music, true),
+            )
+            .expect("url");
+        assert!(has_reverse(&recent_on));
+        assert!(recent_on.query_pairs().any(|(key, _)| key == "cursor"));
+        let recent_off = client
+            .build_url(
+                &["v1", "feeds", "recent"],
+                &recent_feeds_params(20, None, FeedMedium::MusicL, false),
+            )
+            .expect("url");
+        assert!(!recent_off.query_pairs().any(|(key, _)| key == "reverse"));
+
+        let by_name = |reverse: bool| {
+            client
+                .build_url(
+                    &["v1", "feeds", "by-name"],
+                    &feeds_by_name_params(
+                        50,
+                        None,
+                        None,
+                        Some("b"),
+                        FeedMedium::Music,
+                        &crate::application::request_profiles::INDEX_RELEASE_NAME_LIST,
+                        reverse,
+                    ),
+                )
+                .expect("url")
+        };
+        let by_name_on = by_name(true);
+        assert!(has_reverse(&by_name_on));
+        assert!(by_name_on
+            .query_pairs()
+            .any(|(key, value)| key == "from" && value == "b"));
+        assert!(!by_name(false)
+            .query_pairs()
+            .any(|(key, _)| key == "reverse"));
+
+        let artists = |reverse: bool| {
+            client
+                .build_url(
+                    &["v1", "artist-names"],
+                    &artist_names_params(
+                        100,
+                        None,
+                        Some("b"),
+                        &crate::application::request_profiles::INDEX_ARTIST_NAME_LIST,
+                        reverse,
+                    ),
+                )
+                .expect("url")
+        };
+        assert!(has_reverse(&artists(true)));
+        assert!(!artists(false)
+            .query_pairs()
+            .any(|(key, _)| key == "reverse"));
     }
 
     /// ADR 0089 packet 009: a feed read with `include=remote_items` decodes

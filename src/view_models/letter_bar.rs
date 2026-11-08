@@ -10,18 +10,16 @@
 
 #![warn(clippy::pedantic)]
 
-use crate::view_models::index_name_list::name_sort_key;
+use crate::view_models::index_name_list::{from_keeps, name_sort_key};
 use crate::view_models::list_page::ListPageKey;
 
 /// Whether the name `name` shows at the start `from` of a name list (ADR
 /// 0089 Decision 6). `from` is a sort key, as the request sends it. `None`
-/// shows every name.
+/// shows every name. `reversed` follows the order of the node list
+/// ([`from_keeps`]).
 #[must_use]
-pub(crate) fn name_at_or_after(name: &str, from: Option<&str>) -> bool {
-    match from {
-        None => true,
-        Some(from) => name_sort_key(name).as_str() >= from,
-    }
+pub(crate) fn name_at_or_after(name: &str, from: Option<&str>, reversed: bool) -> bool {
+    from_keeps(&name_sort_key(name), from, reversed)
 }
 
 /// One key of the letter bar. `Other` is the key "#", for a name that starts

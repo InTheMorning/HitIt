@@ -12,6 +12,7 @@ pub mod library;
 pub mod live_page;
 pub mod metadata;
 pub mod name_lists;
+pub mod node_sorts;
 pub mod playback;
 pub mod playlist;
 pub mod public_playlists;

@@ -29,6 +29,9 @@ pub(crate) struct FetchRecentFeedsPage {
     endpoint: crate::config::MusicIndexEndpoint,
     cursor: Option<String>,
     resume_after: usize,
+    /// Whether the request sends `reverse=true`, the sort Oldest (musicindex
+    /// ADR 0053 R-LIST-8 item 4). A cursor works only with the same value.
+    reverse: bool,
 }
 
 impl FetchRecentFeedsPage {
@@ -38,11 +41,13 @@ impl FetchRecentFeedsPage {
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
         cursor: Option<String>,
         resume_after: usize,
+        reverse: bool,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             cursor,
             resume_after,
+            reverse,
         }
     }
 }
@@ -58,6 +63,7 @@ impl ApplicationCommand for FetchRecentFeedsPage {
             &self.endpoint,
             self.cursor.as_deref(),
             self.resume_after,
+            self.reverse,
         )
         .map_err(|error| query_error(&error))?;
         Ok(CommandOutcome::without_events(batch))
@@ -127,10 +133,15 @@ fn fetch_recent_feed_result_rows(
     endpoint: &crate::config::MusicIndexEndpoint,
     cursor: Option<&str>,
     start_index: usize,
+    reverse: bool,
 ) -> Result<RecentFeedsPageBatch> {
     let client = crate::api::Client::new_with_base_url(endpoint.clone());
-    let response =
-        client.fetch_recent_feeds(Some(crate::api::PAGE_LIMIT), cursor, FeedMedium::Music)?;
+    let response = client.fetch_recent_feeds(
+        Some(crate::api::PAGE_LIMIT),
+        cursor,
+        FeedMedium::Music,
+        reverse,
+    )?;
     let feeds = response.data;
 
     let next_index = AtomicUsize::new(0);
@@ -582,7 +593,7 @@ mod adr_0075_request_profile_tests {
     fn adr_0075_request_profile_recent_feed_result_rows_sends_l2() {
         let fixture = Fixture::start();
 
-        let batch = fetch_recent_feed_result_rows(&fixture.endpoint, None, 0).unwrap();
+        let batch = fetch_recent_feed_result_rows(&fixture.endpoint, None, 0, false).unwrap();
 
         assert_eq!(batch.rows.len(), 1);
         let requests = fixture.requests.lock().unwrap().clone();
@@ -606,7 +617,7 @@ mod adr_0075_request_profile_tests {
     #[test]
     fn adr_0077_publisher_relationship_index_feed_detail_request_count_is_unchanged() {
         let recent = Fixture::start();
-        fetch_recent_feed_result_rows(&recent.endpoint, None, 0).unwrap();
+        fetch_recent_feed_result_rows(&recent.endpoint, None, 0, false).unwrap();
         let listed = recent.requests.lock().unwrap().clone();
         assert_eq!(
             listed.len(),
@@ -861,7 +872,7 @@ mod adr_0086_parallel_reads_tests {
         }
         let (endpoint, _requests, _running) = serve_routes(answer, 21);
 
-        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0).unwrap();
+        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0, false).unwrap();
 
         assert_eq!(batch.rows.len(), 20, "R86-1-01: 20 feeds give 20 rows");
         for (index, (_, display)) in batch.rows.iter().enumerate() {
@@ -886,7 +897,7 @@ mod adr_0086_parallel_reads_tests {
         }
         let (endpoint, _requests, running) = serve_routes(answer, 21);
 
-        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0).unwrap();
+        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0, false).unwrap();
 
         assert_eq!(batch.rows.len(), 20);
         let peak = running.lock().unwrap().1;
@@ -926,7 +937,7 @@ mod adr_0086_parallel_reads_tests {
         }
         let endpoint = serve_routes_with_delay(answer, delay_millis, FEED_COUNT + 1);
 
-        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0).unwrap();
+        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0, false).unwrap();
 
         assert_eq!(batch.rows.len(), FEED_COUNT);
         for (index, (_, display)) in batch.rows.iter().enumerate() {
@@ -962,7 +973,7 @@ mod adr_0086_parallel_reads_tests {
         }
         let (endpoint, _requests, _running) = serve_routes(answer, 4);
 
-        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0).unwrap();
+        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0, false).unwrap();
 
         assert_eq!(batch.rows.len(), 3);
         assert_eq!(batch.rows[0].1.label, "Detail feed-0");
@@ -989,7 +1000,7 @@ mod adr_0086_parallel_reads_tests {
         }
         let (endpoint, requests, _running) = serve_routes(answer, 1);
 
-        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0).unwrap();
+        let batch = fetch_recent_feed_result_rows(&endpoint.into(), None, 0, false).unwrap();
 
         assert_eq!(batch.rows.len(), 1);
         assert_eq!(

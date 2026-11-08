@@ -28,9 +28,32 @@ pub(crate) fn name_sort_key(text: &str) -> String {
 /// pages, a row shows only when its order position is at or before the
 /// last loaded `MusicIndex` row. Thus a row never moves after it shows.
 /// When `MusicIndex` has no more pages, each row shows.
+///
+/// With `reversed`, the node lists the rows in the other direction
+/// (musicindex ADR 0053 R-LIST-8 item 4), so the watermark compares the
+/// other way: a row shows at or after the last loaded row.
 #[must_use]
-pub(crate) fn watermark_shows<K: Ord>(key: &K, last_loaded: Option<&K>, has_more: bool) -> bool {
-    !has_more || last_loaded.is_some_and(|last| key <= last)
+pub(crate) fn watermark_shows<K: Ord>(
+    key: &K,
+    last_loaded: Option<&K>,
+    has_more: bool,
+    reversed: bool,
+) -> bool {
+    !has_more || last_loaded.is_some_and(|last| if reversed { key >= last } else { key <= last })
+}
+
+/// Whether the sort key `sort_key` shows at the start `from` of a name
+/// list. `None` shows every key. In the usual order a key shows when it is
+/// at or after `from`. With `reversed`, the node starts at the last key
+/// that starts with `from` and runs down (musicindex ADR 0053 R-LIST-8
+/// item 4), so a key shows when it starts with `from` or is below it.
+#[must_use]
+pub(crate) fn from_keeps(sort_key: &str, from: Option<&str>, reversed: bool) -> bool {
+    match from {
+        None => true,
+        Some(from) if reversed => sort_key.starts_with(from) || sort_key < from,
+        Some(from) => sort_key >= from,
+    }
 }
 
 /// One page of `MusicIndex` name list rows and its cursor.
@@ -692,12 +715,12 @@ mod tests {
     /// R16-09 and decision D7: the watermark.
     #[test]
     fn adr_0084_scopes_r16_09_watermark() {
-        assert!(watermark_shows(&"b", Some(&"c"), true));
-        assert!(watermark_shows(&"c", Some(&"c"), true));
-        assert!(!watermark_shows(&"d", Some(&"c"), true));
-        assert!(!watermark_shows(&"a", None, true));
-        assert!(watermark_shows(&"z", Some(&"c"), false));
-        assert!(watermark_shows(&"z", None, false));
+        assert!(watermark_shows(&"b", Some(&"c"), true, false));
+        assert!(watermark_shows(&"c", Some(&"c"), true, false));
+        assert!(!watermark_shows(&"d", Some(&"c"), true, false));
+        assert!(!watermark_shows(&"a", None, true, false));
+        assert!(watermark_shows(&"z", Some(&"c"), false, false));
+        assert!(watermark_shows(&"z", None, false, false));
     }
 
     /// R16-12 for the Releases list: the texts of the loading row, the
@@ -822,5 +845,31 @@ mod tests {
         assert!(detail.starts_with("GET /v1/live-items"));
         assert_eq!(retry.label, "Try again");
         assert!(page.begin_retry().is_some());
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4 and ADR 0043 R-LIST-7 item 9: a
+    /// change of the reversed state starts the Index list at its first
+    /// page. The cursor of the old order is dropped, and an answer of the
+    /// old request changes nothing.
+    #[test]
+    fn adr_0053_r8_a_reversal_restarts_the_list_at_its_first_page() {
+        let mut page: IndexNameListPage<String> = IndexNameListPage::default();
+        let first = page.begin_load(false).expect("page 1");
+        assert!(page.finish_load(batch(&["a", "b"], Some("c1"), true), first.generation));
+        let restart = page
+            .begin_from(page.from().map(str::to_owned))
+            .expect("the reversed restart");
+        assert_eq!(
+            restart.cursor, None,
+            "a reversed cursor is not sent with the new order"
+        );
+        assert!(restart.generation > first.generation);
+        assert!(page.rows().is_empty());
+        assert!(
+            !page.finish_load(batch(&["z"], None, false), first.generation),
+            "an answer of the old order changes nothing"
+        );
+        assert!(page.finish_load(batch(&["z", "y"], None, false), restart.generation));
+        assert_eq!(page.rows(), ["z", "y"]);
     }
 }

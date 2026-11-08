@@ -492,9 +492,10 @@ impl LibraryApp {
         let Some(intent) = self.recent_music_page.begin_load(append) else {
             return;
         };
+        let reverse = self.vm.list_index_reversed(ListPageKey::Releases);
 
         cx.notify();
-        self.dispatch_recent_music_page(intent, cx);
+        self.dispatch_recent_music_page(intent, reverse, cx);
     }
 
     /// Sends one page of the current page request. After the page arrives,
@@ -503,6 +504,7 @@ impl LibraryApp {
     fn dispatch_recent_music_page(
         &mut self,
         intent: RecentFeedsLoadIntent,
+        reverse: bool,
         cx: &mut Context<Self>,
     ) {
         let generation = intent.generation();
@@ -511,6 +513,7 @@ impl LibraryApp {
             self.musicindex_endpoint.clone(),
             intent.into_cursor(),
             resume_after,
+            reverse,
         );
         present_command(
             &self.command_runner,
@@ -524,7 +527,7 @@ impl LibraryApp {
                 let windows_open = this.vm.recent_music_windows_open(&this.recent_music_page);
                 match this.recent_music_page.next_step(windows_open) {
                     RecentFeedsPageStep::LoadExtra(intent) => {
-                        this.dispatch_recent_music_page(intent, cx);
+                        this.dispatch_recent_music_page(intent, reverse, cx);
                     }
                     RecentFeedsPageStep::Finished => cx.notify(),
                 }
@@ -1186,6 +1189,7 @@ impl LibraryApp {
             tag_update_snapshot: None,
             tag_update_request_failed: false,
             recent_music_page: RecentFeedsPageVm::loading(),
+            index_sorts_requested: false,
             artist_name_page: IndexNameListPage::default(),
             release_name_page: IndexNameListPage::default(),
             inbox_scroll,

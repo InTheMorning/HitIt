@@ -31,6 +31,7 @@ use crate::application::command_bus::ApplicationCommand;
 use crate::application::queries::name_lists::{
     FetchArtistNamePage, FetchFeedSingles, FetchReleaseNamePage,
 };
+use crate::application::queries::node_sorts::FetchNodeSorts;
 use crate::application::CommandContext;
 use crate::presentation::present_command;
 use crate::view_models::index_feed_singles::{finish_release_page, FeedSinglesResult};
@@ -152,7 +153,71 @@ impl LibraryApp {
             return;
         }
         self.vm.set_list_reversed(key, reversed);
+        self.restart_index_list_for_reverse(key, cx);
         cx.notify();
+    }
+
+    /// Starts the Index list of `key` again when its reverse changed
+    /// (musicindex ADR 0053 R-LIST-8 item 4, ADR 0043 R-LIST-7 item 9). A
+    /// reversed cursor works only with `reverse=true`, so the list starts at
+    /// its first row, from the same `from` text. The restart runs in each
+    /// scope, so the loaded Index list keeps the order of its page. A list
+    /// that never started loads with its state.
+    fn restart_index_list_for_reverse(&mut self, key: ListPageKey, cx: &mut Context<Self>) {
+        match key {
+            ListPageKey::Releases => {
+                if self.releases_sort() == ListSort::Newest {
+                    if !self.recent_music_page.is_not_started() {
+                        self.start_recent_music_load(false, cx);
+                    }
+                } else if !self.release_name_page.is_not_started() {
+                    let from = self.release_name_page.from().map(str::to_owned);
+                    let intent = self.release_name_page.begin_from(from);
+                    self.send_release_name_request(intent, cx);
+                }
+            }
+            ListPageKey::Artists => {
+                if !self.artist_name_page.is_not_started() {
+                    let from = self.artist_name_page.from().map(str::to_owned);
+                    let intent = self.artist_name_page.begin_from(from);
+                    self.send_artist_name_request(intent, cx);
+                }
+            }
+            ListPageKey::PublicPlaylists => {
+                if !self.public_playlist_list.is_not_started() {
+                    let from = self.public_playlist_list.from().map(str::to_owned);
+                    self.restart_public_playlist_list(from, cx);
+                }
+            }
+            ListPageKey::MyPlaylists
+            | ListPageKey::Live
+            | ListPageKey::Results
+            | ListPageKey::SavedSearch => {}
+        }
+    }
+
+    /// Reads whether the Index node lists `sort`, once per app session
+    /// (musicindex ADR 0053 R-LIST-8 item 4). The answer sets the reverse
+    /// button of each Index list. A failed read lets the next list load ask
+    /// again.
+    fn request_index_sorts(&mut self, cx: &mut Context<Self>) {
+        if self.index_sorts_requested {
+            return;
+        }
+        self.index_sorts_requested = true;
+        present_command(
+            &self.command_runner,
+            FetchNodeSorts::new(self.musicindex_endpoint.clone()),
+            CommandContext::next(),
+            cx,
+            move |this, node, cx| {
+                this.vm.set_index_sorts(node);
+                cx.notify();
+            },
+            move |this, _error, _cx| {
+                this.index_sorts_requested = false;
+            },
+        );
     }
 
     /// Sets the view of the list page `key` (ADR 0089 Decision 5, R-LIST-1
@@ -274,6 +339,7 @@ impl LibraryApp {
     pub(crate) fn request_default_name_list(&mut self, cx: &mut Context<Self>) {
         match self.vm.active_destination() {
             MusicDestination::Releases => {
+                self.request_index_sorts(cx);
                 let scope = self.vm.list_scope(ListPageKey::Releases);
                 if self.releases_sort() == ListSort::Newest {
                     // ADR 0089 Decision 5: the sort Newest sends the first
@@ -287,6 +353,7 @@ impl LibraryApp {
                 }
             }
             MusicDestination::Artists => {
+                self.request_index_sorts(cx);
                 if needs_first_page(
                     self.vm.list_scope(ListPageKey::Artists),
                     self.artist_name_page.is_not_started(),
@@ -296,6 +363,7 @@ impl LibraryApp {
                 }
             }
             MusicDestination::PublicPlaylists => {
+                self.request_index_sorts(cx);
                 self.request_public_playlists_first_page(cx);
             }
             // ADR 0089 packet 011: the Live list reads again when its
@@ -365,7 +433,9 @@ impl LibraryApp {
         else {
             return;
         };
-        let command = FetchReleaseNamePage::new(self.musicindex_endpoint.clone(), cursor, from);
+        let reverse = self.vm.list_index_reversed(ListPageKey::Releases);
+        let command =
+            FetchReleaseNamePage::new(self.musicindex_endpoint.clone(), cursor, from, reverse);
         self.send_release_page_command(command, generation, cx);
     }
 
@@ -509,9 +579,10 @@ impl LibraryApp {
         cx: &mut Context<Self>,
     ) {
         let endpoint = self.musicindex_endpoint.clone();
+        let reverse = self.vm.list_index_reversed(ListPageKey::Artists);
         self.send_name_request(
             intent,
-            |cursor, from| FetchArtistNamePage::new(endpoint, cursor, from),
+            |cursor, from| FetchArtistNamePage::new(endpoint, cursor, from, reverse),
             |this| &mut this.artist_name_page,
             cx,
         );
