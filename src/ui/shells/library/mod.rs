@@ -26,6 +26,7 @@ pub mod group_entries;
 pub mod inbox;
 pub mod index_list_status;
 pub mod live_page;
+pub mod my_playlists;
 pub mod playlist_detail;
 pub mod public_playlists;
 pub mod releases_tiles;

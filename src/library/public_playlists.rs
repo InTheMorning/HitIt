@@ -137,7 +137,8 @@ impl LibraryApp {
             ListSort::Newest
             | ListSort::Relevance
             | ListSort::FeedOrder
-            | ListSort::PlaylistOrder => None,
+            | ListSort::PlaylistOrder
+            | ListSort::CuratorOrder => None,
         };
         let reverse = self.vm.list_index_reversed(ListPageKey::PublicPlaylists);
         let command = FetchPublicPlaylistPage::new(

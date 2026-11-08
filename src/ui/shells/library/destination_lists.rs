@@ -25,11 +25,9 @@ use gpui_component::Size;
 
 use crate::library::LibraryApp;
 use crate::ui::composites::list_row::RowMenu;
-use crate::ui::composites::music_column_scroll::{music_column_tracked_scrollbar, MusicColumnList};
-use crate::ui::composites::page_scroll_content::page_scroll_content;
+use crate::ui::composites::music_column_scroll::MusicColumnList;
 use crate::ui::composites::release_download_state::render_release_download_state;
 use crate::ui::composites::release_row_menu::{release_row_menu, ReleaseRowMenuContext};
-use crate::ui::composites::track_drag::{self, playlist_drop_target, PlaylistDrop};
 use crate::ui::composites::{
     disclosure_column, CollectionArt, CollectionArtImage, DisclosureIndicator,
     DisclosureIndicatorDisplay, EntityKind, ListRow, ListRowA11yLabel, Thumbnail, ThumbnailSize,
@@ -45,15 +43,13 @@ use crate::ui::shells::library::index_list_status::{
 use crate::ui::shells::library::window_groups::render_releases_window_group_row;
 use crate::ui::sizable_bridge::SizableScaled;
 use crate::ui::style::spacing;
-use crate::ui::tokens::{FontSize, SemanticColor};
+use crate::ui::tokens::FontSize;
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::library::{
-    ArtistsListItemVm, DestinationListRowTarget, DestinationListRowVm, PlaylistSidebarRowVm,
-    PlaylistSidebarVm, ReleasesListItemVm,
+    ArtistsListItemVm, DestinationListRowTarget, DestinationListRowVm, ReleasesListItemVm,
 };
 use crate::view_models::list_selection::RowCheckState;
 use crate::view_models::singles_group::SinglesGroupRowVm;
-use crate::view_models::workspace::{FrameNavigationEntry, NavigationPathStart};
 
 /// Maps the view model's typed check state to the checkbox primitive's own
 /// state (Required correction item 5, 2026-10-18). Only a singles group
@@ -68,12 +64,6 @@ pub(crate) fn checkbox_state_for(check_state: RowCheckState) -> CheckboxState {
 
 /// The collection art of each row, by element id (ADR 0084 Decision 12).
 pub(crate) type RowArts = BTreeMap<String, CollectionArtImage>;
-
-/// The logo frame of one collection row. A row with no loaded state shows
-/// the entity color.
-fn row_art(arts: &RowArts, element_id: &str, kind: CollectionKind) -> CollectionArt {
-    collection_art(arts.get(element_id).cloned(), kind)
-}
 
 /// The logo frame of one collection row from its loaded `image`. A row
 /// with no loaded state shows the entity color.
@@ -484,7 +474,7 @@ pub(crate) fn render_hoverable_release_thumb(
 
 /// The inline row of the new playlist: the name input and its "Add" button
 /// (ADR 0084 Decision 2).
-fn render_new_playlist_row(
+pub(crate) fn render_new_playlist_row(
     new_playlist_input_id: &'static str,
     new_playlist_add_button_id: &'static str,
     new_playlist_add_label: &'static str,
@@ -513,110 +503,4 @@ fn render_new_playlist_row(
                 })),
         )
         .into_any_element()
-}
-
-/// Renders the Playlists destination list (ADR 0084 Decision 2; ADR 0089
-/// Decision 5, no sort control): the inline new-playlist input and each
-/// playlist row. The title row holds "New Playlist".
-pub(crate) fn render_library_playlists_list(
-    sidebar: PlaylistSidebarVm,
-    mut row_menus: BTreeMap<i64, RowMenu>,
-    new_playlist_input: &gpui::Entity<gpui_component::input::InputState>,
-    arts: &RowArts,
-    scroll: &gpui::ScrollHandle,
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let PlaylistSidebarVm {
-        new_playlist_input_id,
-        new_playlist_add_button_id,
-        new_playlist_add_label,
-        creating_playlist,
-        rows,
-        ..
-    } = sidebar;
-
-    let mut items: Vec<AnyElement> = Vec::new();
-
-    if creating_playlist {
-        items.push(render_new_playlist_row(
-            new_playlist_input_id,
-            new_playlist_add_button_id,
-            new_playlist_add_label,
-            new_playlist_input,
-            cx,
-        ));
-    }
-
-    // ADR 0083 task 008, D6: a drop uses the add path of the menu item.
-    let on_add =
-        track_drag::playlist_drop_handler(cx.listener(|this, drop: &PlaylistDrop, _, cx| {
-            this.end_track_drag();
-            this.add_tracks_to_playlist(drop.track_ids.clone(), drop.playlist_id, cx);
-        }));
-    for row in rows {
-        let PlaylistSidebarRowVm {
-            id: playlist_id,
-            element_id,
-            name,
-            track_count_label,
-            type_tag,
-            selected,
-            art: _,
-            marked,
-            menu: _,
-            delete_confirmation: _,
-        } = row;
-        let art = row_art(arts, &element_id, CollectionKind::Playlist);
-        let row_a11y_label = format!("Playlist: {name}");
-        let row = ListRow::new(SharedString::from(element_id))
-            .a11y_label(ListRowA11yLabel {
-                label: row_a11y_label.into(),
-            })
-            .selected(selected)
-            .marked(marked)
-            // ADR 0089 Decision 6: each list row has the item menu cell.
-            .menu_cell(row_menus.remove(&playlist_id))
-            .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
-                this.open_page(
-                    FrameNavigationEntry::PlaylistDetail(playlist_id),
-                    NavigationPathStart::CurrentPath,
-                    cx,
-                );
-            }))
-            .child(div().pl(spacing::MD).child(art))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(
-                        Label::new(name)
-                            .color(if selected {
-                                SemanticColor::Accent
-                            } else {
-                                SemanticColor::Label
-                            })
-                            .truncated(),
-                    )
-                    // ADR 0089 Decision 6: each list row shows its type dot
-                    // and its type word.
-                    .children(destination_row_second_line(
-                        Some(type_tag),
-                        track_count_label,
-                    )),
-            )
-            .into_any_element();
-        items.push(playlist_drop_target(row, playlist_id, &on_add, cx));
-    }
-
-    let container = div()
-        .id("music-playlists-destination-list")
-        .flex()
-        .flex_col()
-        .flex_1()
-        .min_h_0()
-        .min_w_0()
-        .pt(spacing::MD)
-        .pb(spacing::MD)
-        .child(page_scroll_content(cx).gap(spacing::XXS).children(items));
-    music_column_tracked_scrollbar(container, scroll, None)
 }

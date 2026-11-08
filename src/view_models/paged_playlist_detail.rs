@@ -131,6 +131,7 @@ mod tests {
             track_count: 0,
             created_at: 0,
             updated_at: 0,
+            position: 0,
         }
     }
 
