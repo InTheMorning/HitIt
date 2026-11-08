@@ -83,12 +83,11 @@ impl ListPageKey {
         }
     }
 
-    /// Whether the page can reverse all its rows in `scope` (musicindex ADR
-    /// 0043 R-LIST-7 items 9 and 10). A list reverses only when each of its
-    /// rows is local: Releases and Artists with the scope In Library, My
-    /// playlists, and Results with the scope In Library. A list from the
-    /// Index cannot reverse until the Index gives a direction, so its
-    /// reversed state has no effect.
+    /// Whether the page reverses its rows locally in `scope` (musicindex ADR
+    /// 0043 R-LIST-7 items 9 and 10). The rows of a local list reverse here:
+    /// Releases and Artists with the scope In Library, My playlists, and
+    /// Results with the scope In Library. The Index lists reverse through
+    /// the node instead (`index_reverses`), so they are not reversed here.
     #[must_use]
     pub(crate) const fn reverses_in(self, scope: ListScope) -> bool {
         match self {
@@ -98,6 +97,24 @@ impl ListPageKey {
             Self::MyPlaylists => true,
             Self::PublicPlaylists | Self::Live | Self::SavedSearch => false,
         }
+    }
+
+    /// Whether the Index list of the page reverses through the node, with
+    /// `reverse=true` (musicindex ADR 0053 R-LIST-8 item 4, ADR 0043 R-LIST-7
+    /// item 10). Releases, Artists and Public playlists do, when the node
+    /// lists `sort`.
+    #[must_use]
+    pub(crate) const fn index_reverses(self, node: NodeSorts) -> bool {
+        matches!(self, Self::Releases | Self::Artists | Self::PublicPlaylists)
+            && matches!(node, NodeSorts::Listed)
+    }
+
+    /// Whether the page shows the reverse button in `scope`: a local reverse
+    /// (`reverses_in`), or the Index reverse in the scope All
+    /// (`index_reverses`).
+    #[must_use]
+    pub(crate) const fn can_reverse(self, scope: ListScope, node: NodeSorts) -> bool {
+        self.reverses_in(scope) || (matches!(scope, ListScope::All) && self.index_reverses(node))
     }
 
     /// The sorts that the page offers, in menu order. The first sort is the
@@ -211,6 +228,31 @@ impl ListScope {
     }
 }
 
+/// Whether the Index node lists `sort` in `GET /v1/node/capabilities`
+/// (musicindex ADR 0053 R-LIST-8 item 4). A node that lists it takes
+/// `reverse` on the Index lists. Until the read answers, a page takes
+/// `NotListed`, so no reverse button shows.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum NodeSorts {
+    /// The node does not list `sort`, or the read has not answered.
+    #[default]
+    NotListed,
+    /// The node lists `sort`.
+    Listed,
+}
+
+impl NodeSorts {
+    /// The fact of the capability names of the node.
+    #[must_use]
+    pub(crate) fn from_capabilities(capabilities: &[String]) -> Self {
+        if capabilities.iter().any(|name| name == "sort") {
+            Self::Listed
+        } else {
+            Self::NotListed
+        }
+    }
+}
+
 /// The state of one list page: its sort, its view and its scope. `None`
 /// means the page has no such control (ADR 0089 Decision 5).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -227,15 +269,34 @@ pub(crate) struct ListPageState {
     /// Whether the order of the list is reversed (musicindex ADR 0043
     /// R-LIST-7 item 6). It starts false, and a new sort keeps it.
     pub(crate) reversed: bool,
+    /// Whether the Index node lists `sort` (musicindex ADR 0053 R-LIST-8
+    /// item 4). The app sets it from the node capabilities.
+    pub(crate) index_sorts: NodeSorts,
 }
 
 impl ListPageState {
-    /// Whether the order of the page `key` is reversed in `scope`. A list
-    /// that cannot reverse in `scope` is never reversed, whatever the
+    /// Whether the rows of the page `key` reverse locally in `scope`. A list
+    /// that cannot reverse locally in `scope` is never reversed, whatever the
     /// stored state is. The stored state stays for a later scope.
     #[must_use]
     pub(crate) const fn reversed_in(self, key: ListPageKey, scope: ListScope) -> bool {
         self.reversed && key.reverses_in(scope)
+    }
+
+    /// Whether the order of the page `key` shows as reversed in `scope`: the
+    /// sort name, the letter bar and the reverse button. It is true for a
+    /// local reverse and for an Index reverse.
+    #[must_use]
+    pub(crate) const fn order_reversed(self, key: ListPageKey, scope: ListScope) -> bool {
+        self.reversed && key.can_reverse(scope, self.index_sorts)
+    }
+
+    /// Whether the Index request of the page `key` sends `reverse=true`
+    /// (musicindex ADR 0053 R-LIST-8 item 4). It follows the stored state in
+    /// every scope, so a loaded Index list keeps the order of its page.
+    #[must_use]
+    pub(crate) const fn index_reversed(self, key: ListPageKey) -> bool {
+        self.reversed && key.index_reverses(self.index_sorts)
     }
 
     /// The state of `key` at the start (ADR 0089 Decision 5 table).
@@ -248,6 +309,7 @@ impl ListPageState {
                 scope: Some(ListScope::All),
                 letter: None,
                 reversed: false,
+                index_sorts: NodeSorts::NotListed,
             },
             ListPageKey::Artists => Self {
                 sort: Some(ListSort::AToZ),
@@ -255,6 +317,7 @@ impl ListPageState {
                 scope: Some(ListScope::All),
                 letter: None,
                 reversed: false,
+                index_sorts: NodeSorts::NotListed,
             },
             // ADR 0089 Decision 5: rows, no sort and no scope.
             ListPageKey::MyPlaylists | ListPageKey::Live => Self {
@@ -263,6 +326,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
+                index_sorts: NodeSorts::NotListed,
             },
             // ADR 0089 Decision 5: Newest, tiles, and no scope.
             ListPageKey::PublicPlaylists => Self {
@@ -271,6 +335,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
+                index_sorts: NodeSorts::NotListed,
             },
             // The query holds the scope of a search page (ADR 0089 Decision
             // 4), so the page state has none.
@@ -280,6 +345,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
+                index_sorts: NodeSorts::NotListed,
             },
         }
     }
@@ -337,6 +403,22 @@ impl ListPages {
             ListPageKey::Live => &mut self.live,
             ListPageKey::Results => &mut self.results,
             ListPageKey::SavedSearch => &mut self.saved_search,
+        }
+    }
+
+    /// Sets the fact of the node sorts on each page (musicindex ADR 0053
+    /// R-LIST-8 item 4). Only the Index lists read it.
+    pub(crate) fn set_index_sorts(&mut self, node: NodeSorts) {
+        for state in [
+            &mut self.releases,
+            &mut self.artists,
+            &mut self.my_playlists,
+            &mut self.public_playlists,
+            &mut self.live,
+            &mut self.results,
+            &mut self.saved_search,
+        ] {
+            state.index_sorts = node;
         }
     }
 
@@ -547,7 +629,7 @@ impl ListPageHeadVm {
         select: Option<FrameHeaderActionDisplay>,
     ) -> Self {
         let scope = state.scope.unwrap_or_default();
-        let reversed = state.reversed_in(key, scope);
+        let reversed = state.order_reversed(key, scope);
         Self {
             title: key.title().to_owned(),
             scope: state
@@ -558,7 +640,7 @@ impl ListPageHeadVm {
                 .then(|| ordered_letters(LetterBarVm::new(key, state.letter), reversed)),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
             reverse: key
-                .reverses_in(scope)
+                .can_reverse(scope, state.index_sorts)
                 .then(|| ListReverseVm::new(state.reversed)),
             select,
             actions: Vec::new(),
@@ -587,7 +669,7 @@ impl ListPageHeadVm {
     pub(crate) fn with_reverse_of(mut self, key: ListPageKey, state: ListPageState) -> Self {
         let scope = state.scope.unwrap_or_default();
         self.reverse = key
-            .reverses_in(scope)
+            .can_reverse(scope, state.index_sorts)
             .then(|| ListReverseVm::new(state.reversed));
         self
     }
@@ -605,7 +687,7 @@ impl ListPageHeadVm {
         scope: ListScope,
         actions: Vec<SearchPageActionDisplay>,
     ) -> Self {
-        let reversed = state.reversed_in(key, scope);
+        let reversed = state.order_reversed(key, scope);
         Self {
             title,
             scope: Some(search_scope_control(scope)),
@@ -615,7 +697,7 @@ impl ListPageHeadVm {
             // 008 Part C, deviation, see `ListPageKey::views`).
             view: None,
             reverse: key
-                .reverses_in(scope)
+                .can_reverse(scope, state.index_sorts)
                 .then(|| ListReverseVm::new(state.reversed)),
             select: None,
             actions,
@@ -1288,5 +1370,196 @@ mod tests {
         assert!(head.sort.is_none());
         assert!(head.letters.is_none());
         assert!(head.view.is_none(), "one view shows no view icon");
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4 and ADR 0043 R-LIST-7 item 10: an
+    /// Index list shows the reverse button only when the node lists `sort`.
+    /// The button, the sort name and the letters then follow the reversed
+    /// state, as for a local list.
+    #[test]
+    fn adr_0053_r8_index_lists_reverse_when_the_node_lists_sort() {
+        let index_state = |key, node, reversed| ListPageState {
+            reversed,
+            index_sorts: node,
+            scope: Some(ListScope::All),
+            ..ListPageState::default_for(key)
+        };
+        for key in [
+            ListPageKey::Releases,
+            ListPageKey::Artists,
+            ListPageKey::PublicPlaylists,
+        ] {
+            let unlisted = ListPageHeadVm::new(
+                key,
+                index_state(key, NodeSorts::NotListed, true),
+                None,
+                None,
+            );
+            assert!(unlisted.reverse.is_none(), "{key:?} without sort");
+            assert!(
+                unlisted
+                    .sort
+                    .as_ref()
+                    .is_some_and(|sort| sort.label != "Oldest" && sort.label != "Z to A"),
+                "{key:?} without sort keeps the usual name"
+            );
+
+            let listed =
+                ListPageHeadVm::new(key, index_state(key, NodeSorts::Listed, false), None, None);
+            let reverse = listed.reverse.expect("the node lists sort");
+            assert!(!reverse.pressed, "{key:?} usual order");
+
+            let listed =
+                ListPageHeadVm::new(key, index_state(key, NodeSorts::Listed, true), None, None);
+            assert!(listed.reverse.is_some_and(|reverse| reverse.pressed));
+            let sort = listed.sort.expect("sort");
+            assert!(
+                sort.label == "Oldest" || sort.label == "Z to A",
+                "{key:?} names its reversed order, got {}",
+                sort.label
+            );
+        }
+        let artists = ListPageHeadVm::new(
+            ListPageKey::Artists,
+            index_state(ListPageKey::Artists, NodeSorts::Listed, true),
+            None,
+            None,
+        );
+        assert_eq!(artists.letters.expect("letters").letters[0].label, "Z");
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4: the Index lists that the node
+    /// cannot reverse, and the search and playlist pages, keep no reverse
+    /// button, even when the node lists `sort`.
+    #[test]
+    fn adr_0053_r8_only_the_index_lists_reverse_through_the_node() {
+        assert!(ListPageKey::Releases.index_reverses(NodeSorts::Listed));
+        assert!(ListPageKey::Artists.index_reverses(NodeSorts::Listed));
+        assert!(ListPageKey::PublicPlaylists.index_reverses(NodeSorts::Listed));
+        assert!(!ListPageKey::Releases.index_reverses(NodeSorts::NotListed));
+        for key in [
+            ListPageKey::Live,
+            ListPageKey::SavedSearch,
+            ListPageKey::Results,
+            ListPageKey::MyPlaylists,
+        ] {
+            assert!(!key.index_reverses(NodeSorts::Listed), "{key:?}");
+        }
+        for key in [ListPageKey::Live, ListPageKey::SavedSearch] {
+            let state = ListPageState {
+                reversed: true,
+                index_sorts: NodeSorts::Listed,
+                ..ListPageState::default_for(key)
+            };
+            assert!(
+                ListPageHeadVm::new(key, state, None, None)
+                    .reverse
+                    .is_none(),
+                "{key:?}"
+            );
+        }
+        let results = ListPageState {
+            reversed: true,
+            index_sorts: NodeSorts::Listed,
+            ..ListPageState::default_for(ListPageKey::Results)
+        };
+        let head = ListPageHeadVm::for_search(
+            ListPageKey::Results,
+            results,
+            String::new(),
+            ListScope::All,
+            Vec::new(),
+        );
+        assert!(
+            head.reverse.is_none(),
+            "a search page in All has no node reverse"
+        );
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4: the request reverses only in
+    /// the Index lists, and it follows the stored state in every scope. The
+    /// local reverse of an In Library list does not reverse the Index rows.
+    #[test]
+    fn adr_0053_r8_index_request_reverses_by_state_and_local_rows_stay_usual() {
+        let listed = ListPageState {
+            reversed: true,
+            index_sorts: NodeSorts::Listed,
+            scope: Some(ListScope::All),
+            ..ListPageState::default_for(ListPageKey::Releases)
+        };
+        assert!(listed.index_reversed(ListPageKey::Releases));
+        assert!(listed.order_reversed(ListPageKey::Releases, ListScope::All));
+        assert!(
+            !listed.reversed_in(ListPageKey::Releases, ListScope::All),
+            "the Index rows are not reversed a second time"
+        );
+        let in_library = ListPageState {
+            scope: Some(ListScope::InLibrary),
+            ..listed
+        };
+        assert!(
+            in_library.index_reversed(ListPageKey::Releases),
+            "the request follows the state"
+        );
+        assert!(in_library.reversed_in(ListPageKey::Releases, ListScope::InLibrary));
+
+        let unlisted = ListPageState {
+            index_sorts: NodeSorts::NotListed,
+            ..listed
+        };
+        assert!(!unlisted.index_reversed(ListPageKey::Releases));
+        assert!(!unlisted.order_reversed(ListPageKey::Releases, ListScope::All));
+        assert!(!ListPageState::default_for(ListPageKey::Live).index_reversed(ListPageKey::Live));
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4: each list keeps its own reversed
+    /// state, and the node fact reaches each list page.
+    #[test]
+    fn adr_0053_r8_each_index_list_keeps_its_own_reversed_state() {
+        let mut pages = ListPages::default();
+        pages.set_index_sorts(NodeSorts::Listed);
+        pages.set_reversed(ListPageKey::Releases, true);
+        assert!(pages
+            .get(ListPageKey::Releases)
+            .index_reversed(ListPageKey::Releases));
+        assert!(!pages
+            .get(ListPageKey::Artists)
+            .index_reversed(ListPageKey::Artists));
+        assert!(!pages
+            .get(ListPageKey::PublicPlaylists)
+            .index_reversed(ListPageKey::PublicPlaylists));
+        pages.set_reversed(ListPageKey::PublicPlaylists, true);
+        pages.set_reversed(ListPageKey::Releases, false);
+        assert!(pages
+            .get(ListPageKey::PublicPlaylists)
+            .index_reversed(ListPageKey::PublicPlaylists));
+        assert!(!pages
+            .get(ListPageKey::Releases)
+            .index_reversed(ListPageKey::Releases));
+
+        pages.set_index_sorts(NodeSorts::NotListed);
+        assert!(!pages
+            .get(ListPageKey::PublicPlaylists)
+            .order_reversed(ListPageKey::PublicPlaylists, ListScope::All));
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4: the node lists `sort` when its
+    /// capability names contain `sort`. A node that does not list it, or an
+    /// empty list, gives no reverse.
+    #[test]
+    fn adr_0053_r8_node_sorts_reads_the_capability_names() {
+        let names = |values: &[&str]| -> Vec<String> {
+            values.iter().map(|value| (*value).to_owned()).collect()
+        };
+        assert_eq!(
+            NodeSorts::from_capabilities(&names(&["search", "sort"])),
+            NodeSorts::Listed
+        );
+        assert_eq!(
+            NodeSorts::from_capabilities(&names(&["search"])),
+            NodeSorts::NotListed
+        );
+        assert_eq!(NodeSorts::from_capabilities(&[]), NodeSorts::NotListed);
+        assert_eq!(NodeSorts::default(), NodeSorts::NotListed);
     }
 }

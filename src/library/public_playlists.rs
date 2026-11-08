@@ -29,7 +29,7 @@ use crate::presentation::collection_art::collection_art_image;
 use crate::presentation::present_command;
 use crate::ui::composites::letter_bar::LetterHandler;
 use crate::ui::composites::list_page_head::{
-    list_page_head, ListPageHeadHandlers, ListSortHandler, ListViewHandler,
+    list_page_head, ListPageHeadHandlers, ListReverseHandler, ListSortHandler, ListViewHandler,
 };
 use crate::ui::composites::list_row::{menu_cell, row_menu_parts, RowMenu};
 use crate::ui::composites::playlist_popover::{CreateHandler, SelectHandler};
@@ -135,8 +135,14 @@ impl LibraryApp {
             ListSort::AToZ => from,
             ListSort::Newest => None,
         };
-        let command =
-            FetchPublicPlaylistPage::new(self.musicindex_endpoint.clone(), sort, cursor, from);
+        let reverse = self.vm.list_index_reversed(ListPageKey::PublicPlaylists);
+        let command = FetchPublicPlaylistPage::new(
+            self.musicindex_endpoint.clone(),
+            sort,
+            cursor,
+            from,
+            reverse,
+        );
         cx.notify();
         present_command(
             &self.command_runner,
@@ -247,6 +253,12 @@ impl LibraryApp {
                 this.set_list_letter(ListPageKey::PublicPlaylists, Some(letter), cx);
             });
         });
+        let reverse_entity = entity.clone();
+        let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
+            reverse_entity.update(cx, |this, cx| {
+                this.set_list_reversed(ListPageKey::PublicPlaylists, reversed, cx);
+            });
+        });
         let view_entity = entity;
         let on_view: ListViewHandler = Rc::new(move |view, _window, cx| {
             let view = *view;
@@ -261,7 +273,7 @@ impl LibraryApp {
                 select: None,
                 sort: Some(on_sort),
                 view: Some(on_view),
-                reverse: None,
+                reverse: Some(on_reverse),
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
                 actions: Vec::new(),

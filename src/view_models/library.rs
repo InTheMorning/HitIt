@@ -63,7 +63,7 @@ use crate::view_models::library_removal::{
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
 use crate::view_models::list_page::{
-    ListPageHeadVm, ListPageKey, ListPageState, ListPages, ListScope, ListSort, ListView,
+    ListPageHeadVm, ListPageKey, ListPageState, ListPages, ListScope, ListSort, ListView, NodeSorts,
 };
 #[cfg(test)]
 use crate::view_models::list_selection::RowCheckState;
@@ -85,8 +85,9 @@ use crate::view_models::release_row_actions::{
     release_row_menu, ReleaseActionCounts, ReleaseRowActionFacts, ReleaseRowMenuVm, ReleaseRowState,
 };
 use crate::view_models::releases_everything::{
-    self, loaded_index_release_title, recent_release_row, LibraryReleaseEntry, ReleaseOrderKey,
-    ReleasesDownloadPlan, ReleasesListCache, ReleasesListKey, ReleasesListRows, Revision,
+    self, loaded_index_release_title, recent_release_row, LastLoadedDate, LibraryReleaseEntry,
+    ReleaseOrderKey, ReleasesDownloadPlan, ReleasesListCache, ReleasesListKey, ReleasesListRows,
+    Revision,
 };
 use crate::view_models::role_words::{capitalize_first, role_words};
 use crate::view_models::search_field_values::LibraryFieldValues;
@@ -3624,6 +3625,19 @@ impl LibraryViewModel {
         self.list_pages.set_reversed(key, reversed);
     }
 
+    /// Sets whether the node lists `sort` (musicindex ADR 0053 R-LIST-8
+    /// item 4). The reverse button of each Index list follows it.
+    pub(crate) fn set_index_sorts(&mut self, node: NodeSorts) {
+        self.list_pages.set_index_sorts(node);
+    }
+
+    /// Whether the Index request of the list page `key` sends
+    /// `reverse=true` now (musicindex ADR 0053 R-LIST-8 item 4).
+    #[must_use]
+    pub(crate) fn list_index_reversed(&self, key: ListPageKey) -> bool {
+        self.list_pages.get(key).index_reversed(key)
+    }
+
     /// The stored state of the list page `key`.
     #[must_use]
     pub(crate) fn list_page_state(&self, key: ListPageKey) -> ListPageState {
@@ -3919,6 +3933,9 @@ impl LibraryViewModel {
                 page,
                 |key| self.busy.index_release_download_phase(key),
                 |key| self.busy.index_release_failed(key),
+                // The node direction of the Index rows (musicindex ADR 0053
+                // R-LIST-8 item 4). The local reverse does not apply here.
+                self.list_index_reversed(ListPageKey::Releases),
             ),
         }
     }
@@ -3963,6 +3980,8 @@ impl LibraryViewModel {
                 .list_pages
                 .get(ListPageKey::Releases)
                 .reversed_in(ListPageKey::Releases, scope),
+            index_reversed: scope == ListScope::All
+                && self.list_index_reversed(ListPageKey::Releases),
             page: page.revision(),
             // The sort Newest reads the recent pager (ADR 0089 Decision 5).
             recent: (sort == ListSort::Newest).then(|| recent.revision()),
@@ -4037,7 +4056,14 @@ impl LibraryViewModel {
             .get(ListPageKey::Releases)
             .reversed_in(ListPageKey::Releases, scope);
         if sort == ListSort::Newest {
-            return self.newest_releases_rows(scope, recent, reversed);
+            // The node direction of the pager rows applies in the scope All
+            // only (musicindex ADR 0053 R-LIST-8 item 4).
+            let index_reversed = scope == ListScope::All
+                && self
+                    .list_pages
+                    .get(ListPageKey::Releases)
+                    .index_reversed(ListPageKey::Releases);
+            return self.newest_releases_rows(scope, recent, reversed, index_reversed);
         }
         let mut entries = self.releases_list(scope, page, &self.index_feed_singles, expanded);
         // R-LIST-7 item 9: the whole list reverses. A group keeps its singles
@@ -4147,6 +4173,7 @@ impl LibraryViewModel {
         scope: ListScope,
         recent: &RecentFeedsPageVm,
         reversed: bool,
+        index_reversed: bool,
     ) -> ReleasesListRows {
         let tree = &self.snapshot.tree;
         let albums = self.release_album_map();
@@ -4155,9 +4182,33 @@ impl LibraryViewModel {
         if scope == ListScope::All {
             merged.extend(self.newest_pager_rows(recent, &mut seen));
         }
-        merged.sort_by_key(|item| std::cmp::Reverse(item.display.newest_item_at));
-
         let has_more = scope == ListScope::All && recent.has_more();
+        // The date of the last loaded pager row is the watermark of the
+        // reversed list (musicindex ADR 0053 R-LIST-8 item 4).
+        let last_row = recent.loaded_rows().last();
+        let last_loaded = LastLoadedDate::of(
+            last_row.is_some(),
+            last_row.and_then(|(_, display)| display.newest_item_at),
+        );
+        let mut merged = releases_everything::newest_merge_order(
+            merged,
+            |item| item.display.newest_item_at,
+            last_loaded,
+            has_more,
+            index_reversed,
+        );
+        let undated_ids: BTreeSet<String> = merged
+            .iter()
+            .filter(|item| item.display.newest_item_at.is_none())
+            .map(|item| item.row.element_id.clone())
+            .collect();
+        if index_reversed {
+            // The window logic reads the rows newest first, with the rows
+            // that have no date last. The dated rows come oldest first here.
+            let dated = merged.len() - undated_ids.len();
+            merged[..dated].reverse();
+        }
+
         let contents: Vec<ContentListRowDisplay> = merged
             .iter()
             .map(|item| {
@@ -4204,6 +4255,18 @@ impl LibraryViewModel {
         // item, so it keeps its members.
         if reversed {
             items.reverse();
+        }
+        // The window logic reads the rows newest first, so the node reverse
+        // reverses the finished items. A row with no date stays last in both
+        // directions (musicindex ADR 0053 R-LIST-8 item 4).
+        if index_reversed {
+            items.reverse();
+            let (dated, undated): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| {
+                !matches!(item, ReleasesListItemVm::Release(row)
+                    if undated_ids.contains(row.element_id.as_str()))
+            });
+            items = dated;
+            items.extend(undated);
         }
         // ADR 0086 Decision 3 and ADR 0089 packet 005 Part C: a window group
         // has one selection row, whose members are the group's releases.
@@ -4864,10 +4927,15 @@ impl LibraryViewModel {
                 }
                 rows.into_iter().map(|entry| entry.row).collect()
             }
-            ListScope::All => artists_everything::everything_rows(rows, page, &matches)
-                .into_iter()
-                .filter(|row| name_at_or_after(&row.label, page.from()))
-                .collect(),
+            ListScope::All => {
+                // The node direction of the Index rows (musicindex ADR 0053
+                // R-LIST-8 item 4). The local reverse does not apply here.
+                let reversed = self.list_index_reversed(ListPageKey::Artists);
+                artists_everything::everything_rows(rows, page, &matches, reversed)
+                    .into_iter()
+                    .filter(|row| name_at_or_after(&row.label, page.from(), reversed))
+                    .collect()
+            }
         }
     }
 

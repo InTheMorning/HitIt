@@ -62,6 +62,9 @@ pub(crate) struct FetchReleaseNamePage {
     /// The `from` text of the list, or `None` for the first row (ADR 0089
     /// Decision 6, the letter bar).
     from: Option<String>,
+    /// Whether the request sends `reverse=true` (musicindex ADR 0053
+    /// R-LIST-8 item 4).
+    reverse: bool,
     /// The rows of a page whose name list request had an answer before.
     /// "Try again" sends them again, and the command sends no name list
     /// request (packet 026 decision D10).
@@ -76,17 +79,19 @@ pub(crate) struct FetchReleaseNamePage {
 
 impl FetchReleaseNamePage {
     /// Creates the command for the page at `cursor` of the list that starts
-    /// at `from`. `None` asks for page 1.
+    /// at `from`. `None` asks for page 1. `reverse` gives the reversed order.
     #[must_use]
     pub(crate) fn new(
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
         cursor: Option<String>,
         from: Option<String>,
+        reverse: bool,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             cursor,
             from,
+            reverse,
             pending: None,
             library_feeds: Vec::new(),
             known_feeds: BTreeSet::new(),
@@ -102,7 +107,7 @@ impl FetchReleaseNamePage {
     ) -> Self {
         Self {
             pending: Some(pending),
-            ..Self::new(endpoint, None, None)
+            ..Self::new(endpoint, None, None, false)
         }
     }
 
@@ -151,6 +156,7 @@ impl ApplicationCommand for FetchReleaseNamePage {
                     self.from.as_deref(),
                     FeedMedium::Music,
                     &INDEX_RELEASE_NAME_LIST,
+                    self.reverse,
                 )
                 .map_err(|error| CommandError::Query(format!("{error:#}")))?;
             IndexNameListBatch {
@@ -296,21 +302,26 @@ pub(crate) struct FetchArtistNamePage {
     /// The `from` text of the list, or `None` for the first row (ADR 0089
     /// Decision 6, the letter bar).
     from: Option<String>,
+    /// Whether the request sends `reverse=true` (musicindex ADR 0053
+    /// R-LIST-8 item 4).
+    reverse: bool,
 }
 
 impl FetchArtistNamePage {
     /// Creates the command for the page at `cursor` of the list that starts
-    /// at `from`. `None` asks for page 1.
+    /// at `from`. `None` asks for page 1. `reverse` gives the reversed order.
     #[must_use]
     pub(crate) fn new(
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
         cursor: Option<String>,
         from: Option<String>,
+        reverse: bool,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             cursor,
             from,
+            reverse,
         }
     }
 }
@@ -328,6 +339,7 @@ impl ApplicationCommand for FetchArtistNamePage {
                 self.cursor.as_deref(),
                 self.from.as_deref(),
                 &INDEX_ARTIST_NAME_LIST,
+                self.reverse,
             )
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
         Ok(CommandOutcome::without_events(IndexNameListBatch {
@@ -372,6 +384,7 @@ impl ApplicationCommand for FetchArtistNameValues {
                 None,
                 Some(&self.key),
                 &INDEX_FIELD_LIST_ARTIST_NAMES,
+                false,
             )
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
         Ok(CommandOutcome::without_events(response.data))
@@ -439,7 +452,7 @@ mod tests {
         .to_string();
         let (endpoint, requests) = serve(body, 1);
 
-        let batch = FetchArtistNamePage::new(endpoint, Some("abc".to_owned()), None)
+        let batch = FetchArtistNamePage::new(endpoint, Some("abc".to_owned()), None, false)
             .execute(&CommandContext::next())
             .unwrap()
             .into_parts()
@@ -515,7 +528,7 @@ mod tests {
         .to_string();
         let (endpoint, requests) = serve(body, 1);
 
-        let batch = FetchReleaseNamePage::new(endpoint, None, None)
+        let batch = FetchReleaseNamePage::new(endpoint, None, None, false)
             .execute(&CommandContext::next())
             .unwrap()
             .into_parts()
@@ -734,7 +747,7 @@ mod tests {
         // The page, eight new feeds and one Library feed.
         let (endpoint, requests, running) = serve_routes(answer, 10);
 
-        let load = FetchReleaseNamePage::new(endpoint, None, None)
+        let load = FetchReleaseNamePage::new(endpoint, None, None, false)
             .with_feeds(
                 vec!["library-feed".to_owned(), "known-feed".to_owned()],
                 BTreeSet::from(["known-feed".to_owned()]),
@@ -817,5 +830,56 @@ mod tests {
             *requests.lock().unwrap(),
             ["/v1/feeds/recent?named_feed_guid=feed-b&limit=200&include=named_feeds"]
         );
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4: a reversed artist name load sends
+    /// `reverse=true` on each page, with the cursor of the page before.
+    #[test]
+    fn adr_0053_r8_reversed_artist_pages_send_reverse_with_each_cursor() {
+        let body = serde_json::json!({
+            "data": [],
+            "pagination": {"cursor": "next-cursor", "has_more": true}
+        })
+        .to_string();
+        let (endpoint, requests) = serve(body, 2);
+
+        let first = FetchArtistNamePage::new(endpoint.clone(), None, None, true)
+            .execute(&CommandContext::next())
+            .unwrap()
+            .into_parts()
+            .0;
+        FetchArtistNamePage::new(endpoint, first.cursor.clone(), None, true)
+            .execute(&CommandContext::next())
+            .unwrap();
+
+        let paths = requests.lock().unwrap().clone();
+        assert_eq!(paths.len(), 2);
+        assert!(
+            paths.iter().all(|path| path.contains("reverse=true")),
+            "{paths:?}"
+        );
+        assert!(paths[1].contains("cursor=next-cursor"), "{paths:?}");
+    }
+
+    /// musicindex ADR 0053 R-LIST-8 item 4: a reversed release name load
+    /// sends `reverse=true` on the by-name request.
+    #[test]
+    fn adr_0053_r8_reversed_release_page_sends_reverse() {
+        let body = serde_json::json!({
+            "data": [],
+            "pagination": {"cursor": null, "has_more": false}
+        })
+        .to_string();
+        let (endpoint, requests) = serve(body, 1);
+
+        FetchReleaseNamePage::new(endpoint, None, Some("m".to_owned()), true)
+            .execute(&CommandContext::next())
+            .unwrap();
+
+        let paths = requests.lock().unwrap().clone();
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].starts_with("/v1/feeds/by-name?"), "{paths:?}");
+        assert!(paths[0].contains("reverse=true"), "{paths:?}");
+        assert!(paths[0].contains("from=m"), "{paths:?}");
     }
 }

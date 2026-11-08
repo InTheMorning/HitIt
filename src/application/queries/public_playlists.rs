@@ -33,23 +33,29 @@ pub(crate) struct FetchPublicPlaylistPage {
     /// The `from` text of the letter, or `None` for the first row. The
     /// sort Newest gives no `from`.
     from: Option<String>,
+    /// Whether the request sends `reverse=true` (musicindex ADR 0053
+    /// R-LIST-8 item 4).
+    reverse: bool,
 }
 
 impl FetchPublicPlaylistPage {
     /// Creates the command for the page at `cursor` of the list in `sort`.
-    /// `from` starts the sort A to Z at a letter.
+    /// `from` starts the sort A to Z at a letter. `reverse` gives the
+    /// reversed order of the sort.
     #[must_use]
     pub(crate) fn new(
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
         sort: ListSort,
         cursor: Option<String>,
         from: Option<String>,
+        reverse: bool,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             sort,
             cursor,
             from,
+            reverse,
         }
     }
 }
@@ -69,6 +75,7 @@ impl ApplicationCommand for FetchPublicPlaylistPage {
                         Some(PUBLIC_PLAYLIST_PAGE_LIMIT),
                         self.cursor.as_deref(),
                         FeedMedium::MusicL,
+                        self.reverse,
                     )
                     .map_err(|error| CommandError::Query(format!("{error:#}")))?;
                 IndexNameListBatch {
@@ -86,6 +93,7 @@ impl ApplicationCommand for FetchPublicPlaylistPage {
                         self.from.as_deref(),
                         FeedMedium::MusicL,
                         &INDEX_PUBLIC_PLAYLIST_LIST,
+                        self.reverse,
                     )
                     .map_err(|error| CommandError::Query(format!("{error:#}")))?;
                 IndexNameListBatch {

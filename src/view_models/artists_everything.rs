@@ -247,11 +247,16 @@ pub(crate) fn index_artist_row(row: &ArtistNameRow) -> DestinationListRowVm {
 /// - A `MusicIndex` name row whose key matches exactly one Library artist
 ///   feed gives no row (ADR 0084 Decision 7, "Matched by name", packet 017
 ///   decision D14). `matches` comes from the Library tree only.
+/// - With `reversed`, the node lists its rows in the other direction
+///   (musicindex ADR 0053 R-LIST-8 item 4). The rows then come in the
+///   reverse order, and a row shows only at or after the last loaded
+///   `MusicIndex` row.
 #[must_use]
 pub(crate) fn everything_rows(
     library: Vec<LibraryArtistRow>,
     page: &IndexNameListPage<ArtistNameRow>,
     matches: &NameFeedMatches,
+    reversed: bool,
 ) -> Vec<DestinationListRowVm> {
     // ADR 0089 Decision 5: while page 1 loads, the Library rows show at
     // once. The page has no row yet, so no `MusicIndex` row shows.
@@ -278,9 +283,19 @@ pub(crate) fn everything_rows(
     let mut rows: Vec<LibraryArtistRow> = library
         .into_iter()
         .chain(index_rows)
-        .filter(|entry| watermark_shows(&entry.order, last_loaded.as_ref(), page.has_more()))
+        .filter(|entry| {
+            watermark_shows(
+                &entry.order,
+                last_loaded.as_ref(),
+                page.has_more(),
+                reversed,
+            )
+        })
         .collect();
     rows.sort_by(|left, right| left.order.cmp(&right.order));
+    if reversed {
+        rows.reverse();
+    }
     rows.into_iter().map(|entry| entry.row).collect()
 }
 
@@ -288,6 +303,7 @@ pub(crate) fn everything_rows(
 mod tests {
     use super::*;
     use crate::view_models::index_name_list::IndexNameListBatch;
+    use crate::view_models::letter_bar::name_at_or_after;
 
     /// The recorded rows of `GET /v1/artist-names?include=link_facts` on
     /// 2026-10-20, with the fields that the classification reads.
@@ -379,7 +395,12 @@ mod tests {
             IndexArtistClass::NotNamedFirst
         );
 
-        let rows = everything_rows(Vec::new(), &loaded(recorded_rows(), false), &no_match());
+        let rows = everything_rows(
+            Vec::new(),
+            &loaded(recorded_rows(), false),
+            &no_match(),
+            false,
+        );
         let labels: Vec<&str> = rows.iter().map(|row| row.label.as_str()).collect();
         assert_eq!(labels, ["$2 Holla", "Motive to Kill", "Night Owl"]);
         for row in &rows {
@@ -416,6 +437,7 @@ mod tests {
             library.clone(),
             &loaded(recorded_rows(), false),
             &no_match(),
+            false,
         );
         let labels: Vec<&str> = all.iter().map(|row| row.label.as_str()).collect();
         assert_eq!(
@@ -434,6 +456,7 @@ mod tests {
             library,
             &loaded(recorded_rows()[..2].to_vec(), true),
             &no_match(),
+            false,
         );
         let labels: Vec<&str> = partial.iter().map(|row| row.label.as_str()).collect();
         assert_eq!(
@@ -441,6 +464,46 @@ mod tests {
             ["$2 HOLLA", "Motive to Kill", "Motive to Kill (Library)"],
             "a row after the last loaded MusicIndex row waits for its page"
         );
+    }
+
+    /// Musicindex ADR 0053 R-LIST-8 item 4: with the node reverse, the merge
+    /// comes Z to A, `from` runs down from the last key that starts with
+    /// it, and the watermark compares the other way. A Library row below
+    /// the last loaded `MusicIndex` row waits, and shows once it is loaded.
+    #[test]
+    fn adr_0053_r8_artists_merge_reverses_with_the_node() {
+        let library = vec![
+            library_row("Zed", ArtistOrderKey::name("zed".to_owned())),
+            library_row("!Aaa", ArtistOrderKey::name("!aaa".to_owned())),
+        ];
+        let rows = recorded_rows();
+        let reversed_page = |has_more| {
+            loaded(
+                vec![rows[4].clone(), rows[1].clone(), rows[0].clone()],
+                has_more,
+            )
+        };
+        let labels = |rows: Vec<DestinationListRowVm>| -> Vec<String> {
+            rows.into_iter().map(|row| row.label).collect()
+        };
+
+        let partial = everything_rows(library.clone(), &reversed_page(true), &no_match(), true);
+        assert_eq!(
+            labels(partial),
+            ["Zed", "Night Owl", "Motive to Kill", "$2 Holla"],
+            "the row below the last loaded row waits for its page"
+        );
+        let complete = everything_rows(library, &reversed_page(false), &no_match(), true);
+        assert_eq!(
+            labels(complete),
+            ["Zed", "Night Owl", "Motive to Kill", "$2 Holla", "!Aaa"],
+            "the row shows once its position is loaded"
+        );
+
+        assert!(name_at_or_after("Night Owl", Some("n"), true));
+        assert!(name_at_or_after("!Aaa", Some("n"), true));
+        assert!(!name_at_or_after("Zed", Some("n"), true));
+        assert!(name_at_or_after("Zed", Some("n"), false));
     }
 
     /// R16-10: the text and the target of the `MusicIndex` rows (decisions
@@ -480,12 +543,12 @@ mod tests {
         let mut page = IndexNameListPage::<ArtistNameRow>::default();
         let intent = page.begin_load(false).unwrap();
         assert_eq!(
-            everything_rows(library.clone(), &page, &no_match()).len(),
+            everything_rows(library.clone(), &page, &no_match(), false).len(),
             1
         );
 
         page.fail_load("connection refused", intent.generation);
-        let rows = everything_rows(library, &page, &no_match());
+        let rows = everything_rows(library, &page, &no_match(), false);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].label, "Zed");
     }

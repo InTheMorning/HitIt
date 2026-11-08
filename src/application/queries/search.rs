@@ -171,6 +171,7 @@ fn fetch_name_level_releases(
             None,
             crate::api::FeedMedium::Music,
             &crate::application::request_profiles::INDEX_NAME_LEVEL_RELEASES,
+            false,
         )?;
         releases.extend(response.data.into_iter().filter_map(|feed| {
             let feed_guid = non_empty_string(feed.feed_guid)?;
@@ -210,6 +211,7 @@ fn index_name_row_exists(client: &crate::api::Client, key: &str) -> bool {
         None,
         Some(key),
         &crate::application::request_profiles::INDEX_ARTIST_NAME_CHECK,
+        false,
     ) {
         Ok(response) => response
             .data

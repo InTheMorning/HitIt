@@ -282,6 +282,10 @@ pub struct LibraryApp {
     tag_update_request_failed: bool,
     /// Existing Recent Feeds pager consumed by the default Music content region.
     recent_music_page: RecentFeedsPageVm,
+    /// Whether the app asked the node for its sort capability (musicindex ADR
+    /// 0053 R-LIST-8 item 4). The app asks once per session, until a read
+    /// answers.
+    index_sorts_requested: bool,
     /// The scroll of the Inbox list (ADR 0089 Decision 3). The Library holds
     /// it, so the offset survives a page opened over the list.
     inbox_scroll: ScrollHandle,
