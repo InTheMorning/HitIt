@@ -16,6 +16,7 @@ use gpui_component::input::{Input, InputState};
 use gpui_component::WindowExt;
 
 use crate::library::LibraryApp;
+use crate::ui::composites::content_tile::tile_text_line;
 use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::selectable_tile::SelectableTile;
@@ -31,7 +32,6 @@ use crate::ui::shells::library::destination_lists::{
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
-use crate::ui::shells::library::releases_tiles::tile_text_line;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor, Size};
 use crate::view_models::collection_art::CollectionKind;

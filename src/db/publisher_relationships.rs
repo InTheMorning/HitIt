@@ -310,6 +310,33 @@ pub(crate) fn local_albums_for_publisher(
     Ok(rows)
 }
 
+/// The newest item publish date of the Library feed `feed_id`, as a Unix
+/// time, or `None` when no stored track states a date (musicindex ADR 0053
+/// R-LIST-9 item 1). The column `tracks.pub_date` holds the RSS date text of
+/// each item, so the maximum is taken after the parse, not in SQL. A track
+/// that the feed removed does not count.
+///
+/// # Errors
+///
+/// Returns an error when the database read fails.
+pub(crate) fn newest_track_date(conn: &Connection, feed_id: i64) -> Result<Option<i64>> {
+    let mut statement = conn
+        .prepare(
+            "SELECT pub_date FROM tracks
+             WHERE feed_id = ?1 AND removed_from_feed_at IS NULL AND pub_date IS NOT NULL",
+        )
+        .context("Prepare newest track date read")?;
+    let dates = statement
+        .query_map(params![feed_id], |row| row.get::<_, Option<String>>(0))
+        .context("Query newest track date")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("Read newest track date")?;
+    Ok(dates
+        .iter()
+        .filter_map(|text| super::parse_local_track_pub_date(text.as_deref()))
+        .max())
+}
+
 /// The named feeds of one Library album, in their RSS sequence (ADR 0085
 /// Decision 6).
 ///
@@ -1692,5 +1719,44 @@ mod tests {
             0,
             "the same value changes no row"
         );
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 item 1: the newest date of an album feed
+    /// is the maximum after the parse of the RSS date text of its tracks. A
+    /// removed track and an unreadable date do not count. A feed with no
+    /// date gives `None`.
+    #[test]
+    fn adr_0053_r9_section_newest_track_date_reads_the_parsed_maximum() {
+        let conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, CURRENT_VERSION).unwrap();
+        for id in [1, 2] {
+            conn.execute(
+                "INSERT INTO feeds(id, feed_url, feed_guid, title) VALUES (?1, ?2, ?3, 'Album')",
+                params![
+                    id,
+                    format!("https://example.test/{id}.xml"),
+                    format!("f{id}")
+                ],
+            )
+            .unwrap();
+        }
+        let track = |feed: i64, guid: &str, date: Option<&str>, removed: bool| {
+            conn.execute(
+                "INSERT INTO tracks(feed_id, item_guid, track_title, pub_date, removed_from_feed_at)
+                 VALUES (?1, ?2, 'T', ?3, ?4)",
+                params![feed, guid, date, removed.then_some(1_i64)],
+            )
+            .unwrap();
+        };
+        track(1, "a", Some("Mon, 01 Jan 2024 00:00:00 +0000"), false);
+        track(1, "b", Some("Tue, 02 Jan 2024 00:00:00 +0000"), false);
+        track(1, "c", Some("Wed, 03 Jan 2024 00:00:00 +0000"), true);
+        track(1, "d", Some("not a date"), false);
+        track(2, "e", None, false);
+        let expected = chrono::DateTime::parse_from_rfc2822("Tue, 02 Jan 2024 00:00:00 +0000")
+            .unwrap()
+            .timestamp();
+        assert_eq!(newest_track_date(&conn, 1).unwrap(), Some(expected));
+        assert_eq!(newest_track_date(&conn, 2).unwrap(), None);
     }
 }

@@ -986,8 +986,9 @@ impl ListBarVm {
 
 /// `true` for each page kind whose list bar sits above its rows (ADR 0090
 /// Decision 1). Such a page has no frame header action and no bottom bar.
-/// The release page is the second kind. The other pages keep their header
-/// action and their bottom bar until their phase plan packet.
+/// The release page, the feed page and the name level page are the other
+/// kinds. The other pages keep their header action and their bottom bar
+/// until their phase plan packet.
 #[must_use]
 pub(crate) const fn has_list_bar(entry: &FrameNavigationEntry) -> bool {
     matches!(
@@ -995,6 +996,8 @@ pub(crate) const fn has_list_bar(entry: &FrameNavigationEntry) -> bool {
         FrameNavigationEntry::SinglesGroup(_)
             | FrameNavigationEntry::WindowGroup(_)
             | FrameNavigationEntry::Release(_)
+            | FrameNavigationEntry::PublisherDetail(_)
+            | FrameNavigationEntry::ArtistName(_)
     )
 }
 
@@ -1212,6 +1215,7 @@ pub(crate) fn search_track_rows(
 mod tests {
     use super::*;
     use crate::view_models::artist_identity::ArtistIdentity;
+    use crate::view_models::list_page::ListView;
     use crate::view_models::list_selection::RowCheckState;
     use crate::view_models::publisher_page::{PublisherPageAlbumVm, ReleaseRowOpenAction};
     use crate::view_models::selection_action_bar::SelectionActionKind;
@@ -1285,6 +1289,7 @@ mod tests {
             selection: RowSelectionVm::none(),
             kind: crate::view_models::release_kind::ReleaseKind::Album,
             menu: None,
+            date: None,
         }
     }
 
@@ -1394,6 +1399,8 @@ mod tests {
                 rows: vec![feed_row("r1", "Haleen")],
                 note: None,
                 status: None,
+                controls: None,
+                view: ListView::Rows,
             }],
             |_| None,
         ));
@@ -1502,6 +1509,8 @@ mod tests {
                 rows: vec![feed_row("r1", "Haleen")],
                 note: None,
                 status: None,
+                controls: None,
+                view: ListView::Rows,
             }],
             |_| None,
         ));
@@ -1641,9 +1650,10 @@ mod tests {
         );
     }
 
-    /// ADR 0090 Decision 1: the singles group page, the window group page
-    /// and the release page have the list bar. The other pages keep their
-    /// bottom bar and their header action.
+    /// ADR 0090 Decisions 1 and 2: the singles group page, the window group
+    /// page, the release page, the feed page and the name level page have the
+    /// list bar. The other pages keep their bottom bar and their header
+    /// action.
     #[test]
     fn adr_0090_the_group_and_release_pages_have_the_list_bar() {
         let singles = FrameNavigationEntry::SinglesGroup(SinglesGroupKey(ArtistIdentity::Name(
@@ -1664,8 +1674,11 @@ mod tests {
         )));
         assert!(has_list_bar(&release_entry()));
         assert!(!has_list_bar(&FrameNavigationEntry::PlaylistDetail(3)));
-        assert!(!has_list_bar(&FrameNavigationEntry::PublisherDetail(
+        assert!(has_list_bar(&FrameNavigationEntry::PublisherDetail(
             "feed-artist".to_owned()
+        )));
+        assert!(has_list_bar(&FrameNavigationEntry::ArtistName(
+            crate::view_models::artist_identity::ArtistNameKey::from_text("Haleen")
         )));
     }
 
@@ -1755,6 +1768,77 @@ mod tests {
         }
     }
 
+    /// The two sections of a feed page, with one release each.
+    fn two_feed_sections() -> Vec<PublisherPageSectionVm> {
+        let section = |heading: &str, guid: &str, title: &str| PublisherPageSectionVm {
+            heading: heading.to_owned(),
+            rows: vec![feed_row(guid, title)],
+            note: None,
+            status: None,
+            controls: None,
+            view: ListView::Rows,
+        };
+        vec![
+            section("Albums", "album-1", "First Album"),
+            section("Singles", "single-1", "First Single"),
+        ]
+    }
+
+    /// ADR 0090 task 004: the feed page and the name level page have a list
+    /// bar with the mode action and no sort control. A page with no
+    /// selectable release has no bar.
+    #[test]
+    fn adr_0090_task_004_feed_page_list_bar_has_no_sort_controls_and_needs_a_release() {
+        let sections = two_feed_sections();
+        let rows = DetailPageRows::Releases(feed_page_release_rows(&sections, |_| None));
+        let bar = ListBarVm::new(&rows, &DetailSelection::new())
+            .expect("a feed page with releases has the list bar");
+        assert_eq!(bar.mode_action.label, "Select");
+        assert_eq!(bar.mode_action.a11y_label, "Select releases");
+        assert!(
+            bar.controls.is_none(),
+            "the sections hold the sort controls"
+        );
+
+        let mut unkeyed = feed_row("no-key", "No key");
+        unkeyed.open = None;
+        let section = PublisherPageSectionVm {
+            heading: "Albums".to_owned(),
+            rows: vec![unkeyed],
+            note: None,
+            status: None,
+            controls: None,
+            view: ListView::Rows,
+        };
+        let rows = DetailPageRows::Releases(feed_page_release_rows(&[section], |_| None));
+        assert!(ListBarVm::new(&rows, &DetailSelection::new()).is_none());
+        let empty = DetailPageRows::Releases(Vec::new());
+        assert!(ListBarVm::new(&empty, &DetailSelection::new()).is_none());
+    }
+
+    /// ADR 0090 task 004: a selection spans all sections of the page, and the
+    /// list bar gives the actions of the bottom bar of the page.
+    #[test]
+    fn adr_0090_task_004_list_bar_selection_spans_the_sections_with_the_bottom_bar_actions() {
+        let sections = two_feed_sections();
+        let rows = DetailPageRows::Releases(feed_page_release_rows(&sections, |_| None));
+        let mut selection = DetailSelection::new();
+        selection.toggle_mode();
+        selection.toggle_row(&DetailRowKey::Release(release_key("album-1")));
+        selection.toggle_row(&DetailRowKey::Release(release_key("single-1")));
+
+        let bar = ListBarVm::new(&rows, &selection).expect("the page has the list bar");
+        assert_eq!(bar.mode_action.label, "Done");
+        let actions = bar.selection.expect("Selecting shows the actions");
+        assert_eq!(
+            Some(&actions),
+            rows.action_bar(&selection).as_ref(),
+            "the bar gives the actions of the bottom bar"
+        );
+        assert_eq!(actions.count_label, "2 releases selected");
+        assert!(actions.action(SelectionActionKind::Download).is_some());
+    }
+
     /// R18-05: the track bar. "Download" counts only the tracks that are
     /// not downloaded, "Add to playlist" only the Library tracks, and
     /// "Remove" only the downloaded tracks. Each is absent with a count of
@@ -1833,6 +1917,8 @@ mod tests {
             ],
             note: None,
             status: None,
+            controls: None,
+            view: ListView::Rows,
         }];
         let rows = DetailPageRows::Releases(feed_page_release_rows(&sections, |key| {
             (key == &release_key("library")).then_some(library_facts(9, true))

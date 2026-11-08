@@ -62,10 +62,14 @@ pub(crate) fn render_publisher_page(
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
     header_art: CollectionArtImage,
     on_open_publisher: impl Fn(&str, &mut Window, &mut App) + 'static,
-    rows: &ReleaseSectionRows,
+    mut rows: ReleaseSectionRows,
     cx: &App,
 ) -> AnyElement {
     let on_open_publisher: OpenPublisherCallback = Rc::new(on_open_publisher);
+    // ADR 0090 task 004: the list bar sits after the header and the notice,
+    // and before the first section. Its pinned copy overlays the rows.
+    let list_bar = rows.list_bar.take();
+    let pinned_list_bar = rows.pinned_list_bar.take();
     let container = div()
         .id("publisher-page")
         .flex()
@@ -78,7 +82,14 @@ pub(crate) fn render_publisher_page(
             page_scroll_content(cx)
                 .gap(Spacing::LG.scaled(cx))
                 .child(render_header(vm, header_art))
-                .child(render_sections(vm, context, album_thumbs, rows, cx))
+                .child(render_sections(
+                    vm,
+                    context,
+                    album_thumbs,
+                    list_bar,
+                    &rows,
+                    cx,
+                ))
                 .when_some(
                     render_shares_albums_with(vm.shares_albums_with(), &on_open_publisher, cx),
                     ParentElement::child,
@@ -86,7 +97,7 @@ pub(crate) fn render_publisher_page(
         );
     // ADR 0084 packet 018: the page holds the scroll handle of the detail
     // column, so a key can keep the focused row in view.
-    music_column_tracked_scrollbar(container, &rows.scroll, None)
+    music_column_tracked_scrollbar(container, &rows.scroll, pinned_list_bar)
 }
 
 /// The entity kind of a header role (musicindex ADR 0033 R-WORD-3). The view
@@ -140,6 +151,7 @@ fn render_sections(
     vm: &PublisherPageVm,
     context: PublisherPageContext,
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
+    list_bar: Option<AnyElement>,
     rows: &ReleaseSectionRows,
     cx: &App,
 ) -> AnyElement {
@@ -150,6 +162,7 @@ fn render_sections(
             body = body.child(unavailable_notice(report, &detail, cx));
         }
     }
+    body = body.children(list_bar);
     for section in &rows.sections {
         body = body.child(render_release_section(section, album_thumbs, rows, cx));
     }

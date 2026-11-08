@@ -210,7 +210,8 @@ impl LibraryApp {
             | ListPageKey::SinglesGroup
             | ListPageKey::WindowGroup
             | ListPageKey::ReleaseTracks
-            | ListPageKey::PublicPlaylistItems => {}
+            | ListPageKey::PublicPlaylistItems
+            | ListPageKey::ReleaseSection => {}
         }
     }
 
@@ -315,7 +316,8 @@ impl LibraryApp {
             | ListPageKey::SinglesGroup
             | ListPageKey::WindowGroup
             | ListPageKey::ReleaseTracks
-            | ListPageKey::PublicPlaylistItems => {}
+            | ListPageKey::PublicPlaylistItems
+            | ListPageKey::ReleaseSection => {}
         }
     }
 
@@ -354,7 +356,8 @@ impl LibraryApp {
             | ListPageKey::SinglesGroup
             | ListPageKey::WindowGroup
             | ListPageKey::ReleaseTracks
-            | ListPageKey::PublicPlaylistItems => {}
+            | ListPageKey::PublicPlaylistItems
+            | ListPageKey::ReleaseSection => {}
         }
     }
 

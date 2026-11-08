@@ -21,16 +21,21 @@ use gpui::{
 use crate::ui::composites::music_column_scroll::ScrollReveal;
 use crate::ui::composites::release_download_state::render_release_download_state;
 use crate::ui::composites::release_row_menu::{release_row_menu, ReleaseRowMenuContext};
+use crate::ui::composites::release_section_controls::{
+    render_release_tiles, render_section_heading_with_controls,
+};
 use crate::ui::composites::{
     EntityKind, ListRow, ListRowA11yLabel, TagBadge, TagBadgeDisplay, Thumbnail, ThumbnailSize,
 };
 use crate::ui::primitives::{Checkbox, CheckboxState, Label, LabelVariant, SectionHeader};
 use crate::ui::tokens::{color, Radius, SemanticColor, Spacing};
+use crate::view_models::list_page::ListView;
 use crate::view_models::list_selection::RowCheckState;
 use crate::view_models::name_level_page::ReleaseListStatus;
 use crate::view_models::publisher_page::{
     PublisherPageAlbumVm, PublisherPageSectionVm, TitleDisplay,
 };
+use crate::view_models::release_section_order::{ReleaseSectionCommand, ReleaseSectionId};
 use crate::view_models::workspace::ReleaseKey;
 
 /// A click on a release row (ADR 0085 Decision 7 design, ADR 0084 packet
@@ -42,6 +47,12 @@ pub(crate) type ClickReleaseCallback =
 
 /// A click on the checkbox of a release row (ADR 0084 packet 018).
 pub(crate) type ToggleReleaseCallback = Rc<dyn Fn(&ReleaseKey, &mut Window, &mut App)>;
+
+/// A command of a section heading, with the id of its section (musicindex
+/// ADR 0053 R-LIST-9). The app layer sets the state of the section and
+/// builds the page again in place.
+pub(crate) type SectionCommandCallback =
+    Rc<dyn Fn(&ReleaseSectionId, ReleaseSectionCommand, &mut Window, &mut App)>;
 
 /// The release rows of a page in the Music detail column, with their
 /// selection facts (ADR 0084 Decision 10, packet 018). The app layer sets
@@ -60,6 +71,14 @@ pub(crate) struct ReleaseSectionRows {
     /// The context of the release row menus (ADR 0084 task 031). The app
     /// layer sets `PublisherPageAlbumVm::menu` on each row.
     pub(crate) menu: ReleaseRowMenuContext,
+    /// A command of a section heading (musicindex ADR 0053 R-LIST-9).
+    pub(crate) on_section_command: SectionCommandCallback,
+    /// The list bar above the first section (ADR 0090 task 004). `None`
+    /// when the page has no selectable release. The page shell takes it.
+    pub(crate) list_bar: Option<AnyElement>,
+    /// The pinned copy of the list bar, once the bar has scrolled above the
+    /// viewport (ADR 0090 Decision 5). The page shell takes it.
+    pub(crate) pinned_list_bar: Option<AnyElement>,
 }
 
 /// One section, with its heading, its note, its status and its release
@@ -71,11 +90,20 @@ pub(crate) fn render_release_section(
     rows: &ReleaseSectionRows,
     cx: &App,
 ) -> AnyElement {
+    let heading = match section.controls.clone() {
+        Some(controls) => render_section_heading_with_controls(
+            &section.heading,
+            controls,
+            &rows.on_section_command,
+            cx,
+        ),
+        None => SectionHeader::new(section.heading.clone()).into_any_element(),
+    };
     let mut body = div()
         .flex()
         .flex_col()
         .gap(Spacing::XS.scaled(cx))
-        .child(SectionHeader::new(section.heading.clone()));
+        .child(heading);
     if let Some(note) = section.note {
         body = body.child(
             Label::new(note)
@@ -86,7 +114,11 @@ pub(crate) fn render_release_section(
     if let Some(status) = &section.status {
         body = body.child(render_release_list_status(status, cx));
     }
-    body.child(
+    // Musicindex ADR 0053 R-LIST-9: the Tiles view draws the same rows as
+    // tiles, in the same order.
+    let entries = if section.view == ListView::Tiles {
+        render_release_tiles(&section.rows, &section.heading, album_thumbs, rows, cx)
+    } else {
         div()
             .flex()
             .flex_col()
@@ -96,9 +128,10 @@ pub(crate) fn render_release_section(
                     .rows
                     .iter()
                     .map(|row| render_release_row(row, &section.heading, album_thumbs, rows, cx)),
-            ),
-    )
-    .into_any_element()
+            )
+            .into_any_element()
+    };
+    body.child(entries).into_any_element()
 }
 
 /// The status of the `MusicIndex` part of a release list. A failure shows

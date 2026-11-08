@@ -19,6 +19,7 @@
 use crate::api::{AlbumNamesAs, PublisherLinkResolution, RoleAgreement};
 use crate::view_models::artist_identity::ArtistNameKey;
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
+use crate::view_models::list_page::ListView;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::name_level_page::{
     name_level_rows, NameLevelIndexState, NameLevelLibraryRelease, ReleaseListStatus,
@@ -26,6 +27,7 @@ use crate::view_models::name_level_page::{
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::release_row_actions::ReleaseRowMenuVm;
+use crate::view_models::release_section_order::ReleaseSectionControlsVm;
 use crate::view_models::role_words::{
     capitalize_first, role_contains_artist, role_list_text, role_words, stated_sides_text,
 };
@@ -98,6 +100,11 @@ pub(crate) struct PublisherPageAlbumFact {
     pub(crate) track_count: Option<i64>,
     /// `true` when the two feeds name each other (ADR 0085 Decision 2).
     pub(crate) two_way_validated: Option<bool>,
+    /// The newest item publish date of the album feed, as a Unix time. A
+    /// Library row has it when a stored track states a date. An Index row has
+    /// none, because the response gives no date (musicindex ADR 0053 R-LIST-9
+    /// item 1).
+    pub(crate) newest_date: Option<i64>,
 }
 
 /// The raw facts one feed page query gathers. [`PublisherPageVm`] turns
@@ -254,6 +261,10 @@ pub(crate) struct PublisherPageAlbumVm {
     /// 031). The view model gives `None`. The app layer sets the menu of
     /// `release_row_menu` before it renders.
     pub(crate) menu: Option<ReleaseRowMenuVm>,
+    /// The date that the order Newest uses, as a Unix time. `None` when the
+    /// source gives no date. A section offers Newest only when each of its
+    /// rows has one (musicindex ADR 0053 R-LIST-9 item 1).
+    pub(crate) date: Option<i64>,
 }
 
 impl PublisherPageAlbumVm {
@@ -296,6 +307,14 @@ pub(crate) struct PublisherPageSectionVm {
     /// The status of the `MusicIndex` part of the section. Only the
     /// section "Matched by name" has one.
     pub(crate) status: Option<ReleaseListStatus>,
+    /// The control at the right end of the heading: the sort menu, the view
+    /// icons and the reverse icon (musicindex ADR 0053 R-LIST-9). `None`
+    /// below `SECTION_CONTROL_MIN_ROWS` rows. [`PublisherPageVm::sections`]
+    /// gives `None`, and `order_release_sections` sets it.
+    pub(crate) controls: Option<ReleaseSectionControlsVm>,
+    /// The view of the rows. The view model gives `Rows`, and
+    /// `order_release_sections` sets the view of a section that has controls.
+    pub(crate) view: ListView,
 }
 
 /// One "Shares albums with" entry, ready to view (ADR 0082 Decision 5).
@@ -896,6 +915,8 @@ impl PublisherPageVm {
                 rows: albums_and_eps,
                 note: None,
                 status: None,
+                controls: None,
+                view: ListView::Rows,
             });
         }
         if !singles.is_empty() {
@@ -904,6 +925,8 @@ impl PublisherPageVm {
                 rows: singles,
                 note: None,
                 status: None,
+                controls: None,
+                view: ListView::Rows,
             });
         }
         for (heading, rows) in as_roles {
@@ -912,6 +935,8 @@ impl PublisherPageVm {
                 rows,
                 note: None,
                 status: None,
+                controls: None,
+                view: ListView::Rows,
             });
         }
         if !role_not_confirmed.is_empty() {
@@ -920,6 +945,8 @@ impl PublisherPageVm {
                 rows: role_not_confirmed,
                 note: None,
                 status: None,
+                controls: None,
+                view: ListView::Rows,
             });
         }
         if !listed_only.is_empty() {
@@ -928,6 +955,8 @@ impl PublisherPageVm {
                 rows: listed_only,
                 note: None,
                 status: None,
+                controls: None,
+                view: ListView::Rows,
             });
         }
         if let Some(section) = self.matched_by_name_section(&sections) {
@@ -979,6 +1008,8 @@ impl PublisherPageVm {
             rows,
             note: Some(Self::MATCHED_BY_NAME_NOTE),
             status,
+            controls: None,
+            view: ListView::Rows,
         })
     }
 
@@ -1056,6 +1087,7 @@ impl PublisherPageVm {
             selection: RowSelectionVm::none(),
             kind: ReleaseKind::resolve(None, album_track_count(album)),
             menu: None,
+            date: album.newest_date,
         }
     }
 

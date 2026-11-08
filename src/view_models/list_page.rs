@@ -13,6 +13,8 @@
 
 #![warn(clippy::pedantic)]
 
+use std::collections::BTreeMap;
+
 use crate::view_models::letter_bar::{LetterBarVm, LetterKey};
 use crate::view_models::release_download_state::ReleaseDownloadState;
 use crate::view_models::search_results::SearchPageActionDisplay;
@@ -56,6 +58,12 @@ pub(crate) enum ListPageKey {
     /// All such pages share one state. It has one sort, Playlist Order, and
     /// it reverses locally.
     PublicPlaylistItems,
+    /// One release section of a feed page or of a name level page (musicindex
+    /// ADR 0053 R-LIST-9 row "The releases of an artist, a label or a name").
+    /// Each section heading keeps its own state, in [`ListPages`]. It has
+    /// the sorts Newest and A to Z, rows and tiles, and it reverses locally.
+    /// The key holds the defaults and the rules of every section.
+    ReleaseSection,
 }
 
 impl ListPageKey {
@@ -63,7 +71,7 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn noun(self) -> &'static str {
         match self {
-            Self::Releases => "releases",
+            Self::Releases | Self::ReleaseSection => "releases",
             Self::Artists => "artists",
             Self::MyPlaylists | Self::PublicPlaylists => "playlists",
             Self::Live => "live items",
@@ -78,7 +86,7 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn title(self) -> &'static str {
         match self {
-            Self::Releases => "Releases",
+            Self::Releases | Self::ReleaseSection => "Releases",
             Self::Artists => "Artists",
             Self::MyPlaylists => "My playlists",
             Self::PublicPlaylists => "Public playlists",
@@ -99,9 +107,11 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn views(self) -> &'static [ListView] {
         match self {
-            Self::Releases | Self::PublicPlaylists | Self::SinglesGroup | Self::WindowGroup => {
-                &[ListView::Rows, ListView::Tiles]
-            }
+            Self::Releases
+            | Self::PublicPlaylists
+            | Self::SinglesGroup
+            | Self::WindowGroup
+            | Self::ReleaseSection => &[ListView::Rows, ListView::Tiles],
             Self::Artists
             | Self::MyPlaylists
             | Self::Live
@@ -128,7 +138,8 @@ impl ListPageKey {
             | Self::SinglesGroup
             | Self::WindowGroup
             | Self::ReleaseTracks
-            | Self::PublicPlaylistItems => true,
+            | Self::PublicPlaylistItems
+            | Self::ReleaseSection => true,
             Self::PublicPlaylists | Self::Live => false,
         }
     }
@@ -159,9 +170,11 @@ impl ListPageKey {
     #[must_use]
     pub(crate) const fn sorts(self) -> &'static [ListSort] {
         match self {
-            Self::Releases | Self::PublicPlaylists | Self::SinglesGroup | Self::WindowGroup => {
-                &[ListSort::Newest, ListSort::AToZ]
-            }
+            Self::Releases
+            | Self::PublicPlaylists
+            | Self::SinglesGroup
+            | Self::WindowGroup
+            | Self::ReleaseSection => &[ListSort::Newest, ListSort::AToZ],
             Self::Results | Self::SavedSearch => {
                 &[ListSort::Relevance, ListSort::AToZ, ListSort::Newest]
             }
@@ -174,12 +187,14 @@ impl ListPageKey {
 
     /// Whether a list of `rows` rows shows the sort and reverse controls of
     /// the page. The tracks of a release and the entries of a playlist
-    /// show them from [`SECTION_CONTROL_MIN_ROWS`] rows (musicindex ADR 0053
-    /// R-LIST-9). Another page shows them whatever its row count is.
+    /// show them from [`SECTION_CONTROL_MIN_ROWS`] rows, and so does a release
+    /// section of a feed page (musicindex ADR 0053 R-LIST-9). Another page shows them whatever its row count is.
     #[must_use]
     pub(crate) const fn offers_controls_for(self, rows: usize) -> bool {
         match self {
-            Self::ReleaseTracks | Self::PublicPlaylistItems => rows >= SECTION_CONTROL_MIN_ROWS,
+            Self::ReleaseTracks | Self::PublicPlaylistItems | Self::ReleaseSection => {
+                rows >= SECTION_CONTROL_MIN_ROWS
+            }
             _ => true,
         }
     }
@@ -458,7 +473,8 @@ impl ListPageState {
             ListPageKey::Results
             | ListPageKey::SavedSearch
             | ListPageKey::SinglesGroup
-            | ListPageKey::WindowGroup => Self {
+            | ListPageKey::WindowGroup
+            | ListPageKey::ReleaseSection => Self {
                 sort: Some(ListSort::Newest),
                 view: ListView::Rows,
                 scope: None,
@@ -503,6 +519,13 @@ pub(crate) struct ListPages {
     window_group: ListPageState,
     release_tracks: ListPageState,
     public_playlist_items: ListPageState,
+    /// The defaults of a release section (`ListPageKey::ReleaseSection`).
+    release_section: ListPageState,
+    /// The state of each release section of a feed page or of a name level
+    /// page, by the text of its heading (musicindex ADR 0043 R-LIST-7 item
+    /// 6, ADR 0053 R-LIST-9). The section "Albums" of each feed page shares
+    /// one state. A heading with no entry has the defaults.
+    release_sections: BTreeMap<String, ListPageState>,
 }
 
 impl Default for ListPages {
@@ -519,6 +542,8 @@ impl Default for ListPages {
             window_group: ListPageState::default_for(ListPageKey::WindowGroup),
             release_tracks: ListPageState::default_for(ListPageKey::ReleaseTracks),
             public_playlist_items: ListPageState::default_for(ListPageKey::PublicPlaylistItems),
+            release_section: ListPageState::default_for(ListPageKey::ReleaseSection),
+            release_sections: BTreeMap::new(),
         }
     }
 }
@@ -539,6 +564,7 @@ impl ListPages {
             ListPageKey::WindowGroup => &self.window_group,
             ListPageKey::ReleaseTracks => &self.release_tracks,
             ListPageKey::PublicPlaylistItems => &self.public_playlist_items,
+            ListPageKey::ReleaseSection => &self.release_section,
         }
     }
 
@@ -556,6 +582,7 @@ impl ListPages {
             ListPageKey::WindowGroup => &mut self.window_group,
             ListPageKey::ReleaseTracks => &mut self.release_tracks,
             ListPageKey::PublicPlaylistItems => &mut self.public_playlist_items,
+            ListPageKey::ReleaseSection => &mut self.release_section,
         }
     }
 
@@ -574,6 +601,7 @@ impl ListPages {
             &mut self.window_group,
             &mut self.release_tracks,
             &mut self.public_playlist_items,
+            &mut self.release_section,
         ] {
             state.index_sorts = node;
         }
@@ -607,6 +635,47 @@ impl ListPages {
             return;
         }
         self.get_mut(key).reversed = reversed;
+    }
+
+    /// The state of the release section with the heading `heading` (musicindex
+    /// ADR 0053 R-LIST-9). A heading with no stored state has the defaults.
+    #[must_use]
+    pub(crate) fn section_state(&self, heading: &str) -> ListPageState {
+        self.release_sections
+            .get(heading)
+            .copied()
+            .unwrap_or(self.release_section)
+    }
+
+    /// Sets the sort of the release section `heading`. A sort that a release
+    /// section does not offer changes nothing. Each heading keeps its own
+    /// state.
+    pub(crate) fn set_section_sort(&mut self, heading: &str, sort: ListSort) {
+        if !ListPageKey::ReleaseSection.sorts().contains(&sort) {
+            return;
+        }
+        self.section_state_mut(heading).sort = Some(sort);
+    }
+
+    /// Sets the view of the release section `heading`. A view that a release
+    /// section does not offer changes nothing.
+    pub(crate) fn set_section_view(&mut self, heading: &str, view: ListView) {
+        if !ListPageKey::ReleaseSection.views().contains(&view) {
+            return;
+        }
+        self.section_state_mut(heading).view = view;
+    }
+
+    /// Sets the reversed state of the release section `heading`.
+    pub(crate) fn set_section_reversed(&mut self, heading: &str, reversed: bool) {
+        self.section_state_mut(heading).reversed = reversed;
+    }
+
+    fn section_state_mut(&mut self, heading: &str) -> &mut ListPageState {
+        let default = self.release_section;
+        self.release_sections
+            .entry(heading.to_owned())
+            .or_insert(default)
     }
 
     /// Sets the letter that the letter bar of `key` selected.
@@ -998,7 +1067,8 @@ fn scope_control(
         | ListPageKey::SinglesGroup
         | ListPageKey::WindowGroup
         | ListPageKey::ReleaseTracks
-        | ListPageKey::PublicPlaylistItems => (
+        | ListPageKey::PublicPlaylistItems
+        | ListPageKey::ReleaseSection => (
             "music-scope-public-playlists",
             "music-scope-public-playlists-all",
             "music-scope-public-playlists-in-library",
@@ -1063,6 +1133,7 @@ fn sort_button(key: ListPageKey, sort: ListSort, reversed: bool) -> ListSortButt
         ListPageKey::WindowGroup => "music-list-sort-window-group",
         ListPageKey::ReleaseTracks => "music-list-sort-release-tracks",
         ListPageKey::PublicPlaylistItems => "music-list-sort-playlist-items",
+        ListPageKey::ReleaseSection => "music-list-sort-release-section",
     };
     ListSortButtonVm {
         id,

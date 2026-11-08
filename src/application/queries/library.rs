@@ -983,6 +983,10 @@ fn library_publisher_album_fact(
         .and_then(|index| i64::try_from(index + 1).ok());
     let track_count =
         Some(db::feed_track_count(conn, album.feed_id).map_err(|error| query_error(&error))?);
+    // Musicindex ADR 0053 R-LIST-9 item 1: the order Newest uses the newest
+    // item publish date of the album feed.
+    let newest_date = db::publisher_relationships::newest_track_date(conn, album.feed_id)
+        .map_err(|error| query_error(&error))?;
     Ok(PublisherPageAlbumFact {
         feed_guid: album.feed_guid,
         title,
@@ -1001,6 +1005,7 @@ fn library_publisher_album_fact(
         named_rank,
         track_count,
         two_way_validated: album.two_way_validated,
+        newest_date,
     })
 }
 

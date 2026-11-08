@@ -17,13 +17,12 @@ use gpui::{
 };
 
 use crate::library::LibraryApp;
+use crate::ui::composites::content_tile::{render_content_list_tile_artwork, tile_text_line};
 use crate::ui::composites::release_download_state::render_release_download_state;
 use crate::ui::composites::selectable_tile::SelectableTile;
 use crate::ui::primitives::Checkbox;
-use crate::ui::shells::library::content_list::render_content_list_tile_artwork;
 use crate::ui::shells::library::destination_lists::checkbox_state_for;
 use crate::ui::shells::library::detail::DetailRowSlot;
-use crate::ui::shells::library::releases_tiles::tile_text_line;
 use crate::ui::shells::library::singles_group::{
     index_single_dispatch, index_single_vm, render_index_single_row,
     render_matched_by_name_heading, render_single_row,

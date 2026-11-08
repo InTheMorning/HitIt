@@ -29,6 +29,7 @@ use crate::view_models::list_page::{
     in_shown_order, ListPageKey, ListPageState, ListSort, ListView,
 };
 use crate::view_models::list_selection::{FocusStep, RowSelectionVm};
+use crate::view_models::release_section_order::{ReleaseSectionCommand, ReleaseSectionId};
 use crate::view_models::workspace::{
     DetailScrollTarget, FrameNavigationEntry, NavigationLocationId, NavigationPathStart, ReleaseKey,
 };
@@ -147,6 +148,32 @@ impl LibraryApp {
     /// reversed order now (musicindex ADR 0053 R-LIST-9).
     pub(crate) fn release_tracks_reversed(&self, rows: usize) -> bool {
         self.vm.release_tracks_reversed(rows)
+    }
+
+    /// The stored state of the release section `heading` of a feed page or of
+    /// a name level page (musicindex ADR 0053 R-LIST-9).
+    pub(crate) fn release_section_state(&self, heading: &str) -> ListPageState {
+        self.vm.release_section_state(heading)
+    }
+
+    /// Runs one command of a release section heading. The page builds again
+    /// in place, with no request, and the selection stays because it is by
+    /// item (musicindex ADR 0043 R-LIST-7 item 6, ADR 0053 R-LIST-9).
+    pub(crate) fn run_release_section_command(
+        &mut self,
+        section: &ReleaseSectionId,
+        command: ReleaseSectionCommand,
+        cx: &mut Context<Self>,
+    ) {
+        let heading = section.heading();
+        match command {
+            ReleaseSectionCommand::Sort(sort) => self.vm.set_release_section_sort(heading, sort),
+            ReleaseSectionCommand::View(view) => self.vm.set_release_section_view(heading, view),
+            ReleaseSectionCommand::Reverse(reversed) => {
+                self.vm.set_release_section_reversed(heading, reversed);
+            }
+        }
+        cx.notify();
     }
 
     /// The stored state of the list page `key`.

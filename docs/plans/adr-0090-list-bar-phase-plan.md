@@ -20,7 +20,7 @@ Each list of selectable rows has one list bar directly above its rows. The bar s
 | [001](../tasks/adr-0090-task-001-group-page-list-bar.md) | The singles group page and the window group page | Complete |
 | [002](../tasks/adr-0090-task-002-list-bar-stays-in-view.md) | The bar stays in view during a scroll (Decision 5), on the pages of packet 001 | Implemented |
 | [003](../tasks/adr-0090-task-003-release-page-list-bar.md) | The release page, its Library form and its Index form | Implemented |
-| 004 | The feed page and the name level page | Not started |
+| [004](../tasks/adr-0090-task-004-feed-and-name-page-list-bar.md) | The feed page and the name level page | Implemented |
 | 005 | The playlist page | Not started |
 | 006 | The search results page and the saved search page | Not started |
 | 007 | Releases and the Inbox. First check musicindex ADR 0027 R-LIST-1 item 4. A change to that rule needs a record in `../musicindex` | Not started |
