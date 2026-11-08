@@ -43,8 +43,8 @@ use crate::ui::composites::search_field_list::SearchFieldList;
 use crate::ui::tokens::Motion;
 use crate::view_models::live_run::{LiveRunGate, RunGeneration};
 use crate::view_models::search_field_list::{
-    FieldListEdit, FieldListEvent, FieldListKey, FieldListKeyOutcome, FieldListOpening,
-    FieldListState, FieldListVm,
+    FieldExampleKind, FieldListEdit, FieldListEvent, FieldListKey, FieldListKeyOutcome,
+    FieldListOpening, FieldListState, FieldListVm,
 };
 use crate::view_models::search_field_values::{
     artist_value_request_key, FieldValueRows, IndexArtistValues,
@@ -134,7 +134,14 @@ impl SearchFieldListView {
         Self {
             input,
             library,
-            state: FieldListState::default(),
+            state: FieldListState {
+                // The first visit of each run seeds the examples from the
+                // clock, so a run does not start with the same example.
+                visit: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |elapsed| u64::try_from(elapsed.as_nanos()).unwrap_or(0)),
+                ..FieldListState::default()
+            },
             index_values: IndexArtistValues::NotRequested,
             gate: LiveRunGate::default(),
             scroll: ScrollHandle::new(),
@@ -257,6 +264,50 @@ impl SearchFieldListView {
         }
     }
 
+    /// Puts the example `example` of the row `index` into the text and
+    /// selects its range. A placeholder runs no search: the person types the
+    /// value (musicindex ADR 0058 R-QUERY-11 item 3). An unavailable row does
+    /// nothing.
+    pub(crate) fn click_example(
+        &mut self,
+        index: usize,
+        example: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(vm) = self.view_model(cx) else {
+            return;
+        };
+        let Some(row) = vm.rows.get(index) else {
+            return;
+        };
+        let Some(click) = row.examples.get(example).and_then(|e| e.click.as_ref()) else {
+            return;
+        };
+        if !row.availability.is_available() {
+            return;
+        }
+        let select = click.select.clone();
+        if row.examples[example].kind == FieldExampleKind::Placeholder {
+            // `set_value` sends no change event, so no live run starts. The
+            // search runs when the person types over the selected
+            // placeholder.
+            let text = click.edit.apply(&self.input.read(cx).value());
+            self.input.update(cx, |input, cx| {
+                input.set_value(text, window, cx);
+                input.set_selected_range(select, cx);
+                input.focus(window, cx);
+            });
+            self.state.apply(FieldListEvent::Inserted);
+            cx.notify();
+            return;
+        }
+        self.apply_edit(&click.edit, window, cx);
+        self.input.update(cx, |input, cx| {
+            input.set_selected_range(select, cx);
+        });
+    }
+
     /// Sends one open state event, for example a click in the field.
     fn send(&mut self, event: FieldListEvent, cx: &mut Context<Self>) {
         self.state.apply(event);
@@ -306,9 +357,18 @@ impl Render for SearchFieldListView {
         };
         let view = cx.entity().downgrade();
         SearchFieldList::new(vm, self.scroll.clone(), self.list_bounds.clone())
-            .on_row(move |index, window, cx| {
+            .on_row({
+                let view = view.clone();
+                move |index, window, cx| {
+                    // The view is gone only when the window closes.
+                    let _ = view.update(cx, |view, cx| view.click_row(index, window, cx));
+                }
+            })
+            .on_example(move |index, example, window, cx| {
                 // The view is gone only when the window closes.
-                let _ = view.update(cx, |view, cx| view.click_row(index, window, cx));
+                let _ = view.update(cx, |view, cx| {
+                    view.click_example(index, example, window, cx);
+                });
             })
             .into_any_element()
     }
@@ -676,6 +736,47 @@ mod tests {
             list.update(cx, |view, cx| view.click_row(8, window, cx));
         });
         assert_eq!(text_and_cursor(&input, cx).0, "in:index ");
+        assert!(input_focused(&input, cx));
+    }
+
+    /// musicindex ADR 0058 R-QUERY-11 item 3: the click on a placeholder puts
+    /// the placeholder into the text and selects it. The input sends no
+    /// change event, so no live run starts (ADR 0087 Decision 4).
+    #[gpui::test]
+    fn adr_0058_placeholder_click_starts_no_live_run(cx: &mut TestAppContext) {
+        let (input, list, enters, cx) = setup(cx);
+        let changes = Rc::new(Cell::new(0));
+        cx.update(|_, cx| {
+            let changes = changes.clone();
+            cx.subscribe(&input, move |_, event: &InputEvent, _| {
+                if matches!(event, InputEvent::Change) {
+                    changes.set(changes.get() + 1);
+                }
+            })
+            .detach();
+            list.update(cx, |view, cx| view.send(FieldListEvent::Click, cx));
+        });
+        let index = cx.update(|_, cx| {
+            let vm = list.read(cx).view_model(cx).expect("the list shows");
+            vm.rows
+                .iter()
+                .position(|row| row.label == "artist:")
+                .expect("the artist: row")
+        });
+        cx.update(|window, cx| {
+            list.update(cx, |view, cx| view.click_example(index, 0, window, cx));
+        });
+        cx.run_until_parked();
+        let (text, selected) = text_and_cursor(&input, cx);
+        assert_eq!(text, "artist:\"artist name\"");
+        assert_eq!(&text[selected], "artist name");
+        assert_eq!(
+            changes.get(),
+            0,
+            "musicindex ADR 0058 R-QUERY-11 item 3: a placeholder click runs no search. \
+             Set the text with `set_value`, which sends no change event."
+        );
+        assert_eq!(enters.get(), 0);
         assert!(input_focused(&input, cx));
     }
 
