@@ -168,6 +168,23 @@ pub struct ArtistNameRow {
     pub first_named_count: Option<i64>,
     pub stated_rels: Option<Vec<String>>,
     pub two_way_link_count: Option<i64>,
+    /// The Unix seconds of the newest release of the row (Stophammer ADR
+    /// 0089). Null when the row has no dated release. The sort `date` of
+    /// `GET /v1/artist-names` orders the rows by it.
+    pub newest_release_at: Option<i64>,
+}
+
+/// The sort of `GET /v1/artist-names` (musicindex ADR 0053 R-LIST-9, Stophammer
+/// ADR 0089). `Name` is the name order of the endpoint. `Date` sends
+/// `sort=date`: the newest release first, and a row with no date last.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum ArtistNameSort {
+    /// The name order, and the start text `from`.
+    #[default]
+    Name,
+    /// The newest release first. The endpoint gives status 400 for `from`
+    /// with this sort, so a request never sends both.
+    Date,
 }
 
 /// One entry of `named_feeds` on a release (Stophammer ADR 0071 §3, ADR
@@ -1112,6 +1129,8 @@ impl Client {
     /// `include` value. `from` starts the page at the first row whose sort
     /// key is at or after it (ADR 0084 packet 017, the search name check).
     /// `reverse` sends `reverse=true` (musicindex ADR 0053 R-LIST-8 item 4).
+    /// `sort` is [`ArtistNameSort::Date`] for `sort=date`, which never sends
+    /// `from` (musicindex ADR 0053 R-LIST-9, Stophammer ADR 0089).
     ///
     /// # Errors
     /// Returns an error when the request fails or the response does not
@@ -1123,13 +1142,14 @@ impl Client {
         from: Option<&str>,
         profile: &RequestProfile,
         reverse: bool,
+        sort: ArtistNameSort,
     ) -> Result<ArtistNamesResponse> {
         debug_assert_eq!(
             profile.path_shape(),
             RequestPathShape::ArtistNameList,
             "ADR 0084 packet 016: {profile:?} must name the artist name list path shape"
         );
-        let params = artist_names_params(limit, cursor, from, profile, reverse);
+        let params = artist_names_params(limit, cursor, from, profile, reverse, sort);
         self.get_json(&["v1", "artist-names"], &params)
     }
 
@@ -1502,10 +1522,18 @@ fn artist_names_params(
     from: Option<&str>,
     profile: &RequestProfile,
     reverse: bool,
+    sort: ArtistNameSort,
 ) -> Vec<(&'static str, String)> {
     let mut params = name_list_params(limit, cursor, profile);
-    if let Some(from) = from {
-        params.push(("from", from.to_string()));
+    match sort {
+        ArtistNameSort::Name => {
+            if let Some(from) = from {
+                params.push(("from", from.to_string()));
+            }
+        }
+        // Musicindex ADR 0053 R-LIST-9: `sort=date` with `from` gives
+        // status 400, so the request drops `from`.
+        ArtistNameSort::Date => params.push(("sort", "date".to_owned())),
     }
     push_reverse(&mut params, reverse);
     params
@@ -1929,6 +1957,7 @@ pub(crate) mod tests {
                         Some("b"),
                         &crate::application::request_profiles::INDEX_ARTIST_NAME_LIST,
                         reverse,
+                        crate::api::ArtistNameSort::Name,
                     ),
                 )
                 .expect("url")
@@ -1937,6 +1966,66 @@ pub(crate) mod tests {
         assert!(!artists(false)
             .query_pairs()
             .any(|(key, _)| key == "reverse"));
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 and Stophammer ADR 0089: the sort Date
+    /// of `GET /v1/artist-names` sends `sort=date` and never `from`, because
+    /// the node gives status 400 for both. It sends `reverse=true` when
+    /// reversed. The sort Name sends no `sort` and keeps `from`.
+    #[test]
+    fn adr_0053_r9_artists_newest_request_parameters() {
+        use super::artist_names_params;
+        let client = Client::new();
+        let pairs = |sort: crate::api::ArtistNameSort, reverse: bool| -> Vec<(String, String)> {
+            client
+                .build_url(
+                    &["v1", "artist-names"],
+                    &artist_names_params(
+                        100,
+                        Some("c1"),
+                        Some("b"),
+                        &crate::application::request_profiles::INDEX_ARTIST_NAME_LIST,
+                        reverse,
+                        sort,
+                    ),
+                )
+                .expect("url")
+                .query_pairs()
+                .map(|(key, value)| (key.into_owned(), value.into_owned()))
+                .collect()
+        };
+        let has = |pairs: &[(String, String)], key: &str, value: &str| {
+            pairs.iter().any(|(k, v)| k == key && v == value)
+        };
+        let date = pairs(crate::api::ArtistNameSort::Date, false);
+        assert!(has(&date, "sort", "date"));
+        assert!(!date.iter().any(|(key, _)| key == "from"), "{date:?}");
+        assert!(!date.iter().any(|(key, _)| key == "reverse"));
+        assert!(has(&date, "cursor", "c1"));
+        let date_reversed = pairs(crate::api::ArtistNameSort::Date, true);
+        assert!(has(&date_reversed, "sort", "date"));
+        assert!(has(&date_reversed, "reverse", "true"));
+        assert!(!date_reversed.iter().any(|(key, _)| key == "from"));
+        let name = pairs(crate::api::ArtistNameSort::Name, false);
+        assert!(!name.iter().any(|(key, _)| key == "sort"));
+        assert!(has(&name, "from", "b"));
+    }
+
+    /// Stophammer ADR 0089: the row field `newest_release_at` decodes from a
+    /// number and from null, and an older node that omits it gives `None`.
+    #[test]
+    fn adr_0053_r9_artists_newest_row_decodes_newest_release_at() {
+        let rows: Vec<crate::api::ArtistNameRow> = serde_json::from_value(serde_json::json!([
+            {"kind": "name", "name": "a", "sort_name": "a", "key": "a",
+             "newest_release_at": 1_700_000_000},
+            {"kind": "name", "name": "b", "sort_name": "b", "key": "b",
+             "newest_release_at": null},
+            {"kind": "name", "name": "c", "sort_name": "c", "key": "c"}
+        ]))
+        .expect("the rows decode");
+        assert_eq!(rows[0].newest_release_at, Some(1_700_000_000));
+        assert_eq!(rows[1].newest_release_at, None);
+        assert_eq!(rows[2].newest_release_at, None);
     }
 
     /// ADR 0089 packet 009: a feed read with `include=remote_items` decodes

@@ -19590,6 +19590,9 @@ fn adr_0075_projection_views_combine_no_fact_and_column() {
 // contract on 2026-11-05, for `label` and `url_scheme_added` of a source link.
 // The Stophammer 0.19.0 contract replaced it on 2026-11-07. The release adds
 // parameters and two search row fields that v4vmm does not decode.
+// The live contract of Stophammer candidate v0.19.0-rc.5 (git a0c0c5a)
+// replaced it on 2026-11-08, for `newest_release_at` and `sort=date` on
+// `/v1/artist-names`.
 
 /// The stored MusicIndex contract (ADR 0075 section 6). The file name holds
 /// the contract version. A person or an agent replaces this file after each

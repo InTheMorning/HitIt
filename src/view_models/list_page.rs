@@ -151,8 +151,7 @@ impl ListPageKey {
     /// lists `sort`.
     #[must_use]
     pub(crate) const fn index_reverses(self, node: NodeSorts) -> bool {
-        matches!(self, Self::Releases | Self::Artists | Self::PublicPlaylists)
-            && matches!(node, NodeSorts::Listed)
+        matches!(self, Self::Releases | Self::Artists | Self::PublicPlaylists) && node.sort
     }
 
     /// Whether the page shows the reverse button in `scope`: a local reverse
@@ -179,10 +178,24 @@ impl ListPageKey {
             Self::Results | Self::SavedSearch => {
                 &[ListSort::Relevance, ListSort::AToZ, ListSort::Newest]
             }
-            Self::Artists => &[ListSort::AToZ],
+            Self::Artists => &[ListSort::AToZ, ListSort::Newest],
             Self::ReleaseTracks => &[ListSort::FeedOrder],
             Self::PublicPlaylistItems => &[ListSort::PlaylistOrder],
             Self::MyPlaylists | Self::Live => &[],
+        }
+    }
+
+    /// The sorts that the page offers in `scope`, in menu order (musicindex
+    /// ADR 0053 R-LIST-9 item 1: a sort shows in a scope only where that
+    /// scope can give it). Artists gives Newest in the scope In Library from
+    /// the local dates, and in the scope All only when the node lists
+    /// `artist_newest` (Stophammer ADR 0089). Another page gives
+    /// [`ListPageKey::sorts`].
+    #[must_use]
+    pub(crate) const fn sorts_in(self, scope: ListScope, node: NodeSorts) -> &'static [ListSort] {
+        match (self, scope) {
+            (Self::Artists, ListScope::All) if !node.artist_newest => &[ListSort::AToZ],
+            _ => self.sorts(),
         }
     }
 
@@ -334,27 +347,40 @@ impl ListScope {
     }
 }
 
-/// Whether the Index node lists `sort` in `GET /v1/node/capabilities`
-/// (musicindex ADR 0053 R-LIST-8 item 4). A node that lists it takes
-/// `reverse` on the Index lists. Until the read answers, a page takes
-/// `NotListed`, so no reverse button shows.
+/// The sort capabilities of the Index node in `GET /v1/node/capabilities`
+/// (musicindex ADR 0053 R-LIST-8 item 4 and R-LIST-9). A node that lists
+/// `sort` takes `reverse` on the Index lists. A node that lists
+/// `artist_newest` takes `sort=date` on `/v1/artist-names` (Stophammer ADR
+/// 0089). Until the read answers, a page takes [`NodeSorts::NONE`], so no
+/// reverse button and no Artists Newest show in the scope All.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum NodeSorts {
-    /// The node does not list `sort`, or the read has not answered.
-    #[default]
-    NotListed,
+pub(crate) struct NodeSorts {
     /// The node lists `sort`.
-    Listed,
+    pub(crate) sort: bool,
+    /// The node lists `artist_newest`.
+    pub(crate) artist_newest: bool,
 }
 
 impl NodeSorts {
+    /// The node lists no sort capability, or the read has not answered.
+    pub(crate) const NONE: Self = Self {
+        sort: false,
+        artist_newest: false,
+    };
+    /// The node lists `sort` only.
+    #[cfg(test)]
+    pub(crate) const SORT: Self = Self {
+        sort: true,
+        artist_newest: false,
+    };
+
     /// The fact of the capability names of the node.
     #[must_use]
     pub(crate) fn from_capabilities(capabilities: &[String]) -> Self {
-        if capabilities.iter().any(|name| name == "sort") {
-            Self::Listed
-        } else {
-            Self::NotListed
+        let lists = |name: &str| capabilities.iter().any(|listed| listed == name);
+        Self {
+            sort: lists("sort"),
+            artist_newest: lists("artist_newest"),
         }
     }
 }
@@ -399,6 +425,35 @@ impl ListPageState {
         key.offers_controls_for(rows) && self.reversed_in(key, ListScope::All)
     }
 
+    /// The sort of the page `key` in `scope` as the list shows it. A stored
+    /// sort that the scope cannot give reads as the default, A to Z
+    /// (musicindex ADR 0053 R-LIST-9 item 1). The stored state stays for a
+    /// later scope or node answer.
+    #[must_use]
+    pub(crate) fn effective_sort(self, key: ListPageKey, scope: ListScope) -> Option<ListSort> {
+        let sort = self.sort?;
+        if key == ListPageKey::Artists && !key.sorts_in(scope, self.index_sorts).contains(&sort) {
+            return Some(ListSort::AToZ);
+        }
+        Some(sort)
+    }
+
+    /// The sort that the node request of the Artists list sends (musicindex
+    /// ADR 0053 R-LIST-9, Stophammer ADR 0089). It is `Date` when the stored
+    /// sort is Newest and the node lists `artist_newest`, in each scope, so
+    /// a loaded node list keeps the order of its pages.
+    #[must_use]
+    pub(crate) fn artist_node_sort(self, key: ListPageKey) -> crate::api::ArtistNameSort {
+        if key == ListPageKey::Artists
+            && self.sort == Some(ListSort::Newest)
+            && self.index_sorts.artist_newest
+        {
+            crate::api::ArtistNameSort::Date
+        } else {
+            crate::api::ArtistNameSort::Name
+        }
+    }
+
     /// Whether the sort is Relevance, which never reverses (musicindex ADR
     /// 0053 R-LIST-9).
     #[must_use]
@@ -439,7 +494,7 @@ impl ListPageState {
                 scope: Some(ListScope::All),
                 letter: None,
                 reversed: false,
-                index_sorts: NodeSorts::NotListed,
+                index_sorts: NodeSorts::NONE,
             },
             ListPageKey::Artists => Self {
                 sort: Some(ListSort::AToZ),
@@ -447,7 +502,7 @@ impl ListPageState {
                 scope: Some(ListScope::All),
                 letter: None,
                 reversed: false,
-                index_sorts: NodeSorts::NotListed,
+                index_sorts: NodeSorts::NONE,
             },
             // ADR 0089 Decision 5: rows, no sort and no scope.
             ListPageKey::MyPlaylists | ListPageKey::Live => Self {
@@ -456,7 +511,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
-                index_sorts: NodeSorts::NotListed,
+                index_sorts: NodeSorts::NONE,
             },
             // ADR 0089 Decision 5: Newest, tiles, and no scope.
             ListPageKey::PublicPlaylists => Self {
@@ -465,7 +520,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
-                index_sorts: NodeSorts::NotListed,
+                index_sorts: NodeSorts::NONE,
             },
             // The query holds the scope of a search page (ADR 0089 Decision
             // 4), so the page state has none. A group page has no scope
@@ -481,7 +536,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
-                index_sorts: NodeSorts::NotListed,
+                index_sorts: NodeSorts::NONE,
             },
             // Musicindex ADR 0053 R-LIST-9: one sort that keeps the order
             // of the source, rows only, no scope.
@@ -491,7 +546,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
-                index_sorts: NodeSorts::NotListed,
+                index_sorts: NodeSorts::NONE,
             },
             ListPageKey::PublicPlaylistItems => Self {
                 sort: Some(ListSort::PlaylistOrder),
@@ -499,7 +554,7 @@ impl ListPageState {
                 scope: None,
                 letter: None,
                 reversed: false,
-                index_sorts: NodeSorts::NotListed,
+                index_sorts: NodeSorts::NONE,
             },
         }
     }
@@ -836,7 +891,9 @@ impl ListBarControlsVm {
         let scope = state.scope.unwrap_or_default();
         let reversed = state.order_reversed(key, scope);
         Self {
-            sort: state.sort.map(|sort| sort_button(key, sort, reversed)),
+            sort: state.effective_sort(key, scope).map(|sort| {
+                sort_button(key, sort, reversed, key.sorts_in(scope, state.index_sorts))
+            }),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
             reverse: state
                 .shows_reverse(key, scope)
@@ -929,8 +986,10 @@ impl ListPageHeadVm {
             scope: state
                 .scope
                 .map(|selected| scope_control(key, selected, library_count)),
-            sort: state.sort.map(|sort| sort_button(key, sort, reversed)),
-            letters: (state.sort == Some(ListSort::AToZ))
+            sort: state.effective_sort(key, scope).map(|sort| {
+                sort_button(key, sort, reversed, key.sorts_in(scope, state.index_sorts))
+            }),
+            letters: (state.effective_sort(key, scope) == Some(ListSort::AToZ))
                 .then(|| ordered_letters(LetterBarVm::new(key, state.letter), reversed)),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
             reverse: state
@@ -985,7 +1044,9 @@ impl ListPageHeadVm {
         Self {
             title,
             scope: Some(search_scope_control(scope)),
-            sort: state.sort.map(|sort| sort_button(key, sort, reversed)),
+            sort: state.effective_sort(key, scope).map(|sort| {
+                sort_button(key, sort, reversed, key.sorts_in(scope, state.index_sorts))
+            }),
             letters: None,
             // Rows only: the search keys offer no view icon (ADR 0089 packet
             // 008 Part C, deviation, see `ListPageKey::views`).
@@ -1121,7 +1182,12 @@ fn ordered_letters(mut bar: LetterBarVm, reversed: bool) -> LetterBarVm {
     bar
 }
 
-fn sort_button(key: ListPageKey, sort: ListSort, reversed: bool) -> ListSortButtonVm {
+fn sort_button(
+    key: ListPageKey,
+    sort: ListSort,
+    reversed: bool,
+    offered: &[ListSort],
+) -> ListSortButtonVm {
     let id = match key {
         ListPageKey::Releases => "music-list-sort-releases",
         ListPageKey::Artists => "music-list-sort-artists",
@@ -1140,8 +1206,7 @@ fn sort_button(key: ListPageKey, sort: ListSort, reversed: bool) -> ListSortButt
         id,
         label: sort.name(reversed),
         a11y_label: format!("Sort {} by {}", key.noun(), sort.name(reversed)),
-        options: key
-            .sorts()
+        options: offered
             .iter()
             .map(|&option| {
                 let selected = option == sort;
@@ -1658,11 +1723,11 @@ mod tests {
         assert_eq!(releases.letter, None, "a new sort clears the letter");
         assert_eq!(pages.get(ListPageKey::Artists).sort, Some(ListSort::AToZ));
 
-        pages.set_sort(ListPageKey::Artists, ListSort::Newest);
+        pages.set_sort(ListPageKey::Artists, ListSort::Relevance);
         assert_eq!(
             pages.get(ListPageKey::Artists).sort,
             Some(ListSort::AToZ),
-            "Artists does not offer Newest"
+            "Artists does not offer Relevance"
         );
         pages.set_sort(ListPageKey::MyPlaylists, ListSort::AToZ);
         assert_eq!(pages.get(ListPageKey::MyPlaylists).sort, None);
@@ -1752,12 +1817,8 @@ mod tests {
             ListPageKey::Artists,
             ListPageKey::PublicPlaylists,
         ] {
-            let unlisted = ListPageHeadVm::new(
-                key,
-                index_state(key, NodeSorts::NotListed, true),
-                None,
-                None,
-            );
+            let unlisted =
+                ListPageHeadVm::new(key, index_state(key, NodeSorts::NONE, true), None, None);
             assert!(unlisted.reverse.is_none(), "{key:?} without sort");
             assert!(
                 unlisted
@@ -1768,12 +1829,12 @@ mod tests {
             );
 
             let listed =
-                ListPageHeadVm::new(key, index_state(key, NodeSorts::Listed, false), None, None);
+                ListPageHeadVm::new(key, index_state(key, NodeSorts::SORT, false), None, None);
             let reverse = listed.reverse.expect("the node lists sort");
             assert!(!reverse.pressed, "{key:?} usual order");
 
             let listed =
-                ListPageHeadVm::new(key, index_state(key, NodeSorts::Listed, true), None, None);
+                ListPageHeadVm::new(key, index_state(key, NodeSorts::SORT, true), None, None);
             assert!(listed.reverse.is_some_and(|reverse| reverse.pressed));
             let sort = listed.sort.expect("sort");
             assert!(
@@ -1784,7 +1845,7 @@ mod tests {
         }
         let artists = ListPageHeadVm::new(
             ListPageKey::Artists,
-            index_state(ListPageKey::Artists, NodeSorts::Listed, true),
+            index_state(ListPageKey::Artists, NodeSorts::SORT, true),
             None,
             None,
         );
@@ -1796,22 +1857,22 @@ mod tests {
     /// button, even when the node lists `sort`.
     #[test]
     fn adr_0053_r8_only_the_index_lists_reverse_through_the_node() {
-        assert!(ListPageKey::Releases.index_reverses(NodeSorts::Listed));
-        assert!(ListPageKey::Artists.index_reverses(NodeSorts::Listed));
-        assert!(ListPageKey::PublicPlaylists.index_reverses(NodeSorts::Listed));
-        assert!(!ListPageKey::Releases.index_reverses(NodeSorts::NotListed));
+        assert!(ListPageKey::Releases.index_reverses(NodeSorts::SORT));
+        assert!(ListPageKey::Artists.index_reverses(NodeSorts::SORT));
+        assert!(ListPageKey::PublicPlaylists.index_reverses(NodeSorts::SORT));
+        assert!(!ListPageKey::Releases.index_reverses(NodeSorts::NONE));
         for key in [
             ListPageKey::Live,
             ListPageKey::SavedSearch,
             ListPageKey::Results,
             ListPageKey::MyPlaylists,
         ] {
-            assert!(!key.index_reverses(NodeSorts::Listed), "{key:?}");
+            assert!(!key.index_reverses(NodeSorts::SORT), "{key:?}");
         }
         for key in [ListPageKey::Live, ListPageKey::SavedSearch] {
             let state = ListPageState {
                 reversed: true,
-                index_sorts: NodeSorts::Listed,
+                index_sorts: NodeSorts::SORT,
                 ..ListPageState::default_for(key)
             };
             assert!(
@@ -1823,7 +1884,7 @@ mod tests {
         }
         let results = ListPageState {
             reversed: true,
-            index_sorts: NodeSorts::Listed,
+            index_sorts: NodeSorts::SORT,
             ..ListPageState::default_for(ListPageKey::Results)
         };
         let head = ListPageHeadVm::for_search(
@@ -1846,7 +1907,7 @@ mod tests {
     fn adr_0053_r8_index_request_reverses_by_state_and_local_rows_stay_usual() {
         let listed = ListPageState {
             reversed: true,
-            index_sorts: NodeSorts::Listed,
+            index_sorts: NodeSorts::SORT,
             scope: Some(ListScope::All),
             ..ListPageState::default_for(ListPageKey::Releases)
         };
@@ -1867,7 +1928,7 @@ mod tests {
         assert!(in_library.reversed_in(ListPageKey::Releases, ListScope::InLibrary));
 
         let unlisted = ListPageState {
-            index_sorts: NodeSorts::NotListed,
+            index_sorts: NodeSorts::NONE,
             ..listed
         };
         assert!(!unlisted.index_reversed(ListPageKey::Releases));
@@ -1880,7 +1941,7 @@ mod tests {
     #[test]
     fn adr_0053_r8_each_index_list_keeps_its_own_reversed_state() {
         let mut pages = ListPages::default();
-        pages.set_index_sorts(NodeSorts::Listed);
+        pages.set_index_sorts(NodeSorts::SORT);
         pages.set_reversed(ListPageKey::Releases, true);
         assert!(pages
             .get(ListPageKey::Releases)
@@ -1900,10 +1961,116 @@ mod tests {
             .get(ListPageKey::Releases)
             .index_reversed(ListPageKey::Releases));
 
-        pages.set_index_sorts(NodeSorts::NotListed);
+        pages.set_index_sorts(NodeSorts::NONE);
         assert!(!pages
             .get(ListPageKey::PublicPlaylists)
             .order_reversed(ListPageKey::PublicPlaylists, ListScope::All));
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 row "Artists, Labels" item 1: Artists
+    /// offers A to Z and Newest in the scope In Library, and in the scope All
+    /// only when the node lists `artist_newest`. The default stays A to Z.
+    #[test]
+    fn adr_0053_r9_artists_newest_sorts_by_scope_and_node() {
+        let key = ListPageKey::Artists;
+        let both = [ListSort::AToZ, ListSort::Newest];
+        assert_eq!(key.sorts_in(ListScope::InLibrary, NodeSorts::NONE), both);
+        assert_eq!(key.sorts_in(ListScope::InLibrary, NodeSorts::SORT), both);
+        assert_eq!(
+            key.sorts_in(ListScope::All, NodeSorts::NONE),
+            [ListSort::AToZ]
+        );
+        assert_eq!(
+            key.sorts_in(ListScope::All, NodeSorts::SORT),
+            [ListSort::AToZ]
+        );
+        let newest_node = NodeSorts {
+            sort: true,
+            artist_newest: true,
+        };
+        assert_eq!(key.sorts_in(ListScope::All, newest_node), both);
+        assert_eq!(
+            ListPageState::default_for(key).sort,
+            Some(ListSort::AToZ),
+            "the default stays A to Z"
+        );
+        // Another page offers the same sorts in each scope.
+        assert_eq!(
+            ListPageKey::Releases.sorts_in(ListScope::All, NodeSorts::NONE),
+            ListPageKey::Releases.sorts()
+        );
+    }
+
+    /// A stored Newest in the scope All reads as A to Z while the node does
+    /// not list `artist_newest`: the menu, the letter bar and the node
+    /// request. With the capability, Newest shows and the letter bar goes.
+    #[test]
+    fn adr_0053_r9_artists_newest_stored_sort_reads_as_a_to_z_in_all_without_the_capability() {
+        let key = ListPageKey::Artists;
+        let mut pages = ListPages::default();
+        pages.set_sort(key, ListSort::Newest);
+        let state = *pages.get(key);
+        assert_eq!(state.sort, Some(ListSort::Newest), "the state is stored");
+
+        let head = ListPageHeadVm::new(key, state, None, None);
+        let sort = head.sort.expect("a sort menu");
+        assert_eq!(sort.label, "A to Z");
+        assert_eq!(sort.options.len(), 1);
+        assert!(head.letters.is_some(), "A to Z has the letter bar");
+        assert_eq!(
+            state.effective_sort(key, ListScope::All),
+            Some(ListSort::AToZ)
+        );
+        assert_eq!(
+            state.artist_node_sort(key),
+            crate::api::ArtistNameSort::Name
+        );
+        assert_eq!(
+            state.effective_sort(key, ListScope::InLibrary),
+            Some(ListSort::Newest)
+        );
+
+        pages.set_index_sorts(NodeSorts {
+            sort: true,
+            artist_newest: true,
+        });
+        pages.set_reversed(key, true);
+        let state = *pages.get(key);
+        let head = ListPageHeadVm::new(key, state, None, None);
+        let sort = head.sort.expect("a sort menu");
+        assert_eq!(sort.label, "Oldest", "a reversed Newest names Oldest");
+        assert_eq!(sort.options.len(), 2);
+        assert!(head.letters.is_none(), "Newest has no letter bar");
+        assert!(head.reverse.is_some(), "the reverse icon keeps working");
+        assert_eq!(
+            state.artist_node_sort(key),
+            crate::api::ArtistNameSort::Date
+        );
+        assert!(state.index_reversed(key));
+
+        // The scope In Library gives Newest from the local dates, with no
+        // node capability, and its node request stays by name.
+        let mut local = ListPages::default();
+        local.set_sort(key, ListSort::Newest);
+        local.set_scope(key, ListScope::InLibrary);
+        let head = ListPageHeadVm::new(key, *local.get(key), None, None);
+        assert_eq!(head.sort.expect("a sort menu").label, "Newest");
+        assert!(head.letters.is_none());
+    }
+
+    /// Stophammer ADR 0089: the node lists `artist_newest` apart from
+    /// `sort`. `NodeSorts` records each capability, with and without it.
+    #[test]
+    fn adr_0053_r9_artists_newest_node_sorts_read_artist_newest() {
+        let names = |values: &[&str]| -> Vec<String> {
+            values.iter().map(|value| (*value).to_owned()).collect()
+        };
+        let both = NodeSorts::from_capabilities(&names(&["search", "sort", "artist_newest"]));
+        assert!(both.sort && both.artist_newest);
+        let sort_only = NodeSorts::from_capabilities(&names(&["search", "sort"]));
+        assert_eq!(sort_only, NodeSorts::SORT);
+        assert!(!sort_only.artist_newest);
+        assert_eq!(NodeSorts::from_capabilities(&[]), NodeSorts::NONE);
     }
 
     /// musicindex ADR 0053 R-LIST-8 item 4: the node lists `sort` when its
@@ -1916,14 +2083,14 @@ mod tests {
         };
         assert_eq!(
             NodeSorts::from_capabilities(&names(&["search", "sort"])),
-            NodeSorts::Listed
+            NodeSorts::SORT
         );
         assert_eq!(
             NodeSorts::from_capabilities(&names(&["search"])),
-            NodeSorts::NotListed
+            NodeSorts::NONE
         );
-        assert_eq!(NodeSorts::from_capabilities(&[]), NodeSorts::NotListed);
-        assert_eq!(NodeSorts::default(), NodeSorts::NotListed);
+        assert_eq!(NodeSorts::from_capabilities(&[]), NodeSorts::NONE);
+        assert_eq!(NodeSorts::default(), NodeSorts::NONE);
     }
 
     /// Musicindex ADR 0053 R-LIST-9: the search keys offer Relevance, A to

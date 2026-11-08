@@ -21,7 +21,7 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
-use crate::api::{ArtistNameRow, Client, Feed, FeedMedium};
+use crate::api::{ArtistNameRow, ArtistNameSort, Client, Feed, FeedMedium};
 use crate::application::command_bus::{ApplicationCommand, CommandOutcome, CommandResult};
 use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
@@ -305,23 +305,29 @@ pub(crate) struct FetchArtistNamePage {
     /// Whether the request sends `reverse=true` (musicindex ADR 0053
     /// R-LIST-8 item 4).
     reverse: bool,
+    /// The sort of the request. `Date` sends `sort=date` and never `from`
+    /// (musicindex ADR 0053 R-LIST-9, Stophammer ADR 0089).
+    sort: ArtistNameSort,
 }
 
 impl FetchArtistNamePage {
     /// Creates the command for the page at `cursor` of the list that starts
     /// at `from`. `None` asks for page 1. `reverse` gives the reversed order.
+    /// `sort` is the sort of the node list.
     #[must_use]
     pub(crate) fn new(
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
         cursor: Option<String>,
         from: Option<String>,
         reverse: bool,
+        sort: ArtistNameSort,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             cursor,
             from,
             reverse,
+            sort,
         }
     }
 }
@@ -340,6 +346,7 @@ impl ApplicationCommand for FetchArtistNamePage {
                 self.from.as_deref(),
                 &INDEX_ARTIST_NAME_LIST,
                 self.reverse,
+                self.sort,
             )
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
         Ok(CommandOutcome::without_events(IndexNameListBatch {
@@ -385,6 +392,7 @@ impl ApplicationCommand for FetchArtistNameValues {
                 Some(&self.key),
                 &INDEX_FIELD_LIST_ARTIST_NAMES,
                 false,
+                ArtistNameSort::Name,
             )
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
         Ok(CommandOutcome::without_events(response.data))
@@ -452,11 +460,17 @@ mod tests {
         .to_string();
         let (endpoint, requests) = serve(body, 1);
 
-        let batch = FetchArtistNamePage::new(endpoint, Some("abc".to_owned()), None, false)
-            .execute(&CommandContext::next())
-            .unwrap()
-            .into_parts()
-            .0;
+        let batch = FetchArtistNamePage::new(
+            endpoint,
+            Some("abc".to_owned()),
+            None,
+            false,
+            ArtistNameSort::Name,
+        )
+        .execute(&CommandContext::next())
+        .unwrap()
+        .into_parts()
+        .0;
 
         assert_eq!(batch.rows.len(), 1);
         assert_eq!(batch.cursor.as_deref(), Some("next-cursor"));
@@ -843,14 +857,21 @@ mod tests {
         .to_string();
         let (endpoint, requests) = serve(body, 2);
 
-        let first = FetchArtistNamePage::new(endpoint.clone(), None, None, true)
-            .execute(&CommandContext::next())
-            .unwrap()
-            .into_parts()
-            .0;
-        FetchArtistNamePage::new(endpoint, first.cursor.clone(), None, true)
-            .execute(&CommandContext::next())
-            .unwrap();
+        let first =
+            FetchArtistNamePage::new(endpoint.clone(), None, None, true, ArtistNameSort::Name)
+                .execute(&CommandContext::next())
+                .unwrap()
+                .into_parts()
+                .0;
+        FetchArtistNamePage::new(
+            endpoint,
+            first.cursor.clone(),
+            None,
+            true,
+            ArtistNameSort::Name,
+        )
+        .execute(&CommandContext::next())
+        .unwrap();
 
         let paths = requests.lock().unwrap().clone();
         assert_eq!(paths.len(), 2);

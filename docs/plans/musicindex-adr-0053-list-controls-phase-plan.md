@@ -12,7 +12,9 @@ Packet 6 note: a section offers Newest only when each of its rows has a date (R-
 
 The public playlist page has no list bar, so its control is at the right end of a heading above its entries (R-LIST-11 item 3).
 
-Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is implemented on 2026-11-08. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
+Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is committed as `bfb8674`. Packet 9 is implemented on 2026-11-08. Packet 3 comes next (answer 9).
+
+Packet 9 note: Artists offers Newest in the scope In Library from the newest Library release date of each artist. It offers Newest in the scope All when the node lists `artist_newest`. The stored contract is the live contract of Stophammer candidate v0.19.0-rc.5 (git `a0c0c5a`), with `newest_release_at`. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
 
 Packet 2 note: a saved search page starts with Newest, also when its query has a word. Thus it keeps the window groups of ADR 0086 (answer 6). A new search from the toolbar starts with Relevance when its query has a word.
 
@@ -56,7 +58,7 @@ The orchestrator session relayed these operator answers on 2026-11-08:
 |---|---|---|
 | 1 | Reverse from the node | Releases All, Public playlists, Artists All |
 | 2 | The search sorts | The results page and the saved search page: Relevance, A to Z, Newest, and reverse except on Relevance and in the scope All |
-| 3 | A curated list | My playlists: Curator Order, A to Z, Newest, reverse, rows and tiles |
+| 3 | A curated list | My playlists: Curator Order, A to Z, Newest, reverse, rows and tiles. The [ADR 0089 amendment of 2026-11-08](../adr/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) stores the Curator Order (schema 24) and adds the drag |
 | 4 | Group pages | The singles group page and the window group page: Newest, A to Z, reverse, rows and tiles in the list bar |
 | 5 | Track and item order | Release tracks: Feed Order and its reverse. Public playlist items: Playlist Order and its reverse. Each from 8 rows |
 | 6 | Sections of an item page | The artist feed page and the name level page: Newest, A to Z, reverse and views from 8 releases, at the right end of the section heading. With ADR 0090 packet 004 |

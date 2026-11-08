@@ -212,6 +212,7 @@ fn index_name_row_exists(client: &crate::api::Client, key: &str) -> bool {
         Some(key),
         &crate::application::request_profiles::INDEX_ARTIST_NAME_CHECK,
         false,
+        crate::api::ArtistNameSort::Name,
     ) {
         Ok(response) => response
             .data
