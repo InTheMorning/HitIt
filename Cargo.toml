@@ -15,7 +15,7 @@ rss = "2"
 chrono = { version = "0.4", default-features = false, features = ["std", "serde"] }
 serde_json = "1"
 # ADR 0091 step 1: the search parser, the Index plan and the kind rule.
-musicindex-search = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "07d28d868ae38865fd0b912e6fcef7048c90f6a0" }
+musicindex-search = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "e84bab570ef53fb6daad3fc59681ec64abe5417f" }
 roxmltree = "=0.21.1"
 quick-xml = { version = "=0.37.5", features = ["encoding"] }
 # ADR 0076 packet 002: readable-text comparison of descriptions (ADR 0075

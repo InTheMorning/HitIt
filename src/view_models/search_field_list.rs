@@ -99,11 +99,23 @@ pub struct FieldListState {
     pub focused: bool,
     /// The index of the selected row.
     pub selected: Option<usize>,
+    /// The count of openings. It seeds the runnable example of each text
+    /// field, so each visit can show another value (musicindex ADR 0058
+    /// R-QUERY-12 item 2). The app sets the first value.
+    pub visit: u64,
 }
 
 impl FieldListState {
     /// Changes the state for one event.
     pub fn apply(&mut self, event: FieldListEvent) {
+        let was_open = self.opening == FieldListOpening::Open;
+        self.apply_event(event);
+        if !was_open && self.opening == FieldListOpening::Open {
+            self.visit = self.visit.wrapping_add(1);
+        }
+    }
+
+    fn apply_event(&mut self, event: FieldListEvent) {
         match event {
             FieldListEvent::Focus => {
                 // ADR 0087 Decision 3: only a click or typing opens the list.
@@ -162,6 +174,44 @@ pub enum FieldListRowKind {
     Loading { field: QueryFieldName },
     /// The `MusicIndex` name request of the field failed.
     IndexError { field: QueryFieldName },
+}
+
+/// The kind of one example text of a field row.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FieldExampleKind {
+    /// A fixed example of a field that names no person or release.
+    Fixed,
+    /// The placeholder of a text field. It runs no search (musicindex ADR
+    /// 0058 R-QUERY-11).
+    Placeholder,
+    /// An example that the field list builds from loaded data (musicindex
+    /// ADR 0058 R-QUERY-12).
+    Runnable,
+}
+
+/// The click on an example text. It puts the example into the search field.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FieldExampleClick {
+    /// The text edit of the click.
+    pub edit: FieldListEdit,
+    /// The byte range to select after the edit, in the changed text. For a
+    /// placeholder it is the placeholder text. For a runnable example it is
+    /// the empty range at the end.
+    pub select: Range<usize>,
+}
+
+/// One example text of a field row.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FieldListExample {
+    /// The element id of the example text.
+    pub element_id: String,
+    /// The text of the example, with its field token.
+    pub text: String,
+    /// The kind of the example.
+    pub kind: FieldExampleKind,
+    /// The click on the example. `None` for a fixed example: the click goes
+    /// to the row.
+    pub click: Option<FieldExampleClick>,
 }
 
 /// The typed action of one row.
@@ -249,8 +299,8 @@ pub struct FieldListRowVm {
     pub label: String,
     /// The values of the field, or the description of the value.
     pub values_text: Option<String>,
-    /// One example of the field.
-    pub example_text: Option<String>,
+    /// The example texts of the field, in the order that the row shows them.
+    pub examples: Vec<FieldListExample>,
     /// The mark of the row.
     pub mark: Option<FieldListMark>,
     /// The reason that the row is not available.
@@ -364,7 +414,9 @@ impl FieldListVm {
                     .is_some_and(char::is_whitespace);
             let edit = ValueEdit { range, add_space };
             rows.extend(list.rows.iter().map(|row| match row {
-                FieldListRow::Field(info) => field_row(info, edit.range.clone(), scope),
+                FieldListRow::Field(info) => {
+                    field_row(info, edit.range.clone(), scope, values, state.visit)
+                }
                 FieldListRow::Value { field, value } => value_row(*field, value, &edit, scope),
             }));
             if let Some(request) = &list.names {
@@ -466,6 +518,8 @@ fn field_row(
     info: &'static QueryFieldInfo,
     edit_range: Range<usize>,
     scope: QueryScope,
+    values: &FieldValueRows<'_>,
+    seed: u64,
 ) -> FieldListRowVm {
     let availability = if scope == QueryScope::IndexOnly && info.library_only {
         FieldListRowAvailability::Unavailable(FieldListRowUnavailable::ScopeConflict)
@@ -474,10 +528,18 @@ fn field_row(
     };
     let note = unavailable_note(availability, scope);
     let mark = info.library_only.then_some(FieldListMark::LibraryOnly);
-    let mut a11y_label = format!(
-        "Field {}, {}, for example {}",
-        info.token, info.values_text, info.example
-    );
+    let element_id = format!("search-field-list-field-{}", bare_token(info.token));
+    let examples = field_examples(info, &element_id, &edit_range, values, seed);
+    let mut a11y_label = format!("Field {}, {}", info.token, info.values_text);
+    for example in &examples {
+        match example.kind {
+            FieldExampleKind::Fixed | FieldExampleKind::Runnable => {
+                a11y_label.push_str(", for example ");
+            }
+            FieldExampleKind::Placeholder => a11y_label.push_str(", placeholder "),
+        }
+        a11y_label.push_str(&example.text);
+    }
     if let Some(mark) = mark {
         a11y_label.push_str(", ");
         a11y_label.push_str(mark.label());
@@ -485,11 +547,11 @@ fn field_row(
     push_note(&mut a11y_label, note.as_deref());
     let cursor = edit_range.start + info.token.len();
     FieldListRowVm {
-        element_id: format!("search-field-list-field-{}", bare_token(info.token)),
+        element_id,
         kind: FieldListRowKind::Field { field: info.name },
         label: info.token.to_owned(),
         values_text: Some(info.values_text.to_owned()),
-        example_text: Some(info.example.to_owned()),
+        examples,
         mark,
         note,
         a11y_label,
@@ -502,6 +564,67 @@ fn field_row(
         },
         selected: false,
     }
+}
+
+/// The example texts of one field (musicindex ADR 0058).
+///
+/// A field with a placeholder gives the placeholder first. When the loaded
+/// data has a value for the field, a runnable example follows it. The
+/// runnable example is the token and `quote_field_value` of that value, and
+/// the seed picks the value. A field with no placeholder gives its fixed
+/// example.
+fn field_examples(
+    info: &'static QueryFieldInfo,
+    row_id: &str,
+    edit_range: &Range<usize>,
+    values: &FieldValueRows<'_>,
+    seed: u64,
+) -> Vec<FieldListExample> {
+    let Some(placeholder) = info.placeholder else {
+        return vec![FieldListExample {
+            element_id: format!("{row_id}-example-0"),
+            text: info.example.to_owned(),
+            kind: FieldExampleKind::Fixed,
+            click: None,
+        }];
+    };
+    let start = edit_range.start + info.token.len();
+    let quoted = quote_field_value(placeholder);
+    // The selection holds the placeholder text, without its quotes.
+    let inner = usize::from(quoted.len() != placeholder.len());
+    let text = format!("{}{quoted}", info.token);
+    let cursor = edit_range.start + text.len();
+    let mut examples = vec![FieldListExample {
+        element_id: format!("{row_id}-example-0"),
+        text: text.clone(),
+        kind: FieldExampleKind::Placeholder,
+        click: Some(FieldExampleClick {
+            edit: FieldListEdit {
+                range: edit_range.clone(),
+                text,
+                cursor,
+            },
+            select: start + inner..start + quoted.len() - inner,
+        }),
+    }];
+    if let Some(value) = values.library.example_value(info.name, seed) {
+        let text = format!("{}{}", info.token, quote_field_value(value));
+        let cursor = edit_range.start + text.len();
+        examples.push(FieldListExample {
+            element_id: format!("{row_id}-example-1"),
+            text: text.clone(),
+            kind: FieldExampleKind::Runnable,
+            click: Some(FieldExampleClick {
+                edit: FieldListEdit {
+                    range: edit_range.clone(),
+                    text,
+                    cursor,
+                },
+                select: cursor..cursor,
+            }),
+        });
+    }
+    examples
 }
 
 /// The value item that a value row replaces, and whether a space follows
@@ -564,7 +687,7 @@ fn value_row(
         },
         label: value.word.to_owned(),
         values_text: Some(value.description.to_owned()),
-        example_text: None,
+        examples: Vec::new(),
         mark: None,
         note,
         a11y_label,
@@ -625,7 +748,7 @@ fn text_value_row(
         },
         label: text.to_owned(),
         values_text: None,
-        example_text: None,
+        examples: Vec::new(),
         mark: Some(FieldListMark::Source(source)),
         note,
         a11y_label,
@@ -678,7 +801,7 @@ fn index_rows(
             kind: FieldListRowKind::Loading { field },
             label: LOADING_LABEL.to_owned(),
             values_text: None,
-            example_text: None,
+            examples: Vec::new(),
             mark: None,
             note: None,
             a11y_label: LOADING_A11Y_LABEL.to_owned(),
@@ -692,7 +815,7 @@ fn index_rows(
             kind: FieldListRowKind::IndexError { field },
             label: INDEX_ERROR_LABEL.to_owned(),
             values_text: None,
-            example_text: None,
+            examples: Vec::new(),
             mark: None,
             note: Some(INDEX_ERROR_NOTE.to_owned()),
             a11y_label: INDEX_ERROR_A11Y_LABEL.to_owned(),
@@ -767,10 +890,9 @@ fn list_a11y_label(row_count: usize) -> String {
     }
 }
 
-#[cfg(test)]
 impl FieldListEdit {
-    /// Gives the changed text. The view puts an edit into the search field
-    /// through the input, so only the tests call this function now.
+    /// Gives the changed text. The click on a placeholder sets this text
+    /// with no change event (musicindex ADR 0058 R-QUERY-11 item 3).
     #[must_use]
     pub fn apply(&self, text: &str) -> String {
         let mut out = String::with_capacity(text.len() + self.text.len());
@@ -783,6 +905,8 @@ impl FieldListEdit {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::*;
     use crate::view_models::search_field_values::LibraryFieldValues;
     use crate::view_models::search_query::QUERY_FIELDS;
@@ -792,6 +916,7 @@ mod tests {
             opening,
             focused: true,
             selected: None,
+            visit: 0,
         }
     }
 
@@ -846,11 +971,140 @@ mod tests {
             assert_eq!(row.kind, FieldListRowKind::Field { field: info.name });
             assert_eq!(row.label, info.token);
             assert_eq!(row.values_text.as_deref(), Some(info.values_text));
-            assert_eq!(row.example_text.as_deref(), Some(info.example));
+            let first = row.examples.first().expect("each field row has an example");
+            assert_eq!(first.text, info.example);
             assert!(!row.selected);
         }
         assert!(vm.notices.is_empty());
         assert_eq!(vm.selected, None);
+    }
+
+    fn field_row_of<'a>(vm: &'a FieldListVm, token: &str) -> &'a FieldListRowVm {
+        vm.rows
+            .iter()
+            .find(|row| row.label == token)
+            .expect("the row exists")
+    }
+
+    fn build_visit(text: &str, library: &LibraryFieldValues, visit: u64) -> FieldListVm {
+        let mut open = state(FieldListOpening::Open);
+        open.visit = visit;
+        FieldListVm::build(
+            text,
+            text.len()..text.len(),
+            &open,
+            &FieldValueRows {
+                library,
+                index: &IndexArtistValues::NotRequested,
+            },
+        )
+        .expect("the list shows")
+    }
+
+    /// musicindex ADR 0058 R-QUERY-11: a text field shows its placeholder,
+    /// the click selects the placeholder text and runs no search, and the
+    /// renderer draws it muted.
+    #[test]
+    fn adr_0058_placeholder_row_selects_its_text_and_runs_no_search() {
+        let vm = build_end("", FieldListOpening::Open).expect("the list shows");
+        for info in QUERY_FIELDS
+            .iter()
+            .filter(|info| info.placeholder.is_some())
+        {
+            let placeholder = info.placeholder.expect("filtered");
+            let row = field_row_of(&vm, info.token);
+            let example = &row.examples[0];
+            assert_eq!(example.kind, FieldExampleKind::Placeholder);
+            let click = example.click.as_ref().expect("a placeholder has a click");
+            let text = click.edit.apply("");
+            assert_eq!(text, info.example);
+            assert_eq!(&text[click.select.clone()], placeholder);
+            // The edit puts text only. No action submits the search.
+            assert_eq!(row.action, FieldListRowAction::InsertField(info.name));
+        }
+        // A field with no placeholder keeps its fixed example.
+        let kind = field_row_of(&vm, "kind:");
+        assert_eq!(kind.examples.len(), 1);
+        assert_eq!(kind.examples[0].kind, FieldExampleKind::Fixed);
+        assert!(kind.examples[0].click.is_none());
+    }
+
+    /// musicindex ADR 0058 R-QUERY-11: no row label calls a placeholder an
+    /// example.
+    #[test]
+    fn adr_0058_no_label_calls_a_placeholder_an_example() {
+        let vm = build_end("", FieldListOpening::Open).expect("the list shows");
+        for info in QUERY_FIELDS
+            .iter()
+            .filter(|info| info.placeholder.is_some())
+        {
+            let row = field_row_of(&vm, info.token);
+            assert!(!row.a11y_label.contains("example"), "{}", row.a11y_label);
+            assert!(row.a11y_label.contains("placeholder"));
+        }
+    }
+
+    /// musicindex ADR 0058 R-QUERY-12 items 1 and 3: a runnable example is
+    /// the token and `quote_field_value` of a loaded value.
+    #[test]
+    fn adr_0058_runnable_example_quotes_a_loaded_value() {
+        let library =
+            LibraryFieldValues::from_texts(&["Haleen Moss"], &["Aged Friends"], &["Friday show"]);
+        let vm = build_visit("", &library, 1);
+        for (token, value) in [
+            ("artist:", "Haleen Moss"),
+            ("release:", "Aged Friends"),
+            ("playlist:", "Friday show"),
+        ] {
+            let row = field_row_of(&vm, token);
+            assert_eq!(row.examples.len(), 2, "{token}");
+            let runnable = &row.examples[1];
+            assert_eq!(runnable.kind, FieldExampleKind::Runnable);
+            assert_eq!(
+                runnable.text,
+                format!("{token}{}", quote_field_value(value))
+            );
+            let click = runnable.click.as_ref().expect("a runnable example clicks");
+            assert_eq!(click.edit.apply(""), runnable.text);
+            assert_eq!(click.select, runnable.text.len()..runnable.text.len());
+        }
+        // The loaded data has no track title, so `title:` shows only its
+        // placeholder.
+        assert_eq!(field_row_of(&vm, "title:").examples.len(), 1);
+    }
+
+    /// musicindex ADR 0058 R-QUERY-12 item 2: two visits can give two
+    /// examples. A visit is one opening of the list.
+    #[test]
+    fn adr_0058_two_visits_can_give_different_examples() {
+        let library = LibraryFieldValues::from_texts(&["Ann", "Bob", "Cyd", "Dee"], &[], &[]);
+        let mut list = state(FieldListOpening::Closed);
+        list.apply(FieldListEvent::Focus);
+        list.apply(FieldListEvent::Click);
+        let first = list.visit;
+        list.apply(FieldListEvent::Escape);
+        list.apply(FieldListEvent::Click);
+        assert_eq!(list.visit, first + 1);
+        let example_of = |visit: u64| {
+            let vm = build_visit("", &library, visit);
+            field_row_of(&vm, "artist:").examples[1].text.clone()
+        };
+        let texts: BTreeSet<String> = (first..first + 4).map(example_of).collect();
+        assert!(texts.len() > 1, "visits gave one example: {texts:?}");
+        // The same visit gives the same example, so a redraw does not flicker.
+        assert_eq!(example_of(first), example_of(first));
+    }
+
+    /// musicindex ADR 0058 R-QUERY-12 item 3: with no loaded data, the row
+    /// shows only the placeholder.
+    #[test]
+    fn adr_0058_no_loaded_data_gives_only_the_placeholder() {
+        let vm = build_visit("", &LibraryFieldValues::default(), 5);
+        for token in ["artist:", "title:", "release:", "playlist:"] {
+            let row = field_row_of(&vm, token);
+            assert_eq!(row.examples.len(), 1, "{token}");
+            assert_eq!(row.examples[0].kind, FieldExampleKind::Placeholder);
+        }
     }
 
     #[test]
@@ -1106,6 +1360,7 @@ mod tests {
             opening: FieldListOpening::Open,
             focused: true,
             selected: None,
+            visit: 0,
         };
         open.apply(FieldListEvent::Submit);
         assert_eq!(open.opening, FieldListOpening::Closed);
@@ -1135,7 +1390,7 @@ mod tests {
         let vm = build_end("", FieldListOpening::Open).expect("the list shows");
         assert_eq!(
             row(&vm, "artist:").a11y_label,
-            "Field artist:, an artist name, for example artist:jsmovie"
+            "Field artist:, an artist name, placeholder artist:\"artist name\""
         );
         assert!(row(&vm, "is:").a11y_label.ends_with(", Library only"));
         for row in &vm.rows {

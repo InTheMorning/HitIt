@@ -27,11 +27,15 @@ use crate::ui::primitives::status_badge::render_row_badge;
 use crate::ui::primitives::surface::{Surface, SurfaceElevation};
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size, Spacing, Weight};
 use crate::view_models::search_field_list::{
-    FieldListNoticeKind, FieldListNoticeVm, FieldListRowVm, FieldListVm,
+    FieldExampleKind, FieldListNoticeKind, FieldListNoticeVm, FieldListRowVm, FieldListVm,
 };
 
 /// The handler of a mouse down on a row. It gets the row index.
 type RowHandler = Rc<dyn Fn(usize, &mut Window, &mut App)>;
+
+/// The handler of a mouse down on an example text. It gets the row index and
+/// the example index.
+type ExampleHandler = Rc<dyn Fn(usize, usize, &mut Window, &mut App)>;
 
 /// The field list under the toolbar search field.
 #[derive(IntoElement)]
@@ -40,6 +44,7 @@ pub(crate) struct SearchFieldList {
     vm: FieldListVm,
     scroll: ScrollHandle,
     on_row: Option<RowHandler>,
+    on_example: Option<ExampleHandler>,
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
 
@@ -56,8 +61,19 @@ impl SearchFieldList {
             vm,
             scroll,
             on_row: None,
+            on_example: None,
             bounds,
         }
+    }
+
+    /// Sets the handler of a left mouse down on an example text that has its
+    /// own click.
+    pub(crate) fn on_example(
+        mut self,
+        handler: impl Fn(usize, usize, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_example = Some(Rc::new(handler));
+        self
     }
 
     /// Sets the handler of a left mouse down on a row.
@@ -76,6 +92,7 @@ impl RenderOnce for SearchFieldList {
             vm,
             scroll,
             on_row,
+            on_example,
             bounds,
         } = self;
         let notices: Vec<AnyElement> = vm
@@ -87,7 +104,7 @@ impl RenderOnce for SearchFieldList {
             .rows
             .into_iter()
             .enumerate()
-            .map(|(index, row)| render_row(index, row, on_row.clone(), cx))
+            .map(|(index, row)| render_row(index, row, on_row.clone(), on_example.as_ref(), cx))
             .collect();
         let row_list = div()
             .id(FieldListVm::LIST_ID)
@@ -167,6 +184,7 @@ fn render_row(
     index: usize,
     row: FieldListRowVm,
     on_row: Option<RowHandler>,
+    on_example: Option<&ExampleHandler>,
     cx: &App,
 ) -> AnyElement {
     let available = row.availability.is_available();
@@ -205,9 +223,32 @@ fn render_row(
         .when_some(row.values_text, |line, text| {
             line.child(caption(text, SemanticColor::SecondaryLabel, cx))
         })
-        .when_some(row.example_text, |line, text| {
-            line.child(caption(text, SemanticColor::TertiaryLabel, cx))
-        })
+        .children(
+            row.examples
+                .into_iter()
+                .enumerate()
+                .map(|(position, example)| {
+                    let text = caption(example.text, example_color(example.kind), cx);
+                    if example.click.is_none() {
+                        return text;
+                    }
+                    let handler = on_example.cloned();
+                    let id = SharedString::from(example.element_id);
+                    div()
+                        .id(id.clone())
+                        .debug_selector(move || id.to_string())
+                        .min_w_0()
+                        .cursor_pointer()
+                        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                            cx.stop_propagation();
+                            if let Some(handler) = &handler {
+                                handler(index, position, window, cx);
+                            }
+                        })
+                        .child(text)
+                        .into_any_element()
+                }),
+        )
         .when_some(row.note, |line, text| {
             line.child(caption(text, SemanticColor::SecondaryLabel, cx))
         });
@@ -242,6 +283,15 @@ fn render_row(
         .into_any_element()
 }
 
+/// The text color of an example. A placeholder is muted, as the placeholder
+/// of the search field (musicindex ADR 0058 R-QUERY-11 item 2).
+fn example_color(kind: FieldExampleKind) -> SemanticColor {
+    match kind {
+        FieldExampleKind::Placeholder | FieldExampleKind::Fixed => SemanticColor::TertiaryLabel,
+        FieldExampleKind::Runnable => SemanticColor::SecondaryLabel,
+    }
+}
+
 /// One caption text of a row.
 fn caption(text: String, text_color: SemanticColor, cx: &App) -> AnyElement {
     div()
@@ -259,6 +309,18 @@ mod tests {
     use super::*;
     use crate::view_models::search_field_list::{FieldListOpening, FieldListState};
     use crate::view_models::search_field_values::FieldValueRows;
+
+    #[test]
+    fn adr_0058_placeholder_example_is_muted() {
+        assert_eq!(
+            example_color(FieldExampleKind::Placeholder),
+            SemanticColor::TertiaryLabel
+        );
+        assert_ne!(
+            example_color(FieldExampleKind::Runnable),
+            example_color(FieldExampleKind::Placeholder)
+        );
+    }
 
     /// Shows one field list, so that a test can draw it again.
     struct FieldListTest {
@@ -288,6 +350,7 @@ mod tests {
             opening: FieldListOpening::Open,
             focused: true,
             selected: None,
+            visit: 0,
         };
         FieldListVm::build(text, text.len()..text.len(), &state, &FieldValueRows::EMPTY)
             .expect("the list shows")

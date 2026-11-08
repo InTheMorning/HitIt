@@ -127,6 +127,29 @@ impl LibraryFieldValues {
         }
     }
 
+    /// One value of `field` for a runnable example, picked by `seed`.
+    ///
+    /// The value comes from the loaded Library data, so no request runs
+    /// (musicindex ADR 0058 R-QUERY-12). The loaded data has no track title,
+    /// so `title:` gets no value. The result is `None` when the field has no
+    /// loaded value.
+    #[must_use]
+    pub(crate) fn example_value(&self, field: QueryFieldName, seed: u64) -> Option<&str> {
+        let (list, salt) = match field {
+            QueryFieldName::Artist => (&self.artists, 0x9E37_79B9_7F4A_7C15_u64),
+            QueryFieldName::Release => (&self.releases, 0xC2B2_AE3D_27D4_EB4F),
+            QueryFieldName::Playlist => (&self.playlists, 0x1656_67B1_9E37_79F9),
+            _ => return None,
+        };
+        if list.is_empty() {
+            return None;
+        }
+        // A multiplicative mix, so that two next seeds give far entries.
+        let mixed = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ salt;
+        let index = usize::try_from(mixed % list.len() as u64).ok()?;
+        list.get(index).map(|entry| entry.text.as_str())
+    }
+
     /// The entries of `field` that match the typed `prefix`.
     ///
     /// `prefix` is the typed value with its quote and its escapes read, as
