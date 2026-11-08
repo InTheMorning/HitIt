@@ -71,7 +71,7 @@ Known open defects:
   [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Proposed, and for the mpv IPC error.
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
-- The image client gets an HTTP/2 stream error from `files.catbox.moe`, so the cover of "Fiat Is Dead" does not load and shows the placeholder. `curl` loads it over HTTP/2 and HTTP/1.1. No packet owns the change.
+- A Music column that scrolls with `music_column_scrollbar`, with no scroll handle, does not scroll to show a button that takes the keyboard focus. These are the destinations list, the Index detail panes, the search notice page and Settings. [ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) Invariants require keyboard reach, and no packet owns the change.
 - A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role, and no packet owns the code change.
 
 Stored facts that agents need:

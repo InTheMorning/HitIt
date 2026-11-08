@@ -36,6 +36,12 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// explicitly so a dependency bump cannot move it silently.
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// The `User-Agent` of each client. Some hosts refuse a request with no
+/// agent: `files.catbox.moe` resets the stream, and `hogstory.net` gives 400
+/// (walk of 2026-11-07). A caller such as the MusicBrainz lookup can set its
+/// own agent after the builder.
+const USER_AGENT: &str = concat!("v4vmm/", env!("CARGO_PKG_VERSION"));
+
 /// ADR 0075 uses this duration for the complete observed request.
 pub(crate) const fn document_timeout() -> Duration {
     OPERATION_TIMEOUT
@@ -45,6 +51,7 @@ pub(crate) const fn document_timeout() -> Duration {
 /// configuration such as a MusicBrainz user agent.
 pub fn document_builder() -> ClientBuilder {
     Client::builder()
+        .user_agent(USER_AGENT)
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(OPERATION_TIMEOUT)
 }
@@ -67,6 +74,7 @@ pub fn document() -> Client {
 /// safe under a 30 second number.
 pub fn media_builder() -> ClientBuilder {
     Client::builder()
+        .user_agent(USER_AGENT)
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(OPERATION_TIMEOUT)
 }
@@ -99,6 +107,48 @@ mod tests {
             .expect_err("a silent host must time out, not hang");
 
         assert!(error.is_timeout(), "expected a timeout error, got: {error}");
+    }
+
+    /// Walk of 2026-11-07: the cover of "Fiat Is Dead" did not load, because
+    /// its host refuses a request with no `User-Agent`. Each builder sends the
+    /// agent of the app.
+    #[test]
+    fn builders_send_the_user_agent_of_the_app() {
+        use std::io::{Read as _, Write as _};
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let addr = listener.local_addr().expect("listener addr");
+        std::thread::spawn(move || {
+            for stream in listener.incoming().take(2) {
+                let mut stream = stream.expect("accept");
+                let mut buffer = [0_u8; 4096];
+                let read = stream.read(&mut buffer).unwrap_or(0);
+                let head = String::from_utf8_lossy(&buffer[..read]).to_ascii_lowercase();
+                let status =
+                    if head.contains(&format!("user-agent: {}", USER_AGENT.to_ascii_lowercase())) {
+                        "200 OK"
+                    } else {
+                        "400 Bad Request"
+                    };
+                let _ = stream.write_all(
+                    format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                        .as_bytes(),
+                );
+            }
+        });
+        for builder in [document_builder(), media_builder()] {
+            let response = builder
+                .build()
+                .expect("build client")
+                .get(format!("http://{addr}/cover.png"))
+                .send()
+                .expect("the local host answers");
+            assert_eq!(
+                response.status().as_u16(),
+                200,
+                "the request has the app agent"
+            );
+        }
     }
 
     #[test]
