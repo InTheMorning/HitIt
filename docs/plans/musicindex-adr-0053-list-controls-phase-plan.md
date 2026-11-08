@@ -1,6 +1,19 @@
 # musicindex ADR 0053 List Controls Phase Plan
 
-Status: Open. Created 2026-11-07. Packets 1 to 7 are started. Packet 8 waits for packets 1 to 7.
+Status: Open. Created 2026-11-07. Packet 1 is implemented on 2026-11-08 (`b3b391d`). Packet 2 is implemented on 2026-11-08. Packets 3 to 7 are started.
+
+Packet 2 note: when the query of a saved search has a word, the page starts with Relevance. Its Releases then show no window groups of ADR 0086 until the person selects Newest. A saved search with no word starts with Newest and keeps its groups. Packet 8 waits for packets 1 to 7.
+
+## Node Facts Of 2026-11-08
+
+The Stophammer session reported these facts of candidate v0.19.0-rc.5 on the primary node (`git_revision` `a0c0c5a`, API.md at Stophammer `365d514`):
+
+- `/v1/node/capabilities` lists `artist_newest` (Stophammer ADR 0089) and `feed_by_url` (Stophammer ADR 0088).
+- `/v1/artist-names?sort=date` gives the artists by the row field `newest_release_at`. Rows with no date come last in each direction. `sort=date` with `from` gives the status 400.
+- `/v1/feeds/recent?artist_key=<key>` gives the releases of one artist, newest first, and with `reverse=true` oldest first.
+- The node puts names with symbols or accents after Z in its name sequence. Stophammer accepted a fix: a group "#" before A, with `from=#`. A subsequent candidate delivers it.
+
+Packet 9 starts after packet 8.
 
 Owner of the rules: [musicindex ADR 0053](../../../musicindex/docs/adr/0053-which-lists-have-a-sort-a-reverse-and-a-view.md) R-LIST-8 to R-LIST-12. musicindex ADR 0043 R-LIST-6 and R-LIST-7 give the shape of the control. This plan states no rule.
 

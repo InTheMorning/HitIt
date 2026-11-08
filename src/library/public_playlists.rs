@@ -133,7 +133,7 @@ impl LibraryApp {
         // the recent feeds, which take none.
         let from = match sort {
             ListSort::AToZ => from,
-            ListSort::Newest => None,
+            ListSort::Newest | ListSort::Relevance => None,
         };
         let reverse = self.vm.list_index_reversed(ListPageKey::PublicPlaylists);
         let command = FetchPublicPlaylistPage::new(

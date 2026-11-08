@@ -86,16 +86,17 @@ impl ListPageKey {
     /// Whether the page reverses its rows locally in `scope` (musicindex ADR
     /// 0043 R-LIST-7 items 9 and 10). The rows of a local list reverse here:
     /// Releases and Artists with the scope In Library, My playlists, and
-    /// Results with the scope In Library. The Index lists reverse through
-    /// the node instead (`index_reverses`), so they are not reversed here.
+    /// Results and Saved search with the scope In Library (musicindex ADR
+    /// 0053 R-LIST-9). The Index lists reverse through the node instead
+    /// (`index_reverses`), so they are not reversed here.
     #[must_use]
     pub(crate) const fn reverses_in(self, scope: ListScope) -> bool {
         match self {
-            Self::Releases | Self::Artists | Self::Results => {
+            Self::Releases | Self::Artists | Self::Results | Self::SavedSearch => {
                 matches!(scope, ListScope::InLibrary)
             }
             Self::MyPlaylists => true,
-            Self::PublicPlaylists | Self::Live | Self::SavedSearch => false,
+            Self::PublicPlaylists | Self::Live => false,
         }
     }
 
@@ -118,12 +119,16 @@ impl ListPageKey {
     }
 
     /// The sorts that the page offers, in menu order. The first sort is the
-    /// default (ADR 0089 Decision 5). A page with no sort gives none.
+    /// default (ADR 0089 Decision 5), except for a search key. The default
+    /// of a search key depends on the query: Relevance when the query has a
+    /// word, else Newest (musicindex ADR 0053 R-LIST-9). A page with no sort
+    /// gives none.
     #[must_use]
     pub(crate) const fn sorts(self) -> &'static [ListSort] {
         match self {
-            Self::Releases | Self::PublicPlaylists | Self::Results | Self::SavedSearch => {
-                &[ListSort::Newest, ListSort::AToZ]
+            Self::Releases | Self::PublicPlaylists => &[ListSort::Newest, ListSort::AToZ],
+            Self::Results | Self::SavedSearch => {
+                &[ListSort::Relevance, ListSort::AToZ, ListSort::Newest]
             }
             Self::Artists => &[ListSort::AToZ],
             Self::MyPlaylists | Self::Live => &[],
@@ -134,6 +139,9 @@ impl ListPageKey {
 /// The sort of a list page (ADR 0089 Decision 5, R-LIST-1 item 1).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ListSort {
+    /// The order of the search run. Only the search keys offer it. It never
+    /// reverses (musicindex ADR 0053 R-LIST-9).
+    Relevance,
     /// The newest item first.
     Newest,
     /// The items by name, A to Z.
@@ -146,6 +154,7 @@ impl ListSort {
     #[must_use]
     pub(crate) const fn name(self, reversed: bool) -> &'static str {
         match (self, reversed) {
+            (Self::Relevance, _) => "Relevance",
             (Self::Newest, false) => "Newest",
             (Self::Newest, true) => "Oldest",
             (Self::AToZ, false) => "A to Z",
@@ -157,6 +166,7 @@ impl ListSort {
     #[must_use]
     pub(crate) const fn option_id(self) -> &'static str {
         match self {
+            Self::Relevance => "music-list-sort-relevance",
             Self::Newest => "music-list-sort-newest",
             Self::AToZ => "music-list-sort-a-to-z",
         }
@@ -277,18 +287,33 @@ pub(crate) struct ListPageState {
 impl ListPageState {
     /// Whether the rows of the page `key` reverse locally in `scope`. A list
     /// that cannot reverse locally in `scope` is never reversed, whatever the
-    /// stored state is. The stored state stays for a later scope.
+    /// stored state is. The sort Relevance never reverses (musicindex ADR
+    /// 0053 R-LIST-9). The stored state stays for a later scope or sort.
     #[must_use]
-    pub(crate) const fn reversed_in(self, key: ListPageKey, scope: ListScope) -> bool {
-        self.reversed && key.reverses_in(scope)
+    pub(crate) fn reversed_in(self, key: ListPageKey, scope: ListScope) -> bool {
+        self.reversed && !self.is_relevance() && key.reverses_in(scope)
+    }
+
+    /// Whether the sort is Relevance, which never reverses (musicindex ADR
+    /// 0053 R-LIST-9).
+    #[must_use]
+    fn is_relevance(self) -> bool {
+        self.sort == Some(ListSort::Relevance)
+    }
+
+    /// Whether the page `key` shows the reverse button in `scope`. The sort
+    /// Relevance shows none (musicindex ADR 0053 R-LIST-9).
+    #[must_use]
+    fn shows_reverse(self, key: ListPageKey, scope: ListScope) -> bool {
+        !self.is_relevance() && key.can_reverse(scope, self.index_sorts)
     }
 
     /// Whether the order of the page `key` shows as reversed in `scope`: the
     /// sort name, the letter bar and the reverse button. It is true for a
     /// local reverse and for an Index reverse.
     #[must_use]
-    pub(crate) const fn order_reversed(self, key: ListPageKey, scope: ListScope) -> bool {
-        self.reversed && key.can_reverse(scope, self.index_sorts)
+    pub(crate) fn order_reversed(self, key: ListPageKey, scope: ListScope) -> bool {
+        self.reversed && self.shows_reverse(key, scope)
     }
 
     /// Whether the Index request of the page `key` sends `reverse=true`
@@ -639,8 +664,8 @@ impl ListPageHeadVm {
             letters: (state.sort == Some(ListSort::AToZ))
                 .then(|| ordered_letters(LetterBarVm::new(key, state.letter), reversed)),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
-            reverse: key
-                .can_reverse(scope, state.index_sorts)
+            reverse: state
+                .shows_reverse(key, scope)
                 .then(|| ListReverseVm::new(state.reversed)),
             select,
             actions: Vec::new(),
@@ -668,8 +693,8 @@ impl ListPageHeadVm {
     #[must_use]
     pub(crate) fn with_reverse_of(mut self, key: ListPageKey, state: ListPageState) -> Self {
         let scope = state.scope.unwrap_or_default();
-        self.reverse = key
-            .can_reverse(scope, state.index_sorts)
+        self.reverse = state
+            .shows_reverse(key, scope)
             .then(|| ListReverseVm::new(state.reversed));
         self
     }
@@ -696,8 +721,8 @@ impl ListPageHeadVm {
             // Rows only: the search keys offer no view icon (ADR 0089 packet
             // 008 Part C, deviation, see `ListPageKey::views`).
             view: None,
-            reverse: key
-                .can_reverse(scope, state.index_sorts)
+            reverse: state
+                .shows_reverse(key, scope)
                 .then(|| ListReverseVm::new(state.reversed)),
             select: None,
             actions,
@@ -1208,12 +1233,17 @@ mod tests {
 
     /// ADR 0089 packet 008 Part C (deviation): the search keys offer rows
     /// only, so no view icon shows on the results page or on a saved search,
-    /// on any tab. The search keys offer the sorts Newest and A to Z.
+    /// on any tab. The search keys offer Relevance, A to Z and Newest
+    /// (musicindex ADR 0053 R-LIST-9).
     #[test]
     fn adr_0089_task_008_part_c_search_keys_show_no_view_icon() {
         for key in [ListPageKey::Results, ListPageKey::SavedSearch] {
             assert_eq!(key.views(), [ListView::Rows], "{key:?}");
-            assert_eq!(key.sorts(), [ListSort::Newest, ListSort::AToZ], "{key:?}");
+            assert_eq!(
+                key.sorts(),
+                [ListSort::Relevance, ListSort::AToZ, ListSort::Newest],
+                "{key:?}"
+            );
             let state = ListPageState::default_for(key);
             let head =
                 ListPageHeadVm::for_search(key, state, String::new(), ListScope::All, Vec::new());
@@ -1561,5 +1591,95 @@ mod tests {
         );
         assert_eq!(NodeSorts::from_capabilities(&[]), NodeSorts::NotListed);
         assert_eq!(NodeSorts::default(), NodeSorts::NotListed);
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9: the search keys offer Relevance, A to
+    /// Z and Newest, in that menu order, and the menu has an entry for each.
+    #[test]
+    fn adr_0053_r9_search_keys_offer_relevance_a_to_z_newest() {
+        for key in [ListPageKey::Results, ListPageKey::SavedSearch] {
+            assert_eq!(
+                key.sorts(),
+                [ListSort::Relevance, ListSort::AToZ, ListSort::Newest],
+                "{key:?}"
+            );
+            let mut state = ListPageState::default_for(key);
+            state.sort = Some(ListSort::Relevance);
+            let head = ListPageHeadVm::for_search(
+                key,
+                state,
+                String::new(),
+                ListScope::InLibrary,
+                Vec::new(),
+            );
+            let button = head.sort.expect("a search page has a sort button");
+            assert_eq!(button.label, "Relevance");
+            let ids: Vec<&str> = button.options.iter().map(|option| option.id).collect();
+            assert_eq!(
+                ids,
+                [
+                    "music-list-sort-relevance",
+                    "music-list-sort-a-to-z",
+                    "music-list-sort-newest"
+                ]
+            );
+            assert!(button.options[0].selected);
+            assert!(button.options[0].a11y_label.ends_with(", current sort"));
+        }
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9: Relevance never reverses. No reverse
+    /// button shows, and the stored reversed state is ignored.
+    #[test]
+    fn adr_0053_r9_relevance_gives_no_reverse() {
+        for key in [ListPageKey::Results, ListPageKey::SavedSearch] {
+            let mut state = ListPageState::default_for(key);
+            state.sort = Some(ListSort::Relevance);
+            state.reversed = true;
+            assert!(!state.reversed_in(key, ListScope::InLibrary), "{key:?}");
+            assert!(!state.order_reversed(key, ListScope::InLibrary), "{key:?}");
+            let head = ListPageHeadVm::for_search(
+                key,
+                state,
+                String::new(),
+                ListScope::InLibrary,
+                Vec::new(),
+            );
+            assert!(head.reverse.is_none(), "{key:?}");
+            assert_eq!(head.sort.expect("sort").label, "Relevance");
+            let titled = ListPageHeadVm::titled("x", None).with_reverse_of(key, state);
+            assert!(titled.reverse.is_none(), "{key:?}");
+        }
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9: the search keys reverse in In Library
+    /// on A to Z and Newest, and never in All.
+    #[test]
+    fn adr_0053_r9_search_keys_reverse_in_library_only() {
+        for key in [ListPageKey::Results, ListPageKey::SavedSearch] {
+            for sort in [ListSort::AToZ, ListSort::Newest] {
+                let mut state = ListPageState::default_for(key);
+                state.sort = Some(sort);
+                state.reversed = true;
+                assert!(state.reversed_in(key, ListScope::InLibrary), "{key:?}");
+                assert!(!state.reversed_in(key, ListScope::All), "{key:?}");
+                let library = ListPageHeadVm::for_search(
+                    key,
+                    state,
+                    String::new(),
+                    ListScope::InLibrary,
+                    Vec::new(),
+                );
+                assert!(library.reverse.is_some(), "{key:?}");
+                let all = ListPageHeadVm::for_search(
+                    key,
+                    state,
+                    String::new(),
+                    ListScope::All,
+                    Vec::new(),
+                );
+                assert!(all.reverse.is_none(), "{key:?}");
+            }
+        }
     }
 }

@@ -14437,6 +14437,9 @@ mod adr_0086_saved_search_groups_tests {
             name: "jsmovie".to_owned(),
         };
         let mut page = SearchResultsInspectorPageVm::new("jsmovie").into_saved_search(&search);
+        // A saved search groups only with Newest, and a query with a word
+        // defaults to Relevance (musicindex ADR 0053 R-LIST-9).
+        page.set_list_sort(ListSort::Newest);
         page.replace_index_results(IndexSearchResultRows {
             feeds: vec![
                 (2_000_000_000, release("lp", ReleaseKind::Album)),

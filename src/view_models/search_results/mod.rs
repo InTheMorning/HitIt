@@ -15,7 +15,7 @@ use crate::view_models::detail_selection::{
 use crate::view_models::list_page::{ListPageKey, ListPageState, ListPages, ListScope, ListSort};
 use crate::view_models::list_selection::{FocusStep, SelectionRow};
 use crate::view_models::live_run::RunGeneration;
-use crate::view_models::search_query::library_scope_of;
+use crate::view_models::search_query::{library_scope_of, SearchQuery};
 use crate::view_models::selection_action_bar::SelectionActionBarVm;
 use crate::view_models::window_groups::WindowGroupTileVm;
 use crate::view_models::workspace::{FrameHeaderActionDisplay, FrameNavigationEntry};
@@ -223,10 +223,31 @@ impl SearchResultsInspectorPageVm {
     }
 
     /// The list state of this page: its sort and its view (ADR 0089
-    /// Decision 5).
+    /// Decision 5). The sort is the effective sort of the page
+    /// ([`Self::effective_sort`]).
     #[must_use]
     pub(crate) fn list_state(&self) -> ListPageState {
-        *self.lists.get(self.list_key())
+        ListPageState {
+            sort: Some(self.effective_sort()),
+            ..*self.lists.get(self.list_key())
+        }
+    }
+
+    /// The sort of this page: the sort that the person selected, else
+    /// Relevance when the query has a word, else Newest (musicindex ADR 0053
+    /// R-LIST-9). A word is free text that is not a field term, so the query
+    /// `in:library haleen` has one and the query `kind:single` has none.
+    fn effective_sort(&self) -> ListSort {
+        if self.index_sort_selected {
+            if let Some(sort) = self.lists.get(self.list_key()).sort {
+                return sort;
+            }
+        }
+        if SearchQuery::parse(&self.query).index_q().is_some() {
+            ListSort::Relevance
+        } else {
+            ListSort::Newest
+        }
     }
 
     /// Sets the sort of this page (ADR 0089 Decision 4). The query does not
@@ -236,9 +257,9 @@ impl SearchResultsInspectorPageVm {
         self.index_sort_selected = true;
     }
 
-    /// The sort of this page. A page with no sort state uses Newest.
+    /// The sort of this page (musicindex ADR 0053 R-LIST-9).
     fn sort(&self) -> ListSort {
-        self.list_state().sort.unwrap_or(ListSort::Newest)
+        self.effective_sort()
     }
 
     /// Sets the reversed state of this page (musicindex ADR 0043 R-LIST-7).
@@ -254,14 +275,12 @@ impl SearchResultsInspectorPageVm {
     /// where the page reverses (R-LIST-7).
     #[must_use]
     pub(crate) fn index_order(&self) -> IndexOrder {
-        let Some(sort) = self.list_state().sort else {
-            return IndexOrder::Relevance;
-        };
         if !self.index_sort_selected {
             return IndexOrder::Relevance;
         }
         let reverse = self.reversed();
-        match sort {
+        match self.effective_sort() {
+            ListSort::Relevance => IndexOrder::Relevance,
             ListSort::Newest => IndexOrder::Date { reverse },
             ListSort::AToZ => IndexOrder::Name { reverse },
         }

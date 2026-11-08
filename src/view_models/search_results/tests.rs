@@ -2408,10 +2408,11 @@ fn release_labels(vm: &SearchResultsInspectorPageVm) -> Vec<String> {
         .collect()
 }
 
-/// ADR 0089 Decision 5: the results page and a saved search start with the
-/// sort Newest and the view Rows, and the page keeps its own state.
+/// ADR 0089 Decision 5: the results page and a saved search store the sort
+/// Newest and the view Rows, and the page keeps its own state. The page
+/// shows its effective sort (musicindex ADR 0053 R-LIST-9).
 #[test]
-fn adr_0089_task_008_part_c_search_pages_default_to_newest_and_rows() {
+fn adr_0089_task_008_part_c_search_pages_store_newest_and_rows() {
     use crate::view_models::list_page::{ListPageKey, ListPageState, ListSort, ListView};
 
     let results = ListPageState::default_for(ListPageKey::Results);
@@ -2424,7 +2425,15 @@ fn adr_0089_task_008_part_c_search_pages_default_to_newest_and_rows() {
 
     let vm = SearchResultsInspectorPageVm::new("survival guide");
     assert_eq!(vm.list_key(), ListPageKey::Results);
-    assert_eq!(vm.list_state(), results);
+    // The stored state is Newest. The effective sort of a query with a word
+    // is Relevance (musicindex ADR 0053 R-LIST-9).
+    assert_eq!(
+        vm.list_state(),
+        ListPageState {
+            sort: Some(ListSort::Relevance),
+            ..results
+        }
+    );
 }
 
 /// ADR 0089 Decision 4: the sort Newest puts the newest date first, and a
@@ -2444,6 +2453,7 @@ fn adr_0089_task_008_part_c_newest_puts_dateless_rows_last_and_keeps_query() {
         ..no_index_rows()
     });
     vm.set_tab(SearchResultsTab::Releases);
+    vm.set_list_sort(ListSort::Newest);
     assert_eq!(
         release_labels(&vm),
         ["Charlie", "Alpha", "Bravo"],
@@ -2474,6 +2484,7 @@ fn adr_0043_task_003_reverse_changes_the_sequence_of_library_results() {
 
     let text = with_library_scope("survival guide", ListScope::InLibrary);
     let mut library = SearchResultsInspectorPageVm::new(&text);
+    library.set_list_sort(crate::view_models::list_page::ListSort::Newest);
     library.replace_index_results(rows());
     library.set_tab(SearchResultsTab::Releases);
     assert_eq!(release_labels(&library), ["Charlie", "Alpha", "Bravo"]);
@@ -2483,6 +2494,7 @@ fn adr_0043_task_003_reverse_changes_the_sequence_of_library_results() {
     assert_eq!(release_labels(&library), ["Charlie", "Alpha", "Bravo"]);
 
     let mut index = SearchResultsInspectorPageVm::new("survival guide");
+    index.set_list_sort(crate::view_models::list_page::ListSort::Newest);
     index.replace_index_results(rows());
     index.set_tab(SearchResultsTab::Releases);
     index.set_list_reversed(true);
@@ -2573,6 +2585,7 @@ fn adr_0089_task_008_part_c_thumbnails_follow_the_sorted_order() {
         ..no_index_rows()
     });
     vm.set_tab(SearchResultsTab::Releases);
+    vm.set_list_sort(crate::view_models::list_page::ListSort::Newest);
     assert_eq!(
         vm.thumbnail_hrefs(&RecordedLibrary::default()),
         [
@@ -2580,4 +2593,68 @@ fn adr_0089_task_008_part_c_thumbnails_follow_the_sorted_order() {
             "https://example.test/alpha.jpg".to_string()
         ]
     );
+}
+
+/// Musicindex ADR 0053 R-LIST-9: a search page defaults to Relevance when
+/// the query has a word, and to Newest when it has none. A selected sort
+/// wins over the default.
+#[test]
+fn adr_0053_r9_default_sort_follows_the_query_word() {
+    use crate::view_models::list_page::ListSort;
+
+    for text in ["haleen", "haleen in:library", "\"survival guide\""] {
+        let vm = SearchResultsInspectorPageVm::new(text);
+        assert_eq!(vm.list_state().sort, Some(ListSort::Relevance), "{text}");
+    }
+    for text in [" kind:single", " in:library", " kind:single -haleen"] {
+        let vm = SearchResultsInspectorPageVm::new(text);
+        assert_eq!(vm.list_state().sort, Some(ListSort::Newest), "{text}");
+    }
+    let mut vm = SearchResultsInspectorPageVm::new("haleen");
+    vm.set_list_sort(ListSort::Newest);
+    assert_eq!(vm.list_state().sort, Some(ListSort::Newest));
+    vm.set_list_sort(ListSort::Relevance);
+    assert_eq!(vm.list_state().sort, Some(ListSort::Relevance));
+    let mut fields = SearchResultsInspectorPageVm::new(" kind:single");
+    fields.set_list_sort(ListSort::AToZ);
+    assert_eq!(fields.list_state().sort, Some(ListSort::AToZ));
+}
+
+/// Musicindex ADR 0053 R-LIST-9: Relevance keeps the run order of the rows,
+/// never reverses, and gives the Index order Relevance.
+#[test]
+fn adr_0053_r9_relevance_keeps_run_order_and_never_reverses() {
+    use crate::view_models::list_page::{ListPageHeadVm, ListScope, ListSort};
+    use crate::view_models::search_query::with_library_scope;
+
+    let text = with_library_scope("survival guide", ListScope::InLibrary);
+    let mut vm = SearchResultsInspectorPageVm::new(&text);
+    vm.replace_index_results(IndexSearchResultRows {
+        feeds: vec![
+            dated_release(1, "charlie", "Charlie", Some(300)),
+            dated_release(2, "alpha", "Alpha", Some(100)),
+            dated_release(3, "bravo", "Bravo", None),
+        ],
+        ..no_index_rows()
+    });
+    vm.set_tab(SearchResultsTab::Releases);
+    assert_eq!(vm.list_state().sort, Some(ListSort::Relevance));
+    let run_order = release_labels(&vm);
+    assert_eq!(run_order, ["Charlie", "Alpha", "Bravo"]);
+    vm.set_list_reversed(true);
+    assert_eq!(release_labels(&vm), run_order, "Relevance never reverses");
+
+    vm.set_list_sort(ListSort::Relevance);
+    assert_eq!(vm.index_order(), super::IndexOrder::Relevance);
+    let head = ListPageHeadVm::for_search(
+        vm.list_key(),
+        vm.list_state(),
+        String::new(),
+        ListScope::InLibrary,
+        Vec::new(),
+    );
+    assert!(head.reverse.is_none());
+
+    vm.set_list_sort(ListSort::AToZ);
+    assert_eq!(release_labels(&vm), ["Charlie", "Bravo", "Alpha"]);
 }
