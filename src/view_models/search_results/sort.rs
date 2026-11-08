@@ -2,7 +2,8 @@
 //!
 //! The sort orders the rows of one run. It does not change the query and
 //! sends no request. Newest puts the newest date first, and a row with no
-//! date goes last. A to Z orders the rows by name, without case. Both sorts
+//! date goes last. A to Z orders the rows by name in the language of the reader
+//! (musicindex ADR 0053 R-LIST-12). Both sorts
 //! are stable, so rows that compare equal keep the order of the run.
 
 #![warn(clippy::pedantic)]
@@ -10,6 +11,7 @@
 use std::cmp::Ordering;
 
 use crate::view_models::list_page::ListSort;
+use crate::view_models::name_order;
 
 /// Orders `rows` by `sort`. `date` gives the Unix seconds of a row, or
 /// `None` for a row with no date. `label` gives the name of a row.
@@ -25,7 +27,7 @@ pub(super) fn sort_rows<Row>(
         // search page offers them.
         ListSort::Relevance | ListSort::FeedOrder | ListSort::PlaylistOrder => {}
         ListSort::Newest => rows.sort_by(|a, b| newest_first(date(a), date(b))),
-        ListSort::AToZ => rows.sort_by_key(|row| label(row).to_lowercase()),
+        ListSort::AToZ => name_order::sort_by_name(rows, label),
     }
 }
 
@@ -78,5 +80,15 @@ mod tests {
         sort_rows(&mut rows, ListSort::Relevance, |row| row.1, |row| row.0);
         let order: Vec<&str> = rows.iter().map(|row| row.0).collect();
         assert_eq!(order, ["beta", "Alpha", "gamma"]);
+    }
+
+    /// Musicindex ADR 0053 R-LIST-12: the local A to Z reads a number as a
+    /// number and ignores case.
+    #[test]
+    fn adr_0053_r12_a_to_z_reads_numbers_and_ignores_case() {
+        let mut rows = vec![("Track 10", None), ("track 2", None), ("Track 1", None)];
+        sort_rows(&mut rows, ListSort::AToZ, |row| row.1, |row| row.0);
+        let order: Vec<&str> = rows.iter().map(|row| row.0).collect();
+        assert_eq!(order, ["Track 1", "track 2", "Track 10"]);
     }
 }

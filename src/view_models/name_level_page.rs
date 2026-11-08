@@ -16,6 +16,7 @@ use crate::view_models::artist_identity::{name_label, ArtistNameKey};
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
 use crate::view_models::list_page::ListView;
 use crate::view_models::list_selection::RowSelectionVm;
+use crate::view_models::name_order;
 use crate::view_models::publisher_page::{
     PublisherPageAlbumVm, PublisherPageHeaderFact, PublisherPageSectionVm, PublisherPageVm,
     ReleaseRowOpenAction, TitleDisplay,
@@ -250,13 +251,7 @@ pub(crate) fn name_level_rows(
             .is_some()
             .cmp(&left_date.is_some())
             .then_with(|| right_date.cmp(left_date))
-            .then_with(|| {
-                left.row
-                    .title
-                    .text()
-                    .to_lowercase()
-                    .cmp(&right.row.title.text().to_lowercase())
-            })
+            .then_with(|| name_order::compare_names(left.row.title.text(), right.row.title.text()))
     });
     dated
         .into_iter()

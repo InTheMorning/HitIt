@@ -14,10 +14,10 @@
 
 #![warn(clippy::pedantic)]
 
-use crate::view_models::index_name_list::name_sort_key;
 use crate::view_models::list_page::{
     ListBarControlsVm, ListPageKey, ListPageState, ListSort, ListView,
 };
+use crate::view_models::name_order;
 use crate::view_models::publisher_page::PublisherPageSectionVm;
 
 /// The typed id of a release section: the text of its heading. A command of
@@ -125,9 +125,7 @@ fn order_section(
     });
     section.view = state.view;
     if state.sort == Some(ListSort::AToZ) {
-        section
-            .rows
-            .sort_by_cached_key(|row| name_sort_key(row.title.text()));
+        name_order::sort_by_name(&mut section.rows, |row| row.title.text());
     } else {
         section.rows.sort_by_key(|row| std::cmp::Reverse(row.date));
     }
@@ -279,7 +277,7 @@ mod tests {
         assert_eq!(titles(&result[0]), reversed);
         assert_eq!(result[0].view, ListView::Rows);
         let mut a_to_z: Vec<&str> = EIGHT.to_vec();
-        a_to_z.sort_by_key(|title| name_sort_key(title));
+        name_order::sort_by_name(&mut a_to_z, |title| *title);
         assert_eq!(titles(&result[1]), a_to_z);
         assert_eq!(result[1].view, ListView::Tiles);
         assert_eq!(
@@ -294,7 +292,7 @@ mod tests {
     fn adr_0053_r9_section_orders_newest_a_to_z_oldest_and_z_to_a() {
         let source = newest_first();
         let mut a_to_z = EIGHT.to_vec();
-        a_to_z.sort_by_key(|title| name_sort_key(title));
+        name_order::sort_by_name(&mut a_to_z, |title| *title);
         let reverse = |items: &[&str]| -> Vec<String> {
             items
                 .iter()
@@ -399,7 +397,7 @@ mod tests {
             2
         );
         let mut a_to_z = EIGHT.to_vec();
-        a_to_z.sort_by_key(|title| name_sort_key(title));
+        name_order::sort_by_name(&mut a_to_z, |title| *title);
         assert_eq!(titles(&result[0]), a_to_z, "the default order is A to Z");
 
         // The state is Newest by default, and an explicit Newest changes
@@ -494,5 +492,28 @@ mod tests {
         assert_eq!(sort.options[0].sort, ListSort::Newest);
         let dates: Vec<i64> = result[0].rows.iter().filter_map(|row| row.date).collect();
         assert!(dates.windows(2).all(|pair| pair[0] >= pair[1]));
+    }
+
+    /// Musicindex ADR 0053 R-LIST-12: the A to Z of a section reads a number
+    /// as a number and ignores case.
+    #[test]
+    fn adr_0053_r12_section_a_to_z_reads_numbers_and_ignores_case() {
+        let mut pages = ListPages::default();
+        pages.set_section_sort("Albums", ListSort::AToZ);
+        let result = ordered(
+            &pages,
+            vec![section(
+                "Albums",
+                &[
+                    "Track 10", "track 2", "Track 1", "echo", "Echo", "golf", "hotel", "alpha",
+                ],
+            )],
+        );
+        let order = titles(&result[0]);
+        assert_eq!(&order[..3], ["alpha", "echo", "Echo"]);
+        assert_eq!(
+            &order[3..],
+            ["golf", "hotel", "Track 1", "track 2", "Track 10"]
+        );
     }
 }

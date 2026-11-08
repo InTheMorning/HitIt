@@ -196,9 +196,26 @@ pub(crate) fn first_letter_index<'a>(
     labels: impl IntoIterator<Item = Option<&'a str>>,
     key: LetterKey,
 ) -> Option<usize> {
-    labels
+    let keys: Vec<Option<LetterKey>> = labels
         .into_iter()
-        .position(|label| label.is_some_and(|label| LetterKey::of_name(label) == key))
+        .map(|label| label.map(LetterKey::of_name))
+        .collect();
+    if key != LetterKey::Other {
+        return keys.iter().position(|item| *item == Some(key));
+    }
+    // The text order of the reader (musicindex ADR 0053 R-LIST-12) puts a
+    // name with an accented first letter among the letters. Only a name
+    // before the first letter or after the last letter starts the "#" part.
+    let is_letter = |item: &Option<LetterKey>| matches!(item, Some(LetterKey::Letter(_)));
+    let first_letter = keys.iter().position(is_letter);
+    let last_letter = keys.iter().rposition(is_letter);
+    keys.iter().enumerate().find_map(|(index, item)| {
+        let outside = match (first_letter, last_letter) {
+            (Some(first), Some(last)) => index < first || index > last,
+            _ => true,
+        };
+        (outside && *item == Some(LetterKey::Other)).then_some(index)
+    })
 }
 
 #[cfg(test)]
@@ -297,5 +314,23 @@ mod tests {
         );
         assert_eq!(first_letter_index(labels, LetterKey::Letter('C')), None);
         assert_eq!(first_letter_index(labels, LetterKey::Other), None);
+    }
+
+    /// Musicindex ADR 0053 R-LIST-12: in the text order of the reader a name
+    /// with an accented first letter sits among the letters, so "#" does not
+    /// jump to it.
+    #[test]
+    fn adr_0053_r12_other_key_skips_an_accented_name_among_the_letters() {
+        let labels = [
+            Some("$2 Holla"),
+            Some("Alpha"),
+            Some("\u{c9}lan"),
+            Some("Zed"),
+        ];
+        assert_eq!(first_letter_index(labels, LetterKey::Other), Some(0));
+        let labels = [Some("Alpha"), Some("\u{c9}lan"), Some("Zed")];
+        assert_eq!(first_letter_index(labels, LetterKey::Other), None);
+        let labels = [Some("Alpha"), Some("Zed"), Some("\u{3042}")];
+        assert_eq!(first_letter_index(labels, LetterKey::Other), Some(2));
     }
 }
