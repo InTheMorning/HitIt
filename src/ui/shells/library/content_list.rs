@@ -21,6 +21,7 @@ use gpui::{
 
 use crate::library::LibraryApp;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
+use crate::ui::composites::thumbnail::logo_placeholder;
 use crate::ui::composites::{
     EntityKind, ListRow, ListRowA11yLabel, SkeletonTrackRow, TagBadge, TagBadgeDisplay, Thumbnail,
     ThumbnailSize,
@@ -35,7 +36,7 @@ use crate::ui::shells::library::content_list_row_actions::{
 };
 use crate::ui::shells::library::content_list_scroll::attach_content_list_scroll;
 use crate::ui::shells::library::content_list_state::render_content_list_state;
-use crate::ui::tokens::{color, ArtworkShadow, FontSize, Radius, SemanticColor, Spacing};
+use crate::ui::tokens::{FontSize, Radius, SemanticColor, Spacing};
 use crate::view_models::library::{
     ContentListEntityKind, ContentListLoadMoreDisplay, ContentListLoadingStateDisplay,
     ContentListPageStateDisplay, ContentListPageVm, ContentListRowDisplay,
@@ -222,8 +223,8 @@ fn render_content_row_checkbox(
     Some(checkbox.into_any_element())
 }
 
-/// The artwork of a content tile: the cover, or the empty cover when no
-/// image loaded. The Releases list tiles share it (ADR 0089 packet 005 Part
+/// The artwork of a content tile: the cover, or the logo shape when no image
+/// loaded. The Releases list tiles share it (ADR 0089 packet 005 Part
 /// C).
 pub(crate) fn render_content_list_tile_artwork(
     thumbnail: Option<Arc<Image>>,
@@ -238,24 +239,11 @@ pub(crate) fn render_content_list_tile_artwork(
             .size(ImageSize::Xl)
             .radius(Radius::MD)
             .into_any_element(),
-        None => render_empty_content_tile_artwork(artwork_size, cx),
+        // musicindex ADR 0021 R-ART-2: a release tile with no cover, or with a
+        // cover that did not load, shows the logo shape. Only artwork has a
+        // shadow (R-ART-4 item 3).
+        None => logo_placeholder(EntityKind::Release, artwork_size, cx),
     }
-}
-
-fn render_empty_content_tile_artwork(artwork_size: gpui::Pixels, cx: &App) -> AnyElement {
-    div()
-        .w(artwork_size)
-        .h(artwork_size)
-        .rounded(Radius::MD.scaled(cx))
-        .overflow_hidden()
-        .flex_shrink_0()
-        .bg(color(cx, SemanticColor::SystemFill))
-        .border_1()
-        .border_color(color(cx, SemanticColor::Separator))
-        // ADR 0083 Decision 4: the content tile applies the artwork shadow
-        // to its artwork area. This applies with or without a loaded cover.
-        .shadow(ArtworkShadow::Xl.shadow(cx))
-        .into_any_element()
 }
 
 /// The text of a content-list row: the title, the secondary text, and a

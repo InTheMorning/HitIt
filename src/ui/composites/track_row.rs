@@ -173,7 +173,7 @@ impl TrackRow {
         Self::new(id, TrackRowDisplay::from_vm(vm))
     }
 
-    /// Album-art thumbnail. Pass `None` to render the entity-kind monogram fallback.
+    /// Album-art thumbnail. Pass `None` to render the logo shape of musicindex ADR 0021 R-ART-2.
     pub fn thumbnail(mut self, img: Option<Arc<Image>>) -> Self {
         self.thumbnail = img;
         self

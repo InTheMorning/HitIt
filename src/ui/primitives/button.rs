@@ -112,9 +112,11 @@ pub struct Button {
     leading_icon: Option<IconName>,
     narrow_hit_target: bool,
     out_of_tab_sequence: bool,
+    keep_in_tab_sequence: bool,
     compact_inset: bool,
     on_click: Option<ClickHandler>,
     on_activate: Option<ActivateHandler>,
+    on_key_activate: Option<ActivateHandler>,
     focus_handle: Option<gpui::FocusHandle>,
     appearance: Option<Appearance>,
     font_size: Option<FontSize>,
@@ -141,9 +143,11 @@ impl Button {
             leading_icon: None,
             narrow_hit_target: false,
             out_of_tab_sequence: false,
+            keep_in_tab_sequence: false,
             compact_inset: false,
             on_click: None,
             on_activate: None,
+            on_key_activate: None,
             focus_handle: None,
             appearance: None,
             font_size: None,
@@ -200,6 +204,14 @@ impl Button {
     /// tab stop (ADR 0090 Decision 5).
     pub const fn out_of_tab_sequence(mut self) -> Self {
         self.out_of_tab_sequence = true;
+        self
+    }
+
+    /// Keeps the button in the Tab sequence with the style of a row action. A
+    /// link pill in a page header uses this, because it is not in a row (ADR
+    /// 0090 invariant "keyboard reach").
+    pub const fn keep_in_tab_sequence(mut self) -> Self {
+        self.keep_in_tab_sequence = true;
         self
     }
 
@@ -282,6 +294,17 @@ impl Button {
         self
     }
 
+    /// The keyboard activation of a menu trigger. The popover of the trigger
+    /// owns its click, so Enter and Space run this handler, and the click does
+    /// not. The button takes a tab stop (ADR 0090 invariant "keyboard reach").
+    pub fn on_key_activate<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(&mut Window, &mut App) + 'static,
+    {
+        self.on_key_activate = Some(Rc::new(handler));
+        self
+    }
+
     pub fn on_activate<F>(mut self, handler: F) -> Self
     where
         F: Fn(&mut Window, &mut App) + 'static,
@@ -348,6 +371,9 @@ impl Button {
     fn in_tab_sequence(&self) -> bool {
         if self.out_of_tab_sequence {
             return false;
+        }
+        if self.keep_in_tab_sequence || self.on_key_activate.is_some() {
+            return true;
         }
         let row_action = matches!(
             self.control_style,
@@ -580,6 +606,7 @@ impl RenderOnce for Button {
         let label = self.label.clone().unwrap_or_default();
         let on_click = self.on_click.clone();
         let on_activate = self.on_activate.clone();
+        let on_key_activate = self.on_key_activate.clone();
         let (focus, reveal_probe) = self.focus_for_reveal(window, cx);
         let disabled = self.disabled;
         let full_width = self.full_width;
@@ -614,7 +641,6 @@ impl RenderOnce for Button {
         }
 
         let mut hit_target = hit_target_base(self.id)
-            .relative()
             .children(reveal_probe)
             .when(!self.narrow_hit_target, |el| el.min_w(min_hit_target))
             .min_h(min_hit_target)
@@ -658,7 +684,7 @@ impl RenderOnce for Button {
                     .tab_index(0)
                     .rounded(radius);
             }
-            if let Some(handler) = on_activate {
+            if let Some(handler) = on_activate.or(on_key_activate) {
                 hit_target = hit_target.on_key_down(move |event, window, cx| {
                     if keyboard_activation_key(event) {
                         cx.stop_propagation();
@@ -694,7 +720,8 @@ impl RenderOnce for Button {
 fn hit_target_base(id: ElementId) -> gpui::Stateful<gpui::Div> {
     #[cfg(test)]
     let selector = id.to_string();
-    let target = div().id(id);
+    // Relative, so the focus probe of a focused button covers the hit area.
+    let target = div().id(id).relative();
     #[cfg(test)]
     let target = target.debug_selector(move || selector);
     target
@@ -925,6 +952,26 @@ mod tests {
         let button = Button::plain("neutral").foreground(SemanticColor::SecondaryLabel);
 
         assert_eq!(button.foreground, Some(SemanticColor::SecondaryLabel));
+    }
+
+    /// ADR 0090 invariant "keyboard reach", walk of 2026-11-07: Tab did not
+    /// reach "Add to playlist", "…", "Website" or "RSS" in a page header. A menu
+    /// trigger has a key activation, and a link pill keeps its tab stop. A row
+    /// action and an opted-out copy stay out.
+    #[test]
+    fn adr_0090_menu_triggers_and_header_links_take_a_tab_stop() {
+        let trigger = Button::styled("menu", ControlStyle::RowAction).on_key_activate(|_, _| {});
+        assert!(trigger.in_tab_sequence());
+        let link = Button::styled("website", ControlStyle::RowAction)
+            .keep_in_tab_sequence()
+            .on_click(|_, _, _| {});
+        assert!(link.in_tab_sequence());
+        let row = Button::styled("row", ControlStyle::RowAction).on_click(|_, _, _| {});
+        assert!(!row.in_tab_sequence());
+        let copy = Button::styled("copy", ControlStyle::RowAction)
+            .on_key_activate(|_, _| {})
+            .out_of_tab_sequence();
+        assert!(!copy.in_tab_sequence());
     }
 
     #[test]

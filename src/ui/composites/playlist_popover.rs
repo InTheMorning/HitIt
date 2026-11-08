@@ -236,6 +236,18 @@ impl RenderOnce for AddToPlaylistPopover {
                     .label(trigger_label)
                     .a11y_label(trigger_a11y_label)
                     .disabled(disabled)
+                    .when(trigger_in_tab_sequence, |button| {
+                        // The popover owns the click. Enter and Space open it
+                        // (ADR 0090 invariant "keyboard reach").
+                        let state = state.clone();
+                        button.on_key_activate(move |_, cx| {
+                            state.update(cx, |s, cx| {
+                                s.open = !s.open;
+                                s.creating = false;
+                                cx.notify();
+                            });
+                        })
+                    })
                     .when(!trigger_in_tab_sequence, Button::out_of_tab_sequence),
             )
             .content(move |_window, cx| {

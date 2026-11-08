@@ -14,17 +14,16 @@
 use std::sync::Arc;
 
 use gpui::{
-    div, img, px, svg, App, Image, IntoElement, ObjectFit, ParentElement, Pixels, RenderOnce, Rgba,
-    Styled, StyledImage, Window,
+    div, img, px, App, Image, IntoElement, ObjectFit, ParentElement, Pixels, RenderOnce, Styled,
+    StyledImage, Window,
 };
 
 use crate::media::logo_frame::{canvas_size_px, frame_height_px, BakedShadow};
-use crate::ui::icons::LOGO_FRAME_ASSET_PATH;
 use crate::ui::tokens::{ArtworkShadow, ArtworkShape};
 use crate::view_models::collection_art::CollectionKind;
 
 use super::tag_badge::EntityKind;
-use super::thumbnail::{Thumbnail, ThumbnailSize};
+use super::thumbnail::{logo_placeholder, logo_placeholder_fill, Thumbnail, ThumbnailSize};
 
 /// The image state of one collection art, after the app layer loaded it.
 #[derive(Clone, Debug)]
@@ -34,7 +33,7 @@ pub enum CollectionArtImage {
     /// The composed logo mosaic.
     Logo(Arc<Image>),
     /// A square image that still loads. It shows the entity color with no
-    /// monogram.
+    /// letters.
     SquarePending,
     /// No cover, a cover that did not load, or a mosaic that still loads.
     /// It shows the logo in the entity color.
@@ -115,10 +114,7 @@ impl RenderOnce for CollectionArt {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let dim = self.size.scaled(cx);
         let entity = collection_entity_kind(self.kind);
-        let fill = Rgba {
-            a: ArtworkShape::ENTITY_FILL_OPACITY,
-            ..entity.fill_color(cx)
-        };
+        let fill = logo_placeholder_fill(entity, cx);
         let slot = div()
             .w(dim)
             .h(dim)
@@ -139,15 +135,7 @@ impl RenderOnce for CollectionArt {
                         .bg(fill),
                 )
                 .into_any_element(),
-            CollectionArtImage::EntityColor => slot
-                .child(
-                    svg()
-                        .path(LOGO_FRAME_ASSET_PATH)
-                        .w(dim)
-                        .h(dim / ArtworkShape::LogoFrame.aspect())
-                        .text_color(fill),
-                )
-                .into_any_element(),
+            CollectionArtImage::EntityColor => logo_placeholder(entity, dim, cx),
             CollectionArtImage::Logo(image) => {
                 let raster = LogoRaster::for_size(self.size, cx);
                 let padding = logical(raster.shadow.map_or(0, BakedShadow::padding_px));

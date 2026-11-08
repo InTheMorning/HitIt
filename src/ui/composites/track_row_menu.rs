@@ -309,6 +309,7 @@ impl RenderOnce for TrackRowMenuCell {
         )
         .trigger_label("")
         .trigger_tooltip(menu.trigger_tooltip)
+        .trigger_out_of_tab_sequence()
         .handle(handle)
         .items(items);
         let cell = match menu_cell_visibility(self.focused, open) {

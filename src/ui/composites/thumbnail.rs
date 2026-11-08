@@ -1,5 +1,6 @@
-//! Thumbnail composite — square artwork tile with a two-letter type
-//! monogram fallback when no image is available (ADR 0083 Decision 4).
+//! Thumbnail composite — square artwork tile. With no image, it shows the
+//! logo shape in 45 % of the entity color (musicindex ADR 0021 R-ART-2), with
+//! no letters and no icon.
 //!
 //! Sizing is expressed as a semantic [`ThumbnailSize`] (`Sm` / `Md` / `Lg` / `Xl` / `XXl`) which
 //! resolves through the global scale, so a "Large" thumbnail in a
@@ -10,11 +11,13 @@
 use std::sync::Arc;
 
 use gpui::{
-    div, App, Image, IntoElement, ParentElement, Pixels, RenderOnce, SharedString, Styled, Window,
+    div, svg, AnyElement, App, Image, IntoElement, ParentElement, Pixels, RenderOnce, Rgba, Styled,
+    Window,
 };
 
+use crate::ui::icons::LOGO_FRAME_ASSET_PATH;
 use crate::ui::primitives::{Image as ImagePrimitive, ImageSize};
-use crate::ui::tokens::{color, FontSize, Radius, ScaleFactor, SemanticColor};
+use crate::ui::tokens::{ArtworkShape, Radius, ScaleFactor};
 
 use super::tag_badge::EntityKind;
 
@@ -89,15 +92,6 @@ impl ThumbnailSize {
             Self::XXl => Radius::LG,
         }
     }
-
-    fn fallback_font(self) -> FontSize {
-        match self {
-            Self::Sm => FontSize::Body,
-            Self::Md => FontSize::Headline,
-            Self::Lg => FontSize::Title2,
-            Self::Xl | Self::XXl => FontSize::Display,
-        }
-    }
 }
 
 #[derive(IntoElement)]
@@ -121,44 +115,48 @@ impl Thumbnail {
         self.image = image;
         self
     }
-
-    /// The text shown in the fallback tile when no image is set.
-    ///
-    /// ADR 0083 Decision 4: a missing cover shows the two-letter monogram of
-    /// its entity kind, not an emoji.
-    fn fallback_label(&self) -> SharedString {
-        SharedString::from(self.kind.monogram())
-    }
 }
 
 impl RenderOnce for Thumbnail {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let dim = self.size.scaled(cx);
-        let radius = self.size.radius();
-        let fallback_label = self.fallback_label();
-
-        if let Some(image) = self.image {
-            ImagePrimitive::new(image)
+        match self.image {
+            Some(image) => ImagePrimitive::new(image)
                 .size(self.size.image_size())
-                .radius(radius)
-                .into_any_element()
-        } else {
-            let radius_px = radius.scaled(cx);
-            div()
-                .w(dim)
-                .h(dim)
-                .rounded(radius_px)
-                .overflow_hidden()
-                .flex_shrink_0()
-                .bg(color(cx, SemanticColor::SystemFill))
-                .flex()
-                .items_center()
-                .justify_center()
-                .text_size(self.size.fallback_font().scaled(cx))
-                .child(fallback_label)
-                .into_any_element()
+                .radius(self.size.radius())
+                .into_any_element(),
+            None => logo_placeholder(self.kind, self.size.scaled(cx), cx),
         }
     }
+}
+
+/// The fill of the logo shape of `kind` (musicindex ADR 0021 R-ART-2 item 2).
+#[must_use]
+pub(crate) fn logo_placeholder_fill(kind: EntityKind, cx: &App) -> Rgba {
+    Rgba {
+        a: ArtworkShape::ENTITY_FILL_OPACITY,
+        ..kind.fill_color(cx)
+    }
+}
+
+/// The art of an item with no image, or with an image that did not load: the
+/// logo shape in a square slot of edge `dim` (musicindex ADR 0021 R-ART-2). It
+/// has no letters and no icon. Each art size uses it.
+pub(crate) fn logo_placeholder(kind: EntityKind, dim: Pixels, cx: &App) -> AnyElement {
+    div()
+        .w(dim)
+        .h(dim)
+        .flex_shrink_0()
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(
+            svg()
+                .path(LOGO_FRAME_ASSET_PATH)
+                .w(dim)
+                .h(dim / ArtworkShape::LogoFrame.aspect())
+                .text_color(logo_placeholder_fill(kind, cx)),
+        )
+        .into_any_element()
 }
 
 #[cfg(test)]
@@ -192,23 +190,18 @@ mod tests {
         assert_eq!(ThumbnailSize::Xl.image_size(), ImageSize::Xl);
     }
 
-    /// R83-15: `Thumbnail` with no image produces the monogram of its kind.
+    /// musicindex ADR 0021 R-ART-2, walk of 2026-11-07: rows and tiles with no
+    /// image showed "AL" or an empty gray square. The placeholder is the logo
+    /// shape, with 45 % of the entity color.
     #[test]
-    fn thumbnail_fallback_shows_the_entity_kind_monogram() {
-        for kind in [
-            EntityKind::Artist,
-            EntityKind::Feed,
-            EntityKind::Track,
-            EntityKind::Release,
-            EntityKind::Recording,
-            EntityKind::Playlist,
-            EntityKind::Generic,
-        ] {
-            let thumbnail = Thumbnail::new(kind, ThumbnailSize::Sm);
-            assert_eq!(
-                thumbnail.fallback_label(),
-                SharedString::from(kind.monogram())
-            );
-        }
+    fn r_art_2_placeholder_is_the_logo_shape_in_45_percent_of_the_entity_color() {
+        assert!((ArtworkShape::ENTITY_FILL_OPACITY - 0.45).abs() < f32::EPSILON);
+        assert_eq!(LOGO_FRAME_ASSET_PATH, "artwork/logo-frame.svg");
+        let source = include_str!("thumbnail.rs");
+        let production = source.split("#[cfg(test)]").next().unwrap_or_default();
+        assert!(
+            !production.contains("monogram"),
+            "R-ART-2 item 4: no letters"
+        );
     }
 }
