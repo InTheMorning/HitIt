@@ -100,20 +100,21 @@ impl ListPageKey {
     }
 
     /// The views that the page offers, in icon order (ADR 0089 Decision
-    /// 5). Releases offers rows and tiles. Artists, My playlists and the
-    /// search keys offer rows only, so they show no view icon. The search
+    /// 5). Releases and Artists offer rows and tiles (musicindex ADR 0053
+    /// R-LIST-10). My playlists and the search keys offer rows only, so
+    /// they show no view icon. The search
     /// keys have no tiles because the Releases tiles are tied to the
     /// Library list (ADR 0089 packet 008 Part C, deviation).
     #[must_use]
     pub(crate) const fn views(self) -> &'static [ListView] {
         match self {
             Self::Releases
+            | Self::Artists
             | Self::PublicPlaylists
             | Self::SinglesGroup
             | Self::WindowGroup
             | Self::ReleaseSection => &[ListView::Rows, ListView::Tiles],
-            Self::Artists
-            | Self::MyPlaylists
+            Self::MyPlaylists
             | Self::Live
             | Self::Results
             | Self::SavedSearch
@@ -1502,9 +1503,9 @@ mod tests {
     /// button and no scope.
     #[test]
     fn adr_0089_list_page_head_shows_current_sort_and_no_view_icon() {
-        let artists = ListPageState::default_for(ListPageKey::Artists);
-        let head = ListPageHeadVm::new(ListPageKey::Artists, artists, None, None);
-        assert_eq!(head.view, None, "Artists keeps rows only");
+        let playlists = ListPageState::default_for(ListPageKey::MyPlaylists);
+        let head = ListPageHeadVm::new(ListPageKey::MyPlaylists, playlists, None, None);
+        assert_eq!(head.view, None, "My playlists keeps rows only");
 
         let releases = ListPageState::default_for(ListPageKey::Releases);
         let head = ListPageHeadVm::new(ListPageKey::Releases, releases, None, None);
@@ -1545,11 +1546,11 @@ mod tests {
         pages.set_view(ListPageKey::Releases, ListView::Tiles);
         assert_eq!(pages.get(ListPageKey::Releases).view, ListView::Tiles);
         assert_eq!(pages.get(ListPageKey::Artists).view, ListView::Rows);
-        pages.set_view(ListPageKey::Artists, ListView::Tiles);
+        pages.set_view(ListPageKey::MyPlaylists, ListView::Tiles);
         assert_eq!(
-            pages.get(ListPageKey::Artists).view,
+            pages.get(ListPageKey::MyPlaylists).view,
             ListView::Rows,
-            "Artists offers rows only"
+            "My playlists offers rows only"
         );
         let tiles = ListPageHeadVm::new(
             ListPageKey::Releases,
@@ -2112,5 +2113,30 @@ mod tests {
         assert!(SectionHeadingVm::new(key, state, 7).is_none());
         assert_eq!(in_shown_order(&[1, 2, 3], true), [3, 2, 1]);
         assert_eq!(in_shown_order(&[1, 2, 3], false), [1, 2, 3]);
+    }
+
+    /// musicindex ADR 0053 R-LIST-10: Artists offers rows and tiles in
+    /// both scopes. The default is rows, and the head has the view icons.
+    #[test]
+    fn adr_0053_r10_artists_offers_rows_and_tiles_in_both_scopes() {
+        assert_eq!(
+            ListPageKey::Artists.views(),
+            [ListView::Rows, ListView::Tiles]
+        );
+        for scope in [ListScope::All, ListScope::InLibrary] {
+            let state = ListPageState {
+                scope: Some(scope),
+                ..ListPageState::default_for(ListPageKey::Artists)
+            };
+            assert_eq!(state.view, ListView::Rows, "the default is rows");
+            let views = ListPageHeadVm::new(ListPageKey::Artists, state, None, None)
+                .view
+                .expect("Artists shows view icons");
+            let shown: Vec<ListView> = views.options.iter().map(|option| option.view).collect();
+            assert_eq!(shown, [ListView::Rows, ListView::Tiles]);
+        }
+        let mut pages = ListPages::default();
+        pages.set_view(ListPageKey::Artists, ListView::Tiles);
+        assert_eq!(pages.get(ListPageKey::Artists).view, ListView::Tiles);
     }
 }

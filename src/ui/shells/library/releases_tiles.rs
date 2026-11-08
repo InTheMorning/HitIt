@@ -30,6 +30,7 @@ use crate::ui::shells::library::index_list_status::{
 };
 use crate::ui::shells::library::window_groups::render_releases_window_group_tile;
 use crate::ui::tokens::{FontSize, SemanticColor, Spacing};
+use crate::view_models::artists_tiles::ArtistsTileVm;
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::library::{
     DestinationListRowTarget, DestinationListRowVm, ReleasesListItemVm,
@@ -273,4 +274,71 @@ fn render_singles_group_tile(
         this.click_singles_group_row(&open_key, &single_keys, event.modifiers(), cx);
     }))
     .into_any_element()
+}
+
+/// Renders the tile of one Artists row (musicindex ADR 0053 R-LIST-10). The
+/// art is the art of the row, so a name with no feed shows the logo
+/// placeholder. A click opens the page of the row. The Artists list has no
+/// selection, so the tile has no checkbox.
+pub(crate) fn render_artists_tile(
+    tile: ArtistsTileVm,
+    art: Option<CollectionArtImage>,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    let artwork_size = crate::ui::tokens::Size::ContentTileArtwork.scaled(cx);
+    let artwork = CollectionArt::new(
+        art.unwrap_or(CollectionArtImage::EntityColor),
+        CollectionKind::Artist,
+        ThumbnailSize::Xl,
+    )
+    .into_any_element();
+    let target = tile.open.clone();
+    let mut element = SelectableTile::new(SharedString::from(tile.element_id), artwork)
+        .marked(tile.marked)
+        .child(tile_text_line(
+            tile.label,
+            FontSize::Caption,
+            FontWeight::MEDIUM,
+            SemanticColor::Label,
+            artwork_size,
+        ));
+    if !tile.second_line.is_empty() {
+        element = element.child(tile_text_line(
+            tile.second_line,
+            FontSize::Micro,
+            FontWeight::NORMAL,
+            SemanticColor::TertiaryLabel,
+            artwork_size,
+        ));
+    }
+    element
+        .on_click(cx.listener(move |this, event: &ClickEvent, _window, cx| {
+            this.click_release_row(&target, event.modifiers(), cx);
+        }))
+        .into_any_element()
+}
+
+/// Renders the grid of the Artists tiles (musicindex ADR 0053 R-LIST-10).
+/// `leading` and `trailing` are the status rows. "Load more" runs near the
+/// end of the scroll, in the scope All.
+pub(crate) fn render_artists_tile_grid(
+    scroll_handle: &ScrollHandle,
+    leading: Vec<AnyElement>,
+    tiles: Vec<AnyElement>,
+    trailing: Vec<AnyElement>,
+    has_more: bool,
+    is_loading: bool,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    render_tile_grid(
+        "music-artists-tiles",
+        scroll_handle,
+        leading,
+        tiles,
+        trailing,
+        has_more,
+        is_loading,
+        LibraryApp::load_more_artist_names,
+        cx,
+    )
 }

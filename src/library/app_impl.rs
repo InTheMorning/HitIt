@@ -82,9 +82,12 @@ use crate::ui::shells::library::destination_lists::{
 };
 use crate::ui::shells::library::detail::render_library_detail;
 use crate::ui::shells::library::inbox::render_inbox_sections;
-use crate::ui::shells::library::index_list_status::IndexListActions;
+use crate::ui::shells::library::index_list_status::{
+    render_index_list_status_row, IndexListActions,
+};
 use crate::ui::shells::library::releases_tiles::{
-    render_releases_list_tile, render_releases_tile_grid,
+    render_artists_tile, render_artists_tile_grid, render_releases_list_tile,
+    render_releases_tile_grid,
 };
 use crate::ui::shells::library::search_page_list::{render_search_page_list, SearchPageListRename};
 use crate::ui::shells::library::sidebar::{render_sidebar_row, render_sidebar_separator};
@@ -1148,6 +1151,7 @@ impl LibraryApp {
         let detail_column_scroll = gpui::ScrollHandle::new();
         let inbox_scroll = gpui::ScrollHandle::new();
         let releases_tiles_scroll = gpui::ScrollHandle::new();
+        let artists_tiles_scroll = gpui::ScrollHandle::new();
         let mut app = Self {
             playback_availability: Err(
                 crate::application::capability::ExecutionUnavailable::configured(
@@ -1207,6 +1211,9 @@ impl LibraryApp {
             releases_tiles_scroll,
             releases_list_cache: std::cell::RefCell::default(),
             artists_list_state: MusicColumnList::new(cx),
+            artists_tile_reveal: ScrollReveal::new(artists_tiles_scroll.clone()),
+            artists_tile_target: None,
+            artists_tiles_scroll,
             public_playlists_list_state: MusicColumnList::new(cx),
             public_playlists_tiles_scroll: gpui::ScrollHandle::new(),
             public_playlist_list: IndexNameListPage::default(),
@@ -4511,6 +4518,16 @@ impl LibraryApp {
         }
     }
 
+    /// Asks the Tiles grid of the Artists list to show the tile `element` at
+    /// the next layout (musicindex ADR 0053 R-LIST-10). The tile carries the
+    /// reveal probe, and the probe scrolls the grid by the least distance.
+    pub(crate) fn reveal_artists_tile(&mut self, element: Option<&str>) {
+        self.artists_tile_target = element.map(str::to_owned);
+        if self.artists_tile_target.is_some() {
+            self.artists_tile_reveal.request();
+        }
+    }
+
     /// Marks a row when the list has the keyboard focus and no row shows it
     /// (ADR 0089 Decision 9, musicindex ADR 0026 R-FOCUS-1). The list runs this
     /// in the draw that sees the focus, so the row shows in that same draw. A
@@ -5685,15 +5702,20 @@ impl LibraryApp {
                     .map(|item| item.element_id().to_owned())
                     .collect();
                 self.artists_list_state.sync(&ids, window);
-                let item_count = items.len();
-                render_library_destination_rows(
-                    &self.artists_list_state,
-                    item_count,
-                    cx.processor(move |this, index: usize, _window, cx| {
-                        this.render_artists_item(&items, index, cx)
-                    }),
-                    cx,
-                )
+                match self.vm.list_view(ListPageKey::Artists) {
+                    ListView::Rows => {
+                        let item_count = items.len();
+                        render_library_destination_rows(
+                            &self.artists_list_state,
+                            item_count,
+                            cx.processor(move |this, index: usize, _window, cx| {
+                                this.render_artists_item(&items, index, cx)
+                            }),
+                            cx,
+                        )
+                    }
+                    ListView::Tiles => self.render_artists_tiles(&items, cx),
+                }
             }
             MusicDestination::Playlists => {
                 let sidebar = self
@@ -5946,6 +5968,13 @@ impl LibraryApp {
                 this.set_list_sort(ListPageKey::Artists, sort, cx);
             });
         });
+        let view_entity = entity.clone();
+        let on_view: ListViewHandler = Rc::new(move |view, _window, cx| {
+            let view = *view;
+            view_entity.update(cx, |this, cx| {
+                this.set_list_view(ListPageKey::Artists, view, cx);
+            });
+        });
         let reverse_entity = entity.clone();
         let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
             reverse_entity.update(cx, |this, cx| {
@@ -5964,7 +5993,7 @@ impl LibraryApp {
                 scope: Some(on_scope),
                 select: None,
                 sort: Some(on_sort),
-                view: None,
+                view: Some(on_view),
                 reverse: Some(on_reverse),
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
@@ -6099,6 +6128,67 @@ impl LibraryApp {
         let is_loading = !leading.is_empty();
         render_releases_tile_grid(
             &self.releases_tiles_scroll,
+            leading,
+            tiles,
+            trailing,
+            has_more,
+            is_loading,
+            cx,
+        )
+    }
+
+    /// Renders the Tiles view of the Artists list (musicindex ADR 0053
+    /// R-LIST-10). Each row has one tile, in the sequence of the rows. A
+    /// status row keeps its row at the start or at the end of the grid.
+    fn render_artists_tiles(
+        &mut self,
+        items: &[ArtistsListItemVm],
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let mut leading = Vec::new();
+        let mut tiles = Vec::new();
+        let mut trailing = Vec::new();
+        for item in items {
+            let item = item.clone().with_marked(self.marked_entry.as_ref());
+            let Some(tile) = item.tile() else {
+                if let ArtistsListItemVm::Status(row) = item {
+                    let at_start = row.at_list_start();
+                    let element = render_index_list_status_row(
+                        row,
+                        IndexListActions {
+                            retry: Self::retry_artist_names,
+                            load_more: Some(Self::load_more_artist_names),
+                        },
+                        cx,
+                    );
+                    if at_start {
+                        leading.push(element);
+                    } else {
+                        trailing.push(element);
+                    }
+                }
+                continue;
+            };
+            let art = tile
+                .art
+                .as_ref()
+                .map(|art| collection_art_image(self, art, ThumbnailSize::Xl, cx));
+            let reveal = self.artists_tile_target.as_deref() == Some(tile.element_id.as_str());
+            let mut element = render_artists_tile(tile, art, cx);
+            // The reveal target carries the probe, so the grid scrolls to it.
+            if reveal {
+                element = div()
+                    .relative()
+                    .child(element)
+                    .child(self.artists_tile_reveal.probe())
+                    .into_any_element();
+            }
+            tiles.push(element);
+        }
+        let has_more = !trailing.is_empty();
+        let is_loading = !leading.is_empty();
+        render_artists_tile_grid(
+            &self.artists_tiles_scroll,
             leading,
             tiles,
             trailing,
