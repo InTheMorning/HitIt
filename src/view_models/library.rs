@@ -10623,6 +10623,88 @@ mod tests {
         );
     }
 
+    /// musicindex ADR 0053 R-LIST-10: a tile of a feed row carries the art of
+    /// the feed, and a tile of a name with no feed carries the logo
+    /// placeholder, the same as its row.
+    #[test]
+    fn adr_0053_r10_artists_tiles_carry_the_art_of_the_row() {
+        let mut tree = library_tree();
+        tree.artists[0].albums[0].tracks[0].pub_date = Some(100);
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(tree);
+        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let items = ArtistsListItemVm::of(rows.clone(), None);
+        let tiles: Vec<_> = items.iter().filter_map(ArtistsListItemVm::tile).collect();
+        assert_eq!(tiles.len(), rows.len());
+        assert_eq!(
+            tiles[0].art,
+            Some(CollectionArtVm::SingleCover("saw.jpg".into()))
+        );
+        assert_eq!(
+            tiles[1].art,
+            Some(CollectionArtVm::EntityColor(CollectionKind::Artist)),
+            "a name with no feed shows the logo placeholder"
+        );
+        for (tile, row) in tiles.iter().zip(&rows) {
+            assert_eq!(tile.label, row.label);
+            assert_eq!(tile.open, row.open);
+            let word = row.type_tag().expect("an artist row has a type word").word;
+            assert!(tile.second_line.starts_with(&word));
+            assert!(tile.second_line.ends_with(&row.secondary_text));
+        }
+    }
+
+    /// musicindex ADR 0053 R-LIST-10: the tiles come in the sequence of the
+    /// rows, also when the list is reversed, and a status row has no tile.
+    #[test]
+    fn adr_0053_r10_artists_tiles_follow_the_rows_also_reversed() {
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(library_tree());
+        let page = IndexNameListPage::default();
+        let ids = |vm: &LibraryViewModel| {
+            let rows = vm.artists_list(ListScope::InLibrary, &page);
+            let row_ids: Vec<String> = rows.iter().map(|row| row.element_id.clone()).collect();
+            let items = ArtistsListItemVm::of(rows, None);
+            let tile_ids: Vec<String> = items
+                .iter()
+                .filter_map(ArtistsListItemVm::tile)
+                .map(|tile| tile.element_id)
+                .collect();
+            (row_ids, tile_ids)
+        };
+        let (rows, tiles) = ids(&vm);
+        assert!(rows.len() > 1);
+        assert_eq!(rows, tiles);
+
+        vm.set_list_scope(ListPageKey::Artists, ListScope::InLibrary);
+        vm.set_list_reversed(ListPageKey::Artists, true);
+        let (reversed_rows, reversed_tiles) = ids(&vm);
+        let mut expected = rows;
+        expected.reverse();
+        assert_eq!(reversed_rows, expected);
+        assert_eq!(reversed_tiles, expected);
+
+        let mut loading = IndexNameListPage::<ArtistNameRow>::default();
+        let _ = loading.begin_load(false);
+        let status = LibraryViewModel::artists_list_status(ListScope::All, &loading)
+            .expect("a loading list has a status row");
+        let items = ArtistsListItemVm::of(Vec::new(), Some(status));
+        assert!(items.iter().all(|item| item.tile().is_none()));
+        // After a letter jump in the scope All, the tiles keep the rows.
+        let mut jumped = IndexNameListPage::<ArtistNameRow>::default();
+        let _ = jumped.begin_from(Some("b".to_owned()));
+        vm.set_list_scope(ListPageKey::Artists, ListScope::All);
+        let rows = vm.artists_list(ListScope::All, &jumped);
+        let items = ArtistsListItemVm::of(rows.clone(), None);
+        let tile_ids: Vec<String> = items
+            .iter()
+            .filter_map(ArtistsListItemVm::tile)
+            .map(|tile| tile.element_id)
+            .collect();
+        let row_ids: Vec<String> = rows.into_iter().map(|row| row.element_id).collect();
+        assert_eq!(tile_ids, row_ids);
+    }
+
     /// Gives `album` the image `image_url` and the named feed of
     /// `with_named_feed` with the channel image `feed_image`.
     fn with_feed_image(

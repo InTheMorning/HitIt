@@ -347,6 +347,15 @@ pub struct LibraryApp {
     /// The Artists list's virtual list state (ADR 0084 task 037, operator
     /// answer Q1 option B). The Artists list keeps no cache of its merge.
     artists_list_state: MusicColumnList,
+    /// The scroll of the Tiles view of the Artists list (musicindex ADR 0053
+    /// R-LIST-10). The Library holds it, so the offset survives a change of
+    /// view.
+    artists_tiles_scroll: ScrollHandle,
+    /// The reveal of the Tiles view of the Artists list. It scrolls the
+    /// Tiles grid to the first tile of a letter.
+    artists_tile_reveal: ScrollReveal,
+    /// The element id of the tile that the next reveal shows.
+    artists_tile_target: Option<String>,
     /// The Public playlists list's virtual list state (ADR 0089 packet 009).
     public_playlists_list_state: MusicColumnList,
     /// The scroll of the Tiles view of the Public playlists list (ADR 0089

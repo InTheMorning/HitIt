@@ -12,7 +12,7 @@ Packet 6 note: a section offers Newest only when each of its rows has a date (R-
 
 The public playlist page has no list bar, so its control is at the right end of a heading above its entries (R-LIST-11 item 3).
 
-Packet 3 waits for the decision on the stored Curator Order. Packet 8 waits for the decision on packet 3, or for the orchestrator to start it first. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
+Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is implemented on 2026-11-08. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
 
 Packet 2 note: when the query of a saved search has a word, the page starts with Relevance. Its Releases then show no window groups of ADR 0086 until the person selects Newest. A saved search with no word starts with Newest and keeps its groups. Packet 8 waits for packets 1 to 7.
 

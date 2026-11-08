@@ -68,6 +68,7 @@ pub mod startup;
 pub mod album_page;
 pub mod artist_identity;
 pub(crate) mod artists_everything;
+pub(crate) mod artists_tiles;
 pub(crate) mod detail_selection;
 pub(crate) mod download_progress;
 pub mod entity_detail;

@@ -343,7 +343,12 @@ impl LibraryApp {
                 let items = ArtistsListItemVm::of(rows, status);
                 let labels = items.iter().map(ArtistsListItemVm::label);
                 if let Some(index) = first_letter_index(labels, letter) {
-                    self.artists_list_state.scroll_to_reveal_item(index);
+                    if matches!(self.vm.list_view(ListPageKey::Artists), ListView::Tiles) {
+                        let element = items.get(index).map(ArtistsListItemVm::element_id);
+                        self.reveal_artists_tile(element);
+                    } else {
+                        self.artists_list_state.scroll_to_reveal_item(index);
+                    }
                 }
             }
             // The Public playlists list has no scope, so the In Library
