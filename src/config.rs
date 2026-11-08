@@ -909,7 +909,7 @@ pub fn load_musicindex_endpoint(cfg_path: &Path) -> Result<String> {
         .musicindex_endpoint
         .with_context(|| {
             format!(
-                "App could not read MusicIndex settings from {}",
+                "App could not read Music Index settings from {}",
                 cfg_path.display()
             )
         })

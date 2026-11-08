@@ -30,7 +30,7 @@ pub(crate) struct SearchFailureActionDisplay {
 
 /// The title of the Index part when `MusicIndex` did not accept the query
 /// text (walk of 2026-10-21).
-pub(super) const QUERY_REJECTED_TITLE: &str = "MusicIndex did not accept the query";
+pub(super) const QUERY_REJECTED_TITLE: &str = "Music Index did not accept the query";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SearchFailureDisplay {
@@ -51,7 +51,7 @@ impl SearchFailureDisplay {
         observed_at: SystemTime,
     ) -> Self {
         let summary = format!(
-            "MusicIndex did not accept the query \"{query}\". Change the query, then search again."
+            "Music Index did not accept the query \"{query}\". Change the query, then search again."
         );
         Self::with_summary(summary, error, endpoint, observed_at)
     }
@@ -59,24 +59,24 @@ impl SearchFailureDisplay {
     pub(super) fn new(error: &CommandError, endpoint: &str, observed_at: SystemTime) -> Self {
         let (summary, next) = match error {
             CommandError::Unavailable(reason) if reason.dependency == Dependency::BackgroundRuntime => (
-                "App could not start the MusicIndex search because its background runtime is unavailable. No search request was sent.",
+                "App could not start the Music Index search because its background runtime is unavailable. No search request was sent.",
                 "Open Background tools in Settings and choose Check again, then repeat your search.",
             ),
             CommandError::Unavailable(reason) if matches!(reason.dependency, Dependency::MusicIndex | Dependency::Configuration("musicindex_endpoint")) => (
-                "App could not start the MusicIndex search because its endpoint configuration or setup is unavailable. No search request was sent.",
+                "App could not start the Music Index search because its endpoint configuration or setup is unavailable. No search request was sent.",
                 "Choose Edit endpoint to open musicindex_endpoint in Settings. Save the correction. Check endpoint validates the saved URL. Run search again sends the original query.",
             ),
             CommandError::Unavailable(_) => (
-                "App could not start the MusicIndex search because a required tool is unavailable. No search request was sent.",
+                "App could not start the Music Index search because a required tool is unavailable. No search request was sent.",
                 "Open Background tools in Settings, resolve the reported dependency and check it again before Retry.",
             ),
             CommandError::Cancelled => (
-                "App cancelled the MusicIndex search before it completed.",
+                "App cancelled the Music Index search before it completed.",
                 "Run the search again when you are ready.",
             ),
             _ => (
-                "App could not get search results from MusicIndex.",
-                "Check your connection and the MusicIndex endpoint in Settings, then run the search again.",
+                "App could not get search results from Music Index.",
+                "Check your connection and the Music Index endpoint in Settings, then run the search again.",
             ),
         };
         let summary = format!("{summary}\nYour local library remains available.\n{next}");
@@ -94,7 +94,7 @@ impl SearchFailureDisplay {
         let endpoint = endpoint_for_report(endpoint);
         let at: chrono::DateTime<chrono::Utc> = observed_at.into();
         let report = format!(
-            "[{}] {summary}\nConfigured MusicIndex endpoint: {endpoint}\n\nTechnical details\n{}",
+            "[{}] {summary}\nConfigured Music Index endpoint: {endpoint}\n\nTechnical details\n{}",
             at.format("%Y-%m-%d %H:%M:%S UTC"),
             redact_endpoint_details(&error.to_string()),
         );
@@ -108,14 +108,14 @@ impl SearchFailureDisplay {
     pub(crate) fn action(&self, action: SearchFailureAction) -> SearchFailureActionDisplay {
         let (label, a11y_label) = match action {
             SearchFailureAction::ToggleDetails if self.expanded => {
-                ("Hide details", "Hide the MusicIndex search failure report")
+                ("Hide details", "Hide the Music Index search failure report")
             }
             SearchFailureAction::ToggleDetails => {
-                ("Show details", "Show the MusicIndex search failure report")
+                ("Show details", "Show the Music Index search failure report")
             }
             SearchFailureAction::CopyReport => (
                 "Copy report",
-                "Copy the complete MusicIndex search failure report",
+                "Copy the complete Music Index search failure report",
             ),
         };
         SearchFailureActionDisplay {

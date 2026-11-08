@@ -786,7 +786,7 @@ impl<'a> ReleaseDetailVm<'a> {
         if let Some(date) = self.view.release_date.and_then(fmt_date) {
             facts.push(ReleaseFactVm {
                 key: "First track published",
-                value: format!("{date} (MusicIndex)"),
+                value: format!("{date} (Music Index)"),
             });
         }
         if let Some(count) = self.view.episode_count {
@@ -1504,7 +1504,7 @@ mod tests {
             vec![
                 ("Release Kind", "Album"),
                 ("Published", "Apr 1, 2024 (RSS)"),
-                ("First track published", "Apr 5, 2024 (MusicIndex)"),
+                ("First track published", "Apr 5, 2024 (Music Index)"),
                 ("Tracks", "2"),
                 ("Duration", "3 min"),
                 ("Language", "en"),
@@ -1572,7 +1572,7 @@ mod tests {
         assert!(facts
             .iter()
             .any(|fact| fact.key == "First track published"
-                && fact.value == "Apr 5, 2024 (MusicIndex)"));
+                && fact.value == "Apr 5, 2024 (Music Index)"));
 
         feed.release_date = None;
         let facts = ReleaseDetailVm::new(&feed, EntitySurfaceContext::Discover).summary_facts();

@@ -98,7 +98,7 @@ impl IndexDetailDisplay {
                     IndexDetailKind::Release,
                     fallback_id,
                     fallback_label,
-                    "MusicIndex feed",
+                    "Music Index feed",
                 )
             },
             |row| Self::feed(row, fallback_id),
@@ -119,7 +119,7 @@ impl IndexDetailDisplay {
             kind,
             id,
             label,
-            format!("Loading this {} from MusicIndex.", kind.label()),
+            format!("Loading this {} from Music Index.", kind.label()),
         )
     }
 
@@ -140,7 +140,7 @@ impl IndexDetailDisplay {
             id,
             label,
             format!(
-                "The app could not load this {} from MusicIndex. {}",
+                "The app could not load this {} from Music Index. {}",
                 kind.label(),
                 detail.into()
             ),

@@ -364,7 +364,7 @@ pub(crate) enum OtherAlbumsStatus {
 
 impl OtherAlbumsStatus {
     /// The report for a failed request for the other releases of a feed.
-    pub(crate) const UNAVAILABLE_REPORT: &'static str = "The app could not load the other releases of this feed from MusicIndex. The releases in the Library stay on this page.";
+    pub(crate) const UNAVAILABLE_REPORT: &'static str = "The app could not load the other releases of this feed from Music Index. The releases in the Library stay on this page.";
 }
 
 /// Display state of the mounted feed page while it loads, when its fetch
@@ -391,7 +391,7 @@ pub(crate) enum PublisherPageLoadDisplay {
 impl PublisherPageLoadDisplay {
     /// The report for a feed page that failed to load.
     pub(crate) const FAILED_REPORT: &'static str =
-        "The app could not load this feed page from MusicIndex.";
+        "The app could not load this feed page from Music Index.";
 
     /// The message shown when no feed page is open.
     pub(crate) const EMPTY_MESSAGE: &'static str = "No feed page is open.";

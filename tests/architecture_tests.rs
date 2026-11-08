@@ -3067,11 +3067,11 @@ fn adr_0084_search_open_defects_r28_03_focus_move_scrolls_to_the_focused_row() {
          that tracks `slots.scroll`, so `scroll_to_item` finds a row by its index."
     );
     assert!(
-        renderer.contains(
-            "div().flex_shrink_0().pt(Spacing::MD.scaled(cx)).child(empty_state_content("
-        ),
-        "ADR 0084 packet 028 review: the note after the search rows is a child of the scroll \
-         container, so it must call `flex_shrink_0()`. Else it shrinks under the rows."
+        renderer.contains(".children(notice).child(rows)")
+            && renderer.contains("div().flex_shrink_0().px(Spacing::MD.scaled(cx))"),
+        "ADR 0087 Operator Answers item 9: the note of the Index part is above the search rows \
+         and outside their scroll container, so a long list does not hide it and each row keeps \
+         its index. Render `.children(notice)` before the rows, with `flex_shrink_0()`."
     );
     // ADR 0087 packet 003: `show_toolbar_search_run` opens each toolbar
     // search, from Enter and from the pause.

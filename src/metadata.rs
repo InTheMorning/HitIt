@@ -561,7 +561,7 @@ pub fn feed_publication_date_from_parts(
     if let Some(date) = channel_pub_date.and_then(fmt_date) {
         return Some((date, "RSS"));
     }
-    release_date_claim_value.map(|value| (format_release_claim_value(value), "MusicIndex"))
+    release_date_claim_value.map(|value| (format_release_claim_value(value), "Music Index"))
 }
 
 fn explicit_metadata_value(explicit: bool) -> Option<String> {
@@ -4867,7 +4867,7 @@ mod tests {
         };
         assert_eq!(
             feed_publication_pubdate(&feed_with_claim_only),
-            Some(("Jan 1, 2024".to_string(), "MusicIndex"))
+            Some(("Jan 1, 2024".to_string(), "Music Index"))
         );
 
         assert_eq!(feed_publication_pubdate(&Feed::default()), None);

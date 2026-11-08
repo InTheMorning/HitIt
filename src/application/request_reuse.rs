@@ -278,7 +278,7 @@ impl<K: Eq + std::hash::Hash, T> Drop for SlotCompletion<'_, K, T> {
                 .unwrap_or_else(PoisonError::into_inner);
             if matches!(*state, SlotState::Pending) {
                 *state = SlotState::Done(Err(SharedFetchError::from(anyhow::anyhow!(
-                    "the MusicIndex request stopped before it finished"
+                    "the Music Index request stopped before it finished"
                 ))));
             }
         }

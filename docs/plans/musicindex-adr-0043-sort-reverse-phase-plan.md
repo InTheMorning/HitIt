@@ -1,6 +1,6 @@
 # musicindex ADR 0043 Sort Reverse Phase Plan
 
-Status: Open. Created 2026-11-06. Packets 001 to 004 are complete or implemented. Packet 005 waits for the Stophammer answer.
+Status: Open. Created 2026-11-06. Packets 001 to 004 are complete or implemented. The operator passed the visual check of packets 001 to 003 on 2026-11-07, from the agent screenshots (`shots2/c1-sortmenu.png`, `c3-reversed.png`, `d1-art-rev.png`, `d2-rel-kept.png`, `d4-myplaylists.png`, `d5-public.png`, `o2-dark-inlib.png`, `o3-dark-rev.png`), through the orchestrator session. Packet 005 waits for the Stophammer answer.
 
 Owner of the rules: musicindex ADR 0043 R-LIST-6 and R-LIST-7. This plan states no rule.
 

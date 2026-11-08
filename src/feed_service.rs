@@ -209,7 +209,7 @@ fn fetch_library_track_detail_with_recorder(
         None => None,
     };
     if fetched_track.is_none() && fetched_feed.is_none() {
-        return Err(anyhow!("MusicIndex metadata unavailable"));
+        return Err(anyhow!("Music Index metadata unavailable"));
     }
     Ok((fetched_track, fetched_feed))
 }

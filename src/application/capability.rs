@@ -60,7 +60,7 @@ impl std::fmt::Display for ExecutionUnavailable {
         let subject = match self.dependency {
             Dependency::BackgroundRuntime => return f.write_str("App cannot run this action because its background runtime is unavailable. Open Background tools in Settings and choose Check again."),
             Dependency::ThumbnailMaintenance => "thumbnail maintenance",
-            Dependency::MusicIndex => "MusicIndex configuration",
+            Dependency::MusicIndex => "Music Index configuration",
             Dependency::Playback => "the configured player",
             Dependency::Publisher => "the selected publisher host",
             Dependency::Producer => "drop-file publication",

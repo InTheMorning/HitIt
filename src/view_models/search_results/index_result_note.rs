@@ -59,7 +59,7 @@ impl IndexResultDiagnostic {
             ),
         };
         EmptyStateDisplay::new(
-            format!("MusicIndex rows for \"{query}\" did not show"),
+            format!("Music Index rows for \"{query}\" did not show"),
             secondary,
         )
     }

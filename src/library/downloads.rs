@@ -341,7 +341,8 @@ impl LibraryApp {
             } => self.finish_download(
                 &identity,
                 DownloadOutcome::Failed {
-                    error: "the app has no feed GUID to read the track from MusicIndex.".to_owned(),
+                    error: "the app has no feed GUID to read the track from Music Index."
+                        .to_owned(),
                 },
                 cx,
             ),
@@ -362,7 +363,7 @@ impl LibraryApp {
             } => self.finish_download(
                 &identity,
                 DownloadOutcome::Failed {
-                    error: "the app has no feed GUID to read the release from MusicIndex."
+                    error: "the app has no feed GUID to read the release from Music Index."
                         .to_owned(),
                 },
                 cx,
@@ -553,7 +554,7 @@ impl LibraryApp {
             },
             move |this, error, cx| {
                 let outcome = DownloadOutcome::Failed {
-                    error: format!("the app could not read the release from MusicIndex. {error}"),
+                    error: format!("the app could not read the release from Music Index. {error}"),
                 };
                 this.finish_index_download(&failed_identity, failed_job, outcome, cx);
             },
@@ -593,7 +594,7 @@ impl LibraryApp {
                 else {
                     let outcome = DownloadOutcome::Failed {
                         error: format!(
-                            "MusicIndex gave the release {feed_guid} with no track {track_guid}."
+                            "Music Index gave the release {feed_guid} with no track {track_guid}."
                         ),
                     };
                     this.finish_index_download(&identity, missing_job, outcome, cx);
@@ -613,7 +614,7 @@ impl LibraryApp {
             },
             move |this, error, cx| {
                 let outcome = DownloadOutcome::Failed {
-                    error: format!("the app could not read the track from MusicIndex. {error}"),
+                    error: format!("the app could not read the track from Music Index. {error}"),
                 };
                 this.finish_index_download(&failed_identity, failed_job, outcome, cx);
             },

@@ -177,7 +177,7 @@ pub(crate) fn update_items(
         };
         items.push(InboxUpdateItem {
             kind: InboxUpdateKind::FeedUpdates,
-            text: format!("{feeds} updates from MusicIndex."),
+            text: format!("{feeds} updates from Music Index."),
             count: stale_feed_count,
             button_label: "Apply updates".to_owned(),
             a11y_label: format!("Apply updates to {feeds} changes"),

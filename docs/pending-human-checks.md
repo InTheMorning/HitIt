@@ -9,8 +9,9 @@ The current evidence fixture is `/tmp/v4vmm-governance.ie6k8TQf`. Its cleanup re
 
 ## Purpose
 
-Some acceptance criteria need a person. An agent must not run this app, because
-GPUI does not start an X11 client in an agent session.
+Some acceptance criteria need a person. The main agent first makes its own
+check on a private display (`AGENTS.md`), and an agent result does not pass a
+check here.
 
 This file holds the checks that are open today. It is not a history. When a
 check passes, do all three in the same change:
@@ -279,50 +280,5 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - The list bar stays in view ([ADR 0090 task 002](tasks/adr-0090-task-002-list-bar-stays-in-view.md)): the screenshot run of 2026-11-07 shows the pinned bar, "Done" and "Select" on it, a click on its empty part, and a narrow window. The agent screenshot run of 2026-11-07 shows "Add to playlist" and a download from the pinned bar without a fault. It found a fault: with the bar pinned, Tab passed 7 stops above the viewport that showed no focus. A key that moves the focus to a button now scrolls the column to show it (ADR 0090 Invariants).
 - The list bar on the release page ([ADR 0090 task 003](tasks/adr-0090-task-003-release-page-list-bar.md)): the Library form and the Index form, in its visual list.
 - The search corrections of ADR 0091 step 2: a sort selected on the results page reloads the rows in that order, `-remix` alone shows its note and no error, and `haleen kind:single` shows Index rows. A live run keeps relevance. The operator accepted the look of the sort rows, of `in:library` with the reverse icon and of the scope All on 2026-11-07. The orchestrator session relayed this answer from the agent screenshots. The operator also accepted that each sort can change the rows two times.
-  - Still open: `-remix` alone. A query with only exclusions now starts a run (ADR 0087 Decision 4). The agent screenshot run shows the note below the Library rows, the note as the empty state in an empty Library, and no note with `in:library`. A person has not walked this.
-  - The Phase 3 visual check of the [search move plan](../../musicindex-lib/docs/plans/search-move-phase-plan.md): the agent screenshot run of 2026-11-07 shows Index rows for `haleen kind:single`. Each release row has the label "Single", and the Tracks tab shows track rows. A person has not walked it.
   - The agent screenshot run of 2026-11-07 also shows three corrections: a saved search with no name of its own names what its query reads ("Library", "Index", "Library and Index" or "No results"), the two entries of a row menu have one text size in Light and Dark, and Tab scrolls a page to show a focused button. A later run shows two more: Tab reaches "Add to playlist", "…", "Website" and "RSS" of a page header, and Enter or Space opens the menus. Rows, tiles and page headers with no cover show the logo shape of musicindex ADR 0021 R-ART-2 in Light and Dark.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
-
-## 12. Button Shape, Roles And Selection - Implemented 2026-11-06
-
-The agent screenshot run of 2026-11-07 walked these items in Light and Dark and found no fault. A person has not walked them.
-
-Open - the code follows musicindex ADR 0020 R-ACT-1 to R-ACT-3 and ADR 0042. The mechanical suite is Green. No person checked the result. Do each check in Light and Dark.
-
-- Setup: do `cargo build --bin v4vmm`, then open `target/debug/v4vmm` in a desktop session. The checks change no stored data.
-- Pills: a button with a label is a pill on Releases, a search results page, Settings and a confirmation sheet.
-- Circles: each icon button is a circle, such as Back, Forward and the view icons of a list page.
-- Search: the toolbar Search command is a gray pill.
-- Back and Forward (musicindex ADR 0044): each is a gray circle with a chevron in the center. A control that cannot act is dimmed.
-- Gray pills: "Newest", "Select", "In Library", "Cancel", "Website" and "Show more" have the gray fill.
-- Action: "Save search" and "Check all feeds" have the accent label on the accent tint.
-- No fill: a letter that is not selected, a narrow-window tab that is not selected, and an artist link on a track page.
-- Selection: the selected sidebar row, filter, letter and narrow-window tab have a tint and an outline. None has a fill.
-- Destructive: a destructive button has a red label on a red tint.
-- Settings: use the largest UI scale in a narrow window. The Settings header keeps its menus in view. A selected item has no fill.
-- Incorrect results:
-  - A button has a square corner.
-  - An icon button is an oval.
-  - A label touches the edge of a pill.
-  - A control moves when it becomes selected.
-  - A menu item has pill ends.
-
-## 13. musicindex ADR 0043 Sort Control - Implemented 2026-11-06
-
-The agent screenshot run of 2026-11-07 walked these items and found no fault. It opened the row menu in Light only. A person has not walked them.
-
-Open - packets 001 to 003 of the [phase plan](plans/musicindex-adr-0043-sort-reverse-phase-plan.md) are implemented. The mechanical suite is Green. No person checked the result. Do each check in Light and Dark.
-
-- Setup: do `cargo build --bin v4vmm`, then open `target/debug/v4vmm` in a desktop session.
-- Menu: on Releases, open the sort menu. Each entry has the text color, and only the check mark is blue. Open a menu on a row. Its entries have the text color, and a destructive entry is red.
-- Sequence: on Releases with In Library selected, the title row shows the sort menu, the rows icon, the tiles icon, the reverse icon and Select.
-- Reverse: select the reverse icon. "Newest" becomes "Oldest", the rows change their sequence, and the icon is blue on a tint with a different arrow. No other control moves.
-- Letters: on Artists with In Library selected, select the reverse icon. The sort shows "Z to A", and the letters run from Z to A with "#" last.
-- Other lists: My playlists and search results with In Library selected have the reverse icon.
-- No icon: Releases and Artists with All selected, Public playlists and search results with All selected have no reverse icon. They show the usual names.
-- Each list: reverse Releases, open Artists, then return to Releases. Artists keeps its own order, and Releases stays reversed.
-- Incorrect results:
-  - A blue menu entry that is not a check mark.
-  - A reversed name on a list with no reverse icon.
-  - A control that moves when the icon changes.

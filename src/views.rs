@@ -1417,7 +1417,7 @@ mod tests {
             claim_only,
         );
         assert_eq!(view.published.as_deref(), Some("Jan 1, 2024"));
-        assert_eq!(view.published_source, Some("MusicIndex"));
+        assert_eq!(view.published_source, Some("Music Index"));
     }
 
     #[test]

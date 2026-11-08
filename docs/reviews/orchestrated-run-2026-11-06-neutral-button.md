@@ -34,4 +34,4 @@ The planning model took screenshots of a scratch library in the dark theme on 20
 
 ## Open For The Operator
 
-Section 12 of [pending human checks](../pending-human-checks.md) holds the visual check. The website light values are not changed.
+The operator passed the visual check on 2026-11-07, from the agent screenshots, through the orchestrator session. The shots are `shots2/c1-sortmenu.png`, `shots2/e1-rowmenu.png`, `shots2/l4-pinned.png`, `shots2/n2-dark-settings.png` to `shots2/n6-dark-remix.png`, `shots2/o4-xl-settings.png` and `shots3/z1.png`, in `/tmp/claude-1000/-home-citizen-build-v4vmm/d4edb497-6260-481e-8270-1c6baa78e1dc/scratchpad/xv`. A later real use can reopen it. The website light values are not changed.

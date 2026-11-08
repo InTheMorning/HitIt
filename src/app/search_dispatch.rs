@@ -455,7 +455,7 @@ impl TopApp {
         let IndexSearchPlan::Send(request) = run.index_plan() else {
             self.capability_vm.pending.finish(
                 intent.id,
-                "App did not send the MusicIndex search again. The search has no MusicIndex part."
+                "App did not send the Music Index search again. The search has no Music Index part."
                     .into(),
             );
             return;
@@ -1275,7 +1275,7 @@ impl TopApp {
                     return;
                 }
                 this.settings_status = format!(
-                    "App could not read the feed {failure_guid} of this track from MusicIndex: {error:#}"
+                    "App could not read the feed {failure_guid} of this track from Music Index: {error:#}"
                 );
                 this.index_track_feed_state = Some(IndexFeedDetailState::Failed {
                     feed_guid: failure_guid,
@@ -1689,12 +1689,12 @@ impl TopApp {
                 }
                 None => {
                     this.settings_status =
-                        "MusicIndex gave no feed URL for the album of this track.".to_string();
+                        "Music Index gave no feed URL for the album of this track.".to_string();
                 }
             },
             |this, error, _cx| {
                 this.settings_status = format!(
-                    "App could not read the album of this track from MusicIndex: {error:#}"
+                    "App could not read the album of this track from Music Index: {error:#}"
                 );
             },
         );
@@ -2012,7 +2012,7 @@ impl TopApp {
         cx: &mut Context<Self>,
     ) {
         let Some(feed_guid) = feed_guid_from_view(feed) else {
-            self.settings_status = "Cannot add track without a MusicIndex feed id".to_string();
+            self.settings_status = "Cannot add track without a Music Index feed id".to_string();
             cx.notify();
             return;
         };

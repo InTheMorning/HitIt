@@ -563,7 +563,7 @@ impl SearchResultsInspectorPageVm {
                 )
             } else {
                 (
-                    "MusicIndex search unavailable",
+                    "Music Index search unavailable",
                     failure::SearchFailureDisplay::new(error, endpoint, observed_at),
                 )
             };
