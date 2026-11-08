@@ -17,15 +17,13 @@
 
 #![warn(clippy::pedantic)]
 
-pub(crate) use musicindex_search::plan::{
-    IndexEntity, IndexSearchPlan, IndexSearchRequest, IndexSkip,
-};
+pub(crate) use musicindex_search::plan::{IndexEntity, IndexSearchPlan, IndexSearchRequest};
 pub(crate) use musicindex_search::request::{IndexOrder, IndexRun};
 
 #[cfg(test)]
 use chrono::NaiveDate;
 #[cfg(test)]
-use musicindex_search::plan::{IndexFilters, UnsupportedIndexTerms};
+use musicindex_search::plan::{IndexFilters, IndexSkip, UnsupportedIndexTerms};
 #[cfg(test)]
 use musicindex_search::query::KindValue;
 
@@ -33,24 +31,14 @@ use crate::db::TrackRow;
 use crate::view_models::live_run::RunGeneration;
 use crate::view_models::search_query::{QueryScope, QueryTerm, SearchQuery};
 
-/// The text of the note with the Library rows when the Index part sends no
-/// request because the Index cannot apply a term (ADR 0087 Decision 5).
+/// The sentence of v4vmm about its Library rows. It follows the text of a
+/// note of the crate under the rows (musicindex ADR 0052 R-QUERY-8 item 2,
+/// ADR 0091).
 pub(crate) const INDEX_SKIP_ROWS_TEXT: &str = "The Library rows show.";
-
-/// The title of the note of a query with exclusions only. `MusicIndex` needs a
-/// word or a field to search for (musicindex ADR 0049 R-QUERY-6 and ADR 0087
-/// Decision 5). The text under the title is [`INDEX_SKIP_ROWS_TEXT`].
-pub(crate) const INDEX_EXCLUSIONS_ONLY_TITLE: &str =
-    "Music Index needs a word or a field to search for";
 
 /// The title of the empty state of a query whose scopes cannot apply
 /// together.
 pub(crate) const SCOPE_CONFLICT_TITLE: &str = "No results";
-
-/// The text of the empty state of a query whose scopes cannot apply
-/// together.
-pub(crate) const SCOPE_CONFLICT_TEXT: &str =
-    "The search asks for the Library only and for MusicIndex only. Remove one of the fields.";
 
 /// What started a search run (ADR 0087 Decision 4, packet 009).
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

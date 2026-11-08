@@ -302,4 +302,5 @@ Open - the packets below are implemented, and the mechanical suite is Green. The
 - Packet 7: on a Library list with A to Z, a name with a number such as "Track 2" comes before "Track 10", and "abba" and "ABBA" are adjacent. The agent screenshots of 2026-11-08 show no such names in the seeded Library.
 - Packet 8: on Artists, the tiles icon shows the artists as tiles in All and In Library. A name with no feed shows the logo shape. The letter M, Z to A and Load more work with tiles.
 - Packet 8, not checked by the agent: Load more at the end of the tiles in All, and the keyboard focus on a tile.
+- The pin of `musicindex-search` at `634e4cc` (ADR 0091): Enter on `kind:foo` shows "This search cannot run". Enter on `-remix` shows the note "Music Index needs a word or a field to search for" above the Library rows. The Artists tab of `kind:single` shows "kind: does not apply to artists and labels". The agent screenshots of 2026-11-08 show these. A person checks that the words are clear.
 - Wrong: a control that does nothing, rows in an incorrect sequence, or no selection after a sort. A sort control on a list that R-LIST-9 does not give one is also wrong.

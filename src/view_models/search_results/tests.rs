@@ -1716,17 +1716,16 @@ fn adr_0084_search_link_facts_r29_08_library_feed_keeps_its_role_word() {
     );
 }
 
-/// The skip of a query whose Index part has a field that the Index cannot
-/// apply.
-fn unsupported_skip(text: &str) -> super::IndexSkip {
-    let crate::view_models::search_results::IndexSearchPlan::Skip(skip) =
-        super::IndexSearchPlan::for_query(&crate::view_models::search_query::SearchQuery::parse(
-            text,
-        ))
-    else {
-        panic!("{text} must skip the Index part");
-    };
-    skip
+/// Gives `vm` the note of `text`, as the dispatcher does for a plan that
+/// skips the Index part (musicindex ADR 0052 R-QUERY-8, ADR 0091).
+fn set_note_of(vm: &mut SearchResultsInspectorPageVm, text: &str) {
+    let query = crate::view_models::search_query::SearchQuery::parse(text);
+    let plan = super::IndexSearchPlan::for_query(&query);
+    assert!(
+        matches!(plan, super::IndexSearchPlan::Skip(_)),
+        "{text} must skip the Index part"
+    );
+    vm.set_index_skipped(&query, &plan);
 }
 
 /// R87-2-24: a skipped Index part with an excluded field that the Index
@@ -1736,7 +1735,6 @@ fn unsupported_skip(text: &str) -> super::IndexSkip {
 #[test]
 fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
     let text = "haleen -after:2026-10-01";
-    let skip = unsupported_skip(text);
     let local = [local_guid_track(10, 7, "g-library", "i1", "One")];
     let mut vm = SearchResultsInspectorPageVm::from_local_library_tracks(
         text,
@@ -1745,23 +1743,25 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
     );
     vm.set_tab(SearchResultsTab::Releases);
 
-    vm.set_index_skipped(&skip);
+    set_note_of(&mut vm, text);
 
     assert!(!vm.is_index_loading());
-    assert_eq!(vm.index_skip(), Some(&skip));
     assert!(vm.empty_state().is_none());
     let notice = vm.index_notice().expect("the tab with rows shows the note");
     assert_eq!(notice.title, "Music Index cannot exclude after: yet");
-    assert_eq!(notice.secondary, super::INDEX_SKIP_ROWS_TEXT);
+    assert_eq!(
+        notice.secondary,
+        "Remove the - from the field. The Library rows show."
+    );
     assert!(notice.failure.is_none());
 
     let mut empty = SearchResultsInspectorPageVm::new("zzzz -kind:ep");
     empty.set_tab(SearchResultsTab::Releases);
-    empty.set_index_skipped(&unsupported_skip("zzzz -kind:ep"));
+    set_note_of(&mut empty, "zzzz -kind:ep");
     assert!(empty.index_notice().is_none());
     let state = empty.empty_state().expect("the empty tab shows the note");
     assert_eq!(state.title, "Music Index cannot exclude kind: yet");
-    assert_eq!(state.secondary, "No releases matched \"zzzz -kind:ep\".");
+    assert_eq!(state.secondary, "Remove the - from the field.");
     assert!(!empty.is_index_loading());
 }
 
@@ -1772,7 +1772,6 @@ fn adr_0087_library_fields_r87_2_24_unsupported_skip_gives_the_note() {
 #[test]
 fn adr_0087_library_fields_r87_2_26_exclusions_only_gives_the_note() {
     let text = "-remix";
-    let skip = super::IndexSkip::ExclusionsOnly;
     let local = [local_guid_track(10, 7, "g-library", "i1", "One")];
     let mut vm = SearchResultsInspectorPageVm::from_local_library_tracks(
         text,
@@ -1781,29 +1780,31 @@ fn adr_0087_library_fields_r87_2_26_exclusions_only_gives_the_note() {
     );
     vm.set_tab(SearchResultsTab::Releases);
 
-    vm.set_index_skipped(&skip);
+    set_note_of(&mut vm, text);
 
     assert!(!vm.is_index_loading());
-    assert_eq!(vm.index_skip(), Some(&skip));
     assert!(vm.empty_state().is_none());
     let notice = vm.index_notice().expect("the tab with rows shows the note");
     assert_eq!(
         notice.title,
         "Music Index needs a word or a field to search for"
     );
-    assert_eq!(notice.secondary, super::INDEX_SKIP_ROWS_TEXT);
-    assert_eq!(notice.secondary, "The Library rows show.");
+    assert_eq!(
+        notice.secondary,
+        "Add a word, a phrase or a field. The Library rows show."
+    );
     assert!(notice.failure.is_none());
 
     let mut empty = SearchResultsInspectorPageVm::new(text);
     empty.set_tab(SearchResultsTab::Releases);
-    empty.set_index_skipped(&skip);
+    set_note_of(&mut empty, text);
     assert!(empty.index_notice().is_none());
     let state = empty.empty_state().expect("the empty tab shows the note");
     assert_eq!(
         state.title,
         "Music Index needs a word or a field to search for"
     );
+    assert_eq!(state.secondary, "Add a word, a phrase or a field.");
     assert!(!empty.is_index_loading());
 }
 
@@ -1850,40 +1851,40 @@ fn adr_0091_step2_index_order_follows_the_selected_sort() {
     );
 }
 
-/// R87-2-25: `Conflict` gives the empty state "No results" with its text.
-/// `LibraryOnly` and `NoIndexPart` give no note and the empty state of
-/// today.
+/// R87-2-25: `Conflict` gives the empty state "No results" with the text of
+/// the crate. `LibraryOnly` gives no note, because the Library rows show.
 #[test]
 fn adr_0087_library_fields_r87_2_25_conflict_and_library_only_states() {
-    let mut conflict = SearchResultsInspectorPageVm::new("conflict");
+    let mut conflict = SearchResultsInspectorPageVm::new("haleen in:index is:ready");
     conflict.set_tab(SearchResultsTab::Releases);
-    conflict.set_index_skipped(&super::IndexSkip::Conflict);
+    set_note_of(&mut conflict, "haleen in:index is:ready");
     let state = conflict.empty_state().expect("a conflict shows no rows");
-    assert_eq!(state.title, super::SCOPE_CONFLICT_TITLE);
     assert_eq!(state.title, "No results");
-    assert_eq!(state.secondary, super::SCOPE_CONFLICT_TEXT);
+    assert_eq!(
+        state.secondary,
+        "The search asks for the Library and for Music Index only. Remove one of the fields."
+    );
     assert!(conflict.index_notice().is_none());
 
     let local = [local_guid_track(10, 7, "g-library", "i1", "One")];
-    for skip in [super::IndexSkip::LibraryOnly, super::IndexSkip::NoIndexPart] {
-        let mut with_rows = SearchResultsInspectorPageVm::from_local_library_tracks(
-            "haleen",
-            &local,
-            &super::ArtistSearchFacts::default(),
-        );
-        with_rows.set_tab(SearchResultsTab::Releases);
-        with_rows.set_index_skipped(&skip);
-        assert!(with_rows.index_notice().is_none(), "{skip:?}");
-        assert!(with_rows.empty_state().is_none(), "{skip:?}");
-        assert!(!with_rows.is_index_loading(), "{skip:?}");
+    let text = "haleen is:ready";
+    let mut with_rows = SearchResultsInspectorPageVm::from_local_library_tracks(
+        text,
+        &local,
+        &super::ArtistSearchFacts::default(),
+    );
+    with_rows.set_tab(SearchResultsTab::Releases);
+    set_note_of(&mut with_rows, text);
+    assert!(with_rows.index_notice().is_none());
+    assert!(with_rows.empty_state().is_none());
+    assert!(!with_rows.is_index_loading());
 
-        let mut empty = SearchResultsInspectorPageVm::new("haleen");
-        empty.set_tab(SearchResultsTab::Releases);
-        empty.set_index_skipped(&skip);
-        let state = empty.empty_state().expect("an empty tab");
-        assert_eq!(state.title, "No releases", "{skip:?}");
-        assert_eq!(state.secondary, "No releases matched \"haleen\".");
-    }
+    let mut empty = SearchResultsInspectorPageVm::new(text);
+    empty.set_tab(SearchResultsTab::Releases);
+    set_note_of(&mut empty, text);
+    let state = empty.empty_state().expect("an empty tab");
+    assert_eq!(state.title, "No releases");
+    assert_eq!(state.secondary, "No releases matched \"haleen is:ready\".");
 }
 
 /// R87-2-26: the Releases tab and the Artists tab read `releases`. The
@@ -2061,7 +2062,7 @@ fn adr_0087_live_index_rows_r87_7_02_loading_rows_on_an_empty_page() {
     assert_eq!(vm.index_pending_row_count(), 0);
 
     let mut skipped = SearchResultsInspectorPageVm::new("fittest");
-    skipped.set_index_skipped(&super::IndexSkip::LibraryOnly);
+    set_note_of(&mut skipped, "fittest is:ready");
     assert_eq!(skipped.index_pending_row_count(), 0);
 }
 
@@ -2657,4 +2658,130 @@ fn adr_0053_r9_relevance_keeps_run_order_and_never_reverses() {
 
     vm.set_list_sort(ListSort::AToZ);
     assert_eq!(release_labels(&vm), ["Charlie", "Bravo", "Alpha"]);
+}
+
+/// ADR 0091, crate pin 634e4cc: `-remix` gives the note of the crate for
+/// exclusions only, with the sentence of v4vmm under the rows. The Library
+/// rows show above it.
+#[test]
+fn adr_0091_pin_634e4cc_exclusions_only_note_has_the_crate_words() {
+    let text = "-remix";
+    let local = [local_guid_track(10, 7, "g-library", "i1", "One")];
+    let mut vm = SearchResultsInspectorPageVm::from_local_library_tracks(
+        text,
+        &local,
+        &super::ArtistSearchFacts::default(),
+    );
+    vm.set_tab(SearchResultsTab::Releases);
+    set_note_of(&mut vm, text);
+    let notice = vm.index_notice().expect("the tab with rows shows the note");
+    assert_eq!(
+        notice.title,
+        "Music Index needs a word or a field to search for"
+    );
+    assert_eq!(
+        notice.secondary,
+        "Add a word, a phrase or a field. The Library rows show."
+    );
+}
+
+/// ADR 0091, crate pin 634e4cc: `kind:foo` gives the field error of the
+/// crate as the note, and the page shows it as the empty state.
+#[test]
+fn adr_0091_pin_634e4cc_field_error_note_has_the_crate_words() {
+    let text = " kind:foo";
+    let mut vm = SearchResultsInspectorPageVm::new(text);
+    vm.set_tab(SearchResultsTab::Releases);
+    set_note_of(&mut vm, text);
+    let state = vm.empty_state().expect("the empty tab shows the note");
+    assert_eq!(state.title, "This search cannot run");
+    let query = crate::view_models::search_query::SearchQuery::parse(text);
+    let (_, error) = query.field_errors().first().copied().expect("an error");
+    assert_eq!(state.secondary, error.message());
+}
+
+/// ADR 0091, crate pin 634e4cc: a query for the Library only has no note,
+/// because the Library rows show.
+#[test]
+fn adr_0091_pin_634e4cc_library_only_query_has_no_note() {
+    let text = "haleen in:library";
+    let local = [local_guid_track(10, 7, "g-library", "i1", "One")];
+    let mut vm = SearchResultsInspectorPageVm::from_local_library_tracks(
+        text,
+        &local,
+        &super::ArtistSearchFacts::default(),
+    );
+    vm.set_tab(SearchResultsTab::Releases);
+    set_note_of(&mut vm, text);
+    assert!(vm.index_notice().is_none());
+    assert!(vm.empty_state().is_none());
+}
+
+/// ADR 0091, crate pin 634e4cc: `kind:single` sends a request for releases
+/// and none for artists. The Artists tab shows the scope note of the crate in
+/// place of empty rows, and the Releases tab shows none.
+#[test]
+fn adr_0091_pin_634e4cc_scope_note_on_the_artists_tab() {
+    let text = " kind:single";
+    let query = crate::view_models::search_query::SearchQuery::parse(text);
+    let plan = super::IndexSearchPlan::for_query(&query);
+    assert!(matches!(plan, super::IndexSearchPlan::Send(_)));
+    let mut vm = SearchResultsInspectorPageVm::new(text);
+    vm.set_scope_notes(&query, &plan);
+
+    vm.set_tab(SearchResultsTab::Artists);
+    let state = vm.empty_state().expect("the empty tab shows the note");
+    let token = crate::view_models::search_query::QueryFieldName::Kind
+        .info()
+        .token;
+    assert_eq!(
+        state.title,
+        format!("{token} does not apply to artists and labels")
+    );
+    assert_eq!(
+        state.secondary,
+        "Remove the field to search artists and labels."
+    );
+
+    vm.set_tab(SearchResultsTab::Releases);
+    let state = vm.empty_state().expect("an empty tab");
+    assert_eq!(state.title, "No releases");
+    vm.set_tab(SearchResultsTab::Tracks);
+    assert_eq!(vm.empty_state().expect("an empty tab").title, "No tracks");
+}
+
+/// ADR 0091, crate pin 634e4cc: Enter runs a text with no term that can run
+/// and shows its note. The live run of the same text does not run, so it
+/// shows no note.
+#[test]
+fn adr_0091_pin_634e4cc_enter_shows_the_note_and_the_live_run_does_not() {
+    for text in [" kind:", " kind:foo"] {
+        assert!(
+            matches!(
+                super::live_run_step(text, None, true),
+                super::LiveRunStep::NotRunnable
+            ),
+            "the live run of {text} stays quiet"
+        );
+        let run = super::SearchRun::new(text);
+        assert!(!run.runs_library(), "{text}");
+        let mut page = SearchResultsInspectorPageVm::from_library_search(
+            run.text(),
+            &super::LibrarySearchRows::default(),
+            &super::ArtistSearchFacts::default(),
+        );
+        match run.index_plan() {
+            super::IndexSearchPlan::Skip(_) => {
+                page.set_index_skipped(run.query(), run.index_plan());
+            }
+            super::IndexSearchPlan::Send(_) => panic!("{text} sends no request"),
+        }
+        let state = page.empty_state().expect("Enter shows the note");
+        assert!(
+            state.title == "This search cannot run"
+                || state.title == "Music Index needs a word or a field to search for",
+            "{text}: {}",
+            state.title
+        );
+    }
 }

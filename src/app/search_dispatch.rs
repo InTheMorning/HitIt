@@ -273,10 +273,12 @@ impl TopApp {
         cx: &mut Context<Self>,
     ) {
         // ADR 0087 packet 002: the submit parses the text one time. A text
-        // with no term that can run opens no page and sends nothing.
+        // with no term that can run sends nothing, and its page shows the
+        // note of musicindex ADR 0052 R-QUERY-8 (ADR 0091). The live run
+        // never reaches this function for such a text.
         let run = SearchRun::new(query);
         let query = run.text().to_owned();
-        if query.is_empty() || !run.is_runnable() {
+        if query.is_empty() {
             return;
         }
 
@@ -319,8 +321,9 @@ impl TopApp {
                 .with_library_rows_partial(
                     rows.matched_count >= DEFAULT_LOCAL_LIBRARY_SEARCH_LIMIT,
                 );
-        if let IndexSearchPlan::Skip(skip) = run.index_plan() {
-            page.set_index_skipped(skip);
+        match run.index_plan() {
+            IndexSearchPlan::Skip(_) => page.set_index_skipped(run.query(), run.index_plan()),
+            IndexSearchPlan::Send(_) => page.set_scope_notes(run.query(), run.index_plan()),
         }
         page
     }

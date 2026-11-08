@@ -265,7 +265,7 @@ pub(crate) fn render_search_results_inspector(
         render_active_result_list(
             tab,
             vm.index_pending_row_count(),
-            vm.index_notice(),
+            vm.index_notice().as_ref(),
             slots,
             cx,
         )
