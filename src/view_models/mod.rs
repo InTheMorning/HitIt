@@ -93,6 +93,7 @@ pub(crate) mod name_order;
 pub(crate) mod named_feeds;
 pub mod paged_playlist_detail;
 pub(crate) mod pagination;
+pub(crate) mod playlist_curation;
 pub mod playlist_detail;
 pub(crate) mod playlist_rss_check;
 pub(crate) mod public_playlists;
@@ -252,6 +253,7 @@ mod tests {
                 track_count: 0,
                 created_at: 0,
                 updated_at: 0,
+                position: 0,
             },
             db::Playlist {
                 id: 9,
@@ -260,6 +262,7 @@ mod tests {
                 track_count: 1,
                 created_at: 1,
                 updated_at: 2,
+                position: 0,
             },
         ];
 

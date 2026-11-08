@@ -412,6 +412,7 @@ mod tests {
         use crate::application::ApplicationQueryService;
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         crate::db::init_schema(&conn).unwrap();
+        crate::db::migrate_schema(&conn).unwrap();
         crate::db::playlist_create(&conn, "Existing playlist").unwrap();
         let conn = Arc::new(Mutex::new(conn));
         let runner = AsyncCommandRunner::unavailable(

@@ -83,6 +83,9 @@ pub struct Playlist {
     pub track_count: i64,
     pub created_at: i64,
     pub updated_at: i64,
+    /// The place in the sequence that the curator set, from 0 (ADR 0089
+    /// amendment of 2026-11-08).
+    pub position: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -2143,14 +2146,16 @@ fn playback_session_from_sql(row: &rusqlite::Row) -> rusqlite::Result<PlaybackSe
     })
 }
 
+/// Every playlist in the stored curator order, by `position` (ADR 0089
+/// amendment of 2026-11-08). The sequence of the rows is the order.
 pub fn playlists_list(conn: &Connection) -> Result<Vec<Playlist>> {
     let mut stmt = conn
         .prepare(
-            "SELECT p.id, p.name, p.description, COALESCE(COUNT(pt.position), 0), p.created_at, p.updated_at
+            "SELECT p.id, p.name, p.description, COALESCE(COUNT(pt.position), 0), p.created_at, p.updated_at, p.position
              FROM playlists p
              LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
              GROUP BY p.id
-             ORDER BY p.name COLLATE NOCASE",
+             ORDER BY p.position, p.name COLLATE NOCASE, p.id",
         )
         .context("prepare playlists_list")?;
 
@@ -2163,6 +2168,7 @@ pub fn playlists_list(conn: &Connection) -> Result<Vec<Playlist>> {
                 track_count: row.get(3)?,
                 created_at: row.get(4)?,
                 updated_at: row.get(5)?,
+                position: row.get(6)?,
             })
         })
         .context("query playlists_list")?
@@ -2217,9 +2223,10 @@ pub fn playlist_create(conn: &Connection, name: &str) -> Result<i64> {
     let trimmed = name.trim();
     anyhow::ensure!(!trimmed.is_empty(), "Playlist name cannot be empty");
 
+    let position = playlist_order::next_position(conn)?;
     conn.execute(
-        "INSERT INTO playlists (name) VALUES (?1)",
-        rusqlite::params![trimmed],
+        "INSERT INTO playlists (name, position) VALUES (?1, ?2)",
+        rusqlite::params![trimmed, position],
     )
     .context("insert playlist")?;
 
@@ -2264,12 +2271,18 @@ pub fn playlist_set_description(
     Ok(())
 }
 
+/// Delete a playlist. The others keep their relative sequence, and the gap
+/// of the stored curator order closes (ADR 0089 amendment of 2026-11-08).
 pub fn playlist_delete(conn: &Connection, playlist_id: i64) -> Result<()> {
+    let position = playlist_order::position_of(conn, playlist_id)?;
     conn.execute(
         "DELETE FROM playlists WHERE id = ?1",
         rusqlite::params![playlist_id],
     )
     .context("delete playlist")?;
+    if let Some(position) = position {
+        playlist_order::close_gap(conn, position)?;
+    }
 
     Ok(())
 }
@@ -2826,6 +2839,8 @@ mod library_search;
 pub(crate) mod maintenance;
 pub(crate) mod named_feed_position;
 pub(crate) mod payment_routes;
+mod playlist_order;
+pub use playlist_order::{move_playlist, set_playlist_order};
 pub mod provider_observations;
 mod provider_snapshot_schema;
 pub(crate) mod publisher_feed_image;
@@ -2849,7 +2864,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 23;
+pub(crate) const CURRENT_VERSION: i64 = 24;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -2966,6 +2981,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 23,
         name: "saved_search_names",
         apply: saved_searches::apply_names,
+    },
+    Migration {
+        version: 24,
+        name: "playlist_order",
+        apply: playlist_order::apply,
     },
 ];
 
@@ -3090,7 +3110,8 @@ fn matches_contract(conn: &Connection, version: i64) -> rusqlite::Result<bool> {
 /// the saved search table (ADR 0084 Decision 3), and migration 22 adds the
 /// saved search name and the seen result table (ADR 0089 Decision 4), and
 /// migration 23 names each saved search and makes the name unique (operator
-/// decision of 2026-11-06).
+/// decision of 2026-11-06), and migration 24 adds the stored curator order of
+/// the playlists (ADR 0089 amendment of 2026-11-08).
 pub(crate) fn schema_contract(
     version: i64,
 ) -> impl Iterator<Item = &'static (&'static str, &'static [&'static str])> {
@@ -3098,6 +3119,9 @@ pub(crate) fn schema_contract(
         .iter()
         .filter(move |(table, _)| version < 13 || !ARTIST_STORAGE_TABLES.contains(table))
         .map(move |entry| {
+            if version >= 24 && entry.0 == "playlists" {
+                return playlist_order::COLUMNS;
+            }
             let extended = match version {
                 ..=15 => return entry,
                 16 => rss_field_holds::EXTENDED_COLUMNS,
@@ -5089,7 +5113,10 @@ mod tests {
         );
         assert_eq!(
             applied_migration_versions(&conn)?,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                24
+            ],
             "ADR 0016: fresh schema should record all registry migrations"
         );
 
@@ -5430,7 +5457,10 @@ mod tests {
         );
         assert_eq!(
             applied_migration_versions(&conn)?,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+            vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                24
+            ],
             "cleanup migration should be recorded exactly once"
         );
 

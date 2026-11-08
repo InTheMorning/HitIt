@@ -100,9 +100,9 @@ impl ListPageKey {
     }
 
     /// The views that the page offers, in icon order (ADR 0089 Decision
-    /// 5). Releases and Artists offer rows and tiles (musicindex ADR 0053
-    /// R-LIST-10). My playlists and the search keys offer rows only, so
-    /// they show no view icon. The search
+    /// 5). Releases, Artists and My playlists offer rows and tiles
+    /// (musicindex ADR 0053 R-LIST-9 and R-LIST-10). The search keys offer
+    /// rows only, so they show no view icon. The search
     /// keys have no tiles because the Releases tiles are tied to the
     /// Library list (ADR 0089 packet 008 Part C, deviation).
     #[must_use]
@@ -113,9 +113,9 @@ impl ListPageKey {
             | Self::PublicPlaylists
             | Self::SinglesGroup
             | Self::WindowGroup
+            | Self::MyPlaylists
             | Self::ReleaseSection => &[ListView::Rows, ListView::Tiles],
-            Self::MyPlaylists
-            | Self::Live
+            Self::Live
             | Self::Results
             | Self::SavedSearch
             | Self::ReleaseTracks
@@ -181,7 +181,10 @@ impl ListPageKey {
             Self::Artists => &[ListSort::AToZ, ListSort::Newest],
             Self::ReleaseTracks => &[ListSort::FeedOrder],
             Self::PublicPlaylistItems => &[ListSort::PlaylistOrder],
-            Self::MyPlaylists | Self::Live => &[],
+            // ADR 0089 amendment of 2026-11-08, musicindex ADR 0053 R-LIST-9
+            // row "Playlists that a person curates".
+            Self::MyPlaylists => &[ListSort::CuratorOrder, ListSort::AToZ, ListSort::Newest],
+            Self::Live => &[],
         }
     }
 
@@ -249,6 +252,10 @@ pub(crate) enum ListSort {
     /// The entries of a playlist in the order of the playlist. Only the key
     /// `PublicPlaylistItems` offers it (musicindex ADR 0053 R-LIST-9).
     PlaylistOrder,
+    /// The playlists in the sequence that the curator set, by the stored
+    /// position. Only the key `MyPlaylists` offers it (ADR 0089 amendment of
+    /// 2026-11-08, musicindex ADR 0053 R-LIST-9).
+    CuratorOrder,
 }
 
 impl ListSort {
@@ -266,6 +273,8 @@ impl ListSort {
             (Self::FeedOrder, true) => "Feed Order, Reversed",
             (Self::PlaylistOrder, false) => "Playlist Order",
             (Self::PlaylistOrder, true) => "Playlist Order, Reversed",
+            (Self::CuratorOrder, false) => "Curator Order",
+            (Self::CuratorOrder, true) => "Curator Order, Reversed",
         }
     }
 
@@ -278,6 +287,7 @@ impl ListSort {
             Self::AToZ => "music-list-sort-a-to-z",
             Self::FeedOrder => "music-list-sort-feed-order",
             Self::PlaylistOrder => "music-list-sort-playlist-order",
+            Self::CuratorOrder => "music-list-sort-curator-order",
         }
     }
 }
@@ -504,8 +514,18 @@ impl ListPageState {
                 reversed: false,
                 index_sorts: NodeSorts::NONE,
             },
+            // ADR 0089 amendment of 2026-11-08: Curator Order, rows and no
+            // scope.
+            ListPageKey::MyPlaylists => Self {
+                sort: Some(ListSort::CuratorOrder),
+                view: ListView::Rows,
+                scope: None,
+                letter: None,
+                reversed: false,
+                index_sorts: NodeSorts::NONE,
+            },
             // ADR 0089 Decision 5: rows, no sort and no scope.
-            ListPageKey::MyPlaylists | ListPageKey::Live => Self {
+            ListPageKey::Live => Self {
                 sort: None,
                 view: ListView::Rows,
                 scope: None,
@@ -683,11 +703,10 @@ impl ListPages {
         state.letter = None;
     }
 
-    /// Sets the reversed state of `key`. A page with no sort keeps false,
-    /// except My playlists, which reverses the sequence of the curator. Each
-    /// page keeps its own state.
+    /// Sets the reversed state of `key`. A page with no sort keeps false.
+    /// Each page keeps its own state.
     pub(crate) fn set_reversed(&mut self, key: ListPageKey, reversed: bool) {
-        if key.sorts().is_empty() && key != ListPageKey::MyPlaylists {
+        if key.sorts().is_empty() {
             return;
         }
         self.get_mut(key).reversed = reversed;
@@ -989,8 +1008,11 @@ impl ListPageHeadVm {
             sort: state.effective_sort(key, scope).map(|sort| {
                 sort_button(key, sort, reversed, key.sorts_in(scope, state.index_sorts))
             }),
-            letters: (state.effective_sort(key, scope) == Some(ListSort::AToZ))
-                .then(|| ordered_letters(LetterBarVm::new(key, state.letter), reversed)),
+            // My playlists has no letter bar: it holds local rows only, and
+            // it shows no name list of the Index.
+            letters: (key != ListPageKey::MyPlaylists
+                && state.effective_sort(key, scope) == Some(ListSort::AToZ))
+            .then(|| ordered_letters(LetterBarVm::new(key, state.letter), reversed)),
             view: (key.views().len() > 1).then(|| view_control(key, state.view)),
             reverse: state
                 .shows_reverse(key, scope)
@@ -1014,17 +1036,6 @@ impl ListPageHeadVm {
             select: None,
             actions: action.into_iter().collect(),
         }
-    }
-
-    /// This title row with the reverse button of the page `key` in `state`.
-    /// A page that cannot reverse keeps no button.
-    #[must_use]
-    pub(crate) fn with_reverse_of(mut self, key: ListPageKey, state: ListPageState) -> Self {
-        let scope = state.scope.unwrap_or_default();
-        self.reverse = state
-            .shows_reverse(key, scope)
-            .then(|| ListReverseVm::new(state.reversed));
-        self
     }
 
     /// The title row of a search page (ADR 0089 Decision 4): the title, the
@@ -1231,6 +1242,83 @@ fn sort_button(
 mod tests {
     use super::*;
 
+    /// ADR 0089 amendment of 2026-11-08, musicindex ADR 0053 R-LIST-9 row
+    /// "Playlists that a person curates": My playlists offers Curator Order,
+    /// A to Z and Newest, rows and tiles, and the reverse icon for each sort.
+    /// It starts with Curator Order and Rows. The sort menu names the reversed
+    /// order of each sort.
+    #[test]
+    fn adr_0053_r9_curated_my_playlists_sorts_default_views_and_reverse() {
+        let key = ListPageKey::MyPlaylists;
+        assert_eq!(
+            key.sorts(),
+            [ListSort::CuratorOrder, ListSort::AToZ, ListSort::Newest]
+        );
+        assert_eq!(key.views(), [ListView::Rows, ListView::Tiles]);
+        let state = ListPageState::default_for(key);
+        assert_eq!(state.sort, Some(ListSort::CuratorOrder));
+        assert_eq!(state.view, ListView::Rows);
+        assert_eq!(state.scope, None);
+        assert!(!state.reversed);
+        assert_eq!(
+            ListSort::CuratorOrder.option_id(),
+            "music-list-sort-curator-order"
+        );
+        let head = ListPageHeadVm::new(key, state, None, None);
+        assert_eq!(head.sort.as_ref().expect("sort").label, "Curator Order");
+        assert_eq!(
+            head.view.expect("view").options.len(),
+            2,
+            "rows and tiles icons"
+        );
+        assert!(head.letters.is_none(), "no letter bar on a local list");
+        let expected = [
+            (
+                ListSort::CuratorOrder,
+                "Curator Order",
+                "Curator Order, Reversed",
+            ),
+            (ListSort::AToZ, "A to Z", "Z to A"),
+            (ListSort::Newest, "Newest", "Oldest"),
+        ];
+        let mut pages = ListPages::default();
+        for (sort, usual, reversed_name) in expected {
+            pages.set_sort(key, sort);
+            for (reversed, name) in [(false, usual), (true, reversed_name)] {
+                pages.set_reversed(key, reversed);
+                let head = ListPageHeadVm::new(key, *pages.get(key), None, None);
+                assert_eq!(head.sort.as_ref().expect("sort").label, name);
+                let reverse = head.reverse.expect("reverse icon for each sort");
+                assert_eq!(reverse.pressed, reversed);
+                assert!(head
+                    .sort
+                    .expect("sort")
+                    .options
+                    .iter()
+                    .all(|option| { option.label == option.sort.name(reversed) }));
+            }
+        }
+        // No other list offers Curator Order.
+        for other in [
+            ListPageKey::Releases,
+            ListPageKey::Artists,
+            ListPageKey::PublicPlaylists,
+            ListPageKey::Live,
+            ListPageKey::Results,
+            ListPageKey::SavedSearch,
+            ListPageKey::SinglesGroup,
+            ListPageKey::WindowGroup,
+            ListPageKey::ReleaseTracks,
+            ListPageKey::PublicPlaylistItems,
+            ListPageKey::ReleaseSection,
+        ] {
+            assert!(
+                !other.sorts().contains(&ListSort::CuratorOrder),
+                "{other:?}"
+            );
+        }
+    }
+
     /// Musicindex ADR 0053 R-LIST-9 row "A group of singles": the two group
     /// keys offer Newest and A to Z, rows and tiles, and reverse. They start
     /// with Newest and Rows. Each kind keeps its own state.
@@ -1388,12 +1476,14 @@ mod tests {
             assert_eq!(head.sort.expect("sort").label, "A to Z");
             assert_eq!(head.letters.expect("letters").letters[0].label, "A");
         }
-        let playlists = ListPageHeadVm::titled("My playlists", None).with_reverse_of(
+        let playlists = ListPageHeadVm::new(
             ListPageKey::MyPlaylists,
             ListPageState {
                 reversed: true,
                 ..ListPageState::default_for(ListPageKey::MyPlaylists)
             },
+            None,
+            None,
         );
         assert!(playlists.reverse.is_some_and(|reverse| reverse.pressed));
         for key in [
@@ -1447,7 +1537,7 @@ mod tests {
         assert_eq!(artists.scope, Some(ListScope::All));
 
         let playlists = ListPageState::default_for(ListPageKey::MyPlaylists);
-        assert_eq!(playlists.sort, None);
+        assert_eq!(playlists.sort, Some(ListSort::CuratorOrder));
         assert_eq!(playlists.view, ListView::Rows);
         assert_eq!(playlists.scope, None);
     }
@@ -1564,13 +1654,17 @@ mod tests {
     }
 
     /// The title row: the sort button shows the current sort, no view
-    /// icon shows on a page with one view, and My playlists has no sort
-    /// button and no scope.
+    /// icon shows on a page with one view, and My playlists has its sort
+    /// button and its view icons, and no scope.
     #[test]
     fn adr_0089_list_page_head_shows_current_sort_and_no_view_icon() {
         let playlists = ListPageState::default_for(ListPageKey::MyPlaylists);
         let head = ListPageHeadVm::new(ListPageKey::MyPlaylists, playlists, None, None);
-        assert_eq!(head.view, None, "My playlists keeps rows only");
+        assert!(head.view.is_some(), "My playlists offers rows and tiles");
+        assert_eq!(head.scope, None);
+        let live = ListPageState::default_for(ListPageKey::Live);
+        let head = ListPageHeadVm::new(ListPageKey::Live, live, None, None);
+        assert_eq!(head.view, None, "Live keeps rows only");
 
         let releases = ListPageState::default_for(ListPageKey::Releases);
         let head = ListPageHeadVm::new(ListPageKey::Releases, releases, None, None);
@@ -1581,7 +1675,7 @@ mod tests {
         let playlists = ListPageState::default_for(ListPageKey::MyPlaylists);
         let head = ListPageHeadVm::new(ListPageKey::MyPlaylists, playlists, None, None);
         assert_eq!(head.title, "My playlists");
-        assert!(head.sort.is_none());
+        assert_eq!(head.sort.expect("sort").label, "Curator Order");
         assert!(head.scope.is_none());
         assert!(head.letters.is_none());
     }
@@ -1614,8 +1708,14 @@ mod tests {
         pages.set_view(ListPageKey::MyPlaylists, ListView::Tiles);
         assert_eq!(
             pages.get(ListPageKey::MyPlaylists).view,
+            ListView::Tiles,
+            "My playlists offers rows and tiles"
+        );
+        pages.set_view(ListPageKey::Live, ListView::Tiles);
+        assert_eq!(
+            pages.get(ListPageKey::Live).view,
             ListView::Rows,
-            "My playlists offers rows only"
+            "Live offers rows only"
         );
         let tiles = ListPageHeadVm::new(
             ListPageKey::Releases,
@@ -1730,7 +1830,18 @@ mod tests {
             "Artists does not offer Relevance"
         );
         pages.set_sort(ListPageKey::MyPlaylists, ListSort::AToZ);
-        assert_eq!(pages.get(ListPageKey::MyPlaylists).sort, None);
+        assert_eq!(
+            pages.get(ListPageKey::MyPlaylists).sort,
+            Some(ListSort::AToZ)
+        );
+        pages.set_sort(ListPageKey::MyPlaylists, ListSort::Relevance);
+        assert_eq!(
+            pages.get(ListPageKey::MyPlaylists).sort,
+            Some(ListSort::AToZ),
+            "My playlists does not offer Relevance"
+        );
+        pages.set_sort(ListPageKey::Live, ListSort::AToZ);
+        assert_eq!(pages.get(ListPageKey::Live).sort, None);
     }
 
     /// ADR 0089 Decision 5 and packet 009  Public playlists starts at Newest,
@@ -2147,8 +2258,6 @@ mod tests {
             );
             assert!(head.reverse.is_none(), "{key:?}");
             assert_eq!(head.sort.expect("sort").label, "Relevance");
-            let titled = ListPageHeadVm::titled("x", None).with_reverse_of(key, state);
-            assert!(titled.reverse.is_none(), "{key:?}");
         }
     }
 

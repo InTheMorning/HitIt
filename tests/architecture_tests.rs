@@ -6033,12 +6033,13 @@ fn playlist_rows_scale_through_design_tokens() {
 
     // ADR 0084 Decision 2 moves the playlist rows from the Library sidebar
     // tree to the Playlists destination list, with no separate heading:
-    // the list column title already names the destination.
+    // the list column title already names the destination. The My playlists
+    // shell owns the rows (ADR 0089 amendment of 2026-11-08).
     let destination_lists_shell =
-        read_source(&manifest_path("src/ui/shells/library/destination_lists.rs"));
+        read_source(&manifest_path("src/ui/shells/library/my_playlists.rs"));
     if !destination_lists_shell.contains("Label::new(name)") {
         violations.push(
-            "src/ui/shells/library/destination_lists.rs: playlist rows must render through the scaled Label primitive"
+            "src/ui/shells/library/my_playlists.rs: playlist rows must render through the scaled Label primitive"
                 .to_string(),
         );
     }
@@ -22032,13 +22033,15 @@ fn adr_0083_list_row_actions_r83_7_13_rows_use_the_shared_menu() {
 fn adr_0083_track_drag_r83_8_07_drop_uses_the_one_add_path() {
     let composite_file = "src/ui/composites/track_drag.rs";
     let composite = read_source(&manifest_path(composite_file));
-    let list_file = "src/ui/shells/library/destination_lists.rs";
+    let list_file = "src/ui/shells/library/my_playlists.rs";
     let list = read_source(&manifest_path(list_file));
     let mut violations = Vec::new();
     let target = source_between(&composite, "pub(crate) fn playlist_drop_target(", "\n}\n");
-    if composite.matches(".on_drop(").count() != 2 || target.matches(".on_drop(").count() != 2 {
+    // Two handlers add tracks. The third moves a playlist row (ADR 0089
+    // amendment of 2026-11-08), and it adds no track.
+    if composite.matches(".on_drop(").count() != 3 || target.matches(".on_drop(").count() != 3 {
         violations.push(format!(
-            "{composite_file}: the two `.on_drop(` handlers belong in `playlist_drop_target`, one \
+            "{composite_file}: the three `.on_drop(` handlers belong in `playlist_drop_target`, one \
 for each payload."
         ));
     }
@@ -22048,7 +22051,9 @@ for each payload."
         ));
     }
     if list.contains(".on_drop(")
-        || !list.contains("playlist_drop_target(row, playlist_id, &on_add, cx)")
+        || !compact_source(&list).contains(
+            "playlist_drop_target(row,playlist_id,&on_add,reorders.then_some((shown_index,&on_reorder)),cx,)",
+        )
     {
         violations.push(format!(
             "{list_file}: each playlist row must take its drop through `playlist_drop_target`."
@@ -22198,9 +22203,13 @@ fn adr_0084_release_row_actions_r31_07_rows_with_no_menu() {
     ) {
         violations.push("an Artists row must give `None` as its menu context".to_owned());
     }
+    let playlists_file = "src/ui/shells/library/my_playlists.rs";
+    let playlists_source = code_only(production_source(&read_source(&manifest_path(
+        playlists_file,
+    ))));
     let playlists = source_between(
-        &lists,
-        "pub(crate) fn render_library_playlists_list(",
+        &playlists_source,
+        "fn render_rows(",
         "music_column_tracked_scrollbar(container, scroll, None)",
     );
     if !playlists.contains("menu_cell(row_menus.remove(&playlist_id))") {

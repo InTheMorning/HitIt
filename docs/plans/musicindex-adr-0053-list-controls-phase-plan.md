@@ -12,7 +12,9 @@ Packet 6 note: a section offers Newest only when each of its rows has a date (R-
 
 The public playlist page has no list bar, so its control is at the right end of a heading above its entries (R-LIST-11 item 3).
 
-Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is committed as `bfb8674`. Packet 9 is implemented on 2026-11-08. Packet 3 comes next (answer 9).
+Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is committed as `bfb8674`. Packet 9 is committed as `70d8f23`.
+
+Packet 3 is implemented on 2026-11-08 with migration 24. Each packet of this plan is implemented. musicindex ADR 0054 then replaces the reverse icon of these packets.
 
 Packet 9 note: Artists offers Newest in the scope In Library from the newest Library release date of each artist. It offers Newest in the scope All when the node lists `artist_newest`. The stored contract is the live contract of Stophammer candidate v0.19.0-rc.5 (git `a0c0c5a`), with `newest_release_at`. The open checks are in section 12 of [pending human checks](../pending-human-checks.md).
 

@@ -289,6 +289,39 @@ impl ApplicationCommand for ReorderPlaylistTrack {
     }
 }
 
+/// Moves one playlist to a new place in the curator order of My playlists,
+/// in one transaction (ADR 0089 amendment of 2026-11-08, musicindex ADR
+/// 0053 R-LIST-9).
+#[derive(Clone, Debug)]
+pub struct MovePlaylist {
+    conn: SharedConnection,
+    playlist_id: i64,
+    to_index: usize,
+}
+
+impl MovePlaylist {
+    /// Creates a command that moves `playlist_id` to `to_index`.
+    #[must_use]
+    pub const fn new(conn: SharedConnection, playlist_id: i64, to_index: usize) -> Self {
+        Self {
+            conn,
+            playlist_id,
+            to_index,
+        }
+    }
+}
+
+impl ApplicationCommand for MovePlaylist {
+    type Output = ();
+
+    fn execute(self, _context: &CommandContext) -> CommandResult<Self::Output> {
+        let conn = self.conn.lock().map_err(|_| poisoned_lock())?;
+        playlist_service::move_to(&conn, self.playlist_id, self.to_index)
+            .map_err(|error| playlist_command_error(&error))?;
+        Ok(CommandOutcome::new((), playlist_changed_events()))
+    }
+}
+
 /// Moves the selected entries of a playlist to its top or its bottom, in
 /// one transaction (ADR 0084 Decision 10, packet 025). The output is the
 /// number of entries in the playlist.

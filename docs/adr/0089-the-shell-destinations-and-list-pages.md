@@ -189,6 +189,8 @@ This amendment applies an operator answer. musicindex ADR 0053 R-LIST-9 gives a 
 
 The folders of My playlists and a move into a folder stay a Non-Goal.
 
+Packet 3 of the phase plan implements this amendment on 2026-11-08. The row menu also has "Move up" and "Move down" in Curator Order, so the keyboard can move a playlist. The "Add to playlist" menus keep the A to Z sequence.
+
 ## Open Points
 
 The research request leaves these open, and this record does not decide them:

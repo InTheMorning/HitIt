@@ -302,6 +302,9 @@ Open - the packets below are implemented, and the mechanical suite is Green. The
 - Packet 7: on a Library list with A to Z, a name with a number such as "Track 2" comes before "Track 10", and "abba" and "ABBA" are adjacent. The agent screenshots of 2026-11-08 show no such names in the seeded Library.
 - Packet 8: on Artists, the tiles icon shows the artists as tiles in All and In Library. A name with no feed shows the logo shape. The letter M, Z to A and Load more work with tiles.
 - Packet 8, not checked by the agent: Load more at the end of the tiles in All, and the keyboard focus on a tile.
+- Packet 3 (ADR 0089 amendment of 2026-11-08): back up the database first, because migration 24 adds `playlists.position`. My playlists keeps the sequence of today and starts with Curator Order.
+- Packet 3, the drag: drag a playlist row onto a different row. It moves there, and it stays there after a restart of the app. A new playlist goes last. A to Z, Newest and tiles work. The row menu has "Move up" and "Move down" in Curator Order.
+- Packet 3, not checked by the agent: the migration on the database of the operator, "Move up" and "Move down", and a drag with the keyboard focus on a row.
 - Packet 9: on Artists in All, the sort menu lists A to Z and Newest. Newest starts with the artists of the newest releases and shows no letter bar. The reverse icon gives "Oldest". In Library, Newest puts the artist of the newest Library release first.
 - Packet 9, not checked by the agent: Load more with Newest in All, and a change of scope with Newest selected.
 - The pin of `musicindex-search` at `634e4cc` (ADR 0091): Enter on `kind:foo` shows "This search cannot run". Enter on `-remix` shows the note "Music Index needs a word or a field to search for" above the Library rows. The Artists tab of `kind:single` shows "kind: does not apply to artists and labels". The agent screenshots of 2026-11-08 show these. A person checks that the words are clear.

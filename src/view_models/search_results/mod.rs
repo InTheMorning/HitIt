@@ -301,10 +301,12 @@ impl SearchResultsInspectorPageVm {
         }
         let reverse = self.reversed();
         match self.effective_sort() {
-            // No search page offers Feed Order or Playlist Order.
-            ListSort::Relevance | ListSort::FeedOrder | ListSort::PlaylistOrder => {
-                IndexOrder::Relevance
-            }
+            // No search page offers Feed Order, Playlist Order or Curator
+            // Order.
+            ListSort::Relevance
+            | ListSort::FeedOrder
+            | ListSort::PlaylistOrder
+            | ListSort::CuratorOrder => IndexOrder::Relevance,
             ListSort::Newest => IndexOrder::Date { reverse },
             ListSort::AToZ => IndexOrder::Name { reverse },
         }

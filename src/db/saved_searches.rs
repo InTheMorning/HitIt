@@ -836,8 +836,14 @@ mod tests {
 
         crate::db::migrate_schema_to(&conn, 23).unwrap();
 
-        assert_eq!(CURRENT_VERSION, 23);
-        assert_eq!(inspect_schema(&conn).unwrap(), SchemaCompatibility::Current);
+        assert_eq!(
+            inspect_schema(&conn).unwrap(),
+            SchemaCompatibility::UpgradeRequired {
+                applied: 23,
+                current: MIGRATIONS.len()
+            },
+            "migration 24 is still pending at version 23"
+        );
         upgrades::verify_target(&conn, 23).unwrap();
         let stored = saved_searches(&conn).unwrap();
         assert_eq!(

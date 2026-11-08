@@ -1665,6 +1665,7 @@ mod tests {
                         .into_any_element(),
                         playlist_id,
                         &on_drop,
+                        None,
                         cx,
                     ))
             };

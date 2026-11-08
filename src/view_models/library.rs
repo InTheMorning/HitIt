@@ -73,6 +73,7 @@ use crate::view_models::list_selection::{
 use crate::view_models::name_level_page::NameLevelLibraryRelease;
 use crate::view_models::named_feeds::{FeedImages, NamedFeed};
 use crate::view_models::pagination::pending_skeleton_count;
+use crate::view_models::playlist_curation::{self, PlaylistRowDragVm};
 use crate::view_models::playlist_detail::PlaylistDetailPageVm;
 use crate::view_models::recent_feeds::{RecentFeedResultRow, RecentFeedsPageVm};
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
@@ -682,13 +683,29 @@ pub(crate) struct PlaylistSidebarRowVm {
     /// The delete confirmation of the playlist page. "Delete…" in the menu
     /// opens the same one (ADR 0083 Decision 5).
     pub(crate) delete_confirmation: PlaylistDeleteConfirmation,
+    /// The drag fact of the row. It is `Some` only with the sort Curator
+    /// Order, not reversed, in the Rows view (ADR 0089 amendment of
+    /// 2026-11-08).
+    pub(crate) drag: Option<PlaylistRowDragVm>,
+    /// The place of the row in the shown list, from 0. A drop on the row
+    /// moves the dragged playlist to this place.
+    pub(crate) shown_index: usize,
 }
 
 /// The item menu of a playlist row of the My playlists list (ADR 0089
-/// Decision 6). Its items are the page actions Rename and Delete, in that
-/// order. A destructive item is last.
+/// Decision 6). Its items are the page actions Rename and Delete, and, when
+/// the curator can move the row (ADR 0089 amendment of 2026-11-08), Move Up
+/// and Move Down. They are the keyboard way to move a playlist, so a row that
+/// is first has no Move Up, and a row that is last has no Move Down. The order
+/// of the items is Rename, Move Up, Move Down, Delete. A destructive item is
+/// last.
 #[must_use]
-pub(crate) fn playlist_row_menu(playlist_id: i64, name: &str) -> TrackRowMenuVm {
+pub(crate) fn playlist_row_menu_with_moves(
+    playlist_id: i64,
+    name: &str,
+    can_move_up: bool,
+    can_move_down: bool,
+) -> TrackRowMenuVm {
     let item =
         |action, id: &str, label: &str, a11y_label: String, destructive| TrackRowMenuItemVm {
             action,
@@ -701,22 +718,43 @@ pub(crate) fn playlist_row_menu(playlist_id: i64, name: &str) -> TrackRowMenuVm 
         id: format!("playlist-row-{playlist_id}-menu"),
         trigger_tooltip: "More actions",
         trigger_a11y_label: format!("More actions for {name}"),
-        items: vec![
-            item(
+        items: [
+            Some(item(
                 TrackRowMenuAction::RenamePlaylist,
                 "rename",
                 "Rename",
                 format!("Rename the playlist \"{name}\""),
                 false,
-            ),
-            item(
+            )),
+            can_move_up.then(|| {
+                item(
+                    TrackRowMenuAction::MoveUp,
+                    "move-up",
+                    "Move up",
+                    format!("Move the playlist \"{name}\" up in the list"),
+                    false,
+                )
+            }),
+            can_move_down.then(|| {
+                item(
+                    TrackRowMenuAction::MoveDown,
+                    "move-down",
+                    "Move down",
+                    format!("Move the playlist \"{name}\" down in the list"),
+                    false,
+                )
+            }),
+            Some(item(
                 TrackRowMenuAction::DeletePlaylist,
                 "delete",
                 "Delete…",
                 format!("Delete the playlist \"{name}\""),
                 true,
-            ),
-        ],
+            )),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
         playlist_level: TRACK_ROW_PLAYLIST_LEVEL,
     }
 }
@@ -3691,6 +3729,7 @@ impl LibraryViewModel {
     /// now. A list that cannot reverse in its scope is never reversed. The
     /// stored state stays for the scope In Library.
     #[must_use]
+    #[cfg(test)]
     pub(crate) fn list_reversed(&self, key: ListPageKey) -> bool {
         self.list_pages
             .get(key)
@@ -3826,9 +3865,23 @@ impl LibraryViewModel {
             .cloned()
     }
 
+    /// The My playlists list in the shown order (ADR 0089 amendment of
+    /// 2026-11-08, musicindex ADR 0053 R-LIST-9). The sort and the reverse
+    /// state of the page decide the order, and the view decides the drag.
     #[must_use]
     pub(crate) fn playlist_sidebar(&self) -> PlaylistSidebarVm {
-        let mut sidebar = PlaylistSidebarVm {
+        let key = ListPageKey::MyPlaylists;
+        let state = self.list_page_state(key);
+        let scope = state.scope.unwrap_or_default();
+        let sort = state
+            .effective_sort(key, scope)
+            .unwrap_or(ListSort::CuratorOrder);
+        let reversed = state.order_reversed(key, scope);
+        let reorders = playlist_curation::can_reorder(sort, reversed, state.view);
+        let ordered =
+            playlist_curation::ordered_playlists(&self.snapshot.playlists, sort, reversed);
+        let last = ordered.len().saturating_sub(1);
+        PlaylistSidebarVm {
             header_id: "playlists-header",
             add_button_id: "playlists-add",
             new_playlist_input_id: "playlist-new-input",
@@ -3837,11 +3890,10 @@ impl LibraryViewModel {
             add_label: "New Playlist",
             new_playlist_add_label: "Add",
             creating_playlist: self.creating_playlist,
-            rows: self
-                .snapshot
-                .playlists
-                .iter()
-                .map(|playlist| PlaylistSidebarRowVm {
+            rows: ordered
+                .into_iter()
+                .enumerate()
+                .map(|(index, playlist)| PlaylistSidebarRowVm {
                     id: playlist.id,
                     element_id: format!("playlist-{}", playlist.id),
                     name: playlist.name.clone(),
@@ -3855,7 +3907,12 @@ impl LibraryViewModel {
                     },
                     selected: self.selected_playlist_id == Some(playlist.id),
                     marked: false,
-                    menu: playlist_row_menu(playlist.id, &playlist.name),
+                    menu: playlist_row_menu_with_moves(
+                        playlist.id,
+                        &playlist.name,
+                        reorders && index > 0,
+                        reorders && index < last,
+                    ),
                     delete_confirmation: playlist_delete_confirmation(
                         &playlist.name,
                         usize::try_from(playlist.track_count).unwrap_or(0),
@@ -3869,14 +3926,11 @@ impl LibraryViewModel {
                             .flatten(),
                         CollectionKind::Playlist,
                     ),
+                    drag: reorders.then(|| PlaylistRowDragVm::new(playlist.id, &playlist.name)),
+                    shown_index: index,
                 })
                 .collect(),
-        };
-        // musicindex ADR 0043 R-LIST-7: My playlists has only local rows.
-        if self.list_reversed(ListPageKey::MyPlaylists) {
-            sidebar.rows.reverse();
         }
-        sidebar
     }
 
     /// Entries of the Releases destination list (ADR 0084 Decisions 2, 6
@@ -5301,6 +5355,11 @@ impl LibraryViewModel {
         self.status = format!("Error removing track: {error:#}");
     }
 
+    /// The move of a playlist in the curator order did not write.
+    pub(crate) fn fail_playlist_move(&mut self, error: impl std::fmt::Display) {
+        self.status = format!("Error moving the playlist: {error:#}");
+    }
+
     pub(crate) fn fail_playlist_track_reorder(&mut self, error: impl std::fmt::Display) {
         self.status = format!("Error reordering: {error:#}");
     }
@@ -5822,10 +5881,11 @@ impl LibraryViewModel {
         self.renaming_playlist_id == Some(playlist_id)
     }
 
-    /// Advance the playlist sort order one step.
-    /// The playlists sort by name, A to Z, in the language of the reader
-    /// (ADR 0089 Decision 5: the sidebar has no sort control; musicindex ADR
-    /// 0053 R-LIST-12).
+    /// Sorts the stored playlists by name, A to Z, in the language of the
+    /// reader (musicindex ADR 0053 R-LIST-12). The playlist menus and the
+    /// field values read this order. The My playlists list sorts again in
+    /// `playlist_sidebar`, by its own sort (ADR 0089 amendment of
+    /// 2026-11-08).
     fn sort_playlists_by_name(playlists: &mut [db::Playlist]) {
         crate::view_models::name_order::sort_by_name(playlists, |playlist| &playlist.name);
     }
@@ -8093,6 +8153,7 @@ mod tests {
             track_count: 0,
             created_at: 0,
             updated_at: 0,
+            position: 0,
         }
     }
 

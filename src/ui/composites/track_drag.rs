@@ -28,6 +28,7 @@ use gpui_base::GlobalState;
 use crate::ui::style::color;
 use crate::ui::tokens::{color as token_color, FontSize, Radius, SemanticColor, Spacing};
 use crate::view_models::library::{playlist_accepts_drop, TrackDragVm};
+use crate::view_models::playlist_curation::PlaylistRowDragVm;
 
 /// The drag of tracks from a `TrackRow` or from a Tracks list row
 /// (decision D2). The payload keeps its own data, so the drop adds each
@@ -62,6 +63,37 @@ pub(crate) struct PlaylistTrackDragPayload {
     pub(crate) track_id: i64,
     pub(crate) title: SharedString,
 }
+
+/// The drag of one playlist row of My playlists, to move it in the curator
+/// order (ADR 0089 amendment of 2026-11-08). Only a row with the sort
+/// Curator Order, not reversed, in the Rows view starts it.
+#[derive(Clone, Debug)]
+pub(crate) struct PlaylistRowDragPayload {
+    pub(crate) playlist_id: i64,
+    pub(crate) label: SharedString,
+}
+
+impl PlaylistRowDragPayload {
+    /// The payload of the drag fact of a playlist row.
+    #[must_use]
+    pub(crate) fn from_vm(drag: &PlaylistRowDragVm) -> Self {
+        Self {
+            playlist_id: drag.playlist_id,
+            label: SharedString::from(drag.label.clone()),
+        }
+    }
+}
+
+/// One drop of a playlist row on another playlist row. The host moves the
+/// playlist to `to_index`, the place of the row that took the drop.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaylistReorder {
+    pub(crate) playlist_id: i64,
+    pub(crate) to_index: usize,
+}
+
+/// The handler of a drop of a playlist row on a playlist row.
+pub(crate) type PlaylistReorderHandler = Rc<dyn Fn(&PlaylistReorder, &mut Window, &mut App)>;
 
 /// The one drag preview of a track (decision D9): the label in bold
 /// `FontSize::Micro` text, with an accent border. The label is a title or
@@ -121,6 +153,25 @@ pub(crate) fn attach_track_drag(el: Stateful<Div>, payload: TrackDragPayload) ->
     )
 }
 
+/// Attaches the drag of a playlist row to `el`, the clickable element of the
+/// row. It follows the rules of [`attach_track_drag`].
+pub(crate) fn attach_playlist_row_drag(
+    el: Stateful<Div>,
+    payload: PlaylistRowDragPayload,
+) -> Stateful<Div> {
+    el.on_mouse_down(MouseButton::Left, |_, _, cx| {
+        if cx.has_global::<GlobalState>() {
+            GlobalState::suppress_text_selection(cx);
+        }
+    })
+    .on_drag(
+        payload,
+        |payload: &PlaylistRowDragPayload, _: Point<Pixels>, _: &mut Window, cx: &mut App| {
+            TrackDragPreview::build(&payload.label, cx)
+        },
+    )
+}
+
 /// One drop of tracks on a playlist row (ADR 0083 task 008, ADR 0084
 /// task 031). The host adds each track of `track_ids`, in this order,
 /// through one append.
@@ -151,15 +202,23 @@ pub(crate) fn playlist_drop_handler(
 ///   does not move.
 /// - A drop gives one [`PlaylistDrop`] to `on_drop`, with each dragged
 ///   track.
+/// - The row also takes the drop of another playlist row of My playlists
+///   when `reorder` is `Some` (ADR 0089 amendment of 2026-11-08). `reorder`
+///   holds the place of this row in the shown list and the handler. A row
+///   does not take its own drag. The overlay and the outline are the ones of
+///   the track drop.
 pub(crate) fn playlist_drop_target(
     row: AnyElement,
     playlist_id: i64,
     on_drop: &PlaylistDropHandler,
+    reorder: Option<(usize, &PlaylistReorderHandler)>,
     cx: &App,
 ) -> AnyElement {
     let accent = token_color(cx, SemanticColor::Accent);
     let on_track_drop = Rc::clone(on_drop);
     let on_drop = Rc::clone(on_drop);
+    let accepts_reorder = reorder.is_some();
+    let on_reorder = reorder.map(|(to_index, handler)| (to_index, Rc::clone(handler)));
     let target = div()
         .absolute()
         .inset_0()
@@ -171,6 +230,17 @@ pub(crate) fn playlist_drop_target(
                     .is_some_and(|entry| {
                         playlist_accepts_drop(Some(entry.playlist_id), playlist_id)
                     })
+                || (accepts_reorder
+                    && drag
+                        .downcast_ref::<PlaylistRowDragPayload>()
+                        .is_some_and(|entry| entry.playlist_id != playlist_id))
+        })
+        .drag_over::<PlaylistRowDragPayload>(move |el, _, _, _| {
+            if accepts_reorder {
+                el.border_2().border_color(accent)
+            } else {
+                el
+            }
         })
         .drag_over::<TrackDragPayload>(move |el, _, _, _| el.border_2().border_color(accent))
         .drag_over::<PlaylistTrackDragPayload>(move |el, _, _, _| {
@@ -192,6 +262,17 @@ pub(crate) fn playlist_drop_target(
                     playlist_id,
                 };
                 on_drop(&drop, window, cx);
+            },
+        )
+        .on_drop(
+            move |payload: &PlaylistRowDragPayload, window: &mut Window, cx: &mut App| {
+                if let Some((to_index, handler)) = &on_reorder {
+                    let reorder = PlaylistReorder {
+                        playlist_id: payload.playlist_id,
+                        to_index: *to_index,
+                    };
+                    handler(&reorder, window, cx);
+                }
             },
         );
     div()
@@ -284,6 +365,7 @@ mod track_drag_tests {
                         ListRow::new("playlist-7").child("Mix").into_any_element(),
                         7,
                         &on_drop,
+                        None,
                         cx,
                     ),
                 ))

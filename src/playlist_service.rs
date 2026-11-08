@@ -62,6 +62,12 @@ pub fn remove_track_everywhere(conn: &mut Connection, track_id: i64) -> Result<V
     db::playlist_remove_track_everywhere(conn, track_id)
 }
 
+/// Moves a playlist to `to_index` of the curator order, in one transaction
+/// (ADR 0089 amendment of 2026-11-08).
+pub fn move_to(conn: &Connection, playlist_id: i64, to_index: usize) -> Result<()> {
+    db::move_playlist(conn, playlist_id, to_index)
+}
+
 pub fn reorder(conn: &mut Connection, playlist_id: i64, from: i64, to: i64) -> Result<()> {
     ensure_non_negative_position(from)?;
     ensure_non_negative_position(to)?;

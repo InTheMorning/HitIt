@@ -21,7 +21,7 @@ use crate::application::commands::payment_routes::{
     PaymentRouteRepairStatus, PaymentRouteRepairTrackResult, RepairPaymentRoutesForTrack,
 };
 use crate::application::commands::playlist::{
-    ConfirmRemovedTrack, CreatePlaylist, DeletePlaylist, MovePlaylistEntries,
+    ConfirmRemovedTrack, CreatePlaylist, DeletePlaylist, MovePlaylist, MovePlaylistEntries,
     RemovePlaylistEntries, RemovePlaylistTrackAt, RemoveTrackFromAllPlaylists, RenamePlaylist,
     ReorderPlaylistTrack,
 };
@@ -77,14 +77,15 @@ use crate::ui::shells::library::content_list::{
     render_library_content_list, ContentListMenuContext,
 };
 use crate::ui::shells::library::destination_lists::{
-    render_artists_list_item, render_library_destination_rows, render_library_playlists_list,
-    render_library_releases_list, render_releases_list_item, LeadingDisclosure, RowArts,
+    render_artists_list_item, render_library_destination_rows, render_library_releases_list,
+    render_releases_list_item, LeadingDisclosure, RowArts,
 };
 use crate::ui::shells::library::detail::render_library_detail;
 use crate::ui::shells::library::inbox::render_inbox_sections;
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
+use crate::ui::shells::library::my_playlists::render_my_playlists;
 use crate::ui::shells::library::releases_tiles::{
     render_artists_tile, render_artists_tile_grid, render_releases_list_tile,
     render_releases_tile_grid,
@@ -2099,9 +2100,49 @@ impl LibraryApp {
                     this.delete_playlist(playlist_id, cx);
                 });
             }
+            // ADR 0089 amendment of 2026-11-08: the keyboard way to move a
+            // playlist. The view model offers these two items only in the
+            // sort Curator Order, not reversed, in the Rows view.
+            TrackRowMenuAction::MoveUp | TrackRowMenuAction::MoveDown => {
+                let step = if action == TrackRowMenuAction::MoveUp {
+                    -1
+                } else {
+                    1
+                };
+                if let Some(index) = self
+                    .vm
+                    .playlist_sidebar()
+                    .rows
+                    .iter()
+                    .position(|row| row.id == playlist_id)
+                    .and_then(|index| index.checked_add_signed(step))
+                {
+                    self.move_playlist_to(playlist_id, index, cx);
+                }
+            }
             _ => return,
         }
         cx.notify();
+    }
+
+    /// Moves the playlist `playlist_id` to `to_index` of the curator order of
+    /// My playlists (ADR 0089 amendment of 2026-11-08). One transaction
+    /// writes the new positions, and the mounted list reloads in place.
+    pub(crate) fn move_playlist_to(
+        &mut self,
+        playlist_id: i64,
+        to_index: usize,
+        cx: &mut Context<Self>,
+    ) {
+        let command = MovePlaylist::new(Arc::clone(&self.conn), playlist_id, to_index);
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            move |this, (), cx| this.reload_playlists(cx),
+            |this, err, _cx| this.vm.fail_playlist_move(err),
+        );
     }
 
     pub(crate) fn delete_playlist(&mut self, id: i64, cx: &mut Context<Self>) {
@@ -5722,43 +5763,17 @@ impl LibraryApp {
                     .vm
                     .playlist_sidebar()
                     .with_marked(self.marked_entry.as_ref());
-                let entity = cx.entity();
-                let reverse_entity = entity.clone();
-                let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
-                    reverse_entity.update(cx, |this, cx| {
-                        this.set_list_reversed(ListPageKey::MyPlaylists, reversed, cx);
-                    });
-                });
-                let display = ListPageHeadVm::titled(
-                    MusicDestination::Playlists.label(),
-                    Some(SearchPageActionDisplay {
-                        id: sidebar.add_button_id,
-                        label: sidebar.add_label,
-                        a11y_label: sidebar.add_label.to_owned(),
-                        available: true,
-                        style: SearchPageActionStyle::Action,
-                    }),
-                )
-                .with_reverse_of(
-                    ListPageKey::MyPlaylists,
-                    self.vm.list_page_state(ListPageKey::MyPlaylists),
-                );
-                page_head = Some(Self::render_page_head_with_reverse(
-                    display,
-                    Some(on_reverse),
-                    move |_window, cx| {
-                        entity.update(cx, LibraryApp::toggle_creating_playlist);
-                    },
-                    cx,
-                ));
+                page_head = Some(self.render_playlists_page_head(&sidebar, cx));
                 let mut arts = RowArts::new();
                 for row in &sidebar.rows {
                     let image = collection_art_image(self, &row.art, ThumbnailSize::Sm, cx);
                     arts.insert(row.element_id.clone(), image);
                 }
                 let row_menus = self.playlist_row_menus(&sidebar, cx);
-                render_library_playlists_list(
+                let view = self.vm.list_view(ListPageKey::MyPlaylists);
+                render_my_playlists(
                     sidebar,
+                    view,
                     row_menus,
                     &self.new_playlist_input,
                     &arts,
@@ -5952,6 +5967,53 @@ impl LibraryApp {
     }
 
     /// Renders the title row of the Artists list (ADR 0089 Decision 6).
+    /// The title row of My playlists (ADR 0089 amendment of 2026-11-08,
+    /// musicindex ADR 0053 R-LIST-9). It has the sort menu, the view icons and
+    /// the reverse icon of the page, and the action "New Playlist".
+    fn render_playlists_page_head(
+        &self,
+        sidebar: &PlaylistSidebarVm,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let key = ListPageKey::MyPlaylists;
+        let mut display = self.vm.list_page_head(key, None, None);
+        display.actions = vec![SearchPageActionDisplay {
+            id: sidebar.add_button_id,
+            label: sidebar.add_label,
+            a11y_label: sidebar.add_label.to_owned(),
+            available: true,
+            style: SearchPageActionStyle::Action,
+        }];
+        let entity = cx.entity();
+        let sort_entity = entity.clone();
+        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+            let sort = *sort;
+            sort_entity.update(cx, |this, cx| this.set_list_sort(key, sort, cx));
+        });
+        let view_entity = entity.clone();
+        let on_view: ListViewHandler = Rc::new(move |view, _window, cx| {
+            let view = *view;
+            view_entity.update(cx, |this, cx| this.set_list_view(key, view, cx));
+        });
+        let reverse_entity = entity.clone();
+        let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
+            reverse_entity.update(cx, |this, cx| this.set_list_reversed(key, reversed, cx));
+        });
+        list_page_head(
+            display,
+            ListPageHeadHandlers {
+                sort: Some(on_sort),
+                view: Some(on_view),
+                reverse: Some(on_reverse),
+                actions: vec![Rc::new(move |_window, cx| {
+                    entity.update(cx, LibraryApp::toggle_creating_playlist);
+                })],
+                ..ListPageHeadHandlers::default()
+            },
+            cx,
+        )
+    }
+
     fn render_artists_page_head(&self, library_count: usize, cx: &mut Context<Self>) -> AnyElement {
         let display = self.with_letter_cursor(self.artists_page_head(library_count));
         let letter_keys = self.letter_bar_keys(ListPageKey::Artists, cx);
@@ -7203,6 +7265,7 @@ mod tests {
                             .into_any_element(),
                         7,
                         &on_drop,
+                        None,
                         cx,
                     )),
             )
@@ -7261,6 +7324,7 @@ mod tests {
             track_count: 0,
             created_at: 0,
             updated_at: 0,
+            position: 0,
         }]);
         let intents: Vec<_> = drops
             .borrow()
