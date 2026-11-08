@@ -101,34 +101,6 @@ impl EntityKind {
         }
     }
 
-    /// Two-letter type monogram used by [`Thumbnail`] when no image is
-    /// available. Kept here so `EntityKind` is the one source of truth
-    /// for an entity kind's visual identity.
-    ///
-    /// ADR 0083 Decision 4: a missing cover shows a tinted placeholder with
-    /// this monogram, not an emoji.
-    #[must_use]
-    pub fn monogram(self) -> &'static str {
-        match self {
-            Self::Artist => "AR",
-            Self::Feed => "FD",
-            Self::Track => "TR",
-            Self::Release => "AL",
-            Self::Recording => "RC",
-            Self::Playlist => "PL",
-            Self::Live => "LV",
-            Self::Host => "HO",
-            Self::Author => "AU",
-            Self::Label => "LB",
-            Self::Publisher => "PB",
-            Self::Producer => "PR",
-            Self::Network => "NW",
-            Self::Hosting => "HS",
-            Self::Sponsor => "SP",
-            Self::Generic => "IT",
-        }
-    }
-
     /// Entity-palette token for this kind's identity dot.
     ///
     /// ADR 0083 Decision 2: an entity color marks a stated kind and never
@@ -447,19 +419,6 @@ mod tests {
             assert!(
                 !forbidden.contains(&kind.fill_token()),
                 "{kind:?} must not resolve a status, accent, or diff token"
-            );
-        }
-    }
-
-    /// R83-15: each `EntityKind` resolves a two-letter monogram, used by
-    /// `Thumbnail` when no cover image is available.
-    #[test]
-    fn entity_kind_monogram_is_two_letters_for_every_kind() {
-        for kind in ALL_KINDS {
-            assert_eq!(
-                kind.monogram().chars().count(),
-                2,
-                "{kind:?} monogram must be exactly two letters"
             );
         }
     }

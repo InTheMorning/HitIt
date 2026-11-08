@@ -135,6 +135,7 @@ pub struct ContextMenu {
     handle: Option<ContextMenuHandle>,
     placement: PopoverPlacement,
     trigger_style: ControlStyle,
+    trigger_in_tab_sequence: bool,
 }
 
 /// Controlled menu at a pointer position. The owner removes it on dismissal.
@@ -315,7 +316,16 @@ impl ContextMenu {
             handle: None,
             placement: PopoverPlacement::Below,
             trigger_style: ControlStyle::RowAction,
+            trigger_in_tab_sequence: true,
         }
+    }
+
+    /// Keeps the trigger out of the Tab sequence. The menu of a list row uses
+    /// this, because Tab does not pass each row action (WCAG 2.1.1 note of
+    /// `Button`).
+    pub(crate) const fn trigger_out_of_tab_sequence(mut self) -> Self {
+        self.trigger_in_tab_sequence = false;
+        self
     }
 
     /// Gives the trigger a control style. The default is the row action.
@@ -404,6 +414,18 @@ impl RenderOnce for ContextMenu {
             .disabled(self.disabled)
             .label(self.trigger_label)
             .a11y_label(self.trigger_a11y_label);
+        // The popover owns the click. Enter and Space open the menu from the
+        // keyboard (ADR 0090 invariant "keyboard reach").
+        if self.trigger_in_tab_sequence {
+            let state = state.clone();
+            trigger = trigger.on_key_activate(move |_, cx| {
+                state.update(cx, |state, cx| {
+                    state.open = !state.open;
+                    state.level = None;
+                    cx.notify();
+                });
+            });
+        }
         if let Some(tooltip) = self.trigger_tooltip {
             trigger = trigger.tooltip(tooltip);
         }

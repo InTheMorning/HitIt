@@ -66,7 +66,10 @@ pub fn identity_action_button(display: IdentityActionButtonDisplay) -> Button {
         kind,
         a11y_label,
     } = display;
+    // A link pill is in a page header, not in a row, so it keeps its tab stop
+    // (ADR 0090 invariant "keyboard reach").
     let mut button = Button::styled(id, ControlStyle::RowAction)
+        .keep_in_tab_sequence()
         .label(kind.label())
         .a11y_label(a11y_label);
     if let Some(icon) = kind.leading_icon() {
