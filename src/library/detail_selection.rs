@@ -167,11 +167,11 @@ impl LibraryApp {
     ) {
         let heading = section.heading();
         match command {
-            ReleaseSectionCommand::Sort(sort) => self.vm.set_release_section_sort(heading, sort),
-            ReleaseSectionCommand::View(view) => self.vm.set_release_section_view(heading, view),
-            ReleaseSectionCommand::Reverse(reversed) => {
+            ReleaseSectionCommand::Sort(sort, reversed) => {
+                self.vm.set_release_section_sort(heading, sort);
                 self.vm.set_release_section_reversed(heading, reversed);
             }
+            ReleaseSectionCommand::View(view) => self.vm.set_release_section_view(heading, view),
         }
         cx.notify();
     }
@@ -197,11 +197,16 @@ impl LibraryApp {
         }
     }
 
-    /// Sets the sort of the open group page. The page builds again in
-    /// place, and the selection stays.
-    pub(crate) fn set_group_list_sort(&mut self, sort: ListSort, cx: &mut Context<Self>) {
+    /// Sets the sort and the direction of the open group page together. The
+    /// page builds again in place, and the selection stays.
+    pub(crate) fn set_group_list_order(
+        &mut self,
+        sort: ListSort,
+        reversed: bool,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(key) = self.group_list_key() {
-            self.set_list_sort(key, sort, cx);
+            self.set_list_order(key, sort, reversed, cx);
         }
     }
 

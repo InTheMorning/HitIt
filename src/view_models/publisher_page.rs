@@ -308,7 +308,7 @@ pub(crate) struct PublisherPageSectionVm {
     /// section "Matched by name" has one.
     pub(crate) status: Option<ReleaseListStatus>,
     /// The control at the right end of the heading: the sort menu, the view
-    /// icons and the reverse icon (musicindex ADR 0053 R-LIST-9). `None`
+    /// icons (musicindex ADR 0053 R-LIST-9). `None`
     /// below `SECTION_CONTROL_MIN_ROWS` rows. [`PublisherPageVm::sections`]
     /// gives `None`, and `order_release_sections` sets it.
     pub(crate) controls: Option<ReleaseSectionControlsVm>,

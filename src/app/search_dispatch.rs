@@ -1433,7 +1433,7 @@ impl TopApp {
             // ADR 0090 Decision 1: the Index release page has its list bar
             // above its track rows, with the same view model as the Library form.
             // Musicindex ADR 0053 R-LIST-9: the bar has the sort and the
-            // reverse icon from the count of the controls.
+            // Reverse toggle from the count of the controls.
             let list_bar = ListBarVm::new(&detail_rows, library.detail_selection()).map(|bar| {
                 bar.with_list_controls_for_rows(
                     ListPageKey::ReleaseTracks,

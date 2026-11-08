@@ -57,8 +57,8 @@ use crate::ui::composites::inspect_sources_sheet::InspectSourcesSheet;
 use crate::ui::composites::letter_bar::LetterBarKeys;
 use crate::ui::composites::letter_bar::LetterHandler;
 use crate::ui::composites::list_page_head::{
-    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListReverseHandler,
-    ListScopeHandler, ListSortHandler, ListViewHandler,
+    list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
+    ListViewHandler,
 };
 use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::music_column_scroll::{
@@ -5823,27 +5823,10 @@ impl LibraryApp {
         on_action: impl Fn(&mut Window, &mut App) + 'static,
         cx: &App,
     ) -> AnyElement {
-        Self::render_page_head_with_reverse(
-            ListPageHeadVm::titled(title, action),
-            None,
-            on_action,
-            cx,
-        )
-    }
-
-    /// Renders a title row with at most one action and, when `reverse` is
-    /// given, the reverse icon (musicindex ADR 0043 R-LIST-7).
-    fn render_page_head_with_reverse(
-        display: ListPageHeadVm,
-        reverse: Option<ListReverseHandler>,
-        on_action: impl Fn(&mut Window, &mut App) + 'static,
-        cx: &App,
-    ) -> AnyElement {
         list_page_head(
-            display,
+            ListPageHeadVm::titled(title, action),
             ListPageHeadHandlers {
                 actions: vec![Rc::new(on_action)],
-                reverse,
                 ..ListPageHeadHandlers::default()
             },
             cx,
@@ -5919,16 +5902,10 @@ impl LibraryApp {
             scope_refocus(window, cx);
         });
         let sort_entity = entity.clone();
-        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+        let on_sort: ListSortHandler = Rc::new(move |sort, reversed, _window, cx| {
             let sort = *sort;
             sort_entity.update(cx, |this, cx| {
-                this.set_list_sort(ListPageKey::Releases, sort, cx);
-            });
-        });
-        let reverse_entity = entity.clone();
-        let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
-            reverse_entity.update(cx, |this, cx| {
-                this.set_list_reversed(ListPageKey::Releases, reversed, cx);
+                this.set_list_order(ListPageKey::Releases, sort, reversed, cx);
             });
         });
         let letter_entity = entity.clone();
@@ -5957,7 +5934,6 @@ impl LibraryApp {
                 select: Some(on_select),
                 sort: Some(on_sort),
                 view: Some(on_view),
-                reverse: Some(on_reverse),
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
                 actions: Vec::new(),
@@ -5968,8 +5944,8 @@ impl LibraryApp {
 
     /// Renders the title row of the Artists list (ADR 0089 Decision 6).
     /// The title row of My playlists (ADR 0089 amendment of 2026-11-08,
-    /// musicindex ADR 0053 R-LIST-9). It has the sort menu, the view icons and
-    /// the reverse icon of the page, and the action "New Playlist".
+    /// musicindex ADR 0053 R-LIST-9). It has the sort menu and the view icons
+    /// of the page, and the action "New Playlist".
     fn render_playlists_page_head(
         &self,
         sidebar: &PlaylistSidebarVm,
@@ -5986,25 +5962,20 @@ impl LibraryApp {
         }];
         let entity = cx.entity();
         let sort_entity = entity.clone();
-        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+        let on_sort: ListSortHandler = Rc::new(move |sort, reversed, _window, cx| {
             let sort = *sort;
-            sort_entity.update(cx, |this, cx| this.set_list_sort(key, sort, cx));
+            sort_entity.update(cx, |this, cx| this.set_list_order(key, sort, reversed, cx));
         });
         let view_entity = entity.clone();
         let on_view: ListViewHandler = Rc::new(move |view, _window, cx| {
             let view = *view;
             view_entity.update(cx, |this, cx| this.set_list_view(key, view, cx));
         });
-        let reverse_entity = entity.clone();
-        let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
-            reverse_entity.update(cx, |this, cx| this.set_list_reversed(key, reversed, cx));
-        });
         list_page_head(
             display,
             ListPageHeadHandlers {
                 sort: Some(on_sort),
                 view: Some(on_view),
-                reverse: Some(on_reverse),
                 actions: vec![Rc::new(move |_window, cx| {
                     entity.update(cx, LibraryApp::toggle_creating_playlist);
                 })],
@@ -6024,10 +5995,10 @@ impl LibraryApp {
             scope_entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
         });
         let sort_entity = entity.clone();
-        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+        let on_sort: ListSortHandler = Rc::new(move |sort, reversed, _window, cx| {
             let sort = *sort;
             sort_entity.update(cx, |this, cx| {
-                this.set_list_sort(ListPageKey::Artists, sort, cx);
+                this.set_list_order(ListPageKey::Artists, sort, reversed, cx);
             });
         });
         let view_entity = entity.clone();
@@ -6035,12 +6006,6 @@ impl LibraryApp {
             let view = *view;
             view_entity.update(cx, |this, cx| {
                 this.set_list_view(ListPageKey::Artists, view, cx);
-            });
-        });
-        let reverse_entity = entity.clone();
-        let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
-            reverse_entity.update(cx, |this, cx| {
-                this.set_list_reversed(ListPageKey::Artists, reversed, cx);
             });
         });
         let on_letter: LetterHandler = Rc::new(move |letter, _window, cx| {
@@ -6056,7 +6021,6 @@ impl LibraryApp {
                 select: None,
                 sort: Some(on_sort),
                 view: Some(on_view),
-                reverse: Some(on_reverse),
                 letter: Some(on_letter),
                 letter_keys: Some(letter_keys),
                 actions: Vec::new(),

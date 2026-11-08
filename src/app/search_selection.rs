@@ -53,26 +53,16 @@ pub(super) struct SearchRowClick {
 }
 
 /// The sort callback of a search page `slot` of the app `entity` (ADR 0089
-/// Decision 4). The sort changes the rows, and the query does not change.
+/// Decision 4). An entry of the sort menu sets the sort and the direction
+/// together (musicindex ADR 0054 R-LIST-13). The query does not change.
 pub(super) fn sort_handler(
     entity: gpui::Entity<TopApp>,
     slot: SearchPageSlot,
-) -> impl Fn(crate::view_models::list_page::ListSort, &mut gpui::Window, &mut gpui::App) + 'static {
-    move |sort, _window, cx| {
-        entity.update(cx, |this, cx| this.set_search_list_sort(slot, sort, cx));
-    }
-}
-
-/// The reverse callback of a search page `slot` of the app `entity`
-/// (musicindex ADR 0043 R-LIST-7). The reverse changes the rows, and the query
-/// does not change.
-pub(super) fn reverse_handler(
-    entity: gpui::Entity<TopApp>,
-    slot: SearchPageSlot,
-) -> impl Fn(bool, &mut gpui::Window, &mut gpui::App) + 'static {
-    move |reversed, _window, cx| {
+) -> impl Fn(crate::view_models::list_page::ListSort, bool, &mut gpui::Window, &mut gpui::App) + 'static
+{
+    move |sort, reversed, _window, cx| {
         entity.update(cx, |this, cx| {
-            this.set_search_list_reversed(slot, reversed, cx);
+            this.set_search_list_order(slot, sort, reversed, cx);
         });
     }
 }

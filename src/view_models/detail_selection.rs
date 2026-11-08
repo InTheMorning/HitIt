@@ -1586,7 +1586,7 @@ mod tests {
     }
 
     /// Musicindex ADR 0053 R-LIST-9: the list bar of a group page holds the
-    /// sort button, the view icons and the reverse button, in `Normal` and
+    /// sort menu and the view icons, with no reverse control, in `Normal` and
     /// in `Selecting`. The bar of the release page holds none.
     #[test]
     fn adr_0053_r9_group_list_bar_holds_the_right_end_controls() {
@@ -1601,9 +1601,13 @@ mod tests {
             .expect("a group page has a list bar")
             .with_list_controls(key, state);
         let controls = normal.controls.expect("a group bar has controls");
-        assert!(controls.sort.is_some());
+        let sort = controls.sort.as_ref().expect("a group bar has a sort menu");
+        assert!(sort.options.iter().any(|option| option.reversed));
         assert!(controls.view.is_some());
-        assert!(controls.reverse.is_some());
+        assert!(
+            controls.reverse_toggle.is_none(),
+            "a list with two sorts has no reverse control"
+        );
 
         selection.toggle_mode();
         let selecting = ListBarVm::new(&rows, &selection)
@@ -2354,7 +2358,7 @@ mod tests {
     }
 
     /// Musicindex ADR 0053 R-LIST-9: the list bar of a release page has the
-    /// sort and the reverse icon from 8 tracks, and no view icons. With 7
+    /// Reverse toggle from 8 tracks, and no view icons. With 7
     /// tracks the bar keeps its mode action only.
     #[test]
     fn adr_0053_r9_order_release_bar_has_controls_from_eight_tracks() {
@@ -2375,9 +2379,9 @@ mod tests {
                 .with_list_controls_for_rows(key, state, usize::try_from(count).expect("count"));
             assert_eq!(bar.controls.is_some(), has_controls, "{count} tracks");
             if let Some(controls) = bar.controls {
-                assert!(controls.sort.is_some());
+                assert!(controls.sort.is_none(), "one fixed order has no sort menu");
                 assert!(controls.view.is_none());
-                assert!(controls.reverse.expect("reverses").pressed);
+                assert!(controls.reverse_toggle.expect("reverses").pressed);
             }
         }
     }

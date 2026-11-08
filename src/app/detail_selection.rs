@@ -186,9 +186,9 @@ impl TopApp {
             // page is the top app's own, so its sort and its reverse reach
             // the one state of the release tracks here (musicindex ADR 0053
             // R-LIST-9). The release page has no view icons.
-            ListBarCommand::Sort(sort) => {
+            ListBarCommand::Sort(sort, reversed) => {
                 self.library.update(cx, |library, cx| {
-                    library.set_list_sort(ListPageKey::ReleaseTracks, sort, cx);
+                    library.set_list_order(ListPageKey::ReleaseTracks, sort, reversed, cx);
                 });
                 cx.notify();
             }

@@ -165,8 +165,36 @@ impl LibraryApp {
         cx.notify();
     }
 
-    /// Sets the reversed state of the list page `key` (musicindex ADR 0043
-    /// R-LIST-7). The mounted list builds again in place. The letter, the
+    /// Sets the sort and the direction of the list page `key` together, from
+    /// one entry of the sort menu (musicindex ADR 0054 R-LIST-13). A new sort
+    /// has the effects of [`Self::set_list_sort`], and a new direction has
+    /// those of [`Self::set_list_reversed`]. A change of both starts each Index
+    /// list once, with the new direction.
+    pub(crate) fn set_list_order(
+        &mut self,
+        key: ListPageKey,
+        sort: ListSort,
+        reversed: bool,
+        cx: &mut Context<Self>,
+    ) {
+        if self.vm.list_sort(key) == Some(sort) {
+            self.set_list_reversed(key, reversed, cx);
+            return;
+        }
+        let reversed_changed = self.vm.list_page_reversed_state(key) != reversed;
+        // The restart of the new sort reads the new direction.
+        self.vm.set_list_reversed(key, reversed);
+        self.set_list_sort(key, sort, cx);
+        // The Releases sort Newest keeps its pager when it starts, so a new
+        // direction needs its own restart.
+        if reversed_changed && key == ListPageKey::Releases && sort == ListSort::Newest {
+            self.restart_index_list_for_reverse(key, cx);
+            cx.notify();
+        }
+    }
+
+    /// Sets the reversed state of the list page `key` (musicindex ADR 0054
+    /// R-LIST-14, the Reverse toggle). The mounted list builds again in place. The letter, the
     /// selection and the Select state stay, because only a new sort ends
     /// them.
     pub(crate) fn set_list_reversed(
