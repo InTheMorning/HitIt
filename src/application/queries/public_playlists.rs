@@ -69,8 +69,12 @@ impl ApplicationCommand for FetchPublicPlaylistPage {
         }
         let client = Client::new_with_base_url(self.endpoint);
         let batch = match self.sort {
-            // Public playlists do not offer Relevance, so it reads as Newest.
-            ListSort::Newest | ListSort::Relevance => {
+            // Public playlists do not offer Relevance, Feed Order or Playlist
+            // Order, so each reads as Newest.
+            ListSort::Newest
+            | ListSort::Relevance
+            | ListSort::FeedOrder
+            | ListSort::PlaylistOrder => {
                 let response = client
                     .fetch_recent_feeds(
                         Some(PUBLIC_PLAYLIST_PAGE_LIMIT),

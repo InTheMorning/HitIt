@@ -33,6 +33,7 @@ use crate::ui::composites::list_page_head::{
 };
 use crate::ui::composites::list_row::{menu_cell, row_menu_parts, RowMenu};
 use crate::ui::composites::playlist_popover::{CreateHandler, SelectHandler};
+use crate::ui::composites::section_heading::section_heading;
 use crate::ui::composites::track_row_menu::{MenuActionHandler, TrackRowMenuHandlers};
 use crate::ui::composites::ThumbnailSize;
 use crate::ui::shells::library::destination_lists::render_library_destination_rows;
@@ -51,8 +52,8 @@ use crate::view_models::list_page::{ListPageKey, ListSort, ListView};
 use crate::view_models::public_playlists::{
     public_playlist_copy_menu, public_playlist_copy_report, public_playlist_list_items,
     PublicPlaylistCopyDialogVm, PublicPlaylistCopyName, PublicPlaylistCopyReport,
-    PublicPlaylistListItemVm, PublicPlaylistLoadState, PublicPlaylistRowVm, COPYING_TEXT,
-    PUBLIC_PLAYLIST_NO_READABLE_TRACKS,
+    PublicPlaylistListItemVm, PublicPlaylistLoadState, PublicPlaylistPageVm, PublicPlaylistRowVm,
+    COPYING_TEXT, PUBLIC_PLAYLIST_NO_READABLE_TRACKS,
 };
 use crate::view_models::release_page::TrackRowMenuAction;
 
@@ -133,7 +134,10 @@ impl LibraryApp {
         // the recent feeds, which take none.
         let from = match sort {
             ListSort::AToZ => from,
-            ListSort::Newest | ListSort::Relevance => None,
+            ListSort::Newest
+            | ListSort::Relevance
+            | ListSort::FeedOrder
+            | ListSort::PlaylistOrder => None,
         };
         let reverse = self.vm.list_index_reversed(ListPageKey::PublicPlaylists);
         let command = FetchPublicPlaylistPage::new(
@@ -620,6 +624,36 @@ impl LibraryApp {
         )
     }
 
+    /// The heading row above the entries of `page`, or `None` when the page
+    /// has none (musicindex ADR 0053 R-LIST-11 item 3). The sort and the
+    /// reverse icon change the one state of the entries of a playlist, and
+    /// the page builds again in place.
+    fn render_public_playlist_heading(
+        page: &PublicPlaylistPageVm,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let heading = page.heading.clone()?;
+        let entity = cx.entity();
+        let sort_entity = entity.clone();
+        let on_sort: ListSortHandler = Rc::new(move |sort, _window, cx| {
+            let sort = *sort;
+            sort_entity.update(cx, |this, cx| {
+                this.set_list_sort(ListPageKey::PublicPlaylistItems, sort, cx);
+            });
+        });
+        let on_reverse: ListReverseHandler = Rc::new(move |reversed, _window, cx| {
+            entity.update(cx, |this, cx| {
+                this.set_list_reversed(ListPageKey::PublicPlaylistItems, reversed, cx);
+            });
+        });
+        Some(section_heading(
+            heading,
+            Some(&on_sort),
+            Some(&on_reverse),
+            cx,
+        ))
+    }
+
     /// Renders the item page of the playlist `feed_guid` (ADR 0089 packet
     /// 009): the loading state, the error state with "Try again", or the
     /// page with its entries.
@@ -632,6 +666,11 @@ impl LibraryApp {
         match self.public_playlist_pages.state_of(feed_guid).cloned() {
             Some(PublicPlaylistLoadState::Loaded(page)) => {
                 let header_art = collection_art_image(self, &page.art, ThumbnailSize::Xl, cx);
+                // Musicindex ADR 0053 R-LIST-9: the page shows its entries in
+                // the order of the stored state, and the heading row has the
+                // sort and the reverse icon from the count of the controls.
+                let page = page.shown(self.vm.list_page_state(ListPageKey::PublicPlaylistItems));
+                let heading = Self::render_public_playlist_heading(&page, cx);
                 let mut rows = Vec::new();
                 for item in &page.items {
                     let art = collection_art_image(self, &item.art, ThumbnailSize::Sm, cx);
@@ -663,6 +702,7 @@ impl LibraryApp {
                     header_art,
                     menu_cell.into_any_element(),
                     status.as_deref(),
+                    heading,
                     rows,
                     cx,
                 )

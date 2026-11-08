@@ -117,10 +117,16 @@ impl LibraryApp {
         if self.vm.list_sort(key) == Some(sort) {
             return;
         }
-        // Musicindex ADR 0053 R-LIST-9: a group page sorts rows that the
-        // app already holds. No request starts and the selection stays,
+        // Musicindex ADR 0053 R-LIST-9: a group page, the tracks of a release
+        // and the entries of a playlist sort rows that the app already holds. No request starts and the selection stays,
         // because it is by item.
-        if matches!(key, ListPageKey::SinglesGroup | ListPageKey::WindowGroup) {
+        if matches!(
+            key,
+            ListPageKey::SinglesGroup
+                | ListPageKey::WindowGroup
+                | ListPageKey::ReleaseTracks
+                | ListPageKey::PublicPlaylistItems
+        ) {
             self.vm.set_list_sort(key, sort);
             cx.notify();
             return;
@@ -202,7 +208,9 @@ impl LibraryApp {
             | ListPageKey::Results
             | ListPageKey::SavedSearch
             | ListPageKey::SinglesGroup
-            | ListPageKey::WindowGroup => {}
+            | ListPageKey::WindowGroup
+            | ListPageKey::ReleaseTracks
+            | ListPageKey::PublicPlaylistItems => {}
         }
     }
 
@@ -305,7 +313,9 @@ impl LibraryApp {
             | ListPageKey::Results
             | ListPageKey::SavedSearch
             | ListPageKey::SinglesGroup
-            | ListPageKey::WindowGroup => {}
+            | ListPageKey::WindowGroup
+            | ListPageKey::ReleaseTracks
+            | ListPageKey::PublicPlaylistItems => {}
         }
     }
 
@@ -342,7 +352,9 @@ impl LibraryApp {
             | ListPageKey::Results
             | ListPageKey::SavedSearch
             | ListPageKey::SinglesGroup
-            | ListPageKey::WindowGroup => {}
+            | ListPageKey::WindowGroup
+            | ListPageKey::ReleaseTracks
+            | ListPageKey::PublicPlaylistItems => {}
         }
     }
 

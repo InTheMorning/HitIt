@@ -37,6 +37,7 @@ use crate::view_models::library::{
     display_description_text, keyed_description_state, toggle_keyed_description_state,
     DescriptionState, LibraryTrackRowVm, TrackRowWork,
 };
+use crate::view_models::list_page::ListPageKey;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::live_run::RunGeneration;
 use crate::view_models::publisher_page::PublisherPageContext;
@@ -1428,7 +1429,15 @@ impl TopApp {
             let selections = library.detail_selection().row_selections(&detail_rows);
             // ADR 0090 Decision 1: the Index release page has its list bar
             // above its track rows, with the same view model as the Library form.
-            let list_bar = ListBarVm::new(&detail_rows, library.detail_selection());
+            // Musicindex ADR 0053 R-LIST-9: the bar has the sort and the
+            // reverse icon from the count of the controls.
+            let list_bar = ListBarVm::new(&detail_rows, library.detail_selection()).map(|bar| {
+                bar.with_list_controls_for_rows(
+                    ListPageKey::ReleaseTracks,
+                    library.list_state_of(ListPageKey::ReleaseTracks),
+                    feed.tracks.len(),
+                )
+            });
             let bar_playlists = list_bar_playlists(playlist_options(library.playlists()));
             let row_probes = selections
                 .iter()

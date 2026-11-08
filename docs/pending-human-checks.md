@@ -293,4 +293,7 @@ Open - the packets below are implemented, and the mechanical suite is Green. The
 - Packet 4: open a window group from Releases, for example "6 Singles". The list bar has Select at the left, and the sort menu, the rows icon, the tiles icon and the reverse icon at the right. A to Z, Z to A and tiles change the page in place.
 - Packet 4, tiles and Select: the tiles show the download icon. In Select mode the right end stays. The singles group page keeps its own sort and view.
 - Packet 4, not checked by the agent: make the window narrower than 940 px. The bar wraps, and its two ends stay on separate lines. Scroll down until the bar pins, and use the sort menu on the pinned bar.
-- Wrong: a control that does nothing, rows in the wrong order, a lost selection after a sort, or a sort control on a list that R-LIST-9 does not give one.
+- Packet 5: open "Reward" from Releases (9 tracks). The list bar shows "Feed Order" and the reverse icon at the right. The reverse shows "Feed Order, Reversed", and each track keeps its number. A release with 7 tracks shows Select only.
+- Packet 5, public playlist: open "Boostagram Ball Playlist 1 to 25". The heading above the entries shows "278 items" and "Playlist Order". The reverse keeps the number of each entry.
+- Packet 5, not checked by the agent: a Library release with 8 tracks or more. Select some tracks in the reversed sequence, and use "Add to playlist". The tracks go in the sequence of the selection.
+- Wrong: a control that does nothing, rows in an incorrect sequence, or no selection after a sort. A sort control on a list that R-LIST-9 does not give one is also wrong.

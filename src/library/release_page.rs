@@ -127,12 +127,16 @@ impl LibraryApp {
     /// singles group page row opens the release page of its single.
     fn release_page_row(&self, row: usize) -> Option<(TrackRow, FrameNavigationEntry)> {
         match &self.detail {
-            LibraryDetail::Album(album) => album.release_track_rows().get(row).map(|track| {
-                (
-                    track.clone(),
-                    FrameNavigationEntry::Track(track.track_key()),
-                )
-            }),
+            // Musicindex ADR 0053 R-LIST-9: row `row` is a row of the shown
+            // order.
+            LibraryDetail::Album(album) => self
+                .shown_release_tracks(album)
+                .into_iter()
+                .nth(row)
+                .map(|track| {
+                    let entry = FrameNavigationEntry::Track(track.track_key());
+                    (track, entry)
+                }),
             // A `MusicIndex` row has no Library track. Its own dispatch,
             // `run_singles_group_index_row_command`, sends its click and
             // its toggle directly (operator decision of 2026-10-22,

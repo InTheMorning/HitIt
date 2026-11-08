@@ -16,7 +16,7 @@ use gpui::{
 
 use super::{LibraryApp, LibraryDetail};
 use crate::app::keyboard::primary_modifier_held;
-use crate::db::PlaylistEntryKey;
+use crate::db::{PlaylistEntryKey, TrackRow};
 use crate::ui::composites::music_column_scroll::{key_scroll, ListBarPin, ScrollReveal};
 use crate::ui::shells::library::detail::DetailRowSlot;
 use crate::ui::tokens::Size;
@@ -24,8 +24,10 @@ use crate::view_models::detail_selection::{
     library_release_track_rows, playlist_entry_rows, singles_group_release_rows, DetailPageRows,
     DetailRowClick, DetailRowKey, DetailSelection, LibraryReleaseFacts, ListBarVm,
 };
-use crate::view_models::library::{ContentListSelectionTarget, PlaylistDetailVm};
-use crate::view_models::list_page::{ListPageKey, ListSort, ListView};
+use crate::view_models::library::{AlbumNode, ContentListSelectionTarget, PlaylistDetailVm};
+use crate::view_models::list_page::{
+    in_shown_order, ListPageKey, ListPageState, ListSort, ListView,
+};
 use crate::view_models::list_selection::{FocusStep, RowSelectionVm};
 use crate::view_models::workspace::{
     DetailScrollTarget, FrameNavigationEntry, NavigationLocationId, NavigationPathStart, ReleaseKey,
@@ -121,23 +123,50 @@ fn whole_pixels(offset: Pixels) -> u32 {
 }
 
 impl LibraryApp {
-    /// The list page key of the open group page, or `None` for another page
-    /// (ADR 0090 Decision 2, musicindex ADR 0053 R-LIST-9).
+    /// The list page key of the open page that has a sort at its list: a
+    /// group page or a release page (ADR 0090 Decision 2, musicindex ADR
+    /// 0053 R-LIST-9). `None` for another page.
     pub(crate) fn group_list_key(&self) -> Option<ListPageKey> {
         match &self.detail {
             LibraryDetail::SinglesGroup(_) => Some(ListPageKey::SinglesGroup),
             LibraryDetail::WindowGroup(_) => Some(ListPageKey::WindowGroup),
+            LibraryDetail::Album(_) => Some(ListPageKey::ReleaseTracks),
             _ => None,
         }
     }
 
-    /// The list bar of the open group page with its right end controls
-    /// (ADR 0090 Decision 2). A page that is not a group page gives `bar`
-    /// unchanged.
+    /// The tracks of `album` in the shown order of the release page
+    /// (musicindex ADR 0053 R-LIST-9). A release below the count of its
+    /// controls keeps the feed order, whatever the stored state is.
+    pub(crate) fn shown_release_tracks(&self, album: &AlbumNode) -> Vec<TrackRow> {
+        let tracks = album.release_track_rows();
+        in_shown_order(tracks, self.release_tracks_reversed(tracks.len()))
+    }
+
+    /// Whether the tracks of a release page, `rows` of them, come in the
+    /// reversed order now (musicindex ADR 0053 R-LIST-9).
+    pub(crate) fn release_tracks_reversed(&self, rows: usize) -> bool {
+        self.vm.release_tracks_reversed(rows)
+    }
+
+    /// The stored state of the list page `key`.
+    pub(crate) fn list_state_of(&self, key: ListPageKey) -> ListPageState {
+        self.vm.list_page_state(key)
+    }
+
+    /// The list bar of the open group page or release page with its right
+    /// end controls (ADR 0090 Decision 2). A page that has none gives `bar`
+    /// unchanged. A release page has them from the count of its controls.
     pub(crate) fn with_group_list_controls(&self, bar: ListBarVm) -> ListBarVm {
-        match self.group_list_key() {
-            Some(key) => bar.with_list_controls(key, self.vm.list_page_state(key)),
-            None => bar,
+        let Some(key) = self.group_list_key() else {
+            return bar;
+        };
+        let state = self.vm.list_page_state(key);
+        match &self.detail {
+            LibraryDetail::Album(album) => {
+                bar.with_list_controls_for_rows(key, state, album.release_track_rows().len())
+            }
+            _ => bar.with_list_controls(key, state),
         }
     }
 
@@ -245,7 +274,7 @@ impl LibraryApp {
         match &self.detail {
             LibraryDetail::Album(album) => {
                 Some(DetailPageRows::Tracks(library_release_track_rows(
-                    album.release_track_rows(),
+                    &self.shown_release_tracks(album),
                     self.vm.busy_items().release_downloading(album),
                 )))
             }

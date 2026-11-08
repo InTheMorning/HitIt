@@ -17,6 +17,7 @@ use crate::view_models::index_name_list::{
     name_sort_key, IndexListStatusRowVm, IndexNameList, IndexNameListPage,
 };
 use crate::view_models::library::{DestinationListRowTarget, DestinationListRowVm};
+use crate::view_models::list_page::{in_shown_order, ListPageKey, ListPageState, SectionHeadingVm};
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_page::{public_playlist_copy_menu_vm, TrackRowMenuVm};
 use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey, TrackKey};
@@ -339,8 +340,14 @@ pub(crate) struct PublicPlaylistPageVm {
     /// The art of the playlist: its own image, else the mosaic of the
     /// images of its entries (musicindex ADR 0040), else the entity color.
     pub(crate) art: CollectionArtVm,
-    /// The entries, in `position` sequence.
+    /// The entries, in `position` sequence. [`Self::shown`] gives them in
+    /// the order that the page shows.
     pub(crate) items: Vec<PublicPlaylistItemVm>,
+    /// The heading row above the entries, with the count and the sort
+    /// controls (musicindex ADR 0053 R-LIST-11 item 3). `None` below the
+    /// count of the controls, and in the page that [`Self::from_feed`]
+    /// gives.
+    pub(crate) heading: Option<SectionHeadingVm>,
 }
 
 impl PublicPlaylistPageVm {
@@ -370,6 +377,25 @@ impl PublicPlaylistPageVm {
                 .to_owned(),
             art,
             items,
+            heading: None,
+        }
+    }
+
+    /// This page as it shows in `state`, the stored state of
+    /// [`ListPageKey::PublicPlaylistItems`] (musicindex ADR 0053 R-LIST-9
+    /// row "The items of a playlist, outside an editor"). From the count of
+    /// the controls the page has its heading, and a reversed state gives
+    /// the entries in the opposite sequence. Each entry keeps its own
+    /// `number`. A page below that count has no heading and keeps the
+    /// playlist order, whatever the stored state is.
+    #[must_use]
+    pub(crate) fn shown(&self, state: ListPageState) -> Self {
+        let key = ListPageKey::PublicPlaylistItems;
+        let rows = self.items.len();
+        Self {
+            items: in_shown_order(&self.items, state.reversed_for_rows(key, rows)),
+            heading: SectionHeadingVm::new(key, state, rows),
+            ..self.clone()
         }
     }
 }
@@ -880,5 +906,58 @@ mod tests {
             .message()
             .is_some_and(|text| text.contains("Road Trip")));
         assert!(!PUBLIC_PLAYLIST_NO_READABLE_TRACKS.is_empty());
+    }
+
+    /// Musicindex ADR 0053 R-LIST-9 and R-LIST-11 item 3: a playlist page of
+    /// 12 entries has the heading with its count and the controls. A page of
+    /// 7 entries has none. A reversed page shows the entries in the opposite
+    /// sequence, and each entry keeps its own number.
+    #[test]
+    fn adr_0053_r9_order_playlist_heading_and_reverse() {
+        let items = |count: i64| -> Vec<RemoteItem> {
+            (1..=count)
+                .map(|n| remote(Some(n), Some(&format!("album-{n}")), None, None))
+                .collect()
+        };
+        let key = ListPageKey::PublicPlaylistItems;
+        let usual = ListPageState::default_for(key);
+        let reversed = ListPageState {
+            reversed: true,
+            ..usual
+        };
+
+        let page = PublicPlaylistPageVm::from_feed(&playlist(Some("Set"), items(12)));
+        assert!(page.heading.is_none(), "the stored page has no heading");
+        let shown = page.shown(usual);
+        let heading = shown.heading.expect("12 entries have a heading");
+        assert_eq!(heading.count_text, "12 items");
+        assert_eq!(
+            heading.controls.sort.expect("one sort").label,
+            "Playlist Order"
+        );
+        assert!(heading.controls.view.is_none());
+        assert!(heading.controls.reverse.is_some());
+
+        let shown = page.shown(reversed);
+        let numbers: Vec<usize> = shown.items.iter().map(|item| item.number).collect();
+        assert_eq!(numbers, (1..=12).rev().collect::<Vec<usize>>());
+        assert_eq!(
+            shown
+                .heading
+                .expect("heading")
+                .controls
+                .sort
+                .expect("sort")
+                .label,
+            "Playlist Order, Reversed"
+        );
+
+        let short = PublicPlaylistPageVm::from_feed(&playlist(Some("Set"), items(7)));
+        let shown = short.shown(reversed);
+        assert!(shown.heading.is_none());
+        let numbers: Vec<usize> = shown.items.iter().map(|item| item.number).collect();
+        assert_eq!(numbers, (1..=7).collect::<Vec<usize>>());
+        let one = PublicPlaylistPageVm::from_feed(&playlist(Some("Set"), items(1)));
+        assert!(one.shown(usual).heading.is_none());
     }
 }

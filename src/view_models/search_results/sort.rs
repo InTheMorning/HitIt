@@ -21,7 +21,9 @@ pub(super) fn sort_rows<Row>(
 ) {
     match sort {
         // Relevance keeps the order of the run (musicindex ADR 0053 R-LIST-9).
-        ListSort::Relevance => {}
+        // Feed Order and Playlist Order are the order of the source. No
+        // search page offers them.
+        ListSort::Relevance | ListSort::FeedOrder | ListSort::PlaylistOrder => {}
         ListSort::Newest => rows.sort_by(|a, b| newest_first(date(a), date(b))),
         ListSort::AToZ => rows.sort_by_key(|row| label(row).to_lowercase()),
     }
