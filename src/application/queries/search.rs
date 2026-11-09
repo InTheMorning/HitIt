@@ -22,6 +22,7 @@ use crate::view_models::library_search_facts::LibrarySearchFacts;
 use crate::view_models::name_level_page::{
     NameLevelIndexRelease, NameLevelIndexState, NameLevelPageVm,
 };
+use crate::view_models::release_count::with_release_count;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::search_query::{
     ContentValue, FieldTerm, FieldValue, FieldValueState, LibraryStateValue, QueryFieldName,
@@ -635,6 +636,10 @@ fn index_feed_page_result_display(hit: &SearchResult) -> Option<ArtistResultDisp
     let mut display =
         ArtistResultDisplay::new(format!("{INDEX_FEED_PAGE_RESULT_PREFIX}{feed_guid}"), label);
     display.a11y_label = format!("Open the feed page {label}");
+    if let Some(total) = hit.two_way_link_count {
+        display.secondary_text =
+            with_release_count(&[], hit.release_track_counts.as_ref(), Some(total));
+    }
     if hit.agreed_roles.is_some() || hit.first_named_count.is_some() {
         display.link_class = Some(FeedLinkClass::from_link_facts(
             hit.agreed_roles.as_deref(),
@@ -2481,6 +2486,34 @@ mod adr_0084_name_level_query_tests {
                 assert!(!path.contains("include"), "Got: {path}");
             }
         }
+    }
+
+    /// Musicindex ADR 0023 R-WORD-9: a `type=publisher` row with
+    /// `two_way_link_count` shows the count of its releases by kind. A row
+    /// with no count shows no text.
+    #[test]
+    fn r_word_9_publisher_search_row_shows_the_count_by_kind() {
+        let response: crate::api::SearchResponse = serde_json::from_value(serde_json::json!({
+            "data": [
+                {"entity_type": "publisher", "entity_id": "g0", "title": "0$",
+                 "two_way_link_count": 19, "release_track_counts": {"1": 18, "3": 1}},
+                {"entity_type": "publisher", "entity_id": "g1", "title": "Empty",
+                 "two_way_link_count": 0, "release_track_counts": {}},
+                {"entity_type": "publisher", "entity_id": "g2", "title": "Old node"}
+            ],
+            "pagination": {"has_more": false, "cursor": null}
+        }))
+        .expect("the rows decode");
+        let texts: Vec<String> = response
+            .data
+            .iter()
+            .map(|hit| index_feed_page_result_display(hit).unwrap().secondary_text)
+            .collect();
+        assert_eq!(
+            texts,
+            ["1 album \u{b7} 18 singles", "0 releases", ""],
+            "musicindex ADR 0023 R-WORD-9: the count is the secondary text"
+        );
     }
 
     /// R29-08, the decode part: a `type=publisher` row with no link fact

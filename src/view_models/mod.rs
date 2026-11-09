@@ -101,6 +101,7 @@ pub(crate) mod public_playlists;
 pub(crate) mod publisher_page;
 pub(crate) mod queue_now_playing;
 pub(crate) mod recent_feeds;
+pub(crate) mod release_count;
 pub(crate) mod release_download_state;
 pub(crate) mod release_kind;
 pub(crate) mod release_page;

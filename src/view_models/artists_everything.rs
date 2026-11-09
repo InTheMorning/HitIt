@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 use crate::api::{ArtistNameKind, ArtistNameRow};
 use crate::view_models::artist_groups::ArtistGroup;
 use crate::view_models::artist_identity::{
-    ArtistNameKey, NameFeedMatch, NameFeedMatches, ARTIST_NAME_ROW_MARK, ARTIST_ROW_SEPARATOR,
+    ArtistNameKey, NameFeedMatch, NameFeedMatches, ARTIST_NAME_ROW_MARK,
 };
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
 use musicindex_search::name_order::{order_key, sort_key};
@@ -23,6 +23,7 @@ use crate::view_models::library::{
     release_row_slug_text, DestinationListRowTarget, DestinationListRowVm,
 };
 use crate::view_models::list_selection::RowSelectionVm;
+use crate::view_models::release_count::with_release_count;
 use crate::view_models::role_words::{role_contains_artist, role_words};
 
 /// The secondary text of a `MusicIndex` row (packet 016 decision D12).
@@ -245,7 +246,11 @@ pub(crate) fn index_artist_row(row: &ArtistNameRow) -> DestinationListRowVm {
                 release_row_slug_text(&row.key)
             ),
             label: row.name.clone(),
-            secondary_text: format!("{NOT_IN_LIBRARY}{ARTIST_ROW_SEPARATOR}{ARTIST_NAME_ROW_MARK}"),
+            secondary_text: with_release_count(
+                &[NOT_IN_LIBRARY, ARTIST_NAME_ROW_MARK],
+                row.release_track_counts.as_ref(),
+                row.release_count,
+            ),
             a11y_label: format!("Artist: {}, {ARTIST_NAME_ROW_MARK}", row.name),
             thumbnail_href: None,
             art: Some(CollectionArtVm::resolve(
@@ -270,7 +275,11 @@ pub(crate) fn index_artist_row(row: &ArtistNameRow) -> DestinationListRowVm {
                 marked: false,
                 element_id: format!("music-artist-row-index-publisher:{feed_guid}"),
                 label: row.name.clone(),
-                secondary_text: NOT_IN_LIBRARY.to_owned(),
+                secondary_text: with_release_count(
+                    &[NOT_IN_LIBRARY],
+                    row.release_track_counts.as_ref(),
+                    row.two_way_link_count,
+                ),
                 a11y_label: format!("Artist: {}", row.name),
                 thumbnail_href: None,
                 art: Some(CollectionArtVm::resolve(
@@ -751,7 +760,10 @@ mod tests {
     fn adr_0084_scopes_r16_10_index_row_text_and_targets() {
         let rows = recorded_rows();
         let name = index_artist_row(&rows[0]);
-        assert_eq!(name.secondary_text, "Not in Library \u{b7} by name");
+        assert_eq!(
+            name.secondary_text,
+            "Not in Library \u{b7} by name \u{b7} 3 releases"
+        );
         assert_eq!(
             name.open,
             DestinationListRowTarget::ArtistName(ArtistNameKey::new("$2 holla", "$2 Holla"))
@@ -762,7 +774,7 @@ mod tests {
         );
 
         let feed = index_artist_row(&rows[1]);
-        assert_eq!(feed.secondary_text, "Not in Library");
+        assert_eq!(feed.secondary_text, "Not in Library \u{b7} 1 release");
         assert_eq!(
             feed.open,
             DestinationListRowTarget::IndexPublisher("motive-guid".to_owned())
@@ -771,6 +783,38 @@ mod tests {
             feed.art,
             Some(CollectionArtVm::ProvidedImage { ref url, .. }) if url == "https://example.test/motive.jpg"
         ));
+    }
+
+    /// Musicindex ADR 0023 R-WORD-9: the count text is the last part of the
+    /// secondary text. A name row counts `release_count`. A publisher row
+    /// counts `two_way_link_count`. A row with no total adds no part.
+    #[test]
+    fn r_word_9_index_row_text_ends_with_the_count_by_kind() {
+        let rows: Vec<ArtistNameRow> = serde_json::from_value(serde_json::json!([
+            {"kind": "name", "name": "$2 Holla", "sort_name": "$2 holla", "key": "$2 holla",
+             "release_count": 3, "release_track_counts": {"1": 2, "7": 1}},
+            {"kind": "publisher", "name": "0$", "sort_name": "0$", "key": "g0",
+             "feed_guid": "g0", "two_way_link_count": 19,
+             "release_track_counts": {"1": 18, "3": 1}},
+            {"kind": "publisher", "name": "No Total", "sort_name": "no total", "key": "g1",
+             "feed_guid": "g1"}
+        ]))
+        .expect("the rows decode");
+        assert_eq!(
+            index_artist_row(&rows[0]).secondary_text,
+            "Not in Library \u{b7} by name \u{b7} 1 album \u{b7} 2 singles",
+            "musicindex ADR 0023 R-WORD-9: a name row"
+        );
+        assert_eq!(
+            index_artist_row(&rows[1]).secondary_text,
+            "Not in Library \u{b7} 1 album \u{b7} 18 singles",
+            "musicindex ADR 0023 R-WORD-9: a publisher row"
+        );
+        assert_eq!(
+            index_artist_row(&rows[2]).secondary_text,
+            "Not in Library",
+            "musicindex ADR 0023 R-WORD-9: no total gives no count part"
+        );
     }
 
     /// ADR 0089 Decision 5 (replaces R16-12): while page 1 loads, the

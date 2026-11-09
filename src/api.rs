@@ -74,6 +74,13 @@ pub struct SearchResult {
     pub href: Option<String>,
     pub agreed_roles: Option<Vec<String>>,
     pub first_named_count: Option<i64>,
+    /// The count of the confirmed links of a `publisher` row, with
+    /// `include=link_facts`.
+    pub two_way_link_count: Option<i64>,
+    /// The number of releases for each track count. A key is a track count
+    /// as text. The values sum to the release count of the row (capability
+    /// `release_track_counts`).
+    pub release_track_counts: Option<std::collections::BTreeMap<String, i64>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -168,6 +175,10 @@ pub struct ArtistNameRow {
     pub first_named_count: Option<i64>,
     pub stated_rels: Option<Vec<String>>,
     pub two_way_link_count: Option<i64>,
+    /// The number of releases for each track count. A key is a track count
+    /// as text. The values sum to `release_count`, or to `two_way_link_count`
+    /// on a `publisher` row (capability `release_track_counts`).
+    pub release_track_counts: Option<std::collections::BTreeMap<String, i64>>,
     /// The Unix seconds of the newest release of the row (Stophammer ADR
     /// 0089). Null when the row has no dated release. The sort `date` of
     /// `GET /v1/artist-names` orders the rows by it.
