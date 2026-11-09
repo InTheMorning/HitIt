@@ -24,11 +24,104 @@ check passes, do all three in the same change:
 When no check is open, this file keeps the function and the method sections
 only. A closed check leaves no entry here.
 
+## Operator Run Sheet - 2026-11-09
+
+This section is not a check. It gives the commands that each check below uses.
+Run them in a terminal of the i3 desktop session. Each numbered section has a `Run:` block that refers to these commands.
+
+### Start The App
+
+Close each open v4vmm window first. Then build and start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+Run `cargo build --bin v4vmm` again after each `cargo test`, because a test build can replace the binary.
+
+### Before A Migration
+
+The build of 2026-11-09 has schema version 24. Migration 24 adds `playlists.position`. Before the first start of a new build, read the schema version of the database:
+
+```bash
+sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite 'SELECT max(version) FROM schema_migrations;'
+```
+
+If the result is less than 24, close the app and make a backup:
+
+```bash
+sqlite3 ~/.local/share/v4vmm/v4vmm.sqlite ".backup '$HOME/.local/share/v4vmm/v4vmm-before-24.sqlite'"
+```
+
+To go back to an older build, close the app and copy the backup over `v4vmm.sqlite`.
+
+### Set The Window Width
+
+Type this function one time in each terminal. It sets the dimensions of the v4vmm window:
+
+```bash
+v4w() { local wid; wid=$(xdotool search --onlyvisible --pid "$(pgrep -x v4vmm | head -1)" | head -1); i3-msg -q "[id=$wid] floating enable, resize set $1 $2"; }
+```
+
+Examples: `v4w 1440 845` for full width, `v4w 900 845` for a narrow window, `v4w 300 845` for the smallest width of section 12.
+
+### Light And Dark
+
+Open Settings with the sidebar row "Settings". Select "Theme", then "Light" or "Dark". The theme changes immediately.
+
+### What The Agent Could Not Run
+
+The agent checks run on an Xvfb display with scratch `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` folders. They do not touch the Library of the operator. These items need the operator:
+
+1. **The Library downloads.** The scratch Library has no release with 8 tracks or more and no feed with 8 releases or more. Section 12 packets 5 and 6 need them. Find candidates in your Library:
+
+   ```bash
+   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT f.title, count(*) FROM tracks t JOIN feeds f ON f.id = t.feed_id WHERE t.is_in_library = 1 GROUP BY f.id HAVING count(*) >= 8 ORDER BY count(*) DESC LIMIT 10;"
+   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT album_artist_name, count(DISTINCT feed_id) FROM tracks WHERE is_in_library = 1 GROUP BY album_artist_name HAVING count(DISTINCT feed_id) >= 8 ORDER BY 2 DESC LIMIT 10;"
+   ```
+
+   If a query gives no row, download one Index release with 8 tracks or more before the check.
+2. **The packet 3 migration on the operator database.** Migration 24 ran only on scratch databases. Only the operator database shows that the stored playlist sequence stays. Use "Before A Migration" first.
+3. **A hardware keyboard with the Menu key.** The agent sends keys with `xdotool`. ADR 0092 needs a person to push Shift+F10 and the Menu key on a hardware keyboard.
+4. **A feed with more than 1 shared release.** The agent saw only the row text "1 shared release". The plural row text needs a feed page with 2 or more. On 2026-11-09, `/v1/artist-names` of the live node gives no `two_way_link_count`, so no command finds such a feed. If you know such a feed, open its page, or give its name to the agent.
+5. **Names with numbers in the Library.** The scratch Library has no names such as "Track 2" and "Track 10". Packet 7 of section 12 needs them. Find candidates:
+
+   ```bash
+   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT DISTINCT track_title FROM tracks WHERE is_in_library = 1 AND track_title GLOB '*[0-9]*' LIMIT 20;"
+   ```
+
+6. **Audio, mpv, a macOS desktop and `musicbrainz.org`.** Sections 1, 4 and 5 need them. The agent display has no audio, and the agent has no macOS desktop.
+
+### Decisions For The Operator
+
+Each item gives the recommendation of the agent. The operator decides.
+
+1. **The badge of Sir Libre Records.** Must the header badge ignore a role word that it does not know, such as `recordLabel`? Recommendation: yes, and the orchestrator agrees. Then the badge reads "Label", and the section heading is "Artists on these releases". musicindex ADR 0023 R-WORD-3, as musicindex ADR 0033 changed it, owns this rule. A change needs a record in `../musicindex` first.
+2. **The tiles icon at 300 px (section 12, packet 4).** Is the cut tiles icon a fault? Recommendation: yes. A control that a person cannot see is not available. Let the bar go on two lines when one line cannot hold the two ends.
+3. **The cut second line of an artist tile (section 12, musicindex ADR 0057).** Is "2 albu…" satisfactory? Recommendation: accept it in tiles, because the rows view gives the full text.
+4. **The stale strip in Dark (section 12, packet 4).** The agent saw one stale strip after a scroll. Recommendation: walk the step on your display. If the strip shows there, open a fix packet.
+5. **Tab does not go to an artist tile (section 12, packet 8).** Recommendation: open a fix packet in ADR 0092 and ADR 0089 Decision 9. Do not close packet 8 before the fix.
+6. **Section 3, the migration repair report.** Its fixture needs schema 12, and the build has schema 24. Recommendation: revise the fixture for schema 24 in a packet, then walk the check. The agent did not examine if a database below schema 12 exists.
+7. **Section 5, macOS.** Recommendation: keep it open until a macOS desktop is available.
+8. **The questions of the [shell run record](reviews/orchestrated-run-2026-11-05-shell.md#questions-for-the-final-walk).** The [ADR 0089 amendment of 2026-11-08](adr/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) answers question 2. Questions 1 and 3 to 7 stay open. Recommendation: answer them during the walk of section 11.
+9. **[ADR 0088](adr/0088-a-feed-move-follows-the-rss-tag.md), the feed move.** It is Proposed, and its packet waits for the operator. Recommendation: accept or reject it after the walk of section 12.
+
 ## 1. Optional Tool Isolation — ADR 0066 Task 004
 
 Open - implementation and mechanical checks recorded 2026-09-11.
 
 - Owner: [task 004](tasks/adr-0066-task-004-optional-tool-isolation.md).
+- Run: the runbook section [Task 004](runbooks/startup-recovery-check.md#task-004-optional-tool-isolation) gives each command. It starts with this fixture setup:
+
+```bash
+cd ~/build/v4vmm
+recovery_dir="$(python3 docs/runbooks/startup-recovery-fixture.py setup)"
+python3 docs/runbooks/startup-recovery-fixture.py verify "$recovery_dir"
+```
+
+  Expected: the runbook gives the result of each case. Do not walk the playback cases before ADR 0068 is implemented. You can walk the report cases at this time.
 - Check: [Optional Tool Isolation](runbooks/startup-recovery-check.md#task-004-optional-tool-isolation).
 - Needs a Linux desktop, Python 3.11+, this checkout's debug binary, installed
   mpv and working desktop audio for the producer-failure case. The fixture
@@ -58,6 +151,15 @@ Open - implementation and mechanical checks recorded 2026-09-11.
 Open - the run closed on 2026-10-23. The Walk Log of the run record shows the checks that the operator passed. Each other check of these packets stays open until a person walks it.
 
 - Owner: the [run record](reviews/orchestrated-run-2026-10-20.md#final-walk).
+- Run: do "Before A Migration" of the Operator Run Sheet, then start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  Then open each packet file in the list below. Do the steps of its "Operator Visual Check" section in the sequence of the list. Each packet states what to look at and the expected result.
 - The packets of the run. Each item names its packet and its open checks:
   - [ADR 0084 packet 021](tasks/adr-0084-task-021-one-release-page-assembly.md) V1 to V3
   - [ADR 0084 packet 022](tasks/adr-0084-task-022-download-queue.md) V1 to V6
@@ -168,6 +270,7 @@ systemctl --user reset-failed mixxx-now-playing.service
 Open and paused - implementation, technical review, and mechanical checks are complete on 2026-09-20. Operator inspection is pending.
 
 - Owner: [packet 012](tasks/adr-0075-task-012-provider-snapshot-migration.md#operator-visual-check).
+- Run: no command is available. The fixture needs schema 12, and the build has schema 24. Decision 6 of the Operator Run Sheet applies.
 - Check: separate version-11 repair and version-12 readiness reports, retained backup paths, recorded times, report copy, and normal/narrow presentation.
 - Run the packet's temporary-fixture procedure only after mechanical review and the operator resumes visual checks.
 - Preserve configuration, audio files, secret files, playlists, source records, and the selected event during the fixture check.
@@ -179,6 +282,14 @@ Open and paused - implementation, technical review, and mechanical checks are co
 Open and paused - implementation and mechanical checks are complete on 2026-09-29. Operator inspection is pending.
 
 - Owner: [task 002](tasks/adr-0080-task-002-musicbrainz-url-relations-by-type.md#operator-visual-check).
+- Run: build the app, then do the steps of the [Operator Visual Check](tasks/adr-0080-task-002-musicbrainz-url-relations-by-type.md#operator-visual-check) of task 002. They make an isolated database copy:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+```
+
+  Look at: the `WOAR` and `WCOP` frames of the test copy in an external tag reader. Expected: plain URLs.
 - Scheduling: run the procedure only after the operator resumes visual checks. It uses an isolated database copy and never writes to the Library. It needs network access to `musicbrainz.org`.
 - V3: after a write of the homepage and the license on a test copy, an external tag reader shows plain URLs in `WOAR` and `WCOP`.
 - V1, V2 and V4 moved to the [overhaul plan](plans/design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4: Inspect sources.
@@ -188,6 +299,15 @@ Open and paused - implementation and mechanical checks are complete on 2026-09-2
 Open for macOS only - the operator passed V1, V3 and the Linux part of V2 on 2026-10-07, in Dark and Light, at UI scale L and at narrow width.
 
 - Owner: [task 015](tasks/adr-0046-task-015-forward-navigation.md#operator-visual-check).
+- Run: on a macOS desktop, build and start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  Open a release, then a second release. Push `cmd-[`, then `cmd-]`. Expected: Back, then Forward. Then put the cursor in a text box and push `cmd-]` and `cmd-[`. Expected: indent and outdent work, and the page does not change.
 - Scheduling: it needs a macOS desktop session.
 - V2, macOS part: `cmd-[` and `cmd-]` outside a text box do the same as Back and Forward. Indent and outdent still work in a macOS text box.
 
@@ -196,6 +316,15 @@ Open for macOS only - the operator passed V1, V3 and the Linux part of V2 on 202
 Open - the run closed on 2026-10-24 before the end of its walk. Each check below stays open. The fix packets of the walk come first. Walk the checks of a changed screen after its fix packet.
 
 - Owner: the [run record](reviews/orchestrated-run-2026-10-23.md#final-walk).
+- Run: start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  Then open each packet file in the list below. Do the steps of its "Operator Visual Check" section for the named checks only.
 - The walk starts with ADR 0084 packet 026 (section 2). The operator passed its V1 to V5 and V8 on 2026-10-23, apart from the "You Are Enough" row of V2. The operator passed packet 020 V1 to V6 on 2026-10-23.
 - The packets of the run. Each item names its packet and its open checks:
   - [ADR 0086 packet 001](tasks/adr-0086-task-001-parallel-new-releases-detail-reads.md) V1, V2 and V4
@@ -213,6 +342,15 @@ Open - the run closed on 2026-10-24 before the end of its walk. Each check below
 Open - the run closed on 2026-10-24 after its walk. The operator passed ADR 0084 packets 036 and 037 and ADR 0087 packet 008. Those packets are Complete and archived. The items below stay open. Walk a check of a changed screen after its fix packet.
 
 - Owner: the [run record](reviews/orchestrated-run-2026-10-24.md#final-walk).
+- Run: start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  Then do the named checks in each packet file below. ADR 0059 packet 019 V4 also needs a published show feed.
 - The open checks. Each item names its packet:
   - [ADR 0084 packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V2 and V3. Packet 038 implements the fix of the V1 defect. Its checks V2 to V4 walk packet 035 V1 to V3 again (section 8). V1 walks packet 026 V6 again
   - [ADR 0087 packet 007](tasks/adr-0087-task-007-live-run-index-rows.md) V4. Packet 009 replaces this check (section 9). With MusicIndex not reachable, a live run gave two errors, and they show as retained actions in the top bar
@@ -223,6 +361,15 @@ Open - the run closed on 2026-10-24 after its walk. The operator passed ADR 0084
 Open - the packets are implemented. The mechanical suite is Green. No person checked these packets. Walk each check at a terminal in a desktop session. Each packet gives the commands.
 
 - Owner: the packet files [038](tasks/adr-0084-task-038-downloaded-single-joins-its-group.md#operator-visual-check) and [039](tasks/adr-0084-task-039-download-queue-host-limit.md#operator-visual-check). Each file holds its steps and its cleanup.
+- Run: start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  For packet 038 V5, push Ctrl+F, type `haleen d` and push Enter. For packet 039 V1, the app needs a connection to `https://api.musicindex.org`.
 - [ADR 0084 packet 038](tasks/adr-0084-task-038-downloaded-single-joins-its-group.md): V1 to V5. V2, V3 and V4 walk [packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V1, V2 and V3 again. V1 is the group rows of "Everything", and V5 is the search "haleen d".
 - [ADR 0084 packet 039](tasks/adr-0084-task-039-download-queue-host-limit.md): V1 to V4, and the step 4 observation of the lag (responsiveness item 32). V1 needs one group of 30 or more Wavlake singles that are not in the Library.
 
@@ -232,6 +379,25 @@ Open - both packets are implemented on 2026-10-25. The visual checks are not wal
 
 - Owner: the packet files of [packet 009](tasks/adr-0087-task-009-one-error-for-the-latest-text.md) and
   [packet 010](tasks/adr-0087-task-010-field-list-row-height.md). Each packet has its steps in "Operator Visual Check".
+  [packet 010](tasks/adr-0087-task-010-field-list-row-height.md). Each packet has its steps in "Operator Visual Check".
+- Run: for packet 009, close the app, then make MusicIndex not reachable and start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+cp ~/.config/v4vmm/config.toml ~/.config/v4vmm/config.toml.v009-check
+sed -i 's|^musicindex_endpoint = .*|musicindex_endpoint = "http://127.0.0.1:9"|' ~/.config/v4vmm/config.toml
+grep musicindex_endpoint ~/.config/v4vmm/config.toml
+target/debug/v4vmm &
+```
+
+  If `grep` shows no line, add the line `musicindex_endpoint = "http://127.0.0.1:9"` to the file. Then do steps 6 to 8 of the packet: type `haleen`, then ` d`. Expected: one note for `haleen d`, and no retained item. Push Enter. Expected: one retained item with "Edit endpoint". Cleanup: close the app, then put back the configuration:
+
+```bash
+mv ~/.config/v4vmm/config.toml.v009-check ~/.config/v4vmm/config.toml
+```
+
+  For packet 010, start the app with the usual configuration. Click the empty search field and scroll the field list to its end.
 - The open checks:
   - [ADR 0087 packet 009](tasks/adr-0087-task-009-one-error-for-the-latest-text.md) V1 and V2. V1 replaces packet 007 V4. With MusicIndex not reachable, a live run of `haleen` then `haleen d` shows one note for `haleen d` and no retained action for a live run. V2 checks that Enter keeps one retained action with "Edit endpoint".
   - [ADR 0087 packet 010](tasks/adr-0087-task-010-field-list-row-height.md) V1 to V5. V1 walks packet 004 V1 again. V3 walks packet 005 V7 again. Each row keeps its height, the list scrolls to its end, and the scroll bar covers no text.
@@ -241,6 +407,16 @@ Open - both packets are implemented on 2026-10-25. The visual checks are not wal
 Open - the packets are implemented, and the mechanical suite is Green. No person checked these packets. The [run record](reviews/orchestrated-run-2026-11-05.md#final-walk) gives the order and the setup.
 
 - Owner: the "Operator Visual Check" section of each packet file. Each file holds its steps and its cleanup.
+- Owner: the "Operator Visual Check" section of each packet file. Each file holds its steps and its cleanup.
+- Run: start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  Then do the steps of each packet below in the sequence of the run record. Packets that write tags use a test copy of a file, as the packet states.
 - [Packet 007](tasks/adr-0080-task-007-contributor-role-frames.md) V1: a `remixer` credit goes into `TPE4`.
 - [Packet 008](tasks/adr-0080-task-008-rss-readers-agree.md) V1: a feed with a banner `podcast:image` shows its cover.
 - [Packet 009](tasks/adr-0080-task-009-funding-link-frame.md) V1 and V2 passed on MP3 files on 2026-11-05. The close of the run removes this line.
@@ -256,7 +432,15 @@ Open - the packets are implemented, and the mechanical suite is Green. No person
 Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No person checked these packets. The [run record](reviews/orchestrated-run-2026-11-05-shell.md) lists the decisions and seven questions for the operator.
 
 - Owner: the "Visual" list of each packet file in `docs/tasks/adr-0089-task-*.md`. Each check runs in Light and Dark, at normal width and below 940 px.
-- Build: run `cargo build --bin v4vmm` first, then open `target/debug/v4vmm` in a desktop session. The checks change no stored data, apart from migration 22, the checks of packets 006, 007 and 010, and their cleanup in those packets. Back up the database before migration 22, because a return to an older build needs the backup.
+- Run: do "Before A Migration" of the Operator Run Sheet, then start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  The checks change no stored data, apart from the checks of packets 006, 007 and 010, and their cleanup in those packets. Use `v4w 1440 845` and `v4w 900 845` for the two widths, and Settings, Theme for Light and Dark.
 - `~/.claude/scripts/v4vmm-shots.sh` holds click points of the old layout, so its scenarios need new points before use.
 - [Packet 001](tasks/adr-0089-task-001-one-page-stack.md) V1 and V2: one page at full width, and no empty pane.
 - [Packet 002](tasks/adr-0089-task-002-toolbar-history-and-marked-row.md) V1 to V3: the toolbar, the scroll and the mark after Back, and Forward.
@@ -287,7 +471,29 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 
 Open - the packets below are implemented, and the mechanical suite is Green. The main agent checked each packet on its own Xvfb display in Light and Dark. No person checked them. The [phase plan](plans/musicindex-adr-0053-list-controls-phase-plan.md) owns the packets.
 
-- Build: run `cargo build --bin v4vmm`, then open `target/debug/v4vmm` in a desktop session. The checks change no stored data.
+- Run: do "Before A Migration" of the Operator Run Sheet, then start the app:
+
+```bash
+cd ~/build/v4vmm
+cargo build --bin v4vmm
+target/debug/v4vmm &
+```
+
+  The checks change no stored data, apart from migration 24 and the playlist moves of packet 3. Use these steps to open each page:
+
+  | Item | How to open it |
+  |---|---|
+  | Packet 1 | Click the sidebar rows Releases, Artists and Public playlists. Select "All". Open the sort menu |
+  | Packet 2 | Push Ctrl+F, type `haleen` and push Enter. Open the sort menu |
+  | Packet 4 | Click Releases, then the row "Advocateworldwide · 6 singles". Use `v4w 900 845`, `v4w 420 845` and `v4w 300 845` |
+  | Packet 5 | Click Releases and open "Reward". For the public playlist, click Public playlists, then "Boostagram Ball Playlist 1 to 25" |
+  | Packet 6 | On the release page "Reward", click the artist link "Advocateworldwide" |
+  | Packet 7 | Use item 5 of "What The Agent Could Not Run" to find names with numbers. Open a Library list that shows them, and select A to Z |
+  | Packets 8 and 9, R-WORD-9, musicindex ADR 0057 | Click Artists and select "All". For R-WORD-9, click the letter `#` |
+  | Packet 3 and ADR 0092 | Click My playlists. Push Tab until a row shows the focus |
+  | The search pins | Click the empty search field. For `kind:foo` and `-remix`, push Ctrl+F, type the text and push Enter |
+  | R-WORD-10 | Push Ctrl+F, type `Sir Libre Records` and push Enter. Open the Artists tab and the feed row. Do the same for `Crash Landing` |
+  | R-WORD-9, search | Push Ctrl+F, type `olamide` and push Enter. Open the Artists tab. Do the same for `jsmovie` |
 - musicindex ADR 0054 replaces the reverse icon of packets 1 to 9 on 2026-11-08. A sort menu lists the usual and the reversed direction of each sort. The tracks of a release and the entries of a public playlist have a text toggle "Reverse". The steps below use these controls.
 - Packet 1: the sort menus of Releases All, Artists All and Public playlists list "Oldest" and "Z to A". "Oldest" starts at the oldest release. "Z to A" starts at Z, and a letter starts at the last name of that letter.
 - Packet 2: search `haleen` shows "Relevance". The menu lists Relevance, A to Z and Newest, with no reversed entry in the scope All. "In Library" adds "Z to A" and "Oldest". `kind:single` starts with Newest. A saved search with a word, such as "haleen", opens with Newest.

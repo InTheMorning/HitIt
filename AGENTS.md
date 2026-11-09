@@ -42,7 +42,7 @@ Each file in `docs/tasks/` is open: it is Ready, or it waits for an operator che
 `docs/tasks/archive/`. Each file in `docs/plans/` is an active plan. Finished plans are in `docs/plans/archive/`.
 
 The operator resumed visual checks on 2026-10-02. [Pending human checks](docs/pending-human-checks.md)
-holds each open check. Walk a new check right after its packet. The procedures in `docs/runbooks/` stay
+holds each open check. Its [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09) gives the commands, the needs that the agent could not supply and the open operator decisions. Walk a new check right after its packet. The procedures in `docs/runbooks/` stay
 regression checks.
 
 The run of 2026-10-23 implemented ADR 0086 packets 001 to 005 and ADR 0087 packets 001 to 005. It closed on 2026-10-24. Its unwalked checks stay open in
@@ -76,6 +76,8 @@ Known open defects:
   owns the operator check, which is open.
 - A Music column that scrolls with `music_column_scrollbar`, with no scroll handle, does not scroll to show a button that takes the keyboard focus. These are the destinations list, the Index detail panes, the search notice page and Settings. [ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) Invariants require keyboard reach, and no packet owns the change.
 - A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role, and no packet owns the code change.
+- Sir Libre Records shows the badge "Publisher", because one side gives `rel="recordLabel"`. The operator decides if the badge ignores a role word that it does not know (musicindex ADR 0023 R-WORD-3). Decision 1 of the [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09) holds the question.
+- Tab does not go to an artist tile on Artists, and after "Show more" the focus goes to the sidebar. No packet owns the fix.
 
 Stored facts that agents need:
 
@@ -232,13 +234,20 @@ fixed until a person inspects it in the running app.
 user-visible result, the main agent runs the app on its own Xvfb display and
 judges screenshots. Use scratch `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and
 `XDG_CACHE_HOME` folders, so the run cannot touch the real Library. Use this
-display, because `/tmp/.X11-unix` is read-only in the sandbox:
+display:
 
 ```bash
-Xvfb :77 -screen 0 1440x900x24 -nolisten unix -nolisten local -listen tcp -extension GLX &
-DISPLAY=127.0.0.1:77 openbox &
-DISPLAY=127.0.0.1:77 target/debug/v4vmm
+Xvfb :77 -screen 0 1440x900x24 -nolisten tcp -extension GLX &
+DISPLAY=:77 openbox &
+DISPLAY=:77 env -u WAYLAND_DISPLAY target/debug/v4vmm
 ```
+
+The agent environment sets `WAYLAND_DISPLAY`. Without `env -u WAYLAND_DISPLAY`,
+the app tries Wayland and stops with `NoCompositor`.
+
+In auto mode, the Bash call that starts the app sets
+`allowed_domains: ["api.musicindex.org"]`. Without it, the sandbox proxy
+refuses each MusicIndex request, and the Index pages show errors.
 
 Openbox makes the window active. Without a window manager, the search field list does not open. Never send input to the operator's display. A packet worker does not run the
 app. An agent result does not pass a visual gate.
