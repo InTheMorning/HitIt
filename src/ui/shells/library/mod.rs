@@ -13,6 +13,7 @@
 
 #![warn(clippy::pedantic)]
 
+pub mod artist_groups;
 pub mod content_list;
 pub mod content_list_row_actions;
 pub mod content_list_scroll;

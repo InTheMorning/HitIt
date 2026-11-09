@@ -21,6 +21,15 @@ The header badge of a feed page follows R-WORD-3. A role that the two sides agre
 
 Amended 2026-11-05 by musicindex ADR 0037 R-WORD-7, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. The code gives the earlier label (`src/view_models/publisher_page.rs`), and no packet owns the change.
 
+Amended 2026-11-08 by musicindex ADR 0057 R-ARTIST-1, by operator decision. Each artist list shows three groups: the stated artists, the inferred artists, and the artist names with no feed.
+These lists are the Artists list in each scope, its tiles and the Artists tab of the search results. Each group has a heading that gives its type.
+The shared rule replaces the rejected alternative "Two sections in the Artists list". The rows show no level word.
+
+In the scope All, each group loads its own pages of 200 rows, and the stated group sends `stated_rel=artist`. The inferred group and the names group show 20 rows and a "Show more" button, as musicindex ADR 0057 R-SITE-15 gives. This replaces the "Load more" row of ADR 0084 packet 016 decision D7 for the Artists list.
+
+Two parts of R-SITE-15 are not applied. The focus does not move to the first new row, because the Artists list has no list focus. The heading of a capped group gives its count only after each row of the group is loaded.
+The tests that name ADR 0057 in `src/view_models/artist_groups.rs` and `src/application/queries/name_lists.rs` check the group sequence and the page of each group. The visual check is open.
+
 Built 2026-10-21: [ADR 0084 packet 017](../tasks/adr-0084-task-017-name-level-artist-page.md) builds the name level page with the level word "Name only". Its visual check is open.
 
 It supersedes [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) Decisions 1, 2, 3 and 6.

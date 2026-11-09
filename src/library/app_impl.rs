@@ -73,6 +73,7 @@ use crate::ui::composites::{
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button as UiButton, ContextMenuItem, ContextMenuItemDisplay};
+use crate::ui::shells::library::artist_groups::{render_artist_group_heading, render_full_line};
 use crate::ui::shells::library::content_list::{
     render_library_content_list, ContentListMenuContext,
 };
@@ -105,6 +106,7 @@ use crate::ui::shells::tag_update_confirmation::{
 use crate::ui::style::color;
 use crate::ui::style::spacing;
 use crate::ui::tokens::Motion;
+use crate::view_models::artist_groups::{ArtistGroup, ArtistGroupPages};
 use crate::view_models::artist_identity::{ArtistNameDestination, ArtistNameKey, NameFeedMatches};
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::entity_detail::TrackMetadataActionState;
@@ -1197,7 +1199,7 @@ impl LibraryApp {
             tag_update_request_failed: false,
             recent_music_page: RecentFeedsPageVm::loading(),
             index_sorts_requested: false,
-            artist_name_page: IndexNameListPage::default(),
+            artist_pages: ArtistGroupPages::default(),
             release_name_page: IndexNameListPage::default(),
             inbox_scroll,
             search_page_scroll: gpui::ScrollHandle::new(),
@@ -5855,20 +5857,19 @@ impl LibraryApp {
             }
             MusicDestination::Artists => {
                 let artists_scope = self.vm.list_scope(ListPageKey::Artists);
-                let rows = self.vm.artists_list(artists_scope, &self.artist_name_page);
+                let sections = self.vm.artists_sections(artists_scope, &self.artist_pages);
                 let library_count = self
                     .vm
-                    .artists_list(ListScope::InLibrary, &self.artist_name_page)
+                    .artists_list(ListScope::InLibrary, &self.artist_pages)
                     .len();
                 page_head = Some(self.render_artists_page_head(library_count, cx));
-                // ADR 0084 packet 016 decision D8: the loading row, the
-                // error row or "Load more" of the scope "All".
-                let status =
-                    LibraryViewModel::artists_list_status(artists_scope, &self.artist_name_page);
+                // ADR 0084 packet 016 decision D8 and musicindex ADR 0057
+                // R-ARTIST-1: each group has its heading and its own loading
+                // row, error row, "Load more" or "Show more".
                 // ADR 0084 task 037, operator answer Q1 option B: the
                 // Artists list is a virtual list with no cache of its
                 // merge. Each item reads its art only when it renders.
-                let items = Rc::new(ArtistsListItemVm::of(rows, status));
+                let items = Rc::new(ArtistsListItemVm::of_sections(sections));
                 let ids: Vec<String> = items
                     .iter()
                     .map(|item| item.element_id().to_owned())
@@ -6302,34 +6303,31 @@ impl LibraryApp {
     }
 
     /// Renders the Tiles view of the Artists list (musicindex ADR 0053
-    /// R-LIST-10). Each row has one tile, in the sequence of the rows. A
-    /// status row keeps its row at the start or at the end of the grid.
+    /// R-LIST-10). Each row has one tile, in the sequence of the rows. The
+    /// heading and the status row of a group take a full line of the grid
+    /// (musicindex ADR 0057 R-ARTIST-1). The groups have no scroll load, so
+    /// "Load more" and "Show more" are buttons only.
     fn render_artists_tiles(
         &mut self,
         items: &[ArtistsListItemVm],
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let mut leading = Vec::new();
         let mut tiles = Vec::new();
-        let mut trailing = Vec::new();
         for item in items {
             let item = item.clone().with_marked(self.marked_entry.as_ref());
             let Some(tile) = item.tile() else {
-                if let ArtistsListItemVm::Status(row) = item {
-                    let at_start = row.at_list_start();
-                    let element = render_index_list_status_row(
-                        row,
-                        IndexListActions {
-                            retry: Self::retry_artist_names,
-                            load_more: Some(Self::load_more_artist_names),
-                        },
-                        cx,
-                    );
-                    if at_start {
-                        leading.push(element);
-                    } else {
-                        trailing.push(element);
+                match item {
+                    ArtistsListItemVm::Heading(heading) => {
+                        tiles.push(render_artist_group_heading(&heading, cx));
                     }
+                    ArtistsListItemVm::Status(group, row) => {
+                        tiles.push(render_full_line(render_index_list_status_row(
+                            row,
+                            Self::artist_group_actions(group),
+                            cx,
+                        )));
+                    }
+                    ArtistsListItemVm::Row(_) => {}
                 }
                 continue;
             };
@@ -6349,17 +6347,7 @@ impl LibraryApp {
             }
             tiles.push(element);
         }
-        let has_more = !trailing.is_empty();
-        let is_loading = !leading.is_empty();
-        render_artists_tile_grid(
-            &self.artists_tiles_scroll,
-            leading,
-            tiles,
-            trailing,
-            has_more,
-            is_loading,
-            cx,
-        )
+        render_artists_tile_grid(&self.artists_tiles_scroll, tiles, cx)
     }
 
     /// Renders the item `index` of the Artists `items` (ADR 0084 task 037,
@@ -6380,11 +6368,13 @@ impl LibraryApp {
                 .art
                 .as_ref()
                 .map(|art| collection_art_image(self, art, ThumbnailSize::Sm, cx)),
-            ArtistsListItemVm::Status(_) => None,
+            ArtistsListItemVm::Heading(_) | ArtistsListItemVm::Status(..) => None,
         };
-        let actions = IndexListActions {
-            retry: Self::retry_artist_names,
-            load_more: Some(Self::load_more_artist_names),
+        let actions = match &item {
+            ArtistsListItemVm::Status(group, _) => Self::artist_group_actions(*group),
+            ArtistsListItemVm::Heading(_) | ArtistsListItemVm::Row(_) => {
+                Self::artist_group_actions(ArtistGroup::Stated)
+            }
         };
         render_artists_list_item(item, art, actions, cx)
     }

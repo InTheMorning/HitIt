@@ -35,6 +35,7 @@ use crate::ui::composites::{
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
 use crate::ui::primitives::{Button as UiButton, Checkbox, CheckboxState, Label};
+use crate::ui::shells::library::artist_groups::render_artist_group_heading;
 use crate::ui::shells::library::destination_list_scroll::render_destination_virtual_list;
 use crate::ui::shells::library::destination_row_second_line::destination_row_second_line;
 use crate::ui::shells::library::index_list_status::{
@@ -115,9 +116,9 @@ pub(crate) enum DestinationRowMenu<'a> {
     Playlist(Option<RowMenu>),
 }
 
-/// Renders one item of the Artists list: a row with the logo frame
-/// `art`, or the status row of the scope "Everything" (ADR 0084 packet
-/// 016 decision D8).
+/// Renders one item of the Artists list: the heading of a group, a row with
+/// the logo frame `art`, or the status row of a group of the scope
+/// "Everything" (ADR 0084 packet 016 decision D8, musicindex ADR 0057).
 pub(crate) fn render_artists_list_item(
     item: ArtistsListItemVm,
     art: Option<CollectionArtImage>,
@@ -136,7 +137,8 @@ pub(crate) fn render_artists_list_item(
                 cx,
             )
         }
-        ArtistsListItemVm::Status(row) => render_index_list_status_row(row, actions, cx),
+        ArtistsListItemVm::Heading(heading) => render_artist_group_heading(&heading, cx),
+        ArtistsListItemVm::Status(_, row) => render_index_list_status_row(row, actions, cx),
     }
 }
 

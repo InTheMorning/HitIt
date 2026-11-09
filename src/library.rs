@@ -19,7 +19,7 @@ use rusqlite::Connection;
 use gpui::{Entity, FocusHandle, Image, ScrollHandle};
 use gpui_component::input::InputState;
 
-use crate::api::{ArtistNameRow, Feed, LiveItem};
+use crate::api::{Feed, LiveItem};
 use crate::application::paged_track_list::{PagedTrackListMsg, PagedTrackListSnapshot};
 use crate::application::{ApplicationServices, AsyncCommandRunner};
 use crate::db::{self, TrackRow};
@@ -32,6 +32,7 @@ use crate::presentation::RuntimeHost;
 use crate::runtime::actor::ActorHandle;
 use crate::runtime::musicbrainz_feed_saga::MusicBrainzFeedSagaHandle;
 use crate::ui::composites::music_column_scroll::{ListBarPin, MusicColumnList, ScrollReveal};
+use crate::view_models::artist_groups::ArtistGroupPages;
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::index_name_list::IndexNameListPage;
 use crate::view_models::library::{
@@ -303,9 +304,9 @@ pub struct LibraryApp {
     /// Decision 1).
     playlists_reveal: ScrollReveal,
     /// The loaded MusicIndex artist name pages of the Artists scope
-    /// "Everything" (packet 016 decision D9). They stay until the app
-    /// stops.
-    artist_name_page: IndexNameListPage<ArtistNameRow>,
+    /// "Everything", one for each group (packet 016 decision D9, musicindex
+    /// ADR 0057 R-ARTIST-1). They stay until the app stops.
+    artist_pages: ArtistGroupPages,
     /// The loaded MusicIndex release name pages of the Releases scope
     /// "Everything" (packet 016 decision D9).
     release_name_page: IndexNameListPage<Feed>,

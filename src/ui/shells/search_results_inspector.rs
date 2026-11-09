@@ -36,6 +36,7 @@ use crate::ui::shells::search_result_rows::{
     SearchRowLeading,
 };
 use crate::ui::tokens::{FontSize, SemanticColor, Size, Spacing};
+use crate::view_models::artist_groups::ArtistGroup;
 use crate::view_models::detail_selection::DetailRowKey;
 use crate::view_models::list_page::{
     ListPageHeadVm, ListPageKey, ListPageState, ListScope, ListSort,
@@ -488,6 +489,32 @@ fn render_group_heading(group: SearchResultsTab, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
+/// The heading of one group of the Artists list (musicindex ADR 0057
+/// R-ARTIST-1): the words of the group and the line that says what it is.
+fn render_artist_group_heading(group: ArtistGroup, cx: &App) -> AnyElement {
+    div()
+        .id(SharedString::from(format!(
+            "search-results-artist-group-{}",
+            group.slug()
+        )))
+        .w_full()
+        .flex()
+        .flex_col()
+        .pt(Spacing::SM.scaled(cx))
+        .child(
+            Label::new(group.heading())
+                .size(FontSize::Caption)
+                .weight(FontWeight::MEDIUM)
+                .color(SemanticColor::SecondaryLabel),
+        )
+        .child(
+            Label::new(group.intro())
+                .size(FontSize::Micro)
+                .color(SemanticColor::TertiaryLabel),
+        )
+        .into_any_element()
+}
+
 fn detail_metadata_row(label: &str, value: &str, cx: &App) -> AnyElement {
     div()
         .flex()
@@ -533,6 +560,9 @@ fn render_active_result_list(
             let row = match item {
                 SearchResultItemVm::Row(row) => row,
                 SearchResultItemVm::Heading(group) => return render_group_heading(*group, cx),
+                SearchResultItemVm::ArtistGroupHeading(group) => {
+                    return render_artist_group_heading(*group, cx)
+                }
                 SearchResultItemVm::WindowGroup(tile) => {
                     let art = slots
                         .arts

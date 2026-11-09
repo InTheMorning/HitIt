@@ -62,13 +62,14 @@ impl ArtistsTileVm {
 }
 
 impl ArtistsListItemVm {
-    /// The tile of this item, in the same sequence as the rows. A status row
-    /// has none, and it keeps its row in the Tiles view.
+    /// The tile of this item, in the same sequence as the rows. A heading
+    /// and a status row have none, and each keeps its row in the Tiles
+    /// view.
     #[must_use]
     pub(crate) fn tile(&self) -> Option<ArtistsTileVm> {
         match self {
             Self::Row(row) => Some(ArtistsTileVm::of(row)),
-            Self::Status(_) => None,
+            Self::Heading(_) | Self::Status(..) => None,
         }
     }
 }

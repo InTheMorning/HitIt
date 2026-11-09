@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::db::TrackRow;
+use crate::view_models::artist_groups::ArtistGroup;
 use crate::view_models::artist_identity::{
     name_label, ArtistNameDestination, ArtistNameKey, NameFeedMatch, NameFeedMatches,
 };
@@ -73,6 +74,25 @@ impl SearchRowMergeKey for ArtistResultDisplay {
 }
 
 impl ArtistResultDisplay {
+    /// The group of the row (musicindex ADR 0057 R-ARTIST-1). A name row is
+    /// an artist name with no feed. A feed row whose agreed roles hold
+    /// `artist` is a stated artist. Each other feed row is an inferred
+    /// artist: a row with no link fact, for example a Library feed row, and
+    /// a feed with no confirmed link that names it first, are the rows that
+    /// no group above the inferred artists claims.
+    #[must_use]
+    pub(crate) fn group(&self) -> ArtistGroup {
+        match SearchResultTarget::from_row_id(SearchResultsTab::Artists, &self.id) {
+            Some(SearchResultTarget::NameMatches(_) | SearchResultTarget::ArtistByName(_)) => {
+                ArtistGroup::Names
+            }
+            _ => match self.link_class {
+                Some(FeedLinkClass::Artist) => ArtistGroup::Stated,
+                _ => ArtistGroup::Inferred,
+            },
+        }
+    }
+
     /// Creates an artist result display with empty optional text.
     #[must_use]
     pub(crate) fn new(id: impl Into<String>, label: impl Into<String>) -> Self {

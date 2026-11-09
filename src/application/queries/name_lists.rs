@@ -30,6 +30,7 @@ use crate::application::request_profiles::{
     INDEX_ARTIST_NAME_LIST, INDEX_FEED_SINGLES, INDEX_FIELD_LIST_ARTIST_NAMES,
     INDEX_RELEASE_NAME_LIST,
 };
+use crate::view_models::artist_groups::ArtistGroup;
 use crate::view_models::index_feed_singles::{
     FeedReleaseList, FeedSinglesResult, ReleaseNamePageLoad,
 };
@@ -42,6 +43,9 @@ type FeedSinglesRows = Result<FeedReleaseList, String>;
 
 /// The row count of one name list page (packet 016 decision D7).
 pub(crate) const NAME_LIST_PAGE_LIMIT: i32 = 100;
+/// The row count of one page of a group of the Artists list (musicindex ADR
+/// 0057 R-SITE-15). The contract permits 1 to 200, and the site reads 200.
+pub(crate) const ARTIST_GROUP_PAGE_LIMIT: i32 = 200;
 /// The row count of one page of the releases that name one feed (packet
 /// 026). The contract permits 1 to 200.
 pub(crate) const FEED_SINGLES_PAGE_LIMIT: i32 = 200;
@@ -294,7 +298,12 @@ fn fetch_feed_singles_set(
         .collect())
 }
 
-/// Fetches one page of `MusicIndex` artist names in name order.
+/// Fetches one page of `MusicIndex` artist names of one group, in name order
+/// or in date order (musicindex ADR 0057 R-ARTIST-1). The page keeps only
+/// the rows of its group, so a page can hold no row and still give a cursor.
+/// The stated artists send the filter `stated_rel=artist`, which the node
+/// applies in its copy of the list (Stophammer ADR 0091). A node with no
+/// such filter gives each row, and the group keeps the stated ones.
 #[derive(Clone, Debug)]
 pub(crate) struct FetchArtistNamePage {
     endpoint: crate::config::MusicIndexEndpoint,
@@ -308,12 +317,14 @@ pub(crate) struct FetchArtistNamePage {
     /// The sort of the request. `Date` sends `sort=date` and never `from`
     /// (musicindex ADR 0053 R-LIST-9, Stophammer ADR 0089).
     sort: ArtistNameSort,
+    /// The group whose rows the page keeps.
+    group: ArtistGroup,
 }
 
 impl FetchArtistNamePage {
-    /// Creates the command for the page at `cursor` of the list that starts
-    /// at `from`. `None` asks for page 1. `reverse` gives the reversed order.
-    /// `sort` is the sort of the node list.
+    /// Creates the command for the page at `cursor` of the list of `group`
+    /// that starts at `from`. `None` asks for page 1. `reverse` gives the
+    /// reversed order. `sort` is the sort of the node list.
     #[must_use]
     pub(crate) fn new(
         endpoint: impl Into<crate::config::MusicIndexEndpoint>,
@@ -321,6 +332,7 @@ impl FetchArtistNamePage {
         from: Option<String>,
         reverse: bool,
         sort: ArtistNameSort,
+        group: ArtistGroup,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
@@ -328,6 +340,7 @@ impl FetchArtistNamePage {
             from,
             reverse,
             sort,
+            group,
         }
     }
 }
@@ -339,18 +352,25 @@ impl ApplicationCommand for FetchArtistNamePage {
         if context.cancellation().is_cancelled() {
             return Err(CommandError::Cancelled);
         }
+        let stated_rel = (self.group == ArtistGroup::Stated).then_some("artist");
         let response = Client::new_with_base_url(self.endpoint)
             .fetch_artist_names(
-                NAME_LIST_PAGE_LIMIT,
+                ARTIST_GROUP_PAGE_LIMIT,
                 self.cursor.as_deref(),
                 self.from.as_deref(),
                 &INDEX_ARTIST_NAME_LIST,
                 self.reverse,
                 self.sort,
+                stated_rel,
             )
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
+        let rows = response
+            .data
+            .into_iter()
+            .filter(|row| ArtistGroup::of_index_row(row) == Some(self.group))
+            .collect();
         Ok(CommandOutcome::without_events(IndexNameListBatch {
-            rows: response.data,
+            rows,
             cursor: response.pagination.cursor,
             has_more: response.pagination.has_more,
         }))
@@ -393,6 +413,7 @@ impl ApplicationCommand for FetchArtistNameValues {
                 &INDEX_FIELD_LIST_ARTIST_NAMES,
                 false,
                 ArtistNameSort::Name,
+                None,
             )
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
         Ok(CommandOutcome::without_events(response.data))
@@ -466,6 +487,7 @@ mod tests {
             None,
             false,
             ArtistNameSort::Name,
+            ArtistGroup::Names,
         )
         .execute(&CommandContext::next())
         .unwrap()
@@ -477,7 +499,7 @@ mod tests {
         assert!(batch.has_more);
         assert_eq!(
             *requests.lock().unwrap(),
-            ["/v1/artist-names?limit=100&cursor=abc&include=link_facts"]
+            ["/v1/artist-names?limit=200&cursor=abc&include=link_facts"]
         );
     }
 
@@ -846,6 +868,52 @@ mod tests {
         );
     }
 
+    /// Musicindex ADR 0057 R-ARTIST-1: the page of each group keeps only the
+    /// rows of its group. The stated artists send `stated_rel=artist`, and
+    /// the other groups send no role filter.
+    #[test]
+    fn adr_0057_r_artist_1_group_pages_keep_their_rows_and_send_the_role_filter() {
+        let body = serde_json::json!({
+            "data": [
+                {"kind": "name", "name": "Credit", "sort_name": "credit", "key": "credit"},
+                {"kind": "publisher", "name": "Stated", "sort_name": "stated", "key": "g1",
+                 "feed_guid": "g1", "agreed_roles": ["artist"], "first_named_count": 1},
+                {"kind": "publisher", "name": "Inferred", "sort_name": "inferred", "key": "g2",
+                 "feed_guid": "g2", "agreed_roles": [], "first_named_count": 2},
+                {"kind": "publisher", "name": "Label", "sort_name": "label", "key": "g3",
+                 "feed_guid": "g3", "agreed_roles": ["label"], "first_named_count": 0}
+            ],
+            "pagination": {"cursor": "next", "has_more": true}
+        })
+        .to_string();
+        let (endpoint, requests) = serve(body, 3);
+        let names_of = |group| {
+            FetchArtistNamePage::new(
+                endpoint.clone(),
+                None,
+                None,
+                false,
+                ArtistNameSort::Name,
+                group,
+            )
+            .execute(&CommandContext::next())
+            .unwrap()
+            .into_parts()
+            .0
+            .rows
+            .into_iter()
+            .map(|row| row.name)
+            .collect::<Vec<_>>()
+        };
+        assert_eq!(names_of(ArtistGroup::Stated), ["Stated"]);
+        assert_eq!(names_of(ArtistGroup::Inferred), ["Inferred"]);
+        assert_eq!(names_of(ArtistGroup::Names), ["Credit"]);
+        let paths = requests.lock().unwrap().clone();
+        assert!(paths[0].contains("stated_rel=artist"), "{paths:?}");
+        assert!(!paths[1].contains("stated_rel"), "{paths:?}");
+        assert!(!paths[2].contains("stated_rel"), "{paths:?}");
+    }
+
     /// musicindex ADR 0053 R-LIST-8 item 4: a reversed artist name load sends
     /// `reverse=true` on each page, with the cursor of the page before.
     #[test]
@@ -857,18 +925,25 @@ mod tests {
         .to_string();
         let (endpoint, requests) = serve(body, 2);
 
-        let first =
-            FetchArtistNamePage::new(endpoint.clone(), None, None, true, ArtistNameSort::Name)
-                .execute(&CommandContext::next())
-                .unwrap()
-                .into_parts()
-                .0;
+        let first = FetchArtistNamePage::new(
+            endpoint.clone(),
+            None,
+            None,
+            true,
+            ArtistNameSort::Name,
+            ArtistGroup::Names,
+        )
+        .execute(&CommandContext::next())
+        .unwrap()
+        .into_parts()
+        .0;
         FetchArtistNamePage::new(
             endpoint,
             first.cursor.clone(),
             None,
             true,
             ArtistNameSort::Name,
+            ArtistGroup::Names,
         )
         .execute(&CommandContext::next())
         .unwrap();

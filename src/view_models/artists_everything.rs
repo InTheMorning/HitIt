@@ -11,6 +11,7 @@
 use std::collections::BTreeSet;
 
 use crate::api::{ArtistNameKind, ArtistNameRow};
+use crate::view_models::artist_groups::ArtistGroup;
 use crate::view_models::artist_identity::{
     ArtistNameKey, NameFeedMatch, NameFeedMatches, ARTIST_NAME_ROW_MARK, ARTIST_ROW_SEPARATOR,
 };
@@ -115,6 +116,9 @@ pub(crate) struct LibraryArtistRow {
     /// A Library row takes the newest date of its Library releases. A node
     /// row takes `newest_release_at` (Stophammer ADR 0089).
     pub(crate) newest_at: Option<i64>,
+    /// The group of the row (musicindex ADR 0057 R-ARTIST-1). A list shows
+    /// the rows of one group in one sequence.
+    pub(crate) group: ArtistGroup,
 }
 
 /// The position of a row in the sort Newest (musicindex ADR 0053 R-LIST-9).
@@ -310,6 +314,7 @@ fn index_entries(
             order: ArtistOrderKey::index(row),
             row: index_artist_row(row),
             newest_at: row.newest_release_at,
+            group: ArtistGroup::of_index_row(row).unwrap_or(ArtistGroup::Names),
         })
         .filter(|entry| !library_keys.contains(&(entry.order.kind, entry.order.key.as_str())))
         .collect()
@@ -398,6 +403,43 @@ pub(crate) fn everything_rows_newest(
     rows.into_iter().map(|entry| entry.row).collect()
 }
 
+/// The rows of one group of the Artists list in the scope "All"
+/// (musicindex ADR 0057 R-ARTIST-1). `library` holds the Library rows of each
+/// group, and `page` is the loaded page of `group`. The merge, the watermark
+/// and the sort are those of [`everything_rows`] and
+/// [`everything_rows_newest`], applied to this group only. A node row of a
+/// feed that a Library row of another group already shows gives no row, so
+/// an artist shows once.
+#[must_use]
+pub(crate) fn group_rows(
+    group: ArtistGroup,
+    library: &[LibraryArtistRow],
+    page: &IndexNameListPage<ArtistNameRow>,
+    matches: &NameFeedMatches,
+    newest: bool,
+    reversed: bool,
+) -> Vec<DestinationListRowVm> {
+    let own: Vec<LibraryArtistRow> = library
+        .iter()
+        .filter(|entry| entry.group == group)
+        .cloned()
+        .collect();
+    let others: BTreeSet<&str> = library
+        .iter()
+        .filter(|entry| entry.group != group && entry.order.kind == ArtistRowKind::Feed)
+        .map(|entry| entry.order.key.as_str())
+        .collect();
+    let mut rows = if newest {
+        everything_rows_newest(own, page, matches, reversed)
+    } else {
+        everything_rows(own, page, matches, reversed)
+    };
+    rows.retain(|row| {
+        !matches!(&row.open, DestinationListRowTarget::IndexPublisher(guid) if others.contains(guid.as_str()))
+    });
+    rows
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -450,6 +492,10 @@ mod tests {
     fn library_row(label: &str, order: ArtistOrderKey) -> LibraryArtistRow {
         LibraryArtistRow {
             newest_at: None,
+            group: match order.kind {
+                ArtistRowKind::Name => ArtistGroup::Names,
+                ArtistRowKind::Feed => ArtistGroup::Inferred,
+            },
             order,
             row: DestinationListRowVm {
                 marked: false,

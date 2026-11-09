@@ -27,21 +27,18 @@ use gpui::Context;
 
 use super::app_impl::command_error_detail;
 use super::{LibraryApp, LibraryDetail};
-use crate::application::command_bus::ApplicationCommand;
 use crate::application::queries::name_lists::{
     FetchArtistNamePage, FetchFeedSingles, FetchReleaseNamePage,
 };
 use crate::application::queries::node_sorts::FetchNodeSorts;
 use crate::application::CommandContext;
 use crate::presentation::present_command;
+use crate::ui::shells::library::index_list_status::IndexListActions;
+use crate::view_models::artist_groups::{ArtistGroup, ArtistGroupIntent};
 use crate::view_models::index_feed_singles::{finish_release_page, FeedSinglesResult};
-use crate::view_models::index_name_list::{
-    IndexNameListBatch, IndexNameListLoadIntent, IndexNameListPage,
-};
+use crate::view_models::index_name_list::IndexNameListLoadIntent;
 use crate::view_models::letter_bar::{first_letter_index, LetterKey};
-use crate::view_models::library::{
-    AlbumNode, ArtistsListItemVm, LibraryViewModel, ReleasesListItemVm,
-};
+use crate::view_models::library::{AlbumNode, ArtistsListItemVm, ReleasesListItemVm};
 use crate::view_models::list_page::{needs_first_page, ListPageKey, ListScope, ListSort, ListView};
 use crate::view_models::list_selection::{ListSelection, SelectionMode};
 use crate::view_models::releases_everything::{reset_selection_on_scope_change, ReleasesListRows};
@@ -144,9 +141,9 @@ impl LibraryApp {
         // with no `from` text. A list that never started loads with its state.
         if key == ListPageKey::Artists {
             self.vm.set_list_sort(key, sort);
-            if !self.artist_name_page.is_not_started() {
-                let intent = self.artist_name_page.begin_from(None);
-                self.send_artist_name_request(intent, cx);
+            if !self.artist_pages.is_not_started() {
+                let intents = self.artist_pages.begin_from(None);
+                self.send_artist_group_requests(intents, cx);
             }
             cx.notify();
             return;
@@ -240,10 +237,10 @@ impl LibraryApp {
                 }
             }
             ListPageKey::Artists => {
-                if !self.artist_name_page.is_not_started() {
-                    let from = self.artist_name_page.from().map(str::to_owned);
-                    let intent = self.artist_name_page.begin_from(from);
-                    self.send_artist_name_request(intent, cx);
+                if !self.artist_pages.is_not_started() {
+                    let from = self.artist_pages.from().map(str::to_owned);
+                    let intents = self.artist_pages.begin_from(from.as_deref());
+                    self.send_artist_group_requests(intents, cx);
                 }
             }
             ListPageKey::PublicPlaylists => {
@@ -285,13 +282,12 @@ impl LibraryApp {
                 // node that lists `artist_newest` gives the sort Newest, so
                 // the loaded list starts again with the request that the
                 // answer gives (musicindex ADR 0053 R-LIST-9).
-                if this.artists_node_request() != before && !this.artist_name_page.is_not_started()
-                {
+                if this.artists_node_request() != before && !this.artist_pages.is_not_started() {
                     let from = (this.vm.artist_node_sort() == crate::api::ArtistNameSort::Name)
-                        .then(|| this.artist_name_page.from().map(str::to_owned))
+                        .then(|| this.artist_pages.from().map(str::to_owned))
                         .flatten();
-                    let intent = this.artist_name_page.begin_from(from);
-                    this.send_artist_name_request(intent, cx);
+                    let intents = this.artist_pages.begin_from(from.as_deref());
+                    this.send_artist_group_requests(intents, cx);
                 }
                 cx.notify();
             },
@@ -359,11 +355,11 @@ impl LibraryApp {
                 self.send_release_name_request(intent, cx);
             }
             ListPageKey::Artists => {
-                if self.artist_name_page.from() == from.as_deref() {
+                if self.artist_pages.from() == from.as_deref() {
                     return;
                 }
-                let intent = self.artist_name_page.begin_from(from);
-                self.send_artist_name_request(intent, cx);
+                let intents = self.artist_pages.begin_from(from.as_deref());
+                self.send_artist_group_requests(intents, cx);
             }
             ListPageKey::PublicPlaylists => {
                 if self.public_playlist_list.from() == from.as_deref() {
@@ -400,9 +396,8 @@ impl LibraryApp {
             }
             ListPageKey::Artists => {
                 let scope = self.vm.list_scope(ListPageKey::Artists);
-                let rows = self.vm.artists_list(scope, &self.artist_name_page);
-                let status = LibraryViewModel::artists_list_status(scope, &self.artist_name_page);
-                let items = ArtistsListItemVm::of(rows, status);
+                let sections = self.vm.artists_sections(scope, &self.artist_pages);
+                let items = ArtistsListItemVm::of_sections(sections);
                 let labels = items.iter().map(ArtistsListItemVm::label);
                 if let Some(index) = first_letter_index(labels, letter) {
                     if matches!(self.vm.list_view(ListPageKey::Artists), ListView::Tiles) {
@@ -452,10 +447,10 @@ impl LibraryApp {
                 self.request_index_sorts(cx);
                 if needs_first_page(
                     self.vm.list_scope(ListPageKey::Artists),
-                    self.artist_name_page.is_not_started(),
+                    self.artist_pages.is_not_started(),
                 ) {
-                    let intent = self.artist_name_page.begin_load(false);
-                    self.send_artist_name_request(intent, cx);
+                    let intents = self.artist_pages.begin_first_pages();
+                    self.send_artist_group_requests(intents, cx);
                 }
             }
             MusicDestination::PublicPlaylists => {
@@ -472,17 +467,57 @@ impl LibraryApp {
         }
     }
 
-    /// "Load more" at the end of the Artists list (packet 016 decision D7).
-    pub(crate) fn load_more_artist_names(&mut self, cx: &mut Context<Self>) {
-        let intent = self.artist_name_page.begin_load(true);
-        self.send_artist_name_request(intent, cx);
+    /// "Load more" at the end of the stated artists (packet 016 decision D7,
+    /// musicindex ADR 0057 R-SITE-15 item 2). It loads the next page of the
+    /// group.
+    pub(crate) fn load_more_artist_stated(&mut self, cx: &mut Context<Self>) {
+        let intent = self
+            .artist_pages
+            .page_mut(ArtistGroup::Stated)
+            .begin_load(true);
+        self.send_artist_group_request(ArtistGroup::Stated, intent, cx);
+    }
+
+    /// "Show more" of the inferred artists (musicindex ADR 0057 R-SITE-15
+    /// item 2).
+    pub(crate) fn show_more_artist_inferred(&mut self, cx: &mut Context<Self>) {
+        self.show_more_artist_group(ArtistGroup::Inferred, cx);
+    }
+
+    /// "Show more" of the artist names with no feed (musicindex ADR 0057
+    /// R-SITE-15 item 2).
+    pub(crate) fn show_more_artist_names(&mut self, cx: &mut Context<Self>) {
+        self.show_more_artist_group(ArtistGroup::Names, cx);
+    }
+
+    /// Shows the next rows of `group`. The next page loads at once when the
+    /// loaded rows are fewer than the rows that the group shows now. The
+    /// Artists list has no list focus, so the focus does not move to the
+    /// first new row (musicindex ADR 0057 R-SITE-15 item 4).
+    fn show_more_artist_group(&mut self, group: ArtistGroup, cx: &mut Context<Self>) {
+        self.artist_pages.show_more(group);
+        self.continue_artist_group(group, cx);
+        cx.notify();
     }
 
     /// "Try again" on the error row of the Artists list (packet 016
-    /// decision D8).
+    /// decision D8). It sends again each request that failed.
     pub(crate) fn retry_artist_names(&mut self, cx: &mut Context<Self>) {
-        let intent = self.artist_name_page.begin_retry();
-        self.send_artist_name_request(intent, cx);
+        let intents = self.artist_pages.begin_retries();
+        self.send_artist_group_requests(intents, cx);
+    }
+
+    /// The actions of the status rows of `group` in the Artists list.
+    #[must_use]
+    pub(crate) fn artist_group_actions(group: ArtistGroup) -> IndexListActions {
+        IndexListActions {
+            retry: Self::retry_artist_names,
+            load_more: Some(match group {
+                ArtistGroup::Stated => Self::load_more_artist_stated,
+                ArtistGroup::Inferred => Self::show_more_artist_inferred,
+                ArtistGroup::Names => Self::show_more_artist_names,
+            }),
+        }
     }
 
     /// "Load more" at the end of the Releases list (packet 016 decision
@@ -669,8 +704,24 @@ impl LibraryApp {
         );
     }
 
-    fn send_artist_name_request(
+    /// Sends the request of page 1 of each group (musicindex ADR 0057
+    /// R-ARTIST-1). Each group has its own page and its own request.
+    fn send_artist_group_requests(
         &mut self,
+        intents: Vec<ArtistGroupIntent>,
+        cx: &mut Context<Self>,
+    ) {
+        for (group, intent) in intents {
+            self.send_artist_group_request(group, intent, cx);
+        }
+    }
+
+    /// Sends the request of `intent` for the page of `group`. The result
+    /// changes the page only when its generation is current. A limited group
+    /// that shows more rows than it holds loads its next page at once.
+    fn send_artist_group_request(
+        &mut self,
+        group: ArtistGroup,
         intent: Option<IndexNameListLoadIntent>,
         cx: &mut Context<Self>,
     ) {
@@ -679,28 +730,6 @@ impl LibraryApp {
         // Musicindex ADR 0053 R-LIST-9: the node list of the sort Newest
         // sends `sort=date`, and the command sends no `from` with it.
         let sort = self.vm.artist_node_sort();
-        self.send_name_request(
-            intent,
-            |cursor, from| FetchArtistNamePage::new(endpoint, cursor, from, reverse, sort),
-            |this| &mut this.artist_name_page,
-            cx,
-        );
-    }
-
-    /// Sends the request of `intent`, when there is one. `command` makes
-    /// the command for the cursor, and `page` names the page state of the
-    /// list. The result changes the page only when its generation is
-    /// current.
-    fn send_name_request<C, Row>(
-        &mut self,
-        intent: Option<IndexNameListLoadIntent>,
-        command: impl FnOnce(Option<String>, Option<String>) -> C,
-        page: fn(&mut Self) -> &mut IndexNameListPage<Row>,
-        cx: &mut Context<Self>,
-    ) where
-        C: ApplicationCommand<Output = IndexNameListBatch<Row>>,
-        Row: 'static,
-    {
         let Some(IndexNameListLoadIntent {
             cursor,
             generation,
@@ -712,19 +741,38 @@ impl LibraryApp {
         cx.notify();
         present_command(
             &self.command_runner,
-            command(cursor, from),
+            FetchArtistNamePage::new(endpoint, cursor, from, reverse, sort, group),
             CommandContext::next(),
             cx,
             move |this, batch, cx| {
-                if page(this).finish_load(batch, generation) {
+                if this
+                    .artist_pages
+                    .page_mut(group)
+                    .finish_load(batch, generation)
+                {
+                    this.continue_artist_group(group, cx);
                     cx.notify();
                 }
             },
             move |this, error, cx| {
-                if page(this).fail_load(command_error_detail(error), generation) {
+                if this
+                    .artist_pages
+                    .page_mut(group)
+                    .fail_load(command_error_detail(error), generation)
+                {
                     cx.notify();
                 }
             },
         );
+    }
+
+    /// Loads the next page of `group` when the group shows more rows than it
+    /// holds and the node has more pages.
+    fn continue_artist_group(&mut self, group: ArtistGroup, cx: &mut Context<Self>) {
+        if !self.artist_pages.needs_rows(group) {
+            return;
+        }
+        let intent = self.artist_pages.page_mut(group).begin_load(true);
+        self.send_artist_group_request(group, intent, cx);
     }
 }

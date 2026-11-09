@@ -66,6 +66,7 @@ pub(crate) mod releases_everything;
 pub mod startup;
 
 pub mod album_page;
+pub(crate) mod artist_groups;
 pub mod artist_identity;
 pub(crate) mod artists_everything;
 pub(crate) mod artists_tiles;
