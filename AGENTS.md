@@ -22,7 +22,7 @@ Music structure in [ADR 0084](docs/adr/0084-music-column-browser.md).
 Phase 4A builds ADR 0084 in the packets of the
 [ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). [ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md) replaces its columns, destinations and Discover.
 Stophammer release 0.13.0 delivered request 9 on 2026-10-21, so packets 026 and 029 wait for nothing outside this repository.
-Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). Stophammer release 0.19.0 is deployed on 2026-11-07.
+Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). On 2026-11-08 the live node runs Stophammer candidate v0.19.0-rc.7 (git `398d10f`), with Stophammer ADRs 0084 to 0092. No release 0.19.0 is tagged.
 
 Packets 001 to 009, 013 to 015, 018, 019, 036 and 037 are complete. Packets 010 to 012, 016, 017, 020 to 035 are implemented,
 and so are ADR 0083 tasks 006 to 008. The run of 2026-10-20 closed on 2026-10-23. Its unwalked visual checks stay open in
@@ -52,6 +52,7 @@ The run of 2026-10-24 implemented ADR 0084 packets 035 to 037, ADR 0087 packets 
 Its open checks stay in [pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-24.md) lists them.
 
 Ready packets include
+[ADR 0064 task 002](docs/tasks/adr-0064-task-002-repair-report-surface.md) and
 [ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
 The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented [ADR 0080 packets 006 to 016](docs/plans/adr-0080-tag-frames-phase-plan.md), the tag frames of the review of 2026-11-04, and [ADR 0076 packet 011](docs/tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md). Packet 006 is complete. The checks of the other packets are open in section 10 of [pending human checks](docs/pending-human-checks.md). [Packet 014](docs/tasks/adr-0080-task-014-reader-keeps-each-frame.md) corrects a reader fault that the walk found. A write of 143 Library files ran on 2026-11-05. The next full write waits for more playlist checks, as the operator decided (open point 3 of the run record). 26 HeyCitizen files hold `TPUB: HeyCitizen`. The operator confirmed that this value is correct. The live HeyCitizen feeds state only `rel="artist"`.
 [ADR 0088](docs/adr/0088-a-feed-move-follows-the-rss-tag.md), the feed move, is Proposed, and its packet waits for the operator.
