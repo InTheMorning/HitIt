@@ -50,7 +50,7 @@ type OpenPublisherCallback = Rc<dyn Fn(&str, &mut Window, &mut App)>;
 /// own channel image or the logo mosaic of its albums (ADR 0084 Decision
 /// 12). The screen fetches no image of its own.
 ///
-/// `on_open_publisher` opens the feed page of a "Shares albums with"
+/// `on_open_publisher` opens the feed page of a shared releases
 /// entry's feed GUID (ADR 0082 Decision 5). `rows` gives the release rows
 /// with their selection facts and their clicks (Required Change 7, ADR
 /// 0084 packet 018). The app layer supplies each callback; the screen
@@ -91,7 +91,7 @@ pub(crate) fn render_publisher_page(
                     cx,
                 ))
                 .when_some(
-                    render_shares_albums_with(vm.shares_albums_with(), &on_open_publisher, cx),
+                    render_shares_albums_with(vm, &on_open_publisher, cx),
                     ParentElement::child,
                 ),
         );
@@ -194,15 +194,17 @@ fn unavailable_notice(report: &'static str, detail: &str, cx: &App) -> AnyElemen
         .into_any_element()
 }
 
-/// "Shares albums with" (ADR 0082 Decision 5): one row for each entry,
-/// with its title, its roles and its album count. A click opens the
-/// entry's feed page through `on_open_publisher`. `None` when `entries`
-/// is empty: the section is then absent.
+/// The shared releases section (ADR 0082 Decision 5): one row for each
+/// entry, with its title, its count and its roles. The heading and the
+/// note come from the view model (musicindex ADR 0023 R-WORD-10). A click
+/// opens the entry's feed page through `on_open_publisher`. `None` when
+/// the page has no entry: the section is then absent.
 fn render_shares_albums_with(
-    entries: Vec<CoCreditedFeedVm>,
+    vm: &PublisherPageVm,
     on_open_publisher: &OpenPublisherCallback,
     cx: &App,
 ) -> Option<AnyElement> {
+    let entries: Vec<CoCreditedFeedVm> = vm.shares_albums_with();
     if entries.is_empty() {
         return None;
     }
@@ -228,7 +230,7 @@ fn render_shares_albums_with(
                 );
             }
             text_block = text_block
-                .child(Label::new(entry.roles_and_count_text()).variant(LabelVariant::Caption));
+                .child(Label::new(entry.count_and_roles_text()).variant(LabelVariant::Caption));
             ListRow::new(row_id)
                 .a11y_label(ListRowA11yLabel {
                     label: entry.a11y_label.clone().into(),
@@ -243,9 +245,12 @@ fn render_shares_albums_with(
             .flex()
             .flex_col()
             .gap(Spacing::SM.scaled(cx))
-            .child(SectionHeader::new(
-                PublisherPageVm::SHARES_ALBUMS_WITH_LABEL,
-            ))
+            .child(SectionHeader::new(vm.shared_releases_heading()))
+            .child(
+                Label::new(PublisherPageVm::SHARED_RELEASES_NOTE)
+                    .variant(LabelVariant::Caption)
+                    .color(SemanticColor::SecondaryLabel),
+            )
             .child(
                 div()
                     .flex()
