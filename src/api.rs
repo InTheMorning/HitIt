@@ -1131,10 +1131,16 @@ impl Client {
     /// `reverse` sends `reverse=true` (musicindex ADR 0053 R-LIST-8 item 4).
     /// `sort` is [`ArtistNameSort::Date`] for `sort=date`, which never sends
     /// `from` (musicindex ADR 0053 R-LIST-9, Stophammer ADR 0089).
+    /// `stated_rel` sends the filter `stated_rel` (Stophammer ADR 0091): the
+    /// node keeps only the `publisher` rows that state this role.
     ///
     /// # Errors
     /// Returns an error when the request fails or the response does not
     /// decode.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "each name list query value is a request input, and the role filter adds one (musicindex ADR 0057 R-ARTIST-1)"
+    )]
     pub(crate) fn fetch_artist_names(
         &self,
         limit: i32,
@@ -1143,13 +1149,14 @@ impl Client {
         profile: &RequestProfile,
         reverse: bool,
         sort: ArtistNameSort,
+        stated_rel: Option<&str>,
     ) -> Result<ArtistNamesResponse> {
         debug_assert_eq!(
             profile.path_shape(),
             RequestPathShape::ArtistNameList,
             "ADR 0084 packet 016: {profile:?} must name the artist name list path shape"
         );
-        let params = artist_names_params(limit, cursor, from, profile, reverse, sort);
+        let params = artist_names_params(limit, cursor, from, profile, reverse, sort, stated_rel);
         self.get_json(&["v1", "artist-names"], &params)
     }
 
@@ -1515,7 +1522,8 @@ fn recent_feeds_params(
 
 /// The query of `GET /v1/artist-names` (ADR 0084 packet 016, musicindex ADR
 /// 0053 R-LIST-8 item 4). `from` starts the list at a sort key, and
-/// `reverse` gives Z to A.
+/// `reverse` gives Z to A. `stated_rel` keeps only the rows that state the
+/// role (Stophammer ADR 0091).
 fn artist_names_params(
     limit: i32,
     cursor: Option<&str>,
@@ -1523,8 +1531,12 @@ fn artist_names_params(
     profile: &RequestProfile,
     reverse: bool,
     sort: ArtistNameSort,
+    stated_rel: Option<&str>,
 ) -> Vec<(&'static str, String)> {
     let mut params = name_list_params(limit, cursor, profile);
+    if let Some(role) = stated_rel {
+        params.push(("stated_rel", role.to_owned()));
+    }
     match sort {
         ArtistNameSort::Name => {
             if let Some(from) = from {
@@ -1958,6 +1970,7 @@ pub(crate) mod tests {
                         &crate::application::request_profiles::INDEX_ARTIST_NAME_LIST,
                         reverse,
                         crate::api::ArtistNameSort::Name,
+                        None,
                     ),
                 )
                 .expect("url")
@@ -1987,6 +2000,7 @@ pub(crate) mod tests {
                         &crate::application::request_profiles::INDEX_ARTIST_NAME_LIST,
                         reverse,
                         sort,
+                        None,
                     ),
                 )
                 .expect("url")

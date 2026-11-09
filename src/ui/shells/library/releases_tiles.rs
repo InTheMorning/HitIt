@@ -319,26 +319,23 @@ pub(crate) fn render_artists_tile(
 }
 
 /// Renders the grid of the Artists tiles (musicindex ADR 0053 R-LIST-10).
-/// `leading` and `trailing` are the status rows. "Load more" runs near the
-/// end of the scroll, in the scope All.
+/// `tiles` holds the tiles, with the heading and the status row of each
+/// group (musicindex ADR 0057 R-ARTIST-1) at full width. The groups have no
+/// scroll load, because the Artists page has no automatic load of more rows.
 pub(crate) fn render_artists_tile_grid(
     scroll_handle: &ScrollHandle,
-    leading: Vec<AnyElement>,
     tiles: Vec<AnyElement>,
-    trailing: Vec<AnyElement>,
-    has_more: bool,
-    is_loading: bool,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     render_tile_grid(
         "music-artists-tiles",
         scroll_handle,
-        leading,
+        Vec::new(),
         tiles,
-        trailing,
-        has_more,
-        is_loading,
-        LibraryApp::load_more_artist_names,
+        Vec::new(),
+        false,
+        false,
+        LibraryApp::load_more_artist_stated,
         cx,
     )
 }

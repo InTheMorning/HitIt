@@ -24,7 +24,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::api::ArtistNameRow;
 #[cfg(test)]
 use crate::application::library_removal::LibraryRemovalImpact;
 use crate::application::library_removal::{LibraryRemovalPlan, LibraryRemovalTarget};
@@ -37,11 +36,15 @@ use crate::feed_service;
 use crate::metadata::MusicBrainzLookupResult;
 use crate::runtime::TagUpdateSnapshot;
 use crate::view_models::album_page::AlbumNameLinkVm;
+use crate::view_models::artist_groups::{
+    artist_sections, ArtistGroup, ArtistGroupHeadingVm, ArtistGroupPages, ArtistSection,
+    ArtistSectionsInput,
+};
 use crate::view_models::artist_identity::{
     name_feed_matches, name_label, ArtistIdentity, ArtistNameKey, NameFeedEntry, NameFeedMatch,
     NameFeedMatches, ARTIST_NAME_ROW_MARK, ARTIST_ROW_SEPARATOR, UNKNOWN_ARTIST_TEXT,
 };
-use crate::view_models::artists_everything::{self, ArtistOrderKey, LibraryArtistRow};
+use crate::view_models::artists_everything::{ArtistOrderKey, LibraryArtistRow};
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
 use crate::view_models::detail_selection::{LibraryReleaseFacts, ReleaseDownloaded};
 use crate::view_models::download_progress::{DownloadActivity, DownloadPhase, FeedKey};
@@ -56,7 +59,7 @@ use crate::view_models::index_name_list::{
     name_sort_key, recent_releases_status_row, IndexListStatusRowVm, IndexNameList,
     IndexNameListPage,
 };
-use crate::view_models::letter_bar::{name_at_or_after, LetterKey};
+use crate::view_models::letter_bar::LetterKey;
 pub(crate) use crate::view_models::library_removal::RemovalConfirmation;
 use crate::view_models::library_removal::{
     LibraryRemovalConfirmationDisplay, LibraryRemovalConfirmationState,
@@ -90,7 +93,7 @@ use crate::view_models::releases_everything::{
     ReleaseOrderKey, ReleasesDownloadPlan, ReleasesListCache, ReleasesListKey, ReleasesListRows,
     Revision,
 };
-use crate::view_models::role_words::{capitalize_first, role_words};
+use crate::view_models::role_words::{capitalize_first, role_contains_artist, role_words};
 use crate::view_models::search_field_values::LibraryFieldValues;
 use crate::view_models::search_results::{
     saved_search_window_page, FeedResultDisplay, IndexDetailDisplay, SearchLibraryLookup,
@@ -2157,67 +2160,72 @@ impl ReleasesListItemVm {
 }
 
 /// One item of the virtual Artists list (ADR 0084 task 037, operator
-/// answer Q1 option B): an Artists row, or the status row of the scope
-/// "Everything" at its end of the list.
+/// answer Q1 option B): the heading of a group, an Artists row, or a status
+/// row of a group of the scope "All" (musicindex ADR 0057 R-ARTIST-1).
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[expect(
     clippy::large_enum_variant,
-    reason = "the list holds at most one status item; a box for each row adds one allocation for each row"
+    reason = "the list holds at most one status item for each group; a box for each row adds one allocation for each row"
 )]
 pub(crate) enum ArtistsListItemVm {
+    /// The heading of a group.
+    Heading(ArtistGroupHeadingVm),
     /// An Artists row.
     Row(DestinationListRowVm),
-    /// The loading row, the error row or "Load more".
-    Status(IndexListStatusRowVm),
+    /// The loading row, the error row, "Load more" or "Show more" of a
+    /// group.
+    Status(ArtistGroup, IndexListStatusRowVm),
 }
 
 impl ArtistsListItemVm {
-    /// The label of a row: the artist name. A status row has none.
+    /// The label of a row: the artist name. A heading and a status row have
+    /// none.
     #[must_use]
     pub(crate) fn label(&self) -> Option<&str> {
         match self {
             Self::Row(row) => Some(&row.label),
-            Self::Status(_) => None,
+            Self::Heading(_) | Self::Status(..) => None,
         }
     }
 
-    /// Gives the row of this item its mark (R-NAV-2 item 2). A status row
-    /// carries no mark.
+    /// Gives the row of this item its mark (R-NAV-2 item 2). A heading and a
+    /// status row carry no mark.
     #[must_use]
     pub(crate) fn with_marked(self, entry: Option<&FrameNavigationEntry>) -> Self {
         match self {
             Self::Row(row) => Self::Row(row.with_marked(entry)),
-            status @ Self::Status(_) => status,
+            other @ (Self::Heading(_) | Self::Status(..)) => other,
         }
     }
 }
 
 impl ArtistsListItemVm {
-    /// The items of `rows`, with `status` before or after them (packet 016
-    /// decision D8).
+    /// The items of `sections`: for each group, its heading, then its rows,
+    /// then its status row. The loading row or the error row of page 1
+    /// comes first in its section (packet 016 decision D8).
     #[must_use]
-    pub(crate) fn of(
-        rows: Vec<DestinationListRowVm>,
-        status: Option<IndexListStatusRowVm>,
-    ) -> Vec<Self> {
-        let (leading, trailing) = match status {
-            Some(row) if row.at_list_start() => (Some(row), None),
-            other => (None, other),
-        };
-        leading
-            .map(Self::Status)
-            .into_iter()
-            .chain(rows.into_iter().map(Self::Row))
-            .chain(trailing.map(Self::Status))
-            .collect()
+    pub(crate) fn of_sections(sections: Vec<ArtistSection>) -> Vec<Self> {
+        let mut items = Vec::new();
+        for section in sections {
+            let (leading, trailing) = match section.status {
+                Some(row) if row.at_list_start() => (Some(row), None),
+                other => (None, other),
+            };
+            items.extend(section.heading.map(Self::Heading));
+            items.extend(leading.map(|row| Self::Status(section.group, row)));
+            items.extend(section.rows.into_iter().map(Self::Row));
+            items.extend(trailing.map(|row| Self::Status(section.group, row)));
+        }
+        items
     }
 
-    /// The element id of the row.
+    /// The element id of the item.
     #[must_use]
     pub(crate) fn element_id(&self) -> &str {
         match self {
+            Self::Heading(heading) => &heading.element_id,
             Self::Row(row) => &row.element_id,
-            Self::Status(row) => row.element_id(),
+            Self::Status(_, row) => row.element_id(),
         }
     }
 }
@@ -2537,6 +2545,7 @@ fn artist_name_row(
         .unwrap_or_else(|| key.to_owned());
     let secondary_text = artist_row_count_text(members.len(), scope);
     LibraryArtistRow {
+        group: ArtistGroup::Names,
         order: ArtistOrderKey::name(key.to_owned()),
         newest_at: members.iter().filter_map(|member| member.newest_date).max(),
         row: DestinationListRowVm {
@@ -2697,7 +2706,19 @@ fn artist_feed_row(
         .filter_map(|album| album.tracks.iter().filter_map(|track| track.pub_date).max())
         .chain(matched.newest_at)
         .max();
+    // Musicindex ADR 0057 R-ARTIST-1: a feed whose confirmed roles hold
+    // `artist` is a stated artist. Each other feed of the list is an
+    // inferred artist.
+    let group = if feed_roles
+        .iter()
+        .any(|role| role_contains_artist(Some(role)))
+    {
+        ArtistGroup::Stated
+    } else {
+        ArtistGroup::Inferred
+    };
     LibraryArtistRow {
+        group,
         newest_at,
         order: ArtistOrderKey::feed(name_sort_key(&title), &feed_guid),
         row: DestinationListRowVm {
@@ -5008,16 +5029,33 @@ impl LibraryViewModel {
     /// exactly one feed has no row: its releases count in the row of that
     /// feed (ADR 0084 Decision 7, amendment of 2026-10-20).
     ///
-    /// The rows come in the order of the Stophammer sort key, in each
-    /// scope (ADR 0084 packet 016 decision D6). In the scope
-    /// "Everything", `page` adds the `MusicIndex` rows
-    /// ([`artists_everything::everything_rows`]).
+    /// The rows come in three groups (musicindex ADR 0057 R-ARTIST-1), each
+    /// in the order of the Stophammer sort key, in each scope (ADR 0084
+    /// packet 016 decision D6). In the scope "All", `pages` adds the
+    /// `MusicIndex` rows of each group. [`Self::artists_sections`] gives the
+    /// groups, and this method gives their rows in one sequence.
     #[must_use]
     pub(crate) fn artists_list(
         &self,
         scope: ListScope,
-        page: &IndexNameListPage<ArtistNameRow>,
+        pages: &ArtistGroupPages,
     ) -> Vec<DestinationListRowVm> {
+        self.artists_sections(scope, pages)
+            .into_iter()
+            .flat_map(|section| section.rows)
+            .collect()
+    }
+
+    /// The groups of the Artists list: the stated artists, the inferred
+    /// artists and the artist names with no feed, in this sequence
+    /// (musicindex ADR 0057 R-ARTIST-1). The sort and the letter apply in
+    /// each group, and a group with no row is absent.
+    #[must_use]
+    pub(crate) fn artists_sections(
+        &self,
+        scope: ListScope,
+        pages: &ArtistGroupPages,
+    ) -> Vec<ArtistSection> {
         let matches = self.name_feed_matches();
         let mut feed_members: BTreeMap<String, Vec<&AlbumNode>> = BTreeMap::new();
         for artist in &self.snapshot.tree.artists {
@@ -5054,42 +5092,17 @@ impl LibraryViewModel {
         // Musicindex ADR 0053 R-LIST-9 item 1: a stored Newest that the scope
         // cannot give reads as A to Z.
         let newest = state.effective_sort(ListPageKey::Artists, scope) == Some(ListSort::Newest);
-        match scope {
-            ListScope::InLibrary if newest => {
-                // The newest Library release of each row. The reverse gives
-                // the oldest first, and a row with no date stays last (the
-                // rule of the node, Stophammer ADR 0089).
-                let reversed = state.reversed_in(ListPageKey::Artists, scope);
-                artists_everything::sort_by_newest(&mut rows, reversed);
-                rows.into_iter().map(|entry| entry.row).collect()
-            }
-            ListScope::InLibrary => {
-                // Local rows only: the text order of the reader (musicindex
-                // ADR 0053 R-LIST-12 item 1).
-                rows.sort_by(|left, right| left.order.local_cmp(&right.order));
-                // R-LIST-7 item 9: the whole local list reverses.
-                if state.reversed_in(ListPageKey::Artists, scope) {
-                    rows.reverse();
-                }
-                rows.into_iter().map(|entry| entry.row).collect()
-            }
-            ListScope::All if newest => {
-                // The node lists the rows by date with `sort=date`
-                // (musicindex ADR 0053 R-LIST-9, Stophammer ADR 0089). It
-                // has no `from` text, so the letter filter does not apply.
-                let reversed = self.list_index_reversed(ListPageKey::Artists);
-                artists_everything::everything_rows_newest(rows, page, &matches, reversed)
-            }
-            ListScope::All => {
-                // The node direction of the Index rows (musicindex ADR 0053
-                // R-LIST-8 item 4). The local reverse does not apply here.
-                let reversed = self.list_index_reversed(ListPageKey::Artists);
-                artists_everything::everything_rows(rows, page, &matches, reversed)
-                    .into_iter()
-                    .filter(|row| name_at_or_after(&row.label, page.from(), reversed))
-                    .collect()
-            }
-        }
+        // R-LIST-7 item 9: the whole local list reverses. The node direction
+        // of the Index rows is its own (musicindex ADR 0053 R-LIST-8 item 4).
+        artist_sections(&ArtistSectionsInput {
+            scope,
+            newest,
+            local_reversed: state.reversed_in(ListPageKey::Artists, scope),
+            index_reversed: self.list_index_reversed(ListPageKey::Artists),
+            library: rows,
+            pages,
+            matches: &matches,
+        })
     }
 
     /// The Library releases of each name level identity, by name key (ADR
@@ -5216,19 +5229,6 @@ impl LibraryViewModel {
             }
         }
         guids
-    }
-
-    /// The status row at the end of the Artists list (ADR 0084 packet 016
-    /// decision D8). The scope "Library" has none.
-    #[must_use]
-    pub(crate) fn artists_list_status(
-        scope: ListScope,
-        page: &IndexNameListPage<ArtistNameRow>,
-    ) -> Option<IndexListStatusRowVm> {
-        match scope {
-            ListScope::InLibrary => None,
-            ListScope::All => page.status_row(IndexNameList::Artists),
-        }
     }
 
     /// The sidebar of the Library's counts (ADR 0089 Decision 1). The
@@ -7384,6 +7384,11 @@ impl PlaylistDetailVm<'_> {
 
 #[cfg(test)]
 mod tests {
+    /// The items of `rows`, with no heading and no status row.
+    fn row_items(rows: Vec<DestinationListRowVm>) -> Vec<ArtistsListItemVm> {
+        rows.into_iter().map(ArtistsListItemVm::Row).collect()
+    }
+
     use super::*;
     use crate::view_models::name_level_page::NameLevelIndexState;
     use crate::view_models::publisher_page::{MatchedByNameFacts, PublisherPageVm};
@@ -10525,7 +10530,7 @@ mod tests {
                 .to_vec()
         };
         let artist_ids = |vm: &LibraryViewModel| {
-            vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default())
+            vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default())
                 .into_iter()
                 .map(|row| row.element_id)
                 .collect::<Vec<String>>()
@@ -10584,7 +10589,7 @@ mod tests {
     fn adr_0084_release_row_actions_r31_07_artist_rows_have_no_menu() {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
-        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
         assert!(!rows.is_empty());
         assert!(rows
             .iter()
@@ -10728,7 +10733,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
 
-        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
 
         assert_eq!(
             rows.iter()
@@ -10758,7 +10763,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(tree);
 
-        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
 
         assert_eq!(
             rows[0].art,
@@ -10775,7 +10780,7 @@ mod tests {
         let mut one_cover = LibraryViewModel::new();
         one_cover.replace_tree(library_tree());
         assert_eq!(
-            one_cover.artists_list(ListScope::InLibrary, &IndexNameListPage::default())[0].art,
+            one_cover.artists_list(ListScope::InLibrary, &ArtistGroupPages::default())[0].art,
             Some(CollectionArtVm::SingleCover("saw.jpg".into()))
         );
     }
@@ -10789,8 +10794,8 @@ mod tests {
         tree.artists[0].albums[0].tracks[0].pub_date = Some(100);
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(tree);
-        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
-        let items = ArtistsListItemVm::of(rows.clone(), None);
+        let rows = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
+        let items = row_items(rows.clone());
         let tiles: Vec<_> = items.iter().filter_map(ArtistsListItemVm::tile).collect();
         assert_eq!(tiles.len(), rows.len());
         assert_eq!(
@@ -10830,7 +10835,7 @@ mod tests {
         vm.replace_tree(tree);
         vm.set_list_scope(ListPageKey::Artists, ListScope::InLibrary);
         vm.set_list_sort(ListPageKey::Artists, ListSort::Newest);
-        let page = IndexNameListPage::default();
+        let page = ArtistGroupPages::default();
         let labels = |vm: &LibraryViewModel| -> Vec<String> {
             vm.artists_list(ListScope::InLibrary, &page)
                 .into_iter()
@@ -10859,7 +10864,7 @@ mod tests {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(tree);
         vm.set_list_sort(ListPageKey::Artists, ListSort::Newest);
-        let page = IndexNameListPage::default();
+        let page = ArtistGroupPages::default();
         let labels = |vm: &LibraryViewModel, scope| -> Vec<String> {
             vm.artists_list(scope, &page)
                 .into_iter()
@@ -10891,11 +10896,11 @@ mod tests {
     fn adr_0053_r10_artists_tiles_follow_the_rows_also_reversed() {
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(library_tree());
-        let page = IndexNameListPage::default();
+        let page = ArtistGroupPages::default();
         let ids = |vm: &LibraryViewModel| {
             let rows = vm.artists_list(ListScope::InLibrary, &page);
             let row_ids: Vec<String> = rows.iter().map(|row| row.element_id.clone()).collect();
-            let items = ArtistsListItemVm::of(rows, None);
+            let items = row_items(rows);
             let tile_ids: Vec<String> = items
                 .iter()
                 .filter_map(ArtistsListItemVm::tile)
@@ -10915,18 +10920,28 @@ mod tests {
         assert_eq!(reversed_rows, expected);
         assert_eq!(reversed_tiles, expected);
 
-        let mut loading = IndexNameListPage::<ArtistNameRow>::default();
-        let _ = loading.begin_load(false);
-        let status = LibraryViewModel::artists_list_status(ListScope::All, &loading)
-            .expect("a loading list has a status row");
-        let items = ArtistsListItemVm::of(Vec::new(), Some(status));
-        assert!(items.iter().all(|item| item.tile().is_none()));
-        // After a letter jump in the scope All, the tiles keep the rows.
-        let mut jumped = IndexNameListPage::<ArtistNameRow>::default();
-        let _ = jumped.begin_from(Some("b".to_owned()));
+        let mut loading = ArtistGroupPages::default();
+        let _ = loading.begin_first_pages();
         vm.set_list_scope(ListPageKey::Artists, ListScope::All);
+        let items = ArtistsListItemVm::of_sections(vm.artists_sections(ListScope::All, &loading));
+        assert!(
+            items
+                .iter()
+                .any(|item| matches!(item, ArtistsListItemVm::Status(..))),
+            "a loading list has a status row"
+        );
+        assert!(items
+            .iter()
+            .filter(|item| item.tile().is_none())
+            .all(|item| matches!(
+                item,
+                ArtistsListItemVm::Status(..) | ArtistsListItemVm::Heading(_)
+            )));
+        // After a letter jump in the scope All, the tiles keep the rows.
+        let mut jumped = ArtistGroupPages::default();
+        let _ = jumped.begin_from(Some("b"));
         let rows = vm.artists_list(ListScope::All, &jumped);
-        let items = ArtistsListItemVm::of(rows.clone(), None);
+        let items = row_items(rows.clone());
         let tile_ids: Vec<String> = items
             .iter()
             .filter_map(ArtistsListItemVm::tile)
@@ -10989,7 +11004,7 @@ mod tests {
             ],
         };
         let row_art = |vm: &LibraryViewModel, label: &str| {
-            vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default())
+            vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default())
                 .into_iter()
                 .find(|row| row.label == label)
                 .and_then(|row| row.art)
@@ -11180,7 +11195,7 @@ mod tests {
             ],
         });
 
-        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
         let labels: Vec<&str> = rows.iter().map(|row| row.label.as_str()).collect();
 
         assert!(labels.contains(&"Echo Chamber"), "{labels:?}");
@@ -11363,7 +11378,7 @@ mod tests {
             vm.name_feed_matches().get("haleen"),
             NameFeedMatch::MatchedFeed("haleen-feed".to_owned())
         );
-        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
         let texts: Vec<(&str, &str)> = rows
             .iter()
             .map(|row| (row.label.as_str(), row.secondary_text.as_str()))
@@ -11423,7 +11438,7 @@ mod tests {
         let matches = vm.name_feed_matches();
         assert_eq!(matches.get("shared"), NameFeedMatch::Ambiguous);
 
-        let rows = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let rows = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
         let mut name_rows = 0;
         for row in &rows {
             let DestinationListRowTarget::ArtistName(key) = &row.open else {
@@ -11457,7 +11472,15 @@ mod tests {
                 .map(|row| row.secondary_text.clone())
                 .unwrap_or_default()
         };
-        assert_eq!(text("Shared"), "1 release \u{b7} by name");
+        // The feed row "Shared" and the name row "Shared" are two rows, in
+        // two groups (musicindex ADR 0057 R-ARTIST-1).
+        let shared_name = rows
+            .iter()
+            .find(|row| {
+                row.label == "Shared" && matches!(row.open, DestinationListRowTarget::ArtistName(_))
+            })
+            .map(|row| row.secondary_text.clone());
+        assert_eq!(shared_name.as_deref(), Some("1 release \u{b7} by name"));
         assert_eq!(text("Other"), "1 release");
         assert_eq!(text("Haleen"), "6 releases");
         for feed_guid in ["shared-feed", "other-feed"] {
@@ -11659,7 +11682,7 @@ mod tests {
             .flat_map(|section| section.rows.iter())
             .filter(|row| row.in_library)
             .count();
-        let row = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let row = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
         assert_eq!(row[0].secondary_text, format!("{} releases", 3 + matched));
         assert_eq!(page_rows, 3 + matched);
     }
@@ -11671,27 +11694,16 @@ mod tests {
     /// row stays.
     #[test]
     fn adr_0084_scopes_r16_21_matched_name_rows_in_everything() {
-        use crate::view_models::index_name_list::IndexNameListBatch;
-
         let mut vm = LibraryViewModel::new();
         vm.replace_tree(haleen_tree());
-        let rows: Vec<ArtistNameRow> = serde_json::from_value(serde_json::json!([
+        let rows: Vec<crate::api::ArtistNameRow> = serde_json::from_value(serde_json::json!([
             {"kind": "name", "name": "Haleen", "sort_name": "haleen", "key": "haleen",
              "release_count": 1},
             {"kind": "name", "name": "Nobody Else", "sort_name": "nobody else",
              "key": "nobody else", "release_count": 2}
         ]))
         .unwrap();
-        let mut page = IndexNameListPage::default();
-        let intent = page.begin_load(false).unwrap();
-        page.finish_load(
-            IndexNameListBatch {
-                rows,
-                cursor: None,
-                has_more: false,
-            },
-            intent.generation,
-        );
+        let page = ArtistGroupPages::loaded(&rows, false);
 
         let everything = vm.artists_list(ListScope::All, &page);
         let texts: Vec<(&str, &str)> = everything
@@ -11713,8 +11725,6 @@ mod tests {
     /// In "Library", the row text stays "n release(s)".
     #[test]
     fn adr_0084_scopes_r16_10_artists_rows_in_each_scope() {
-        use crate::view_models::index_name_list::IndexNameListBatch;
-
         let artist_feed_album = with_named_feed(
             minimal_album("Artist Release", 1),
             "artist-guid",
@@ -11736,7 +11746,7 @@ mod tests {
             ],
         });
 
-        let library = vm.artists_list(ListScope::InLibrary, &IndexNameListPage::default());
+        let library = vm.artists_list(ListScope::InLibrary, &ArtistGroupPages::default());
         let texts: Vec<(&str, &str)> = library
             .iter()
             .map(|row| (row.label.as_str(), row.secondary_text.as_str()))
@@ -11749,7 +11759,7 @@ mod tests {
             ]
         );
 
-        let rows: Vec<ArtistNameRow> = serde_json::from_value(serde_json::json!([
+        let rows: Vec<crate::api::ArtistNameRow> = serde_json::from_value(serde_json::json!([
             {"kind": "publisher", "name": "Echo Chamber (MusicIndex)",
              "sort_name": "echo chamber", "key": "artist-guid", "feed_guid": "artist-guid",
              "agreed_roles": ["artist"], "first_named_count": 1},
@@ -11760,16 +11770,7 @@ mod tests {
              "agreed_roles": ["artist"], "first_named_count": 1}
         ]))
         .unwrap();
-        let mut page = IndexNameListPage::default();
-        let intent = page.begin_load(false).unwrap();
-        page.finish_load(
-            IndexNameListBatch {
-                rows,
-                cursor: None,
-                has_more: false,
-            },
-            intent.generation,
-        );
+        let page = ArtistGroupPages::loaded(&rows, false);
 
         let everything = vm.artists_list(ListScope::All, &page);
         let texts: Vec<(&str, &str)> = everything
@@ -11780,16 +11781,226 @@ mod tests {
             texts,
             [
                 ("Echo Chamber", "1 in Library"),
-                ("Name Act", "1 in Library \u{b7} by name"),
                 ("Other Feed", "Not in Library"),
-            ]
+                ("Name Act", "1 in Library \u{b7} by name"),
+            ],
+            "the stated artists come before the names (musicindex ADR 0057)"
         );
         assert_eq!(everything[0].open, library[0].open);
-        assert_eq!(everything[1].open, library[1].open);
+        assert_eq!(everything[2].open, library[1].open);
         assert_eq!(everything[0].element_id, library[0].element_id);
         assert_eq!(
-            everything[2].open,
+            everything[1].open,
             DestinationListRowTarget::IndexPublisher("other-guid".to_owned())
+        );
+    }
+
+    /// Musicindex ADR 0057 R-ARTIST-1: each artist list shows the stated
+    /// artists, then the inferred artists, then the artist names with no
+    /// feed, and a list never mixes two groups in one sequence. The input is
+    /// mixed: Library rows and node rows of each group, with names that would
+    /// interleave in one A to Z sequence. The check covers the Artists list
+    /// in the scope In Library, the scope All, the sort Newest of the scope
+    /// All, and the Artists tab of the search results.
+    #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one guard checks each list and the search tab with one mixed input"
+    )]
+    fn adr_0057_r_artist_1_groups_never_mix() {
+        use crate::view_models::artist_groups::ArtistGroup::{Inferred, Names, Stated};
+        use crate::view_models::search_results::{
+            IndexSearchResultRows, SearchResultItemVm, SearchResultsInspectorPageVm,
+            SearchResultsTab,
+        };
+
+        let fix = "Fix: show each group in its own section, in the order stated, inferred, names, \
+                   and apply the sort and the letter inside each group (src/view_models/artist_groups.rs).";
+        let stated_album = with_named_feed(
+            minimal_album("Stated Release", 1),
+            "lib-stated",
+            "Mid Stated (Library)",
+            Some("artist"),
+            Some("both"),
+        );
+        let inferred_album = with_named_feed(
+            minimal_album("Inferred Release", 2),
+            "lib-inferred",
+            "Mid Inferred (Library)",
+            None,
+            None,
+        );
+        let mut vm = LibraryViewModel::new();
+        vm.replace_tree(LibraryTree {
+            artists: vec![
+                ArtistNode {
+                    name: "x".to_owned(),
+                    albums: vec![stated_album],
+                },
+                ArtistNode {
+                    name: "y".to_owned(),
+                    albums: vec![inferred_album],
+                },
+                ArtistNode {
+                    name: "Mid Name (Library)".to_owned(),
+                    albums: vec![minimal_album("Name Release", 3)],
+                },
+            ],
+        });
+        let node_rows: Vec<crate::api::ArtistNameRow> = serde_json::from_value(serde_json::json!([
+            {"kind": "name", "name": "Aaa Name", "sort_name": "aaa name", "key": "aaa name",
+             "release_count": 1, "newest_release_at": 10},
+            {"kind": "publisher", "name": "Aaa Inferred", "sort_name": "aaa inferred",
+             "key": "n-inferred", "feed_guid": "n-inferred",
+             "agreed_roles": [], "first_named_count": 2, "newest_release_at": 20},
+            {"kind": "publisher", "name": "Zzz Stated", "sort_name": "zzz stated",
+             "key": "n-stated", "feed_guid": "n-stated",
+             "agreed_roles": ["artist"], "first_named_count": 1, "newest_release_at": 30},
+            {"kind": "publisher", "name": "Zzz Inferred", "sort_name": "zzz inferred",
+             "key": "n-inferred-2", "feed_guid": "n-inferred-2",
+             "agreed_roles": [], "first_named_count": 1, "newest_release_at": 40},
+            {"kind": "name", "name": "Zzz Name", "sort_name": "zzz name", "key": "zzz name",
+             "release_count": 1, "newest_release_at": 50},
+            {"kind": "publisher", "name": "Mmm Label", "sort_name": "mmm label",
+             "key": "n-label", "feed_guid": "n-label",
+             "agreed_roles": ["label"], "first_named_count": 0}
+        ]))
+        .unwrap();
+        let pages = ArtistGroupPages::loaded(&node_rows, false);
+        let group_of = |label: &str| match label {
+            "Mid Stated (Library)" | "Zzz Stated" => Stated,
+            "Mid Inferred (Library)" | "Aaa Inferred" | "Zzz Inferred" => Inferred,
+            "Mid Name (Library)" | "Aaa Name" | "Zzz Name" => Names,
+            other => panic!("musicindex ADR 0057 R-ARTIST-1: the row {other} has no group. {fix}"),
+        };
+        let mut check_sections = |what: &str, scope: ListScope, newest: bool| {
+            vm.set_list_scope(ListPageKey::Artists, scope);
+            vm.set_index_sorts(NodeSorts {
+                sort: true,
+                artist_newest: newest,
+            });
+            vm.set_list_sort(
+                ListPageKey::Artists,
+                if newest {
+                    ListSort::Newest
+                } else {
+                    ListSort::AToZ
+                },
+            );
+            let sections = vm.artists_sections(scope, &pages);
+            let groups: Vec<_> = sections.iter().map(|section| section.group).collect();
+            assert_eq!(
+                groups,
+                [Stated, Inferred, Names],
+                "musicindex ADR 0057 R-ARTIST-1 ({what}): the groups come in the order stated, inferred, names. {fix}"
+            );
+            let mut last_group = Stated;
+            for section in &sections {
+                assert!(
+                    section.heading.is_some(),
+                    "musicindex ADR 0057 R-ARTIST-1 ({what}): each group has a heading. {fix}"
+                );
+                for row in &section.rows {
+                    let group = group_of(&row.label);
+                    assert_eq!(
+                        group, section.group,
+                        "musicindex ADR 0057 R-ARTIST-1 ({what}): the row {} is in the section of another group. {fix}",
+                        row.label
+                    );
+                    assert!(group >= last_group, "{what}: {fix}");
+                    last_group = group;
+                }
+            }
+            let labels: Vec<_> = sections
+                .iter()
+                .flat_map(|section| section.rows.iter().map(|row| row.label.clone()))
+                .collect();
+            assert_eq!(
+                labels.len(),
+                if scope == ListScope::All { 8 } else { 3 },
+                "{what}"
+            );
+            sections
+        };
+        let in_library = check_sections("In Library", ListScope::InLibrary, false);
+        assert_eq!(in_library.iter().map(|s| s.rows.len()).sum::<usize>(), 3);
+        let all = check_sections("All, A to Z", ListScope::All, false);
+        let labels = |section: &ArtistSection| -> Vec<String> {
+            section.rows.iter().map(|row| row.label.clone()).collect()
+        };
+        assert_eq!(labels(&all[0]), ["Mid Stated (Library)", "Zzz Stated"]);
+        assert_eq!(
+            labels(&all[1]),
+            ["Aaa Inferred", "Mid Inferred (Library)", "Zzz Inferred"]
+        );
+        assert_eq!(
+            labels(&all[2]),
+            ["Aaa Name", "Mid Name (Library)", "Zzz Name"]
+        );
+        let newest = check_sections("All, Newest", ListScope::All, true);
+        assert_eq!(
+            labels(&newest[2]),
+            ["Zzz Name", "Aaa Name", "Mid Name (Library)"],
+            "Newest orders inside the group, and a row with no date comes last"
+        );
+
+        // The Artists tab of the search results.
+        let mut search = SearchResultsInspectorPageVm::new("q");
+        let feed_row = |guid: &str, label: &str, roles: &[&str], first_named: i64| {
+            let roles: Vec<String> = roles.iter().map(|role| (*role).to_owned()).collect();
+            let mut row = crate::view_models::search_results::ArtistResultDisplay::new(
+                format!("index-feed-page:{guid}"),
+                label,
+            );
+            row.link_class = Some(
+                crate::view_models::artists_everything::FeedLinkClass::from_link_facts(
+                    Some(&roles),
+                    Some(first_named),
+                ),
+            );
+            row
+        };
+        let name_row = |label: &str| {
+            crate::view_models::search_results::ArtistResultDisplay::new(
+                format!("index-artist:{label}"),
+                label,
+            )
+        };
+        search.replace_index_results(IndexSearchResultRows {
+            artists: vec![
+                (1, name_row("Aaa Name")),
+                (2, feed_row("i1", "Bbb Inferred", &[], 2)),
+                (3, feed_row("s1", "Ccc Stated", &["artist"], 1)),
+                (4, name_row("Ddd Name")),
+                (5, feed_row("i2", "Eee Inferred", &[], 1)),
+                (6, feed_row("s2", "Fff Stated", &["artist"], 1)),
+            ],
+            ..IndexSearchResultRows::default()
+        });
+        search.set_tab(SearchResultsTab::Artists);
+        let lookup = vm.search_lookup();
+        let mut sequence: Vec<(&str, Vec<String>)> = Vec::new();
+        for item in search.visible_items(&lookup) {
+            match item {
+                SearchResultItemVm::ArtistGroupHeading(group) => {
+                    sequence.push((group.slug(), Vec::new()));
+                }
+                SearchResultItemVm::Row(row) => sequence
+                    .last_mut()
+                    .expect("a heading comes before each row")
+                    .1
+                    .push(row.label),
+                SearchResultItemVm::Heading(_) | SearchResultItemVm::WindowGroup(_) => {}
+            }
+        }
+        assert_eq!(
+            sequence,
+            [
+                ("stated", vec!["Ccc Stated".to_owned(), "Fff Stated".to_owned()]),
+                ("inferred", vec!["Bbb Inferred".to_owned(), "Eee Inferred".to_owned()]),
+                ("names", vec!["Aaa Name".to_owned(), "Ddd Name".to_owned()]),
+            ],
+            "musicindex ADR 0057 R-ARTIST-1 (search): the Artists tab shows the stated artists, the inferred artists and the names, each under its heading, with the sort inside each group. {fix}"
         );
     }
 

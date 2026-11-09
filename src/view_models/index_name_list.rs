@@ -153,6 +153,14 @@ impl<Row> IndexNameListPage<Row> {
         self.has_more
     }
 
+    /// Whether the list has its last page: the last request gave its page
+    /// and the node has no more pages. A list that failed, or still loads,
+    /// is not complete.
+    #[must_use]
+    pub(crate) const fn is_complete(&self) -> bool {
+        matches!(self.state, IndexNameListLoadState::Loaded) && !self.has_more
+    }
+
     /// The `from` text of the list, or `None` for the start of the list.
     #[must_use]
     pub(crate) fn from(&self) -> Option<&str> {

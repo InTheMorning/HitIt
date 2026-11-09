@@ -2278,9 +2278,9 @@ fn adr_0089_task_008_all_lists_the_groups_in_order_with_headings() {
             .iter()
             .filter_map(|item| match item {
                 super::SearchResultItemVm::Heading(tab) => Some(tab.label()),
-                super::SearchResultItemVm::Row(_) | super::SearchResultItemVm::WindowGroup(_) => {
-                    None
-                }
+                super::SearchResultItemVm::Row(_)
+                | super::SearchResultItemVm::WindowGroup(_)
+                | super::SearchResultItemVm::ArtistGroupHeading(_) => None,
             })
             .collect::<Vec<_>>()
     };

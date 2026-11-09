@@ -2220,7 +2220,7 @@ mod tests {
             let artist_row = vm
                 .artists_list(
                     crate::view_models::list_page::ListScope::InLibrary,
-                    &crate::view_models::index_name_list::IndexNameListPage::default(),
+                    &crate::view_models::artist_groups::ArtistGroupPages::default(),
                 )
                 .into_iter()
                 .find(|row| row.element_id == "music-artist-row-publisher:pub")

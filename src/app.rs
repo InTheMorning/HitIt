@@ -1556,7 +1556,7 @@ impl TopApp {
             .filter_map(|item| match item {
                 SearchResultItemVm::Row(row) => Some((row.id.clone(), &row.art.as_ref()?.art)),
                 SearchResultItemVm::WindowGroup(tile) => Some((tile.element_id.clone(), &tile.art)),
-                SearchResultItemVm::Heading(_) => None,
+                SearchResultItemVm::Heading(_) | SearchResultItemVm::ArtistGroupHeading(_) => None,
             })
             .map(|(id, art)| {
                 let image =

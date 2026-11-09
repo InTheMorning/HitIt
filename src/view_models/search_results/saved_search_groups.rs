@@ -15,6 +15,7 @@
 
 use std::collections::BTreeSet;
 
+use crate::view_models::artist_groups::ArtistGroup;
 use crate::view_models::artist_identity::{ArtistIdentity, UNKNOWN_ARTIST_TEXT};
 use crate::view_models::detail_selection::DetailRowKey;
 use crate::view_models::library::ContentListRowDisplay;
@@ -43,6 +44,10 @@ pub(crate) enum SearchResultItemVm {
     /// The heading of one group of the tab All (ADR 0089 Decision 4). It is
     /// not a row and has no selection key.
     Heading(SearchResultsTab),
+    /// The heading of one group of the Artists list, above its rows
+    /// (musicindex ADR 0057 R-ARTIST-1). It is not a row and has no
+    /// selection key.
+    ArtistGroupHeading(ArtistGroup),
 }
 
 impl SearchResultItemVm {
@@ -53,7 +58,7 @@ impl SearchResultItemVm {
         match self {
             Self::Row(row) => row.key.clone(),
             Self::WindowGroup(tile) => Some(DetailRowKey::Release(tile.page_key.anchor.clone())),
-            Self::Heading(_) => None,
+            Self::Heading(_) | Self::ArtistGroupHeading(_) => None,
         }
     }
 
@@ -64,7 +69,7 @@ impl SearchResultItemVm {
         match self {
             Self::Row(row) => Some(&row.id),
             Self::WindowGroup(tile) => Some(&tile.open_row_id),
-            Self::Heading(_) => None,
+            Self::Heading(_) | Self::ArtistGroupHeading(_) => None,
         }
     }
 
@@ -75,7 +80,7 @@ impl SearchResultItemVm {
         match self {
             Self::Row(row) => Some(row.tab),
             Self::WindowGroup(_) => Some(SearchResultsTab::Releases),
-            Self::Heading(_) => None,
+            Self::Heading(_) | Self::ArtistGroupHeading(_) => None,
         }
     }
 }
@@ -439,6 +444,9 @@ mod tests {
                 SearchResultItemVm::Row(row) => row.id.clone(),
                 SearchResultItemVm::WindowGroup(tile) => format!("group:{}", tile.open_row_id),
                 SearchResultItemVm::Heading(tab) => format!("heading:{}", tab.label()),
+                SearchResultItemVm::ArtistGroupHeading(group) => {
+                    format!("artist-group:{}", group.slug())
+                }
             })
             .collect()
     }
@@ -448,7 +456,9 @@ mod tests {
             .iter()
             .filter_map(|item| match item {
                 SearchResultItemVm::WindowGroup(tile) => Some(tile.as_ref()),
-                SearchResultItemVm::Row(_) | SearchResultItemVm::Heading(_) => None,
+                SearchResultItemVm::Row(_)
+                | SearchResultItemVm::Heading(_)
+                | SearchResultItemVm::ArtistGroupHeading(_) => None,
             })
             .collect()
     }

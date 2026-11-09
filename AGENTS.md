@@ -106,6 +106,7 @@ page, whatever its origin. The Library is a state that each page and list shows,
 
 **Artists, not publishers.** A feed shows its role word, not the RSS word. The word rules are musicindex ADR 0033
 R-WORD-3 and R-WORD-4, and ADR 0085 applies them here. A feed that albums name through a confirmed link is an artist, confirmed or unverified.
+Each artist list shows the stated artists, then the inferred artists, then the names with no feed (musicindex ADR 0057 R-ARTIST-1, ADR 0085).
 
 **Shared interface rules come from musicindex.** musicindex ADRs 0020 to 0029 own the interface rules that
 musicindex.org, Studio and v4vmm share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a

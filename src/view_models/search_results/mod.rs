@@ -8,6 +8,7 @@
 //! window.
 #![warn(clippy::pedantic)]
 
+use crate::view_models::artist_groups::ArtistGroup;
 use crate::view_models::detail_selection::{
     detail_header_action, search_header_action, search_release_rows, search_track_rows,
     DetailPageRows, DetailRowClick, DetailRowKey, DetailSelection,
@@ -966,6 +967,9 @@ impl SearchResultsInspectorPageVm {
         tab: SearchResultsTab,
         lookup: &dyn SearchLibraryLookup,
     ) -> Vec<SearchResultItemVm> {
+        if tab == SearchResultsTab::Artists {
+            return self.artist_group_items(lookup);
+        }
         if tab != SearchResultsTab::Releases || !self.releases_grouped() {
             return self
                 .group_rows(tab, lookup)
@@ -986,6 +990,32 @@ impl SearchResultsInspectorPageVm {
                         .selection
                         .tile_selection(&window_group_selection_row(&tile), &tile.title);
                     SearchResultItemVm::WindowGroup(tile)
+                }
+            })
+            .collect()
+    }
+
+    /// The items of the Artists group (musicindex ADR 0057 R-ARTIST-1): the
+    /// stated artists, the inferred artists and the artist names with no
+    /// feed, in this sequence, each under its heading. The sort of the list
+    /// orders the rows in each group, and a group with no row has no
+    /// heading.
+    fn artist_group_items(&self, lookup: &dyn SearchLibraryLookup) -> Vec<SearchResultItemVm> {
+        let rows = self.artist_rows_of(SearchResultsTab::Artists);
+        ArtistGroup::ALL
+            .into_iter()
+            .flat_map(|group| {
+                let items: Vec<SearchResultItemVm> = rows
+                    .iter()
+                    .filter(|row| row.group() == group)
+                    .map(|row| SearchResultItemVm::Row(rows::artist_row_vm(row, lookup)))
+                    .collect();
+                if items.is_empty() {
+                    Vec::new()
+                } else {
+                    std::iter::once(SearchResultItemVm::ArtistGroupHeading(group))
+                        .chain(items)
+                        .collect()
                 }
             })
             .collect()
