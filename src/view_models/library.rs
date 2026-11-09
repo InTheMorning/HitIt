@@ -11714,7 +11714,10 @@ mod tests {
             texts,
             [
                 ("Haleen", "6 in Library"),
-                ("Nobody Else", "Not in Library \u{b7} by name"),
+                (
+                    "Nobody Else",
+                    "Not in Library \u{b7} by name \u{b7} 2 releases"
+                ),
             ]
         );
     }
