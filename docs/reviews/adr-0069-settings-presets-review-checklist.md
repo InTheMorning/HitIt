@@ -35,7 +35,7 @@ claim that future test names or controls exist.
   Reject renderer-side availability checks or parked future modules.
 - Trace Save and Use Defaults back to the existing writer. Both retain their
   existing whole-form scope, visibly described across the editable groups.
-  Do not claim the later guarded editor or Cancel/Apply behavior has shipped.
+  Do not claim the later guarded editor or Discard/Apply behavior has shipped.
 - Check Open report chooses Diagnostics in one action and ordinary Settings
   entry restores the session's selected group. No input loss or implicit save.
 - Check no navigation key, TOML table or preset directory has been persisted.
@@ -50,7 +50,7 @@ claim that future test names or controls exist.
 
 - Trace ordinary Settings Save and repair Save to the shared correction transaction.
   Reject a second writer or independently writable drafts.
-- Check draft, saved and running values separately. Cancel restores the baseline.
+- Check draft, saved and running values separately. Discard restores the baseline.
   Close retains edits. Defaults changes the draft only and names its complete scope.
 - Check source identity before writes. Navigation and resize must not cause false conflicts.
   Deferred workspace writes must not hide an external edit or replace the editor's source.

@@ -5,9 +5,15 @@ ADR 0066 tasks 005–007 are complete with acceptance. Operator criteria below
 are prospective. They become runnable after implementation and mechanical checks.
 ADR 0066 task 004 retains its separate gate.
 
+Amended 2026-11-10 by [ADR 0093](../adr/0093-settings-has-a-tab-row-and-one-save-bar.md):
+Discard replaces Cancel. This task also delivers ADR 0093 Decisions 9 to 16:
+the Save bar in the page bar, the not-saved marks and the leave question.
+A leave of Settings, End session and the close of the window with a pending
+change ask the leave question. They do not keep or discard the draft silently.
+
 ## Goal
 
-Give existing Settings fields a retained draft, guarded Save and explicit Cancel.
+Give existing Settings fields a retained draft, guarded Save and explicit Discard.
 Use the configuration editor that Settings and recovery already share.
 Report saved values separately from values used by running resources.
 
@@ -44,7 +50,7 @@ repair, write admission and resource checks. No configuration format changes her
 |---|---|---|
 | `TopApp::save_settings` | Calls `save_app_settings`, then updates runtime fields | Replace the form save route with the shared editor command. Separate persistence from resource application. |
 | `CorrectionSource` and `CorrectionDraft` | Retain source identity and bytes. Validate focused edits. Preserve and atomically replace the file. | Reuse this persistence authority for explicit Settings saves. |
-| `CorrectionVm` and `ConfigurationEditor` | Retain repair drafts, command generations, reports and one worker route | Extend the shared transaction for form edits, Cancel and field results. |
+| `CorrectionVm` and `ConfigurationEditor` | Retain repair drafts, command generations, reports and one worker route | Extend the shared transaction for form edits, Discard and field results. |
 | `SettingsVm` and Settings composites | Own group state, typed actions and form geometry | Project the shared draft, field errors and saved/running facts. |
 | `CorrectionEvent::Saved` | Refreshes Settings, then queues changed capability checks | Distinguish ordinary Settings save intent from the accepted repair/check workflow. |
 | Workspace writers in `app.rs` and `app/resize.rs` | Persist navigation, pane width and list mode independently | Coordinate writes with the editor's retained file revision. Navigation must not cause a conflict. |
@@ -86,7 +92,7 @@ Never run the app as an agent. Finish this packet before starting another phase.
    GPUI input entities only display and edit that shared state.
    Do not maintain independently writable form and repair drafts.
    A group change, section change or repair-editor Close retains all pending edits.
-   Close remains distinct from Cancel.
+   Close remains distinct from Discard.
 
 2. **Keep the current field scope.** General edits `ui_scale` and `theme_profile`.
    Library edits `musicindex_endpoint`. The existing converter editor owns
@@ -96,15 +102,15 @@ Never run the app as an agent. Finish this packet before starting another phase.
    If other repair edits are pending, require their existing review/save route.
    Do not silently discard or save those edits through the ordinary form action.
 
-3. **Define Save, Cancel and defaults.** Load a source revision before enabling edits.
+3. **Define Save, Discard and defaults.** Load a source revision before enabling edits.
    Save validates again and preserves the exact original before publication.
    Failed validation, backup, publication or revision checks retain the draft.
    Successful Save records its receipt and advances the saved baseline.
 
-   Cancel discards the shared unsaved configuration draft and restores its baseline.
-   Explain that scope beside Cancel when repair edits are present.
-   Cancel reverses appearance previews.
-   Cancel does not reload an external edit or undo a completed save.
+   Discard discards the shared unsaved configuration draft and restores its baseline.
+   While repair edits are pending, Save and Discard of the page bar are off, and the bar gives the cause (ADR 0093 Decision 11).
+   Discard reverses appearance previews.
+   Discard does not reload an external edit or undo a completed save.
    Explicit Reload adopts the current file after the operator chooses to discard the draft.
 
    Use Defaults changes the four optional fields in the draft only.
@@ -134,7 +140,7 @@ Never run the app as an agent. Finish this packet before starting another phase.
    Retain the latest navigation, pane width and list mode in memory.
    Do not hold `ConfigWriteLease` while waiting for user input.
 
-   After Save or Cancel ends the transaction, check the expected file revision before admitting deferred writes.
+   After Save or Discard ends the transaction, check the expected file revision before admitting deferred writes.
    Require the ordinary saveability check too.
    A conflict leaves deferred writes paused until explicit Reload resolves it.
    Never merge an external edit automatically.
@@ -145,7 +151,9 @@ Never run the app as an agent. Finish this packet before starting another phase.
    Preserve the existing preference keys.
    This coordinates existing writers. It does not consolidate the workspace format.
 
-   On orderly quit, discard unsaved configuration edits as the current editor does.
+   On the close of the window with unsaved configuration edits, ask the leave question of ADR 0093 Decision 13.
+   "Discard Changes" discards the edits, then the app quits. "Keep Editing" cancels the quit.
+   If GPUI cannot show the question from the close hook, stop and report the conflict.
    Flush deferred workspace preferences only after the same revision and saveability checks.
    Do not lose workspace preferences merely because the operator opened Settings without saving.
 
@@ -188,15 +196,16 @@ The names below identify required proof, not tests that already exist.
 
 | ID | Mechanical proof owner | Required assertion |
 |---|---|---|
-| M1 | Shared draft and Settings VM tests | Group/section changes retain edits. Form and repair views share values. Close retains edits. Cancel restores the baseline and appearance. Defaults edits only the declared four fields without writing. |
+| M1 | Shared draft and Settings VM tests | Group/section changes retain edits. Form and repair views share values. Close of the repair editor retains edits. Discard restores the baseline and appearance. Defaults edits only the declared four fields without writing. |
 | M2 | Correction command and persistence tests | Form Save uses the correction writer. Exact original backup, private permissions, atomic publication and identity checks survive. Invalid input, failed backup and external replacement retain the draft and original. |
 | M3 | Config/command tests | Missing or malformed files never become defaults. Invalid core fields reject saving. Focused correction preserves unknown values and invalid siblings. Unrelated saves remain paused. |
 | M4 | Settings/maintenance dispatch tests | Ordinary Save performs no capability check, endpoint installation, converter execution, service operation, playback or original-operation retry. Repair save keeps its accepted scoped check intent. |
 | M5 | Capability and shared editor tests | Explicit endpoint check uses the saved choice. Failed checks preserve the previous resource. Old check/save results cannot overwrite newer draft, resource or session generations. |
-| M6 | Workspace persistence coordination tests | Navigation/resize while editing causes no false revision conflict. Deferred preferences persist after checked transaction completion or orderly quit. Quit does not save the draft. External changes remain conflicts, including edits made during deferred-write admission. |
+| M6 | Workspace persistence coordination tests | Navigation/resize while editing causes no false revision conflict. Deferred preferences persist after checked transaction completion or orderly quit. Quit with a pending change asks the leave question and does not save the draft. External changes remain conflicts, including edits made during deferred-write admission. |
 | M7 | Settings VM tests | Actions carry availability and accessibility labels. Field errors and draft/saved/running facts are typed. Converter state claims only existing observations. Reports retain actual result times. |
 | M8 | Situational guard `adr_0069_shared_guarded_settings_editor` | Settings and recovery reach one transaction/persistence owner. Screens contain no persistence or validation policy. Existing maintenance worker, shared controls and named tokens remain in use. |
 | M9 | Fixture tests | Disposable setup, expected changes, preservation inspection, conflict injection and cleanup reject the wrong directory and unintended mutations. |
+| M10 | Settings VM and app tests | ADR 0093 Decisions 9 to 16: the page bar state texts, Save and Discard availability on each group, the paused Save with its cause, the mark of each changed row and tab, and the leave question before a sidebar move, End session and a window close. |
 
 V1–V4 below require the operator. Mechanical checks cannot prove visual acceptance.
 Preservation inspection and cleanup are additional acceptance requirements.
@@ -215,7 +224,7 @@ cargo build --locked --offline --quiet --bin v4vmm
 git diff --check
 ```
 
-Record exact test names and counts for M1–M9. An empty filtered selection is not proof.
+Record exact test names and counts for M1–M10. An empty filtered selection is not proof.
 Check relative documentation links. Do not perform unrelated lint cleanup.
 
 ## Rollback And Escalation
@@ -258,7 +267,7 @@ Do not touch:
 
 Acceptance criteria:
 
-- Prove M1–M9 mechanically.
+- Prove M1–M10 mechanically.
 - Prepare V1–V4 with preservation inspection and cleanup.
 - Keep the visual gate open until the operator supplies evidence.
 
@@ -300,11 +309,12 @@ No audio hardware, real publisher or public endpoint is required.
    python3 docs/runbooks/startup-recovery-fixture.py run "$settings_editor_fixture"
    ```
 
-2. **V1 — draft, defaults and Cancel.** Enter Settings with Ctrl+Comma.
-   Edit the endpoint and appearance. Visit both groups, Music, Show and Configuration repair.
+2. **V1 — draft, defaults and Discard.** Enter Settings with Ctrl+Comma.
+   Edit the endpoint and appearance. Visit both groups and Configuration repair.
    Check retained values, focus and each group's scroll position.
+   Select Music in the sidebar. The leave question must open. Select "Keep Editing".
 
-   Close/Reopen must retain edits. Cancel must restore the baseline and appearance.
+   Close/Reopen of the repair editor must retain edits. Discard must restore the baseline and appearance.
 
    Defaults must remain unsaved until Save. Include the converter override in the review.
    Unexpected writes, hidden reset scope or lost text fail this check.
