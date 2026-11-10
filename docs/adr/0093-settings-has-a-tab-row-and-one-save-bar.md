@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted - 2026-11-10. The operator accepted [musicindex ADR 0059](../../../musicindex/docs/adr/0059-settings-has-a-tab-row-and-one-save-bar.md) (musicindex `5c4375c`) on 2026-11-10, and decided that v4vmm uses the same Settings layout as Studio. The orchestrator session relayed the decision. This record applies R-SET-1 to R-SET-5 to v4vmm. Decisions 3, 6, 9, 11 and 12 are choices of the planning session. This record changes no code.
+Accepted - 2026-11-10. The operator accepted [musicindex ADR 0059](../../../musicindex/docs/adr/0059-settings-has-a-tab-row-and-one-save-bar.md) (musicindex `5c4375c`, updated in `83142d2`) on 2026-11-10, and decided that v4vmm uses the same Settings layout as Studio. The orchestrator session relayed the decision. This record applies R-SET-1 to R-SET-5 to v4vmm. Decisions 3, 6, 9 and 12 are choices of the planning session. This record changes no code.
 
 Applies: musicindex ADR 0059 R-SET-1 to R-SET-5. Uses: musicindex ADR 0051 R-SEG-1 for the tab row, and musicindex ADR 0032 R-DOT-1 for the type dot.
 
@@ -58,10 +58,10 @@ On 2026-11-10 Settings has these actions: Converter setup, Test converters and C
 
 9. The page bar shows the state of the draft, Discard and Save on each group, Diagnostics included. The state texts are those of R-SET-3 item 2: "No changes", "1 change not saved", "N changes not saved" and "Saved". Discard replaces Cancel of ADR 0069 and its task 002.
 10. The settings of the draft are UI scale, Theme, Music Index endpoint and FLAC path (ADR 0069 task 002 step 2). Use Defaults puts the default value of these four settings in the draft. It does not save.
-11. When v4vmm cannot save the draft, Save is off and the page bar gives the cause. These are the causes:
+11. When v4vmm cannot save the draft, Save is off and the page bar gives the cause (R-SET-3 item 6). These are the causes in v4vmm:
     - ADR 0066 pauses ordinary saves while a saved optional value is not correct.
     - Configuration repair has edits that are not saved (ADR 0069 task 002 step 2).
-12. A changed row shows a pencil in the accent color after its name, with the accessible name "Not saved". A tab with a pending change shows the same pencil after its label. Studio ADR 0166 item 9 uses the same mark. The mark is not the type dot.
+12. A changed row shows a pencil in the accent color after its name, with the accessible name "Not saved". A tab with a pending change shows the same pencil after its label. Studio ADR 0166 item 9 uses the same mark. The mark is not the type dot. The operator decides if the pencil becomes the shared mark of musicindex ADR 0059.
 13. The leave question opens before each of these with a pending change: a move to a different destination of the sidebar, End session, and the close of the window. The question is "Leave without saving?". It names the number of changes. The buttons are "Keep Editing" and "Discard Changes" (destructive). A change of the group or of the Diagnostics page does not ask.
 
 ### The preview (R-SET-4)
