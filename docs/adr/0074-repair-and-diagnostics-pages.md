@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented - 2026-09-18.
+Implemented - 2026-09-18. Amended 2026-11-10: [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md) supersedes the Settings group menu.
 
 The operator requested pages, smaller consistent text, predictable scrolling and
 separate action controls during ADR 0066 task 013 acceptance. This correction
@@ -57,9 +57,10 @@ Database, Configuration, Background tools, App session or Cached files. Recovery
 selects Startup, Configuration or Database. Page selection runs no command and
 retains inputs, reports, selection and reading positions.
 
-Start every Settings group with the same Settings title. Keep the group
-selector and current Diagnostics page selector in that shared header.
-Use menus for Settings groups, Diagnostics pages and recovery pages.
+[ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md) supersedes the Settings group menu and the
+shared Settings header. A segmented control below the page bar selects the
+Settings group. Keep the current Diagnostics page selector below that control.
+Use menus for Diagnostics pages and recovery pages.
 Use a menu for database tasks. Place the task selector or tool title in the
 content container's toolbar. One button at the right of that toolbar changes
 between Instructions and Report. Label the button Show report or Show

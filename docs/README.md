@@ -114,6 +114,9 @@ Current governance:
   accepted Settings groups, metadata resource selection, separate audio settings
   and selective preset snapshots. Task 001 is complete. Phase 002 prerequisites
   are met. Its task 002 packet is Ready. Later configuration formats remain gated.
+- [ADR 0093: Settings has a tab row and one Save bar](adr/0093-settings-has-a-tab-row-and-one-save-bar.md):
+  applies musicindex ADR 0059 to Settings. A segmented control selects the group,
+  each setting is one row, and one Save bar holds Save and Discard for all groups.
 
 Current plans:
 
@@ -223,8 +226,11 @@ Current implementation packets:
   complete with mechanical checks Green, [operator acceptance](runbooks/settings-foundation-check.md),
   preservation inspection and fixture cleanup
 - [ADR 0069 task 002: Shared guarded Settings editor](tasks/adr-0069-task-002-shared-guarded-editor.md):
-  Ready on 2026-09-18. Existing fields get draft, Save, Cancel, conflict preservation
-  and saved/running distinctions. Implementation has not started.
+  Ready on 2026-09-18. Existing fields get draft, Save, Discard, conflict preservation
+  and saved/running distinctions. ADR 0093 adds the Save bar, the marks and the
+  leave question. Implementation has not started.
+- [ADR 0093 task 001: Settings tab row and rows](tasks/adr-0093-task-001-settings-tab-row-and-rows.md):
+  Ready on 2026-11-10. A segmented control selects the group, and each setting is one row.
 - [ADR 0066 task 004: Optional tool isolation](tasks/adr-0066-task-004-optional-tool-isolation.md):
   implemented; operator visual acceptance, preservation inspection and fixture
   cleanup remain open. Tasks 001–003 are complete, including

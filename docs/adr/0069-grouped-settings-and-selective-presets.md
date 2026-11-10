@@ -22,7 +22,13 @@ adds no configuration format and releases no existing gate.
 The [phase plan](../plans/adr-0069-settings-presets-phase-plan.md)
 and [first packet](../tasks/archive/adr-0069-task-001-grouped-settings-foundation.md)
 separate the existing-field foundation from guarded editing, new configuration
-and playback integration. ADR 0068 remains Proposed; accepting this Settings
+and playback integration.
+
+Amended 2026-11-10 by [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md),
+which applies musicindex ADR 0059. A segmented control selects the group.
+One Save bar in the page bar holds Save and Discard for all groups.
+Discard replaces Cancel. A leave of Settings with a pending change asks the
+leave question. The draft does not stay after a leave. ADR 0068 remains Proposed; accepting this Settings
 decision does not accept its entire playback design or resume playback work.
 
 ## Context
@@ -50,9 +56,9 @@ it does not implement either lifecycle.
 ### Grouped Settings Within The Existing App Section
 
 Keep Music, Show and Settings as the three app sections. Settings has its own
-labeled group tabs and a persistent indication of the selected group. General
+labeled group tabs, a segmented control of ADR 0093, and a persistent indication of the selected group. General
 and Library use bounded scroll areas. ADR 0074 owns separate Diagnostics pages. Remember the selected group within the
-session. Changing groups or leaving Settings retains the working draft.
+session. Changing groups retains the working draft. A leave of Settings with a pending change asks the leave question of ADR 0093.
 
 Amended 2026-09-13 during ADR 0063 task 005 operator checks: retain an
 independent page scroll position for each group throughout the app session,
@@ -124,7 +130,7 @@ Do not label a recalled or merely saved setup as active on the running chain.
 
 Recall changes the draft only. Show the selected changes and validate the
 combined draft before saving. Failed validation or persistence retains the
-draft. Cancel restores the last saved draft; appearance preview, if offered,
+draft. Discard restores the last saved draft; appearance preview, if offered,
 must be reversible. Saving an invalid optional component cannot damage valid
 sibling settings or turn an unavailable tool into a startup requirement.
 
@@ -145,7 +151,7 @@ local preferences may apply without a service transition.
 
 This is the target editor contract. Task 001 only moves existing controls and
 preserves their current Save, Use Defaults and appearance-preview behavior.
-It does not claim to deliver the new transaction or Cancel behavior. Those
+It does not claim to deliver the new transaction or Discard behavior. Those
 arrive in the guarded-editor phase before new selectors or preset recall ship.
 
 ### Selective Preset Save And Recall
