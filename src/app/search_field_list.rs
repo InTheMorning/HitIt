@@ -638,7 +638,7 @@ mod tests {
         let (_input, list, _, cx) = setup(cx);
         cx.update(|_, cx| list.update(cx, |view, cx| view.send(FieldListEvent::Click, cx)));
         assert!(list_shows(&list, cx), "the empty field shows the list");
-        cx.simulate_keystrokes("down down down down down down down down down down down");
+        cx.simulate_keystrokes("down down down down down down down down down down down down");
         cx.run_until_parked();
         cx.update(|window, cx| {
             window.draw(cx).clear(cx);
@@ -648,9 +648,9 @@ mod tests {
         let vm = cx
             .update(|_, cx| list.read(cx).view_model(cx))
             .expect("the list shows");
-        assert_eq!(vm.selected, Some(10));
-        let row = &vm.rows[10];
-        assert!(row.label.starts_with("has"), "row 10 is has:");
+        assert_eq!(vm.selected, Some(11));
+        let row = &vm.rows[11];
+        assert!(row.label.starts_with("has"), "row 11 is has:");
         let row_id: &'static str = Box::leak(row.element_id.clone().into_boxed_str());
         let row_bounds = cx.debug_bounds(row_id).expect("the selected row renders");
         let list_bounds = cx
@@ -726,14 +726,14 @@ mod tests {
             });
             list.update(cx, |view, cx| view.send(FieldListEvent::Click, cx));
         });
-        // Row 8 is `is:`. `in:index` makes it unavailable.
+        // Row 9 is `is:`. `in:index` makes it unavailable.
         let unavailable = cx.update(|_, cx| {
             let vm = list.read(cx).view_model(cx).expect("the list shows");
-            !vm.rows[8].availability.is_available()
+            !vm.rows[9].availability.is_available()
         });
         assert!(unavailable);
         cx.update(|window, cx| {
-            list.update(cx, |view, cx| view.click_row(8, window, cx));
+            list.update(cx, |view, cx| view.click_row(9, window, cx));
         });
         assert_eq!(text_and_cursor(&input, cx).0, "in:index ");
         assert!(input_focused(&input, cx));
@@ -790,7 +790,7 @@ mod tests {
         let text = text_and_cursor(input, cx).0;
         let vm = cx.update(|_, cx| list.read(cx).view_model(cx));
         let vm = vm.unwrap_or_else(|| panic!("{}", list_closed_message(&text)));
-        assert_eq!(vm.rows.len(), 11, "{}", list_closed_message(&text));
+        assert_eq!(vm.rows.len(), 12, "{}", list_closed_message(&text));
         assert!(
             vm.rows
                 .iter()
@@ -837,8 +837,8 @@ mod tests {
         cx.simulate_keystrokes("tab i n d e x space");
         assert_eq!(text_and_cursor(&input, cx).0, "kind:album in:index ");
         let vm = assert_list_shows_each_field(&input, &list, cx);
-        assert!(!vm.rows[8].availability.is_available());
-        assert_eq!(vm.rows[8].label, "is:");
+        assert!(!vm.rows[9].availability.is_available());
+        assert_eq!(vm.rows[9].label, "is:");
 
         set_text(&input, "kind:", cx);
         cx.update(|window, cx| {

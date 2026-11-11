@@ -498,7 +498,7 @@ mod tests {
             .map(|info| info.token)
             .collect();
         assert_eq!(tokens, vec!["artist:"]);
-        assert_eq!(fields_with_prefix("").len(), 11);
+        assert_eq!(fields_with_prefix("").len(), 12);
     }
 
     #[test]
@@ -601,6 +601,7 @@ mod tests {
                 QueryFieldName::After,
                 QueryFieldName::Before,
                 QueryFieldName::Duration,
+                QueryFieldName::Host,
                 QueryFieldName::Is,
                 QueryFieldName::Playlist,
                 QueryFieldName::Has,

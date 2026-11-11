@@ -1,5 +1,6 @@
 //! The values of `artist:`, `release:` and `playlist:` in the field list
-//! (ADR 0087 Decision 3, packet 005).
+//! (ADR 0087 Decision 3, packet 005), and the feed hosts of the runnable
+//! example of `host:` (musicindex ADR 0062 R-QUERY-17).
 //!
 //! The Library values come from the Library tree and the playlists in
 //! memory. The `MusicIndex` names come from one `GET /v1/artist-names?from=`
@@ -24,7 +25,7 @@ use crate::api::ArtistNameRow;
 use crate::db;
 use crate::view_models::artists_everything::classify_index_artist;
 use crate::view_models::index_name_list::name_sort_key;
-use crate::view_models::library::LibraryTree;
+use crate::view_models::library::{AlbumNode, LibraryTree};
 use crate::view_models::search_query::{
     cursor_term, unquote_field_value_prefix, CursorPartial, QueryFieldName, QueryScope, SearchQuery,
 };
@@ -74,6 +75,10 @@ pub(crate) struct LibraryFieldValues {
     artists: Vec<FieldValueEntry>,
     releases: Vec<FieldValueEntry>,
     playlists: Vec<FieldValueEntry>,
+    /// The feed hosts of the Library releases. They give only the runnable
+    /// example of `host:`, and no value rows (musicindex ADR 0062
+    /// R-QUERY-17 items 2 and 3).
+    hosts: Vec<FieldValueEntry>,
 }
 
 /// The Library values with no entry. Only the tests use it.
@@ -82,6 +87,7 @@ const NO_LIBRARY_VALUES: LibraryFieldValues = LibraryFieldValues {
     artists: Vec::new(),
     releases: Vec::new(),
     playlists: Vec::new(),
+    hosts: Vec::new(),
 };
 
 impl LibraryFieldValues {
@@ -95,11 +101,9 @@ impl LibraryFieldValues {
     pub(crate) fn from_library(tree: &LibraryTree, playlists: &[db::Playlist]) -> Self {
         let mut artists: BTreeSet<&str> = BTreeSet::new();
         let mut releases: BTreeSet<&str> = BTreeSet::new();
-        let tracks = tree
-            .artists
-            .iter()
-            .flat_map(|artist| artist.albums.iter())
-            .flat_map(|album| album.tracks.iter());
+        let albums = || tree.artists.iter().flat_map(|artist| artist.albums.iter());
+        let hosts: BTreeSet<String> = albums().filter_map(AlbumNode::feed_host).collect();
+        let tracks = albums().flat_map(|album| album.tracks.iter());
         for track in tracks {
             artists.extend(track.artist_name.as_deref());
             artists.extend(track.album_artist_name.as_deref());
@@ -112,7 +116,11 @@ impl LibraryFieldValues {
             .iter()
             .map(|playlist| playlist.name.as_str())
             .collect();
-        Self::from_texts(&artists, &releases, &playlists)
+        let hosts: Vec<&str> = hosts.iter().map(String::as_str).collect();
+        Self {
+            hosts: entries(&hosts),
+            ..Self::from_texts(&artists, &releases, &playlists)
+        }
     }
 
     /// Makes the three lists from texts. Each list keeps one entry for each
@@ -124,6 +132,7 @@ impl LibraryFieldValues {
             artists: entries(artists),
             releases: entries(releases),
             playlists: entries(playlists),
+            hosts: Vec::new(),
         }
     }
 
@@ -139,6 +148,7 @@ impl LibraryFieldValues {
             QueryFieldName::Artist => (&self.artists, 0x9E37_79B9_7F4A_7C15_u64),
             QueryFieldName::Release => (&self.releases, 0xC2B2_AE3D_27D4_EB4F),
             QueryFieldName::Playlist => (&self.playlists, 0x1656_67B1_9E37_79F9),
+            QueryFieldName::Host => (&self.hosts, 0x27D4_EB2F_1656_67C5),
             _ => return None,
         };
         if list.is_empty() {
@@ -170,6 +180,7 @@ impl LibraryFieldValues {
             | QueryFieldName::After
             | QueryFieldName::Before
             | QueryFieldName::Duration
+            | QueryFieldName::Host
             | QueryFieldName::Is
             | QueryFieldName::Has => return Vec::new(),
         };
@@ -451,6 +462,45 @@ mod tests {
             texts(&values.matching(QueryFieldName::Playlist, "")),
             vec!["Friday show"]
         );
+    }
+
+    /// musicindex ADR 0062 R-QUERY-17 items 2 and 3: the runnable example of
+    /// `host:` is the host of a loaded feed URL, and `host:` has no value
+    /// rows. An album with no HTTP feed URL gives no host.
+    #[test]
+    fn musicindex_adr_0062_host_example_reads_the_loaded_feed_hosts() {
+        let album = |name: &str, feed_url: Option<&str>| AlbumNode {
+            name: name.to_owned(),
+            feed_id: None,
+            feed_guid: None,
+            feed_url: feed_url.map(str::to_owned),
+            language: None,
+            description: None,
+            image_href: None,
+            named_feeds: Vec::new(),
+            identity_facts: LocalIdentityFacts::default(),
+            metadata_facts: Box::new(FeedMetadataFacts::default()),
+            stored_values: None,
+            tracks: Vec::new(),
+        };
+        let tree = LibraryTree {
+            artists: vec![ArtistNode {
+                name: "Artist".to_owned(),
+                albums: vec![
+                    album("Hosted", Some("https://Feeds.Wavlake.com/feed/1")),
+                    album("Local", None),
+                ],
+            }],
+        };
+        let values = LibraryFieldValues::from_library(&tree, &[]);
+        for seed in 0..4 {
+            assert_eq!(
+                values.example_value(QueryFieldName::Host, seed),
+                Some("feeds.wavlake.com")
+            );
+        }
+        assert!(values.matching(QueryFieldName::Host, "").is_empty());
+        assert_eq!(library_h().example_value(QueryFieldName::Host, 0), None);
     }
 
     /// R87-5-05: `loaded` keeps the shown classes with the key prefix, one

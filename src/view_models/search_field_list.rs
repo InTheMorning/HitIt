@@ -966,7 +966,7 @@ mod tests {
     #[test]
     fn adr_0087_field_list_r87_4_01_empty_text_shows_each_field() {
         let vm = build_end("", FieldListOpening::Open).expect("the list shows");
-        assert_eq!(vm.rows.len(), 11);
+        assert_eq!(vm.rows.len(), 12);
         for (row, info) in vm.rows.iter().zip(QUERY_FIELDS.iter()) {
             assert_eq!(row.kind, FieldListRowKind::Field { field: info.name });
             assert_eq!(row.label, info.token);
@@ -1241,21 +1241,21 @@ mod tests {
             FieldListKeyOutcome::Select(2)
         );
 
-        // In `in:index `, the rows 8 to 10 (`is:`, `playlist:`, `has:`)
+        // In `in:index `, the rows 9 to 11 (`is:`, `playlist:`, `has:`)
         // are not available.
         let vm = build_at("in:index ", 9, FieldListOpening::Open).expect("the list shows");
         let at = |index| with_selected(vm.clone(), index);
         assert_eq!(
-            at(Some(7)).key(FieldListKey::Down),
+            at(Some(8)).key(FieldListKey::Down),
             FieldListKeyOutcome::Select(0)
         );
         assert_eq!(
             at(Some(0)).key(FieldListKey::Up),
-            FieldListKeyOutcome::Select(7)
+            FieldListKeyOutcome::Select(8)
         );
         assert_eq!(
             at(None).key(FieldListKey::Up),
-            FieldListKeyOutcome::Select(7)
+            FieldListKeyOutcome::Select(8)
         );
 
         let mut vm = build_end("kind:", FieldListOpening::Open).expect("the list shows");
@@ -1500,7 +1500,7 @@ mod tests {
     #[test]
     fn adr_0087_field_list_r87_8_02_each_field_after_in_index_and_a_space() {
         let vm = build_at("in:index ", 9, FieldListOpening::Open).expect("the list shows");
-        assert_eq!(vm.rows.len(), 11);
+        assert_eq!(vm.rows.len(), 12);
         for label in ["is:", "playlist:", "has:"] {
             assert_eq!(
                 row(&vm, label).availability,

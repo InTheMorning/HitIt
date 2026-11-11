@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{anyhow, Result};
+use musicindex_search::host::host_keeps_row;
 use musicindex_search::request::{index_filter_pairs, index_order_pairs, IndexOrder, IndexRun};
 use rusqlite::Connection;
 
@@ -312,7 +313,14 @@ pub(crate) fn library_track_search(
                 Some(db::LibraryClauseKind::AnyText(text.clone()))
             }
             TermKind::Field(field) => {
-                if let Some(date) = date_term(term, field) {
+                if let Some(ids) = host_track_ids(term, field, facts) {
+                    // The set already applies the `-` of the term.
+                    clauses.push(db::LibraryTrackClause {
+                        excluded: false,
+                        kind: db::LibraryClauseKind::TrackIds(ids),
+                    });
+                    None
+                } else if let Some(date) = date_term(term, field) {
                     date_terms.push(date);
                     None
                 } else {
@@ -380,6 +388,28 @@ impl DateTerm {
         };
         inside != self.excluded
     }
+}
+
+/// The tracks that one correct `host:` term keeps, else `None` (musicindex
+/// ADR 0062 R-QUERY-16). The crate rule applies the `-` of the term: a track
+/// with no feed host does not match `host:`, and `-host:` does not remove it.
+fn host_track_ids(
+    term: &QueryTerm,
+    field: &FieldTerm,
+    facts: &LibrarySearchFacts,
+) -> Option<Vec<i64>> {
+    let (QueryFieldName::Host, FieldValueState::Valid(FieldValue::Text(value))) =
+        (field.name, &field.value)
+    else {
+        return None;
+    };
+    Some(
+        facts
+            .tracks()
+            .filter(|(_, track)| host_keeps_row(value, term.excluded, track.feed_host.as_deref()))
+            .map(|(id, _)| id)
+            .collect(),
+    )
 }
 
 /// The date term of a correct `after:` or `before:` field, else `None`.
@@ -2876,6 +2906,37 @@ mod adr_0087_index_fields_tests {
         assert!(!pairs.iter().any(|(key, _)| key == "q"));
     }
 
+    /// musicindex ADR 0062 R-QUERY-15: each `-host:` term is one `not_host`
+    /// value, and `host:` reaches each of the three types.
+    #[test]
+    fn musicindex_adr_0062_host_terms_reach_host_and_not_host() {
+        let requests = run(
+            &sent("night -host:a.com -host:b.com"),
+            Arc::new(|_: &str| (200, empty_search())),
+            3,
+        );
+        assert_eq!(types(&requests), ["feed", "track", "publisher"]);
+        for (path, pairs) in &requests {
+            let excluded: Vec<&str> = pairs
+                .iter()
+                .filter(|(key, _)| key == "not_host")
+                .map(|(_, value)| value.as_str())
+                .collect();
+            assert_eq!(excluded, ["a.com", "b.com"], "{path}");
+            assert!(has(pairs, "q", "night"), "{path}");
+        }
+
+        let requests = run(
+            &sent("host:wavlake.com"),
+            Arc::new(|_: &str| (200, empty_search())),
+            3,
+        );
+        assert_eq!(types(&requests), ["feed", "track", "publisher"]);
+        for (path, pairs) in &requests {
+            assert!(has(pairs, "host", "wavlake.com"), "{path}");
+        }
+    }
+
     /// R87-11-13: an exclusion of a word goes to `not_q`, and each Index
     /// request holds `q` for the word.
     #[test]
@@ -3149,15 +3210,20 @@ mod adr_0087_library_fields_tests {
 
     /// One recorded feed with its stated release kind.
     fn feed(conn: &Connection, title: &str, stated_kind: Option<&str>) -> anyhow::Result<i64> {
-        conn.execute(
-            "INSERT INTO feeds (feed_url, title, extra_json) VALUES (?1, ?2, '{}')",
-            rusqlite::params![format!("https://example.test/{title}.xml"), title],
-        )?;
-        let id = conn.last_insert_rowid();
+        let id = feed_at(conn, title, &format!("https://example.test/{title}.xml"))?;
         if let Some(kind) = stated_kind {
             KINDS.with(|kinds| kinds.borrow_mut().insert(id, kind.to_owned()));
         }
         Ok(id)
+    }
+
+    /// One recorded feed at `feed_url`.
+    fn feed_at(conn: &Connection, title: &str, feed_url: &str) -> anyhow::Result<i64> {
+        conn.execute(
+            "INSERT INTO feeds (feed_url, title, extra_json) VALUES (?1, ?2, '{}')",
+            rusqlite::params![feed_url, title],
+        )?;
+        Ok(conn.last_insert_rowid())
     }
 
     thread_local! {
@@ -3191,24 +3257,30 @@ mod adr_0087_library_fields_tests {
         }
         let albums = albums
             .into_iter()
-            .map(|(feed_id, tracks)| AlbumNode {
-                name: format!("feed {feed_id}"),
-                feed_id: Some(feed_id),
-                feed_guid: None,
-                feed_url: None,
-                language: None,
-                description: None,
-                image_href: None,
-                named_feeds: Vec::new(),
-                identity_facts: LocalIdentityFacts::default(),
-                metadata_facts: Box::new(FeedMetadataFacts {
-                    release_kind: KINDS.with(|kinds| kinds.borrow().get(&feed_id).cloned()),
-                    ..FeedMetadataFacts::default()
-                }),
-                stored_values: None,
-                tracks,
+            .map(|(feed_id, tracks)| -> anyhow::Result<AlbumNode> {
+                Ok(AlbumNode {
+                    name: format!("feed {feed_id}"),
+                    feed_id: Some(feed_id),
+                    feed_guid: None,
+                    feed_url: Some(conn.query_row(
+                        "SELECT feed_url FROM feeds WHERE id = ?1",
+                        [feed_id],
+                        |row| row.get(0),
+                    )?),
+                    language: None,
+                    description: None,
+                    image_href: None,
+                    named_feeds: Vec::new(),
+                    identity_facts: LocalIdentityFacts::default(),
+                    metadata_facts: Box::new(FeedMetadataFacts {
+                        release_kind: KINDS.with(|kinds| kinds.borrow().get(&feed_id).cloned()),
+                        ..FeedMetadataFacts::default()
+                    }),
+                    stored_values: None,
+                    tracks,
+                })
             })
-            .collect();
+            .collect::<anyhow::Result<_>>()?;
         Ok(LibraryTree {
             artists: vec![ArtistNode {
                 name: "Artist".to_owned(),
@@ -3264,6 +3336,40 @@ mod adr_0087_library_fields_tests {
         assert_eq!(
             ids(&search(&conn, "needle -kind:single", &facts)?.tracks),
             vec![album_one, album_two, ep]
+        );
+        Ok(())
+    }
+
+    /// musicindex ADR 0062 R-QUERY-16: `host:` keeps a row of a feed at the
+    /// host or a subdomain, and `-host:` removes it. A row with no feed URL
+    /// host does not match `host:`, and `-host:` does not remove it.
+    #[test]
+    fn musicindex_adr_0062_host_filters_the_library_rows() -> anyhow::Result<()> {
+        let conn = setup_test_db()?;
+        let wavlake = feed_at(&conn, "W", "https://feeds.wavlake.com/feed/1")?;
+        let hosted = track(&conn, wavlake, "Needle hosted", 1, None)?;
+        let other = feed_at(&conn, "O", "https://notwavlake.com/feed.xml")?;
+        let elsewhere = track(&conn, other, "Needle elsewhere", 1, None)?;
+        let local = feed_at(&conn, "L", "local:no-host")?;
+        let no_host = track(&conn, local, "Needle local", 1, None)?;
+        let facts = facts(&conn)?;
+
+        assert_eq!(
+            ids(&search(&conn, "host:wavlake.com", &facts)?.tracks),
+            vec![hosted]
+        );
+        assert_eq!(
+            ids(&search(&conn, "needle -host:wavlake.com", &facts)?.tracks),
+            vec![elsewhere, no_host]
+        );
+        assert_eq!(
+            ids(&search(
+                &conn,
+                "needle -host:wavlake.com -host:notwavlake.com",
+                &facts
+            )?
+            .tracks),
+            vec![no_host]
         );
         Ok(())
     }
