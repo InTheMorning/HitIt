@@ -36,7 +36,7 @@ changes for v4vmm.
   parser moves to the `musicindex-search` crate, and musicindex ADR 0049 owns
   the syntax.
 - The license is Answered. Commit `78afacc` adds `LICENSE` and sets
-  `license = "AGPL-3.0-only"` in `Cargo.toml`.
+  `license = "AGPL-3.0-only"` in `Cargo.toml`. ADR 0095 records the decision.
 
 The website, v4vmm and musicindex-studio share no search code. Each has its own
 wire types, its own request code and its own result logic. The report proposes
@@ -60,10 +60,6 @@ that cause. Stophammer continues to receive only filters (ADR 0087 D5).
 
 Step 2 changes the stored contract method of ADR 0075 §6. Step 3 changes the
 owner of the parser. Each needs a v4vmm ADR.
-
-v4vmm has no `LICENSE` file and no `license` field in `Cargo.toml`. Stophammer
-and Studio are AGPL-3.0-only. The operator selects a license before v4vmm uses
-or gives shared code.
 
 ## 2. Client Findings
 
