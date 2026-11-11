@@ -1,8 +1,8 @@
 # ADR 0089 Task 016: The Now-Playing Panel
 
-Status: Waits - 2026-11-11. The operator accepted [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) on 2026-11-11. This packet waits for the ADR 0068 packets that supply the cue and the two players. Rewrite its design from ADR 0068 and its revision.
+Status: Waits - 2026-11-11. The operator accepted [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) on 2026-11-11. This packet waits for ADR 0068 packets 003 and 004, which supply the cue and the two players. Rewrite its design from ADR 0068 and its revision.
 
-Depends on: ADR 0068, and [packets 013](adr-0089-task-013-narrow-tab-bar.md) and [014](adr-0089-task-014-row-rules.md).
+Depends on: ADR 0068 [packets 003](adr-0068-task-003-show-plays-the-cue.md) and [004](adr-0068-task-004-audition-player.md), and ADR 0089 [packets 013](adr-0089-task-013-narrow-tab-bar.md) and [014](adr-0089-task-014-row-rules.md).
 
 ## Goal
 
