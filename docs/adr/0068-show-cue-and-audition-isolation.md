@@ -81,7 +81,7 @@ The operator accepted each recommendation below on 2026-11-11. Each recommendati
    - A: Show only. An audition gets its own small control, apart from the panel.
    - B: Both, in two parts with labels. The Show part has the cue entry, the transport, the seek control and Up Next. The Audition part has the track, Pause, a seek control and Stop. Each part shows only while its player plays, or while a show is live for the Show part. Each part sends only its own commands.
 
-   Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. If musicindex ADR 0027 R-SHELL-1 item 5 gives the panel only one current track, B needs a musicindex record first. The orchestrator examines that rule before packet 016 of ADR 0089.
+   Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. On 2026-11-11 the orchestrator session examined musicindex ADR 0027 R-SHELL-1 item 5. The rule does not limit the panel to one track or one player, so B needs no musicindex record. Two parts in one panel are one pane, so B also agrees with item 6.
 
 2. **What does Play on an album do?** The text below gives an audition one track, and the end of that track stops it. ADR 0089 Decision 6 makes Play the main action of an album.
    - A: Play auditions the first track only.
