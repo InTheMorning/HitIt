@@ -143,10 +143,10 @@ fn check_schema(conn: &Connection) -> Result<DatabaseReadiness, DbCheckError> {
 
 fn probe_main_database(conn: &mut Connection) -> Result<(), DbCheckError> {
     probe_with(conn, |conn, name| {
-        conn.execute_batch(&format!("CREATE TABLE main.{name}(value TEXT NOT NULL); INSERT INTO main.{name} VALUES ('v4vmm startup probe');"))?;
+        conn.execute_batch(&format!("CREATE TABLE main.{name}(value TEXT NOT NULL); INSERT INTO main.{name} VALUES ('hitit startup probe');"))?;
         let value: String =
             conn.query_row(&format!("SELECT value FROM main.{name}"), [], |r| r.get(0))?;
-        if value != "v4vmm startup probe" {
+        if value != "hitit startup probe" {
             return Err(Error::InvalidQuery);
         }
         conn.execute_batch(&format!("DROP TABLE main.{name}"))
@@ -158,7 +158,7 @@ fn probe_with(
     work: impl FnOnce(&Connection, &str) -> rusqlite::Result<()>,
 ) -> Result<(), DbCheckError> {
     let name = format!(
-        "v4vmm_startup_probe_{}_{}",
+        "hitit_startup_probe_{}_{}",
         std::process::id(),
         PROBE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     );
@@ -246,7 +246,7 @@ mod tests {
         );
         assert_eq!(
             conn.query_row(
-                "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'v4vmm_startup_probe_%'",
+                "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'hitit_startup_probe_%'",
                 [],
                 |r| r.get::<_, i64>(0)
             )

@@ -311,7 +311,7 @@ cargo check --locked --offline
 cargo clippy --locked --offline -- -D warnings
 cargo fmt -- --check
 cargo test --locked --offline
-cargo build --locked --offline --bin v4vmm
+cargo build --locked --offline --bin hitit
 python3 -B docs/runbooks/check-markdown-links.py docs/tasks/adr-0075-task-013-verified-snapshot-replacement.md
 python3 -B "$HOME/.agents/skills/asd-ste100/scripts/ste_lint.py" --check --no-heuristics docs/tasks/adr-0075-task-013-verified-snapshot-replacement.md
 ```
@@ -439,7 +439,7 @@ Storage case S11-08's production inherited-credit transition proof remains open.
 | `cargo clippy --locked --offline -- -D warnings` | Green. |
 | `cargo fmt -- --check` | Green. |
 | `cargo test --locked --offline --quiet -- --test-threads=4` | Green. 1,631 unit tests and 267 architecture guards. Ten documentation tests remain ignored. |
-| `cargo build --locked --offline --bin v4vmm` | Green after the full suite. |
+| `cargo build --locked --offline --bin hitit` | Green after the full suite. |
 | Markdown links | Green. 43 local links. |
 | `git diff --check` | Green. |
 | Shared STE checker | Exit 1. Lexical findings and one unchanged `must have` possession-form finding remain. No confirmed structural defect. |

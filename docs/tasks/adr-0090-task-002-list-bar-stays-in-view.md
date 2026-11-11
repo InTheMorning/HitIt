@@ -132,5 +132,5 @@ These criteria need a person in a desktop session. They are open.
 - `cargo test --no-fail-fast`: 2867 unit tests passed, 407 architecture tests
   passed, and 0 failed.
 - `cargo test --test architecture_tests`: 407 passed, 0 failed.
-- `cargo build --bin v4vmm`: finished.
+- `cargo build --bin hitit`: finished.
 - The app was not run. The visual list above is open.

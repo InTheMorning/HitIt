@@ -247,7 +247,7 @@ cargo check --locked --offline
 cargo clippy --locked --offline -- -D warnings
 cargo fmt -- --check
 cargo test --locked --offline -- --test-threads=4
-cargo build --locked --offline --bin v4vmm
+cargo build --locked --offline --bin hitit
 python3 -B docs/runbooks/check-markdown-links.py docs/tasks/adr-0075-task-039-feed-check-and-update-observation-retention.md
 python3 -B /home/citizen/.agents/skills/asd-ste100/scripts/ste_lint.py --check --no-heuristics docs/tasks/adr-0075-task-039-feed-check-and-update-observation-retention.md
 git diff --check
@@ -465,7 +465,7 @@ The production code needed no correction. Each item below records the measured b
 | `cargo clippy --locked --offline -- -D warnings` | Green. |
 | `cargo fmt -- --check` | Green after `cargo fmt` corrected this packet's files. |
 | `cargo test --locked --offline -- --test-threads=4` | Green. 1,650 unit tests and 269 architecture tests. Ten documentation examples stay ignored. |
-| `cargo build --locked --offline --bin v4vmm` | Green. The normal binary is newer than the test link. |
+| `cargo build --locked --offline --bin hitit` | Green. The normal binary is newer than the test link. |
 | `python3 -B docs/runbooks/check-markdown-links.py` on this packet | Green. 27 local links. |
 | `ste_lint.py --check --no-heuristics` on this packet | Lexical findings remain, as Preparation Checks records. No structural finding. |
 | `git diff --check` | Green. |

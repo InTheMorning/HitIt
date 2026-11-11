@@ -23,7 +23,7 @@ Part B gives the Releases list its "Everything" scope, with selection and downlo
 - [ADR 0062](../adr/0062-music-content-surface.md): paging. ADR 0084 replaces its three-state control.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) section 6: named request profiles, no detail read for each list row, and a defined refresh. [AGENTS.md](../../AGENTS.md) "Stored facts": replace the stored contract in the same change as the decode.
 - [ADR 0040](../adr/README.md): background work runs on the async command runner. No screen calls `cx.spawn`.
-- [Open Stophammer requests](../plans/v4vmm-open-requests.md): request 6, request 8 and "Release 0.12.0 - 2026-10-18". Stophammer ADR 0070 and ADR 0071 own the two name lists.
+- [Open Stophammer requests](../plans/hitit-open-requests.md): request 6, request 8 and "Release 0.12.0 - 2026-10-18". Stophammer ADR 0070 and ADR 0071 own the two name lists.
 - The [phase plan](../plans/adr-0084-music-column-browser-phase-plan.md): the packet 016 row, and the open finding of 2026-10-18 on ADR 0070 §4 and ADR 0085 Decision 6.
 
 ## Recorded Facts - 2026-10-20
@@ -86,11 +86,11 @@ The packet author sent 12 read-only GET requests to `https://api.musicindex.org`
 Stophammer ADR 0070 §4 puts a release on the name level in two conditions. No item names a held feed, or each link agrees on a role set without `artist`. ADR 0085 Decision 6 uses the first named feed and its confirmation.
 
 - **D-1, recorded on 2026-10-18.** An album names an agreed label first and a feed with no role second.
-  - Stophammer: not on the name level. v4vmm: name level. Stophammer ADR 0071 declined item 6 of request 8.
+  - Stophammer: not on the name level. HitIt: name level. Stophammer ADR 0071 declined item 6 of request 8.
   - On 2026-10-18, no album did this. On 2026-10-20, Sir Libre Records gives `first_named_count` 0, so it gives no such album.
   - The full check of the Checks section did not run on 2026-10-20.
 - **D-2, found on 2026-10-20.** An album names a held feed first, through a link that only the album states, with no agreed role.
-  - Stophammer: not on the name level, so no `name` row counts it. v4vmm: name level.
+  - Stophammer: not on the name level, so no `name` row counts it. HitIt: name level.
   - The feed row is in Artists only when other albums give it a `first_named_count` above 0.
   - A check needs the gap field above.
 
@@ -318,7 +318,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ### The check after each Stophammer release
@@ -404,7 +404,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result" section for the part, with the date, and an "Operator Visual Check" section for its V items. Part A owns V1 to V3, V7 and V8 for Artists. Part B owns V4 to V8 for Releases.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed
@@ -521,7 +521,7 @@ Part B is complete. Required Changes 11 to 16 and the four items that Part A mov
 | R16-19 | `adr_0084_scopes_r16_19_download_changes_the_row_in_place` |
 | R16-20 | The full `cargo test` run passes, with the tests of packets 009, 015, 018, 019 and 022 |
 
-The commands of the section "Checks" are Green. `cargo clippy --all-targets -- -D warnings` and `cargo check --all-targets` are Green. `cargo build --bin v4vmm` ran last.
+The commands of the section "Checks" are Green. `cargo clippy --all-targets -- -D warnings` and `cargo check --all-targets` are Green. `cargo build --bin hitit` ran last.
 
 ### Deviations
 
@@ -544,8 +544,8 @@ Part A owns V1 to V3, V7 and V8 for the Artists list. The gate stays open until 
 
 The check needs a desktop session, network access to `https://api.musicindex.org` and a Library with at least one artist.
 
-1. Build the binary: `cargo build --bin v4vmm`.
-2. Start the app: `target/debug/v4vmm`. Open Music.
+1. Build the binary: `cargo build --bin hitit`.
+2. Start the app: `target/debug/hitit`. Open Music.
 3. V1: click each sidebar destination.
    - Releases and Artists show "Library" and "Everything" under the list header. "Library" is selected. "Select" stays in the header of Releases.
    - Discover, Tracks, Needs attention and Playlists show no scope control.
@@ -562,7 +562,7 @@ The check needs a desktop session, network access to `https://api.musicindex.org
 8. V2 note: the "Haleen · by name" row goes in packet 017. Do not record it as a failure of this packet.
 9. V8: do steps 3 and 5 again in the Light theme and in the Dark theme. Make the window narrow until the list column is at its minimum width. The control and the row text must not be clipped.
 10. V7: close the app. Turn the network off: `nmcli networking off`.
-11. V7: start the app with `target/debug/v4vmm`. Open Artists and click "Everything".
+11. V7: start the app with `target/debug/hitit`. Open Artists and click "Everything".
     - The error row shows first: "MusicIndex did not answer the artist list request. The list shows Library artists only." Its detail names `GET /v1/artist-names`.
     - The Library rows show under it. The row has "Try again".
 12. V7: turn the network on with `nmcli networking on`. Click "Try again". The MusicIndex rows show.
@@ -579,8 +579,8 @@ Part B owns V4 to V8 for the Releases list. The gate stays open until a person d
 
 The check needs a desktop session, network access to `https://api.musicindex.org` and a Library with one or more releases. One Library release with only some tracks downloaded helps the check of the partial state.
 
-1. Build the binary: `cargo build --bin v4vmm`.
-2. Start the app: `target/debug/v4vmm`. Open Music, then open Releases.
+1. Build the binary: `cargo build --bin hitit`.
+2. Start the app: `target/debug/hitit`. Open Music, then open Releases.
 3. D13 in "Library": a release with only some tracks downloaded shows, for example, "Haleen · Album · 3 of 7 tracks". Each other Library row shows no state word.
 4. V4: click "Everything".
    - One row "Loading MusicIndex releases" shows, and no item row. Then the rows show in name order.
@@ -599,7 +599,7 @@ The check needs a desktop session, network access to `https://api.musicindex.org
 9. Click "Library". The selection clears, and selection mode ends.
 10. V8: do steps 4 and 7 again in the Light theme and in the Dark theme. Make the window narrow until the list column is at its minimum width. The control and the row text must not be clipped.
 11. V7: close the app. Turn the network off: `nmcli networking off`.
-12. V7: start the app with `target/debug/v4vmm`. Open Releases and click "Everything".
+12. V7: start the app with `target/debug/hitit`. Open Releases and click "Everything".
     - The error row shows first: "MusicIndex did not answer the release list request. The list shows Library releases only." Its detail names `GET /v1/feeds/by-name`.
     - The Library rows show under it, with their state words. The row has "Try again".
 13. V7: turn the network on with `nmcli networking on`. Click "Try again". The MusicIndex rows show.

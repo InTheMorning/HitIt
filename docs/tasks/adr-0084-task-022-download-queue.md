@@ -143,7 +143,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -186,7 +186,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V6.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed
@@ -265,7 +265,7 @@ Stop and report the problem, and do not guess, when:
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred. No test sends a request or writes a file.
 
@@ -302,7 +302,7 @@ This check needs a Linux desktop session, this checkout and a network connection
 
 The steps download audio files. The cleanup removes them.
 
-1. Build the app: `cargo build --bin v4vmm`. Then start `target/debug/v4vmm` from a desktop session.
+1. Build the app: `cargo build --bin hitit`. Then start `target/debug/hitit` from a desktop session.
 2. Open Music, then Releases, in the sidebar.
 
 ### V1: Nine releases in one batch

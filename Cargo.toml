@@ -1,5 +1,5 @@
 [package]
-name = "v4vmm"
+name = "hitit"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.97"
@@ -71,7 +71,7 @@ tokio = { version = "1", features = ["test-util"] }
 gpui-base = { git = "https://github.com/InTheMorning/gpui-kit", rev = "5463fe4e72fd740b0db08da92003488b32661867" }
 
 [[bin]]
-name = "v4vmm"
+name = "hitit"
 path = "src/main.rs"
 
 # ADR 0066 task 003: font parsing/shaping stalls debug Settings layout.

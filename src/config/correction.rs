@@ -443,7 +443,7 @@ fn artifact(destination: &Path, kind: &str) -> Result<(PathBuf, File)> {
     for _ in 0..DEFAULT_TEMP_ATTEMPTS {
         let sequence = DEFAULT_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let path = destination.with_file_name(format!(
-            ".v4vmm-config-{}-{sequence}.{kind}",
+            ".hitit-config-{}-{sequence}.{kind}",
             std::process::id()
         ));
         let mut options = OpenOptions::new();

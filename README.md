@@ -1,6 +1,6 @@
-# V4V Music Manager
+# HitIt
 
-`v4vmm` is a Linux-first GPUI desktop app for working with
+HitIt (`hitit`) is a Linux-first GPUI desktop app for working with
 MusicIndex-backed music feeds and a local managed audio library.
 
 The current tool is not a generic roadmap project or a future media player
@@ -47,7 +47,7 @@ cargo run
 
 ### Optional dependency: `flac`
 
-When a feed declares MP3 but actually ships WAV (a known RSS quirk), v4vmm
+When a feed declares MP3 but actually ships WAV (a known RSS quirk), HitIt
 silently re-encodes the download to FLAC so it can be tagged. This path shells
 out to the standard `flac` CLI. Install it via your package manager:
 
@@ -79,9 +79,9 @@ On first run the app creates a config file, then ensures the required directorie
 Default locations on Linux-style systems:
 
 ```toml
-# ~/.config/v4vmm/config.toml
+# ~/.config/hitit/config.toml
 music_dir = "/home/<user>/V4Vmusic"
-db_path = "/home/<user>/.local/share/v4vmm/v4vmm.sqlite"
+db_path = "/home/<user>/.local/share/hitit/hitit.sqlite"
 musicindex_endpoint = "https://api.musicindex.org"
 ```
 

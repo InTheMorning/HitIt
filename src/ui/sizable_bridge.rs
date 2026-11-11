@@ -1,4 +1,4 @@
-//! Bridge between v4vmm's [`crate::ui::tokens::ScaleFactor`] and
+//! Bridge between the app's [`crate::ui::tokens::ScaleFactor`] and
 //! [`gpui_component::Size`].
 //!
 //! gpui-component widgets (Button, Sidebar, Input, Table, Sheet, …) accept a

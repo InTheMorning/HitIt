@@ -31,7 +31,7 @@ The Artists list holds the confirmed artists, the unverified artists and the nam
   Each `PublisherResponse` gives `album_names_rank` (integer or null, from 1) and `remote_episode_count` (integer or null).
 - `album_names_rank` is null when `album_names_as` is null (Stophammer ADR 0069 §3a). `remote_episode_count` is null when the node holds no feed for the entry (ADR 0059 §1).
 - Stophammer declined `remote_release_kind`. Each feed stores `release_kind` `unknown`, because RSS states no album, EP or single kind.
-- The release record of the [open requests](../../plans/v4vmm-open-requests.md#release-0110---2026-10-18) gives two examples. The DETOX feed `137aaa9c-75ff-4916-9f23-e02968b2d15e` gives rank 1 on each of its 30 rows.
+- The release record of the [open requests](../../plans/hitit-open-requests.md#release-0110---2026-10-18) gives two examples. The DETOX feed `137aaa9c-75ff-4916-9f23-e02968b2d15e` gives rank 1 on each of its 30 rows.
   6 albums name two feeds. Each one gives rank 1 to the artist and rank 2 to Sir Libre Records.
 - `LibraryViewModel::artists_list` (`src/view_models/library.rs:2737`) gives one row for each `ArtistNode` of the tree, by artist text. Its secondary text is "n albums". Each row opens `DestinationListRowTarget::Artist(name)`.
 - The screen is `src/ui/shells/publisher.rs`. Its header uses `EntityKind::Publisher` (label "publisher", monogram "PB"). `src/ui/composites/thumbnail.rs:189` and `src/ui/contrast.rs` also use the publisher entity kind.

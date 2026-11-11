@@ -13,7 +13,7 @@
 //! let label = color(cx, SemanticColor::Label);
 //! ```
 //!
-//! Dark is the default appearance for v4vmm. Light values follow HIG so the
+//! Dark is the default appearance for the app. Light values follow HIG so the
 //! system can be flipped at runtime once a settings UI exists.
 
 #![warn(clippy::pedantic)]
@@ -149,12 +149,12 @@ pub enum SemanticColor {
     OnDanger,
     OnInfo,
 
-    // v4vmm-specific provenance diff colors.
+    // HitIt-specific provenance diff colors.
     DiffMatch,
     DiffDifferent,
     DiffMissing,
 
-    // v4vmm-specific ID3 frame version chips. Used as label and frame-tag
+    // HitIt-specific ID3 frame version chips. Used as label and frame-tag
     // color on metadata rows so the user can spot frame-version provenance
     // at a glance.
     Id3FrameV22,

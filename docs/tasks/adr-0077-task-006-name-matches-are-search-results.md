@@ -118,7 +118,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -174,7 +174,7 @@ Changed files:
 - `cargo test --test architecture_tests`: 283 passed, including the replaced guard (R6-07).
 - `cargo fmt -- --check`, `cargo clippy -- -D warnings`, `cargo check --all-targets`: Green, no
   warning.
-- `cargo build --bin v4vmm`: Green.
+- `cargo build --bin hitit`: Green.
 
 ### Behavior
 
@@ -219,11 +219,11 @@ states that fact, and this packet adds no paging.
 1. Build and open the desktop binary:
 
    ```bash
-   cargo build --bin v4vmm && target/debug/v4vmm
+   cargo build --bin hitit && target/debug/hitit
    ```
 
    Run this command first. A prior `cargo test` run can leave a GPUI test-support binary at
-   `target/debug/v4vmm`. This step is the only one that starts the app.
+   `target/debug/hitit`. This step is the only one that starts the app.
 2. Open Settings. Confirm the MusicIndex endpoint field holds a working endpoint.
 3. In the Music tab, type a name into the toolbar search field that MusicIndex knows by name
    text, for example "Survival Guide" or "DETOX". Submit the search.
@@ -268,7 +268,7 @@ states that fact, and this packet adds no paging.
 **Cleanup**
 
 14. Close the app window. This packet writes no file and stores no new row. No step undoes state.
-    Do not delete `/tmp/v4vmm-governance.ie6k8TQf`.
+    Do not delete `/tmp/hitit-governance.ie6k8TQf`.
 
 ## Prompt for lower-context coding model
 
@@ -312,7 +312,7 @@ Test commands:
 - `cargo fmt -- --check`
 - `cargo clippy -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 At the end, report:
 1. files changed

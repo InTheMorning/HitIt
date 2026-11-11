@@ -8,7 +8,7 @@ This task implements Decisions 1 to 7 of [ADR 0094](../adr/0094-one-fold-header.
 
 ## Goal
 
-Add one `FoldHeader` composite with the look of a list row. Move each fold header of v4vmm to it. Remove `SectionHeader::disclosure` and `DisclosureGroup`.
+Add one `FoldHeader` composite with the look of a list row. Move each fold header of HitIt to it. Remove `SectionHeader::disclosure` and `DisclosureGroup`.
 
 ## Files To Inspect
 
@@ -23,7 +23,7 @@ Add one `FoldHeader` composite with the look of a list row. Move each fold heade
 ## Scope
 
 1. Add `src/ui/composites/fold_header.rs` with `FoldHeader` and a display type. The display has the element id, the name, an optional count, the open condition and the a11y label.
-2. The header has the `ListRow` look. It starts with the chevron, then the name in Body text and the Label color, then the count (musicindex ADR 0060 R-FOLD-1 item 1). The chevron points right when closed and down when open (R-FOLD-3 item 1). Use the v4vmm chevron icon (R-FOLD-3 item 6). Nothing else changes when the fold opens.
+2. The header has the `ListRow` look. It starts with the chevron, then the name in Body text and the Label color, then the count (musicindex ADR 0060 R-FOLD-1 item 1). The chevron points right when closed and down when open (R-FOLD-3 item 1). Use the HitIt chevron icon (R-FOLD-3 item 6). Nothing else changes when the fold opens.
 3. The header is one control with the target size of musicindex ADR 0024 R-TARGET-1. It has its own Tab stop (R-FOLD-1 item 3). Enter and Space toggle the fold through the shared Button activation route. A pointer click on the header toggles the fold.
 4. The view models give the display. `group_heading_label` no longer puts the count in the name. It gives "3 unused" as the count when the number is more than 0.
 5. Move the metadata groups, the Description panels of the release page and the track page, and "How to Search" to `FoldHeader`. The "Show more" button of a Description panel stays below the text.
@@ -67,6 +67,6 @@ These criteria need a person or the agent Xvfb screenshot check. They are open u
 cargo fmt -- --check
 cargo test --locked --offline --quiet
 cargo clippy --locked --offline --quiet --all-targets -- -D warnings
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```

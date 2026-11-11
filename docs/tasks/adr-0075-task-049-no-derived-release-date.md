@@ -94,7 +94,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -131,7 +131,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 Each command is Green. `cargo test` reports 1899 passed lib tests and 283 passed
@@ -210,7 +210,7 @@ Ten tests carry the `adr_0075_release_date_` prefix or cover this packet directl
 - `compare_track_rows`'s own "RSS item pubdate" row stays in the code, for the reason stated
   above. A later packet could remove it, and the shared "RSS item pubdate" support in
   `metadata_field_group_key` and `normalized_field_compare_value`.
-- Cleanup of the evidence fixture `/tmp/v4vmm-governance.ie6k8TQf` stays unconfirmed. This is
+- Cleanup of the evidence fixture `/tmp/hitit-governance.ie6k8TQf` stays unconfirmed. This is
   unrelated to this packet.
 
 ## Operator Visual Check
@@ -221,16 +221,16 @@ desktop session and this checkout.
 The "Release date" and "Release year" rows always show their label. Only the value beside
 each label changes. A dateless track shows the label with a blank value, not a missing row.
 
-1. Close v4vmm. Build the app:
+1. Close HitIt. Build the app:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --bin v4vmm
+   cargo build --bin hitit
    ```
 2. Open your real app:
 
    ```bash
-   target/debug/v4vmm
+   target/debug/hitit
    ```
 3. Open Library or Index tracks until you find one whose page shows a value beside "Release
    date". Write down its title.
@@ -311,7 +311,7 @@ Test commands:
 - `cargo fmt -- --check`
 - `cargo clippy -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 At the end, report:
 1. files changed

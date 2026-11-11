@@ -1,6 +1,6 @@
 # App Overview
 
-`v4vmm` is a desktop app built with GPUI. It combines four systems:
+`hitit` is a desktop app built with GPUI. It combines four systems:
 
 - a local SQLite database
 - MusicIndex HTTP APIs
@@ -54,22 +54,22 @@ Saving settings updates the app state immediately and persists the values in `co
 
 ## CLI Surface
 
-Running `v4vmm` with no arguments starts the desktop UI.
+Running `hitit` with no arguments starts the desktop UI.
 
 Phase 2 now-playing commands use the configured local SQLite database and the
 default playback session:
 
 ```bash
-v4vmm now-playing --json
-v4vmm playlists list --json
-v4vmm playlist tracks <playlist-id> --json
-v4vmm library tracks --json
-v4vmm track inspect <track-id> --json
-v4vmm playlist play --dry-run <playlist-id>
-v4vmm playlist play --dry-run <playlist-id> --position <zero-based-position>
-v4vmm playback set-track <track-id>
-v4vmm playback position <ms>
-v4vmm playback stop
+hitit now-playing --json
+hitit playlists list --json
+hitit playlist tracks <playlist-id> --json
+hitit library tracks --json
+hitit track inspect <track-id> --json
+hitit playlist play --dry-run <playlist-id>
+hitit playlist play --dry-run <playlist-id> --position <zero-based-position>
+hitit playback set-track <track-id>
+hitit playback position <ms>
+hitit playback stop
 ```
 
 `playlist play --dry-run` is a preview command. It validates the selected
@@ -96,8 +96,8 @@ On startup the app:
 
 Default Linux-style paths:
 
-- config: `~/.config/v4vmm/config.toml`
-- database: `~/.local/share/v4vmm/v4vmm.sqlite`
+- config: `~/.config/hitit/config.toml`
+- database: `~/.local/share/hitit/hitit.sqlite`
 - managed music root: `~/V4Vmusic`
 
 ## Audio Scope

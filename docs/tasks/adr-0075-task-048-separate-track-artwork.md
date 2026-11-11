@@ -90,7 +90,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -106,11 +106,11 @@ This check needs a desktop session and network access to `api.musicindex.org`.
 1. Assemble the desktop binary and open it:
 
    ```bash
-   cargo build --bin v4vmm && target/debug/v4vmm
+   cargo build --bin hitit && target/debug/hitit
    ```
 
    Do this step first. A prior use of `cargo test` can keep a GPUI test-support binary at
-   `target/debug/v4vmm`. Each next step happens in the open app.
+   `target/debug/hitit`. Each next step happens in the open app.
 2. Open Settings. Make sure the MusicIndex endpoint field holds a value, and the service
    answers.
 
@@ -138,7 +138,7 @@ This check needs a desktop session and network access to `api.musicindex.org`.
 
 Color alone is not a valid difference. This check only reads pages, and it requests images
 over the network. It makes no local or database change, so it needs no cleanup step.
-Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. This check does not use it.
+Do not delete `/tmp/hitit-governance.ie6k8TQf`. This check does not use it.
 
 ## Prompt for lower-context coding model
 
@@ -181,7 +181,7 @@ Test commands:
 - `cargo fmt -- --check`
 - `cargo clippy -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 At the end, report:
 1. files changed
@@ -235,7 +235,7 @@ Each command ran at the repository root.
 - `cargo fmt -- --check`: Green.
 - `cargo clippy -- -D warnings`: Green.
 - `cargo check --all-targets`: Green. No warning appeared.
-- `cargo build --bin v4vmm`: Green.
+- `cargo build --bin hitit`: Green.
 
 ### 3. Behavior Changed
 

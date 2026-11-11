@@ -2004,7 +2004,7 @@ fn adr_0066_runtime_retry_keeps_one_host_and_independent_reports() {
     assert!(host.contains("#[cfg(debug_assertions)]"));
     let fixture = read_source(&manifest_path("src/startup/fixture.rs"));
     for required in [
-        "V4VMM_STARTUP_FIXTURE",
+        "HITIT_STARTUP_FIXTURE",
         "Fixture config mismatch",
         "Fixture binary mismatch",
     ] {
@@ -12501,16 +12501,16 @@ fn adr_0065_readiness_rows_keep_state_labels_separate_from_actions() {
     );
 }
 
-/// ADR 0059: v4vmm reads live metadata but does not publish it.
+/// ADR 0059: HitIt reads live metadata but does not publish it.
 #[test]
-fn adr_0059_v4vmm_does_not_publish_live_metadata() {
+fn adr_0059_hitit_does_not_publish_live_metadata() {
     let mut violations = Vec::new();
     for path in rust_files_under("src") {
         let source = read_source(&path);
         for (line_number, line) in code_lines(&source) {
             if line.contains("publish_live_metadata") {
                 violations.push(format!(
-                    "{}:{line_number}: ADR 0059 removes the v4vmm live metadata publish path: `{line}`",
+                    "{}:{line_number}: ADR 0059 removes the HitIt live metadata publish path: `{line}`",
                     rel_path(&path)
                 ));
             }
@@ -12541,7 +12541,7 @@ fn adr_0059_v4vmm_does_not_publish_live_metadata() {
             || line.contains("create_live_item")
         {
             violations.push(format!(
-                "src/cli.rs:{line_number}: ADR 0059 forbids broadcaster tokens in v4vmm CLI commands: `{line}`"
+                "src/cli.rs:{line_number}: ADR 0059 forbids broadcaster tokens in HitIt CLI commands: `{line}`"
             ));
         }
     }
@@ -13849,9 +13849,9 @@ fn adr_0060_music_surface_vocabulary_and_primary_filter_are_guarded() {
                 .to_string(),
         );
     }
-    if !cli_source.contains("v4vmm library tracks --json") {
+    if !cli_source.contains("hitit library tracks --json") {
         violations.push(
-            "src/cli.rs: ADR 0060 task 003 must not rename the `v4vmm library tracks` CLI contract"
+            "src/cli.rs: ADR 0060 task 003 must not rename the `hitit library tracks` CLI contract"
                 .to_string(),
         );
     }
@@ -15792,7 +15792,7 @@ fn adr_0072_gpui_base_fork_is_the_only_pinned_source_override() {
 #[test]
 fn adr_0071_selection_and_primary_stay_in_shared_owners() {
     let manifest = read_source(&manifest_path("Cargo.toml"));
-    assert!(!manifest.contains("v4vmm-text-selection"));
+    assert!(!manifest.contains("hitit-text-selection"));
     assert!(manifest.contains("gpui-component = \"=0.6.1\""));
     assert!(manifest.contains("gpui-base = \"=0.6.1\""));
     assert!(!manifest_path("vendor").exists());
@@ -19224,8 +19224,8 @@ artist and that states no role. Use "Feed" when the role is not known.
 A technical view can show the RSS name, for example `podcast:publisher`."#;
 
 /// Situational — owner: musicindex ADR 0033 R-WORD-3 and R-WORD-4, applied to
-/// v4vmm by ADR 0085 §1. The guard finds the word "publisher" in interface
-/// text (R-WORD-4 item 3) and prints the R-WORD-5 message. Its v4vmm
+/// HitIt by ADR 0085 §1. The guard finds the word "publisher" in interface
+/// text (R-WORD-4 item 3) and prints the R-WORD-5 message. Its HitIt
 /// exceptions are `FRAME_TITLE_PUBLISHER` (ADR 0085 Decision 7), which the
 /// Publisher badge label reuses, and the line marker. The service
 /// `musicindex-live-publisher` has the name "Relay sender" in interface text
@@ -19251,7 +19251,7 @@ fn adr_0085_feed_page_guard_no_interface_text_names_a_feed_publisher() {
                     violations.push(format!(
                         "{rel}:{line_number} names a feed \"publisher\" in interface text.\n\
 {ADR_0033_R_WORD_5_MESSAGE}\n\
-v4vmm ADR 0085 Decision 7: FRAME_TITLE_PUBLISHER is the one permitted constant. \
+HitIt ADR 0085 Decision 7: FRAME_TITLE_PUBLISHER is the one permitted constant. \
 The service `musicindex-live-publisher` is named \"Relay sender\" in interface text (musicindex ADR 0033 R-WORD-4 item 4). \
 A string that is not interface text ends its line with `{WORD_RULE_NOT_INTERFACE_MARKER}`."
                     ));
@@ -19262,7 +19262,7 @@ A string that is not interface text ends its line with `{WORD_RULE_NOT_INTERFACE
     }
     assert!(
         violations.is_empty(),
-        "musicindex ADR 0033 R-WORD-4 (v4vmm ADR 0085 §1) violations:\n{}",
+        "musicindex ADR 0033 R-WORD-4 (HitIt ADR 0085 §1) violations:\n{}",
         violations.join("\n")
     );
 }
@@ -19599,7 +19599,7 @@ fn adr_0075_projection_views_combine_no_fact_and_column() {
 // search row. ADR 0080 packet 006 replaced it with the Stophammer 0.18.1
 // contract on 2026-11-05, for `label` and `url_scheme_added` of a source link.
 // The Stophammer 0.19.0 contract replaced it on 2026-11-07. The release adds
-// parameters and two search row fields that v4vmm does not decode.
+// parameters and two search row fields that HitIt does not decode.
 // The live contract of Stophammer candidate v0.19.0-rc.5 (git a0c0c5a)
 // replaced it on 2026-11-08, for `newest_release_at` and `sort=date` on
 // `/v1/artist-names`.
@@ -24529,13 +24529,18 @@ fn adr_0084_task_039_readiness_and_playlists_load_off_the_ui_thread() {
         .find("fn read_broadcast_readiness_blocking")
         .expect("the actor read exists")..];
     let blocking = &blocking[..blocking.find("#[cfg(test)]").unwrap_or(blocking.len())];
+    let start = &runtime[runtime
+        .find("pub(crate) fn start(")
+        .expect("the actor start exists")..];
     assert!(
-        blocking.contains("broadcast_readiness_plan_from_config")
+        blocking.contains("plan_source(&conn)")
+            && start[..start.find("\n}").unwrap_or(start.len())]
+                .contains("broadcast_readiness_plan_from_config")
             && blocking.find(".and_then(|conn|") < blocking.find("read_files")
             && !blocking.contains("broadcast_readiness_report("),
         "ADR 0084 Decision 10 as amended 2026-10-24, task 039: the readiness actor reads \
-         files inside the database lock. Use broadcast_readiness_plan_from_config under \
-         the lock, then plan.read_files() after it."
+         files inside the database lock. Call plan_source(&conn) under the lock, then \
+         plan.read_files() after it. start() passes broadcast_readiness_plan_from_config."
     );
 }
 

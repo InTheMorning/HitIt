@@ -408,7 +408,7 @@ visible-whitespace support for V3's exact CRLF comparison.
    desktop terminal tab with a shell prompt (not the scratch `cat` reader), run:
 
    ```bash
-   selection_crlf=$(mktemp /tmp/v4vmm-selection-crlf-XXXXXX.txt)
+   selection_crlf=$(mktemp /tmp/hitit-selection-crlf-XXXXXX.txt)
    printf 'CRLF-ONE café\r\nCRLF-TWO 👩‍💻' > "$selection_crlf"
    printf '%s\n' "$selection_crlf"
    mousepad "$selection_crlf" &
@@ -585,7 +585,7 @@ not submit a search. This is a focused selection follow-up; it does not reopen
 the completed log packet or discard earlier accepted checks.
 
 The accepted fixtures were removed. For a future run, close the normal app
-and create a fresh fixture from a desktop terminal in the v4vmm root:
+and create a fresh fixture from a desktop terminal in the HitIt root:
 
 ```bash
 cargo build --locked --offline
@@ -759,7 +759,7 @@ failure; collect the native stack before attempting another correction.
    Share `resize-profile.txt`, which contains sampled symbols and call chains.
    Keep the raw `resize-perf.data` in the fixture. If recording fails, share
    the error instead of changing kernel settings. A useful profile contains
-   nonzero samples and resolved v4vmm/GPUI/Taffy symbols. Record whether CPU
+   nonzero samples and resolved hitit/GPUI/Taffy symbols. Record whether CPU
    usage subsided when the pointer stopped. This diagnostic accepts no UI gate.
 
 4. After capture, close the app normally if it responds, or use Ctrl+C in its

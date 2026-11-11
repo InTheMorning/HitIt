@@ -70,7 +70,7 @@ def setup():
         BASE["mode"](root, "session-held-command")
     (root / "log-frame-fixture").touch()
     (root / "logs").mkdir()
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     text = cfg.read_text().replace("[playback]", 'ui_scale = "medium"\ntheme_profile = "dark"\n[playback]') + '''
 [broadcast]
 selected_host = "Log frame fixture"

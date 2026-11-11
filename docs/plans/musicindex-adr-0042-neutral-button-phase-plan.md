@@ -6,7 +6,7 @@ Owner of the rules: musicindex ADR 0042 R-ACT-4 to R-ACT-6. This plan states no 
 
 ## Goal
 
-v4vmm gets the neutral button of Studio. Each button with a text label has a fill and one of four roles.
+HitIt gets the neutral button of Studio. Each button with a text label has a fill and one of four roles.
 
 ## Non-Goals
 

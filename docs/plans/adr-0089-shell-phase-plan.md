@@ -2,7 +2,7 @@
 
 ## Status
 
-Active - 2026-11-05. This plan is advisory. It states no rule. [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) owns the rules of v4vmm, and musicindex ADRs 0027 and 0028 own the shared rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#phase-7-visual-overhaul) puts this work before the new tokens.
+Active - 2026-11-05. This plan is advisory. It states no rule. [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) owns the rules of HitIt, and musicindex ADRs 0027 and 0028 own the shared rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#phase-7-visual-overhaul) puts this work before the new tokens.
 
 ## Goal
 
@@ -62,7 +62,7 @@ The [run record](../reviews/orchestrated-run-2026-11-05-shell.md) holds the deci
 
 These restate rules of `AGENTS.md`, ADR 0061 and the review practice. They create no rule.
 
-- Keep the gate Green. Run `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, then `cargo build --bin v4vmm`.
+- Keep the gate Green. Run `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, then `cargo build --bin hitit`.
 - Never run the app.
 - Delete each guard and test of a rule that the packet replaces, in the same change. A new guard is situational and cites ADR 0089. Do not weaken a guard of a rule that stays.
 - Delete the code that no path reaches after the change.

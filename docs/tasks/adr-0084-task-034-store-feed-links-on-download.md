@@ -315,7 +315,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -391,7 +391,7 @@ earlier and more often, rows that `HydrateAlbumIdentity` already knows how to wr
 | `cargo fmt` then `cargo fmt -- --check` | Green |
 | `cargo clippy --all-targets -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 ### Behavior Changed
 
@@ -470,8 +470,8 @@ opened as an album page, to exercise V3.
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 2. V1: in Music, find a `MusicIndex` single of an artist feed that already has a confirmed named

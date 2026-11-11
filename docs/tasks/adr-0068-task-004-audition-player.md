@@ -68,7 +68,7 @@ cargo fmt -- --check
 cargo test --locked --offline --quiet
 cargo test --test architecture_tests
 cargo clippy --locked --offline --quiet --all-targets -- -D warnings
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```
 

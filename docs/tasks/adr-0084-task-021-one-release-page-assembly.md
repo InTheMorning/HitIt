@@ -130,7 +130,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -180,7 +180,7 @@ Revert the commit. This packet adds no migration and no stored data.
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred.
 
@@ -226,7 +226,7 @@ This check needs a Linux desktop session and this checkout. It also needs these 
 - A Library singles group with two or more singles.
 - For V3, an Index release with a track title that has a space before or after it in the RSS. If you know no such release, record V3 as not walked. The gate then stays open.
 
-1. Build the app: `cargo build --bin v4vmm`. Then start `target/debug/v4vmm` from a desktop session.
+1. Build the app: `cargo build --bin hitit`. Then start `target/debug/hitit` from a desktop session.
 2. Open Music, then Releases, in the sidebar.
 
 ### V1: A Library release page and an Index release page
@@ -256,7 +256,7 @@ This check needs a Linux desktop session and this checkout. It also needs these 
 
 **Wrong if:** the title shows a space before it, or a title of only spaces shows an empty row title.
 
-**Cleanup:** step 9 adds one Index track to the Library. Remove it if you do not want it. Remove each playlist that the check added. Do not delete `/tmp/v4vmm-governance.ie6k8TQf`.
+**Cleanup:** step 9 adds one Index track to the Library. Remove it if you do not want it. Remove each playlist that the check added. Do not delete `/tmp/hitit-governance.ie6k8TQf`.
 
 ## Orchestrator Review - 2026-10-20
 
@@ -318,7 +318,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V3.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed

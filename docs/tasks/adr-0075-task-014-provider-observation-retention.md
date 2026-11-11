@@ -404,7 +404,7 @@ cargo test --locked --offline
 cargo check --locked --offline
 cargo clippy --locked --offline -- -D warnings
 cargo fmt -- --check
-cargo build --locked --offline --bin v4vmm
+cargo build --locked --offline --bin hitit
 python3 -B docs/runbooks/check-markdown-links.py docs/tasks/adr-0075-task-014-provider-observation-retention.md
 python3 -B /home/citizen/.agents/skills/asd-ste100/scripts/ste_lint.py --check --no-heuristics docs/tasks/adr-0075-task-014-provider-observation-retention.md
 git diff --check
@@ -569,7 +569,7 @@ The normal desktop binary was rebuilt after the final tests.
 | `cargo check --locked --offline` | 0 | Green. | `/tmp/adr0075-014-check-final.log` |
 | `cargo clippy --locked --offline -- -D warnings` | 0 | Green. | `/tmp/adr0075-014-clippy-final.log` |
 | `cargo fmt -- --check` | 0 | Green. | `/tmp/adr0075-014-format-final.log` |
-| `cargo build --locked --offline --bin v4vmm` | 0 | Green: normal desktop binary rebuilt. | `/tmp/adr0075-014-build-final.log` |
+| `cargo build --locked --offline --bin hitit` | 0 | Green: normal desktop binary rebuilt. | `/tmp/adr0075-014-build-final.log` |
 
 The focused RSS run preceded the final charset-retention correction. The final integrated run includes that correction and all RSS tests.
 The prospective desktop server passed a Python syntax check. The server and desktop procedure were not run.
@@ -695,7 +695,7 @@ The fixture uses Null playback and local HTTP responses. It requires no failed p
 1. Create the disposable fixture from the repository root.
 
    ```bash
-   cargo build --locked --offline --bin v4vmm
+   cargo build --locked --offline --bin hitit
    O14_ROOT=$(python3 -B docs/runbooks/startup-recovery-fixture.py setup)
    printf '%s\n' "$O14_ROOT"
    ```
@@ -715,7 +715,7 @@ The fixture uses Null playback and local HTTP responses. It requires no failed p
 
    root = Path(sys.argv[1]).resolve()
    manifest = json.loads((root / "fixture.json").read_text())
-   assert manifest["kind"] == "v4vmm-startup-recovery-v1"
+   assert manifest["kind"] == "hitit-startup-recovery-v1"
    assert manifest["root"] == str(root)
    database = root / "data/library.sqlite"
 
@@ -782,7 +782,7 @@ The fixture uses Null playback and local HTTP responses. It requires no failed p
 
    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
    base = f"http://127.0.0.1:{server.server_port}"
-   config = root / "config/v4vmm/config.toml"
+   config = root / "config/hitit/config.toml"
    text = config.read_text().replace(
        'musicindex_endpoint = "http://127.0.0.1:9"',
        'musicindex_endpoint = ' + json.dumps(base),

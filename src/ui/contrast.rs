@@ -100,7 +100,7 @@ pub struct ContrastPair {
     pub note: &'static str,
 }
 
-/// Every text-on-surface or graphic-on-surface combination v4vmm uses.
+/// Every text-on-surface or graphic-on-surface combination that the app uses.
 /// Add a new entry whenever a primitive renders a new token pairing.
 pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     // ADR 0084 Decision 10: the selection checkbox and the keyboard focus

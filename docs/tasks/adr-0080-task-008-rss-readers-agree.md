@@ -22,7 +22,7 @@ The subscribe reader and the enrichment reader give one track number and one art
 
 - `find_ext_attr` returns the first `podcast:image`, with no check of `purpose`.
 - The Studio corpus holds `purpose` values `artwork`, `banner`, `icon` and `social`. Studio models only the `href` of a `podcast:image`, and a read keeps each other attribute.
-- A feed with only `itunes:episode` gives no track number in v4vmm. The same feed gives a track number from the API.
+- A feed with only `itunes:episode` gives no track number in HitIt. The same feed gives a track number from the API.
 
 ## Required Changes
 
@@ -58,7 +58,7 @@ Visual, listed apart, for the operator to walk:
 
 ## Operator Visual Check
 
-1. In a desktop session, run `cargo run --bin v4vmm`.
+1. In a desktop session, run `cargo run --bin hitit`.
 2. Subscribe to a test feed with `<podcast:image purpose="banner" href="...">` before its `itunes:image`. Use a feed that you host, because the feed needs this exact sequence.
 3. Open its release page.
 4. Wrong: the page shows the banner as the cover.
@@ -76,7 +76,7 @@ Cleanup: remove the test subscription from the Library.
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 ## Report
 

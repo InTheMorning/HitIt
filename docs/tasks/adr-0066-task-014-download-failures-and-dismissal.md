@@ -81,7 +81,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -91,7 +91,7 @@ Revert the working tree. This packet adds no migration and no stored data.
 ## Operator Visual Check
 
 This procedure covers V1 to V3. It uses a copy of the database and its own configuration. It does not write the real Library.
-Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. Color alone is not a valid difference.
+Do not delete `/tmp/hitit-governance.ie6k8TQf`. Color alone is not a valid difference.
 
 ### What You Need
 
@@ -103,19 +103,19 @@ Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. Color alone is not a valid diffe
 
 ### Make The Fixture
 
-1. Close v4vmm. The command `pgrep -a v4vmm` must show no output.
+1. Close HitIt. The command `pgrep -a hitit` must show no output.
 2. Build the desktop binary:
 
    ```bash
-   cd /home/citizen/build/v4vmm && cargo build --bin v4vmm
+   cd /home/citizen/build/v4vmm && cargo build --bin hitit
    ```
 
 3. Make the fixture directory, the database copy and the configuration. The configuration sets its own `db_path` and `music_dir`, and no `flac_path`. Corrected on 2026-10-07: the app rejects `flac_path = false` as a setup issue that pauses configuration saves (ADR 0066).
 
    ```bash
-   FX=$(mktemp -d /tmp/v4vmm-task014.XXXXXX)
-   CFG="${XDG_CONFIG_HOME:-$HOME/.config}/v4vmm/config.toml"
-   mkdir -p "$FX/config/v4vmm" "$FX/data" "$FX/cache" "$FX/music"
+   FX=$(mktemp -d /tmp/hitit-task014.XXXXXX)
+   CFG="${XDG_CONFIG_HOME:-$HOME/.config}/hitit/config.toml"
+   mkdir -p "$FX/config/hitit" "$FX/data" "$FX/cache" "$FX/music"
    REAL_DB=$(python3 -c 'import os,sys,tomllib; print(os.path.expanduser(tomllib.load(open(sys.argv[1],"rb"))["db_path"]))' "$CFG")
    sqlite3 "$REAL_DB" ".backup '$FX/app.sqlite'"
    python3 - "$CFG" "$FX" <<'EOF'
@@ -124,10 +124,10 @@ Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. Color alone is not a valid diffe
    keep = [line for line in open(source).read().splitlines()
            if not re.match(r"\s*(music_dir|db_path|flac_path)\s*=", line)]
    head = [f'music_dir = "{fx}/music"', f'db_path = "{fx}/app.sqlite"']
-   open(f"{fx}/config/v4vmm/config.toml", "w").write("\n".join(head + keep) + "\n")
+   open(f"{fx}/config/hitit/config.toml", "w").write("\n".join(head + keep) + "\n")
    EOF
    PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
-   fx_run() { ( export XDG_CONFIG_HOME="$1/config" XDG_DATA_HOME="$1/data" XDG_CACHE_HOME="$1/cache"; shift; /home/citizen/build/v4vmm/target/debug/v4vmm "$@" ) }
+   fx_run() { ( export XDG_CONFIG_HOME="$1/config" XDG_DATA_HOME="$1/data" XDG_CACHE_HOME="$1/cache"; shift; /home/citizen/build/v4vmm/target/debug/hitit "$@" ) }
    ```
 
    The Python command closes its socket when it stops. Thus nothing listens on `$PORT`.
@@ -166,12 +166,12 @@ Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. Color alone is not a valid diffe
 
 ### V2: A Successful Download Supersedes The Failed Conversion
 
-1. Make the conversion fail. Close the app. Add `flac_path = "/nonexistent/v4vmm-no-flac"` to `$FX/config/v4vmm/config.toml`, and start the app again.
+1. Make the conversion fail. Close the app. Add `flac_path = "/nonexistent/hitit-no-flac"` to `$FX/config/hitit/config.toml`, and start the app again.
    The conversion falls back to `ffmpeg`. If `command -v ffmpeg` prints a path, put a failing `ffmpeg` first on `PATH` for the fixture app only:
 
    ```bash
    mkdir -p "$FX/bin"; printf '#!/bin/sh\nexit 1\n' > "$FX/bin/ffmpeg"; chmod +x "$FX/bin/ffmpeg"
-   ( export PATH="$FX/bin:$PATH" XDG_CONFIG_HOME="$FX/config" XDG_DATA_HOME="$FX/data" XDG_CACHE_HOME="$FX/cache"; /home/citizen/build/v4vmm/target/release/v4vmm )
+   ( export PATH="$FX/bin:$PATH" XDG_CONFIG_HOME="$FX/config" XDG_DATA_HOME="$FX/data" XDG_CACHE_HOME="$FX/cache"; /home/citizen/build/v4vmm/target/release/hitit )
    ```
 
    Search the Index for "Delta OG". Download the feed.
@@ -185,9 +185,9 @@ Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. Color alone is not a valid diffe
 
 ### Cleanup
 
-1. Close the fixture app. The command `pgrep -a v4vmm` must show no output.
+1. Close the fixture app. The command `pgrep -a hitit` must show no output.
 2. Delete the fixture: `rm -rf "$FX"`. The real configuration and the real database did not change.
-3. Do not delete `/tmp/v4vmm-governance.ie6k8TQf`.
+3. Do not delete `/tmp/hitit-governance.ie6k8TQf`.
 
 ## Prompt for lower-context coding model
 
@@ -255,7 +255,7 @@ Stop and report the problem, and do not guess, when:
 - A temporary change disabled each fix in turn. With that change, the tests for R66-14-01, 03, 04, 05 and 06 failed. The single-track test also failed. R66-14-02 passed before and after the change, because it proves that the conversion behavior stays the same.
 - `cargo test`: 1800 library tests and 289 architecture tests, Green.
 - `cargo test --test architecture_tests`, `cargo fmt -- --check`, `cargo clippy -- -D warnings` and `cargo check --all-targets`: Green, with no warning.
-- `cargo build --bin v4vmm`: Green.
+- `cargo build --bin hitit`: Green.
 
 ### 3. Behavior Changed
 

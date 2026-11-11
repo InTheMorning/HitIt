@@ -11,7 +11,7 @@ ADR disagree, the ADR wins.
 
 ## Purpose
 
-Record the product-owner intent for v4vmm's curator interface before more UI
+Record the product-owner intent for HitIt's curator interface before more UI
 packets are implemented. Future UI work must translate this brief into view
 models, shared primitives, composites, tokens, screen wiring, and regression
 guards. The product owner is not expected to specify layout, padding,
@@ -35,7 +35,7 @@ runtime code.
 
 ## Product Positioning
 
-v4vmm is a Linux-first music curation and show-production app for Value4Value
+HitIt is a Linux-first music curation and show-production app for Value4Value
 music. It should feel like a calm creative/professional tool for curators, not
 like a database console.
 
@@ -81,18 +81,18 @@ keep that collection ready, and use it to prepare and run a show.
 1. The curator sees new releases and, later, online playlists from other
    curators.
 2. The curator takes desirable tracks into the collection.
-3. v4vmm downloads the audio, combines the actual file with artwork and
+3. HitIt downloads the audio, combines the actual file with artwork and
    metadata, and calls attention to ID3, file, download, or metadata problems.
 4. The curator inspects or compares provenance only when needed.
 5. The curator chooses a production mode.
-6. v4vmm runs a mode-aware preflight check.
+6. HitIt runs a mode-aware preflight check.
 7. If the show is live, the curator updates the RSS feed for live broadcast and
    podpings only after the feed is valid.
-8. During the show, v4vmm visually confirms service health and listener-facing
+8. During the show, HitIt visually confirms service health and listener-facing
    now-playing metadata.
 9. During non-song blocks, now-playing shows the episode's default metadata,
    value block, and artwork.
-10. After the show stops, v4vmm shows the artifacts needed to package the
+10. After the show stops, HitIt shows the artifacts needed to package the
     recorded episode, including the butt recording and reconstructed value time
     split data.
 
@@ -100,7 +100,7 @@ keep that collection ready, and use it to prepare and run a show.
 
 All production modes are first-class peers:
 
-- Live show with built-in v4vmm/`mpv` playlists.
+- Live show with built-in hitit/`mpv` playlists.
 - Live show with Mixxx.
 - Private or pre-recorded capture for later packaging.
 
@@ -117,10 +117,10 @@ monitoring, and post-show affordances.
 
 ### Mixxx Live Mode
 
-- Mixxx, `mixxx-now-playing`, `musicindex-live-publisher`, and v4vmm handoff
+- Mixxx, `mixxx-now-playing`, `musicindex-live-publisher`, and HitIt handoff
   health matter.
 - Built-in playlist readiness is irrelevant.
-- The curator likely stays in Mixxx and glances at v4vmm for confirmation.
+- The curator likely stays in Mixxx and glances at HitIt for confirmation.
 
 ### Private Or Pre-Recorded Capture Mode
 
@@ -219,9 +219,9 @@ blockers exist, and the UI must name the blocker in curator-facing language.
 
 ## Live Console
 
-During a live show, v4vmm should function as a command center and confidence
+During a live show, HitIt should function as a command center and confidence
 display. It may run on the primary monitor or on a second monitor. A Mixxx user
-may interact with Mixxx most of the time and glance at v4vmm for confirmation.
+may interact with Mixxx most of the time and glance at HitIt for confirmation.
 
 The live surface should keep these visible:
 
@@ -256,7 +256,7 @@ The recovery surface should:
 
 ## Post-Show Packaging
 
-After the episode stops, v4vmm should show the information and artifacts needed
+After the episode stops, HitIt should show the information and artifacts needed
 to package the recorded episode:
 
 - butt's recorded MP3;
@@ -266,7 +266,7 @@ to package the recorded episode:
 
 This is future architecture work after the broadcast control surface. The
 timeline owner is expected to be `musicindex-live-publisher`, because the chain
-must operate when v4vmm is closed.
+must operate when HitIt is closed.
 
 ## Information Hierarchy
 
@@ -343,9 +343,9 @@ operations require stronger caution than removing a track from the collection.
 ## Screen And Input Context
 
 - Normal curation uses a large or maximized window.
-- v4vmm may run on a primary monitor or a second monitor.
+- HitIt may run on a primary monitor or a second monitor.
 - During a live Mixxx workflow, the curator may stay in Mixxx and glance at
-  v4vmm with little interaction.
+  HitIt with little interaction.
 - Interaction is mouse/trackpad-first.
 - Start with only common and intuitive keyboard shortcuts, such as search
   focus, until real workflow demand proves more are needed.
@@ -419,7 +419,7 @@ Required follow-up documentation before implementation:
   architecture docs and needs an ADR only if it changes playback-driver
   ownership, now-playing semantics, or live-safety behavior.
 - Private/non-live capture mode needs documentation in
-  `musicindex-live-publisher` first, then corresponding v4vmm ADR/task updates
+  `musicindex-live-publisher` first, then corresponding HitIt ADR/task updates
   after the contract exists.
 - Post-show packaging remains future architecture work after ADR 0059. It
   should build on the existing broadcast recording and feed-publishing research.
@@ -433,7 +433,7 @@ Required follow-up documentation before implementation:
 - What is the minimum useful show-history statistic set: last played, play
   count, show list, or time-window warnings?
 - Which parts of private capture belong in `musicindex-live-publisher` versus
-  v4vmm?
+  HitIt?
 - Which visual smoke fixtures should become canonical for `Discover`,
   `Collection`, and `Show`?
 

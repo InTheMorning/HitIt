@@ -42,7 +42,7 @@ Visual, listed apart, for the operator to walk:
 
 ## Operator Visual Check
 
-1. Close v4vmm. Start `~/build/v4vmm/target/release/v4vmm`.
+1. Close HitIt. Start `~/build/v4vmm/target/release/hitit`.
 2. Wait for the button in the left sidebar. Click **Update n files**.
 3. Wrong: "To be in Nashville" or "The Wait Is Over" shows a frame with `file: no value` that `exiftool -a -G1 -s FILE` shows in the file.
 4. Click **Cancel**.
@@ -59,4 +59,4 @@ A write with an earlier version possibly removed frames from a file. If no sourc
 - `cargo test`
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`

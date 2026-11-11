@@ -109,7 +109,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -238,7 +238,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ### Behavior Changed
@@ -306,7 +306,7 @@ cargo build --bin v4vmm
 - This is the existing behavior of every `musicindex`-sourced fact in
   `identity_ingest::feed_metadata_facts_by_source`, for example `release_date` itself. This
   packet does not change that behavior.
-- Cleanup of the evidence fixture `/tmp/v4vmm-governance.ie6k8TQf` stays unconfirmed. This is
+- Cleanup of the evidence fixture `/tmp/hitit-governance.ie6k8TQf` stays unconfirmed. This is
   unrelated to this packet.
 
 ## Operator Visual Check
@@ -315,16 +315,16 @@ This check reads the app only. It writes no tag and no file, and it needs no fix
 a Linux desktop session and this checkout. Each shown date carries its source name in
 parentheses, `(RSS)` or `(MusicIndex)`.
 
-1. Close v4vmm. Build the app:
+1. Close HitIt. Build the app:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --bin v4vmm
+   cargo build --bin hitit
    ```
 2. Open your real app:
 
    ```bash
-   target/debug/v4vmm
+   target/debug/hitit
    ```
 3. Open album pages in Library and Index. Find one that shows a "Published" fact and a
    "First track published" fact. Write down its title.

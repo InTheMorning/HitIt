@@ -7,7 +7,7 @@
 //! DisclosureGroup("Label", isExpanded: $expanded) { body }
 //! ```
 //!
-//! v4vmm uses this exclusively for headers today (the body is rendered
+//! The app uses this exclusively for headers today (the body is rendered
 //! conditionally by the screen below the header), so the composite
 //! exposes only the header. Clicking the entire row fires the
 //! `on_toggle` callback. The row is fully wrapped as a stateful

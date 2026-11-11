@@ -24,7 +24,7 @@ The compare grid shows each relation type while the lookup result is open.
 - Thus a release lookup gives no official homepage. The homepage is a relation of the release group. The same lookup gives it when `inc` also holds `release-group-level-rels`. That adds no request.
 - An artist official homepage needs an artist lookup, which is a new request. This packet does not send it.
 - A license relation is a relation of the release.
-- v4vmm stores no MusicBrainz lookup result. The operator can clear the Library and download again, so this packet converts no earlier file.
+- HitIt stores no MusicBrainz lookup result. The operator can clear the Library and download again, so this packet converts no earlier file.
 
 ## Required Changes
 
@@ -107,7 +107,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -202,7 +202,7 @@ Each command in "Checks" is Green.
 - `cargo fmt -- --check`: Green.
 - `cargo clippy -- -D warnings`: Green.
 - `cargo check --all-targets`: Green, with no warning.
-- `cargo build --bin v4vmm`: Green.
+- `cargo build --bin hitit`: Green.
 
 ### Behavior Changed
 
@@ -239,7 +239,7 @@ guard's existing stripping rule already excludes that block. Every other real-fi
   wired to it. Only the Library track-detail screen applies staged MusicBrainz edits today. This
   predates this packet and is unrelated to it. The Operator Visual Check below uses the Library screen
   for this reason.
-- Cleanup of the evidence fixture `/tmp/v4vmm-governance.ie6k8TQf` stays unconfirmed. This is
+- Cleanup of the evidence fixture `/tmp/hitit-governance.ie6k8TQf` stays unconfirmed. This is
   unrelated to this packet, as the standing note in `AGENTS.md` records.
 
 ## Operator Visual Check
@@ -251,11 +251,11 @@ This check needs a Linux desktop session, this checkout, network access to `musi
 music folder starts empty and gains only the one test file this check copies into it. No step writes to
 or copies into the real music folder.
 
-1. Close v4vmm. Build the app:
+1. Close HitIt. Build the app:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --bin v4vmm
+   cargo build --bin hitit
    ```
 
 2. Open the real app, read-only, in Library. Open track pages until you find one with a local file
@@ -272,12 +272,12 @@ or copies into the real music folder.
    empty:
 
    ```bash
-   gate_dir=$(mktemp -d /tmp/v4vmm-adr-0080-task-002.XXXXXXXX)
+   gate_dir=$(mktemp -d /tmp/hitit-adr-0080-task-002.XXXXXXXX)
    python3 -c 'import json, os, pathlib, sqlite3, sys, tomllib
 root = pathlib.Path(sys.argv[1]).resolve()
-source = pathlib.Path(os.environ.get("XDG_CONFIG_HOME", str(pathlib.Path.home()/".config")))/"v4vmm/config.toml"
+source = pathlib.Path(os.environ.get("XDG_CONFIG_HOME", str(pathlib.Path.home()/".config")))/"hitit/config.toml"
 cfg = tomllib.loads(source.read_text())
-target = root/"config/v4vmm"
+target = root/"config/hitit"
 target.mkdir(parents=True)
 (root/"music").mkdir()
 src = sqlite3.connect(pathlib.Path(cfg["db_path"]).resolve().as_uri()+"?mode=ro", uri=True, timeout=5)
@@ -296,7 +296,7 @@ print("Fixture database copy ready:", root)' "$gate_dir"
    fixture's music folder only, at its stored relative path:
 
    ```bash
-   real_music=$(sed -n 's/^music_dir = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   real_music=$(sed -n 's/^music_dir = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    p=$(sqlite3 "$gate_dir/app.sqlite" "SELECT path FROM local_files WHERE track_id = $T;")
    case "$p" in /*) real_f="$p" ;; *) real_f="$real_music/$p" ;; esac
    mkdir -p "$(dirname "$gate_dir/music/$p")"
@@ -313,7 +313,7 @@ print("Fixture database copy ready:", root)' "$gate_dir"
      export XDG_CONFIG_HOME="$gate_dir/config"
      export XDG_DATA_HOME="$gate_dir/data"
      export XDG_CACHE_HOME="$gate_dir/cache"
-     target/debug/v4vmm
+     target/debug/hitit
    )
    ```
 
@@ -389,7 +389,7 @@ print("Fixture database copy ready:", root)' "$gate_dir"
     rm -rf "$gate_dir"
     ```
 
-    Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. It is a separate, unrelated fixture.
+    Do not delete `/tmp/hitit-governance.ie6k8TQf`. It is a separate, unrelated fixture.
 
 ## Prompt for lower-context coding model
 
@@ -433,7 +433,7 @@ Test commands:
 - `cargo fmt -- --check`
 - `cargo clippy -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 At the end, report:
 1. files changed
@@ -454,6 +454,6 @@ The operator check uses the isolated fixture of packet 001, and its cleanup remo
 
 The orchestrator records three findings. None blocks this packet:
 
-- `TXXX:LICENSE` holds more than one license as one joined text value. Picard writes one ID3v2.4 value for each URL. The joined value is the present v4vmm form for each multi-value `TXXX` frame.
+- `TXXX:LICENSE` holds more than one license as one joined text value. Picard writes one ID3v2.4 value for each URL. The joined value is the present HitIt form for each multi-value `TXXX` frame.
 - The guard `adr_0076_route_readiness_route_frame_writes_read_the_stored_route` reads `src/discover/tests.rs` as production code, because that file has no `mod tests` block. The implementer moved one test to avoid a false result. The guard needs a correction in its own change.
 - `apply_pending_id3_edits` in `src/discover/app_impl.rs` has no live caller. It belongs to the parked discover code of the ADR 0077 phase plan finding.

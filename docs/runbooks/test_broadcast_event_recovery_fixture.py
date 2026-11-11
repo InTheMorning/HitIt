@@ -20,7 +20,7 @@ SPEC.loader.exec_module(fixture)
 
 class RecoveryFixtureTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix="v4vmm-task017-test.")
+        self.directory = tempfile.TemporaryDirectory(prefix="hitit-task017-test.")
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -75,7 +75,7 @@ class RecoveryFixtureTests(unittest.TestCase):
 
     def test_target_scope_command_uses_saved_choice_without_changing_registry_or_tokens(self):
         self.store_events()
-        preserved = [self.root / "app.sqlite", self.root / "config/v4vmm/config.toml",
+        preserved = [self.root / "app.sqlite", self.root / "config/hitit/config.toml",
                      *self.root.glob("*.token")]
         before = {path: path.read_bytes() for path in preserved}
         result = subprocess.run([sys.executable, str(SCRIPT), "target-scope", str(self.root)],
@@ -111,7 +111,7 @@ class RecoveryFixtureTests(unittest.TestCase):
                         with sqlite3.connect(database) as conn:
                             conn.execute("DELETE FROM broadcast_events WHERE event_id = ?", (absent,))
                     if case == "wrong_config":
-                        (self.root / "config/v4vmm/config.toml").write_text('db_path = "/wrong.sqlite"')
+                        (self.root / "config/hitit/config.toml").write_text('db_path = "/wrong.sqlite"')
                 before = (self.root / "targets.json").read_bytes()
                 result = subprocess.run([sys.executable, str(SCRIPT), "target-scope", str(self.root)],
                                         capture_output=True, text=True)

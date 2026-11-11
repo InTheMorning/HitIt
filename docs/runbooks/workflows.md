@@ -132,9 +132,9 @@ Use readiness repair when a downloaded library track lacks the embedded
 `TXXX:MusicIndex Value Routes` tag.
 
 ```bash
-v4vmm broadcast readiness --json
-v4vmm broadcast repair-routes --json
-v4vmm broadcast repair-routes <track-id> --json
+hitit broadcast readiness --json
+hitit broadcast repair-routes --json
+hitit broadcast repair-routes <track-id> --json
 ```
 
 `repair-routes` fetches MusicIndex track detail with `payment_routes` included,
@@ -171,8 +171,8 @@ immediately, and no audio process is started or controlled.
 Use dry-run to inspect the JSON that a playlist row would produce:
 
 ```bash
-v4vmm playlist play <playlist-id> --dry-run
-v4vmm playlist play <playlist-id> --dry-run --position <zero-based-position>
+hitit playlist play <playlist-id> --dry-run
+hitit playlist play <playlist-id> --dry-run --position <zero-based-position>
 ```
 
 Dry-run validates that the selected track has a local file binding and a feed
@@ -185,14 +185,14 @@ Use `playlist play` without `--dry-run` to persist the selected playlist row as
 the default playback session.
 
 ```bash
-v4vmm playlist play <playlist-id>
-v4vmm playlist play <playlist-id> --position <zero-based-position>
-v4vmm playback next
-v4vmm playback previous
-v4vmm playback pause
-v4vmm playback resume
-v4vmm playback stop
-v4vmm now-playing --json
+hitit playlist play <playlist-id>
+hitit playlist play <playlist-id> --position <zero-based-position>
+hitit playback next
+hitit playback previous
+hitit playback pause
+hitit playback resume
+hitit playback stop
+hitit now-playing --json
 ```
 
 `next` and `previous` move inside the playlist stored on the current playback
@@ -207,12 +207,12 @@ Use lower-level playback commands when a loose track should become the current
 session state:
 
 ```bash
-v4vmm playback set-track <track-id>
-v4vmm playback position <ms>
-v4vmm playback pause
-v4vmm playback resume
-v4vmm playback stop
-v4vmm now-playing --json
+hitit playback set-track <track-id>
+hitit playback position <ms>
+hitit playback pause
+hitit playback resume
+hitit playback stop
+hitit now-playing --json
 ```
 
 `set-track` validates the same source facts as dry-run, then persists the
@@ -253,7 +253,7 @@ after timeout. `Drop` is only best-effort cleanup.
 Use the player ping debug command to validate the configured backend:
 
 ```bash
-v4vmm player ping
+hitit player ping
 ```
 
 Playback config defaults to session-only behavior:
@@ -274,10 +274,10 @@ to `https://api.musicindex.org`. Configure that endpoint before creating a
 local test event.
 
 ```bash
-v4vmm broadcast events list --json
-v4vmm broadcast events create --json --label "Sunday set"
-v4vmm broadcast events check <event-id> --json
-v4vmm broadcast events forget <event-id>
+hitit broadcast events list --json
+hitit broadcast events create --json --label "Sunday set"
+hitit broadcast events check <event-id> --json
+hitit broadcast events forget <event-id>
 ```
 
 `create` calls the relay, writes the broadcaster token to a local file with mode
@@ -292,8 +292,8 @@ Use the live item probes when you need to test relay health or inspect the
 latest listener-visible metadata for a known event:
 
 ```bash
-v4vmm liveitem health [--endpoint <url>]
-v4vmm liveitem latest <event-id> --json [--endpoint <url>]
+hitit liveitem health [--endpoint <url>]
+hitit liveitem latest <event-id> --json [--endpoint <url>]
 ```
 
 ## CLI Debug Workflow
@@ -302,10 +302,10 @@ The CLI exposes structured JSON inspection commands for backend state. These
 commands are intended for debugging, scripts, and future UI contract checks.
 
 ```bash
-v4vmm playlists list --json
-v4vmm playlist tracks <playlist-id> --json
-v4vmm library tracks --json
-v4vmm track inspect <track-id> --json
+hitit playlists list --json
+hitit playlist tracks <playlist-id> --json
+hitit library tracks --json
+hitit track inspect <track-id> --json
 ```
 
 `track inspect` uses the canonical local track identity service. It requires a

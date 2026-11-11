@@ -72,7 +72,7 @@ impl RuntimeHost {
         Self::build_in_session(session, || {
             Builder::new_multi_thread()
                 .enable_all()
-                .thread_name("v4vmm-runtime")
+                .thread_name("hitit-runtime")
                 .build()
         })
     }

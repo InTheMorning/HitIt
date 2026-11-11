@@ -2666,7 +2666,7 @@ fn adr_0053_r9_relevance_keeps_run_order_and_never_reverses() {
 }
 
 /// ADR 0091, crate pin 634e4cc: `-remix` gives the note of the crate for
-/// exclusions only, with the sentence of v4vmm under the rows. The Library
+/// exclusions only, with the sentence of the app under the rows. The Library
 /// rows show above it.
 #[test]
 fn adr_0091_pin_634e4cc_exclusions_only_note_has_the_crate_words() {

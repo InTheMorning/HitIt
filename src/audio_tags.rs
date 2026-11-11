@@ -550,7 +550,7 @@ fn staged_tag_path(target: &Path) -> Result<std::path::PathBuf> {
     let mut staged_name = std::ffi::OsString::from(".");
     staged_name.push(name);
     staged_name.push(format!(
-        ".v4vmm-tag-{}-{}",
+        ".hitit-tag-{}-{}",
         std::process::id(),
         SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ));

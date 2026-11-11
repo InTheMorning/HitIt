@@ -17,7 +17,7 @@ A row shows the role words, for example "Label", for a feed with agreed roles wi
 - [ADR 0084](../adr/0084-music-column-browser.md) Decision 2: search results in the list column. Decision 5: the kind badge of a release.
 - [ADR 0075](../adr/0075-metadata-contract.md) section 6: named request profiles, no read for each list row, and the stored contract changes in the same change as the decode.
 - Packet [010](adr-0084-task-010-search-results-list-column.md): decision D5 and the operator answer of 2026-10-20. Publisher rows stay "Feed" until Stophammer request 9 item C gives link facts on search rows.
-- [Open Stophammer requests](../plans/v4vmm-open-requests.md): request 9 item 3, "Stophammer Answers - 2026-10-21" and "Release 0.13.0 - 2026-10-21". Stophammer ADR 0076 §3 owns the include.
+- [Open Stophammer requests](../plans/hitit-open-requests.md): request 9 item 3, "Stophammer Answers - 2026-10-21" and "Release 0.13.0 - 2026-10-21". Stophammer ADR 0076 §3 owns the include.
 - The open finding of 2026-10-21 in the [phase plan](../plans/adr-0084-music-column-browser-phase-plan.md): a feed row in search results shows no level word and no role word.
 
 ## Recorded Facts - 2026-10-21
@@ -66,7 +66,7 @@ The packet author sent read-only GET requests to `https://api.musicindex.org` on
 - The cost of the include, at 16:24 UTC:
   - `q=haleen`, `limit=20`: 0.055 s to 0.066 s with the include, and 0.045 s to 0.056 s without it.
   - `q=a`, `limit=20`: 0.074 s to 0.082 s with the include, and 0.060 s to 0.066 s without it.
-  - `q=a`, `limit=100`: 1.20 s with the include, and 0.06 s without it. v4vmm sends `limit=20`.
+  - `q=a`, `limit=100`: 1.20 s with the include, and 0.06 s without it. HitIt sends `limit=20`.
 
 **The stored contract (orchestrator decision of 2026-10-21).** Packets 026 and 029 each need the 0.13.0 contract. The first of the two that an implementer starts replaces the 0.12.0 file. The orchestrator proposes this packet first. Packet 026 then finds the 0.13.0 file and changes only its own decode.
 
@@ -219,7 +219,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -334,8 +334,8 @@ Necessary state: a desktop session and a reachable `MusicIndex` endpoint at `htt
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 2. V1: search "Libre" and select the Artists tab.

@@ -177,7 +177,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -192,9 +192,9 @@ This check needs a Linux desktop session and a connection to `https://api.musici
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   nm -C target/debug/v4vmm | grep -c TestDispatcher
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   nm -C target/debug/hitit | grep -c TestDispatcher
+   ./target/debug/hitit
    ```
 
    The `nm` command must give `0`.
@@ -202,7 +202,7 @@ This check needs a Linux desktop session and a connection to `https://api.musici
 2. Fact check. In a second terminal, list the stored GUID of each new feed:
 
    ```bash
-   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT f.id, f.feed_guid, f.title, r.remote_feed_guid FROM feeds f LEFT JOIN feed_publisher_relationships r ON r.feed_id = f.id AND r.direction = 'music_to_publisher' WHERE f.id BETWEEN 109 AND 128 ORDER BY f.id;"
+   sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite "SELECT f.id, f.feed_guid, f.title, r.remote_feed_guid FROM feeds f LEFT JOIN feed_publisher_relationships r ON r.feed_id = f.id AND r.direction = 'music_to_publisher' WHERE f.id BETWEEN 109 AND 128 ORDER BY f.id;"
    ```
 
    **Wrong if:** a `feed_guid` is empty. Stop the check and record the row. The orchestrator then writes a separate packet.
@@ -210,7 +210,7 @@ This check needs a Linux desktop session and a connection to `https://api.musici
 3. List the two feeds of one title, in the order that the Library reads them:
 
    ```bash
-   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT f.id, f.feed_guid, t.id, t.track_number, t.album_title, t.album_artist_name, t.artist_name FROM tracks t JOIN feeds f ON f.id = t.feed_id WHERE t.is_in_library = 1 AND f.title = 'Sense Of Awe' ORDER BY f.title COLLATE NOCASE, t.track_number, t.track_title COLLATE NOCASE;"
+   sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite "SELECT f.id, f.feed_guid, t.id, t.track_number, t.album_title, t.album_artist_name, t.artist_name FROM tracks t JOIN feeds f ON f.id = t.feed_id WHERE t.is_in_library = 1 AND f.title = 'Sense Of Awe' ORDER BY f.title COLLATE NOCASE, t.track_number, t.track_title COLLATE NOCASE;"
    ```
 
    Record the rows. The query must give two feed ids.

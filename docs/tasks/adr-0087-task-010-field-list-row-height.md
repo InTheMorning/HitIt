@@ -268,7 +268,7 @@ cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test --test architecture_tests
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -332,7 +332,7 @@ The check needs a desktop session, the built app and a Library with one or more 
 needs an artist with a long name, or MusicIndex for more names.
 
 1. Build the app: `cd ~/build/v4vmm && cargo build --release`.
-2. Start the app: `./target/release/v4vmm`.
+2. Start the app: `./target/release/hitit`.
 3. Open the Music tab.
 4. V1: click in the empty toolbar search field.
    - Look at: each row shows the field name, and under it the values and the example. Scroll the

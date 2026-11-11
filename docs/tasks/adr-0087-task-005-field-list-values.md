@@ -581,11 +581,11 @@ cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test --test architecture_tests
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
-Run `cargo build --bin v4vmm` last. `cargo test` can leave a binary with GPUI test support at
-`target/debug/v4vmm`.
+Run `cargo build --bin hitit` last. `cargo test` can leave a binary with GPUI test support at
+`target/debug/hitit`.
 
 ## Rollback
 

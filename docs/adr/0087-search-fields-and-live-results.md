@@ -98,7 +98,7 @@ After the curator stops typing for a pause, the search runs against the Library 
 
 ### 5. The Index Receives Filters, Never Syntax
 
-v4vmm sends the words and the phrases in `q`, and each Index field as its own parameter. Stophammer never parses the field syntax. [Open request 10](../plans/v4vmm-open-requests.md#10-search-accepts-words-phrases-and-field-filters) asks for these parameters. Stophammer deployed them in release 0.15.0.
+v4vmm sends the words and the phrases in `q`, and each Index field as its own parameter. Stophammer never parses the field syntax. [Open request 10](../plans/hitit-open-requests.md#10-search-accepts-words-phrases-and-field-filters) asks for these parameters. Stophammer deployed them in release 0.15.0.
 
 - `q` holds the words and the phrases with no `-`. A query with fields and no word sends no `q`.
 - `artist:`, `title:` and `release:` give the parameters `artist`, `title` and `release`. Two values of one field join with a space, so each value applies.

@@ -18,7 +18,7 @@ import tempfile
 import time
 import tomllib
 
-KIND = "v4vmm-startup-recovery-v1"
+KIND = "hitit-startup-recovery-v1"
 REPO = Path(__file__).resolve().parents[2]
 CASES = ("normal", "invalid-toml", "music-missing", "music-file", "db-locked", "long-path",
          "runtime-unavailable", "cache-worker-unavailable", "runtime-and-cache-unavailable",
@@ -46,9 +46,9 @@ def verify(directory):
     root = Path(directory).resolve()
     try:
         manifest = json.loads((root / "fixture.json").read_text())
-        if manifest.get("kind") != KIND or manifest.get("root") != str(root) or not root.name.startswith("v4vmm-startup-"):
+        if manifest.get("kind") != KIND or manifest.get("root") != str(root) or not root.name.startswith("hitit-startup-"):
             raise ValueError("identity mismatch")
-        if Path(manifest["binary"]).resolve() != REPO / "target/debug/v4vmm":
+        if Path(manifest["binary"]).resolve() != REPO / "target/debug/hitit":
             raise ValueError("binary does not belong to this checkout")
         for relative in ("config", "data", "music", "home", "bin", "music.saved", "database"):
             if (root / relative).is_symlink():
@@ -63,12 +63,12 @@ def verify(directory):
 def environment(root):
     env = os.environ.copy()
     for name in tuple(env):
-        if name.startswith("V4VMM_"):
+        if name.startswith("HITIT_"):
             del env[name]
     env.update(HOME=str(root / "home"), XDG_CONFIG_HOME=str(root / "config"),
                XDG_DATA_HOME=str(root / "data"), XDG_CACHE_HOME=str(root / "cache"),
                PATH=str(root / "bin") + os.pathsep + os.defpath,
-               V4VMM_STARTUP_FIXTURE=str(root))
+               HITIT_STARTUP_FIXTURE=str(root))
     case_file = root / "case.json"
     if case_file.exists() and json.loads(case_file.read_text()).get("case") in CONVERTER_CASES + CONVERSION_CASES:
         # No installed converter can leak into the missing-tools case. Stub
@@ -102,7 +102,7 @@ def normal_workspace_preferences_only(root, expected, current):
 
 
 def inspect(root, manifest, correction_preserved=False):
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     expected = json.loads((root / "case.json").read_text())
     audio = root / ("music.saved" if (root / "music.saved").exists() else "music") / "unchanged-audio.bin"
     raw = cfg.read_bytes()
@@ -112,7 +112,7 @@ def inspect(root, manifest, correction_preserved=False):
               "normal_workspace_preferences_only": normal_preferences_only,
               "config_preserved": unchanged or normal_preferences_only or correction_preserved,
               "music_preserved": digest(audio) == manifest["audio_sha256"],
-              "residual_music_probes": [str(p.relative_to(root)) for pattern in (".v4vmm-startup-probe-*", ".v4vmm-producer-probe-*") for p in root.rglob(pattern)]}
+              "residual_music_probes": [str(p.relative_to(root)) for pattern in (".hitit-startup-probe-*", ".hitit-producer-probe-*") for p in root.rglob(pattern)]}
     music = audio.parent
     result["music_preserved"] &= all(digest(music / name) == expected_hash for name, expected_hash in manifest["track_sha256"].items())
     completed = subprocess.run([manifest["binary"], "startup-fixture", "inspect", str(root)],
@@ -202,7 +202,7 @@ def mode(root, case):
         if (root / "music").is_file():
             (root / "music").unlink()
         (root / "music.saved").rename(root / "music")
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     cfg.parent.chmod(0o700)
     cfg.chmod(0o600)
     (root / "repair.external").unlink(missing_ok=True)
@@ -227,7 +227,7 @@ def mode(root, case):
         retry_tools(root)
         endpoint = (root / "retry-endpoint").read_text()
         cfg.write_text(cfg.read_text().replace('musicindex_endpoint = "http://127.0.0.1:9"', 'musicindex_endpoint = ' + json.dumps(endpoint)))
-        subprocess.run([str(REPO / "target/debug/v4vmm"), "startup-fixture", "conversion-seed", str(root)], env=environment(root), check=True)
+        subprocess.run([str(REPO / "target/debug/hitit"), "startup-fixture", "conversion-seed", str(root)], env=environment(root), check=True)
         (root / "converter-calls.jsonl").write_text("")
         conversion_tools(root, "encode-failure")
         purpose = "Open Startup fixture playlist in Music. Download Conversion retry and Conversion redownload. The isolated converters pass version checks but fail encoding until conversion-tools changes them. No audio hardware, installed converter, or external service is needed."
@@ -334,11 +334,11 @@ def mode(root, case):
 
 
 def repair_inspect(root, manifest):
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     expected = json.loads((root / "case.json").read_text())
     if expected["case"] not in REPAIR_CASES:
         raise SystemExit("repair-inspect requires a repair case.")
-    backups = sorted(cfg.parent.glob(".v4vmm-config-*.backup"))
+    backups = sorted(cfg.parent.glob(".hitit-config-*.backup"))
     copies = [{"path": str(p), "sha256": digest(p), "owner_only": p.stat().st_mode & 0o777 == 0o600} for p in backups]
     raw = cfg.read_bytes()
     unchanged = hashlib.sha256(raw).hexdigest() == expected["config_sha256"]
@@ -376,7 +376,7 @@ def repair_inspect(root, manifest):
               "normal_workspace_preferences_only": normal_preferences_only, "config_preserved": config_preserved,
               "selected_music_preserved": selected_music_preserved,
               "unedited_config_values_preserved": values_preserved, "changed_fields": sorted(changed_fields),
-              "backups": copies, "residual_candidates": [str(p) for p in cfg.parent.glob(".v4vmm-config-*.candidate")]}
+              "backups": copies, "residual_candidates": [str(p) for p in cfg.parent.glob(".hitit-config-*.candidate")]}
     print(json.dumps(report, indent=2))
     if not config_preserved or not values_preserved or not selected_music_preserved or not all(item["owner_only"] for item in copies) or report["residual_candidates"]:
         raise SystemExit("Repair preservation failed. Keep the fixture for diagnosis.")
@@ -487,9 +487,9 @@ def changed_config_paths(before, after, path=""):
 def retry_inspect(root, manifest):
     if json.loads((root / "case.json").read_text())["case"] not in RETRY_CASES:
         raise SystemExit("retry-inspect requires retry-actions.")
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     expected = json.loads((root / "case.json").read_text())
-    backups = list(cfg.parent.glob(".v4vmm-config-*.backup"))
+    backups = list(cfg.parent.glob(".hitit-config-*.backup"))
     original_preserved = digest(cfg) == expected["config_sha256"] or any(digest(path) == expected["config_sha256"] for path in backups)
     before = tomllib.loads((root / "case.config").read_text())
     after = tomllib.loads(cfg.read_text())
@@ -518,7 +518,7 @@ def retry_inspect(root, manifest):
     checks["other_values_unchanged"] = not changed_paths
     allowed = all(checks.values())
     modes = all(path.stat().st_mode & 0o777 == 0o600 for path in backups)
-    candidates = list(cfg.parent.glob(".v4vmm-config-*.candidate"))
+    candidates = list(cfg.parent.glob(".hitit-config-*.candidate"))
     print(json.dumps({"original_preserved": original_preserved, "unedited_values_preserved": allowed,
                       "owner_only_backups": modes, "backups": [str(path) for path in backups],
                       "configuration_checks": checks,
@@ -603,7 +603,7 @@ def conversion_status(root):
     counts = {table: conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] for table in ("tracks", "local_files", "playlist_tracks")}
     conn.close()
     requests = [json.loads(line) for line in (root / "retry-requests.jsonl").read_text().splitlines()]
-    report = {"tracks": rows, "counts": counts, "audio_requests": [record for record in requests if record["request"].startswith("/conversion-")], "staging": [str(path.relative_to(root)) for path in (root / "music/.v4vmm-staging").glob("*/*")]}
+    report = {"tracks": rows, "counts": counts, "audio_requests": [record for record in requests if record["request"].startswith("/conversion-")], "staging": [str(path.relative_to(root)) for path in (root / "music/.hitit-staging").glob("*/*")]}
     print(json.dumps(report, indent=2))
     return report
 
@@ -638,17 +638,17 @@ def conversion_inspect(root, manifest):
         "removed_wav_preserved": digest(root / "removed-conversion-input.wav") == manifest["track_sha256"]["a.wav"],
     }
     before = tomllib.loads((root / "case.config").read_text())
-    after = tomllib.loads((root / "config/v4vmm/config.toml").read_text())
+    after = tomllib.loads((root / "config/hitit/config.toml").read_text())
     for value in (before, after):
         value.pop("workspace", None)
         value.pop("workspace_layout", None)
     checks["configuration_preserved"] = before == after
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     original_hash = json.loads((root / "case.json").read_text())["config_sha256"]
-    backups = list(cfg.parent.glob(".v4vmm-config-*.backup"))
+    backups = list(cfg.parent.glob(".hitit-config-*.backup"))
     checks["original_config_revision_preserved"] = digest(cfg) == original_hash or any(digest(path) == original_hash for path in backups)
     checks["private_backups"] = all(path.stat().st_mode & 0o777 == 0o600 for path in backups)
-    checks["no_candidates_or_probes"] = not list(cfg.parent.glob(".v4vmm-config-*.candidate")) and not list((root / "music").rglob(".v4vmm-startup-probe-*"))
+    checks["no_candidates_or_probes"] = not list(cfg.parent.glob(".hitit-config-*.candidate")) and not list((root / "music").rglob(".hitit-startup-probe-*"))
     saved = json.loads(subprocess.check_output([manifest["binary"], "startup-fixture", "inspect", str(root)], env=environment(root), text=True))
     checks["migrations_and_database_preserved"] = saved["migration_versions"] == manifest["migration_versions"] and saved["database_probes"] == 0 and saved["playlists"] == 1
     checks["unrelated_audio_preserved"] = digest(root / "music/unchanged-audio.bin") == manifest["audio_sha256"]
@@ -664,9 +664,9 @@ def conversion_inspect(root, manifest):
 def converter_inspect(root, manifest):
     if owned_process(root, "app.pid"):
         raise SystemExit("Close the fixture app before converter-inspect.")
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     expected = json.loads((root / "case.json").read_text())
-    backups = list(cfg.parent.glob(".v4vmm-config-*.backup"))
+    backups = list(cfg.parent.glob(".hitit-config-*.backup"))
     original_preserved = digest(cfg) == expected["config_sha256"] or any(digest(path) == expected["config_sha256"] for path in backups)
     before = tomllib.loads((root / "case.config").read_text())
     after = tomllib.loads(cfg.read_text())
@@ -680,7 +680,7 @@ def converter_inspect(root, manifest):
         "only_version_probes": all(record["arguments"] == (["--version"] if record["tool"] == "flac" else ["-version"]) for record in records),
         "probe_children_reaped": all(not Path(f'/proc/{record["pid"]}').exists() for record in records),
         "owner_only_backups": all(path.stat().st_mode & 0o777 == 0o600 for path in backups),
-        "no_candidates": not list(cfg.parent.glob(".v4vmm-config-*.candidate")),
+        "no_candidates": not list(cfg.parent.glob(".hitit-config-*.candidate")),
         "case_copy_matches_original": digest(root / "case.config") == expected["config_sha256"],
     }
     print(json.dumps(checks, indent=2))
@@ -693,7 +693,7 @@ def converter_inspect(root, manifest):
 def database_setup(root):
     directory = root / "database"
     if not directory.exists():
-        subprocess.run([str(REPO / "target/debug/v4vmm"), "startup-fixture", "database-seed", str(root)], env=environment(root), check=True)
+        subprocess.run([str(REPO / "target/debug/hitit"), "startup-fixture", "database-seed", str(root)], env=environment(root), check=True)
         (directory / "readonly.sqlite").chmod(0o400)
     if not owned_process(root, "database.pid"):
         if (root / "database-baseline.json").exists():
@@ -820,7 +820,7 @@ def database_inspect(root, manifest):
     checks = {"exclusive_lock_blocks_reader": database_reader_blocked(root),
               "database_sources_preserved": all(digest(directory / name) == value for name, value in state["source_hashes"].items()),
               "wal_bytes_preserved": digest(directory / "wal.sqlite-wal") == state["wal_sha256"],
-              "no_incomplete_candidates": not list(directory.glob(".v4vmm-database-*")),
+              "no_incomplete_candidates": not list(directory.glob(".hitit-database-*")),
               "readonly_permissions_preserved": (directory / "readonly.sqlite").stat().st_mode & 0o777 == 0o400}
     names = ("normal", "wal", "readonly")
     if json.loads((root / "case.json").read_text())["case"] == "database-recovery":
@@ -852,7 +852,7 @@ def maintenance_setup(root):
     directory = root / "database"
     if directory.exists():
         raise SystemExit("Use a fresh fixture for database maintenance; existing database evidence must not be replaced.")
-    subprocess.run([str(REPO / "target/debug/v4vmm"), "startup-fixture", "database-seed", str(root)], env=environment(root), check=True)
+    subprocess.run([str(REPO / "target/debug/hitit"), "startup-fixture", "database-seed", str(root)], env=environment(root), check=True)
     state = {"source_hashes": {p.name: digest(p) for p in directory.glob("*.sqlite")}}
     (root / "maintenance-baseline.json").write_text(json.dumps(state, indent=2))
     with (root / "maintenance.log").open("w") as output:
@@ -964,7 +964,7 @@ def restore_setup(root, case):
     directory = root / "database"
     if directory.exists():
         raise SystemExit("Use a fresh restore fixture; existing recovery artifacts cannot be replaced.")
-    subprocess.run([str(REPO / "target/debug/v4vmm"), "startup-fixture", "restore-seed", str(root)], env=environment(root), check=True)
+    subprocess.run([str(REPO / "target/debug/hitit"), "startup-fixture", "restore-seed", str(root)], env=environment(root), check=True)
     source = root / "data/library.sqlite"
     if case == "database-restore-recovery":
         damaged = bytearray(source.read_bytes())
@@ -1001,7 +1001,7 @@ def restore_database_facts(path):
                 "bindings": conn.execute("SELECT path,track_id FROM local_files ORDER BY track_id").fetchall(),
                 "tracks": conn.execute("SELECT * FROM tracks ORDER BY id").fetchall(),
                 "memberships": conn.execute("SELECT * FROM playlist_tracks ORDER BY playlist_id,position").fetchall(),
-                "probes": conn.execute("SELECT count(*) FROM sqlite_schema WHERE name LIKE 'v4vmm_startup_probe_%'").fetchone()[0]}
+                "probes": conn.execute("SELECT count(*) FROM sqlite_schema WHERE name LIKE 'hitit_startup_probe_%'").fetchone()[0]}
 
 def restore_inspect(root, manifest):
     if owned_process(root, "app.pid") or owned_process(root, "lock.pid"):
@@ -1010,7 +1010,7 @@ def restore_inspect(root, manifest):
     state = json.loads((root / "restore-baseline.json").read_text())
     case = json.loads((root / "case.json").read_text())
     source = root / "data/library.sqlite"
-    config = root / "config/v4vmm/config.toml"
+    config = root / "config/hitit/config.toml"
     current = config.read_bytes()
     checks = {"chosen_and_rejected_backups_unchanged": all(digest(directory / name) == value for name, value in state["backup_hashes"].items()),
               "configured_database_inode_preserved": (source.stat().st_ino, source.stat().st_dev) == (state["destination_inode"], state["destination_device"]),
@@ -1037,7 +1037,7 @@ def restore_inspect(root, manifest):
                 if Path(entry["copied_name"]).name != entry["copied_name"] or path.is_symlink():
                     raise ValueError("Preservation file escaped its directory")
                 checks[f"{name}_file_{index}"] = path.stat().st_size == entry["length"] and digest(path) == entry["sha256"] and path.stat().st_mode & 0o777 == 0o600
-            snapshots = list(folder.glob(".v4vmm-database-*/candidate.sqlite"))
+            snapshots = list(folder.glob(".hitit-database-*/candidate.sqlite"))
             if case["case"] == "database-restore":
                 checks[name + "_verified_original"] = len(snapshots) == 1
                 if snapshots:
@@ -1092,7 +1092,7 @@ def upgrade_setup(root, case):
     directory = root / "upgrade"
     if directory.exists():
         raise SystemExit("Use a fresh upgrade fixture; preservation evidence cannot be replaced.")
-    subprocess.run([str(REPO / "target/debug/v4vmm"), "startup-fixture", "upgrade-seed", str(root)], env=environment(root), check=True)
+    subprocess.run([str(REPO / "target/debug/hitit"), "startup-fixture", "upgrade-seed", str(root)], env=environment(root), check=True)
     source = root / "data/library.sqlite"
     if case == "upgrade-unsupported":
         with sqlite3.connect(source) as conn:
@@ -1123,7 +1123,7 @@ def upgrade_inspect(root, manifest):
     baseline = json.loads((root / "upgrade-baseline.json").read_text())
     case = json.loads((root / "case.json").read_text())
     source = root / "data/library.sqlite"
-    config = root / "config/v4vmm/config.toml"
+    config = root / "config/hitit/config.toml"
     facts = json.loads(json.dumps(upgrade_facts(source)))
     checks = {"older_backup_bytes_unchanged": digest(directory / "older-backup.sqlite") == baseline["older_sha256"],
               "destination_inode_preserved": (source.stat().st_ino, source.stat().st_dev) == (baseline["destination_inode"], baseline["destination_device"]),
@@ -1134,7 +1134,7 @@ def upgrade_inspect(root, manifest):
     if case["case"] == "upgrade-unsupported":
         checks["unsupported_database_bytes_unchanged"] = digest(source) == baseline["original_sha256"]
         checks["unsupported_records_unchanged"] = facts == baseline["original_facts"]
-        checks["no_repair_artifacts"] = not any(directory.glob("*-preservation")) and not any(directory.glob(".v4vmm-database-*"))
+        checks["no_repair_artifacts"] = not any(directory.glob("*-preservation")) and not any(directory.glob(".hitit-database-*"))
     else:
         try:
             facts = upgrade_legacy_facts(facts)
@@ -1159,18 +1159,18 @@ def upgrade_inspect(root, manifest):
                     if Path(entry["copied_name"]).name != entry["copied_name"] or path.is_symlink():
                         raise ValueError("Preservation file escaped its directory")
                     checks[f"{name}_file_{index}"] = path.stat().st_size == entry["length"] and digest(path) == entry["sha256"] and path.stat().st_mode & 0o777 == 0o600
-                snapshots = [json.loads(json.dumps(upgrade_facts(path))) for path in folder.glob(".v4vmm-database-*/candidate.sqlite")]
+                snapshots = [json.loads(json.dumps(upgrade_facts(path))) for path in folder.glob(".hitit-database-*/candidate.sqlite")]
                 checks[name + "_verified_original"] = any(f == baseline["original_facts"] for f in snapshots)
                 checks[name + "_repaired_candidate"] = any(len(f["schema_migrations"]) == 11 for f in snapshots)
             except (OSError, ValueError, KeyError, sqlite3.Error):
                 checks[name + "_preservation"] = False
         preparation_backups = []
-        for folder in source.parent.glob(".v4vmm-upgrade-*"):
+        for folder in source.parent.glob(".hitit-upgrade-*"):
             try:
                 receipt = json.loads((folder / "manifest.json").read_text())
                 if receipt["source"] != str(source):
                     continue
-                for path in folder.glob(".v4vmm-database-*/candidate.sqlite"):
+                for path in folder.glob(".hitit-database-*/candidate.sqlite"):
                     saved = json.loads(json.dumps(upgrade_facts(path)))
                     ledger = saved["schema_migrations"]
                     valid = len(ledger) == 11 and ledger[-1][1:3] == [11, "broadcast_event_selection"]
@@ -1179,7 +1179,7 @@ def upgrade_inspect(root, manifest):
             except (OSError, ValueError, KeyError, sqlite3.Error):
                 preparation_backups.append(False)
         checks["separate_version_11_preparation_backup"] = any(preparation_backups)
-        candidates = list(directory.glob(".v4vmm-database-*/candidate.sqlite"))
+        candidates = list(directory.glob(".hitit-database-*/candidate.sqlite"))
         older = upgrade_facts(directory / "older-backup.sqlite")
         valid_upgrades = []
         for path in candidates:
@@ -1199,10 +1199,10 @@ def upgrade_inspect(root, manifest):
 
 
 def setup():
-    binary = REPO / "target/debug/v4vmm"
+    binary = REPO / "target/debug/hitit"
     if not binary.is_file():
         raise SystemExit("Run cargo build --quiet first.")
-    root = Path(tempfile.mkdtemp(prefix="v4vmm-startup-"))
+    root = Path(tempfile.mkdtemp(prefix="hitit-startup-"))
     manifest = {"kind": KIND, "root": str(root), "binary": str(binary)}
     (root / "fixture.json").write_text(json.dumps(manifest))
     for part in ("home", "bin", "cache"):
@@ -1213,7 +1213,7 @@ def setup():
         stub.write_text("#!/bin/sh\nprintf '%s\\n' 'Startup fixture: optional service unavailable' >&2\nexit 1\n")
         stub.chmod(0o700)
     subprocess.run([str(binary), "startup-fixture", "seed", str(root)], env=environment(root), check=True, stdout=subprocess.DEVNULL)
-    cfg = root / "config/v4vmm/config.toml"
+    cfg = root / "config/hitit/config.toml"
     shutil.copyfile(cfg, root / "config.baseline")
     manifest["audio_sha256"] = digest(root / "music/unchanged-audio.bin")
     manifest["track_sha256"] = {name: digest(root / "music" / name) for name in ("a.wav", "b.wav", "c.wav")}
@@ -1229,13 +1229,13 @@ def setup():
 def run_app(root, manifest):
     if owned_process(root, "app.pid"):
         raise SystemExit("This fixture app is already open.")
-    # ADR 0066 fixture guard: cargo test can replace target/debug/v4vmm with
+    # ADR 0066 fixture guard: cargo test can replace target/debug/hitit with
     # a binary linked to GPUI test-support. Its synchronous test drawing loop
     # must not be used for desktop acceptance (ADR 0044 drag-pause capture).
     # Build before applying the fixture's isolated HOME and stub-only PATH.
     try:
         subprocess.run(
-            ["cargo", "build", "--locked", "--offline", "--quiet", "--bin", "v4vmm",
+            ["cargo", "build", "--locked", "--offline", "--quiet", "--bin", "hitit",
              "--target-dir", str(REPO / "target")],
             cwd=REPO, check=True,
         )
@@ -1268,7 +1268,7 @@ def main():
         return
     if args.command == "locate":
         found = []
-        for path in Path(tempfile.gettempdir()).glob("v4vmm-startup-*/fixture.json"):
+        for path in Path(tempfile.gettempdir()).glob("hitit-startup-*/fixture.json"):
             try:
                 root, _ = verify(path.parent)
                 found.append(root)
@@ -1282,7 +1282,7 @@ def main():
         parser.error("directory is required; use locate if you lost the path")
     root, manifest = verify(args.directory)
     if args.command in ("verify", "validate"):
-        print(f"Fixture verified: {root}\nConfig: {root / 'config/v4vmm/config.toml'}\nDatabase: {root / 'data/library.sqlite'}\nMusic: {root / 'music'}\nBinary: {manifest['binary']}")
+        print(f"Fixture verified: {root}\nConfig: {root / 'config/hitit/config.toml'}\nDatabase: {root / 'data/library.sqlite'}\nMusic: {root / 'music'}\nBinary: {manifest['binary']}")
     elif args.command == "mode":
         if args.case not in CASES:
             parser.error("mode requires a case")
@@ -1380,7 +1380,7 @@ def main():
         (root / "session.hold").unlink(missing_ok=True)
         print("Released the fixture session command; use Retry drain in the app.")
     elif args.command == "repair-access":
-        cfg = root / "config/v4vmm/config.toml"
+        cfg = root / "config/hitit/config.toml"
         cfg.parent.chmod(0o700)
         if cfg.stat().st_mode & 0o777 != 0o600:
             cfg.chmod(0o600)
@@ -1388,7 +1388,7 @@ def main():
     elif args.command == "repair-conflict":
         if json.loads((root / "case.json").read_text())["case"] != "repair-conflict":
             raise SystemExit("Select the repair-conflict case before the external edit.")
-        cfg = root / "config/v4vmm/config.toml"
+        cfg = root / "config/hitit/config.toml"
         text = cfg.read_text().replace('musicindex_endpoint = 42', 'musicindex_endpoint = 99')
         cfg.write_text(text)
         (root / "repair.external").write_bytes(cfg.read_bytes())
@@ -1418,7 +1418,7 @@ def main():
         release_lock(root)
         database_stop(root)
         stop_retry_server(root)
-        (root / "config/v4vmm").chmod(0o700)
+        (root / "config/hitit").chmod(0o700)
         shutil.rmtree(root)
         print(f"Removed fixture: {root}")
 

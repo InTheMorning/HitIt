@@ -150,7 +150,7 @@ cargo test
 cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 Report each result. Say "Green" for a passing check.
@@ -311,7 +311,7 @@ R1-11 also reads the stored run into a second actor through `Load`.
 | `cargo test --test architecture_tests` | Green, 273 guards |
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred.
 
@@ -328,15 +328,15 @@ Wavlake throttles crawlers. Do not start many checks in a short time.
 The new binary upgrades the configured database to version 15 when it opens. Migration 15 adds two empty tables and changes no existing row.
 Make the backup with SQLite while the app is closed.
 
-1. Close v4vmm. Find the configured database path:
+1. Close HitIt. Find the configured database path:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db"
    ```
 
-   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/v4vmm/config.toml`.
+   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/hitit/config.toml`.
 2. Record the schema version:
 
    ```bash
@@ -363,8 +363,8 @@ Make the backup with SQLite while the app is closed.
 5. Build and open the app:
 
    ```bash
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 6. **V1 - the button and its state.** Open **Music**, and select the playlist from step 4 in the playlist list.
@@ -425,4 +425,4 @@ After acceptance, remove the files that this check made:
 rm -i "$backup" "$db.after-adr-0076-task-001.sqlite"
 ```
 
-The app preservation directory `.v4vmm-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.
+The app preservation directory `.hitit-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.

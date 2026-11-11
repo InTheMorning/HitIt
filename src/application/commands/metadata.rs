@@ -69,7 +69,7 @@ impl ApplicationCommand for LookupMusicBrainzAlbumReleases {
         }
         let musicbrainz_client = crate::http_client::document_builder()
             .user_agent(format!(
-                "v4vmm/{} (MusicBrainz metadata lookup)",
+                "hitit/{} (MusicBrainz metadata lookup)",
                 env!("CARGO_PKG_VERSION")
             ))
             .build()

@@ -941,7 +941,7 @@ mod tests {
         assert!(recovery
             .subscribe_to_at(Arc::clone(&conn), request, None, &config)
             .is_err());
-        let staging = temp.path().join(".v4vmm-staging");
+        let staging = temp.path().join(".hitit-staging");
         assert!(fs::read_dir(&staging).map_or(true, |mut dir| dir.next().is_none()));
         let reports = recovery.subscribe().borrow().clone();
         assert!(!reports[0].message.contains("Available input is retained"));
@@ -1104,7 +1104,7 @@ mod tests {
             fs::read(temp.path().join("original.wav")).unwrap(),
             b"RIFF\x24\0\0\0WAVEfmt "
         );
-        assert!(fs::read_dir(temp.path().join(".v4vmm-staging"))
+        assert!(fs::read_dir(temp.path().join(".hitit-staging"))
             .unwrap()
             .next()
             .is_none());

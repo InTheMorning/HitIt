@@ -142,7 +142,7 @@ Do not erase `/tmp/v4vmm-governance.ie6k8TQf`. Color alone is not a correct diff
 2. Check the Recorded Facts of this packet and of
    [packet 001](adr-0082-task-001-contract-0-7-0-and-link-facts.md) first.
    The DETOX feed gave only null `role_agreement` values on 2026-10-02.
-3. Check [the open Stophammer requests](../../plans/v4vmm-open-requests.md) and
+3. Check [the open Stophammer requests](../../plans/hitit-open-requests.md) and
    [the publisher feed research notes](../../notes/2026-09-23-publisher-feed-artist-research.md)
    for a newer candidate.
 4. When those sources name no candidate, search a few Index publisher feeds.

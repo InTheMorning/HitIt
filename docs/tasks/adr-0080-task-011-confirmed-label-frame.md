@@ -57,7 +57,7 @@ Visual, listed apart, for the operator to walk:
 
 ## Operator Visual Check
 
-1. Run `cargo run --bin v4vmm` in a desktop session.
+1. Run `cargo run --bin hitit` in a desktop session.
 2. Open a Library track of "Motive to Kill", or of another album that names Sir Libre Records. Download the album first if the Library does not hold it.
 3. Open "Update n files".
 4. Wrong: the list does not show `TPUB: Sir Libre Records`.
@@ -77,7 +77,7 @@ Cleanup: remove the album from the Library if you downloaded it for this check.
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 ## Report
 

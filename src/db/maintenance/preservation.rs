@@ -450,8 +450,8 @@ pub(super) mod tests {
                     "db::maintenance::preservation::tests::adr_0066_external_sqlite_peer",
                     "--nocapture",
                 ])
-                .env("V4VMM_TEST_EXCLUSIVE_SOURCE", source)
-                .env("V4VMM_TEST_EXCLUSIVE_MODE", mode)
+                .env("HITIT_TEST_EXCLUSIVE_SOURCE", source)
+                .env("HITIT_TEST_EXCLUSIVE_MODE", mode)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
@@ -501,10 +501,10 @@ pub(super) mod tests {
     // This child is the SAME bundled SQLite as the application, in another OS process.
     #[test]
     fn adr_0066_external_sqlite_peer() {
-        let Some(source) = std::env::var_os("V4VMM_TEST_EXCLUSIVE_SOURCE") else {
+        let Some(source) = std::env::var_os("HITIT_TEST_EXCLUSIVE_SOURCE") else {
             return;
         };
-        let mode = std::env::var("V4VMM_TEST_EXCLUSIVE_MODE").unwrap();
+        let mode = std::env::var("HITIT_TEST_EXCLUSIVE_MODE").unwrap();
         let conn =
             Connection::open_with_flags(PathBuf::from(source), OpenFlags::SQLITE_OPEN_READ_WRITE)
                 .unwrap();

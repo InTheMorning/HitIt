@@ -15,10 +15,10 @@ The RSS license reaches a file. Its URL goes into `WCOP` or `TXXX:LICENSE`, and 
 ## Recorded Facts - 2026-11-04
 
 - Studio writes `podcast:license` on the channel and on each item, with its text and an optional `url` (`License` in `crates/core/src/feed/elements.rs` of Studio).
-- The Stophammer parser does not read the tag, and the API gives no license. Open request 12 asks for it. This packet does not wait for that request, because v4vmm reads the RSS document.
-- `src/rss/` of v4vmm does not read the tag.
+- The Stophammer parser does not read the tag, and the API gives no license. Open request 12 asks for it. This packet does not wait for that request, because HitIt reads the RSS document.
+- `src/rss/` of HitIt does not read the tag.
 - `musicbrainz_license_row` in `src/metadata.rs` writes one MusicBrainz license to `WCOP`, and more than one to `TXXX:LICENSE`.
-- v4vmm stores no MusicBrainz lookup result, so a write that finds a `WCOP` value cannot name its source.
+- HitIt stores no MusicBrainz lookup result, so a write that finds a `WCOP` value cannot name its source.
 - The Studio corpus holds these forms: the text `All rights reserved` with no `url`, and the text `my-podcast-license-v1` with a `url`.
 
 ## Required Changes
@@ -60,7 +60,7 @@ Visual, listed apart, for the operator to walk:
 ## Operator Visual Check
 
 1. Add `<podcast:license url="https://creativecommons.org/licenses/by/4.0/">cc-by-4.0</podcast:license>` to a test feed in Studio. Publish the change.
-2. Run `cargo run --bin v4vmm` in a desktop session.
+2. Run `cargo run --bin hitit` in a desktop session.
 3. Run the RSS check of the playlist with that feed. Open "Update n files".
 4. Wrong: the list does not show `WCOP` and `TXXX:MusicIndex License`.
 5. Confirm the update. Run `exiftool -a -G1 -s FILE`, with FILE as the path of the track.
@@ -78,7 +78,7 @@ Cleanup: remove the license from the test feed in Studio, and publish it.
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 ## Report
 

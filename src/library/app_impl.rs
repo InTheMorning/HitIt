@@ -1879,7 +1879,7 @@ impl LibraryApp {
         {
             Ok(actor) => actor,
             Err(err) => {
-                eprintln!("v4vmm::library: PagedTrackListActor::new failed: {err}");
+                eprintln!("hitit::library: PagedTrackListActor::new failed: {err}");
                 return;
             }
         };

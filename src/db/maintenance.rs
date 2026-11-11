@@ -467,7 +467,7 @@ impl Candidate {
         let directory = loop {
             budget.check(OP)?;
             let sequence = CANDIDATE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-            let path = parent.join(format!(".v4vmm-database-{}-{sequence}", std::process::id()));
+            let path = parent.join(format!(".hitit-database-{}-{sequence}", std::process::id()));
             let mut builder = fs::DirBuilder::new();
             #[cfg(unix)]
             {

@@ -347,10 +347,10 @@ cargo clippy --all-targets -- -D warnings
 cargo test --lib adr_0086_window_groups_
 cargo test
 cargo test --test architecture_tests
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
-Run `cargo build --bin v4vmm` last. `cargo test` can leave a binary with GPUI test support at `target/debug/v4vmm`.
+Run `cargo build --bin hitit` last. `cargo test` can leave a binary with GPUI test support at `target/debug/hitit`.
 
 ## Rollback
 

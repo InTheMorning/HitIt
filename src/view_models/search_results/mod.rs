@@ -826,7 +826,7 @@ impl SearchResultsInspectorPageVm {
     /// tab with no rows. When the page shows it as the empty state, this
     /// function does not give it again.
     ///
-    /// The note of the crate comes with one sentence of v4vmm about its
+    /// The note of the crate comes with one sentence of the app about its
     /// Library rows, which show above the note (R-QUERY-8 item 2).
     pub(crate) fn index_notice(&self) -> Option<EmptyStateDisplay> {
         if let Some((_, note)) = &self.index_result_stop {

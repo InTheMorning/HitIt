@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn adr_0075_migration_interrupted_process() {
-        let Some(path) = std::env::var_os("V4VMM_TEST_MIGRATION_INTERRUPTION") else {
+        let Some(path) = std::env::var_os("HITIT_TEST_MIGRATION_INTERRUPTION") else {
             return;
         };
         let conn = Connection::open(path).unwrap();
@@ -371,7 +371,7 @@ mod tests {
                 "db::upgrades::tests::adr_0075_migration_interrupted_process",
                 "--nocapture",
             ])
-            .env("V4VMM_TEST_MIGRATION_INTERRUPTION", &path)
+            .env("HITIT_TEST_MIGRATION_INTERRUPTION", &path)
             .output()
             .unwrap()
             .status;

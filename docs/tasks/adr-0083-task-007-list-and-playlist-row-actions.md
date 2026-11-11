@@ -226,7 +226,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -288,7 +288,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V11.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed
@@ -377,7 +377,7 @@ Stop and report the problem, and do not guess, when:
 | `cargo clippy -- -D warnings` | Green |
 | `cargo clippy --all-targets -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred.
 
@@ -409,7 +409,7 @@ This check needs a Linux desktop session and this checkout. It also needs these 
 
 V5 changes a playlist. "Remove from Library…" removes an audio file. Use a test playlist and a track that you can download again.
 
-1. Build the app: `cargo build --bin v4vmm`. Then start `target/debug/v4vmm` from a desktop session.
+1. Build the app: `cargo build --bin hitit`. Then start `target/debug/hitit` from a desktop session.
 2. V1: open Music, then open the test playlist. Move the pointer onto a row.
    - Correct: the drag handle, the Play icon and "⋯" show on that row. They hide when the pointer leaves the row.
    - Wrong: a control shows on a row with no pointer, or a part of the row moves when the controls show or hide.

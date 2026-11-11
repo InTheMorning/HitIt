@@ -12,7 +12,7 @@ It is the map for Phase 2 of the [overhaul plan](../../plans/design-and-cleanup-
 | [music.md](music.md) | 15 screens: toolbar search, search results, name matches, Index feed and track pages, Library list and tiles, Library album and track pages, playlist page, publisher page, artist page, playlist popover, confirmation dialogs, tag update popup |
 | [show.md](show.md) | 8 surfaces: Show dashboard, the Source, Live Metadata, Stream and Cuelist side panels, log pane, transport deck, live status strip |
 | [settings.md](settings.md) | 10 screens: General, Library, the Diagnostics pages, startup recovery, session drain, shared log frame |
-| [design-system.md](design-system.md) | The v4vmm tokens, themes, fonts, primitives, composites and artwork sites, the website tokens of `../musicindex/search.html`, and a mapping table with the gaps |
+| [design-system.md](design-system.md) | The HitIt tokens, themes, fonts, primitives, composites and artwork sites, the website tokens of `../musicindex/search.html`, and a mapping table with the gaps |
 | [screenshots-2026-10-03.md](screenshots-2026-10-03.md) | The orchestrator's notes from nine operator screenshots, in Dark at normal width |
 
 Subagents wrote the four inventory files from the code. They read no running app. The screenshot notes describe the running app.

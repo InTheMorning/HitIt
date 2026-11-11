@@ -21,7 +21,7 @@ Part B gives the group page, its main action and the link "All n singles" with t
 - [ADR 0085](../adr/0085-artists-by-confirmation.md) Decision 2 and Decision 6: the artist feed of a release is the first named feed with an agreed `artist` role, else the primary named feed with a confirmed link. A link that only the album states does not make an artist.
 - [ADR 0075](../adr/0075-metadata-contract.md) section 6: named request profiles, no detail read for each list row, and the stored contract changes in the same change as the decode.
 - [ADR 0040](../adr/README.md): background work runs on the async command runner. No screen calls `cx.spawn`.
-- [Open Stophammer requests](../plans/v4vmm-open-requests.md): request 9, "Stophammer Answers - 2026-10-21" and "Release 0.13.0 - 2026-10-21". Stophammer ADR 0076 owns the three additions.
+- [Open Stophammer requests](../plans/hitit-open-requests.md): request 9, "Stophammer Answers - 2026-10-21" and "Release 0.13.0 - 2026-10-21". Stophammer ADR 0076 owns the three additions.
 - The [phase plan](../plans/adr-0084-music-column-browser-phase-plan.md) row of packet 026.
 - Archived packet [015](archive/adr-0084-task-015-singles-groups.md): the Library singles groups. Packet [016](adr-0084-task-016-library-and-everything-scopes.md) decision D4: a MusicIndex single is a release row until this packet.
 
@@ -90,7 +90,7 @@ The full release name list, read with 44 requests of `GET /v1/feeds/by-name?incl
 
 ### Two rule differences that stay
 
-- D-2 (packet 016): Stophammer ADR 0070 §4 does not put a D-2 release on the name level, and v4vmm does. Stophammer ADR 0076 §4 keeps this. Thus `artist_key` does not give the D-2 singles of a name.
+- D-2 (packet 016): Stophammer ADR 0070 §4 does not put a D-2 release on the name level, and HitIt does. Stophammer ADR 0076 §4 keeps this. Thus `artist_key` does not give the D-2 singles of a name.
 - The conflict case: Stophammer ADR 0076 §1 calls a link confirmed when `two_way_validated` is true and `role_agreement` is not `conflict`. ADR 0085 Decision 2 calls a link confirmed when `two_way_validated` is true. On 2026-10-21, one entry at rank 1 had `conflict`.
 
 **The stored contract (orchestrator decision of 2026-10-21).** Packets 026 and 029 each need the 0.13.0 contract. The first of the two that an implementer starts replaces the 0.12.0 file. The later packet finds the 0.13.0 file and changes only its own decode. The orchestrator proposes packet 029 first (see "Packet Order").
@@ -191,7 +191,7 @@ The app reads the singles of a feed G before the rows of the page that needs G s
     - Cost on 2026-10-21: 27 to 42 requests for each of the first ten pages of 100 rows, with a mean of 13.9 over all pages. One request took 0.08 s to 0.43 s. Page 1 can thus take 1 s to 4 s more than today.
   - Option B: groups only for the artist feeds that the Library holds. The app reads those feeds one time, with page 1. Each other MusicIndex single stays a release row. This is a part of ADR 0084 Decision 6 only, and needs an amendment of that decision.
   - Option C: groups from the loaded pages only, with no extra request. A group grows when a later page loads, and a release row can go into a group after it shows. This breaks packet 016 decision D7.
-  - Option D: a new Stophammer request for a count of the singles that name each feed. Stophammer does not decide the release kind, so the count must use the kind rule of v4vmm. The orchestrator does not recommend it.
+  - Option D: a new Stophammer request for a count of the singles that name each feed. Stophammer does not decide the release kind, so the count must use the kind rule of HitIt. The orchestrator does not recommend it.
   - **Recommendation: Option A.** It gives correct groups and counts, and no row moves after it shows. The orchestrator adds the cost to the responsiveness list of the overhaul plan.
 - **D5. The place of a group row in "Everything".** **Flag.**
   - Option A: the position of the first single of the group in title order. A group row then shows with the page of its first single, and it never shows above a row that already shows. In "Library", a group row keeps the order of its label.
@@ -357,7 +357,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -406,7 +406,7 @@ Part A makes Required Changes 2 to 10. Packet 029 made Required Change 1 (D1), s
 | R26-19 | `adr_0084_index_singles_r26_19_library_groups_have_no_index_single`, the Library part of the R26-15 test, and the tests of packets 015 and 016 |
 | R26-26 (A) | `adr_0084_singles_group_r15_09_only_the_owner_groups_singles`. Each new use of `ReleaseKind::Single` is in `src/view_models/singles_group.rs` |
 
-The gate of 2026-10-21: `cargo test` gave 2,195 unit tests and 360 architecture tests, all Green. `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin v4vmm` are Green.
+The gate of 2026-10-21: `cargo test` gave 2,195 unit tests and 360 architecture tests, all Green. `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin hitit` are Green.
 
 ### Deviations
 
@@ -474,7 +474,7 @@ Part B makes Required Changes 11 to 16.
 | D11 | `adr_0084_index_singles_d11_group_page_says_more_exist`, and the `more` assertion of `adr_0084_index_singles_r26_06_feed_singles_follow_the_cursor_up_to_five_pages` |
 | R26-26 (B) | `adr_0084_singles_group_r15_09_only_the_owner_groups_singles`. Each new use of `ReleaseKind::Single` is in `src/view_models/singles_group.rs` |
 
-The gate of 2026-10-21: `cargo test` gave 2,204 unit tests and 361 architecture tests, all Green. `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin v4vmm` are Green.
+The gate of 2026-10-21: `cargo test` gave 2,204 unit tests and 361 architecture tests, all Green. `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin hitit` are Green.
 
 ### Deviations
 
@@ -498,7 +498,7 @@ Pass, with corrections that the orchestrator had made.
 
 Walk this check in a desktop session after the commit of Part A. The machine must reach `https://api.musicindex.org`.
 
-1. Run `cargo build --release`, then run `target/release/v4vmm`.
+1. Run `cargo build --release`, then run `target/release/hitit`.
 2. Open Music, then Releases. Select the scope "Everything".
 3. V1: find the group row "Haleen". It shows "n singles · 3 in Library · Artist feed", with n about 55. No Haleen single of that feed shows as its own row. A Haleen single row of that feed is wrong.
 4. V2: find the second group row "Haleen". It shows "38 singles · Artist feed". "You Are Enough" shows as its own row. A Library part in the text of this row is wrong.
@@ -520,7 +520,7 @@ Part B (V7 to V10). Walk these steps after the commit of Part B, in a new start 
 13. V8: in "Everything", open the chevron of the group row "Paul Birken". Click one single.
     - Its Index release page shows the link "All n singles". A single page with no link is wrong.
     - Click the link. The group page "Singles by Paul Birken" opens.
-14. V9: stop the app. Run `nmcli networking off`, or remove the network cable. Start `target/release/v4vmm`.
+14. V9: stop the app. Run `nmcli networking off`, or remove the network cable. Start `target/release/hitit`.
     - Open Releases with the scope "Library", and click the group row "Haleen". The Library singles show.
     - An error row shows below them with "Try again". Its detail names `GET /v1/feeds/recent?named_feed_guid=64569161-a8f7-52e5-8aae-9e0385043149`.
     - An empty page or no "Try again" is wrong.
@@ -570,7 +570,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result" section for the part, with the date, and an "Operator Visual Check" section for its V items.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed

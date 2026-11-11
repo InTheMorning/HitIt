@@ -220,7 +220,7 @@ cargo check --locked --offline --quiet
 cargo test --locked --offline --quiet
 cargo clippy --locked --offline --quiet -- -D warnings
 python3 -B -m unittest discover -s docs/runbooks -p 'test_startup_recovery_fixture.py'
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```
 
@@ -303,7 +303,7 @@ No audio hardware, real publisher or public endpoint is required.
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --locked --offline --quiet --bin v4vmm
+   cargo build --locked --offline --quiet --bin hitit
    settings_editor_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
    python3 docs/runbooks/startup-recovery-fixture.py verify "$settings_editor_fixture"
    python3 docs/runbooks/startup-recovery-fixture.py run "$settings_editor_fixture"

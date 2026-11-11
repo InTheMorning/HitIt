@@ -184,7 +184,7 @@ The saved search page shows a group as one row in the row style of the page. `re
 - **D4. This packet sends no new request.** It reads `has_more` from the one feed response that the search already gets. It adds no cursor, no extra page and no detail request (ADR 0086 Decision 6, ADR 0075 packet 047).
 - **D5. Flag. An Index row of a saved search has no release date today.** The search hit gives no `newest_item_at`, and Stophammer leaves `pub_date` empty for a feed hit. Decision 1 puts no single with no release date in a group. Thus, today, only the singles that the Library holds group in a saved search.
 
-  The chain reads `FeedResultDisplay::newest_item_at`, so an Index row groups when a later contract gives the value. [Open request 11](../plans/v4vmm-open-requests.md#11-a-feed-search-hit-gives-its-release-date-and-its-named-feeds) asks for the date and the named feeds. This packet does not take a date from New releases or from a cache. A group must not change with the views that the curator opened before.
+  The chain reads `FeedResultDisplay::newest_item_at`, so an Index row groups when a later contract gives the value. [Open request 11](../plans/hitit-open-requests.md#11-a-feed-search-hit-gives-its-release-date-and-its-named-feeds) asks for the date and the named feeds. This packet does not take a date from New releases or from a cache. A group must not change with the views that the curator opened before.
 - **D6. The Library decides a Library row.** A row whose key the Library tree holds takes its kind, its key and its date from the album. The kind of a Library search row counts only the matched tracks (`results.rs:615`), so the album kind is the correct kind. Packet 002 D3 made the same choice.
 - **D7. The merge of packet 010 removes the duplicate release.** The entries come from the merged rows. A Library row and an Index row with one `ReleaseKey` give one row, at the place of the Library row, with the Library date. Thus a release is in one group at most, and the count of a group counts it one time.
 - **D8. The anchor is the newest member, not the best-ranked member.** The group row goes at the place of the anchor row in the merged order. Each other row keeps its order. The operator rejected the place of the best-ranked single on 2026-10-22 (ADR 0086 "Alternatives Considered").
@@ -316,10 +316,10 @@ cargo clippy --all-targets -- -D warnings
 cargo test --lib adr_0086_saved_search_groups_
 cargo test
 cargo test --test architecture_tests
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
-Run `cargo build --bin v4vmm` last. `cargo test` can leave a binary with GPUI test support at `target/debug/v4vmm`.
+Run `cargo build --bin hitit` last. `cargo test` can leave a binary with GPUI test support at `target/debug/hitit`.
 
 ## Rollback
 

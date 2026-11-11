@@ -34,7 +34,7 @@ The operator can delete a saved search. Migration 21 stores the saved searches.
 - "New releases" shows in the detail column through `render_discover_new_releases_detail` in `src/ui/shells/library/content_list.rs`.
 - `content_list_frame_title` in `src/app.rs` gives the label of the view as the frame title. `breadcrumb_entry_id` and `discover_view_id` in `src/view_models/workspace/breadcrumb.rs` give the breadcrumb id.
 - `TopApp` holds the search view model in `search_results_detail`. `search_results_detail_for_query` and `FetchIndexSearchResults` in `src/app/search_dispatch.rs` give the Library rows and the Index rows of one query.
-- `config.rs` gives the default database path `v4vmm.sqlite` in the data directory of the project. The config key `db_path` can name another file.
+- `config.rs` gives the default database path `hitit.sqlite` in the data directory of the project. The config key `db_path` can name another file.
 
 ## Design
 
@@ -193,7 +193,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -201,10 +201,10 @@ cargo build --bin v4vmm
 Migration 21 changes the database. Make the backup before the first start of the new build:
 
 1. Close the app.
-2. Find the database file: the value of `db_path` in the config file. The default is `~/.local/share/v4vmm/v4vmm.sqlite`.
-3. Copy that file as the backup: `cp ~/.local/share/v4vmm/v4vmm.sqlite ~/v4vmm-before-schema-21.sqlite`.
+2. Find the database file: the value of `db_path` in the config file. The default is `~/.local/share/hitit/hitit.sqlite`.
+3. Copy that file as the backup: `cp ~/.local/share/hitit/hitit.sqlite ~/hitit-before-schema-21.sqlite`.
 
-To roll back, close the app and revert the commit. Then copy `~/v4vmm-before-schema-21.sqlite` back to the database path. An older build refuses a database at schema 21.
+To roll back, close the app and revert the commit. Then copy `~/hitit-before-schema-21.sqlite` back to the database path. An older build refuses a database at schema 21.
 
 The backup holds no saved search. A rollback thus removes each saved search, and changes no other record.
 
@@ -250,7 +250,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V7. The backup of the Rollback section is its first step.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed
@@ -342,18 +342,18 @@ The visual checks V1 to V7 are open. The operator walks them in the final walk o
 
 Necessary state: a desktop session, a reachable MusicIndex endpoint, and a Library with one or more downloaded releases.
 
-1. Make the backup before the first start of this build. Close the app. Find the database file: the value of `db_path` in the config file. The default is `~/.local/share/v4vmm/v4vmm.sqlite`. Copy the file:
+1. Make the backup before the first start of this build. Close the app. Find the database file: the value of `db_path` in the config file. The default is `~/.local/share/hitit/hitit.sqlite`. Copy the file:
 
    ```bash
-   cp ~/.local/share/v4vmm/v4vmm.sqlite ~/v4vmm-before-schema-21.sqlite
+   cp ~/.local/share/hitit/hitit.sqlite ~/hitit-before-schema-21.sqlite
    ```
 
 2. Build and start the app:
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 3. V1: in the toolbar search, type `bluegrass` and push Enter. Make sure that the header of the list column shows "Save search" after the query. Open the Tracks tab, then click "Save search". Make sure that the button changes to "Saved" at once and that it is not available.
@@ -374,4 +374,4 @@ Cleanup:
 
 - Delete each saved search that the steps made, with "Delete…".
 - Remove each release that step 8 downloaded, if you do not want it in the Library. Use "Remove…" on its release page.
-- Keep `~/v4vmm-before-schema-21.sqlite` until the operator accepts packet 012. Then remove it: `rm ~/v4vmm-before-schema-21.sqlite`.
+- Keep `~/hitit-before-schema-21.sqlite` until the operator accepts packet 012. Then remove it: `rm ~/hitit-before-schema-21.sqlite`.

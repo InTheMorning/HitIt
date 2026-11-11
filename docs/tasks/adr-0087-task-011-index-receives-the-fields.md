@@ -2,7 +2,7 @@
 
 Status: Implemented - 2026-11-06. The operator walked the visual checks on 2026-11-06, and they pass.
 
-Depends on: [packet 002](adr-0087-task-002-library-fields-and-index-words.md). Stophammer release 0.15.0 of 2026-10-25 delivered the filters of [open request 10](../plans/v4vmm-open-requests.md#10-search-accepts-words-phrases-and-field-filters). This packet replaces packet 006 of the [phase plan](../plans/adr-0087-search-fields-phase-plan.md).
+Depends on: [packet 002](adr-0087-task-002-library-fields-and-index-words.md). Stophammer release 0.15.0 of 2026-10-25 delivered the filters of [open request 10](../plans/hitit-open-requests.md#10-search-accepts-words-phrases-and-field-filters). This packet replaces packet 006 of the [phase plan](../plans/adr-0087-search-fields-phase-plan.md).
 
 ## Problem
 
@@ -10,7 +10,7 @@ A search with a field never asked the Index. `IndexSearchPlan::for_query` return
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 5: "v4vmm sends the words and the phrases in `q`, and each Index field as its own parameter." Its invariants "No Index request carries field syntax in `q`" and "Index rows show only when each Index field of the query is applied by Stophammer".
+- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 5: "HitIt sends the words and the phrases in `q`, and each Index field as its own parameter." Its invariants "No Index request carries field syntax in `q`" and "Index rows show only when each Index field of the query is applied by Stophammer".
 - ADR 0087 Decision 4: each run sends at most three Index requests.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) section 6: the search sends no detail request for a row. A request uses its named profile.
 - The stored contract `tests/fixtures/musicindex-openapi-0.18.1.json`, `GET /v1/search`: the parameters, the types that accept each one, and the `400` codes.
@@ -148,4 +148,4 @@ Run in this order in the worktree. Each must pass.
 2. `cargo clippy --all-targets -- -D warnings`
 3. `cargo test`
 4. `cargo test --test architecture_tests`
-5. `cargo build --bin v4vmm`
+5. `cargo build --bin hitit`

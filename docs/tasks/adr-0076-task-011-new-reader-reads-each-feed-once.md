@@ -54,7 +54,7 @@ Visual, listed apart, for the operator to walk:
 
 ## Operator Visual Check
 
-1. Run `cargo build --bin v4vmm`, and then start `./target/debug/v4vmm` in a desktop session.
+1. Run `cargo build --bin hitit`, and then start `./target/debug/hitit` in a desktop session.
 2. Select **Music**, then **Playlists** in the left sidebar, and click a playlist in the list column.
 3. Click **Check RSS** on the playlist page. Wait for the **RSS check** report to stop running.
 4. Wrong: the report shows "Not modified" for a feed in this first check.
@@ -74,7 +74,7 @@ Cleanup: none. The stored revision is correct.
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 ## Report
 

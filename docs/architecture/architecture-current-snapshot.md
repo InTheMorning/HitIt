@@ -1,4 +1,4 @@
-# v4vmm Architecture — Current Snapshot
+# HitIt Architecture — Current Snapshot
 
 A focused snapshot of where the codebase actually is **today**, after the
 async-runtime / paged VM / layer-consolidation work shipped under ADRs 0040,

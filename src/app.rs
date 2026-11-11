@@ -2132,17 +2132,17 @@ impl Drop for TopApp {
                     }
                     if let Err(error) = playback_owner.clear_broadcast_drop_file() {
                         eprintln!(
-                        "v4vmm::broadcast: failed to remove mpv now-playing drop file on shutdown: {error:#}"
+                        "hitit::broadcast: failed to remove mpv now-playing drop file on shutdown: {error:#}"
                     );
                     }
                 }
                 Err(_) => {
-                    eprintln!("v4vmm::broadcast: failed to lock playback owner on shutdown");
+                    eprintln!("hitit::broadcast: failed to lock playback owner on shutdown");
                 }
             }
         }
         if let Err(error) = self.persist_workspace_layout() {
-            eprintln!("v4vmm::workspace: failed to save workspace layout on shutdown: {error:#}");
+            eprintln!("hitit::workspace: failed to save workspace layout on shutdown: {error:#}");
         }
     }
 }

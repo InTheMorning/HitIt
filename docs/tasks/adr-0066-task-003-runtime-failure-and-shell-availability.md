@@ -220,7 +220,7 @@ all three dependencies without optimization in the debug app.
 `Cargo.toml` now optimizes `ttf-parser`, `rustybuzz`, and `cosmic-text` in the
 development profile. Optimizing their callers also covers generic parsing code.
 Cargo's build records confirm level 3 for these libraries and level 0 for
-v4vmm, with debug symbols, assertions and overflow checks retained in each.
+HitIt, with debug symbols, assertions and overflow checks retained in each.
 Recovery-fixture injection remains available. Dependency versions, app fonts,
 layout, and release-profile settings are unchanged. Optimized dependency builds
 cost more compilation time, and stepping through their code may be less direct.
@@ -354,7 +354,7 @@ Checking state. The fixture returns its injected failure immediately; a visible
 intermediate frame is not required for this case. Completion feedback is retained.
 
 Full report copy passed. The supplied report identifies fixture
-`/tmp/v4vmm-startup-clzmrchl`, check 12 completed at 22:59:59 UTC, the runtime
+`/tmp/hitit-startup-clzmrchl`, check 12 completed at 22:59:59 UTC, the runtime
 failure recorded at that time, and the separate thumbnail-worker failure at
 22:59:22 UTC. It includes the affected and available work, recovery actions,
 and the complete thumbnail-cache path. No report content is truncated.

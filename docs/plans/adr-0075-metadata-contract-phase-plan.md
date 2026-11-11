@@ -5,7 +5,7 @@
 Active plan - 2026-09-19. The source audit and the accepted contract are written.
 Phase 001 is complete on 2026-09-19. Its mechanical checks are Green.
 The operator paused visual checks and prioritised
-metadata handling across v4vmm and MusicIndex.
+metadata handling across HitIt and MusicIndex.
 
 ADR 0075 is Accepted from 2026-09-19. The operator recorded these decisions:
 
@@ -140,10 +140,10 @@ Exclude these changes from this work:
   A field rule must exist before the packet that changes that field runs.
 - The inspected backend is Stophammer. The `musicindex` repository publishes
   its generated API contract. The deployed revision remains unverified.
-- This workspace permits writes to v4vmm. Changes to Stophammer require a
+- This workspace permits writes to HitIt. Changes to Stophammer require a
   decision in that repository and a workspace that permits writes there.
   Writing this plan needs no Stophammer decision or write access to that repository.
-- Keep `/tmp/v4vmm-governance.ie6k8TQf` as an unmodified evidence copy for now.
+- Keep `/tmp/hitit-governance.ie6k8TQf` as an unmodified evidence copy for now.
   Its removal is not confirmed. Do not ask for visual checks during this pause.
 - Existing ADR 0066 gates for configuration formats remain in force.
   This contract covers source facts about music. It does not cover the deferred

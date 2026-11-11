@@ -89,7 +89,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -200,7 +200,7 @@ Each command in "Checks" is Green.
 - `cargo fmt -- --check`: Green.
 - `cargo clippy -- -D warnings`: Green.
 - `cargo check --all-targets`: Green, with no warning.
-- `cargo build --bin v4vmm`: Green.
+- `cargo build --bin hitit`: Green.
 
 ### Deviations From The Task
 
@@ -222,7 +222,7 @@ and `ArtistVm::subtitle()`, in a file this packet does not name.
   needs its own packet.
 - The `ArtistVm`/`render_artist_view` body, in the corrected but unreachable `SearchApp`
   inspector, shows the plain name. See "Deviations" above.
-- Cleanup of the evidence fixture `/tmp/v4vmm-governance.ie6k8TQf` stays unconfirmed. This is
+- Cleanup of the evidence fixture `/tmp/hitit-governance.ie6k8TQf` stays unconfirmed. This is
   unrelated to this packet. The standing note in `AGENTS.md` records this fact.
 
 ## Operator Visual Check
@@ -236,11 +236,11 @@ packet reaches the live `IndexArtistFeedScope` flow.
 1. Make and open the desktop binary:
 
    ```bash
-   cargo build --bin v4vmm && target/debug/v4vmm
+   cargo build --bin hitit && target/debug/hitit
    ```
 
    Do this command first. A prior `cargo test` run can keep a GPUI test-support binary at
-   `target/debug/v4vmm`. This is the only step that starts the app. Each next step happens in the
+   `target/debug/hitit`. This is the only step that starts the app. Each next step happens in the
    open app.
 2. Open Settings. Make sure the MusicIndex endpoint field is set, and the service answers.
 3. Make sure one feed in the Library carries an `itunes:owner` value. If not, open an Index album
@@ -329,7 +329,7 @@ Test commands:
 - `cargo fmt -- --check`
 - `cargo clippy -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 At the end, report:
 1. files changed

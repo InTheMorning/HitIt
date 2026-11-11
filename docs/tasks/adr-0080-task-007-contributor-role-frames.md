@@ -58,7 +58,7 @@ Visual, listed apart, for the operator to walk:
 
 ## Operator Visual Check
 
-1. Run `cargo run --bin v4vmm` in a desktop session.
+1. Run `cargo run --bin hitit` in a desktop session.
 2. Open a Library track with a `remixer` credit in its feed. If no track has one, add the credit to a test feed in Studio and run the RSS check of that playlist.
 3. Open "Update n files", and read the list of frames.
 4. Wrong: the list does not show `TPE4`, or it shows the name for `TIPL`. A file that this app wrote earlier can still hold the earlier `TIPL` value after the update. The [phase plan](../plans/adr-0080-tag-frames-phase-plan.md#open-finding---2026-11-05) records this, so it is not a failure of this check.
@@ -77,7 +77,7 @@ Cleanup: remove the test credit in Studio if you added it. The tag rewrite stays
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 ## Report
 

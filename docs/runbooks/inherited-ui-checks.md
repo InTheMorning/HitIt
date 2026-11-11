@@ -26,11 +26,11 @@ configured playback driver or broadcast hosts from the normal configuration.
 The source database is opened read-only. No token contents are copied.
 
 ```bash
-gate_dir=$(mktemp -d /tmp/v4vmm-governance.XXXXXXXX)
+gate_dir=$(mktemp -d /tmp/hitit-governance.XXXXXXXX)
 ```
 
 ```bash
-python3 -c 'import json, os, pathlib, sqlite3, sys, tomllib; root=pathlib.Path(sys.argv[1]).resolve(); source=pathlib.Path(os.environ.get("XDG_CONFIG_HOME", str(pathlib.Path.home()/".config")))/"v4vmm/config.toml"; cfg=tomllib.loads(source.read_text()); music=pathlib.Path(cfg["music_dir"]).resolve(); assert music.is_dir(), "Source music directory is missing"; target=root/"config/v4vmm"; target.mkdir(parents=True); (root/"music").mkdir(); src=sqlite3.connect(pathlib.Path(cfg["db_path"]).resolve().as_uri()+"?mode=ro", uri=True, timeout=5); dst=sqlite3.connect(root/"app.sqlite", timeout=5); src.backup(dst); dst.close(); src.close(); settings={"music_dir":str(root/"music"), "db_path":str(root/"app.sqlite")}; settings.update({"musicindex_endpoint":cfg["musicindex_endpoint"]} if "musicindex_endpoint" in cfg else {}); (target/"config.toml").write_text("\n".join(k+" = "+json.dumps(v) for k,v in settings.items())+"\n"); (root/"source-music-path").write_text(str(music)); (root/".governance-fixture").write_text(str(root)); print("Database copy ready:", root)' "$gate_dir"
+python3 -c 'import json, os, pathlib, sqlite3, sys, tomllib; root=pathlib.Path(sys.argv[1]).resolve(); source=pathlib.Path(os.environ.get("XDG_CONFIG_HOME", str(pathlib.Path.home()/".config")))/"hitit/config.toml"; cfg=tomllib.loads(source.read_text()); music=pathlib.Path(cfg["music_dir"]).resolve(); assert music.is_dir(), "Source music directory is missing"; target=root/"config/hitit"; target.mkdir(parents=True); (root/"music").mkdir(); src=sqlite3.connect(pathlib.Path(cfg["db_path"]).resolve().as_uri()+"?mode=ro", uri=True, timeout=5); dst=sqlite3.connect(root/"app.sqlite", timeout=5); src.backup(dst); dst.close(); src.close(); settings={"music_dir":str(root/"music"), "db_path":str(root/"app.sqlite")}; settings.update({"musicindex_endpoint":cfg["musicindex_endpoint"]} if "musicindex_endpoint" in cfg else {}); (target/"config.toml").write_text("\n".join(k+" = "+json.dumps(v) for k,v in settings.items())+"\n"); (root/"source-music-path").write_text(str(music)); (root/".governance-fixture").write_text(str(root)); print("Database copy ready:", root)' "$gate_dir"
 ```
 
 Copy audio files, including the contents of any symbolic links. Reflinks are
@@ -60,7 +60,7 @@ The command stops if the HTTPS handlers differ or the normal handler is empty.
   gate_fixture_handler=$(xdg-mime query default x-scheme-handler/https) || exit 1
   printf 'Fixture HTTPS handler: %s\n' "$gate_fixture_handler"
   test "$gate_fixture_handler" = "$gate_desktop_handler" || exit 1
-  target/debug/v4vmm
+  target/debug/hitit
 )
 ```
 
@@ -221,7 +221,7 @@ checks. Only after the app has closed, verify the directory marker and remove
 the disposable database/config/audio copy:
 
 ```bash
-python3 -c 'import pathlib, sys; root=pathlib.Path(sys.argv[1]).resolve(); assert root.parent==pathlib.Path("/tmp") and root.name.startswith("v4vmm-governance."); assert (root/".governance-fixture").read_text()==str(root); print("Fixture verified:", root)' "$gate_dir" && rm -r -- "$gate_dir"
+python3 -c 'import pathlib, sys; root=pathlib.Path(sys.argv[1]).resolve(); assert root.parent==pathlib.Path("/tmp") and root.name.startswith("hitit-governance."); assert (root/".governance-fixture").read_text()==str(root); print("Fixture verified:", root)' "$gate_dir" && rm -r -- "$gate_dir"
 ```
 
 For each accepted check, update its task Status, review checklist, and delivery

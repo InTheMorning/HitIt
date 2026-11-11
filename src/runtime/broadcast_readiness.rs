@@ -20,6 +20,11 @@ use crate::application::queries::broadcast::{
 const BROADCAST_READINESS_POLL_INTERVAL: Duration = Duration::from_mins(5);
 const INBOX_CAPACITY: usize = 4;
 
+/// Plans one readiness scan under the database lock. The app reads the music
+/// directory from the configuration. A test gives a fixed directory, so it
+/// does not read the configuration of the person who runs it.
+type PlanSource = fn(&Connection) -> anyhow::Result<BroadcastReadinessPlan>;
+
 /// Cached local broadcast-readiness snapshot.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct BroadcastReadinessSnapshot {
@@ -79,13 +84,19 @@ pub(crate) fn start(
     conn: Arc<Mutex<Connection>>,
     session: &SessionLifecycle,
 ) -> BroadcastReadinessWatchHandle {
-    start_with_interval(conn, BROADCAST_READINESS_POLL_INTERVAL, session)
+    start_with_interval(
+        conn,
+        BROADCAST_READINESS_POLL_INTERVAL,
+        session,
+        broadcast_readiness_plan_from_config,
+    )
 }
 
 fn start_with_interval(
     conn: Arc<Mutex<Connection>>,
     interval: Duration,
     session: &SessionLifecycle,
+    plan_source: PlanSource,
 ) -> BroadcastReadinessWatchHandle {
     let (snapshot_tx, snapshot_rx) = watch::channel(BroadcastReadinessSnapshot::default());
     let (inbox_tx, mut inbox_rx) = mpsc::channel::<BroadcastReadinessCommand>(INBOX_CAPACITY);
@@ -93,7 +104,7 @@ fn start_with_interval(
 
     let stop = session.stop_token();
     session.spawn_actor("Library readiness scan", async move {
-        publish_snapshot(&snapshot_tx, Arc::clone(&conn)).await;
+        publish_snapshot(&snapshot_tx, Arc::clone(&conn), plan_source).await;
         loop {
             tokio::select! {
                 biased;
@@ -103,10 +114,10 @@ fn start_with_interval(
                     let Some(BroadcastReadinessCommand::RefreshNow) = command else {
                         break;
                     };
-                    publish_snapshot(&snapshot_tx, Arc::clone(&conn)).await;
+                    publish_snapshot(&snapshot_tx, Arc::clone(&conn), plan_source).await;
                 }
                 () = tokio::time::sleep(interval) => {
-                    publish_snapshot(&snapshot_tx, Arc::clone(&conn)).await;
+                    publish_snapshot(&snapshot_tx, Arc::clone(&conn), plan_source).await;
                 }
             }
         }
@@ -122,8 +133,9 @@ fn start_with_interval(
 async fn publish_snapshot(
     snapshot_tx: &watch::Sender<BroadcastReadinessSnapshot>,
     conn: Arc<Mutex<Connection>>,
+    plan_source: PlanSource,
 ) {
-    let snapshot = read_broadcast_readiness(conn)
+    let snapshot = read_broadcast_readiness(conn, plan_source)
         .await
         .unwrap_or_else(|error| BroadcastReadinessSnapshot {
             report: None,
@@ -134,20 +146,22 @@ async fn publish_snapshot(
 
 async fn read_broadcast_readiness(
     conn: Arc<Mutex<Connection>>,
+    plan_source: PlanSource,
 ) -> Result<BroadcastReadinessSnapshot, tokio::task::JoinError> {
-    tokio::task::spawn_blocking(move || read_broadcast_readiness_blocking(&conn)).await
+    tokio::task::spawn_blocking(move || read_broadcast_readiness_blocking(&conn, plan_source)).await
 }
 
 /// Reads the report. The rows and the stored facts are read under the
 /// database lock. The file tags are read after the lock is released
 /// (ADR 0084 Decision 10 as amended 2026-10-24, task 039, step 1).
-fn read_broadcast_readiness_blocking(conn: &Arc<Mutex<Connection>>) -> BroadcastReadinessSnapshot {
+fn read_broadcast_readiness_blocking(
+    conn: &Arc<Mutex<Connection>>,
+    plan_source: PlanSource,
+) -> BroadcastReadinessSnapshot {
     let report = conn
         .lock()
         .map_err(|_| "database lock poisoned".to_owned())
-        .and_then(|conn| {
-            broadcast_readiness_plan_from_config(&conn).map_err(|error| format!("{error:#}"))
-        })
+        .and_then(|conn| plan_source(&conn).map_err(|error| format!("{error:#}")))
         .map(BroadcastReadinessPlan::read_files);
     match report {
         Ok(report) => BroadcastReadinessSnapshot {
@@ -178,11 +192,18 @@ mod tests {
         Ok(Arc::new(Mutex::new(conn)))
     }
 
+    fn fixed_music_dir_plan(conn: &Connection) -> anyhow::Result<BroadcastReadinessPlan> {
+        crate::application::queries::broadcast::broadcast_readiness_plan(
+            conn,
+            std::path::Path::new("/nonexistent-hitit-music"),
+        )
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn broadcast_readiness_actor_publishes_cached_report() -> anyhow::Result<()> {
         let conn = setup_test_db()?;
 
-        let snapshot = read_broadcast_readiness(Arc::clone(&conn)).await?;
+        let snapshot = read_broadcast_readiness(Arc::clone(&conn), fixed_music_dir_plan).await?;
 
         assert_eq!(
             snapshot.report.expect("report").summary,
@@ -199,6 +220,7 @@ mod tests {
             Arc::clone(&conn),
             Duration::from_mins(1),
             &SessionLifecycle::new(),
+            fixed_music_dir_plan,
         );
         let mut receiver = handle.subscribe();
 

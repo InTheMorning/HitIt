@@ -242,7 +242,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 Run the full `cargo test` three times. Each run must be Green, so that the P9 test passes under the load of the full suite.
@@ -315,10 +315,10 @@ Pass, with the four corrections of "Review Corrections - 2026-10-21". Only Back,
 
 ## Operator Visual Check
 
-Use the release binary or the debug binary that `cargo build --bin v4vmm` makes. Use a test playlist and a track that you can download again.
+Use the release binary or the debug binary that `cargo build --bin hitit` makes. Use a test playlist and a track that you can download again.
 
 1. V1, the row menu:
-   1. Start the app: `cargo build --bin v4vmm && ./target/debug/v4vmm`.
+   1. Start the app: `cargo build --bin hitit && ./target/debug/hitit`.
    2. Open a Library release page. Put the pointer on a track row and click "⋯".
    3. Click "Add to playlist", then "New Playlist". The name field and "Create & Add" must show.
    4. Type "packet 030 test" and click "Create & Add". The menu must close. The playlist must show in the sidebar list with the track.
