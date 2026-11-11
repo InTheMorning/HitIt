@@ -172,11 +172,14 @@ Current plans:
   from Attach, Replace and forget. Open
 - [Research UI shell and search request](plans/research-ui-shell-and-search-request.md):
   the research repository gives the stack shell, the destinations, sort,
-  view, scope and the toolbar search of 2026-10-24. Received. The hold is
-  lifted, and musicindex ADRs 0027 to 0029 state the shared rules
+  view, scope and the toolbar search of 2026-10-24. Partly answered: ADR 0089
+  answers sections 1 to 4. The `host:` field and five operator questions are
+  open
 - [Research search request](plans/research-search-request.md): the research
   repository proposes shared search code with the website and Studio, and
-  gives four client results and the Stophammer search defects. Received
+  gives four client results and the Stophammer search defects. Partly
+  answered: ADR 0091 moves the parser. Shared response types, request 11 and
+  the four client results are open
 - [Live segment request](plans/live-segment-request.md): the publisher asks
   v4vmm to start a talk break or a live set through the `segment` commands,
   with a split for each show, and to decide the custody of the token. Open
