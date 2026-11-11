@@ -63,7 +63,7 @@ A move changes `feeds.feed_url` only. v4vmm keeps no copy of the old URL. The re
 
 - A stored feed gets its new URL at the first RSS check after the node reads the move.
 - A return to an earlier URL waits for the Stophammer wait of ADR 0083. v4vmm and the node show the same URL.
-- A feed that the node does not hold never moves. ADR 0038 of Stophammer limits the public lists to `medium = music`. Task 001 examines whether `GET /v1/feeds/{guid}` gives a playlist feed.
+- A feed that the node does not hold never moves. Stophammer ADR 0038 Decision B limits only the lists and the search to `medium = music`. `GET /v1/feeds/{guid}` gives a feed of each medium. On 2026-11-11 the orchestrator session read a feed with `raw_medium` "musicL" and its `feed_url` from the live node.
 - Each moved feed costs one more RSS request at that check. Each stored feed with a GUID costs one MusicIndex request, unless the check already reads that record.
 - `feeds.feed_url` is no longer constant, so each cache that uses the URL as a key must clear the old entry (`invalidate_feed_document` in `src/rss/enrich.rs`).
 - A GUID change of Stophammer ADR 0052 is a different event. A 404 with `superseded_by` is not a move, and this record does not decide it.

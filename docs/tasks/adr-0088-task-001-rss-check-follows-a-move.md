@@ -22,6 +22,7 @@ The RSS check reads the MusicIndex `feed_url` of each stored feed with a GUID. A
 - 2026-11-04: `src/rss/host.rs` holds the host throttle. ADR 0084 packet 039 owns the limit for each host.
 - 2026-11-11: `feeds.feed_guid` exists. `src/feed_service.rs` sends `GET /v1/feeds/{guid}`.
 - 2026-11-11: in `tests/fixtures/musicindex-openapi-0.19.0.json`, `GET /v1/feeds/{guid}` gives `feed_url`. Its 404 can carry `superseded_by` for a GUID change.
+- 2026-11-11: `GET /v1/feeds/{guid}` gives a feed of each medium, also a playlist feed (Stophammer ADR 0038 Decision B, and a live read by the orchestrator session).
 
 ## Required Changes
 
@@ -90,4 +91,3 @@ Give the files changed and the tests run. Tell whether the RSS check already rea
 ## Stop And Ask
 
 - Stop if a different table or a path on disk uses the stored URL as a key. One transaction must update each key.
-- Stop if `GET /v1/feeds/{guid}` gives no record for a playlist feed that the RSS check reads. ADR 0088 Consequences names this gap.
