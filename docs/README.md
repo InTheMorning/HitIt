@@ -235,6 +235,8 @@ Current implementation packets:
   Ready on 2026-11-10. A segmented control selects the group, and each setting is one row.
 - [ADR 0094 task 001: Fold header composite](tasks/adr-0094-task-001-fold-header-composite.md):
   Ready on 2026-11-10. One `FoldHeader` with the look of a list row replaces `DisclosureGroup`.
+- [ADR 0094 task 002: Singles group row keys](tasks/adr-0094-task-002-singles-group-row-keys.md):
+  Ready on 2026-11-10. A key test for Right and Left, and the open condition in the row label.
 - [ADR 0066 task 004: Optional tool isolation](tasks/adr-0066-task-004-optional-tool-isolation.md):
   implemented; operator visual acceptance, preservation inspection and fixture
   cleanup remain open. Tasks 001–003 are complete, including
