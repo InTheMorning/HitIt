@@ -20,6 +20,10 @@ Reconciled 2026-09-18: ADR 0066 task 005 delivered session drain and resumption.
 Future isolation packets must integrate both playback owners with that lifecycle.
 This proposal remains unimplemented and unscheduled.
 
+Revised 2026-11-11 for the shell of [ADR 0089](0089-the-shell-destinations-and-list-pages.md).
+The section [Revision For The ADR 0089 Shell](#revision-for-the-adr-0089-shell---2026-11-11) changes the text of this record where the two records do not agree.
+The operator has not decided its open questions. Implementation has not started.
+
 ## Context
 
 [ADR 0060](0060-workflow-surface-structure.md) places the queue and transport in
@@ -42,6 +46,53 @@ A second instance of the current driver is insufficient by itself. Its socket
 path includes only the application process ID, so two instances in the same
 runtime directory would collide. Separate playback also requires separate
 commands, state, audio routing and failure handling.
+
+## Revision For The ADR 0089 Shell - 2026-11-11
+
+This record was written for the three sections of ADR 0060. ADR 0089, Accepted on 2026-11-05, replaces those sections with one sidebar of destinations, a stack of pages and a now-playing panel. ADR 0089 Decision 7 and Answer 2 make the panel packet wait for this record. Where the text below does not agree with ADR 0089, this section applies.
+
+### What ADR 0089 Already Decides
+
+These facts come from the accepted record. This revision does not change them.
+
+- The panel of musicindex ADR 0027 R-SHELL-1 item 5 is on the right. It shows only while something plays or a show is live (ADR 0089 Decision 7).
+- The panel holds the current track, the transport, a seek control and Up Next. The transport and Up Next move there from the Show page (ADR 0089 Decision 7).
+- Play stays on the current page and opens the panel (ADR 0089 Decision 7).
+- The main action of an album or a track in the Library is Play (ADR 0089 Decision 6).
+- Show stays a screen mount (ADR 0089 Decision 1).
+
+### How To Read The Text Below
+
+| The text below says | Read it as |
+| --- | --- |
+| "Music", "in Music" or "from Music" | A page of a destination above the line of the sidebar, for example Releases, a release page or a playlist page |
+| "Show transport" or "Show renders the loaded cue" | The Show part of the panel has the transport and Up Next. The Show page keeps the full cue, its Load, Replace and Clear actions and the broadcast status of ADRs 0059 and 0063 |
+| "Load into Show cue" for a playlist | An entry in the item menu of a playlist. Play stays the main action (ADR 0089 Decision 6) |
+| "Audition remains an inline Music utility" | Open question 1 decides where the audition control shows |
+| "Leaving Music stops audition" | Open question 3 decides when an audition stops |
+| "Play/Pause and Next/Previous ... require the Show section" | Open question 4 decides where the Show keys work |
+
+The two playback purposes, the cue snapshot, the two driver instances, the two outputs and the publication rules stay as written. A page of the new shell does not decide the purpose of a command. The typed command decides it.
+
+### Open Questions
+
+1. **Which playback does the panel show?**
+   - A: Show only. An audition gets its own small control, apart from the panel.
+   - B: Both, in two parts with labels. The Show part has the cue entry, the transport, the seek control and Up Next. The Audition part has the track, Pause, a seek control and Stop. Each part shows only while its player plays, or while a show is live for the Show part. Each part sends only its own commands.
+
+   Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. If musicindex ADR 0027 R-SHELL-1 item 5 gives the panel only one current track, B needs a musicindex record first. The orchestrator examines that rule before the decision.
+
+2. **What does Play on an album do?** The text below gives an audition one track, and the end of that track stops it. ADR 0089 Decision 6 makes Play the main action of an album.
+   - A: Play auditions the first track only.
+   - B: Play auditions the tracks of the album in their order. At the end of a track, the audition goes to the next track of that album only. At the last track it stops. It never changes the Show cue.
+
+   Recommendation: B. A curator listens to a release in its order. The audition has no Up Next, so the Show Up Next stays the only list of what comes next.
+
+3. **When does an audition stop?** A page change cannot stop it, because the panel stays on each page.
+   - Recommendation: an audition stops only for Stop, a new audition, the end of its track or album, a player failure or the end of the app. A Show start does not stop it, because the two players use separate outputs.
+
+4. **Where do the Show keys work?** The Show transport is now in the panel on each page.
+   - Recommendation: the Show menu items and keys work on each page while the panel has a Show part. They never control an audition, and they never start an audition when no show is loaded. The Audition part has no global key. Its controls work with the keyboard focus, as each button does.
 
 ## Decision
 
@@ -261,6 +312,9 @@ the referenced ADRs in full:
   the separately scheduled narrow-layout work.
 - **0066:** scope failures per playback purpose and include both owners in
   lifecycle accounting. Its startup/preservation guarantees remain.
+- **0089:** the shell and the now-playing panel stay as accepted. The
+  [revision of 2026-11-11](#revision-for-the-adr-0089-shell---2026-11-11) maps the text of this record to
+  that shell. ADR 0089 packet 016 is written from this record after the operator decision.
 - **0067:** retain key delivery and modifiers; narrow transport availability
   to Show through typed dispatch. Existing keyboard acceptance does not prove
   the new command routing.

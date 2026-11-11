@@ -73,7 +73,7 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for
-  [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Proposed, and for the mpv IPC error.
+  [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Proposed, and for the mpv IPC error. On 2026-11-11 ADR 0068 is revised for the ADR 0089 shell. Its four open questions wait for the operator.
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
 - A Music column that scrolls with `music_column_scrollbar`, with no scroll handle, does not scroll to show a button that takes the keyboard focus. These are the destinations list, the Index detail panes, the search notice page and Settings. [ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) Invariants require keyboard reach, and no packet owns the change.
