@@ -20,7 +20,7 @@ Prove the keys Right and Left on the singles group row of Releases with a key te
 ## Scope
 
 1. Add the open condition to the row a11y label in `src/view_models/singles_group.rs`, for example "{artist}, {count} singles, {download}, {level}, Open". The view model gives the text.
-2. Add a key test on Releases with a singles group row in focus. Right opens the group. Left closes it.
+2. Add a key test on Releases with a singles group row in focus. Right opens the group. Left closes it. Left on a single of an open group gives the focus to its group row (musicindex ADR 0061 R-LISTKEY-1 item 3).
 3. The test also asserts that Tab does not stop on the chevron.
 4. Enter on the group row keeps opening the group page. The test asserts it.
 
@@ -38,6 +38,7 @@ Each criterion is checked by a unit test or a key test.
 
 - The row a11y label gives "Open" for an open group and "Closed" for a closed group.
 - Right opens and Left closes the focused group row on Releases.
+- `releases_disclosure_step` gives `FocusGroup` with the group key for Left on a single of an open group, and `None` for Right on that single. On 2026-11-10 the test `adr_0084_selection_right_and_left_open_and_close_a_group` in `src/view_models/library.rs` asserts this. Keep the test, and add the same key to the key test.
 - Tab does not stop on the chevron.
 - Enter on the group row opens the group page.
 

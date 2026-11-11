@@ -4,7 +4,11 @@
 
 Accepted - 2026-11-08. The orchestrator session made this decision on 2026-11-08 to apply the keyboard reach invariant of [ADR 0090](0090-one-list-bar-above-the-rows.md). The orchestrator session relayed it to this session, and on that date no person checked the keys. Implemented on 2026-11-08 for My playlists, Releases and the Inbox. A list with no list focus (Artists, Public playlists, Live, Search) has the keys when it has a list focus.
 
+On 2026-11-10 these four lists differ from musicindex ADR 0061 R-LISTKEY-1 item 1, because they are not one Tab stop. No task exists for this difference. The operator sets the sequence of that work.
+
 A pointer menu owns its keys while it is open. The first entry takes the focus. Up and Down move through the entries, and Home and End go to the first and the last entry. Return and Space run the entry. No key of the list goes to the pane.
+
+Uses: musicindex ADR 0061 R-LISTKEY-1.
 
 ## Context
 
@@ -16,10 +20,13 @@ ADR 0090 Invariants require that each control keeps its keyboard reach. The agen
 
 ## Decision
 
-1. **My playlists takes the list focus of Releases.** Tab reaches the list. Up and Down move the focused row. Enter opens the focused row. The focused row shows the focus ring, as on Releases.
+1. **My playlists takes the list focus of Releases.** Tab reaches the list, and the list is one Tab stop (R-LISTKEY-1 item 1). Up and Down move the focused row. Home and End go to the first and the last row (R-LISTKEY-1 item 2). Enter opens the focused row (R-LISTKEY-1 item 4). The focused row shows the focus ring, as on Releases.
 2. **Shift+F10 and the Menu key open the row menu of the focused row.** These are the platform keys for a context menu. They apply to each list with a row menu on its rows. Escape closes the menu and gives the focus back to the row.
 3. **Alt+Up and Alt+Down move the focused row in Curator Order.** They apply to My playlists with the sort Curator Order, not reversed, in the view Rows. The drag and "Move up" and "Move down" apply in the same condition. The focus stays on the moved row. In each other condition the keys do nothing.
 4. The view model gives the availability of each key action. The renderer decides none of them (the Durable Set: typed action state).
+5. **Right and Left on a tree row (R-LISTKEY-1 item 3).** On Releases, Right opens the focused singles group row and Left closes it. Left on a single of an open group gives the focus to its group row. ADR 0094 Decision 9 gives these keys for the singles group row.
+6. **A chevron has no Tab stop (R-LISTKEY-1 item 6).** A chevron of a list row is not a Tab stop of its own.
+7. **Other keys.** A list in v4vmm also has these keys: Shift+F10, the Menu key, Alt+Up, Alt+Down, Page Up, Page Down, Space and Cmd+A. R-LISTKEY-1 does not give them, and they do not conflict with it.
 
 ## Invariants
 
