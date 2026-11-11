@@ -22,7 +22,7 @@ Music structure in [ADR 0084](docs/adr/0084-music-column-browser.md).
 Phase 4A builds ADR 0084 in the packets of the
 [ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). [ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md) replaces its columns, destinations and Discover.
 Stophammer release 0.13.0 delivered request 9 on 2026-10-21, so packets 026 and 029 wait for nothing outside this repository.
-Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). On 2026-11-08 the live node runs Stophammer candidate v0.19.0-rc.7 (git `398d10f`), with Stophammer ADRs 0084 to 0092. No release 0.19.0 is tagged.
+Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). Stophammer release 0.19.0 of 2026-11-11 delivered requests 14 and 15 and item 1 of request 11 (Stophammer ADRs 0084, 0085 and 0094). The tag v0.19.0 is at git `9fcbdb5`, and on 2026-11-11 the live API gives version 0.19.0.
 
 Packets 001 to 009, 013 to 015, 018, 019, 036 and 037 are complete. Packets 010 to 012, 016, 017, 020 to 035 are implemented,
 and so are ADR 0083 tasks 006 to 008. The run of 2026-10-20 closed on 2026-10-23. Its unwalked visual checks stay open in
