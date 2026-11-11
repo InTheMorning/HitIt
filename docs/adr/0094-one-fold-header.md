@@ -34,7 +34,7 @@ GPUI 0.2.x has no sink for the label of a row (`src/ui/composites/list_row.rs`).
 7. **The users.** The metadata groups, the two Description panels and "How to Search" use `FoldHeader`. The "Show more" button of a Description panel stays below the text, outside the header.
 8. **Not fold headers (R-FOLD-1 item 5).** R-FOLD-1 applies only to a fold header. The singles group row is a tree row. An expandable value cell of the track metadata shows more text, and it is none of the three row types. R-FOLD-1 does not apply to them. A tree row has no `›` at the end (R-FOLD-3 item 5).
 9. **The keys of the singles group row.** The operator decided on 2026-11-10 that the singles group row keeps the keys of a tree row (R-FOLD-1 item 5, musicindex ADR 0061 R-LISTKEY-1):
-    - Right opens the focused group row, and Left closes it (R-LISTKEY-1 item 3). These keys exist in `src/app/keyboard.rs`.
+    - Right opens the focused group row, and Left closes it (R-LISTKEY-1 item 3). Left on a single of an open group gives the focus to its group row (R-LISTKEY-1 item 3). These keys exist in `src/app/keyboard.rs`.
     - The chevron gets no Tab stop (R-LISTKEY-1 item 6). The list stays one Tab stop (R-LISTKEY-1 item 1, ADR 0092 Decision 1), and ADR 0090 Invariants need no exception.
     - Enter on the row keeps opening the group page (R-LISTKEY-1 item 4).
     - The a11y label of the row gives the open condition, for example "Open" or "Closed". The view model gives it. GPUI 0.2.x has no sink for it (R-LISTKEY-2).
