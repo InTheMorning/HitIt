@@ -4,7 +4,7 @@
 
 Ready - 2026-11-10. Implementation has not started. The operator decides the priority.
 
-This task implements Decisions 1 to 7 of [ADR 0094](../adr/0094-one-fold-header.md). The keys of the singles group chevron are not in this task. They wait for an operator answer (ADR 0094 Decision 8).
+This task implements Decisions 1 to 7 of [ADR 0094](../adr/0094-one-fold-header.md). The keys of the singles group row are in [ADR 0094 task 002](adr-0094-task-002-singles-group-row-keys.md).
 
 ## Goal
 

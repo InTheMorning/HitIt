@@ -30,7 +30,12 @@ GPUI 0.2.x has no sink for the label of a row (`src/ui/composites/list_row.rs`).
 5. **One control.** The full header is one control with the target size of musicindex ADR 0024 R-TARGET-1. It is one Tab stop. Enter and Space open and close the fold. They use the activation route of the shared Button primitive, with one activation for each key press (ADR 0069 amendment of 2026-09-13). A pointer click on any part of the header does the same.
 6. **The open condition.** The view model gives the open condition and an a11y label that names it, for example "Description, closed". GPUI 0.2.x does not send the label to assistive technology (R-FOLD-1 item 4). When GPUI gets a label sink, the composite sends it with no change to a view model.
 7. **The users.** The metadata groups, the two Description panels and "How to Search" use `FoldHeader`. The "Show more" button of a Description panel stays below the text, outside the header.
-8. **Not fold headers.** The operator decided on 2026-11-10 that the singles group row and the expandable value cells are not fold headers. They are tree rows, and R-FOLD-1 does not apply (R-FOLD-1 item 5). The keys of the singles group chevron wait for an operator answer, which the orchestrator session has. A change of this record adds them.
+8. **Not fold headers.** The operator decided on 2026-11-10 that the singles group row and the expandable value cells are not fold headers. They are tree rows, and R-FOLD-1 does not apply (R-FOLD-1 item 5).
+9. **The keys of the singles group row.** The operator decided on 2026-11-10 that the singles group row keeps the keys of a tree row (R-FOLD-1 item 5):
+    - Right opens the focused group row, and Left closes it. These keys exist in `src/app/keyboard.rs`.
+    - The chevron gets no Tab stop. The list stays one Tab stop (ADR 0092 Decision 1), and ADR 0090 Invariants need no exception.
+    - Enter on the row keeps opening the group page.
+    - The a11y label of the row gives the open condition, for example "Open" or "Closed". The view model gives it.
 
 ## Invariants
 
@@ -45,13 +50,14 @@ Mechanical:
 - The view-model tests give the name, the count, the open condition and the a11y label of each fold header of Decision 7.
 - A composite test asserts that the open and the closed header have the same text and the same height.
 - A key test asserts that Tab reaches the header, and that Enter and Space each toggle the fold one time.
+- A key test asserts that Right opens and Left closes the focused singles group row on Releases, and that Tab does not stop on its chevron.
 - The guard `adr_0094_one_fold_header` forbids `SectionHeader::disclosure`, `DisclosureGroup` and a second fold header composite.
 
 Visual, for the operator: open a track page and a release page in the light and the dark theme, at M and at XL. Open and close the Description panel and a metadata group. Open and close "How to Search". Each header looks like a list row, and only the chevron changes.
 
 ## Delivery
 
-[ADR 0094 task 001](../tasks/adr-0094-task-001-fold-header-composite.md) delivers Decisions 1 to 7. It is Ready. The operator decides the priority.
+[ADR 0094 task 001](../tasks/adr-0094-task-001-fold-header-composite.md) delivers Decisions 1 to 7. [ADR 0094 task 002](../tasks/adr-0094-task-002-singles-group-row-keys.md) delivers Decision 9. Both are Ready. The operator decides the priority.
 
 ## Alternatives Considered
 
