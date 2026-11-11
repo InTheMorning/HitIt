@@ -117,6 +117,8 @@ Current governance:
 - [ADR 0093: Settings has a tab row and one Save bar](adr/0093-settings-has-a-tab-row-and-one-save-bar.md):
   applies musicindex ADR 0059 to Settings. A segmented control selects the group,
   each setting is one row, and one Save bar holds Save and Discard for all groups.
+- [ADR 0094: One fold header](adr/0094-one-fold-header.md):
+  applies musicindex ADR 0060. Each fold header has the look of a list row, with the chevron at the end.
 
 Current plans:
 
@@ -231,6 +233,8 @@ Current implementation packets:
   leave question. Implementation has not started.
 - [ADR 0093 task 001: Settings tab row and rows](tasks/adr-0093-task-001-settings-tab-row-and-rows.md):
   Ready on 2026-11-10. A segmented control selects the group, and each setting is one row.
+- [ADR 0094 task 001: Fold header composite](tasks/adr-0094-task-001-fold-header-composite.md):
+  Ready on 2026-11-10. One `FoldHeader` with the look of a list row replaces `DisclosureGroup`.
 - [ADR 0066 task 004: Optional tool isolation](tasks/adr-0066-task-004-optional-tool-isolation.md):
   implemented; operator visual acceptance, preservation inspection and fixture
   cleanup remain open. Tasks 001–003 are complete, including
