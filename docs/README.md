@@ -118,7 +118,7 @@ Current governance:
   applies musicindex ADR 0059 to Settings. A segmented control selects the group,
   each setting is one row, and one Save bar holds Save and Discard for all groups.
 - [ADR 0094: One fold header](adr/0094-one-fold-header.md):
-  applies musicindex ADR 0060. Each fold header has the look of a list row, with the chevron at the end.
+  applies musicindex ADR 0060. Each fold header has the look of a list row and starts with its chevron.
 
 Current plans:
 

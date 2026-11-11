@@ -23,11 +23,11 @@ Add one `FoldHeader` composite with the look of a list row. Move each fold heade
 ## Scope
 
 1. Add `src/ui/composites/fold_header.rs` with `FoldHeader` and a display type. The display has the element id, the name, an optional count, the open condition and the a11y label.
-2. The header has the `ListRow` look: the name in Body text and the Label color, then the count, then the chevron at the end. The chevron points right when closed and down when open. Nothing else changes when the fold opens.
-3. The header is one control with the target size of musicindex ADR 0024 R-TARGET-1. It takes one Tab stop. Enter and Space toggle the fold through the shared Button activation route. A pointer click on the header toggles the fold.
+2. The header has the `ListRow` look. It starts with the chevron, then the name in Body text and the Label color, then the count (musicindex ADR 0060 R-FOLD-1 item 1). The chevron points right when closed and down when open (R-FOLD-3 item 1). Use the v4vmm chevron icon (R-FOLD-3 item 6). Nothing else changes when the fold opens.
+3. The header is one control with the target size of musicindex ADR 0024 R-TARGET-1. It has its own Tab stop (R-FOLD-1 item 3). Enter and Space toggle the fold through the shared Button activation route. A pointer click on the header toggles the fold.
 4. The view models give the display. `group_heading_label` no longer puts the count in the name. It gives "3 unused" as the count when the number is more than 0.
 5. Move the metadata groups, the Description panels of the release page and the track page, and "How to Search" to `FoldHeader`. The "Show more" button of a Description panel stays below the text.
-6. Remove `SectionHeader::disclosure`, `DisclosureGroup` and the `show` and `hide` words when no caller is left. Keep `DisclosureIndicator` for the tree rows of ADR 0094 Decision 8.
+6. Remove `SectionHeader::disclosure`, `DisclosureGroup` and the `show` and `hide` words when no caller is left. Keep `DisclosureIndicator` for the singles group row and the value cells of ADR 0094 Decision 8.
 7. Add the guard `adr_0094_one_fold_header`. It forbids `SectionHeader::disclosure`, `DisclosureGroup` and a second fold header composite in `src/`. Its failure message names ADR 0094 and the fix:
 
     ```text
@@ -37,7 +37,7 @@ Add one `FoldHeader` composite with the look of a list row. Move each fold heade
 
 ## Do Not Touch
 
-- The singles group row and its chevron, and the value cells of the track metadata. They are tree rows (ADR 0094 Decision 8).
+- The singles group row and its chevron, and the value cells of the track metadata (ADR 0094 Decision 8, R-FOLD-1 item 5). The singles group row is a tree row. A value cell is none of the three row types.
 - The section headings that do not fold.
 - The tokens and the `ListRow` look.
 
@@ -56,7 +56,7 @@ Each criterion is checked by a unit test or a guard.
 
 These criteria need a person or the agent Xvfb screenshot check. They are open until a person examines them.
 
-- Open a track page and a release page in the light and the dark theme, at M and at XL. Each fold header looks like a list row. The name is not in capitals, and the chevron is at the end.
+- Open a track page and a release page in the light and the dark theme, at M and at XL. Each fold header looks like a list row. The header starts with the chevron. The name is not in capitals.
 - When a fold opens, the header text, height and position do not change. Only the chevron turns.
 - "How to Search" on the search page shows the same header.
 - The keyboard focus ring shows on the header after Tab.
