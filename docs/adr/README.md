@@ -22,6 +22,7 @@ Status values are the ADR 0057 vocabulary: `Proposed`, `Accepted`,
 | ADR | Scope | Status |
 |---|---|---|
 | [0012](0012-root-desktop-crate.md) | One root desktop crate | Accepted |
+| [0095](0095-the-license-is-agpl-3-0-only.md) | The license is AGPL-3.0-only, with the text in `LICENSE` and the field in `Cargo.toml` | Accepted |
 | [0028](0028-local-identity-source-fact-persistence.md) | Source links, ids, and contributors persist as source facts. ADR 0075 replaces its replacement key | Implemented |
 | [0053](0053-local-detail-source-fact-parity.md) | Source-fact route for parity gaps not locally durable | Accepted |
 | [0054](0054-local-metadata-source-fact-persistence.md) | Feed and track metadata facts persist by source; hydration visual checks remain open. ADR 0075 replaces its replacement key | Accepted, partial |
