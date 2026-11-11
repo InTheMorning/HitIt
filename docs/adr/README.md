@@ -67,7 +67,7 @@ Status values are the ADR 0057 vocabulary: `Proposed`, `Accepted`,
 | [0020](0020-simulated-playlist-playback.md) | Simulated playlist transport for relay smoke tests | Accepted |
 | [0021](0021-mpv-playback-driver.md) | mpv driver behind the `PlaybackDriver` trait | Implemented |
 | [0059](0059-broadcast-control-surface.md) | External publisher control, saved event selection, configured-target readiness. Tasks 001-017 are complete. ADR 0076 amends its readiness rule. The amendment of 2026-10-18 sets the pace of the service watch, built by task 018. The amendment of 2026-10-24 makes the liveValue URI a URL, built by task 019 | Accepted |
-| [0068](0068-show-cue-and-audition-isolation.md) | Persisted Show cue, explicit Show transport, independent audition state/audio/publication boundaries. Revised on 2026-11-11 for the ADR 0089 shell, with four open questions; implementation not started | Proposed |
+| [0068](0068-show-cue-and-audition-isolation.md) | Persisted Show cue, explicit Show transport, independent audition state/audio/publication boundaries. Revised on 2026-11-11 for the ADR 0089 shell; implementation not started | Accepted |
 
 ## UI Architecture
 
@@ -82,7 +82,7 @@ Status values are the ADR 0057 vocabulary: `Proposed`, `Accepted`,
 | [0042](0042-layer-consolidation.md) | Primitive versus composite versus shell | Implemented |
 | [0046](0046-workspace-frame-architecture.md) | Workspace frames, history, and chrome. ADR 0084 amends the Music frames | Implemented |
 | [0047](0047-library-search-unification.md) | One content surface for library and index rows | Implemented |
-| [0060](0060-workflow-surface-structure.md) | Music, Show and Settings structure is delivered. Independent audition remains unfinished under proposed ADR 0068. | Accepted |
+| [0060](0060-workflow-surface-structure.md) | Music, Show and Settings structure is delivered. Independent audition remains unfinished under ADR 0068. | Accepted |
 | [0062](0062-music-content-surface.md) | Five Music packets are complete. The default Index order returns releases. Broader mixed-row search/expansion still needs an evidence review. | Accepted |
 | [0084](0084-music-column-browser.md) | Music is a column browser: destinations, a list and a detail column, Discover first, one page for each item with the Library as a state, releases with a kind, singles groups, one artist page with two levels, two scopes, one navigation stack, shared multiple selection with one download queue and its host rule (RSS requests to one host at a time, 2 seconds apart, and a wait after HTTP 429), and the logo frame for collections. Amends ADRs 0046, 0047, 0049, 0060, 0062, 0082 and 0083. ADR 0085 amends Decision 7, ADR 0086 amends Decision 3, and ADR 0087 amends Decisions 2 and 3. musicindex ADR 0027 replaces Decision 1 with a stack. ADR 0089 supersedes Decisions 2, 3 and 8, and removes the breadcrumb of Decision 9 | Accepted |
 | [0085](0085-artists-by-confirmation.md) | Artists by confirmation level: Artist, Unverified artist and Name only. No interface text names a feed "publisher", apart from the frame title of a feed that is definitely not an artist. Other roles show when a feed states them. The RSS sequence of the named feeds selects the artist feed of an album. Supersedes ADR 0082 Decisions 1 to 3 and 6, and amends ADR 0084 Decision 7. Amended 2026-11-05: Decision 7 lists each stated role (musicindex ADR 0037), and its code is open. Amended 2026-11-08: each artist list shows the stated, inferred and name groups (musicindex ADR 0057) | Accepted |

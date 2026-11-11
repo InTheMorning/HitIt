@@ -2,27 +2,26 @@
 
 ## Status
 
-Proposed - 2026-09-11.
+Accepted - 2026-11-11. Proposed on 2026-09-11. On 2026-11-11 the operator accepted this record with its revision for the ADR 0089 shell, and each recommendation of that revision.
 
 The operator requested the workflow separation during ADR 0066 task 004:
 load a playlist into the Show cue, play it from Show, and use other playback
 buttons for a separate audition audio path. The storage, routing and lifecycle
-decisions below are proposed; implementation has not started. Writing this ADR
+decisions below are accepted. Implementation has not started. Writing this ADR
 does not accept task 004's paused playback checks or change the delivery order.
 
 Revised 2026-09-11: accepted [ADR 0069](0069-grouped-settings-and-selective-presets.md)
 owns grouped Settings, app-selected Show/audition outputs, selective presets
 and PulseAudio/JACK-first configuration. It resolves the app-versus-desktop-only
-output-selection choice; this playback proposal remains otherwise Proposed
-and its implementation remains deferred.
+output-selection choice.
 
 Reconciled 2026-09-18: ADR 0066 task 005 delivered session drain and resumption.
 Future isolation packets must integrate both playback owners with that lifecycle.
-This proposal remains unimplemented and unscheduled.
+The packets of this record are not written yet.
 
 Revised 2026-11-11 for the shell of [ADR 0089](0089-the-shell-destinations-and-list-pages.md).
 The section [Revision For The ADR 0089 Shell](#revision-for-the-adr-0089-shell---2026-11-11) changes the text of this record where the two records do not agree.
-The operator has not decided its open questions. Implementation has not started.
+The operator accepted each recommendation of that section on 2026-11-11. Implementation has not started.
 
 ## Context
 
@@ -68,19 +67,21 @@ These facts come from the accepted record. This revision does not change them.
 | "Music", "in Music" or "from Music" | A page of a destination above the line of the sidebar, for example Releases, a release page or a playlist page |
 | "Show transport" or "Show renders the loaded cue" | The Show part of the panel has the transport and Up Next. The Show page keeps the full cue, its Load, Replace and Clear actions and the broadcast status of ADRs 0059 and 0063 |
 | "Load into Show cue" for a playlist | An entry in the item menu of a playlist. Play stays the main action (ADR 0089 Decision 6) |
-| "Audition remains an inline Music utility" | Open question 1 decides where the audition control shows |
-| "Leaving Music stops audition" | Open question 3 decides when an audition stops |
-| "Play/Pause and Next/Previous ... require the Show section" | Open question 4 decides where the Show keys work |
+| "Audition remains an inline Music utility" | Answer 1 decides where the audition control shows |
+| "Leaving Music stops audition" | Answer 3 decides when an audition stops |
+| "Play/Pause and Next/Previous ... require the Show section" | Answer 4 decides where the Show keys work |
 
 The two playback purposes, the cue snapshot, the two driver instances, the two outputs and the publication rules stay as written. A page of the new shell does not decide the purpose of a command. The typed command decides it.
 
-### Open Questions
+### Questions And Operator Answers - 2026-11-11
+
+The operator accepted each recommendation below on 2026-11-11. Each recommendation is the decision.
 
 1. **Which playback does the panel show?**
    - A: Show only. An audition gets its own small control, apart from the panel.
    - B: Both, in two parts with labels. The Show part has the cue entry, the transport, the seek control and Up Next. The Audition part has the track, Pause, a seek control and Stop. Each part shows only while its player plays, or while a show is live for the Show part. Each part sends only its own commands.
 
-   Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. If musicindex ADR 0027 R-SHELL-1 item 5 gives the panel only one current track, B needs a musicindex record first. The orchestrator examines that rule before the decision.
+   Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. If musicindex ADR 0027 R-SHELL-1 item 5 gives the panel only one current track, B needs a musicindex record first. The orchestrator examines that rule before packet 016 of ADR 0089.
 
 2. **What does Play on an album do?** The text below gives an audition one track, and the end of that track stops it. ADR 0089 Decision 6 makes Play the main action of an album.
    - A: Play auditions the first track only.
@@ -295,7 +296,7 @@ using a persistent boolean as evidence that a desktop owner is alive.
 
 ## Relationship To Existing Decisions
 
-If accepted, this ADR changes these bounded contracts; it does not supersede
+This ADR changes these bounded contracts; it does not supersede
 the referenced ADRs in full:
 
 - **0014:** authoritative Show now-playing remains; cue preparation and audition
@@ -418,7 +419,7 @@ index until a person supplies these observations and preservation/cleanup result
 
 ## Follow-Up Work
 
-Before implementation, accept or revise this proposal and allocate bounded
+Before implementation, allocate bounded
 packets in the [delivery order](../plans/broadcast-chain-delivery-order.md).
 Packet boundaries should cover cue persistence and Show commands, independent
 audition/output ownership, then UI integration and operator verification. Each

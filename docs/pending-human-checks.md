@@ -138,8 +138,8 @@ python3 docs/runbooks/startup-recovery-fixture.py verify "$recovery_dir"
   Current Music Play shares the Show session. The producer screenshot also
   reports an unresolved mpv IPC read error. Report-only checks cannot establish
   audio or publication behavior. See [task 004's correction](tasks/adr-0066-task-004-optional-tool-isolation.md#playback-workflow-correction--2026-09-11).
-- [ADR 0068](adr/0068-show-cue-and-audition-isolation.md) proposes that separation.
-  Its visual/audio check cannot run before implementation. The proposal closes
+- [ADR 0068](adr/0068-show-cue-and-audition-isolation.md), Accepted on 2026-11-11, decides that separation.
+  Its visual/audio check cannot run before implementation. The decision closes
   no gate and reopens no accepted case.
 - Task 005's completion closes none of this packet's remaining checks.
   The phase plan retains its scheduling exception.

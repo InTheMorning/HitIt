@@ -61,7 +61,7 @@ prioritized, and routed to the right governance artifact.
      links each packet and its evidence.
    - Remaining gate: task 004's operator checks, outstanding preservation and
      cleanup evidence. Its presentation and producer preservation passes remain accepted.
-     Playback checks wait for proposed ADR 0068 and diagnosis of the mpv IPC error.
+     Playback checks wait for the implementation of ADR 0068 and diagnosis of the mpv IPC error.
    - Implemented behavior: core startup checks, shared configuration correction,
      optional-tool retry and database maintenance use the accepted recovery owners.
    - Route: complete task 004's surviving checks under the delivery order.

@@ -339,7 +339,7 @@ layers (`src/ui/shells/window_layers.rs`) exist for Library flows
   once.
 - The built-in player and the cue system named in scope are, in the
   current code, three transport buttons and a read-only queue list. ADR
-  0068 (cue and audition isolation) is Proposed and unbuilt, so any cue
+  0068 (cue and audition isolation) is Accepted on 2026-11-11 and unbuilt, so any cue
   mockup is new design, not a reskin of existing screens.
 - The mpv driver already reports playback position every second
   (`DriverStatus.position_ms`), but no Show surface renders it. A future

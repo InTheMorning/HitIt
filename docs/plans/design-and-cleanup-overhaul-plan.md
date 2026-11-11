@@ -103,7 +103,7 @@ Curator jobs, decided by the operator on 2026-10-08. Each job becomes a scripted
 Design constraints from the operator, 2026-10-08:
 
 - Multiple selection is essential. The operator selects several search results or artist singles and downloads the selection with one action. The selection is a shared list behavior, not a feature of one screen.
-- An audition player comes later, with its own audio route, so that the curator can hear a track, seek through it and decide quickly. Each track row and each album page keeps a place for it ([ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) is Proposed).
+- An audition player comes later, with its own audio route, so that the curator can hear a track, seek through it and decide quickly. Each track row and each album page keeps a place for it ([ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) is Accepted on 2026-11-11).
 
 Steps:
 
@@ -207,7 +207,7 @@ Each step needs its packet written first. Each new screen uses the design of ste
 
 ### Phase 6: Player And Cue
 
-11. The operator decides [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md), and an agent diagnoses the mpv IPC error. Then the playback defect of one song that does not change. Then the playback position after a move or a removal of playlist rows (open finding of the ADR 0084 phase plan). ADR 0066 task 004 can then pass, and the configuration-format gate opens for ADR 0069 phase 003 and deferred item 7.
+11. The operator accepted [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) on 2026-11-11. Its packets are written, and an agent diagnoses the mpv IPC error. Then the playback defect of one song that does not change. Then the playback position after a move or a removal of playlist rows (open finding of the ADR 0084 phase plan). ADR 0066 task 004 can then pass, and the configuration-format gate opens for ADR 0069 phase 003 and deferred item 7.
 
 ### Later
 

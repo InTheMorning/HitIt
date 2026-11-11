@@ -12,7 +12,7 @@ Music becomes a stack. One sidebar holds each destination, a list is a page at f
 
 - No new tokens and no new design rules ADR (overhaul plan step 4).
 - No folders, moves or renames of My playlists.
-- No audition player and no cue. ADR 0068 owns them, and packet 016 waits for it.
+- No audition player and no cue. ADR 0068 owns them, and packet 016 waits for its packets.
 - No change to item page content, apart from Inspect Sources (packet 015). The sequence of R-PAGE-1 is not in this plan.
 - No new Stophammer endpoint. Open request 13 stays a draft. A packet that needs an endpoint stops.
 
@@ -50,7 +50,7 @@ Each fact below was read on 2026-11-05 at commit `5942db3`.
 | [013](../tasks/adr-0089-task-013-narrow-tab-bar.md) | The tab bar and More in a narrow window | 011, 012 | Implemented 2026-11-06. V1 to V3 are open. |
 | [014](../tasks/adr-0089-task-014-row-rules.md) | The rows of Decision 6, apart from Play | 005 | Implemented 2026-11-06. Play moves to packet 016. V1 to V4 are open. |
 | [015](../tasks/adr-0089-task-015-inspect-sources-sheet.md) | Inspect Sources is a sheet | 003 | Implemented 2026-11-06. V1 to V4 are open. |
-| [016](../tasks/adr-0089-task-016-now-playing-panel.md) | The now-playing panel and the row action Play | The operator decision on ADR 0068 | Waits for the operator |
+| [016](../tasks/adr-0089-task-016-now-playing-panel.md) | The now-playing panel and the row action Play | The packets of ADR 0068, Accepted on 2026-11-11 | Waits for those packets |
 
 ## Sequence
 
