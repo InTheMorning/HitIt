@@ -6602,6 +6602,14 @@ fn ready_track_ids(report: &BroadcastReadinessReport) -> BTreeSet<i64> {
 }
 
 impl AlbumNode {
+    /// The lowercase host of the feed URL of this album, or `None` when the
+    /// album has no HTTP or HTTPS feed URL (musicindex ADR 0062 R-QUERY-16
+    /// item 4: the app gives the host).
+    #[must_use]
+    pub(crate) fn feed_host(&self) -> Option<String> {
+        self.feed_url.as_deref().and_then(crate::rss::feed_host)
+    }
+
     /// The download queue key of this album (ADR 0084 Decision 10): the
     /// feed GUID, then the feed URL, then the Library feed id.
     #[must_use]

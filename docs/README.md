@@ -173,8 +173,8 @@ Current plans:
 - [Research UI shell and search request](plans/research-ui-shell-and-search-request.md):
   the research repository gives the stack shell, the destinations, sort,
   view, scope and the toolbar search of 2026-10-24. Partly answered: ADR 0089
-  answers sections 1 to 4. The `host:` field and five operator questions are
-  open
+  answers sections 1 to 4, and musicindex ADR 0062 answers the `host:` field.
+  Five operator questions are open
 - [Research search request](plans/research-search-request.md): the research
   repository proposes shared search code with the website and Studio, and
   gives four client results and the Stophammer search defects. Partly

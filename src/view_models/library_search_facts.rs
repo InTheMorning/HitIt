@@ -6,7 +6,8 @@
 //! from the Library tree. The release date of a Library release is the
 //! latest `pub_date` of its tracks (ADR 0086 Decision 1). The ready set is
 //! the set of the tracks with the state `Ready` in the last readiness report
-//! (packet 002 decision D10).
+//! (packet 002 decision D10). The feed host of a track is the host of the
+//! feed URL of its release (musicindex ADR 0062 R-QUERY-16).
 //!
 //! The module has no GPUI type and no I/O.
 
@@ -18,7 +19,7 @@ use crate::view_models::library::LibraryTree;
 use crate::view_models::release_kind::ReleaseKind;
 
 /// The search facts of one Library track.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct LibraryTrackSearchFacts {
     /// The kind of the release of the track (ADR 0084 Decision 5).
     pub(crate) release_kind: ReleaseKind,
@@ -26,6 +27,9 @@ pub(crate) struct LibraryTrackSearchFacts {
     pub(crate) release_date: Option<i64>,
     /// The `pub_date` of the track, in Unix seconds.
     pub(crate) pub_date: Option<i64>,
+    /// The host of the feed URL of the release, or `None` when the release
+    /// has no such host.
+    pub(crate) feed_host: Option<String>,
 }
 
 /// The search facts of each Library track, and the ready set, for one run.
@@ -45,6 +49,7 @@ impl LibrarySearchFacts {
         for album in tree.artists.iter().flat_map(|artist| artist.albums.iter()) {
             let release_kind = album.release_kind();
             let release_date = album.release_date();
+            let feed_host = album.feed_host();
             for track in &album.tracks {
                 tracks.insert(
                     track.id,
@@ -52,6 +57,7 @@ impl LibrarySearchFacts {
                         release_kind,
                         release_date,
                         pub_date: track.pub_date,
+                        feed_host: feed_host.clone(),
                     },
                 );
             }
@@ -153,13 +159,14 @@ mod tests {
             Some(ReleaseKind::Ep)
         );
         assert!(facts.track(2).is_some_and(|f| f.release_kind.is_single()));
-        let album_track = facts.track(4).copied();
+        let album_track = facts.track(4).cloned();
         assert_eq!(
             album_track,
             Some(LibraryTrackSearchFacts {
                 release_kind: ReleaseKind::Album,
                 release_date: Some(30),
                 pub_date: None,
+                feed_host: None,
             })
         );
         assert_eq!(facts.track(5).and_then(|f| f.pub_date), Some(20));

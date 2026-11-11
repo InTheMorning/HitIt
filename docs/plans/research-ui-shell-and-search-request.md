@@ -2,9 +2,9 @@
 
 ## Status
 
-Partly answered - 2026-11-11. ADR 0089 answers sections 1 to 4, apart from the
-`host:` field of section 4. Five questions of section 5 are open. Each section
-gives its status.
+Partly answered - 2026-11-11. ADR 0089 answers sections 1 to 4. musicindex
+ADR 0062 answers the `host:` field of section 4. Five questions of section 5
+are open. Each section gives its status.
 
 Received - 2026-10-24. This request comes from the research repository at
 `~/build/musicindex-research`. That repository has no Git remote. Its index is
@@ -144,14 +144,15 @@ controls into one list bar.
 
 ## 4. The Search
 
-**Section status - 2026-11-11: Answered, apart from `host:`.**
+**Section status - 2026-11-11: Answered.**
 [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decision 4
 and [ADR 0087](../adr/0087-search-fields-and-live-results.md) answer each
-item, apart from the `host:` field. The `host:` field is Open. Stophammer
-release 0.15.0 gives `host` and `not_host` (open request 10 item 7). v4vmm has
-no `host:` field. By [ADR 0091](../adr/0091-search-parser-moves-to-the-shared-crate.md),
-musicindex ADR 0049 owns the syntax. The field thus needs a musicindex record,
-not an amendment of ADR 0087.
+item, apart from the `host:` field. musicindex ADR 0062 answers the `host:`
+field (R-QUERY-13 to R-QUERY-17). By
+[ADR 0091](../adr/0091-search-parser-moves-to-the-shared-crate.md), musicindex
+owns the syntax. The `musicindex-search` crate at `4761148` gives the field.
+v4vmm sends `host` and `not_host` to Stophammer (open request 10 item 7), and
+it filters the Library rows by the host of the feed URL.
 
 - **One wide field in the center of the toolbar, on each page**, as ADR 0060
   and ADR 0087 state. It is at most 640 px wide. Its width does not change

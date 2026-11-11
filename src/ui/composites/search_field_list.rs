@@ -387,13 +387,13 @@ mod tests {
     }
 
     /// R87-10-01 (ADR 0087 Decision 3, ADR 0076 Decision 8): each row of the
-    /// 11 fields keeps the height of its own content. The rows do not
+    /// 12 fields keeps the height of its own content. The rows do not
     /// overlap, and `artist:` has the same height as in a list of one row.
     #[gpui::test]
     fn adr_0087_field_list_r87_10_01_rows_keep_their_height(cx: &mut TestAppContext) {
         cx.update(gpui_component::init);
         let full = open_list("");
-        assert_eq!(full.rows.len(), 11, "the empty text shows the 11 fields");
+        assert_eq!(full.rows.len(), 12, "the empty text shows the 12 fields");
         let artist = full
             .rows
             .iter()
