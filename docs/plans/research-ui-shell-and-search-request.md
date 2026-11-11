@@ -2,6 +2,10 @@
 
 ## Status
 
+Partly answered - 2026-11-11. ADR 0089 answers sections 1 to 4, apart from the
+`host:` field of section 4. Five questions of section 5 are open. Each section
+gives its status.
+
 Received - 2026-10-24. This request comes from the research repository at
 `~/build/musicindex-research`. That repository has no Git remote. Its index is
 `AGENTS.md`.
@@ -39,6 +43,12 @@ commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 
 ## 1. The Shell Is A Stack With Two Exceptions
 
+**Section status - 2026-11-11: Answered** by
+[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decisions 1,
+7 and 8. [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md), in its
+revision of 2026-11-11, gives the cue and the two players of the panel. ADR
+0089 packet 016 builds the panel after ADR 0068 packets 003 and 004.
+
 The operator selected this shell for the three apps on 2026-10-24. It changes
 ADR 0084 Decision 1 (three columns).
 
@@ -58,6 +68,11 @@ ADR 0084 Decision 1 (three columns).
 - Inspect Sources opens as a sheet. No general inspector exists.
 
 ## 2. The Destinations
+
+**Section status - 2026-11-11: Answered** by
+[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decisions 1
+to 3 and 6. Folders, moves and renames in My Playlists stay a Non-Goal of ADR
+0089.
 
 The operator corrected this section on 2026-10-24. It changes ADR 0084
 Decision 2 (the destinations), Decision 3 (Music opens on Discover) and
@@ -94,6 +109,12 @@ title case, for example "Copy to My Playlists…".
 
 ## 3. Sort, View And Scope
 
+**Section status - 2026-11-11: Answered** by
+[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decisions 5
+and 6, and its amendment of 2026-11-08 for the Curator Order.
+[ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) moves the sort
+controls into one list bar.
+
 - **Sort** is a plain button that names the current sort, for example
   "Newest ⌄". It opens a menu with "Newest" and "A to Z", with a check mark
   on the current one. A to Z also shows the letter bar.
@@ -122,6 +143,15 @@ title case, for example "Copy to My Playlists…".
   list of releases and tracks.
 
 ## 4. The Search
+
+**Section status - 2026-11-11: Answered, apart from `host:`.**
+[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decision 4
+and [ADR 0087](../adr/0087-search-fields-and-live-results.md) answer each
+item, apart from the `host:` field. The `host:` field is Open. Stophammer
+release 0.15.0 gives `host` and `not_host` (open request 10 item 7). v4vmm has
+no `host:` field. By [ADR 0091](../adr/0091-search-parser-moves-to-the-shared-crate.md),
+musicindex ADR 0049 owns the syntax. The field thus needs a musicindex record,
+not an amendment of ADR 0087.
 
 - **One wide field in the center of the toolbar, on each page**, as ADR 0060
   and ADR 0087 state. It is at most 640 px wide. Its width does not change
@@ -164,6 +194,12 @@ title case, for example "Copy to My Playlists…".
   `artist:jsmovie kind:single after:2026-10-01 -title:remix "night drive"`.
 
 ## 5. Open Questions For The Operator
+
+**Section status - 2026-11-11: Open.** Question 2 is Answered by ADR 0089
+Decision 3. Questions 1, 3, 4, 5 and 6 are Open: they wait for an operator
+decision. ADR 0089 lists them in its Open Points, and the app keeps its
+present behavior until then. For question 4, ADR 0089 Decision 1 decides
+"Copy to My Playlists…", and the other actions stay open.
 
 The operator has not decided these:
 

@@ -2,6 +2,9 @@
 
 ## Status
 
+Partly answered - 2026-11-11. Sections 3, 4 and 5 are answered. Sections 1 and
+2 have open items. Each section gives its status.
+
 Received - 2026-10-23. This request comes from the research repository at
 `~/build/musicindex-research`. That repository has no Git remote. Its index is
 `AGENTS.md`. The report is
@@ -17,6 +20,23 @@ Stophammer release 0.14.0 is deployed on 2026-10-24. Section 5 gives the
 changes for v4vmm.
 
 ## 1. Shared Search Code
+
+**Section status - 2026-11-11: Open.**
+
+- Step 1 is Open. Stophammer ADR 0094 accepts item 1 of open request 11 (the
+  date and `release_kind` of a feed hit). It is not built. Item 2, the named
+  feeds of a hit, waits for the operator walk of ADR 0084 packet 012 and ADR
+  0086 packet 005. No request asks for the sort rank or a name key of an
+  artist hit. A decision is necessary before v4vmm sends one.
+- Step 2 is Open. No v4vmm record decides shared response types. ADR 0091
+  lists "shared response types" as a Non-Goal. A change to the stored
+  contract method of ADR 0075 §6 needs a v4vmm ADR.
+- Step 3 is Answered by
+  [ADR 0091](../adr/0091-search-parser-moves-to-the-shared-crate.md). The
+  parser moves to the `musicindex-search` crate, and musicindex ADR 0049 owns
+  the syntax.
+- The license is Answered. Commit `78afacc` adds `LICENSE` and sets
+  `license = "AGPL-3.0-only"` in `Cargo.toml`.
 
 The website, v4vmm and musicindex-studio share no search code. Each has its own
 wire types, its own request code and its own result logic. The report proposes
@@ -47,6 +67,12 @@ or gives shared code.
 
 ## 2. Client Findings
 
+**Section status - 2026-11-11: Open.** No packet owns C1 to C4. The
+[overhaul plan](design-and-cleanup-overhaul-plan.md) records each one in its
+list of speed concerns. C1 is item 24, C2 is item 23, C3 is item 17 and C4 is
+item 25. The code on 2026-11-11 still has each finding. The blocker is a
+packet that owns them.
+
 These findings need no Stophammer change:
 
 | # | Result | Location |
@@ -57,6 +83,11 @@ These findings need no Stophammer change:
 | C4 | The Library query runs with the database lock in `search_results_detail_for_run`, not in the command runner. This is an inference. Live results make it more frequent. | `src/app/search_dispatch.rs:285-291` |
 
 ## 3. Stophammer Findings That Concern v4vmm
+
+**Section status - 2026-11-11: Answered.** Stophammer ADR 0078, in release
+0.14.0, corrects S1 (section 5). The research sent the prefix search and the
+request for all types to Stophammer in its own request. Stophammer owns the
+answer, and v4vmm has no action.
 
 The research also sent a request to Stophammer:
 `docs/plans/research-search-index-request.md` in the Stophammer repository.
@@ -71,6 +102,9 @@ The research also sent a request to Stophammer:
 
 ## 4. Broadcast Audio Sources
 
+**Section status - 2026-11-11: Answered.** This section gives research sources
+only. It needs no v4vmm decision.
+
 On 2026-10-23 the research added Rivendell 4.5.0 by Paravel Systems as a source
 in `sources/broadcast-audio/streaming/rivendell`. BUTT has no public Git
 repository. The research keeps its release archive 1.47.0, which was the
@@ -78,6 +112,17 @@ latest release on 2026-10-23. The research index of broadcast audio gives the
 details.
 
 ## 5. Stophammer Release 0.14.0
+
+**Section status - 2026-11-11: Answered.**
+
+- AGENTS.md names `tests/fixtures/musicindex-openapi-0.19.0.json` as the
+  stored contract. It replaces the 0.13.0 file under ADR 0075 §6.
+- Stophammer release 0.15.0 delivers items 2 to 7 of open request 10. ADR 0087
+  [packet 011](../tasks/adr-0087-task-011-index-receives-the-fields.md)
+  replaces packet 006, and it is implemented on 2026-11-06.
+- The test `adr_0084_search_list_http_400_is_a_rejected_query` continues to
+  check the `400` path. It needs no change.
+- Request 11 stays open. Section 1, step 1, gives its blocker.
 
 Stophammer deployed release 0.14.0 on 2026-10-24. On that day, `GET
 /node/info` gave `git_revision` `499b301`, and `info.version` of
