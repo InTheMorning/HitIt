@@ -43,7 +43,7 @@ Subagents wrote the four inventory files from the code. They read no running app
 ### Show
 
 - The transport deck has three icon buttons and no position, time or volume. The mpv driver already reports the position on each poll.
-- The Cuelist is a read-only track list. ADR 0068 is Proposed.
+- The Cuelist is a read-only track list. ADR 0068 is Accepted on 2026-11-11 and not built.
 - The dashboard state follows local playback, and its cards follow the broadcast chain.
 - The previous and next transport icons render as orange boxes in the screenshots.
 

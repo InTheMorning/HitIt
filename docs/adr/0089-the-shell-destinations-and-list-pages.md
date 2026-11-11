@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in the [research request](../plans/research-ui-shell-and-search-request.md), and lifted its hold on 2026-10-25. The operator asked for this record, answered its five questions and accepted it on 2026-11-05 (see [Operator Answers](#operator-answers---2026-11-05)). Packets 001 to 015 of the [phase plan](../plans/adr-0089-shell-phase-plan.md) are implemented on 2026-11-06, and their visual checks are open. Packet 016, the panel and the row action Play, waits for ADR 0068.
+Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in the [research request](../plans/research-ui-shell-and-search-request.md), and lifted its hold on 2026-10-25. The operator asked for this record, answered its five questions and accepted it on 2026-11-05 (see [Operator Answers](#operator-answers---2026-11-05)). Packets 001 to 015 of the [phase plan](../plans/adr-0089-shell-phase-plan.md) are implemented on 2026-11-06, and their visual checks are open. Packet 016, the panel and the row action Play, waits for the packets of ADR 0068, Accepted on 2026-11-11.
 
 This record makes these changes:
 
@@ -126,7 +126,7 @@ The right side holds the panel of R-SHELL-1 item 5, only while something plays o
 - Play stays on the current page and opens the panel. It does not move to the Show page.
 - The curator can expand and collapse the panel.
 
-ADR 0068 decides the audio route of Play. The panel packet waits for that decision.
+ADR 0068 decides the audio route of Play. Its [revision of 2026-11-11](0068-show-cue-and-audition-isolation.md#revision-for-the-adr-0089-shell---2026-11-11) gives the panel a Show part and an Audition part.
 
 ### 8. Inspect Sources Is A Sheet
 

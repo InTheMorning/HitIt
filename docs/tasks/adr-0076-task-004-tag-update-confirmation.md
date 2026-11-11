@@ -14,7 +14,7 @@ Never write a file that the show plays or holds. Keep the count of the files tha
 - [ADR 0076](../adr/0076-playlist-rss-check-for-stale-musicindex-records.md) Decision 8.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) section 7: a metadata refresh writes no audio tag as a side effect.
 - [ADR 0004](../adr/0004-format-neutral-audio-tag-boundary.md) and [ADR 0008](../adr/0008-explicit-id3v24-write-boundary.md): the tag write boundary.
-- [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) is Proposed. Until it is accepted, the playback session defines the files in use.
+- [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) is Accepted on 2026-11-11, and its cue is not built. Until the cue exists, the playback session defines the files in use.
 - The durable set in [AGENTS.md](../../AGENTS.md): typed action state, cautious destructive actions.
 
 ## Recorded Facts - 2026-09-24

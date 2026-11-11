@@ -311,7 +311,7 @@ Update this table when a packet lands.
 | `v4vmm` | [0066 interrupted upgrade repair 013](../tasks/archive/adr-0066-task-013-interrupted-upgrade-repair.md) | Complete — 2026-09-18; mechanical checks Green; V1–V3 behavior, [ADR 0074 presentation](../runbooks/startup-recovery-check.md#repair-and-diagnostics-pages--adr-0074) and both final preservation inspections accepted; cleanup confirmed; task 004 retains its separate gate; ADR stays Accepted |
 | `v4vmm` | [0071 shared text selection 001](../tasks/archive/adr-0071-task-001-shared-text-selection.md) | Complete - 2026-09-15; migration and pinned ADR 0072 correction verified; mechanical checks Green; available X11 operator checks, preservation and fixture/scratch cleanup accepted; IME composition and Wayland untested; completed log packet remains closed |
 | `v4vmm` | [0067 platform shortcuts 001](../tasks/archive/adr-0067-task-001-platform-shortcuts.md) | Complete - 2026-09-11; mechanical gate Green; all shortcut checks, preservation and fixture cleanup accepted; ADR Implemented |
-| `v4vmm` | [0068 Show cue and audition isolation](../adr/0068-show-cue-and-audition-isolation.md) | Proposed - 2026-09-11; requested ADR drafted; implementation and its visual/audio checks not started; does not close 0066 task 004's paused playback gate |
+| `v4vmm` | [0068 Show cue and audition isolation](../adr/0068-show-cue-and-audition-isolation.md) | Accepted - 2026-11-11; packets not written; implementation and its visual/audio checks not started; does not close 0066 task 004's paused playback gate |
 | `v4vmm` | [0030 006 scroll containers](../tasks/adr-0030-task-006-scroll-containers.md) | Implementation recorded. The Music portion of the visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4. The Settings portion moved there too, under Phase 5. |
 | `v4vmm` | [0037 001 feed identity](../tasks/archive/adr-0037-task-001-feed-identity-action-parity.md) | Complete - 2026-09-19. Local/Index controls, Nostr copy, Website and RSS accepted in both themes. Corrected fixture launch and Firefox accepted. Fixture removal confirmed. Task 002 retains its separate gate. |
 | `v4vmm` | [0037 002 track detail parity](../tasks/archive/adr-0037-task-002-track-header-action-parity.md) | Complete - 2026-10-07. The operator walked track detail parity on the one track page of ADR 0083 task 004. |
@@ -481,9 +481,9 @@ an operator does not need to know a second action exists.
 Unscheduled follow-ups:
 
 1. Write the cache and dump policy decision. `Dump` needs it.
-2. Review [proposed ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) and
+2. Write the packets of [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md), Accepted on 2026-11-11, and
    schedule its implementation with explicit reconciliation of task 004's
-   paused playback checks. Writing the ADR does not establish acceptance.
+   paused playback checks.
 3. Write the play-history decision.
 
 Unwritten decisions carry no number until somebody writes them. A number

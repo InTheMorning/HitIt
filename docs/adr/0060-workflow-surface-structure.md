@@ -106,8 +106,9 @@ the show. During curation they occupied a locked share of the window for a task
 the curator was not doing.
 
 Auditioning stays in `Music` as an inline affordance on a row, and it is a
-separate mechanism from show playback. [Proposed ADR 0068](0068-show-cue-and-audition-isolation.md)
-records that mechanism; its implementation remains open.
+separate mechanism from show playback. [ADR 0068](0068-show-cue-and-audition-isolation.md)
+records that mechanism; its implementation remains open. Its revision of
+2026-11-11 moves audition controls to the now-playing panel of ADR 0089.
 
 ### Curation Shows Nothing Operational
 
@@ -247,7 +248,7 @@ Negative and risks:
 ## Follow-Up Work
 
 - Write the cache and dump policy ADR. `Dump` requires that decision.
-- [ADR 0068, Show cue and audition isolation](0068-show-cue-and-audition-isolation.md), Proposed.
+- [ADR 0068, Show cue and audition isolation](0068-show-cue-and-audition-isolation.md), Accepted on 2026-11-11. Its packets are not written.
 - Write the play-history and rotation-warning ADR.
 - Mine the parked discover modules for the metadata grid and tree patterns,
   then delete them.

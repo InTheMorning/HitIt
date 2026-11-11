@@ -28,8 +28,8 @@ Amended 2026-11-10 by [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md
 which applies musicindex ADR 0059. A segmented control selects the group.
 One Save bar in the page bar holds Save and Discard for all groups.
 Discard replaces Cancel. A leave of Settings with a pending change asks the
-leave question. The draft does not stay after a leave. ADR 0068 remains Proposed; accepting this Settings
-decision does not accept its entire playback design or resume playback work.
+leave question. The draft does not stay after a leave. ADR 0068 is Accepted on 2026-11-11. This Settings
+decision does not implement its playback design.
 
 ## Context
 
@@ -47,7 +47,7 @@ without also changing unrelated machine settings or active show state.
 
 [ADR 0066](0066-configuration-and-startup-failure-recovery.md) owns scoped
 validation, preservation, shared Settings/recovery repair and explicit retry.
-[ADR 0068](0068-show-cue-and-audition-isolation.md) proposes independent Show
+[ADR 0068](0068-show-cue-and-audition-isolation.md) decides independent Show
 and audition owners. This decision supplies their Settings and preset contract;
 it does not implement either lifecycle.
 

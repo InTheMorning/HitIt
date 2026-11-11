@@ -17,7 +17,7 @@ Later phases retain the configuration-format and audio prerequisites below.
 Deliver grouped Settings, shared guarded editing, live metadata resource
 selection and selective preset save/recall under
 [ADR 0069](../adr/0069-grouped-settings-and-selective-presets.md).
-Keep playback implementation deferred under proposed ADR 0068.
+Keep playback implementation in the packets of ADR 0068, Accepted on 2026-11-11.
 
 ## Non-Goals
 

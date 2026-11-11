@@ -41,7 +41,7 @@ ADR 0076 Decision 2 runs the check when the operator selects a playlist for a sh
 The app has no Show playlist selection today. The only command that takes a playlist into playback is `PlayPlaylistAt`.
 Packet 001 uses that command as the automatic trigger. Playback does not wait for the check.
 
-[ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) is Proposed. When the operator accepts it, the trigger moves to the cue load.
+[ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) is Accepted on 2026-11-11. The trigger moves to the cue load in the ADR 0068 packet that adds the cue load.
 The orchestrator selected this mapping on 2026-09-24. The operator can change it.
 
 ## Operator Details
