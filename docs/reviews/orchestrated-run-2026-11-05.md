@@ -9,7 +9,7 @@ This record is advisory. It states no rule. Each rule stays in its ADR or its pa
 ## Operator Decisions - 2026-11-05
 
 - The run starts now, although sections 8 and 9 of [pending human checks](../pending-human-checks.md) are open. The tag packets change the RSS readers, metadata and the tag writer. Those two sections cover the download queue, the singles group and the search field list. The two sections stay open.
-- The run leaves out [ADR 0088](../adr/0088-a-feed-move-follows-the-rss-tag.md). It stays Proposed, and its packet waits.
+- The run leaves out [ADR 0088](../adr/0088-a-feed-move-follows-musicindex.md). It stays Proposed, and its packet waits.
 - The orchestrator commits the planning documents in v4vmm and the open requests copy in Stophammer. Then it commits each reviewed, Green packet as HeyCitizen. It never pushes.
 - An RSS funding link replaces each other `WPAY` value. ADR 0080 Decision 10 states this limit of Decision 6.
 - The visual checks of the run come last, in one final walk.

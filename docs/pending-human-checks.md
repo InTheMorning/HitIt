@@ -106,7 +106,6 @@ Each item gives the recommendation of the agent. The operator decides.
 6. **Section 3, the migration repair report.** Its fixture needs schema 12, and the build has schema 24. Recommendation: revise the fixture for schema 24 in a packet, then walk the check. The agent did not examine if a database below schema 12 exists.
 7. **Section 5, macOS.** Recommendation: keep it open until a macOS desktop is available.
 8. **The questions of the [shell run record](reviews/orchestrated-run-2026-11-05-shell.md#questions-for-the-final-walk).** The [ADR 0089 amendment of 2026-11-08](adr/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) answers question 2. Questions 1 and 3 to 7 stay open. Recommendation: answer them during the walk of section 11.
-9. **[ADR 0088](adr/0088-a-feed-move-follows-the-rss-tag.md), the feed move.** It is Proposed, and its packet waits for the operator. Recommendation: accept or reject it after the walk of section 12.
 
 ## 1. Optional Tool Isolation — ADR 0066 Task 004
 
