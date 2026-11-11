@@ -24,7 +24,8 @@ changes for v4vmm.
 **Section status - 2026-11-11: Open.**
 
 - Step 1 is Open. Stophammer ADR 0094 accepts item 1 of open request 11 (the
-  date and `release_kind` of a feed hit). It is not built. Item 2, the named
+  date and `release_kind` of a feed hit). Stophammer release 0.19.0 delivers
+  it on 2026-11-11. Item 2, the named
   feeds of a hit, waits for the operator walk of ADR 0084 packet 012 and ADR
   0086 packet 005. No request asks for the sort rank or a name key of an
   artist hit. A decision is necessary before v4vmm sends one.
