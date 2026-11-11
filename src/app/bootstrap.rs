@@ -74,6 +74,12 @@ pub fn run_app() -> bool {
                     size(layout::WINDOW_WIDTH, layout::WINDOW_HEIGHT),
                     cx,
                 ))),
+                // ADR 0096 Decision 4.
+                titlebar: Some(gpui::TitlebarOptions {
+                    title: Some(crate::config::APP_DISPLAY_NAME.into()),
+                    ..Default::default()
+                }),
+                app_id: Some(crate::config::APP_ID.to_owned()),
                 ..Default::default()
             },
             |window, cx| {

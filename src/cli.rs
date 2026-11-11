@@ -28,7 +28,7 @@ pub fn run(args: &[String]) -> Result<()> {
             check_liveitem_health(settings, rest)
         }
         [section, command, ..] if section == "liveitem" && command == "create" => Err(anyhow!(
-            "liveitem create is retired; use `v4vmm broadcast events create --json`"
+            "liveitem create is retired; use `hitit broadcast events create --json`"
         )),
         [section, command, event_id, rest @ ..] if section == "liveitem" && command == "latest" => {
             print_liveitem_latest(settings, event_id, rest)
@@ -663,34 +663,34 @@ fn print_help() {
 
 fn help_text() -> &'static str {
     "Usage:
-  v4vmm
-  v4vmm now-playing --json
-  v4vmm liveitem health [--endpoint <url>]
-  v4vmm liveitem latest <event-id> --json [--endpoint <url>]
-  v4vmm broadcast events list --json
-  v4vmm broadcast events create --json [--label <text>]
-  v4vmm broadcast events forget <event-id>
-  v4vmm broadcast events check <event-id> --json
-  v4vmm broadcast targets list --json
-  v4vmm broadcast targets attach <event-id> --target <name>
-  v4vmm broadcast readiness --json
-  v4vmm broadcast repair-routes --json
-  v4vmm broadcast repair-routes <track-id> --json
-  v4vmm playlists list --json
-  v4vmm playlist tracks <playlist-id> --json
-  v4vmm library tracks --json
-  v4vmm library repair-paths --json
-  v4vmm player ping
-  v4vmm track inspect <track-id> --json
-  v4vmm playlist play <playlist-id> [--position <zero-based-position>]
-  v4vmm playlist play <playlist-id> --dry-run [--position <zero-based-position>]
-  v4vmm playback set-track <track-id>
-  v4vmm playback position <ms>
-  v4vmm playback next
-  v4vmm playback previous
-  v4vmm playback pause
-  v4vmm playback resume
-  v4vmm playback stop
+  hitit
+  hitit now-playing --json
+  hitit liveitem health [--endpoint <url>]
+  hitit liveitem latest <event-id> --json [--endpoint <url>]
+  hitit broadcast events list --json
+  hitit broadcast events create --json [--label <text>]
+  hitit broadcast events forget <event-id>
+  hitit broadcast events check <event-id> --json
+  hitit broadcast targets list --json
+  hitit broadcast targets attach <event-id> --target <name>
+  hitit broadcast readiness --json
+  hitit broadcast repair-routes --json
+  hitit broadcast repair-routes <track-id> --json
+  hitit playlists list --json
+  hitit playlist tracks <playlist-id> --json
+  hitit library tracks --json
+  hitit library repair-paths --json
+  hitit player ping
+  hitit track inspect <track-id> --json
+  hitit playlist play <playlist-id> [--position <zero-based-position>]
+  hitit playlist play <playlist-id> --dry-run [--position <zero-based-position>]
+  hitit playback set-track <track-id>
+  hitit playback position <ms>
+  hitit playback next
+  hitit playback previous
+  hitit playback pause
+  hitit playback resume
+  hitit playback stop
 
 No arguments starts the desktop UI. Phase 2 commands use the configured local
 SQLite database and the default playback session. playlist play simulates
@@ -744,12 +744,12 @@ mod tests {
 
     #[test]
     fn help_lists_library_repair_paths_json_command() {
-        assert!(help_text().contains("v4vmm library repair-paths --json"));
+        assert!(help_text().contains("hitit library repair-paths --json"));
     }
 
     #[test]
     fn help_lists_broadcast_repair_routes_json_commands() {
-        assert!(help_text().contains("v4vmm broadcast repair-routes --json"));
-        assert!(help_text().contains("v4vmm broadcast repair-routes <track-id> --json"));
+        assert!(help_text().contains("hitit broadcast repair-routes --json"));
+        assert!(help_text().contains("hitit broadcast repair-routes <track-id> --json"));
     }
 }

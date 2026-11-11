@@ -31,7 +31,7 @@ def fixture_root(value):
 
 def locate_fixture(directory=Path("/tmp")):
     roots = sorted(
-        root for root in directory.glob("v4vmm-task016.*")
+        root for root in directory.glob("hitit-task016.*")
         if (root / "task-016-fixture").is_file()
     )
     if not roots:
@@ -46,7 +46,7 @@ def locate_fixture(directory=Path("/tmp")):
 
 def verify_fixture(root):
     """Check isolation before an operator launches the desktop app (ADR 0059)."""
-    config_path = root / "config" / "v4vmm" / "config.toml"
+    config_path = root / "config" / "hitit" / "config.toml"
     try:
         config = tomllib.loads(config_path.read_text())
     except (OSError, ValueError) as error:
@@ -74,7 +74,7 @@ def setup(root):
     if any(root.iterdir()):
         raise SystemExit("Fixture directory must be empty")
     (root / "task-016-fixture").touch()
-    (root / "config" / "v4vmm").mkdir(parents=True)
+    (root / "config" / "hitit").mkdir(parents=True)
     (root / "bin").mkdir()
     (root / "music").mkdir()
     (root / "mode").write_text("fail")
@@ -90,7 +90,7 @@ def setup(root):
         '[broadcast]\nselected_host = "Task 016 fixture"\ndrop_file_target = "default"\n'
         '[[broadcast.hosts]]\nname = "Task 016 fixture"\ntransport = "local"\ninstance_name = "task016-fixture"\n'
     )
-    (root / "config" / "v4vmm" / "config.toml").write_text(config)
+    (root / "config" / "hitit" / "config.toml").write_text(config)
     for binary, action in [("systemctl", "service"), ("musicindex-live-publisher", "publisher"), ("journalctl", "journal")]:
         wrapper = root / "bin" / binary
         wrapper.write_text(

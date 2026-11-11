@@ -512,7 +512,7 @@ mod tests {
                 .as_stored(),
             "original.flac"
         );
-        assert!(fs::read_dir(temp.path().join(".v4vmm-staging"))
+        assert!(fs::read_dir(temp.path().join(".hitit-staging"))
             .unwrap()
             .next()
             .is_none());

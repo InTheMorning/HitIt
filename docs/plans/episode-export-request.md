@@ -2,9 +2,9 @@
 
 ## Status
 
-Open - 2026-10-19. `musicindex-live-publisher` makes this request to v4vmm.
+Open - 2026-10-19. `musicindex-live-publisher` makes this request to HitIt.
 
-This document binds nothing in v4vmm. v4vmm records each decision in its own
+This document binds nothing in HitIt. HitIt records each decision in its own
 ADR.
 
 ## Context
@@ -13,7 +13,7 @@ ADR.
 one live show becomes one podcast episode. The episode has one MP3, one
 Podcasting 2.0 RSS item, chapters, and value time splits that pay the same
 artists that the live listeners paid. The note also says that the publisher
-records the timeline and that v4vmm generates the episode.
+records the timeline and that HitIt generates the episode.
 
 The publisher side now exists:
 
@@ -74,7 +74,7 @@ could not join its track. The publisher repository corrected this on
 
 ## The Requests
 
-1. **An ADR for the episode export.** Record that v4vmm builds the episode
+1. **An ADR for the episode export.** Record that HitIt builds the episode
    from `musicindex.showlog/1`, and cite publisher ADR 0017 as the owner of
    the contract.
 2. **The read rules.** The ADR states these rules, or cites ADR 0017 for
@@ -108,7 +108,7 @@ could not join its track. The publisher repository corrected this on
    publish the dead block in a feed. The research note §Editing Policy says
    that an operator change of a route is an override, kept apart from the
    logged route.
-6. **The art.** v4vmm resolves the image of each chapter:
+6. **The art.** HitIt resolves the image of each chapter:
    - The full embedded image of the file, through `play_id` and the Mixxx
      history row. An animated GIF is possible here. The live path cannot send
      a GIF, so the log never names one.
@@ -122,19 +122,19 @@ could not join its track. The publisher repository corrected this on
      commercial cover of a non-V4V track can need a different image.
    - Record where the images of an episode are hosted.
 7. **The chapter link.** The log has no page URL for a track, because
-   publisher ADR 0010 added no `link`. v4vmm can find one from `feed_guid`
+   publisher ADR 0010 added no `link`. HitIt can find one from `feed_guid`
    through the MusicIndex API. A non-V4V track has no link.
 8. **The access to the log.** The log is on the publisher host. Select how
-   v4vmm reads it, for example a read-only copy through `ssh` (ADR 0059
-   §Remote Control Uses SSH First). v4vmm never writes to the log.
-9. **The old references.** These v4vmm documents cite publisher ADR 0003:
+   HitIt reads it, for example a read-only copy through `ssh` (ADR 0059
+   §Remote Control Uses SSH First). HitIt never writes to the log.
+9. **The old references.** These HitIt documents cite publisher ADR 0003:
    - `docs/adr/0061-executable-governance.md`, the table row "Show log"
    - `docs/research/broadcast-recording-and-feed-publishing.md`
    - `docs/plans/broadcast-chain-delivery-order.md`, the show log rows
 
    Change them to cite publisher ADR 0017.
 
-## Limits That v4vmm Must Know
+## Limits That HitIt Must Know
 
 - **Embedded art needs the file.** If the file or its history row is gone
   before the export, nothing can recover the image.

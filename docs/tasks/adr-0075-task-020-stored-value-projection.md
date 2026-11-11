@@ -92,7 +92,7 @@ cargo test
 cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 Report each result. Say "Green" for a passing check.
@@ -240,7 +240,7 @@ Three tests in `src/views.rs` tested the old fact order in the view. They now te
 | `cargo test --test architecture_tests` | Green, 276 guards |
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred. This packet adds no migration. Schema version 16 stays current.
 
@@ -255,15 +255,15 @@ This packet adds no migration, so it needs no new backup.
 The fixture changes two stored titles, and the RSS check writes the RSS titles back.
 **The RSS check sends real HTTP requests to the feed hosts of the playlist.** Do not start many checks in a short time.
 
-1. Close v4vmm. Find the configured database path:
+1. Close HitIt. Find the configured database path:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db"
    ```
 
-   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/v4vmm/config.toml`.
+   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/hitit/config.toml`.
 2. Record the schema version:
 
    ```bash
@@ -274,7 +274,7 @@ The fixture changes two stored titles, and the RSS check writes the RSS titles b
 3. Build the app:
 
    ```bash
-   cargo build --bin v4vmm
+   cargo build --bin hitit
    ```
 
 4. Find a playlist track and its feed:
@@ -294,7 +294,7 @@ The fixture changes two stored titles, and the RSS check writes the RSS titles b
 6. Open the app:
 
    ```bash
-   ./target/debug/v4vmm
+   ./target/debug/hitit
    ```
 
 7. Open **Music**. Open the album page of feed `F`, then the track page of track `T`. Both titles end in "(old)".

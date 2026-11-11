@@ -14,7 +14,7 @@ use serde::Deserialize;
 pub enum ThemeProfile {
     /// Follow the platform light/dark appearance.
     System,
-    /// Current v4vmm default profile.
+    /// Current default profile of the app.
     #[default]
     Dark,
     /// Light semantic-token profile.

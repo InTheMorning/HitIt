@@ -145,7 +145,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -211,7 +211,7 @@ Revert the commit. This packet adds no migration. V3 and V4 change the order and
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred.
 
@@ -240,7 +240,7 @@ This check needs a Linux desktop session and this checkout. It also needs three 
 
 V3 and V4 change the order and the content of a playlist. Use only the test playlist of step 3.
 
-1. Build the app: `cargo build --bin v4vmm`. Then start `target/debug/v4vmm` from a desktop session.
+1. Build the app: `cargo build --bin hitit`. Then start `target/debug/hitit` from a desktop session.
 2. Open Music, then Releases, in the sidebar.
 3. Make the test playlist "Packet 025 test":
    - Open a Library release. Open the "Add to playlist" menu of a downloaded track and use "New Playlist" to make "Packet 025 test".
@@ -312,7 +312,7 @@ V3 and V4 change the order and the content of a playlist. Use only the test play
 - Click "Done" to end selection mode.
 - Delete the playlists "Packet 025 test" and "Packet 025 other" with their "Delete" buttons.
 - V3 downloads one track. Remove it if you do not want it.
-- Do not delete `/tmp/v4vmm-governance.ie6k8TQf`.
+- Do not delete `/tmp/hitit-governance.ie6k8TQf`.
 
 ## Orchestrator Review - 2026-10-20
 
@@ -358,7 +358,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V7.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed

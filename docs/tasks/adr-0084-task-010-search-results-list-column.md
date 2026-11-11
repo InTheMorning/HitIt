@@ -29,7 +29,7 @@ The Releases tab and the Tracks tab get the selection model, the selection mode 
   - 2026-10-16: an Index item shows no state word.
   - 2026-10-18: packet 010 owns finding 6.
   - 2026-10-20: packet 010 adds the selection model and the selection mode to the search results.
-- [Open Stophammer requests](../plans/v4vmm-open-requests.md): request 8 item 5 asked for `type=publisher`. Release 0.12.0 delivered it on 2026-10-18.
+- [Open Stophammer requests](../plans/hitit-open-requests.md): request 8 item 5 asked for `type=publisher`. Release 0.12.0 delivered it on 2026-10-18.
 
 ## Recorded Facts - 2026-10-20
 
@@ -282,7 +282,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -333,7 +333,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V7.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed
@@ -454,8 +454,8 @@ Necessary state: a desktop session, a reachable MusicIndex endpoint, and a Libra
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 2. V1: in the toolbar search, type `Survival Guide` and push Enter. Open the Artists tab. Make sure that a row "Releases that name Survival Guide" shows, and that it has no badge. A row that looks like an artist identity is wrong.

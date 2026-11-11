@@ -1,4 +1,4 @@
-# Research Request: The Shell, The Destinations And The Search Of v4vmm
+# Research Request: The Shell, The Destinations And The Search Of HitIt
 
 ## Status
 
@@ -10,17 +10,17 @@ Received - 2026-10-24. This request comes from the research repository at
 `~/build/musicindex-research`. That repository has no Git remote. Its index is
 `AGENTS.md`.
 
-This document binds nothing in v4vmm. v4vmm records each decision in its own
+This document binds nothing in HitIt. HitIt records each decision in its own
 ADR.
 
 **The hold is lifted.** On 2026-10-25 the operator lifted the hold. musicindex
 ADR 0027 (the shell, sort, view, the back control and the toolbar), ADR 0028
 (the sections and the header actions of an item page, and the animated
-cover) and ADR 0029 (the web scale, which v4vmm does not use) state the
-shared rules. v4vmm can now write its own ADRs for sections 1 to 4 of this
+cover) and ADR 0029 (the web scale, which HitIt does not use) state the
+shared rules. HitIt can now write its own ADRs for sections 1 to 4 of this
 request. They cite the musicindex rules and do not restate them.
 
-The research examined v4vmm at HEAD `58ce1ab`. The mockups are research
+The research examined HitIt at HEAD `58ce1ab`. The mockups are research
 commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 `10fd7eb` and `e2cd3a3` give the corrections of sections 2 to 4.
 
@@ -31,13 +31,13 @@ commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 | Data | Path from this repository |
 | --- | --- |
 | The shell analysis and the decision of the operator | `../musicindex-research/research_notes/ui-design/shell-layout-analysis.md` |
-| The v4vmm mockup | `../musicindex-research/research_notes/ui-design/mockups/v4vmm.html`, with `mockups/v4vmm/` |
+| The HitIt mockup | `../musicindex-research/research_notes/ui-design/mockups/v4vmm.html`, with `mockups/v4vmm/` |
 | The shared kit of the mockups, with the search | `../musicindex-research/research_notes/ui-design/mockups/kit/` (`search.js` parses the query text of ADR 0087) |
 | The decisions that the mockups show | `../musicindex-research/research_notes/ui-design/mockups/README.md` |
-| The journeys study of v4vmm, the layout reference | `../musicindex-research/sources/captures/2026-10-24-v4vmm-journeys/journeys/` |
+| The journeys study of HitIt, the layout reference | `../musicindex-research/sources/captures/2026-10-24-v4vmm-journeys/journeys/` |
 | The study compared with the cross-app rules | `../musicindex-research/research_notes/ui-design/v4vmm-journeys-comparison.md` |
 | The cross-app rules | `../musicindex/docs/adr/0020-cross-app-interface-rules.md` to `0026-cross-app-controls-and-feedback.md` |
-| The search filters of the Index | `docs/plans/v4vmm-open-requests.md`, request 10 |
+| The search filters of the Index | `docs/plans/hitit-open-requests.md`, request 10 |
 | The alternatives for Discover and for the edit of a saved search | `../musicindex-research/research_notes/ui-design/mockups/discover-options.html` |
 | Three feeds of the Index in the mockups, with their tracks and covers | `../musicindex-research/sources/captures/2026-10-24-heycitizen-feeds/` |
 
@@ -64,7 +64,7 @@ ADR 0084 Decision 1 (three columns).
   the current track, the transport, a seek control and Up Next. In a narrow
   window it is a bar above the tab bar. Up Next and the transport move there
   from the Show page.
-- Exception 1, an outline in an editor, does not apply to v4vmm.
+- Exception 1, an outline in an editor, does not apply to HitIt.
 - Inspect Sources opens as a sheet. No general inspector exists.
 
 ## 2. The Destinations
@@ -151,14 +151,14 @@ item, apart from the `host:` field. musicindex ADR 0062 answers the `host:`
 field (R-QUERY-13 to R-QUERY-17). By
 [ADR 0091](../adr/0091-search-parser-moves-to-the-shared-crate.md), musicindex
 owns the syntax. The `musicindex-search` crate at `4761148` gives the field.
-v4vmm sends `host` and `not_host` to Stophammer (open request 10 item 7), and
+HitIt sends `host` and `not_host` to Stophammer (open request 10 item 7), and
 it filters the Library rows by the host of the feed URL.
 
 - **One wide field in the center of the toolbar, on each page**, as ADR 0060
   and ADR 0087 state. It is at most 640 px wide. Its width does not change
   when it gets the focus. The operator does not want the animation.
 - **The toolbar** has the `‹ ›` icons and the page title at the left, as
-  musicindex ADR 0020 R-NAV-1 gives for v4vmm. The website uses the same
+  musicindex ADR 0020 R-NAV-1 gives for HitIt. The website uses the same
   form.
   The field list of ADR 0087 Decision 3 opens under it. ⌘K and ⌘F focus it.
 - The website uses the same field and the same query text, with the Index
@@ -169,7 +169,7 @@ it filters the Library rows by the host of the feed URL.
   by host. It includes or excludes the feeds of one hosting service, for
   example `host:wavlake.com` and `-host:wavlake.com`. Request 10 item 7 asks
   Stophammer for `host` and `not_host`. ADR 0087 Decision 2 needs an
-  amendment for the field when v4vmm writes ADRs again.
+  amendment for the field when HitIt writes ADRs again.
 - **A selection goes into the query text in three conditions.** It must stay
   with a saved search, it needs a new run or the Index, or a field gives the
   same selection. In all other conditions, it can be a view of one run.

@@ -32,7 +32,7 @@ def setup(root):
     (root / "feedback-mode").write_text("normal")
     (root / "publisher-state").write_text("active")
     (root / "encoder-state").write_text("0")
-    config = root / "config" / "v4vmm" / "config.toml"
+    config = root / "config" / "hitit" / "config.toml"
     with config.open("a") as output:
         output.write('\n[broadcast.encoder]\nbinary_path = ' + json.dumps(str(root / "bin" / "butt")) + '\n')
     for binary, action in (("systemctl", "service"), ("butt", "encoder")):

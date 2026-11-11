@@ -28,7 +28,7 @@ pub(crate) fn spawn_cache_worker(
     job: Box<dyn FnOnce() + Send>,
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
     std::thread::Builder::new()
-        .name("v4vmm-thumbnail-maintenance".into())
+        .name("hitit-thumbnail-maintenance".into())
         .spawn(job)
 }
 

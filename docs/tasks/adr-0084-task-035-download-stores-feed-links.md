@@ -251,7 +251,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -268,9 +268,9 @@ needs the Haleen artist feed `64569161` with MusicIndex singles that are not in 
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   nm -C target/debug/v4vmm | grep -c TestDispatcher
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   nm -C target/debug/hitit | grep -c TestDispatcher
+   ./target/debug/hitit
    ```
 
    The `nm` command must give `0`.
@@ -279,7 +279,7 @@ needs the Haleen artist feed `64569161` with MusicIndex singles that are not in 
    releases with no link that have the title of a downloaded single:
 
    ```bash
-   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT f.id, f.title FROM feeds f WHERE f.title IN ('A Greater Call', 'Build on Stone', 'A Phoenix Rising') AND NOT EXISTS (SELECT 1 FROM feed_publisher_relationships r WHERE r.feed_id = f.id AND r.direction = 'music_to_publisher');"
+   sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite "SELECT f.id, f.title FROM feeds f WHERE f.title IN ('A Greater Call', 'Build on Stone', 'A Phoenix Rising') AND NOT EXISTS (SELECT 1 FROM feed_publisher_relationships r WHERE r.feed_id = f.id AND r.direction = 'music_to_publisher');"
    ```
 
    **Wrong if:** the query gives a row. The pass at app start did not repair that release.
@@ -288,7 +288,7 @@ needs the Haleen artist feed `64569161` with MusicIndex singles that are not in 
 3. Count the Library releases with a link to the feed `64569161`:
 
    ```bash
-   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT count(DISTINCT feed_id) FROM feed_publisher_relationships WHERE direction = 'music_to_publisher' AND remote_feed_guid LIKE '64569161%';"
+   sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite "SELECT count(DISTINCT feed_id) FROM feed_publisher_relationships WHERE direction = 'music_to_publisher' AND remote_feed_guid LIKE '64569161%';"
    ```
 
    Record the number.

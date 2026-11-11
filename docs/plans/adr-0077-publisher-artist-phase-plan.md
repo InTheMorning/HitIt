@@ -33,7 +33,7 @@ A publisher that lists albums that do not name it shows 0 artists above its "lis
 Stophammer ADR 0061 §4 and §5 agree with the present code. The index gives no artist or label kind, and an album read gives only the publishers that the album names.
 
 Stophammer deployed the album summary fields of its ADR 0059 on 2026-09-26, at commit `264706e`.
-The [open Stophammer requests](v4vmm-open-requests.md#verification-by-v4vmm---2026-09-26) record the v4vmm verification.
+The [open Stophammer requests](hitit-open-requests.md#verification-by-v4vmm---2026-09-26) record the v4vmm verification.
 Packet 003 reads the `remote_*` fields and sends one request for each publisher page.
 
 ## Follow-Up Findings

@@ -481,7 +481,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -544,7 +544,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - <date>" section and an "Operator Visual Check" section for V1 to V11, with numbered steps, the commands, what is wrong, and the cleanup.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed
@@ -593,7 +593,7 @@ The implementer made the code changes of "Required Changes" 1 to 13 on 2026-10-2
 
 - `cargo test`: 2,139 unit tests and 356 guards pass.
 - `cargo test --test architecture_tests`, `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings` and `cargo check --all-targets` are Green.
-- `cargo build --bin v4vmm` ran last.
+- `cargo build --bin hitit` ran last.
 - Each case R17-01 to R17-30 has a test with the prefix `adr_0084_name_level_r17_`. R17-21 is the present `adr_0085_feed_page_` tests, with the field rename as the only change. R17-20 is part of the guard. R16-21 is `adr_0084_scopes_r16_21_matched_name_rows_in_everything`.
 
 ### Deviations
@@ -624,7 +624,7 @@ Do each check in the Light theme and in the Dark theme. The checks need network 
    ```bash
    cd /home/citizen/build/v4vmm
    cargo build --release
-   ./target/release/v4vmm
+   ./target/release/hitit
    ```
 
 2. V1: open Music, then Artists. Find the row "Haleen".
@@ -645,7 +645,7 @@ Do each check in the Light theme and in the Dark theme. The checks need network 
 6. V6: search for "Haleen".
    - The Artists tab must show no row "Releases that name Haleen". It must show the row "Haleen", and that row must open the Haleen feed page.
    - Search for a name with no name-only release. No name row may show, and no search may open an empty page.
-7. V7: close the app. In `~/.config/v4vmm/config.toml`, set `musicindex_endpoint = "http://127.0.0.1:9"`. Open the app again with `./target/release/v4vmm`.
+7. V7: close the app. In `~/.config/hitit/config.toml`, set `musicindex_endpoint = "http://127.0.0.1:9"`. Open the app again with `./target/release/hitit`.
    - Open a name level page. The page must show the report first, and the Library releases must stay in their sections.
    - Open the Haleen feed page. The section "Matched by name" must show the same report, and its Library rows must stay.
    - Close the app and set `musicindex_endpoint = "https://api.musicindex.org"` again. Open the app. While `MusicIndex` answers, the name level page must show the loading text.
@@ -662,5 +662,5 @@ Do each check in the Light theme and in the Dark theme. The checks need network 
 
 Cleanup:
 
-- If V7 changed `~/.config/v4vmm/config.toml`, set `musicindex_endpoint = "https://api.musicindex.org"` again.
+- If V7 changed `~/.config/hitit/config.toml`, set `musicindex_endpoint = "https://api.musicindex.org"` again.
 - V8 added two releases to the Library. To remove them, open the name level page, click "Select", select the two releases, then click "Remove" on the action bar.

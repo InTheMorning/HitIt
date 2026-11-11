@@ -79,7 +79,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -124,7 +124,7 @@ To roll back, close the app, revert the commit, and restore the backup. An older
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred. Each test uses an in-memory database.
 
@@ -152,9 +152,9 @@ This check needs a Linux desktop session and this checkout. It also needs these 
 
 The first start of this build changes the Library database to schema version 20. Make the backup before step 2.
 
-1. Close the app. Copy the Library database file as the backup: `cp ~/.local/share/v4vmm/v4vmm.sqlite ~/v4vmm-before-schema-20.sqlite`.
+1. Close the app. Copy the Library database file as the backup: `cp ~/.local/share/hitit/hitit.sqlite ~/hitit-before-schema-20.sqlite`.
    If `config.toml` sets a different `db_path`, copy that file.
-2. Build the app: `cargo build --bin v4vmm`. Then start `target/debug/v4vmm` from a desktop session.
+2. Build the app: `cargo build --bin hitit`. Then start `target/debug/hitit` from a desktop session.
 3. Open Music, then Artists, in the sidebar.
 
 ### V1: An artist feed with a channel image
@@ -181,7 +181,7 @@ The first start of this build changes the Library database to schema version 20.
 
 **Wrong if:** an image row is taller or wider than a mosaic row, or a label moves out of its column.
 
-**Cleanup:** the app keeps schema version 20, and this check needs no other cleanup. To roll back, close the app and revert the commit. Then copy `~/v4vmm-before-schema-20.sqlite` back to the Library database path. Do not delete `/tmp/v4vmm-governance.ie6k8TQf`.
+**Cleanup:** the app keeps schema version 20, and this check needs no other cleanup. To roll back, close the app and revert the commit. Then copy `~/hitit-before-schema-20.sqlite` back to the Library database path. Do not delete `/tmp/hitit-governance.ie6k8TQf`.
 
 ## Orchestrator Review - 2026-10-20
 
@@ -240,7 +240,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V3, with the backup step first.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed

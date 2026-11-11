@@ -78,7 +78,7 @@ python3 docs/runbooks/test_broadcast_event_recovery_fixture.py
    ```bash
    cd /home/citizen/build/v4vmm
    cargo build
-   task016_dir=$(mktemp -d /tmp/v4vmm-task016.XXXXXX)
+   task016_dir=$(mktemp -d /tmp/hitit-task016.XXXXXX)
    python3 docs/runbooks/broadcast-event-recovery-fixture.py setup "$task016_dir"
    python3 docs/runbooks/broadcast-event-recovery-fixture.py serve "$task016_dir"
    ```
@@ -92,7 +92,7 @@ python3 docs/runbooks/test_broadcast_event_recovery_fixture.py
    if task016_dir=$(python3 docs/runbooks/broadcast-event-recovery-fixture.py locate) &&
       python3 docs/runbooks/broadcast-event-recovery-fixture.py verify "$task016_dir"; then
      env XDG_CONFIG_HOME="$task016_dir/config" PATH="$task016_dir/bin:$PATH" \
-       ./target/debug/v4vmm &
+       ./target/debug/hitit &
      task016_app_pid=$!
    fi
    ```
@@ -178,7 +178,7 @@ python3 docs/runbooks/test_broadcast_event_recovery_fixture.py
 
    ```bash
    env XDG_CONFIG_HOME="$task016_dir/config" PATH="$task016_dir/bin:$PATH" \
-     ./target/debug/v4vmm broadcast events list --json
+     ./target/debug/hitit broadcast events list --json
    cat "$task016_dir/calls.jsonl"
    ```
 
@@ -259,7 +259,7 @@ with tempfile.TemporaryDirectory() as directory:
     result = subprocess.run([sys.executable, str(script), "verify", str(root)],
                             capture_output=True, text=True, check=True)
     assert "Fixture verified" in result.stdout
-    config_path = root / "config/v4vmm/config.toml"
+    config_path = root / "config/hitit/config.toml"
     original = config_path.read_text()
     for before, after in [("http://127.0.0.1:17863", "https://api.musicindex.org"),
                           (str(root / "app.sqlite"), "/tmp/normal-app.sqlite"),
@@ -284,7 +284,7 @@ with tempfile.TemporaryDirectory() as directory:
         assert (root / "mode").read_text() == "fail"
     for count in range(3):
         if count:
-            candidate = root / f"v4vmm-task016.{count}"
+            candidate = root / f"hitit-task016.{count}"
             candidate.mkdir()
             (candidate / "task-016-fixture").touch()
         if count == 1:

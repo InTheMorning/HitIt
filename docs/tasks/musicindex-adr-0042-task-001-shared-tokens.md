@@ -11,7 +11,7 @@ Status: Complete on 2026-11-06.
 Mechanical:
 
 - `python3 scripts/check.py verify` in `musicindex-assets` passes.
-- `python3 scripts/check.py compare` passes for the Studio and v4vmm copies.
+- `python3 scripts/check.py compare` passes for the Studio and HitIt copies.
 - The Studio tests `text-styles.test.mjs` and `type-dot.test.mjs` pass.
 
 Visual: none.

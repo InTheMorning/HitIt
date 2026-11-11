@@ -337,7 +337,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -355,9 +355,9 @@ in the Library. An example is the group of the walk of 2026-10-24 at 18:13.
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   nm -C target/debug/v4vmm | grep -c TestDispatcher
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   nm -C target/debug/hitit | grep -c TestDispatcher
+   ./target/debug/hitit
    ```
 
    The `nm` command must give `0`.

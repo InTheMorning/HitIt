@@ -114,7 +114,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -224,7 +224,7 @@ Each command in "Checks" is Green.
 - `cargo fmt -- --check`: Green.
 - `cargo clippy -- -D warnings`: Green.
 - `cargo check --all-targets`: Green, with no warning.
-- `cargo build --bin v4vmm`: Green.
+- `cargo build --bin hitit`: Green.
 
 ### Orchestrator Review Fixes - 2026-09-29 (Defects 2 To 4)
 
@@ -258,7 +258,7 @@ gone.
 
 ### Unresolved Concerns
 
-- Cleanup of the evidence fixture `/tmp/v4vmm-governance.ie6k8TQf` stays unconfirmed. This is
+- Cleanup of the evidence fixture `/tmp/hitit-governance.ie6k8TQf` stays unconfirmed. This is
   unrelated to this packet. The standing note in `AGENTS.md` records this fact.
 
 ## Operator Visual Check
@@ -270,11 +270,11 @@ commands (`kid3-cli` also works for the read steps).
 own music folder starts empty and gains only the one or two test files this check copies into it.
 No step writes to a file under the real music folder. Only step 6 reads one.
 
-1. Close v4vmm. Build the app:
+1. Close HitIt. Build the app:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --bin v4vmm
+   cargo build --bin hitit
    ```
 
 2. Open the real app, read-only, to find the two tracks this check needs. Open Library tracks
@@ -301,12 +301,12 @@ No step writes to a file under the real music folder. Only step 6 reads one.
    starts empty:
 
    ```bash
-   gate_dir=$(mktemp -d /tmp/v4vmm-adr-0080-task-001.XXXXXXXX)
+   gate_dir=$(mktemp -d /tmp/hitit-adr-0080-task-001.XXXXXXXX)
    python3 -c 'import json, os, pathlib, sqlite3, sys, tomllib
 root = pathlib.Path(sys.argv[1]).resolve()
-source = pathlib.Path(os.environ.get("XDG_CONFIG_HOME", str(pathlib.Path.home()/".config")))/"v4vmm/config.toml"
+source = pathlib.Path(os.environ.get("XDG_CONFIG_HOME", str(pathlib.Path.home()/".config")))/"hitit/config.toml"
 cfg = tomllib.loads(source.read_text())
-target = root/"config/v4vmm"
+target = root/"config/hitit"
 target.mkdir(parents=True)
 (root/"music").mkdir()
 src = sqlite3.connect(pathlib.Path(cfg["db_path"]).resolve().as_uri()+"?mode=ro", uri=True, timeout=5)
@@ -327,7 +327,7 @@ print("Fixture database copy ready:", root)' "$gate_dir"
    the fixture's music folder only:
 
    ```bash
-   real_music=$(sed -n 's/^music_dir = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   real_music=$(sed -n 's/^music_dir = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    for id in $T $D; do
      p=$(sqlite3 "$gate_dir/app.sqlite" "SELECT path FROM local_files WHERE track_id = $id;")
      case "$p" in /*) real_f="$p" ;; *) real_f="$real_music/$p" ;; esac
@@ -362,7 +362,7 @@ print("Fixture database copy ready:", root)' "$gate_dir"
      export XDG_CONFIG_HOME="$gate_dir/config"
      export XDG_DATA_HOME="$gate_dir/data"
      export XDG_CACHE_HOME="$gate_dir/cache"
-     target/debug/v4vmm
+     target/debug/hitit
    )
    ```
 
@@ -424,7 +424,7 @@ print("Fixture database copy ready:", root)' "$gate_dir"
     rm -rf "$gate_dir"
     ```
 
-    Do not delete `/tmp/v4vmm-governance.ie6k8TQf`. It is a separate, unrelated fixture.
+    Do not delete `/tmp/hitit-governance.ie6k8TQf`. It is a separate, unrelated fixture.
 
 ## Prompt for lower-context coding model
 
@@ -468,7 +468,7 @@ Test commands:
 - `cargo fmt -- --check`
 - `cargo clippy -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 At the end, report:
 1. files changed

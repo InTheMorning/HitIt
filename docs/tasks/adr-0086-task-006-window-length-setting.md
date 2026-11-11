@@ -98,7 +98,7 @@ The key is `singles_window_days`, at the top level of `config.toml`. Its value i
 
 ```toml
 music_dir = "/home/curator/V4Vmusic"
-db_path = "/home/curator/.local/share/v4vmm/v4vmm.sqlite"
+db_path = "/home/curator/.local/share/hitit/hitit.sqlite"
 singles_window_days = 7
 ```
 
@@ -304,17 +304,17 @@ cargo clippy --all-targets -- -D warnings
 cargo test --lib adr_0086_window_length_
 cargo test
 cargo test --test architecture_tests
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
-Run `cargo build --bin v4vmm` last. `cargo test` can leave a binary with GPUI test support at `target/debug/v4vmm`.
+Run `cargo build --bin hitit` last. `cargo test` can leave a binary with GPUI test support at `target/debug/hitit`.
 
 ## Rollback
 
 Before the first start of the new build, make a backup of `config.toml`:
 
 ```bash
-cp -p ~/.config/v4vmm/config.toml ~/.config/v4vmm/config.toml.before-adr-0086-task-006
+cp -p ~/.config/hitit/config.toml ~/.config/hitit/config.toml.before-adr-0086-task-006
 ```
 
 The packet is one commit with no migration. To roll back, revert the commit.

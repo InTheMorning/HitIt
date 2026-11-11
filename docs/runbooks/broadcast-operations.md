@@ -8,7 +8,7 @@ run when the app is closed.
 
 ## Prerequisites
 
-- An installed `v4vmm` binary.
+- An installed `hitit` binary.
 - A configured `musicindex-live-publisher` instance.
 - A producer such as `mixxx-now-playing`, or the opt-in `mpv` drop-file
   producer.
@@ -27,15 +27,15 @@ Attachment remains a separate action.
 The terminal equivalent is:
 
 ```bash
-v4vmm broadcast events create --json --label "show-name"
+hitit broadcast events create --json --label "show-name"
 ```
 
 The JSON output includes an `event_id` and a `token_path`. It does not print the
 token text. Confirm the registry row when needed:
 
 ```bash
-v4vmm broadcast events list --json
-v4vmm broadcast events check EVENT_ID --json
+hitit broadcast events list --json
+hitit broadcast events check EVENT_ID --json
 ```
 
 ## Publish The RSS Live Tag
@@ -50,7 +50,7 @@ no tag. Build the tag by hand in this form:
 ```
 
 The host is the relay endpoint of the event, without its path. For an event in the app registry,
-find the endpoint in the `endpoint` field of `v4vmm broadcast events list --json`. For an event
+find the endpoint in the `endpoint` field of `hitit broadcast events list --json`. For an event
 that you reserved from a terminal, use the relay address of that reservation. Keep the scheme and
 the port of the endpoint. Replace `EVENT_ID` with the event identifier.
 
@@ -66,8 +66,8 @@ file is lost, create a new event and update the RSS tag.
 Back up the token path from the event output:
 
 ```bash
-install -m 700 -d "$HOME/.config/v4vmm/broadcast/token-backups"
-cp -p TOKEN_PATH "$HOME/.config/v4vmm/broadcast/token-backups/"
+install -m 700 -d "$HOME/.config/hitit/broadcast/token-backups"
+cp -p TOKEN_PATH "$HOME/.config/hitit/broadcast/token-backups/"
 ```
 
 For a remote publisher, copy the token file to the same path on the remote host,
@@ -79,13 +79,13 @@ send token text as a command argument.
 Read the target list:
 
 ```bash
-v4vmm broadcast targets list --json
+hitit broadcast targets list --json
 ```
 
 Attach the selected event to a publisher target:
 
 ```bash
-v4vmm broadcast targets attach EVENT_ID --target default
+hitit broadcast targets attach EVENT_ID --target default
 ```
 
 The attach command runs the publisher `target add --replace` command and then
@@ -108,7 +108,7 @@ Replace `mixxx` with the configured publisher instance name.
 
 ## Start And Stop Remote Services
 
-A remote host must be configured in `~/.config/v4vmm/config.toml` and must accept
+A remote host must be configured in `~/.config/hitit/config.toml` and must accept
 non-interactive SSH. Check the remote unit state:
 
 ```bash

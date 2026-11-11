@@ -80,7 +80,7 @@ stubs. Close the normal app first.
    import pathlib, sys, tomllib
    root = pathlib.Path(sys.argv[1])
    before = tomllib.loads((root / 'case.config').read_text())
-   after = tomllib.loads((root / 'config/v4vmm/config.toml').read_text())
+   after = tomllib.loads((root / 'config/hitit/config.toml').read_text())
    expected = dict(musicindex_endpoint='http://127.0.0.1:9/settings-foundation',
                    music_dir=str(root / 'music'), flac_path='/usr/bin/flac',
                    theme_profile='light', ui_scale='large')
@@ -89,7 +89,7 @@ stubs. Close the normal app first.
        before.pop(key, None)
        after.pop(key, None)
    assert after == before, 'An unrelated setting changed'
-   (root / 'settings-save-general.toml').write_bytes((root / 'config/v4vmm/config.toml').read_bytes())
+   (root / 'settings-save-general.toml').write_bytes((root / 'config/hitit/config.toml').read_bytes())
    print('Green')
    PY
    ```
@@ -103,13 +103,13 @@ stubs. Close the normal app first.
    import pathlib, sys, tomllib
    root = pathlib.Path(sys.argv[1])
    before = tomllib.loads((root / 'settings-save-general.toml').read_text())
-   after = tomllib.loads((root / 'config/v4vmm/config.toml').read_text())
+   after = tomllib.loads((root / 'config/hitit/config.toml').read_text())
    before.update(theme_profile='dark', ui_scale='x-large')
    for key in ('workspace', 'workspace_layout'):
        before.pop(key, None)
        after.pop(key, None)
    assert after == before, 'Save lost a hidden-group value or changed another setting'
-   (root / 'settings-save-library.toml').write_bytes((root / 'config/v4vmm/config.toml').read_bytes())
+   (root / 'settings-save-library.toml').write_bytes((root / 'config/hitit/config.toml').read_bytes())
    print('Green')
    PY
    ```
@@ -143,7 +143,7 @@ stubs. Close the normal app first.
    import pathlib, sys, tomllib
    root = pathlib.Path(sys.argv[1])
    before = tomllib.loads((root / 'case.config').read_text())
-   after = tomllib.loads((root / 'config/v4vmm/config.toml').read_text())
+   after = tomllib.loads((root / 'config/hitit/config.toml').read_text())
    expected = dict(musicindex_endpoint='https://api.musicindex.org',
                    music_dir=str(root / 'home/V4Vmusic'), theme_profile='dark', ui_scale='medium')
    assert all(after.get(key) == value for key, value in expected.items()), after
@@ -152,7 +152,7 @@ stubs. Close the normal app first.
        before.pop(key, None)
        after.pop(key, None)
    assert after == before, 'Defaults changed an unrelated setting'
-   (root / 'settings-defaults.toml').write_bytes((root / 'config/v4vmm/config.toml').read_bytes())
+   (root / 'settings-defaults.toml').write_bytes((root / 'config/hitit/config.toml').read_bytes())
    print('Green')
    PY
    ```

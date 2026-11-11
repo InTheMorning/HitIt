@@ -27,7 +27,7 @@ const APP_NAME: &str = "Application";
 const TEXT_BOX_EXCLUDED_CONTEXT: &str = "!Input";
 
 actions!(
-    v4vmm,
+    hitit,
     [
         OpenPreferences,
         HideApp,

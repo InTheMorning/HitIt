@@ -144,7 +144,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -204,7 +204,7 @@ Revert the commit. This packet adds no migration and no stored data. The compose
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred. No test sends a request.
 
@@ -242,7 +242,7 @@ This check needs a Linux desktop session with a network connection and this chec
 
 V6 turns off the network and moves the thumbnail cache. The cleanup steps undo both.
 
-1. Build the app: `cargo build --bin v4vmm`. Then start `target/debug/v4vmm` from a desktop session.
+1. Build the app: `cargo build --bin hitit`. Then start `target/debug/hitit` from a desktop session.
 2. Open Music, then Releases, in the sidebar.
 
 ### V1: The mosaic at the page size
@@ -285,8 +285,8 @@ V6 turns off the network and moves the thumbnail cache. The cleanup steps undo b
 ### V6: A fallback with no flash
 
 15. Close the app. In a terminal, run `nmcli networking off`.
-16. Run `mv ~/.config/v4vmm/thumbnail-cache ~/.config/v4vmm/thumbnail-cache.v6`.
-17. Start `target/debug/v4vmm`. Open the artist feed page with a channel image.
+16. Run `mv ~/.config/hitit/thumbnail-cache ~/.config/hitit/thumbnail-cache.v6`.
+17. Start `target/debug/hitit`. Open the artist feed page with a channel image.
 18. Look at the header art while the page opens. It can show a square in the artist color for a short time. Then it must show the logo in the artist color.
 
 **Wrong if:** the art shows the monogram "AR" at any time, or the square stays.
@@ -294,11 +294,11 @@ V6 turns off the network and moves the thumbnail cache. The cleanup steps undo b
 Cleanup:
 
 19. Close the app. Run `nmcli networking on`.
-20. Run `rm -r ~/.config/v4vmm/thumbnail-cache`, then `mv ~/.config/v4vmm/thumbnail-cache.v6 ~/.config/v4vmm/thumbnail-cache`.
+20. Run `rm -r ~/.config/hitit/thumbnail-cache`, then `mv ~/.config/hitit/thumbnail-cache.v6 ~/.config/hitit/thumbnail-cache`.
 
 ### V7: The lists scroll with no stutter
 
-21. Start `target/debug/v4vmm`. Open Music, then Artists. Scroll the list from the top to the end and back.
+21. Start `target/debug/hitit`. Open Music, then Artists. Scroll the list from the top to the end and back.
 22. Open Music, then Playlists. Do step 21 again.
 
 **Wrong if:** the scroll stops, jumps or pauses while the logo images come in.
@@ -348,7 +348,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V7.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed

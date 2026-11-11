@@ -1,6 +1,6 @@
-# v4vmm Agent Guidelines
+# HitIt Agent Guidelines
 
-`v4vmm` is a Linux-first GPUI desktop app for Value4Value music curation and
+HitIt (`hitit`) is a Linux-first GPUI desktop app for Value4Value music curation and
 show production. A curator finds music, takes it into a local library, keeps
 that library ready, and uses it to run or record a show.
 
@@ -10,6 +10,8 @@ The [source map](docs/architecture/source-map.md) lists the owner file of each a
 Governance model: ADR 0061.
 
 ## Where The Work Stands
+
+[ADR 0096](docs/adr/0096-the-app-name-is-hitit.md), Accepted on 2026-11-11, renames the app HitIt with the machine name `hitit`. The GitHub repository `InTheMorning/v4vmm` and the directory `~/build/v4vmm` keep the name v4vmm.
 
 The [overhaul plan](docs/plans/design-and-cleanup-overhaul-plan.md) is the current priority. It orders the
 design and cleanup work in six phases. Phases 1 and 2 are complete. Phase 2 ended with
@@ -68,7 +70,7 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [ADR 0087 packet 011](docs/tasks/adr-0087-task-011-index-receives-the-fields.md) sends each search field to the Index as its own filter, and ADR 0087 lists the differences from the Library. [Responsiveness task 001](docs/tasks/responsiveness-task-001-no-ui-thread-database-wait.md) removes the hang of a download or a removal. The operator confirmed both on 2026-11-06.
 
-[ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md), Accepted on 2026-11-07, moves the search parser, the Index plan and the kind rule to the `musicindex-search` crate. The crate is pinned at `4761148`. It gives the placeholder of each text field and `quote_field_value` for a runnable example (musicindex ADR 0058). It gives the rows of the field list (`field_list_rows`), the note of a text that sends no Index request (`search_note`) and the note of a tab that gets no request (`scope_note`), from musicindex ADR 0052 R-QUERY-7 and R-QUERY-8. v4vmm adds only its sentence about its Library rows. The crate builds the `kind:` requests, the text of `q` and the sort parameters. v4vmm builds no `kind:` mapping and no sort parameter of its own. musicindex ADR 0062 owns the `host:` field. The crate sends `host` and `not_host`, and v4vmm filters its Library rows with `host_keeps_row` and the host of the feed URL. It passes the crate's sort parameters for a sort that the person selected, when the node lists `sort`.
+[ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md), Accepted on 2026-11-07, moves the search parser, the Index plan and the kind rule to the `musicindex-search` crate. The crate is pinned at `4761148`. It gives the placeholder of each text field and `quote_field_value` for a runnable example (musicindex ADR 0058). It gives the rows of the field list (`field_list_rows`), the note of a text that sends no Index request (`search_note`) and the note of a tab that gets no request (`scope_note`), from musicindex ADR 0052 R-QUERY-7 and R-QUERY-8. HitIt adds only its sentence about its Library rows. The crate builds the `kind:` requests, the text of `q` and the sort parameters. HitIt builds no `kind:` mapping and no sort parameter of its own. musicindex ADR 0062 owns the `host:` field. The crate sends `host` and `not_host`, and HitIt filters its Library rows with `host_keeps_row` and the host of the feed URL. It passes the crate's sort parameters for a sort that the person selected, when the node lists `sort`.
 
 Known open defects:
 
@@ -86,7 +88,7 @@ Stored facts that agents need:
 - Schema version 24 is current. The migration registry of ADR 0016 owns each schema change.
 - `tests/fixtures/musicindex-openapi-0.19.0.json` is the stored MusicIndex contract. Since 2026-11-08 it holds the live contract of Stophammer candidate v0.19.0-rc.7 (git `398d10f`). After each Stophammer
   release, replace it in the same change as the decode changes (ADR 0075 section 6).
-- [Open Stophammer requests](docs/plans/v4vmm-open-requests.md) has an equal copy in the Stophammer
+- [Open Stophammer requests](docs/plans/hitit-open-requests.md) has an equal copy in the Stophammer
   repository. Update both copies together.
 - `docs/plans/broadcast-chain-delivery-order.md` is the only cross-repository order. Read it before a session
   on broadcast work. When a real show is scheduled, publisher show-log task 001 takes priority.
@@ -114,7 +116,7 @@ R-WORD-3 and R-WORD-4, and ADR 0085 applies them here. A feed that albums name t
 Each artist list shows the stated artists, then the inferred artists, then the names with no feed (musicindex ADR 0057 R-ARTIST-1, ADR 0085).
 
 **Shared interface rules come from musicindex.** musicindex ADRs 0020 to 0029 own the interface rules that
-musicindex.org, Studio and v4vmm share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a
+musicindex.org, Studio and HitIt share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a
 shared rule needs a record in `../musicindex`.
 
 **Provenance first.** Provenance is the element in the RSS document that
@@ -241,7 +243,7 @@ display:
 ```bash
 Xvfb :77 -screen 0 1440x900x24 -nolisten tcp -extension GLX &
 DISPLAY=:77 openbox &
-DISPLAY=:77 env -u WAYLAND_DISPLAY target/debug/v4vmm
+DISPLAY=:77 env -u WAYLAND_DISPLAY target/debug/hitit
 ```
 
 The agent environment sets `WAYLAND_DISPLAY`. Without `env -u WAYLAND_DISPLAY`,
@@ -288,14 +290,14 @@ you style stacked text.
 
 ## Build, Test, Lint
 
-After running tests, run `cargo build --bin v4vmm` before handing a desktop
-binary to the operator. `cargo test` can replace `target/debug/v4vmm` with a
+After running tests, run `cargo build --bin hitit` before handing a desktop
+binary to the operator. `cargo test` can replace `target/debug/hitit` with a
 binary linked to GPUI test-support and its synchronous drawing loop. The startup
 fixture's `run` command rebuilds the normal binary before opening it.
 
 ```bash
 cargo build                               # Debug build
-cargo build --release                     # Production build: target/release/v4vmm
+cargo build --release                     # Production build: target/release/hitit
 cargo test                                # All tests
 cargo test --test architecture_tests      # The guards
 cargo fmt -- --check                      # Check formatting

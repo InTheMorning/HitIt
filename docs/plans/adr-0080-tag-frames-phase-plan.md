@@ -32,7 +32,7 @@ Packet 001 goes first. It owns the writer, the removal of app values, and the co
 
 Packets 006 to 008 and 013 are corrections, so they go first. Packets 009 to 012 add frames. Packets 009 to 013 each add a difference to "Update n files" or remove one, so run them before the next rewrite of the real Library. Then one rewrite settles each file.
 
-[ADR 0088](../adr/0088-a-feed-move-follows-musicindex.md) owns the feed move. It is Accepted on 2026-11-11, and its [task 001](../tasks/adr-0088-task-001-rss-check-follows-a-move.md) is Ready. [Open request 12](v4vmm-open-requests.md) asks Stophammer for `season` and for the license. No packet waits for that request.
+[ADR 0088](../adr/0088-a-feed-move-follows-musicindex.md) owns the feed move. It is Accepted on 2026-11-11, and its [task 001](../tasks/adr-0088-task-001-rss-check-follows-a-move.md) is Ready. [Open request 12](hitit-open-requests.md) asks Stophammer for `season` and for the license. No packet waits for that request.
 
 ## Recorded Facts - 2026-11-04
 
@@ -44,7 +44,7 @@ The tag review of 2026-11-04 compared Studio at `79fff94`, Stophammer at `61e876
 | `podcast:license` reaches no file | Packet 010 |
 | `podcast:season` reaches no file | ADR 0080 Decision 14 defers it |
 | `TPUB` has no RSS label, and the compare shows the owner name | Packet 011 |
-| `itunes:new-feed-url` has no reader | ADR 0088: the node reads it, and v4vmm follows the MusicIndex `feed_url` |
+| `itunes:new-feed-url` has no reader | ADR 0088: the node reads it, and HitIt follows the MusicIndex `feed_url` |
 | The readers give different track numbers and different artwork | Packet 008 |
 | Credit roles select incorrect frames | Packet 007 |
 | The stored contract is release 0.13.0 | Packet 006 |

@@ -356,11 +356,11 @@ cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test --test architecture_tests
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
-Run `cargo build --bin v4vmm` last. `cargo test` can leave a binary with GPUI test support at
-`target/debug/v4vmm`.
+Run `cargo build --bin hitit` last. `cargo test` can leave a binary with GPUI test support at
+`target/debug/hitit`.
 
 ## Rollback
 
@@ -424,12 +424,12 @@ Stop and report the problem, and do not guess, when:
 The check needs a desktop session and the built app. The Library must hold Haleen releases. Step 4
 makes MusicIndex not reachable.
 
-1. Build the app: `cd ~/build/v4vmm && cargo build --bin v4vmm`.
+1. Build the app: `cd ~/build/v4vmm && cargo build --bin hitit`.
 2. Copy the configuration:
-   `cp ~/.config/v4vmm/config.toml ~/.config/v4vmm/config.toml.v009-check`.
+   `cp ~/.config/hitit/config.toml ~/.config/hitit/config.toml.v009-check`.
 3. If the app runs, close it.
-4. In `~/.config/v4vmm/config.toml`, set `musicindex_endpoint = "http://127.0.0.1:9"`.
-5. Start the app: `./target/debug/v4vmm`. Open the Music tab. Click Discover in the sidebar.
+4. In `~/.config/hitit/config.toml`, set `musicindex_endpoint = "http://127.0.0.1:9"`.
+5. Start the app: `./target/debug/hitit`. Open the Music tab. Click Discover in the sidebar.
 6. If the retained actions show an item, click "Dismiss" on each item.
 7. V1: click in the toolbar search field. Type `haleen`, wait 1 s, then type ` d`. Stop. Do not press Enter.
    - Look at: the retained actions at the top of the window show no item.
@@ -448,7 +448,7 @@ Cleanup:
 1. Click "Dismiss" on each retained item.
 2. Close the app.
 3. Restore the configuration:
-   `mv ~/.config/v4vmm/config.toml.v009-check ~/.config/v4vmm/config.toml`.
+   `mv ~/.config/hitit/config.toml.v009-check ~/.config/hitit/config.toml`.
 4. Start the app and delete the text in the search field.
 
 The check changes no stored data. Step 4 changes the configuration file. Step 3 of the cleanup restores it.

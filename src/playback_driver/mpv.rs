@@ -378,7 +378,7 @@ fn remove_stale_socket(socket_path: &Path) -> Result<()> {
 fn default_runtime_dir() -> Result<PathBuf> {
     let base = std::env::var_os("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::temp_dir().join("v4vmm"));
+        .unwrap_or_else(|| std::env::temp_dir().join("hitit"));
     Ok(base.join("mpv"))
 }
 

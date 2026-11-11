@@ -8,11 +8,11 @@ use serde_json::json;
 
 use crate::db::startup::prepare_database;
 
-const FIXTURE_KIND: &str = "v4vmm-startup-recovery-v1";
+const FIXTURE_KIND: &str = "hitit-startup-recovery-v1";
 
 /// A verified debug fixture alone can interrupt an in-progress restore.
 pub(crate) fn interrupt_database_restore(config_path: &Path) -> bool {
-    let Some(root) = std::env::var_os("V4VMM_STARTUP_FIXTURE") else {
+    let Some(root) = std::env::var_os("HITIT_STARTUP_FIXTURE") else {
         return false;
     };
     let Ok(root) = verified_config_root(Path::new(&root), config_path) else {
@@ -40,7 +40,7 @@ pub(crate) fn injected_failure(
     config_path: &Path,
     dependency: crate::application::capability::Dependency,
 ) -> bool {
-    let Some(root) = std::env::var_os("V4VMM_STARTUP_FIXTURE") else {
+    let Some(root) = std::env::var_os("HITIT_STARTUP_FIXTURE") else {
         return false;
     };
     fixture_failure(Path::new(&root), config_path, dependency).unwrap_or(false)
@@ -69,7 +69,7 @@ fn fixture_failure(
 fn verified_config_root(root: &Path, config_path: &Path) -> Result<PathBuf> {
     let root = verified_root(&root.to_string_lossy())?;
     ensure!(
-        config_path.canonicalize()? == root.join("config/v4vmm/config.toml").canonicalize()?,
+        config_path.canonicalize()? == root.join("config/hitit/config.toml").canonicalize()?,
         "Fixture config mismatch"
     );
     let manifest: serde_json::Value =
@@ -84,7 +84,7 @@ fn verified_config_root(root: &Path, config_path: &Path) -> Result<PathBuf> {
 
 /// Keep mpv sockets inside a verified debug fixture, without changing the desktop runtime.
 pub(crate) fn playback_runtime_directory(config_path: &Path) -> Option<PathBuf> {
-    let root = std::env::var_os("V4VMM_STARTUP_FIXTURE")?;
+    let root = std::env::var_os("HITIT_STARTUP_FIXTURE")?;
     let root = verified_config_root(Path::new(&root), config_path).ok()?;
     let state: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("case.json")).ok()?).ok()?;
@@ -110,7 +110,7 @@ fn verified_root(path: &str) -> Result<PathBuf> {
     ensure!(
         root.file_name()
             .and_then(|s| s.to_str())
-            .is_some_and(|s| s.starts_with("v4vmm-startup-")),
+            .is_some_and(|s| s.starts_with("hitit-startup-")),
         "Unexpected fixture directory name"
     );
     Ok(root)
@@ -131,7 +131,7 @@ pub fn run_cli(args: &[String]) -> Result<()> {
                 "Fixture database already exists; use a fresh setup"
             );
             fs::create_dir_all(root.join("music"))?;
-            fs::create_dir_all(root.join("config/v4vmm"))?;
+            fs::create_dir_all(root.join("config/hitit"))?;
             let conn = prepare_database(&db_path)
                 .map_err(|e| anyhow::anyhow!("{:?}: {}", e.stage, e.reason))?;
             conn.execute(
@@ -146,7 +146,7 @@ pub fn run_cli(args: &[String]) -> Result<()> {
             let config = format!("music_dir = {}\ndb_path = {}\nmusicindex_endpoint = \"http://127.0.0.1:9\"\n[playback]\ndriver = \"null\"\n",
                 toml::Value::String(root.join("music").display().to_string()),
                 toml::Value::String(db_path.display().to_string()));
-            fs::write(root.join("config/v4vmm/config.toml"), config)?;
+            fs::write(root.join("config/hitit/config.toml"), config)?;
             println!("{}", json!({"seeded": root}));
         }
         "upgrade-seed" => seed_upgrade_checks(&root)?,
@@ -214,7 +214,7 @@ pub fn run_cli(args: &[String]) -> Result<()> {
             let playlists: i64 =
                 conn.query_row("SELECT count(*) FROM playlists", [], |r| r.get(0))?;
             let probes: i64 = conn.query_row(
-                "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'v4vmm_startup_probe_%'",
+                "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'hitit_startup_probe_%'",
                 [],
                 |r| r.get(0),
             )?;
@@ -361,7 +361,7 @@ pub(crate) fn observe_session(
     config_path: PathBuf,
     connection: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
 ) {
-    if std::env::var_os("V4VMM_STARTUP_FIXTURE").is_none() {
+    if std::env::var_os("HITIT_STARTUP_FIXTURE").is_none() {
         return;
     }
     drop(runner.dispatch(
@@ -398,7 +398,7 @@ impl crate::application::ApplicationCommand for FixtureSessionCommand {
 
 impl FixtureSessionCommand {
     fn run(&self) -> Result<()> {
-        let Some(root) = std::env::var_os("V4VMM_STARTUP_FIXTURE") else {
+        let Some(root) = std::env::var_os("HITIT_STARTUP_FIXTURE") else {
             return Ok(());
         };
         let root = verified_config_root(Path::new(&root), &self.config_path)?;
@@ -430,7 +430,7 @@ impl FixtureSessionCommand {
 
 pub(crate) fn record_session_release(config_path: &Path, generation: u64) {
     let result = (|| -> Result<()> {
-        let Some(root) = std::env::var_os("V4VMM_STARTUP_FIXTURE") else {
+        let Some(root) = std::env::var_os("HITIT_STARTUP_FIXTURE") else {
             return Ok(());
         };
         let root = verified_config_root(Path::new(&root), config_path)?;
@@ -649,11 +649,11 @@ mod tests {
     #[test]
     fn adr_0066_fixture_failures_require_identity_and_follow_fresh_case() {
         let temp = tempfile::Builder::new()
-            .prefix("v4vmm-startup-")
+            .prefix("hitit-startup-")
             .tempdir()
             .unwrap();
         let root = temp.path().canonicalize().unwrap();
-        let config = root.join("config/v4vmm/config.toml");
+        let config = root.join("config/hitit/config.toml");
         fs::create_dir_all(config.parent().unwrap()).unwrap();
         fs::write(&config, "music_dir = 'fixture'\n").unwrap();
         fs::write(

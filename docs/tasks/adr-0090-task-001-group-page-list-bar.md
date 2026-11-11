@@ -105,4 +105,4 @@ open in the visual list above.
 - `cargo test --no-fail-fast`: 2864 unit tests passed, 406 architecture tests
   passed, and 0 failed.
 - `cargo test --test architecture_tests adr_0090`: 1 test passed.
-- `cargo build --bin v4vmm`: finished.
+- `cargo build --bin hitit`: finished.

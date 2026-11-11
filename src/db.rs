@@ -4405,7 +4405,7 @@ mod tests {
             event_id: event_id.to_owned(),
             label: Some("Sunday set".to_owned()),
             endpoint: "https://relay.example.test".to_owned(),
-            token_path: "/tmp/v4vmm-test-token".to_owned(),
+            token_path: "/tmp/hitit-test-token".to_owned(),
             created_at: 1_778_284_800,
             last_checked_at: Some(1_778_284_801),
             last_status: Some(BroadcastEventStatus::Unknown),

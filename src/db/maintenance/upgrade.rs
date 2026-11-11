@@ -299,7 +299,7 @@ fn preserve_original(
             .source()
             .parent()
             .expect("canonical database parent")
-            .join(format!(".v4vmm-upgrade-{}-{sequence}", std::process::id()));
+            .join(format!(".hitit-upgrade-{}-{sequence}", std::process::id()));
         if !directory
             .try_exists()
             .map_err(|error| Failure::io("Inspect preservation destination", &error))?
@@ -617,6 +617,6 @@ mod tests {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".v4vmm-upgrade")));
+            .starts_with(".hitit-upgrade")));
     }
 }

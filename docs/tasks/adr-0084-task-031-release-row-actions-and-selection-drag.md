@@ -199,7 +199,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -271,7 +271,7 @@ Revert the commit. This packet adds no migration and no stored data. V3, V4, V5,
   - `adr_0083_track_drag_r83_8_01_release_row_drag`, `adr_0083_track_drag_r83_8_11_content_list_row_drag` and the tests of `track_drag.rs` use `TrackDragVm::one` and `track_ids`.
   - The entry drop test of `src/ui/shells/playlist.rs` reads `drop.track_ids`.
   - Each other test of packets 006, 007, 008, 009, 016, 017, 018, 019 and 025 passes with no change.
-- The gate: `cargo test` (2243 unit tests and 369 guards), `cargo test --test architecture_tests`, `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin v4vmm`. All Green.
+- The gate: `cargo test` (2243 unit tests and 369 guards), `cargo test --test architecture_tests`, `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin hitit`. All Green.
 
 ### Review Corrections - 2026-10-21
 
@@ -300,7 +300,7 @@ The review of 2026-10-21 found six problems, A to F. Each correction has a unit 
 - F. `PublisherPageAlbumVm::element_id` takes the section heading. The id is `publisher-album:{heading}:{feed_guid}`. Thus a release in two sections of one page has two menu states.
   - Test: `adr_0084_release_row_actions_element_id_is_unique_for_each_section` (`src/view_models/publisher_page.rs`).
   - The checkbox id of a release row (`publisher-album-checkbox:{row_id}`) did not change.
-- The gate after the corrections: `cargo test` (2249 unit tests and 369 guards), `cargo test --test architecture_tests`, `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin v4vmm`. All Green.
+- The gate after the corrections: `cargo test` (2249 unit tests and 369 guards), `cargo test --test architecture_tests`, `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo check --all-targets` and `cargo build --bin hitit`. All Green.
 
 ## Orchestrator Review - 2026-10-22
 
@@ -308,10 +308,10 @@ Pass, after the corrections of "Review Corrections - 2026-10-21". The review fou
 
 ## Operator Visual Check
 
-Use the binary that `cargo build --bin v4vmm` makes. Use a test playlist, and a release that you can download again.
+Use the binary that `cargo build --bin hitit` makes. Use a test playlist, and a release that you can download again.
 
 1. V1, the Releases list:
-   1. Start the app: `cargo build --bin v4vmm && ./target/debug/v4vmm`.
+   1. Start the app: `cargo build --bin hitit && ./target/debug/hitit`.
    2. Open Music, then Releases. Put the pointer on a release row. "⋯" must show at the end of the row.
    3. Click "⋯". Then right-click the same row. Both menus must show the same items in the same order.
    4. Open a singles group row with its chevron. The group row must show no "⋯". Each single row below it must show "⋯".

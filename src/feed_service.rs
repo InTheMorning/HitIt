@@ -784,7 +784,7 @@ pub fn lookup_musicbrainz_library_track(track: &TrackRow) -> Result<MusicBrainzL
     let metadata = musicbrainz_lookup_metadata(&context.track, &tags);
     let musicbrainz_client = crate::http_client::document_builder()
         .user_agent(format!(
-            "v4vmm/{} (MusicBrainz metadata lookup)",
+            "hitit/{} (MusicBrainz metadata lookup)",
             env!("CARGO_PKG_VERSION")
         ))
         .build()?;
@@ -813,7 +813,7 @@ pub fn lookup_musicbrainz_stage_for_track(track: &TrackRow) -> Result<StagedMusi
     let metadata = musicbrainz_lookup_metadata(&api_track, &tags);
     let musicbrainz_client = crate::http_client::document_builder()
         .user_agent(format!(
-            "v4vmm/{} (MusicBrainz metadata lookup)",
+            "hitit/{} (MusicBrainz metadata lookup)",
             env!("CARGO_PKG_VERSION")
         ))
         .build()?;

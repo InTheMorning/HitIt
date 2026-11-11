@@ -1,4 +1,4 @@
-# v4vmm Architecture Diagrams
+# HitIt Architecture Diagrams
 
 Two views: the **current state** of the codebase, then an **ideal target** for an app of this kind.
 
@@ -17,7 +17,7 @@ graph TD
         FS["Local Filesystem\n(MP3 / FLAC / WAV)"]
     end
 
-    subgraph App["v4vmm — single binary"]
+    subgraph App["hitit — single binary"]
         main["main.rs"]
         cli["cli.rs\nOne-shot CLI"]
         run_app["app.rs — TopApp\nRoot GPUI entity\nTab bar · Playback bar · Settings"]

@@ -55,14 +55,14 @@ Mechanical:
 Visual, listed apart, for the operator to walk:
 
 - V1: after a move in Studio, and after the node reads it, the RSS check report names the old and the new URL.
-- V2: a later edit in Studio reaches the compare in v4vmm.
+- V2: a later edit in Studio reaches the compare in HitIt.
 
 ## Operator Visual Check
 
 This check needs Studio, two file hosts for a test feed and a node that reads the test feed.
 
-1. Publish a test feed in Studio, and subscribe to it in v4vmm.
-2. Run `cargo run --bin v4vmm` in a desktop session.
+1. Publish a test feed in Studio, and subscribe to it in HitIt.
+2. Run `cargo run --bin hitit` in a desktop session.
 3. Move the feed to the second host in Studio.
 4. Wait until `GET /v1/feeds/{guid}` of the node gives the new URL.
 5. Run the RSS check of the playlist with that feed.
@@ -82,7 +82,7 @@ Cleanup: remove the subscription from the Library, and delete the test feed in S
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo check --all-targets`
-- `cargo build --bin v4vmm`
+- `cargo build --bin hitit`
 
 ## Report
 

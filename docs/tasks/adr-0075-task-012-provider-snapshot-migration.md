@@ -184,7 +184,7 @@ cargo test --locked --offline
 cargo check --locked --offline
 cargo clippy --locked --offline -- -D warnings
 cargo fmt -- --check
-cargo build --locked --offline --bin v4vmm
+cargo build --locked --offline --bin hitit
 ```
 
 The full suite includes `tests/architecture_tests.rs`. Rebuild the normal binary after tests before any operator handoff.
@@ -283,7 +283,7 @@ Older fixture construction no longer removes ledger records or tables from a cur
 | `cargo check --locked --offline` | Green. |
 | `cargo clippy --locked --offline -- -D warnings` | Green. |
 | `cargo fmt -- --check` | Green. |
-| `cargo build --locked --offline --bin v4vmm` | Green after tests. |
+| `cargo build --locked --offline --bin hitit` | Green after tests. |
 | Isolated CLI `playlists list --json` | Green: JSON stdout, receipt stderr, preserved version-11 snapshot, target 12, and no repeated backup. |
 | Markdown link checker | Green: 30 local links. |
 | Shared STE checker | Paragraph defects corrected. Dictionary findings remain for technical terms and inherited prose. |
@@ -308,7 +308,7 @@ No audio hardware, publisher, encoder, or external service is required.
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --locked --offline --quiet --bin v4vmm
+   cargo build --locked --offline --quiet --bin hitit
    ADR0075_MIGRATION_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
    python3 docs/runbooks/startup-recovery-fixture.py mode "$ADR0075_MIGRATION_FIXTURE" upgrade-interrupted
    python3 docs/runbooks/startup-recovery-fixture.py upgrade-interrupt "$ADR0075_MIGRATION_FIXTURE"

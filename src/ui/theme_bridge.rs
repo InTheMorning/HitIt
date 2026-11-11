@@ -1,4 +1,4 @@
-//! Bridge between v4vmm's design tokens and `gpui-component`'s theme.
+//! Bridge between the app's design tokens and `gpui-component`'s theme.
 //!
 //! `gpui-component` ships its own light/dark palettes. Without intervention
 //! every component (`Button`, `Popover`, `Input`, `Sidebar`, …) renders with
@@ -37,7 +37,7 @@ impl From<UiScale> for ScaleFactor {
     }
 }
 
-/// Install v4vmm's palette and UI scale into the global `gpui-component`
+/// Install the app's palette and UI scale into the global `gpui-component`
 /// theme + the application context.
 ///
 /// Idempotent: safe to call from every window-construction path, and to
@@ -46,7 +46,7 @@ pub fn install_theme(profile: ThemeProfile, scale: ScaleFactor, cx: &mut App) {
     install_theme_for_appearance(profile, scale, cx.window_appearance().into(), None, cx);
 }
 
-/// Install v4vmm's palette using a concrete window's platform appearance.
+/// Install the app's palette using a concrete window's platform appearance.
 ///
 /// Use this when the caller has a `Window`; it is the most accurate source on
 /// Linux and mirrors `gpui-component`'s own system-appearance strategy.

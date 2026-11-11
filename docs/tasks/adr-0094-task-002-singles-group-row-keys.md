@@ -52,6 +52,6 @@ No visual criterion. The look does not change.
 cargo fmt -- --check
 cargo test --locked --offline --quiet
 cargo clippy --locked --offline --quiet --all-targets -- -D warnings
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```

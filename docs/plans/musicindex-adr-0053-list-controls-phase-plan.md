@@ -35,7 +35,7 @@ Owner of the rules: [musicindex ADR 0053](../../../musicindex/docs/adr/0053-whic
 
 ## Goal
 
-Each v4vmm list shows the sorts, the directions and the view icons of its R-LIST-9 kind, in the controls of musicindex ADR 0054. No other list shows a control.
+Each HitIt list shows the sorts, the directions and the view icons of its R-LIST-9 kind, in the controls of musicindex ADR 0054. No other list shows a control.
 
 ## Answers Of 2026-11-07
 
@@ -50,7 +50,7 @@ The orchestrator session relayed these answers from the accepted musicindex ADR 
 The orchestrator session relayed these operator answers on 2026-11-08:
 
 6. A saved search opens with Newest and its window groups, also when its query has a word. A new search from the toolbar keeps Relevance.
-7. Packet 3 uses a stored Curator Order: the column `playlists.position`, with a migration that keeps the name order of today. A new playlist goes last. The curator drags a row of My playlists in Curator Order to move it. Newest uses `created_at`. A change to a v4vmm ADR records the schema and the new edit.
+7. Packet 3 uses a stored Curator Order: the column `playlists.position`, with a migration that keeps the name order of today. A new playlist goes last. The curator drags a row of My playlists in Curator Order to move it. Newest uses `created_at`. A change to a HitIt ADR records the schema and the new edit.
 8. A section of an item page offers Newest only when each of its rows has a date (R-LIST-9 item 1).
 9. Packet 9 comes first, then packet 3.
 

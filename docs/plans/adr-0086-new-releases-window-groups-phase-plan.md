@@ -33,7 +33,7 @@ Each packet is one session. The operator walks the visual check of each packet b
 
 ## Open Findings
 
-- 2026-10-23: a `type=feed` search hit carries no `newest_item_at`, and Stophammer leaves its `pub_date` empty (`feed_search_summary` in `../stophammer/src/query.rs`). Packet 005 can thus group only the singles that the Library holds. The Index singles of a saved search group when a Stophammer release adds the date to a feed hit (packet 005 D5). [Open request 11](v4vmm-open-requests.md#11-a-feed-search-hit-gives-its-release-date-and-its-named-feeds) asks for the date and the named feeds of a feed hit.
+- 2026-10-23: a `type=feed` search hit carries no `newest_item_at`, and Stophammer leaves its `pub_date` empty (`feed_search_summary` in `../stophammer/src/query.rs`). Packet 005 can thus group only the singles that the Library holds. The Index singles of a saved search group when a Stophammer release adds the date to a feed hit (packet 005 D5). [Open request 11](hitit-open-requests.md#11-a-feed-search-hit-gives-its-release-date-and-its-named-feeds) asks for the date and the named feeds of a feed hit.
 - 2026-10-23: the window group page of packet 004 finds its members in the New releases rows. Packet 005 opens the same page from the rows of a saved search. Packet 005 stops when the page of packet 004 cannot take these members.
 - 2026-10-23: packet 003 found a defect of today's code. A New releases page that arrives late replaces the Tracks rows, because `replace_recent_feeds_page` always sets the source to `RecentMusic`. Packet 003 corrects it, and it is implemented on 2026-10-23.
 

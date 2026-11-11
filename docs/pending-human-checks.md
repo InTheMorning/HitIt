@@ -5,7 +5,7 @@
 The operator resumed visual checks on 2026-10-02. Walk a new check right after its packet.
 The older checks below stay open until a person walks them. The operator walked part of a visual batch on 2026-10-02 and stopped after its Part A step 8.
 
-The current evidence fixture is `/tmp/v4vmm-governance.ie6k8TQf`. Its cleanup remains unconfirmed.
+The current evidence fixture is `/tmp/hitit-governance.ie6k8TQf`. Its cleanup remains unconfirmed.
 
 ## Purpose
 
@@ -31,38 +31,38 @@ Run them in a terminal of the i3 desktop session. Each numbered section has a `R
 
 ### Start The App
 
-Close each open v4vmm window first. Then build and start the app:
+Close each open HitIt window first. Then build and start the app:
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
-Run `cargo build --bin v4vmm` again after each `cargo test`, because a test build can replace the binary.
+Run `cargo build --bin hitit` again after each `cargo test`, because a test build can replace the binary.
 
 ### Before A Migration
 
 The build of 2026-11-09 has schema version 24. Migration 24 adds `playlists.position`. Before the first start of a new build, read the schema version of the database:
 
 ```bash
-sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite 'SELECT max(version) FROM schema_migrations;'
+sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite 'SELECT max(version) FROM schema_migrations;'
 ```
 
 If the result is less than 24, close the app and make a backup:
 
 ```bash
-sqlite3 ~/.local/share/v4vmm/v4vmm.sqlite ".backup '$HOME/.local/share/v4vmm/v4vmm-before-24.sqlite'"
+sqlite3 ~/.local/share/hitit/hitit.sqlite ".backup '$HOME/.local/share/hitit/hitit-before-24.sqlite'"
 ```
 
-To go back to an older build, close the app and copy the backup over `v4vmm.sqlite`.
+To go back to an older build, close the app and copy the backup over `hitit.sqlite`.
 
 ### Set The Window Width
 
-Type this function one time in each terminal. It sets the dimensions of the v4vmm window:
+Type this function one time in each terminal. It sets the dimensions of the HitIt window:
 
 ```bash
-v4w() { local wid; wid=$(xdotool search --onlyvisible --pid "$(pgrep -x v4vmm | head -1)" | head -1); i3-msg -q "[id=$wid] floating enable, resize set $1 $2"; }
+v4w() { local wid; wid=$(xdotool search --onlyvisible --pid "$(pgrep -x hitit | head -1)" | head -1); i3-msg -q "[id=$wid] floating enable, resize set $1 $2"; }
 ```
 
 Examples: `v4w 1440 845` for full width, `v4w 900 845` for a narrow window, `v4w 300 845` for the smallest width of section 12.
@@ -78,8 +78,8 @@ The agent checks run on an Xvfb display with scratch `XDG_CONFIG_HOME`, `XDG_DAT
 1. **The Library downloads.** The scratch Library has no release with 8 tracks or more and no feed with 8 releases or more. Section 12 packets 5 and 6 need them. Find candidates in your Library:
 
    ```bash
-   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT f.title, count(*) FROM tracks t JOIN feeds f ON f.id = t.feed_id WHERE t.is_in_library = 1 GROUP BY f.id HAVING count(*) >= 8 ORDER BY count(*) DESC LIMIT 10;"
-   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT album_artist_name, count(DISTINCT feed_id) FROM tracks WHERE is_in_library = 1 GROUP BY album_artist_name HAVING count(DISTINCT feed_id) >= 8 ORDER BY 2 DESC LIMIT 10;"
+   sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite "SELECT f.title, count(*) FROM tracks t JOIN feeds f ON f.id = t.feed_id WHERE t.is_in_library = 1 GROUP BY f.id HAVING count(*) >= 8 ORDER BY count(*) DESC LIMIT 10;"
+   sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite "SELECT album_artist_name, count(DISTINCT feed_id) FROM tracks WHERE is_in_library = 1 GROUP BY album_artist_name HAVING count(DISTINCT feed_id) >= 8 ORDER BY 2 DESC LIMIT 10;"
    ```
 
    If a query gives no row, download one Index release with 8 tracks or more before the check.
@@ -89,7 +89,7 @@ The agent checks run on an Xvfb display with scratch `XDG_CONFIG_HOME`, `XDG_DAT
 5. **Names with numbers in the Library.** The scratch Library has no names such as "Track 2" and "Track 10". Packet 7 of section 12 needs them. Find candidates:
 
    ```bash
-   sqlite3 -readonly ~/.local/share/v4vmm/v4vmm.sqlite "SELECT DISTINCT track_title FROM tracks WHERE is_in_library = 1 AND track_title GLOB '*[0-9]*' LIMIT 20;"
+   sqlite3 -readonly ~/.local/share/hitit/hitit.sqlite "SELECT DISTINCT track_title FROM tracks WHERE is_in_library = 1 AND track_title GLOB '*[0-9]*' LIMIT 20;"
    ```
 
 6. **Audio, mpv, a macOS desktop and `musicbrainz.org`.** Sections 1, 4 and 5 need them. The agent display has no audio, and the agent has no macOS desktop.
@@ -154,8 +154,8 @@ Open - the run closed on 2026-10-23. The Walk Log of the run record shows the ch
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   Then open each packet file in the list below. Do the steps of its "Operator Visual Check" section in the sequence of the list. Each packet states what to look at and the expected result.
@@ -285,7 +285,7 @@ Open and paused - implementation and mechanical checks are complete on 2026-09-2
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
   Look at: the `WOAR` and `WCOP` frames of the test copy in an external tag reader. Expected: plain URLs.
@@ -302,8 +302,8 @@ Open for macOS only - the operator passed V1, V3 and the Linux part of V2 on 202
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   Open a release, then a second release. Push `cmd-[`, then `cmd-]`. Expected: Back, then Forward. Then put the cursor in a text box and push `cmd-]` and `cmd-[`. Expected: indent and outdent work, and the page does not change.
@@ -319,8 +319,8 @@ Open - the run closed on 2026-10-24 before the end of its walk. Each check below
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   Then open each packet file in the list below. Do the steps of its "Operator Visual Check" section for the named checks only.
@@ -345,8 +345,8 @@ Open - the run closed on 2026-10-24 after its walk. The operator passed ADR 0084
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   Then do the named checks in each packet file below. ADR 0059 packet 019 V4 also needs a published show feed.
@@ -364,8 +364,8 @@ Open - the packets are implemented. The mechanical suite is Green. No person che
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   For packet 038 V5, push Ctrl+F, type `haleen d` and push Enter. For packet 039 V1, the app needs a connection to `https://api.musicindex.org`.
@@ -383,17 +383,17 @@ Open - both packets are implemented on 2026-10-25. The visual checks are not wal
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-cp ~/.config/v4vmm/config.toml ~/.config/v4vmm/config.toml.v009-check
-sed -i 's|^musicindex_endpoint = .*|musicindex_endpoint = "http://127.0.0.1:9"|' ~/.config/v4vmm/config.toml
-grep musicindex_endpoint ~/.config/v4vmm/config.toml
-target/debug/v4vmm &
+cargo build --bin hitit
+cp ~/.config/hitit/config.toml ~/.config/hitit/config.toml.v009-check
+sed -i 's|^musicindex_endpoint = .*|musicindex_endpoint = "http://127.0.0.1:9"|' ~/.config/hitit/config.toml
+grep musicindex_endpoint ~/.config/hitit/config.toml
+target/debug/hitit &
 ```
 
   If `grep` shows no line, add the line `musicindex_endpoint = "http://127.0.0.1:9"` to the file. Then do steps 6 to 8 of the packet: type `haleen`, then ` d`. Expected: one note for `haleen d`, and no retained item. Push Enter. Expected: one retained item with "Edit endpoint". Cleanup: close the app, then put back the configuration:
 
 ```bash
-mv ~/.config/v4vmm/config.toml.v009-check ~/.config/v4vmm/config.toml
+mv ~/.config/hitit/config.toml.v009-check ~/.config/hitit/config.toml
 ```
 
   For packet 010, start the app with the usual configuration. Click the empty search field and scroll the field list to its end.
@@ -411,8 +411,8 @@ Open - the packets are implemented, and the mechanical suite is Green. No person
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   Then do the steps of each packet below in the sequence of the run record. Packets that write tags use a test copy of a file, as the packet states.
@@ -435,8 +435,8 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   The checks change no stored data, apart from the checks of packets 006, 007 and 010, and their cleanup in those packets. Use `v4w 1440 845` and `v4w 900 845` for the two widths, and Settings, Theme for Light and Dark.
@@ -474,8 +474,8 @@ Open - the packets below are implemented, and the mechanical suite is Green. The
 
 ```bash
 cd ~/build/v4vmm
-cargo build --bin v4vmm
-target/debug/v4vmm &
+cargo build --bin hitit
+target/debug/hitit &
 ```
 
   The checks change no stored data, apart from migration 24 and the playlist moves of packet 3. Use these steps to open each page:

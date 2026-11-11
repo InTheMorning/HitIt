@@ -21,6 +21,12 @@ use crate::theme_profile::ThemeProfile;
 use crate::view_models::workspace::WorkspaceLayoutConfig;
 
 pub(crate) mod correction;
+pub mod user_data_move;
+
+/// The display name of the app (ADR 0096 Decision 1).
+pub const APP_DISPLAY_NAME: &str = "HitIt";
+/// The machine name of the app (ADR 0096 Decision 2).
+pub const APP_ID: &str = "hitit";
 
 // Ordinary foreground saves and explicit worker corrections share one write
 // admission boundary per resolved destination (ADR 0066). Never wait on the UI.
@@ -753,7 +759,7 @@ impl ConfigSnapshot {
 
 /// Resolve the configuration path without creating any directory.
 pub fn config_path() -> Result<PathBuf> {
-    let proj = ProjectDirs::from("xyz", "HeyCitizen", "v4vmm")
+    let proj = ProjectDirs::from("xyz", "HeyCitizen", APP_ID)
         .ok_or_else(|| anyhow!("could not determine user config directory"))?;
     Ok(proj.config_dir().join("config.toml"))
 }
@@ -819,7 +825,7 @@ fn default_config_temporary(cfg_path: &Path) -> Result<(PathBuf, File)> {
     for _ in 0..DEFAULT_TEMP_ATTEMPTS {
         let sequence = DEFAULT_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let path = cfg_path.with_file_name(format!(
-            ".v4vmm-config-{}-{sequence}.tmp",
+            ".hitit-config-{}-{sequence}.tmp",
             std::process::id(),
         ));
         let mut options = OpenOptions::new();
@@ -1114,17 +1120,17 @@ pub fn normalize_flac_path(flac_path: &str) -> Result<Option<PathBuf>> {
 /// Default config content (TOML).
 /// Uses your stated defaults.
 fn default_config_toml() -> Result<String> {
-    let proj = ProjectDirs::from("xyz", "HeyCitizen", "v4vmm")
+    let proj = ProjectDirs::from("xyz", "HeyCitizen", APP_ID)
         .ok_or_else(|| anyhow!("could not determine user directories"))?;
 
     // Default music dir: ~/V4Vmusic on Unix-like systems, equivalent home dir elsewhere.
     let music_dir = default_music_dir()?;
 
-    // Default DB: ~/.local/share/v4vmm/v4vmm.sqlite
-    let db_path = proj.data_dir().join("v4vmm.sqlite");
+    // Default DB: ~/.local/share/hitit/hitit.sqlite
+    let db_path = proj.data_dir().join("hitit.sqlite");
 
     Ok(format!(
-        r#"# v4vmm config
+        r#"# hitit config
 
 # V4V-only library root
 music_dir = {}
@@ -1242,7 +1248,7 @@ mod tests {
             Path::new("config.toml"),
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 "#
             .as_bytes()
             .to_vec(),
@@ -1263,7 +1269,7 @@ db_path = "/tmp/v4vmm.sqlite"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 "#,
         )
         .expect("write config");
@@ -1290,7 +1296,7 @@ db_path = "/tmp/v4vmm.sqlite"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [broadcast]
 selected_host = "Studio"
@@ -1332,7 +1338,7 @@ instance_name = "remote-mixxx"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [broadcast.encoder]
 binary_path = "/usr/bin/butt"
@@ -1364,7 +1370,7 @@ default_server_name = "main"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [broadcast]
 drop_directory = "/tmp/musicindex-live-publisher/mpv/nowplaying"
@@ -1401,7 +1407,7 @@ drop_file_target = "stream-a"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 "#,
         )
         .expect("write config");
@@ -1419,7 +1425,7 @@ db_path = "/tmp/v4vmm.sqlite"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 "#,
         )
         .expect("write config");
@@ -1441,7 +1447,7 @@ db_path = "/tmp/v4vmm.sqlite"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 "#,
         )
         .expect("write config");
@@ -1463,7 +1469,7 @@ db_path = "/tmp/v4vmm.sqlite"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace_layout]
 focused_frame_id = 8
@@ -1501,7 +1507,7 @@ kind = "detail"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace_layout]
 focused_frame_id = 4
@@ -1552,7 +1558,7 @@ kind = "queue_now_playing"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace]
 unknown = "keep"
@@ -1585,7 +1591,7 @@ other = true
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace.layout]
 content_pane_width = 1024.5
@@ -1614,7 +1620,7 @@ content_pane_width = 1024.5
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 workspace_layout = "not a layout"
 "#,
         )
@@ -1637,7 +1643,7 @@ workspace_layout = "not a layout"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace_layout]
 focused_frame_id = 2
@@ -1670,7 +1676,7 @@ kind = "future_frame"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace_layout]
 focused_frame_id = 5
@@ -1703,7 +1709,7 @@ kind = "broadcast"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace]
 [workspace.layout]
@@ -1733,7 +1739,7 @@ content_pane_width = "wide"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 theme_profile = "light"
 "#,
         )
@@ -1752,7 +1758,7 @@ theme_profile = "light"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 theme_profile = "system"
 "#,
         )
@@ -1771,7 +1777,7 @@ theme_profile = "system"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 theme_profile = "solarized"
 "#,
         )
@@ -1795,7 +1801,7 @@ theme_profile = "solarized"
             Path::new("config.toml"),
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [playback]
 driver = "mpv"
@@ -1820,7 +1826,7 @@ mpv_path = "/usr/bin/mpv"
             &cfg_path,
             r#"
 music_dir = "/tmp/music"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [playback]
 driver = "vlc"
@@ -1852,7 +1858,7 @@ driver = "vlc"
             &cfg_path,
             r#"
 music_dir = "/tmp/old"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 musicindex_endpoint = "https://old.example"
 extra = "keep"
 "#,
@@ -1911,7 +1917,7 @@ extra = "keep"
         fs::write(
             &cfg_path,
             r#"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 music_dir = "/tmp/music"
 musicindex_endpoint = "http://127.0.0.1:9"
 theme_profile = "dark"
@@ -1949,7 +1955,7 @@ driver = "null"
         actual.remove("workspace");
         actual.remove("workspace_layout");
         let expected = r#"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 music_dir = "/tmp/music"
 musicindex_endpoint = "http://127.0.0.1:9/settings-foundation"
 flac_path = "/usr/bin/flac"
@@ -1972,7 +1978,7 @@ driver = "null"
             &cfg_path,
             r#"
 music_dir = "/tmp/old"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 extra = "keep"
 "#,
         )
@@ -2016,7 +2022,7 @@ extra = "keep"
             &cfg_path,
             r#"
 music_dir = "/tmp/old"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 extra = "keep"
 
 [workspace]
@@ -2107,7 +2113,7 @@ kind = "detail"
             &cfg_path,
             r#"
 music_dir = "/tmp/old"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 workspace = "not a table"
 "#,
         )
@@ -2135,7 +2141,7 @@ workspace = "not a table"
             &cfg_path,
             r#"
 music_dir = "/tmp/old"
-db_path = "/tmp/v4vmm.sqlite"
+db_path = "/tmp/hitit.sqlite"
 
 [workspace.layout]
 content_pane_width = 720.0

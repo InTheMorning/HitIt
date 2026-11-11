@@ -113,7 +113,7 @@ cargo test
 cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 Report each result. Say "Green" for a passing check.
@@ -279,7 +279,7 @@ For R4-10, the guard requires the `spawn_blocking` write, the scan plan and the 
 | `cargo test --test architecture_tests` | Green, 278 guards |
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no change to production data occurred.
 
@@ -294,12 +294,12 @@ It needs two downloaded MP3 Library tracks in one playlist, and one downloaded M
 
 The fixture changes the title tag of three files. It adds one playback session row with the state `paused`. The app playback owner uses the session `default` only, so it does not play the fixture session.
 
-1. Close v4vmm. Set the database path and the music directory:
+1. Close HitIt. Set the database path and the music directory:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
-   music=$(sed -n 's/^music_dir = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
+   music=$(sed -n 's/^music_dir = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db" "$music"
    sqlite3 "$db" "SELECT max(version) FROM schema_migrations;"
    ```
@@ -308,7 +308,7 @@ The fixture changes the title tag of three files. It adds one playback session r
 2. Build the app:
 
    ```bash
-   cargo build --bin v4vmm
+   cargo build --bin hitit
    ```
 
 3. Open the app once, and look at the header row of the Music source list. Write down the count of the "Update n file(s)" button. When the button is absent, the count is 0. Close the app.
@@ -339,7 +339,7 @@ The fixture changes the title tag of three files. It adds one playback session r
 6. Find the three files, and copy them:
 
    ```bash
-   backup=$(mktemp -d /tmp/v4vmm-adr-0076-task-004.XXXXXX)
+   backup=$(mktemp -d /tmp/hitit-adr-0076-task-004.XXXXXX)
    for id in $T1 $T2 $T3; do
      p=$(sqlite3 "$db" "SELECT path FROM local_files WHERE track_id = $id;")
      case "$p" in /*) f="$p" ;; *) f="$music/$p" ;; esac
@@ -356,7 +356,7 @@ The fixture changes the title tag of three files. It adds one playback session r
    sqlite3 "$db" "INSERT INTO playback_sessions(session_id, local_track_id, playlist_id, playlist_position, started_at, state) VALUES('adr-0076-task-004-fixture', $T2, $P, 0, datetime('now'), 'paused');"
    ```
 
-8. **V1 - the button and the popup.** Open the app with `./target/debug/v4vmm`. Look at the header row of the Music source list.
+8. **V1 - the button and the popup.** Open the app with `./target/debug/hitit`. Look at the header row of the Music source list.
    - The button shows the count of step 3 plus 3. Its text is "Update n files".
    - Click the button. The popup title is "Update n files?". The popup has one **Cancel** button and one **Write Tags** button.
    - Each fixture track has a row with its stored title and its album. The row has the line `TIT2: <stored title> (file: ADR 0076 fixture title)`.

@@ -15,7 +15,7 @@ const ACTIVE_PANE_CONFIRM_KEY_BINDING_CONTEXT: &str =
     "ActivePane && !Input && !ActionButton && !LetterBar";
 
 actions!(
-    v4vmm,
+    hitit,
     [
         TogglePlayback,
         SkipPlaybackNext,

@@ -32,7 +32,7 @@ recovery_dir="$(python3 docs/runbooks/startup-recovery-fixture.py setup)"
 python3 docs/runbooks/startup-recovery-fixture.py verify "$recovery_dir"
 ```
 
-The printed paths must belong to the same `v4vmm-startup-...` directory.
+The printed paths must belong to the same `hitit-startup-...` directory.
 If the shell variable is lost, recover it in that terminal:
 
 ```bash
@@ -941,7 +941,7 @@ Keep the printed directory and endpoint. While the app runs, use a second
 terminal with the exact directory (replace the example):
 
 ```bash
-retry_fixture=/tmp/v4vmm-startup-REPLACE_WITH_PRINTED_DIRECTORY
+retry_fixture=/tmp/hitit-startup-REPLACE_WITH_PRINTED_DIRECTORY
 python3 docs/runbooks/startup-recovery-fixture.py retry-status "$retry_fixture"
 ```
 
@@ -1204,7 +1204,7 @@ invalid MusicIndex setting keeps unrelated configuration persistence paused.
 1. Create the isolated fixture and start it from a desktop terminal.
 
 ```bash
-cargo build --quiet --bin v4vmm
+cargo build --quiet --bin hitit
 converter_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$converter_fixture" converter-setup
 python3 docs/runbooks/startup-recovery-fixture.py verify "$converter_fixture"
@@ -1373,7 +1373,7 @@ The fixture changes no real settings or service units.
 
 ```bash
 cd /home/citizen/build/v4vmm
-cargo build --quiet --bin v4vmm
+cargo build --quiet --bin hitit
 conversion_fixture="$(python3 docs/runbooks/startup-recovery-fixture.py setup)"
 python3 docs/runbooks/startup-recovery-fixture.py mode "$conversion_fixture" conversion-retry
 python3 docs/runbooks/startup-recovery-fixture.py run "$conversion_fixture"
@@ -1503,7 +1503,7 @@ helper running until the preservation inspection finishes.
 
 ```bash
 cd /home/citizen/build/v4vmm
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 fixture=$(python3 -B docs/runbooks/startup-recovery-fixture.py setup)
 python3 -B docs/runbooks/startup-recovery-fixture.py mode "$fixture" database-tools
 python3 -B docs/runbooks/startup-recovery-fixture.py run "$fixture"
@@ -1655,7 +1655,7 @@ inspection passes. Use a fresh fixture for each case below.
 
 ```bash
 cd /home/citizen/build/v4vmm
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 maintenance_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$maintenance_fixture" database-maintenance
 python3 docs/runbooks/startup-recovery-fixture.py maintenance-status "$maintenance_fixture"
@@ -1797,7 +1797,7 @@ Create the normal fixture. Keep this terminal's variable for V3 and cleanup.
 
 ```bash
 cd /home/citizen/build/v4vmm
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 RESTORE_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$RESTORE_FIXTURE" database-restore
 python3 docs/runbooks/startup-recovery-fixture.py restore-status "$RESTORE_FIXTURE"
@@ -1970,7 +1970,7 @@ Create the supported interruption through Rust's migration failure seam.
 
 ```bash
 cd /home/citizen/build/v4vmm
-cargo build --locked --offline --quiet --bin v4vmm
+cargo build --locked --offline --quiet --bin hitit
 UPGRADE_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$UPGRADE_FIXTURE" upgrade-interrupted
 python3 docs/runbooks/startup-recovery-fixture.py upgrade-interrupt "$UPGRADE_FIXTURE"

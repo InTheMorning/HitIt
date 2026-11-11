@@ -398,7 +398,7 @@ fn create_staging_dir(cfg: &DownloadConfig) -> Result<retained::OwnedStaging> {
     let pid = std::process::id();
     fs::create_dir_all(&cfg.music_dir)
         .with_context(|| format!("prepare download storage {}", cfg.music_dir.display()))?;
-    let staging_root = cfg.music_dir.join(".v4vmm-staging");
+    let staging_root = cfg.music_dir.join(".hitit-staging");
     retained::validate_destination(&cfg.music_dir, &staging_root.join("new"))?;
     let dir = staging_root.join(format!("{pid}-{nanos}-{seq}"));
     fs::create_dir_all(&dir)
@@ -764,13 +764,13 @@ mod tests {
     #[test]
     fn builds_deterministic_sanitized_local_path() {
         let cfg = DownloadConfig {
-            music_dir: "/tmp/v4vmm-test".into(),
+            music_dir: "/tmp/hitit-test".into(),
             flac_path: Ok(None),
         };
 
         assert_eq!(
             local_track_path(&cfg, &track(), "mp3"),
-            PathBuf::from("/tmp/v4vmm-test")
+            PathBuf::from("/tmp/hitit-test")
                 .join("artists")
                 .join("Artist")
                 .join("Feed - Title")
@@ -781,7 +781,7 @@ mod tests {
     #[test]
     fn sanitizes_ntfs_reserved_names_and_trailing_dots() {
         let cfg = DownloadConfig {
-            music_dir: "/tmp/v4vmm-test".into(),
+            music_dir: "/tmp/hitit-test".into(),
             flac_path: Ok(None),
         };
         let mut track = track();
@@ -791,7 +791,7 @@ mod tests {
 
         assert_eq!(
             local_track_path(&cfg, &track, "mp3"),
-            PathBuf::from("/tmp/v4vmm-test")
+            PathBuf::from("/tmp/hitit-test")
                 .join("artists")
                 .join("_CON")
                 .join("_AUX")
@@ -802,7 +802,7 @@ mod tests {
     #[test]
     fn sanitizes_control_chars_and_caps_segment_length() {
         let cfg = DownloadConfig {
-            music_dir: "/tmp/v4vmm-test".into(),
+            music_dir: "/tmp/hitit-test".into(),
             flac_path: Ok(None),
         };
         let mut track = track();
@@ -814,7 +814,7 @@ mod tests {
 
         assert_eq!(
             path.parent().expect("parent"),
-            PathBuf::from("/tmp/v4vmm-test")
+            PathBuf::from("/tmp/hitit-test")
                 .join("artists")
                 .join("Artist Name")
                 .join("Feed Title")
@@ -1006,7 +1006,7 @@ mod tests {
             "error should explain the container rejection: {error}"
         );
         assert!(
-            fs::read_dir(cfg.music_dir.join(".v4vmm-staging"))
+            fs::read_dir(cfg.music_dir.join(".hitit-staging"))
                 .expect("read staging root")
                 .next()
                 .is_none(),
@@ -1092,7 +1092,7 @@ mod tests {
             .expect_err("a body shorter than its declared Content-Length must fail");
 
         assert!(
-            fs::read_dir(cfg.music_dir.join(".v4vmm-staging"))
+            fs::read_dir(cfg.music_dir.join(".hitit-staging"))
                 .expect("read staging root")
                 .next()
                 .is_none(),

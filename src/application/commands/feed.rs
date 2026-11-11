@@ -1771,7 +1771,7 @@ mod observation_tests {
         let error = CheckFeedsAndRepairRoutes::new(
             Arc::clone(&fixture.conn),
             fixture.endpoint.clone(),
-            Path::new("/nonexistent-v4vmm-fixture").to_owned(),
+            Path::new("/nonexistent-hitit-fixture").to_owned(),
             feeds,
         )
         .execute(&fixture.context())

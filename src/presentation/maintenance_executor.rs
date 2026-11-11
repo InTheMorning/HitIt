@@ -38,7 +38,7 @@ impl MaintenanceWorker {
     pub fn start() -> io::Result<Self> {
         Self::start_with(|work| {
             thread::Builder::new()
-                .name("v4vmm-maintenance".into())
+                .name("hitit-maintenance".into())
                 .spawn(work)
         })
     }

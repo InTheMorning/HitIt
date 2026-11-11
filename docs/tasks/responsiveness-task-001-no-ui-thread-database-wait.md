@@ -8,7 +8,7 @@ Authority: [ADR 0084](../adr/0084-music-column-browser.md) Decision 10 as amende
 
 ## Problem
 
-A download or a removal froze the window. A capture of the main thread (`v4vmm-stacks.txt`, 30 samples, one each second) showed the main thread in `futex_wait` on the database lock in 15 of 23 active samples. The waits came from `reload_playlists` and from the broadcast readiness report. A capture of all threads (`v4vmm-stacks-all.txt`, 15 samples) showed the lock holders:
+A download or a removal froze the window. A capture of the main thread (`hitit-stacks.txt`, 30 samples, one each second) showed the main thread in `futex_wait` on the database lock in 15 of 23 active samples. The waits came from `reload_playlists` and from the broadcast readiness report. A capture of all threads (`hitit-stacks-all.txt`, 15 samples) showed the lock holders:
 
 - the readiness report read the tags of each Library file under the lock, in the runtime actor and in the Inbox path.
 - the Library tree load converted the metadata rows of each album under the lock.

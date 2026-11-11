@@ -14,7 +14,7 @@ Build one view model that exposes each fact that ADRs 0077 and 0078 require the 
 - [ADR 0078](../../adr/archive/0078-publisher-page-type-from-stated-role.md), the page type.
 - [ADR 0075](../../adr/0075-metadata-ownership-and-completeness.md) Decision I: a derived value is labeled as derived.
 - The durable set in [AGENTS.md](../../../AGENTS.md): renderer portability and typed action state.
-- Stophammer ADR 0059 owns the `remote_*` summary fields. The [open Stophammer requests](../../plans/v4vmm-open-requests.md#deploy-of-2026-09-26-adr-0059) record the contract and its deployment.
+- Stophammer ADR 0059 owns the `remote_*` summary fields. The [open Stophammer requests](../../plans/hitit-open-requests.md#deploy-of-2026-09-26-adr-0059) record the contract and its deployment.
 
 ## Release Record
 

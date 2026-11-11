@@ -195,7 +195,7 @@ cargo test
 cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 Report each result. Say "Green" for a passing check.
@@ -371,7 +371,7 @@ The guard messages name ADR 0076 Decisions 5 and 8 and give the fix. No test sen
 | `cargo test --test architecture_tests` | Green, 275 guards |
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred.
 
@@ -392,15 +392,15 @@ It needs one playlist with tracks from one or more feeds. One of those feeds mus
 **Migration 16 drops three tables when the new build opens the database.** Make the backup with SQLite while the app is closed.
 The check also writes RSS values into the stored feed and track values. Only the backup restores the earlier values.
 
-1. Close v4vmm. Find the configured database path:
+1. Close HitIt. Find the configured database path:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db"
    ```
 
-   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/v4vmm/config.toml`.
+   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/hitit/config.toml`.
 2. Record the schema version:
 
    ```bash
@@ -420,8 +420,8 @@ The check also writes RSS values into the stored feed and track values. Only the
 4. Build and open the app once, so that migration 16 runs. Then close it:
 
    ```bash
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    sqlite3 "$db" "SELECT version, name FROM schema_migrations WHERE version = 16;"
    ```
 
@@ -446,7 +446,7 @@ The check also writes RSS values into the stored feed and track values. Only the
 7. Open the app:
 
    ```bash
-   ./target/debug/v4vmm
+   ./target/debug/hitit
    ```
 
 8. **V1 - the report in place.** Open **Music**, select the playlist of step 5, and click **Check RSS**. Do not move to another page.
@@ -513,4 +513,4 @@ After acceptance, remove the files that this check made:
 rm -i "$backup" "$db.after-adr-0076-task-002.sqlite"
 ```
 
-The app preservation directory `.v4vmm-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.
+The app preservation directory `.hitit-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.

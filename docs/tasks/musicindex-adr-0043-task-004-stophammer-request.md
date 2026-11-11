@@ -4,7 +4,7 @@ Status: Complete on 2026-11-06. Request 15 is in both copies. Stophammer owns th
 
 ## Goal
 
-The [open Stophammer requests](../plans/v4vmm-open-requests.md) ask for a sort direction, in both copies of that file.
+The [open Stophammer requests](../plans/hitit-open-requests.md) ask for a sort direction, in both copies of that file.
 
 ## Request Text
 
@@ -21,7 +21,7 @@ Stophammer owns the name and the form of each parameter.
 
 ## Acceptance Criteria
 
-Mechanical: request 15 has equal bytes in the two copies. The copies differ elsewhere, because draft request 14 is only in v4vmm.
+Mechanical: request 15 has equal bytes in the two copies. The copies differ elsewhere, because draft request 14 is only in HitIt.
 
 Visual: none.
 

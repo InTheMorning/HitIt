@@ -27,7 +27,7 @@ Correct five small defects of search and of saved searches. The run of 2026-10-2
 1. D1: a row id names its parts so that no GUID text can move a split. A track hit with no feed GUID gets its own prefix, for example `index-track-guid:<track>`. `from_row_id` reads each prefix. A track GUID with colons opens its own key.
 2. D2: the search list and the saved search page each hold one scroll handle. A keyboard focus move scrolls the focused row into view, by the method of the Releases list. A tab change scrolls to the top.
 3. D3: a Library name row in search shows the same art as its row in the Artists list: the logo frame of the newest images of its releases. If the search row composite can take that art, use it. Else use the newest image as the thumbnail, and record the difference.
-4. D4: find the cause. If it is in v4vmm, for example a size limit, a decode limit or an image type check, correct it at its owner. If it is outside v4vmm, record the cause in this packet and change no code.
+4. D4: find the cause. If it is in HitIt, for example a size limit, a decode limit or an image type check, correct it at its owner. If it is outside HitIt, record the cause in this packet and change no code.
 5. D5: the Index part fails, and the tab has Library rows. The page then shows the failure note after the rows, as a rejected query does. The note names MusicIndex and keeps "Show details". The retained action and its banner do not change.
 
 ## Required Changes
@@ -35,7 +35,7 @@ Correct five small defects of search and of saved searches. The run of 2026-10-2
 1. D1: the new prefix, the parse and the tests.
 2. D2: the two scroll handles, the scroll on a focus move, and the scroll to the top on a tab change.
 3. D3: the art of a Library name row in search, with a test.
-4. D4: the cause, and a correction with a test if the cause is in v4vmm.
+4. D4: the cause, and a correction with a test if the cause is in HitIt.
 5. D5: the failure note after the Library rows, with a test.
 
 ## Mechanical Acceptance Criteria
@@ -48,7 +48,7 @@ Use the prefix `adr_0084_search_open_defects_` for unit tests beside the owning 
 | R28-02 | A track hit with a feed GUID gives the same row id and key as before |
 | R28-03 | The view model or the app layer gives the index of the focused row of the search list and of the saved search page. A focus move asks for a scroll to that index. A unit test or a guard proves the call |
 | R28-04 | A Library name row of search carries the art or the image of its newest Library release |
-| R28-05 | D4: a test of the correction, or the recorded cause outside v4vmm |
+| R28-05 | D4: a test of the correction, or the recorded cause outside HitIt |
 | R28-06 | With Library rows and an unavailable MusicIndex, the view model gives the rows and a failure note. With no Library rows, it gives the present empty state |
 | R28-07 | Each test of packets 010 and 012 still passes |
 
@@ -63,7 +63,7 @@ These are for the operator, in the final walk of the run. No test proves them.
 
 ## Exclusions
 
-- No change to the query text that v4vmm sends (Stophammer request 10).
+- No change to the query text that HitIt sends (Stophammer request 10).
 - No change to the render cost of the search rows (responsiveness item 18).
 - No change to the retained action of an unavailable MusicIndex.
 
@@ -85,7 +85,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -152,7 +152,7 @@ The cause is not found. This packet changes no code for D4. These facts are reco
 - The thumbnail cache of the operator holds the entry of this URL. The app wrote it on 2026-10-21 at 07:17:26 EDT, in the walk. The entry is the 512 × 273 JPEG. Thus the app downloaded and decoded the image in that walk.
 - `Thumbnail` shows the monogram "AR" only when the row has no image. `index_remote_detail_hero_image` gives no image while the load runs.
 
-Two possible causes stay in v4vmm. Neither one is proved:
+Two possible causes stay in HitIt. Neither one is proved:
 
 - `index_remote_detail_hero_image` keeps a failed load for the session. A load that gives no image stays `Loaded(None)`, and a command error leaves `Loading`. The app does not try again. The header color of a feed page can write the cache entry through `fetch_cover_color_blocking`, and this does not change the state of the row.
 - The row showed "AR" for the 1 second of the decode, before the image arrived.
@@ -207,8 +207,8 @@ Necessary state: a desktop session, a reachable `MusicIndex` endpoint, a Library
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 2. V1: in the toolbar search, type `hey` and push Enter. Open the Tracks tab, and click the first row. Push Down until the focus goes below the last visible row.

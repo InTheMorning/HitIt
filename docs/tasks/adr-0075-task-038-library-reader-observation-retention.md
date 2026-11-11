@@ -290,7 +290,7 @@ cargo check --locked --offline
 cargo clippy --locked --offline -- -D warnings
 cargo fmt -- --check
 cargo test --locked --offline
-cargo build --locked --offline --bin v4vmm
+cargo build --locked --offline --bin hitit
 python3 -B docs/runbooks/check-markdown-links.py docs/tasks/adr-0075-task-038-library-reader-observation-retention.md
 python3 -B /home/citizen/.agents/skills/asd-ste100/scripts/ste_lint.py --check --no-heuristics docs/tasks/adr-0075-task-038-library-reader-observation-retention.md
 git diff --check
@@ -478,7 +478,7 @@ A missing local path uses no request, generation allocation, or committed transa
 | `cargo clippy --locked --offline -- -D warnings` | 0 | Green after the parameter changed to a reference. |
 | `cargo fmt -- --check` | 0 | Green after the Clippy correction. |
 | `cargo test --locked --offline -- --test-threads=4` | 0 | Green. All 1,642 unit tests and 268 guards. Ten documentation tests remain ignored. |
-| `cargo build --locked --offline --bin v4vmm` | 0 | Green. Normal binary rebuilt after all tests. |
+| `cargo build --locked --offline --bin hitit` | 0 | Green. Normal binary rebuilt after all tests. |
 | `git diff --check` | 0 | Green. |
 
 Commands use direct Cargo invocation. Recorded output remains in the session transcript. No redirected log file was created.

@@ -74,7 +74,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -164,7 +164,7 @@ No file named in "Do not touch" changes. No ADR changes. No database schema chan
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 | `grep -rn "dead_code" src` | Green, no line found |
 
 ### Required Change 4
@@ -213,7 +213,7 @@ standard macOS commands with their own keys.
 1. This task's own scope names only `src/`, `tests/` and the packet document. So this change does not
    edit `docs/pending-human-checks.md` or `docs/plans/broadcast-chain-delivery-order.md`. A new change
    should record this packet's open visual gate there.
-2. Clean-up of the proof directory `/tmp/v4vmm-governance.ie6k8TQf` stays open. This packet does not
+2. Clean-up of the proof directory `/tmp/hitit-governance.ie6k8TQf` stays open. This packet does not
    include this clean-up.
 3. The macOS steps of the Operator Visual Check need a macOS desktop session. No such session is
    confirmed for the operator today.
@@ -226,16 +226,16 @@ one, and write down that you skipped them.
 
 Use the on-screen Back and Forward buttons, then the keys, for each step below.
 
-1. Close v4vmm. Make the binary:
+1. Close HitIt. Make the binary:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --bin v4vmm
+   cargo build --bin hitit
    ```
 2. Open the app:
 
    ```bash
-   target/debug/v4vmm
+   target/debug/hitit
    ```
 3. Open Music. Select a track, an album, or an artist, so the content-list frame shows a second page.
    Write down the page you see.

@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use super::{IssueSeverity, StartupIssue, StartupStage};
 
 static PROBE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-const PROBE_BYTES: &[u8] = b"v4vmm music storage check\n";
+const PROBE_BYTES: &[u8] = b"hitit music storage check\n";
 
 pub(crate) fn check_music(
     path: &Path,
@@ -77,7 +77,7 @@ fn probe_with(
     cleanup: impl FnOnce(&Path) -> io::Result<()>,
 ) -> Result<(), StartupIssue> {
     let path = root.join(format!(
-        ".v4vmm-startup-probe-{}-{}",
+        ".hitit-startup-probe-{}-{}",
         std::process::id(),
         PROBE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ));

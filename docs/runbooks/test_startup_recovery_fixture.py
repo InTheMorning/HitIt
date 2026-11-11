@@ -24,10 +24,10 @@ class DesktopBuildTests(unittest.TestCase):
     """Situational ADR 0066: desktop acceptance must use the normal binary."""
 
     def setUp(self):
-        directory = tempfile.TemporaryDirectory(prefix="v4vmm-desktop-build-test-")
+        directory = tempfile.TemporaryDirectory(prefix="hitit-desktop-build-test-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
-        self.manifest = {"binary": str(fixture.REPO / "target/debug/v4vmm")}
+        self.manifest = {"binary": str(fixture.REPO / "target/debug/hitit")}
         (self.root / "case.json").write_text(json.dumps({"config_sha256": "preserved"}))
 
     def test_adr_0066_desktop_build_precedes_isolated_app_launch(self):
@@ -36,7 +36,7 @@ class DesktopBuildTests(unittest.TestCase):
         def build(command, **kwargs):
             calls.append("build")
             self.assertEqual(command, ["cargo", "build", "--locked", "--offline", "--quiet",
-                                       "--bin", "v4vmm", "--target-dir", str(fixture.REPO / "target")])
+                                       "--bin", "hitit", "--target-dir", str(fixture.REPO / "target")])
             self.assertEqual(kwargs, {"cwd": fixture.REPO, "check": True})
             self.assertFalse((self.root / "app.pid").exists())
 
@@ -71,10 +71,10 @@ class DesktopBuildTests(unittest.TestCase):
 
 class RepairPreservationTests(unittest.TestCase):
     def setUp(self):
-        directory = tempfile.TemporaryDirectory(prefix="v4vmm-repair-inspector-test-")
+        directory = tempfile.TemporaryDirectory(prefix="hitit-repair-inspector-test-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
-        self.config = self.root / "config/v4vmm/config.toml"
+        self.config = self.root / "config/hitit/config.toml"
         self.config.parent.mkdir(parents=True)
         self.original = (
             '# retain settings\nmusic_dir = "/music"\ndb_path = "/library.sqlite"\n'
@@ -167,10 +167,10 @@ class RepairPreservationTests(unittest.TestCase):
 
 class RetryPreservationTests(unittest.TestCase):
     def setUp(self):
-        directory = tempfile.TemporaryDirectory(prefix="v4vmm-retry-inspector-test-")
+        directory = tempfile.TemporaryDirectory(prefix="hitit-retry-inspector-test-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
-        self.config = self.root / "config/v4vmm/config.toml"
+        self.config = self.root / "config/hitit/config.toml"
         self.config.parent.mkdir(parents=True)
         self.original = ('music_dir = "/music"\ndb_path = "/library.sqlite"\n'
                          'musicindex_endpoint = 42\nflac_path = false\n'
@@ -195,7 +195,7 @@ class RetryPreservationTests(unittest.TestCase):
         return json.loads(output.getvalue())
 
     def backup(self):
-        path = self.config.parent / ".v4vmm-config-original.backup"
+        path = self.config.parent / ".hitit-config-original.backup"
         path.write_text(self.original)
         path.chmod(0o600)
         return path
@@ -266,7 +266,7 @@ class RetryPreservationTests(unittest.TestCase):
         self.assertEqual(report["unexpected_setting_paths"], ["music_dir"])
         self.assertNotIn("private-value", json.dumps(report))
         self.config.write_text(self.original)
-        candidate = self.config.parent / ".v4vmm-config-test.candidate"
+        candidate = self.config.parent / ".hitit-config-test.candidate"
         candidate.write_text("private-value")
         report = self.inspect(False)
         self.assertEqual(report["residual_candidates"], [str(candidate)])
@@ -310,11 +310,11 @@ class ConverterFixtureTests(unittest.TestCase):
     """Situational ADR 0066: controlled tools and strict preservation evidence."""
 
     def setUp(self):
-        directory = tempfile.TemporaryDirectory(prefix="v4vmm-converter-test-")
+        directory = tempfile.TemporaryDirectory(prefix="hitit-converter-test-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         (self.root / "bin").mkdir()
-        self.config = self.root / "config/v4vmm/config.toml"
+        self.config = self.root / "config/hitit/config.toml"
         self.config.parent.mkdir(parents=True)
         self.original = 'music_dir = "/music"\ndb_path = "/library.sqlite"\nmusicindex_endpoint = 42\n'
         self.config.write_text(self.original)
@@ -368,7 +368,7 @@ class ConverterFixtureTests(unittest.TestCase):
     def test_adr_0066_converter_inspection_requires_restoration_and_preserved_values(self):
         self.tools("missing")
         self.inspect(True)
-        backup = self.config.parent / ".v4vmm-config-original.backup"
+        backup = self.config.parent / ".hitit-config-original.backup"
         backup.write_text(self.original)
         backup.chmod(0o600)
         self.config.write_text(self.original + 'flac_path = "/fixture/flac"\n')
@@ -442,7 +442,7 @@ class DatabaseLockTests(unittest.TestCase):
     """Situational ADR 0066: real external readers must observe fixture locks."""
 
     def setUp(self):
-        directory = tempfile.TemporaryDirectory(prefix="v4vmm-database-lock-")
+        directory = tempfile.TemporaryDirectory(prefix="hitit-database-lock-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         data = self.root / "database"
@@ -539,7 +539,7 @@ class DatabasePreservationTests(unittest.TestCase):
     """Situational ADR 0066: snapshots and preservation require positive evidence."""
 
     def setUp(self):
-        directory = tempfile.TemporaryDirectory(prefix="v4vmm-database-inspect-")
+        directory = tempfile.TemporaryDirectory(prefix="hitit-database-inspect-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         data = self.root / "database"
@@ -597,7 +597,7 @@ class MaintenanceCopyTests(unittest.TestCase):
     """Situational ADR 0066: a completed manifest must account for every copied byte."""
 
     def setUp(self):
-        directory = tempfile.TemporaryDirectory(prefix="v4vmm-maintenance-inspect-")
+        directory = tempfile.TemporaryDirectory(prefix="hitit-maintenance-inspect-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         self.data = self.root / "database"
@@ -666,16 +666,16 @@ class RestorePreservationTests(unittest.TestCase):
     """Situational ADR 0066: the restore inspector cannot accept missing evidence."""
 
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix="v4vmm-restore-inspector-")
+        temporary = tempfile.TemporaryDirectory(prefix="hitit-restore-inspector-")
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        for name in ("data", "database", "config/v4vmm", "music"):
+        for name in ("data", "database", "config/hitit", "music"):
             (self.root / name).mkdir(parents=True)
         source = self.root / "data/library.sqlite"
         source.write_bytes(b"restored fixture database")
         backup = self.root / "database/restore-backup.sqlite"
         backup.write_bytes(b"chosen backup")
-        config = self.root / "config/v4vmm/config.toml"
+        config = self.root / "config/hitit/config.toml"
         config.write_text("fixture configuration")
         (self.root / "broadcaster-token.fixture").write_bytes(b"token sentinel")
         (self.root / "broadcaster-token.fixture").chmod(0o600)
@@ -738,16 +738,16 @@ class UpgradePreservationTests(unittest.TestCase):
     """Situational ADR 0066: repair acceptance needs original and candidate evidence."""
 
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix="v4vmm-upgrade-inspector-")
+        temporary = tempfile.TemporaryDirectory(prefix="hitit-upgrade-inspector-")
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        for name in ("data", "upgrade", "config/v4vmm", "music"):
+        for name in ("data", "upgrade", "config/hitit", "music"):
             (self.root / name).mkdir(parents=True)
         self.source = self.root / "data/library.sqlite"
         self.source.write_bytes(b"repaired database")
         self.backup = self.root / "upgrade/older-backup.sqlite"
         self.backup.write_bytes(b"older backup")
-        config = self.root / "config/v4vmm/config.toml"
+        config = self.root / "config/hitit/config.toml"
         config.write_text("fixture config")
         token = self.root / "broadcaster-token.fixture"
         token.write_bytes(b"token sentinel")
@@ -764,10 +764,10 @@ class UpgradePreservationTests(unittest.TestCase):
         self.current.update({name: [[1, 1, 0]] if name == "metadata_generation" else [] for name in fixture.PROVIDER_SNAPSHOT_TABLES})
         self.upgraded = dict(self.current, broadcast_event_selection=[])
         self.facts_by_path = {self.source: self.current, self.backup: self.older}
-        folder = self.root / "data/.v4vmm-upgrade-test"
+        folder = self.root / "data/.hitit-upgrade-test"
         folder.mkdir(mode=0o700)
         (folder / "manifest.json").write_text(json.dumps({"source": str(self.source)}))
-        snapshot = folder / ".v4vmm-database-test/candidate.sqlite"
+        snapshot = folder / ".hitit-database-test/candidate.sqlite"
         snapshot.parent.mkdir()
         snapshot.touch()
         self.facts_by_path[snapshot] = self.repaired
@@ -782,11 +782,11 @@ class UpgradePreservationTests(unittest.TestCase):
             (folder / "manifest.json").write_text(json.dumps(receipt))
             (folder / "manifest.json").chmod(0o600)
             for suffix, facts in (("original", self.original), ("repaired", self.repaired)):
-                candidate = folder / f".v4vmm-database-{suffix}/candidate.sqlite"
+                candidate = folder / f".hitit-database-{suffix}/candidate.sqlite"
                 candidate.parent.mkdir()
                 candidate.touch()
                 self.facts_by_path[candidate] = facts
-        candidate = self.root / "upgrade/.v4vmm-database-upgraded/candidate.sqlite"
+        candidate = self.root / "upgrade/.hitit-database-upgraded/candidate.sqlite"
         candidate.parent.mkdir()
         candidate.touch()
         self.facts_by_path[candidate] = self.upgraded
@@ -828,14 +828,14 @@ class UpgradePreservationTests(unittest.TestCase):
         self.inspect(False)
 
     def test_adr_0066_upgrade_inspector_rejects_missing_upgrade_or_fresh_session(self):
-        (self.root / "upgrade/.v4vmm-database-upgraded/candidate.sqlite").unlink()
+        (self.root / "upgrade/.hitit-database-upgraded/candidate.sqlite").unlink()
         self.inspect(False)
         (self.root / "session-observations.jsonl").unlink()
         self.inspect(False)
 
 
     def test_adr_0075_migration_inspector_requires_separate_preparation_evidence(self):
-        (self.root / "data/.v4vmm-upgrade-test/.v4vmm-database-test/candidate.sqlite").unlink()
+        (self.root / "data/.hitit-upgrade-test/.hitit-database-test/candidate.sqlite").unlink()
         self.inspect(False)
 
     def test_adr_0075_migration_inspector_rejects_unexpected_metadata_records(self):

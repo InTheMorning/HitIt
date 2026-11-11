@@ -81,7 +81,7 @@ Acceptance criteria:
 - The mechanical criteria of the task.
 
 Test commands:
-- cargo fmt -- --check; cargo clippy --all-targets -- -D warnings; cargo test; cargo build --bin v4vmm
+- cargo fmt -- --check; cargo clippy --all-targets -- -D warnings; cargo test; cargo build --bin HitIt
 
 At the end, report:
 1. files changed

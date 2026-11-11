@@ -12,7 +12,7 @@ Behavior must not change.
 ## Authority
 
 - [ADR 0075](../../adr/0075-metadata-ownership-and-completeness.md): the title refinements name the legacy `name` field. The orchestrator amends them in the same change.
-- The [open Stophammer requests](../../plans/v4vmm-open-requests.md#answered-no-action) record that no Stophammer action is necessary.
+- The [open Stophammer requests](../../plans/hitit-open-requests.md#answered-no-action) record that no Stophammer action is necessary.
 - `AGENTS.md`: "Delete dead code", and "Treat RSS and MusicIndex responses as untrusted input".
 
 ## Recorded Facts - 2026-09-26

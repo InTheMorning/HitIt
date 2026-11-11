@@ -6,7 +6,7 @@ Active index - 2026-09-19. The operator approved this order.
 Complete one implementation packet per session.
 
 The operator paused visual checks on 2026-09-19 to prioritise metadata handling
-in v4vmm and MusicIndex. [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md)
+in HitIt and MusicIndex. [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md)
 is Accepted. Its [audit and review](../reviews/adr-0075-metadata-contract-review.md),
 [phase plan](adr-0075-metadata-contract-phase-plan.md) and
 [first packet](../tasks/archive/adr-0075-task-001-contributor-claim-transport.md) are written.
@@ -99,7 +99,7 @@ lands.
 
 | Repository | Governing ADR | Packets |
 |---|---|---|
-| `v4vmm` | ADR 0059, broadcast control surface | 17 |
+| `hitit` | ADR 0059, broadcast control surface | 17 |
 | `musicindex-live-publisher` | ADR 0003 show log, plus control surface support | 4 |
 | `musicindex-live-relay` | ADR 0001, reserved live items | 5 |
 
@@ -178,12 +178,12 @@ ADR 0039 is Implemented. Its scheduled work is complete.
 | 2, type 003, fresh session | [ADR 0039 type curve ratification](../tasks/archive/adr-0039-task-003-type-curve-ratification.md) | Complete - 2026-09-18. Mechanical checks are Green. The app uses the ratified curves. R2 is resolved. V1–V13 passed. The review records inferred preservation and preference restoration. The operator confirmed fixture removal. ADR 0039 is Implemented. |
 | 2, Settings follow-through | [ADR 0069 editor, metadata and preset phases](adr-0069-settings-presets-phase-plan.md#sequence-and-stopping-points) | [Task 002](../tasks/adr-0069-task-002-shared-guarded-editor.md) is Ready with prerequisites met. Implementation is next in a fresh session. Its visual criteria are prospective. New persisted mode/resource keys and presets require full ADR 0066 acceptance. Audio remains deferred. |
 | 3, before adoption | [The liveValue URI is a URL — ADR 0059 task 019](../tasks/adr-0059-task-019-livevalue-uri-is-a-url.md) | Implemented - 2026-10-24. Mechanical checks are Green. Passed: V1 on 2026-10-24. V2 and V3 are open, because the operator removed the fixture before the steps. V4 is open and needs a real show feed. The relay adoption needs the tag with the relay host |
-| 3 | Relay durability through adoption | relay reserved 001 → 002 → 003; deploy, reserve an event, configure the publisher to use it, then implement the v4vmm reservation packet |
-| 3, follow-through | relay reserved 004 → 005 | List/delete, final guards, and delivery reconciliation; explicitly scheduled after adoption, with interim command-line reservation allowing these before the v4vmm packet if needed |
+| 3 | Relay durability through adoption | relay reserved 001 → 002 → 003; deploy, reserve an event, configure the publisher to use it, then implement the HitIt reservation packet |
+| 3, follow-through | relay reserved 004 → 005 | List/delete, final guards, and delivery reconciliation; explicitly scheduled after adoption, with interim command-line reservation allowing these before the HitIt packet if needed |
 | 4 | Remaining narrow Show layout and A10 | Future decision and packet: compact cards, full-width log docking, card-title readability, and hiding transport only when every typed action is unavailable; one combined visual gate. ADR 0070 log-height priority is already in the shared-log packet |
 | 5 | Remaining UTC emitter/adapter work | Shared app log framing and following moved before recovery 007; agree the common UTC contract and correct external emitters in bounded packets after the earlier chain work |
-| 6 | Steady state | v4vmm ADR 0064 task 002; publisher show-log 001 → 002; installed-but-unconfigured publisher state |
-| 7, after Studio task 073 | Studio connection: publisher Studio client task 001 → [v4vmm ADR 0059 task 020](../tasks/adr-0059-task-020-studio-connection.md) | Not started - 2026-11-01. Studio ADR 0110 owns the interface. Each task writes its decision record first: publisher ADR 0018, then an amendment of v4vmm ADR 0059 |
+| 6 | Steady state | HitIt ADR 0064 task 002; publisher show-log 001 → 002; installed-but-unconfigured publisher state |
+| 7, after Studio task 073 | Studio connection: publisher Studio client task 001 → [HitIt ADR 0059 task 020](../tasks/adr-0059-task-020-studio-connection.md) | Not started - 2026-11-01. Studio ADR 0110 owns the interface. Each task writes its decision record first: publisher ADR 0018, then an amendment of HitIt ADR 0059 |
 
 **Priority trigger:** when a real show is scheduled, publisher show-log task
 001 becomes the next packet ahead of this order and must be operational before
@@ -209,7 +209,7 @@ This trigger does not combine two implementation phases into one session.
   Later Settings phases reuse the ADR 0066 editor/transition owners. PulseAudio
   and JACK selectors wait for ADR 0068 isolation; native PipeWire is later.
 - relay 002 adds the reservation route; 003 adds restoration and idle-TTL
-  exemption. The v4vmm reservation packet consumes 002's contract and cannot
+  exemption. The HitIt reservation packet consumes 002's contract and cannot
   claim operational durability without 003 deployed.
 - Ordinary events remain ephemeral. Their default expiry is after 24 hours
   without activity; a restart also loses them. Existing events are not
@@ -219,7 +219,7 @@ This trigger does not combine two implementation phases into one session.
   and resume publication after the restored event initially serves an empty
   payload. Preserve the old configuration for rollback during deployment.
 - The interim reservation uses the documented relay API from an operator
-  terminal. v4vmm's future reservation packet must define credential handling,
+  terminal. HitIt's future reservation packet must define credential handling,
   selection, and publisher configuration without treating an ordinary Create
   as a durable reservation.
 - A11/A12's shared frame, compact monospace text, long-line scrolling and
@@ -228,7 +228,7 @@ This trigger does not combine two implementation phases into one session.
   retain their separate slot and do not block the app viewport work.
 
 - The publisher's machine-readable configuration facts already exist. A new
-  v4vmm packet must consume them to distinguish installed-but-unconfigured
+  HitIt packet must consume them to distinguish installed-but-unconfigured
   from the current service states.
 
 Show view-model decomposition and wider all-target Clippy cleanup remain
@@ -281,7 +281,7 @@ mechanical checks Green; operator V1–V3, Settings/core-recovery presentation,
 preservation in both cases and fixture cleanup are accepted.
 Task 009 is complete on 2026-09-17 with mechanical checks Green; operator V1–V3,
 normal/narrow presentation, configuration restoration and all preservation checks
-are accepted. The operator confirmed cleanup of `/tmp/v4vmm-startup-4psemojh`.
+are accepted. The operator confirmed cleanup of `/tmp/hitit-startup-4psemojh`.
 Task 010 is complete on 2026-09-17 with operator acceptance, preservation and cleanup confirmed. Task 011 is complete on 2026-09-17 with mechanical checks Green; operator acceptance, preservation, normal restoration and cleanup are confirmed.
 This explicit scheduling exception accepts no playback check or configuration-format change.
 
@@ -291,113 +291,113 @@ Update this table when a packet lands.
 
 | Repository | Packet | State |
 |---|---|---|
-| `v4vmm` | [governance reconciliation](../reviews/2026-09-10-governance-reconciliation.md) | complete - 2026-09-10; documentation only; surviving gates indexed below |
-| `v4vmm` | [pending-work reconciliation](../reviews/2026-09-11-pending-work-reconciliation.md) | Complete - 2026-09-11; ADR header-format debt and corpus guard closed; stale startup backlog and shortcut instructions corrected; 235 architecture tests and required checks Green; human gates remain open |
-| `v4vmm` | [0039 scale domains and type curves 001](../tasks/archive/adr-0039-task-001-scale-domains-and-type-curves.md) | Complete - 2026-09-18 (`3b40ec1`). Mechanical checks are Green. Both resolvers initially retained the former uniform values. Configuration is unchanged. This packet has no visual gate. |
-| `v4vmm` | [0039 fixed-height reserve and acceptance 002](../tasks/archive/adr-0039-task-002-fixed-height-reserve-and-acceptance.md) | Complete - 2026-09-18. Mechanical checks are Green. Task 002 added the reservation, guards and ShowCard correction. Task 003 updated the endpoints. The operator accepted the correction in V13. |
-| `v4vmm` | [0039 type curve ratification 003](../tasks/archive/adr-0039-task-003-type-curve-ratification.md) | Complete - 2026-09-18. Mechanical checks are Green. The app uses the ratified curves. R2 is resolved. V1–V13 passed. The review records inferred preservation and preference restoration. The operator confirmed fixture removal. ADR 0039 is Implemented. |
-| `v4vmm` | [0069 grouped Settings foundation 001](../tasks/archive/adr-0069-task-001-grouped-settings-foundation.md) | Complete - 2026-09-11; mechanical checks Green; V1–V3 and all preservation inspections accepted; fixture cleanup confirmed; ADR remains Accepted for later phases |
-| `v4vmm` | [0069 shared guarded editor 002](../tasks/adr-0069-task-002-shared-guarded-editor.md) | Ready - 2026-09-18. Packet written against delivered owners. Implementation not started. V1–V4, preservation and cleanup are prospective requirements. |
-| `v4vmm` | [0066 configuration/startup failure recovery](adr-0066-startup-recovery-phase-plan.md) | ADR Accepted. Tasks 001–003 and 005–013 are complete with required acceptance and cleanup. Task 004 retains its operator gate. Playback checks wait for ADR 0068 and mpv IPC diagnosis. Presentation and producer preservation passes remain accepted. |
-| `v4vmm` | [0066 session drain and resumption 005](../tasks/archive/adr-0066-task-005-session-drain-and-resumption.md) | Complete - 2026-09-11; mechanical checks Green; [operator V1–V3 and preservation](../tasks/archive/adr-0066-task-005-session-drain-and-resumption.md#operator-evidence--2026-09-11) accepted; fixture cleanup confirmed; task 006 completion recorded below |
-| `v4vmm` | [0063 shared log frames and following 005](../tasks/archive/adr-0063-task-005-shared-log-frames-and-following.md) | Complete - 2026-09-13; mechanical checks Green; V1–V3, ADR 0070 narrow layout/header/footer, editor Close/Reopen and corrected Escape behavior accepted; final preservation and all fixture cleanup confirmed; ADRs 0063/0070 Implemented; ADR 0066 task 007 completion is recorded below |
-| `v4vmm` | [0066 configuration repair and resumption 006](../tasks/archive/adr-0066-task-006-configuration-repair-and-resumption.md) | Complete - 2026-09-13; mechanical checks Green; [operator V1–V6](../runbooks/startup-recovery-check.md#task-006-configuration-repair-and-resumption), preservation inspection and fixture cleanup accepted; task 007 completion is recorded below |
-| `v4vmm` | [0066 optional-tool correction and retry 007](../tasks/archive/adr-0066-task-007-optional-tool-correction-and-retry.md) | Complete - 2026-09-16; mechanical checks Green; V1–V3 behavior, presentation and preservation accepted; narrow Library, drag responsiveness and [ADR 0073 Show card overflow](../adr/archive/0073-show-card-overflow-scrolling.md) follow-ups accepted; V2/V3 and Library/Show follow-up cleanup confirmed; no earlier startup fixtures remain in the checked temporary directories; packet reconciles the unsupported port-only fixture gate; [operator procedure](../runbooks/startup-recovery-check.md#task-007-optional-tool-correction-and-retry) retained for regression; task 008 complete on 2026-09-17 with operator V1–V3, presentation, preservation and cleanup accepted; task 009 complete on 2026-09-17 with mechanical checks Green and operator V1–V3, presentation, configuration restoration, preservation and cleanup accepted; task 010 complete on 2026-09-17 with operator acceptance, preservation and cleanup confirmed; task 011 complete, mechanical checks Green, operator V1–V3/preservation/cleanup accepted; task 012 is complete on 2026-09-17 with mechanical checks Green, operator V1–V3, presentation, preservation and cleanup accepted; task 013 complete on 2026-09-18 with operator V1–V3, presentation, preservation and cleanup accepted; task 004 retains its separate gate |
-| `v4vmm` | [0066 converter verification and setup 008](../tasks/archive/adr-0066-task-008-converter-verification-and-setup.md) | Complete - 2026-09-17; mechanical checks Green; operator V1–V3, Settings/core-recovery presentation and preservation in both cases accepted; normal-mode restoration and fixture cleanup confirmed; [operator procedure](../runbooks/startup-recovery-check.md#task-008-converter-verification-and-setup) retained for regression; task 009 complete on 2026-09-17 with operator V1–V3, presentation, configuration restoration, preservation and cleanup accepted |
-| `v4vmm` | [0066 conversion retry and retained input 009](../tasks/archive/adr-0066-task-009-conversion-retry-and-retained-input.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-009-conversion-retry-and-retained-input), normal/narrow presentation, configuration restoration and preservation accepted; fixture cleanup confirmed; task 010 complete on 2026-09-17 with operator acceptance, preservation and cleanup confirmed; task 011 complete with operator acceptance, preservation and cleanup confirmed |
-| `v4vmm` | [0066 database check and backup 010](../tasks/archive/adr-0066-task-010-database-check-and-backup.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-010-database-check-and-backup), Settings/recovery normal/narrow presentation, report copy, responsiveness and preservation in both cases accepted; normal-mode restoration and cleanup confirmed; task 011 complete with operator acceptance, preservation and cleanup confirmed |
-| `v4vmm` | [0066 database maintenance and preservation 011](../tasks/archive/adr-0066-task-011-database-maintenance-and-preservation.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-011-database-maintenance-and-preservation), manifest contents, reopening, report retention, normal/narrow presentation, both-fixture preservation, normal restoration and cleanup accepted; task 012 completion is recorded below |
-| `v4vmm` | [0066 database restore 012](../tasks/archive/adr-0066-task-012-database-restore.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-012-database-restore), Settings/recovery normal/narrow presentation, report copy, input-change protection, same-window resumption, both preservation inspections and all three fixture cleanups accepted; task 013 complete on 2026-09-18 with operator V1–V3, presentation, preservation and cleanup accepted |
-| `v4vmm` | [0066 interrupted upgrade repair 013](../tasks/archive/adr-0066-task-013-interrupted-upgrade-repair.md) | Complete — 2026-09-18; mechanical checks Green; V1–V3 behavior, [ADR 0074 presentation](../runbooks/startup-recovery-check.md#repair-and-diagnostics-pages--adr-0074) and both final preservation inspections accepted; cleanup confirmed; task 004 retains its separate gate; ADR stays Accepted |
-| `v4vmm` | [0071 shared text selection 001](../tasks/archive/adr-0071-task-001-shared-text-selection.md) | Complete - 2026-09-15; migration and pinned ADR 0072 correction verified; mechanical checks Green; available X11 operator checks, preservation and fixture/scratch cleanup accepted; IME composition and Wayland untested; completed log packet remains closed |
-| `v4vmm` | [0067 platform shortcuts 001](../tasks/archive/adr-0067-task-001-platform-shortcuts.md) | Complete - 2026-09-11; mechanical gate Green; all shortcut checks, preservation and fixture cleanup accepted; ADR Implemented |
-| `v4vmm` | [0068 Show cue and audition isolation](../adr/0068-show-cue-and-audition-isolation.md) | Accepted - 2026-11-11; packets written in the [phase plan](../plans/adr-0068-show-cue-and-audition-phase-plan.md); implementation and its visual/audio checks not started; does not close 0066 task 004's paused playback gate |
-| `v4vmm` | [0030 006 scroll containers](../tasks/adr-0030-task-006-scroll-containers.md) | Implementation recorded. The Music portion of the visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4. The Settings portion moved there too, under Phase 5. |
-| `v4vmm` | [0037 001 feed identity](../tasks/archive/adr-0037-task-001-feed-identity-action-parity.md) | Complete - 2026-09-19. Local/Index controls, Nostr copy, Website and RSS accepted in both themes. Corrected fixture launch and Firefox accepted. Fixture removal confirmed. Task 002 retains its separate gate. |
-| `v4vmm` | [0037 002 track detail parity](../tasks/archive/adr-0037-task-002-track-header-action-parity.md) | Complete - 2026-10-07. The operator walked track detail parity on the one track page of ADR 0083 task 004. |
-| `v4vmm` | [0043 004 toolbar readiness](../tasks/archive/adr-0043-task-004-guards-and-visual-readiness.md) | Complete - 2026-09-18. Normal/narrow Light/Dark checks passed. Library and Index results are confirmed. Fixture cleanup is confirmed. ADR 0043 is Implemented. |
-| `v4vmm` | [0044 003 playlist reorder](../tasks/archive/adr-0044-task-003-playlist-reorder-guards-visual.md) | Complete - 2026-09-19. All Light/Dark visual checks passed, including removal and immediate availability updates on frame return. Fixture cleanup is confirmed. ADR 0044 is Implemented. |
-| `v4vmm` | [0054 004 feed hydration](../tasks/adr-0054-task-004-feed-read-model-hydration.md) | Implementation recorded. The stored metadata visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4: album page. |
-| `v4vmm` | [0054 005 track hydration](../tasks/adr-0054-task-005-track-read-model-hydration.md) | Implementation recorded. The stored metadata/fallback visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4: album page. |
-| `v4vmm` | [0084 001 one navigation stack](../tasks/archive/adr-0084-task-001-one-navigation-stack.md) | Complete - 2026-10-08. The mechanical checks are Green. The operator passed V1 to V5 on 2026-10-08. |
-| `v4vmm` | [0084 002 one release route](../tasks/archive/adr-0084-task-002-one-release-route.md) | Complete - 2026-10-11. The mechanical checks are Green. The operator passed V1 to V5 on 2026-10-11. |
-| `v4vmm` | [0084 003 one track route](../tasks/archive/adr-0084-task-003-one-track-route.md) | Complete - 2026-10-11. The mechanical checks are Green. The operator passed V1 to V5 on 2026-10-11. |
-| `v4vmm` | [0084 004 three-column shell](../tasks/archive/adr-0084-task-004-three-column-shell.md) | Complete - 2026-10-12. The mechanical checks are Green. The operator passed V1 to V6, with V5a, on 2026-10-12. |
-| `v4vmm` | [0084 005 destinations sidebar](../tasks/archive/adr-0084-task-005-destinations-sidebar.md) | Complete - 2026-10-16. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-16. |
-| `v4vmm` | [0084 006 Discover](../tasks/archive/adr-0084-task-006-discover.md) | Complete - 2026-10-16. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-16. |
-| `v4vmm` | [0084 013 Index release page parity](../tasks/archive/adr-0084-task-013-index-release-page-parity.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-17. |
-| `v4vmm` | [0084 014 Music column scrollbars](../tasks/archive/adr-0084-task-014-music-column-scrollbars.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-17. |
-| `v4vmm` | [0084 007 release kind](../tasks/archive/adr-0084-task-007-release-kind.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-17. |
-| `v4vmm` | [0084 015 singles groups](../tasks/archive/adr-0084-task-015-singles-groups.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V11 on 2026-10-17. |
-| `v4vmm` | [0084 019 selection mode](../tasks/archive/adr-0084-task-019-selection-mode.md) | Complete - 2026-10-20. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-20. |
-| `v4vmm` | [0084 018 detail column selection](../tasks/archive/adr-0084-task-018-detail-column-selection.md) | Complete - 2026-10-20. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-20. |
-| `v4vmm` | [0084 021 one release page](../tasks/adr-0084-task-021-one-release-page-assembly.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 022 download queue](../tasks/adr-0084-task-022-download-queue.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V6 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 020 Discover selection](../tasks/adr-0084-task-020-discover-selection.md) | Complete - 2026-10-23. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-23. |
-| `v4vmm` | [0084 025 playlist selection](../tasks/adr-0084-task-025-playlist-selection.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 011 logo frame](../tasks/adr-0084-task-011-logo-frame.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 024 artist feed image](../tasks/adr-0084-task-024-artist-feed-image.md) | Implemented - 2026-10-20. The mechanical checks are Green. Migration 20. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0083 006 row hover actions](../tasks/adr-0083-task-006-row-hover-actions.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V12 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 027 stop queued](../tasks/adr-0084-task-027-stop-queued-downloads.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 023 one track page](../tasks/adr-0084-task-023-one-track-page-assembly.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V5 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0083 007 list and playlist row actions](../tasks/adr-0083-task-007-list-and-playlist-row-actions.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V11 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0083 008 drag a track to a playlist](../tasks/adr-0083-task-008-drag-track-to-playlist.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V9 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 016 scopes](../tasks/adr-0084-task-016-library-and-everything-scopes.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V8 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 017 name level](../tasks/adr-0084-task-017-name-level-artist-page.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V11 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 010 search results](../tasks/adr-0084-task-010-search-results-list-column.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 012 saved searches](../tasks/adr-0084-task-012-saved-searches.md) | Implemented - 2026-10-21. The mechanical checks are Green. Migration 21. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 028 search defects](../tasks/adr-0084-task-028-search-open-defects.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V4 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 029 search link facts](../tasks/adr-0084-task-029-search-link-facts.md) | Implemented - 2026-10-21. The mechanical checks are Green. The stored contract is 0.13.0. V1 to V6 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 026 Index singles groups](../tasks/adr-0084-task-026-index-singles-groups.md) | Implemented - 2026-10-21, Parts A and B. The mechanical checks are Green. The operator passed V1 to V5 and V8 on 2026-10-23, apart from the \"You Are Enough\" row of V2. V2 (the "You Are Enough" row only), V6, V7, V9 and V10. V6 and V10 failed on 2026-10-23 (run record, question 2 and walk log) are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0084 030 Music defects](../tasks/adr-0084-task-030-music-open-defects.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V6 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 031 release row menu and selection drag](../tasks/adr-0084-task-031-release-row-actions-and-selection-drag.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V9 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 032 singles group rows](../tasks/adr-0084-task-032-singles-group-rows.md) | Implemented - 2026-10-22. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 033 download state icons](../tasks/adr-0084-task-033-download-state-icons.md) | Implemented - 2026-10-22. The mechanical checks are Green. V1 to V8 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0084 034 feed links on download](../tasks/adr-0084-task-034-store-feed-links-on-download.md) | Implemented - 2026-10-22. The mechanical checks are Green. V1 to V4 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `v4vmm` | [0086 001 parallel detail reads](../tasks/adr-0086-task-001-parallel-new-releases-detail-reads.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V3 on 2026-10-23. V1, V2 and V4 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0086 002 New releases window groups](../tasks/adr-0086-task-002-new-releases-window-groups.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1 and V2 on 2026-10-23 and V3 on 2026-10-24. V4, V6 and V8 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0086 003 the pager closes each window](../tasks/adr-0086-task-003-pager-closes-windows.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V2 and V3 on 2026-10-23. V1 and V4 to V10 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0086 004 the window group page](../tasks/adr-0086-task-004-window-group-page.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1 to V3, V5, V7 and V8 on 2026-10-24. V4, V6, V9 and V10 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0086 005 saved search window groups](../tasks/adr-0086-task-005-saved-search-window-groups.md) | Implemented - 2026-10-23. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0087 001 the query parser](../tasks/archive/adr-0087-task-001-query-parser.md) | Complete - 2026-10-23. The mechanical checks are Green. The packet changes no interface, so it has no visual check. |
-| `v4vmm` | [0087 002 Library fields and Index words](../tasks/adr-0087-task-002-library-fields-and-index-words.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V2, V3 and V5 to V7 on 2026-10-23 and V1 and V4 on 2026-10-24. V8 and V9 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0087 004 the field list](../tasks/adr-0087-task-004-field-list.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V2, V3 and V5 on 2026-10-23 and V4, V7 and V8 on 2026-10-24. V1 and V6 failed. V1, V6 and V9 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0087 003 live results](../tasks/adr-0087-task-003-live-results.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1 and V5 on 2026-10-23 and V4 and V7 on 2026-10-24. V3 and V6 failed. V2, V3, V6, V8 and V9 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0087 005 the values of the field list](../tasks/adr-0087-task-005-field-list-values.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1, V2 and V4 on 2026-10-23 and V5 on 2026-10-24. V7 failed. V3, V6 and V7 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
-| `v4vmm` | [0084 009 selection and action bar](../tasks/archive/adr-0084-task-009-list-selection-and-action-bar.md) | Complete - 2026-10-19. The mechanical checks are Green. The operator passed V1 to V7. |
-| `v4vmm` | [0084 008 feed page and Artists](../tasks/archive/adr-0084-task-008-feed-page-and-artists.md) | Complete - 2026-10-18. The mechanical checks are Green. The operator passed V1 to V9 on 2026-10-18. |
-| `v4vmm` | [0059 018 service watch pace](../tasks/archive/adr-0059-task-018-service-watch-pace.md) | Complete - 2026-10-18. The mechanical checks are Green. The operator passed V1 to V3 on 2026-10-18. |
-| `v4vmm` | [0082 003 named feeds of a release](../tasks/archive/adr-0082-task-003-release-page-named-feeds.md) | Complete - 2026-10-18. The mechanical checks are Green. Migration 19. The operator passed V1 to V7 on 2026-10-18. |
+| `hitit` | [governance reconciliation](../reviews/2026-09-10-governance-reconciliation.md) | complete - 2026-09-10; documentation only; surviving gates indexed below |
+| `hitit` | [pending-work reconciliation](../reviews/2026-09-11-pending-work-reconciliation.md) | Complete - 2026-09-11; ADR header-format debt and corpus guard closed; stale startup backlog and shortcut instructions corrected; 235 architecture tests and required checks Green; human gates remain open |
+| `hitit` | [0039 scale domains and type curves 001](../tasks/archive/adr-0039-task-001-scale-domains-and-type-curves.md) | Complete - 2026-09-18 (`3b40ec1`). Mechanical checks are Green. Both resolvers initially retained the former uniform values. Configuration is unchanged. This packet has no visual gate. |
+| `hitit` | [0039 fixed-height reserve and acceptance 002](../tasks/archive/adr-0039-task-002-fixed-height-reserve-and-acceptance.md) | Complete - 2026-09-18. Mechanical checks are Green. Task 002 added the reservation, guards and ShowCard correction. Task 003 updated the endpoints. The operator accepted the correction in V13. |
+| `hitit` | [0039 type curve ratification 003](../tasks/archive/adr-0039-task-003-type-curve-ratification.md) | Complete - 2026-09-18. Mechanical checks are Green. The app uses the ratified curves. R2 is resolved. V1–V13 passed. The review records inferred preservation and preference restoration. The operator confirmed fixture removal. ADR 0039 is Implemented. |
+| `hitit` | [0069 grouped Settings foundation 001](../tasks/archive/adr-0069-task-001-grouped-settings-foundation.md) | Complete - 2026-09-11; mechanical checks Green; V1–V3 and all preservation inspections accepted; fixture cleanup confirmed; ADR remains Accepted for later phases |
+| `hitit` | [0069 shared guarded editor 002](../tasks/adr-0069-task-002-shared-guarded-editor.md) | Ready - 2026-09-18. Packet written against delivered owners. Implementation not started. V1–V4, preservation and cleanup are prospective requirements. |
+| `hitit` | [0066 configuration/startup failure recovery](adr-0066-startup-recovery-phase-plan.md) | ADR Accepted. Tasks 001–003 and 005–013 are complete with required acceptance and cleanup. Task 004 retains its operator gate. Playback checks wait for ADR 0068 and mpv IPC diagnosis. Presentation and producer preservation passes remain accepted. |
+| `hitit` | [0066 session drain and resumption 005](../tasks/archive/adr-0066-task-005-session-drain-and-resumption.md) | Complete - 2026-09-11; mechanical checks Green; [operator V1–V3 and preservation](../tasks/archive/adr-0066-task-005-session-drain-and-resumption.md#operator-evidence--2026-09-11) accepted; fixture cleanup confirmed; task 006 completion recorded below |
+| `hitit` | [0063 shared log frames and following 005](../tasks/archive/adr-0063-task-005-shared-log-frames-and-following.md) | Complete - 2026-09-13; mechanical checks Green; V1–V3, ADR 0070 narrow layout/header/footer, editor Close/Reopen and corrected Escape behavior accepted; final preservation and all fixture cleanup confirmed; ADRs 0063/0070 Implemented; ADR 0066 task 007 completion is recorded below |
+| `hitit` | [0066 configuration repair and resumption 006](../tasks/archive/adr-0066-task-006-configuration-repair-and-resumption.md) | Complete - 2026-09-13; mechanical checks Green; [operator V1–V6](../runbooks/startup-recovery-check.md#task-006-configuration-repair-and-resumption), preservation inspection and fixture cleanup accepted; task 007 completion is recorded below |
+| `hitit` | [0066 optional-tool correction and retry 007](../tasks/archive/adr-0066-task-007-optional-tool-correction-and-retry.md) | Complete - 2026-09-16; mechanical checks Green; V1–V3 behavior, presentation and preservation accepted; narrow Library, drag responsiveness and [ADR 0073 Show card overflow](../adr/archive/0073-show-card-overflow-scrolling.md) follow-ups accepted; V2/V3 and Library/Show follow-up cleanup confirmed; no earlier startup fixtures remain in the checked temporary directories; packet reconciles the unsupported port-only fixture gate; [operator procedure](../runbooks/startup-recovery-check.md#task-007-optional-tool-correction-and-retry) retained for regression; task 008 complete on 2026-09-17 with operator V1–V3, presentation, preservation and cleanup accepted; task 009 complete on 2026-09-17 with mechanical checks Green and operator V1–V3, presentation, configuration restoration, preservation and cleanup accepted; task 010 complete on 2026-09-17 with operator acceptance, preservation and cleanup confirmed; task 011 complete, mechanical checks Green, operator V1–V3/preservation/cleanup accepted; task 012 is complete on 2026-09-17 with mechanical checks Green, operator V1–V3, presentation, preservation and cleanup accepted; task 013 complete on 2026-09-18 with operator V1–V3, presentation, preservation and cleanup accepted; task 004 retains its separate gate |
+| `hitit` | [0066 converter verification and setup 008](../tasks/archive/adr-0066-task-008-converter-verification-and-setup.md) | Complete - 2026-09-17; mechanical checks Green; operator V1–V3, Settings/core-recovery presentation and preservation in both cases accepted; normal-mode restoration and fixture cleanup confirmed; [operator procedure](../runbooks/startup-recovery-check.md#task-008-converter-verification-and-setup) retained for regression; task 009 complete on 2026-09-17 with operator V1–V3, presentation, configuration restoration, preservation and cleanup accepted |
+| `hitit` | [0066 conversion retry and retained input 009](../tasks/archive/adr-0066-task-009-conversion-retry-and-retained-input.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-009-conversion-retry-and-retained-input), normal/narrow presentation, configuration restoration and preservation accepted; fixture cleanup confirmed; task 010 complete on 2026-09-17 with operator acceptance, preservation and cleanup confirmed; task 011 complete with operator acceptance, preservation and cleanup confirmed |
+| `hitit` | [0066 database check and backup 010](../tasks/archive/adr-0066-task-010-database-check-and-backup.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-010-database-check-and-backup), Settings/recovery normal/narrow presentation, report copy, responsiveness and preservation in both cases accepted; normal-mode restoration and cleanup confirmed; task 011 complete with operator acceptance, preservation and cleanup confirmed |
+| `hitit` | [0066 database maintenance and preservation 011](../tasks/archive/adr-0066-task-011-database-maintenance-and-preservation.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-011-database-maintenance-and-preservation), manifest contents, reopening, report retention, normal/narrow presentation, both-fixture preservation, normal restoration and cleanup accepted; task 012 completion is recorded below |
+| `hitit` | [0066 database restore 012](../tasks/archive/adr-0066-task-012-database-restore.md) | Complete - 2026-09-17; mechanical checks Green; [operator V1–V3](../runbooks/startup-recovery-check.md#task-012-database-restore), Settings/recovery normal/narrow presentation, report copy, input-change protection, same-window resumption, both preservation inspections and all three fixture cleanups accepted; task 013 complete on 2026-09-18 with operator V1–V3, presentation, preservation and cleanup accepted |
+| `hitit` | [0066 interrupted upgrade repair 013](../tasks/archive/adr-0066-task-013-interrupted-upgrade-repair.md) | Complete — 2026-09-18; mechanical checks Green; V1–V3 behavior, [ADR 0074 presentation](../runbooks/startup-recovery-check.md#repair-and-diagnostics-pages--adr-0074) and both final preservation inspections accepted; cleanup confirmed; task 004 retains its separate gate; ADR stays Accepted |
+| `hitit` | [0071 shared text selection 001](../tasks/archive/adr-0071-task-001-shared-text-selection.md) | Complete - 2026-09-15; migration and pinned ADR 0072 correction verified; mechanical checks Green; available X11 operator checks, preservation and fixture/scratch cleanup accepted; IME composition and Wayland untested; completed log packet remains closed |
+| `hitit` | [0067 platform shortcuts 001](../tasks/archive/adr-0067-task-001-platform-shortcuts.md) | Complete - 2026-09-11; mechanical gate Green; all shortcut checks, preservation and fixture cleanup accepted; ADR Implemented |
+| `hitit` | [0068 Show cue and audition isolation](../adr/0068-show-cue-and-audition-isolation.md) | Accepted - 2026-11-11; packets written in the [phase plan](../plans/adr-0068-show-cue-and-audition-phase-plan.md); implementation and its visual/audio checks not started; does not close 0066 task 004's paused playback gate |
+| `hitit` | [0030 006 scroll containers](../tasks/adr-0030-task-006-scroll-containers.md) | Implementation recorded. The Music portion of the visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4. The Settings portion moved there too, under Phase 5. |
+| `hitit` | [0037 001 feed identity](../tasks/archive/adr-0037-task-001-feed-identity-action-parity.md) | Complete - 2026-09-19. Local/Index controls, Nostr copy, Website and RSS accepted in both themes. Corrected fixture launch and Firefox accepted. Fixture removal confirmed. Task 002 retains its separate gate. |
+| `hitit` | [0037 002 track detail parity](../tasks/archive/adr-0037-task-002-track-header-action-parity.md) | Complete - 2026-10-07. The operator walked track detail parity on the one track page of ADR 0083 task 004. |
+| `hitit` | [0043 004 toolbar readiness](../tasks/archive/adr-0043-task-004-guards-and-visual-readiness.md) | Complete - 2026-09-18. Normal/narrow Light/Dark checks passed. Library and Index results are confirmed. Fixture cleanup is confirmed. ADR 0043 is Implemented. |
+| `hitit` | [0044 003 playlist reorder](../tasks/archive/adr-0044-task-003-playlist-reorder-guards-visual.md) | Complete - 2026-09-19. All Light/Dark visual checks passed, including removal and immediate availability updates on frame return. Fixture cleanup is confirmed. ADR 0044 is Implemented. |
+| `hitit` | [0054 004 feed hydration](../tasks/adr-0054-task-004-feed-read-model-hydration.md) | Implementation recorded. The stored metadata visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4: album page. |
+| `hitit` | [0054 005 track hydration](../tasks/adr-0054-task-005-track-read-model-hydration.md) | Implementation recorded. The stored metadata/fallback visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4: album page. |
+| `hitit` | [0084 001 one navigation stack](../tasks/archive/adr-0084-task-001-one-navigation-stack.md) | Complete - 2026-10-08. The mechanical checks are Green. The operator passed V1 to V5 on 2026-10-08. |
+| `hitit` | [0084 002 one release route](../tasks/archive/adr-0084-task-002-one-release-route.md) | Complete - 2026-10-11. The mechanical checks are Green. The operator passed V1 to V5 on 2026-10-11. |
+| `hitit` | [0084 003 one track route](../tasks/archive/adr-0084-task-003-one-track-route.md) | Complete - 2026-10-11. The mechanical checks are Green. The operator passed V1 to V5 on 2026-10-11. |
+| `hitit` | [0084 004 three-column shell](../tasks/archive/adr-0084-task-004-three-column-shell.md) | Complete - 2026-10-12. The mechanical checks are Green. The operator passed V1 to V6, with V5a, on 2026-10-12. |
+| `hitit` | [0084 005 destinations sidebar](../tasks/archive/adr-0084-task-005-destinations-sidebar.md) | Complete - 2026-10-16. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-16. |
+| `hitit` | [0084 006 Discover](../tasks/archive/adr-0084-task-006-discover.md) | Complete - 2026-10-16. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-16. |
+| `hitit` | [0084 013 Index release page parity](../tasks/archive/adr-0084-task-013-index-release-page-parity.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-17. |
+| `hitit` | [0084 014 Music column scrollbars](../tasks/archive/adr-0084-task-014-music-column-scrollbars.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-17. |
+| `hitit` | [0084 007 release kind](../tasks/archive/adr-0084-task-007-release-kind.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-17. |
+| `hitit` | [0084 015 singles groups](../tasks/archive/adr-0084-task-015-singles-groups.md) | Complete - 2026-10-17. The mechanical checks are Green. The operator passed V1 to V11 on 2026-10-17. |
+| `hitit` | [0084 019 selection mode](../tasks/archive/adr-0084-task-019-selection-mode.md) | Complete - 2026-10-20. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-20. |
+| `hitit` | [0084 018 detail column selection](../tasks/archive/adr-0084-task-018-detail-column-selection.md) | Complete - 2026-10-20. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-20. |
+| `hitit` | [0084 021 one release page](../tasks/adr-0084-task-021-one-release-page-assembly.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 022 download queue](../tasks/adr-0084-task-022-download-queue.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V6 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 020 Discover selection](../tasks/adr-0084-task-020-discover-selection.md) | Complete - 2026-10-23. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-23. |
+| `hitit` | [0084 025 playlist selection](../tasks/adr-0084-task-025-playlist-selection.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 011 logo frame](../tasks/adr-0084-task-011-logo-frame.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 024 artist feed image](../tasks/adr-0084-task-024-artist-feed-image.md) | Implemented - 2026-10-20. The mechanical checks are Green. Migration 20. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0083 006 row hover actions](../tasks/adr-0083-task-006-row-hover-actions.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V12 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 027 stop queued](../tasks/adr-0084-task-027-stop-queued-downloads.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 023 one track page](../tasks/adr-0084-task-023-one-track-page-assembly.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V5 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0083 007 list and playlist row actions](../tasks/adr-0083-task-007-list-and-playlist-row-actions.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V11 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0083 008 drag a track to a playlist](../tasks/adr-0083-task-008-drag-track-to-playlist.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V9 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 016 scopes](../tasks/adr-0084-task-016-library-and-everything-scopes.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V8 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 017 name level](../tasks/adr-0084-task-017-name-level-artist-page.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V11 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 010 search results](../tasks/adr-0084-task-010-search-results-list-column.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 012 saved searches](../tasks/adr-0084-task-012-saved-searches.md) | Implemented - 2026-10-21. The mechanical checks are Green. Migration 21. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 028 search defects](../tasks/adr-0084-task-028-search-open-defects.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V4 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 029 search link facts](../tasks/adr-0084-task-029-search-link-facts.md) | Implemented - 2026-10-21. The mechanical checks are Green. The stored contract is 0.13.0. V1 to V6 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 026 Index singles groups](../tasks/adr-0084-task-026-index-singles-groups.md) | Implemented - 2026-10-21, Parts A and B. The mechanical checks are Green. The operator passed V1 to V5 and V8 on 2026-10-23, apart from the \"You Are Enough\" row of V2. V2 (the "You Are Enough" row only), V6, V7, V9 and V10. V6 and V10 failed on 2026-10-23 (run record, question 2 and walk log) are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0084 030 Music defects](../tasks/adr-0084-task-030-music-open-defects.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V6 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 031 release row menu and selection drag](../tasks/adr-0084-task-031-release-row-actions-and-selection-drag.md) | Implemented - 2026-10-21. The mechanical checks are Green. V1 to V9 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 032 singles group rows](../tasks/adr-0084-task-032-singles-group-rows.md) | Implemented - 2026-10-22. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 033 download state icons](../tasks/adr-0084-task-033-download-state-icons.md) | Implemented - 2026-10-22. The mechanical checks are Green. V1 to V8 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0084 034 feed links on download](../tasks/adr-0084-task-034-store-feed-links-on-download.md) | Implemented - 2026-10-22. The mechanical checks are Green. V1 to V4 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
+| `hitit` | [0086 001 parallel detail reads](../tasks/adr-0086-task-001-parallel-new-releases-detail-reads.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V3 on 2026-10-23. V1, V2 and V4 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0086 002 New releases window groups](../tasks/adr-0086-task-002-new-releases-window-groups.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1 and V2 on 2026-10-23 and V3 on 2026-10-24. V4, V6 and V8 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0086 003 the pager closes each window](../tasks/adr-0086-task-003-pager-closes-windows.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V2 and V3 on 2026-10-23. V1 and V4 to V10 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0086 004 the window group page](../tasks/adr-0086-task-004-window-group-page.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1 to V3, V5, V7 and V8 on 2026-10-24. V4, V6, V9 and V10 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0086 005 saved search window groups](../tasks/adr-0086-task-005-saved-search-window-groups.md) | Implemented - 2026-10-23. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0087 001 the query parser](../tasks/archive/adr-0087-task-001-query-parser.md) | Complete - 2026-10-23. The mechanical checks are Green. The packet changes no interface, so it has no visual check. |
+| `hitit` | [0087 002 Library fields and Index words](../tasks/adr-0087-task-002-library-fields-and-index-words.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V2, V3 and V5 to V7 on 2026-10-23 and V1 and V4 on 2026-10-24. V8 and V9 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0087 004 the field list](../tasks/adr-0087-task-004-field-list.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V2, V3 and V5 on 2026-10-23 and V4, V7 and V8 on 2026-10-24. V1 and V6 failed. V1, V6 and V9 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0087 003 live results](../tasks/adr-0087-task-003-live-results.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1 and V5 on 2026-10-23 and V4 and V7 on 2026-10-24. V3 and V6 failed. V2, V3, V6, V8 and V9 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0087 005 the values of the field list](../tasks/adr-0087-task-005-field-list-values.md) | Implemented - 2026-10-23. The mechanical checks are Green. The operator passed V1, V2 and V4 on 2026-10-23 and V5 on 2026-10-24. V7 failed. V3, V6 and V7 are open, in the final walk of the [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md#final-walk). |
+| `hitit` | [0084 009 selection and action bar](../tasks/archive/adr-0084-task-009-list-selection-and-action-bar.md) | Complete - 2026-10-19. The mechanical checks are Green. The operator passed V1 to V7. |
+| `hitit` | [0084 008 feed page and Artists](../tasks/archive/adr-0084-task-008-feed-page-and-artists.md) | Complete - 2026-10-18. The mechanical checks are Green. The operator passed V1 to V9 on 2026-10-18. |
+| `hitit` | [0059 018 service watch pace](../tasks/archive/adr-0059-task-018-service-watch-pace.md) | Complete - 2026-10-18. The mechanical checks are Green. The operator passed V1 to V3 on 2026-10-18. |
+| `hitit` | [0082 003 named feeds of a release](../tasks/archive/adr-0082-task-003-release-page-named-feeds.md) | Complete - 2026-10-18. The mechanical checks are Green. Migration 19. The operator passed V1 to V7 on 2026-10-18. |
 | `musicindex-live-publisher` | control surface 001 | complete - 2026-09-07 (`a5b434e`) |
 | `musicindex-live-publisher` | control surface 002 | complete - 2026-09-07 (`459854c`) |
 | `musicindex-live-publisher` | show log 001 | Not started. Resolve the producer timestamp source before implementation. Drop-file v1 has no producer timestamp. Scheduler times are monotonic. |
 | `musicindex-live-publisher` | show log 002 | Not started. Follows 001. Corrected reader instructions use observed_at for episode and operator ranges. |
-| `v4vmm` | 001 live surface reduction | complete - 2026-09-07 |
-| `v4vmm` | 002 event registry schema | complete - 2026-09-07 |
-| `v4vmm` | 003 event registry service | complete - 2026-09-07 |
-| `v4vmm` | 004 relay observation actor | complete - 2026-09-07 |
-| `v4vmm` | 005 broadcast page VM | removed by ADR 0060 / task 001 |
-| `v4vmm` | 006 broadcast frame kind | removed by ADR 0060 / task 001 |
-| `v4vmm` | 007 broadcast shell | removed by ADR 0060 / task 001 |
-| `v4vmm` | 008 service control | complete - 2026-09-08 |
-| `v4vmm` | 009 publisher section | implemented - 2026-09-08; visual acceptance met, one layout defect found and fixed (detail line now always present) |
-| `v4vmm` | 010 remote hosts | implemented - 2026-09-08; visual acceptance met with `Broken` SSH host |
-| `v4vmm` | 014 attach event | implemented - 2026-09-08; visual acceptance met with default target attach and detach |
-| `v4vmm` | 011 mpv producer | implemented - 2026-09-08 |
-| `v4vmm` | 012 readiness report | implemented - 2026-09-08; visual acceptance met with readiness CLI count |
-| `v4vmm` | 015 stream encoder | implemented - 2026-09-08; visual acceptance met with no encoder and `butt`; command-button disappearance fixed and accepted in action feedback 001 on 2026-09-10 |
-| `v4vmm` | 013 final guards | implemented - 2026-09-09; ADR 0059 review and final guard coverage complete |
-| `v4vmm` | 0063 001 card contract | implemented - 2026-09-08; no visual criteria |
-| `v4vmm` | 0063 002 card grid shell | implemented - 2026-09-08; visual acceptance met after the 2026-09-09 fix retest |
-| `v4vmm` | 0063 003 detail panel | implemented - 2026-09-08; visual acceptance met after the 2026-09-09 fix retest; log placement moved to 004 |
-| `v4vmm` | 0063 004 log bottom pane | implemented - 2026-09-09; mechanical and operator visual acceptance met, including selectable text and right-click Copy |
-| `v4vmm` | [show action feedback 001 (A7, A8, A9)](../tasks/archive/show-action-feedback-task-001-command-state-and-result.md) | implemented - 2026-09-10; mechanical acceptance Green; [operator visual acceptance passed](../tasks/archive/show-action-feedback-task-001-command-state-and-result.md#operator-visual-check) for A7, A8, and A9 |
-| `v4vmm` | 016 event row in Live Metadata | implemented - 2026-09-09; mechanical acceptance Green; [all operator event recovery checks passed](../runbooks/broadcast-event-recovery-check.md), including Copy, service readiness, resizing, and registry/token preservation; visual acceptance met |
-| `v4vmm` | [017 compact event controls and badges](../tasks/archive/adr-0059-task-017-compact-event-controls-and-badges.md) | implemented - 2026-09-10; mechanical checks Green; [operator acceptance and fixture cleanup complete](../tasks/archive/adr-0059-task-017-compact-event-controls-and-badges.md#operator-visual-check), including preservation and confirmation of three intentional registrations; narrow log-body limitation tracked in the proposal; ADRs 0059/0063 reconciled |
-| `v4vmm` | 0064 001 relative local paths | implemented - 2026-09-09; visual acceptance met after path repair converted moved library |
-| `v4vmm` | 0064 002 repair report surface | ready |
-| `v4vmm` | 0065 001 tag repair service | implemented - 2026-09-09; no visual criteria |
-| `v4vmm` | 0065 002 check-all-feeds repair and list actions | implemented - 2026-09-09; visual acceptance met; result-row readability fixed and accepted in action feedback 001 on 2026-09-10 |
+| `hitit` | 001 live surface reduction | complete - 2026-09-07 |
+| `hitit` | 002 event registry schema | complete - 2026-09-07 |
+| `hitit` | 003 event registry service | complete - 2026-09-07 |
+| `hitit` | 004 relay observation actor | complete - 2026-09-07 |
+| `hitit` | 005 broadcast page VM | removed by ADR 0060 / task 001 |
+| `hitit` | 006 broadcast frame kind | removed by ADR 0060 / task 001 |
+| `hitit` | 007 broadcast shell | removed by ADR 0060 / task 001 |
+| `hitit` | 008 service control | complete - 2026-09-08 |
+| `hitit` | 009 publisher section | implemented - 2026-09-08; visual acceptance met, one layout defect found and fixed (detail line now always present) |
+| `hitit` | 010 remote hosts | implemented - 2026-09-08; visual acceptance met with `Broken` SSH host |
+| `hitit` | 014 attach event | implemented - 2026-09-08; visual acceptance met with default target attach and detach |
+| `hitit` | 011 mpv producer | implemented - 2026-09-08 |
+| `hitit` | 012 readiness report | implemented - 2026-09-08; visual acceptance met with readiness CLI count |
+| `hitit` | 015 stream encoder | implemented - 2026-09-08; visual acceptance met with no encoder and `butt`; command-button disappearance fixed and accepted in action feedback 001 on 2026-09-10 |
+| `hitit` | 013 final guards | implemented - 2026-09-09; ADR 0059 review and final guard coverage complete |
+| `hitit` | 0063 001 card contract | implemented - 2026-09-08; no visual criteria |
+| `hitit` | 0063 002 card grid shell | implemented - 2026-09-08; visual acceptance met after the 2026-09-09 fix retest |
+| `hitit` | 0063 003 detail panel | implemented - 2026-09-08; visual acceptance met after the 2026-09-09 fix retest; log placement moved to 004 |
+| `hitit` | 0063 004 log bottom pane | implemented - 2026-09-09; mechanical and operator visual acceptance met, including selectable text and right-click Copy |
+| `hitit` | [show action feedback 001 (A7, A8, A9)](../tasks/archive/show-action-feedback-task-001-command-state-and-result.md) | implemented - 2026-09-10; mechanical acceptance Green; [operator visual acceptance passed](../tasks/archive/show-action-feedback-task-001-command-state-and-result.md#operator-visual-check) for A7, A8, and A9 |
+| `hitit` | 016 event row in Live Metadata | implemented - 2026-09-09; mechanical acceptance Green; [all operator event recovery checks passed](../runbooks/broadcast-event-recovery-check.md), including Copy, service readiness, resizing, and registry/token preservation; visual acceptance met |
+| `hitit` | [017 compact event controls and badges](../tasks/archive/adr-0059-task-017-compact-event-controls-and-badges.md) | implemented - 2026-09-10; mechanical checks Green; [operator acceptance and fixture cleanup complete](../tasks/archive/adr-0059-task-017-compact-event-controls-and-badges.md#operator-visual-check), including preservation and confirmation of three intentional registrations; narrow log-body limitation tracked in the proposal; ADRs 0059/0063 reconciled |
+| `hitit` | 0064 001 relative local paths | implemented - 2026-09-09; visual acceptance met after path repair converted moved library |
+| `hitit` | 0064 002 repair report surface | ready |
+| `hitit` | 0065 001 tag repair service | implemented - 2026-09-09; no visual criteria |
+| `hitit` | 0065 002 check-all-feeds repair and list actions | implemented - 2026-09-09; visual acceptance met; result-row readability fixed and accepted in action feedback 001 on 2026-09-10 |
 | `musicindex-live-relay` | reserved 001 store boundary | complete - 2026-10-04 |
 | `musicindex-live-relay` | reserved 002 reserved class | complete - 2026-10-04. The reserve response keeps the four fields of `LiveItemCreateResponse`. |
 | `musicindex-live-relay` | reserved 003 restore and TTL | complete - 2026-10-04. A restart restores a reserved identity with no snapshot. The idle TTL skips a reserved item. |
@@ -460,7 +460,7 @@ and task 017's compact-item amendment has passed operator acceptance.
 | 4 | `docs/tasks/archive/adr-0063-task-004-log-bottom-pane.md` | 003 |
 
 ADR 0064 repairs the local-file addressing. It blocks nothing above, and the
-readiness report of `v4vmm` 012 reads correctly only after task 001 lands.
+readiness report of `hitit` 012 reads correctly only after task 001 lands.
 
 | Order | Packet | Depends on |
 |---|---|---|
@@ -489,7 +489,7 @@ Unwritten decisions carry no number until somebody writes them. A number
 reserved in prose collided once already, when ADR 0063 became the `Show`
 dashboard layout.
 
-`v4vmm` packets 001 through 004 shipped and are unaffected. They are backend
+`hitit` packets 001 through 004 shipped and are unaffected. They are backend
 work that ADR 0060 does not touch.
 
 ## Later Work
@@ -497,21 +497,21 @@ work that ADR 0060 does not touch.
 These entries include work awaiting packets and unscheduled work. The Current
 Delivery Order above determines priority; an entry here is not a second order.
 
-- A `v4vmm` packet for reserving a durable live item. No packet exists yet.
+- A `hitit` packet for reserving a durable live item. No packet exists yet.
   Recorded 2026-10-04:
   - The reserved class exists in the relay, and relay ADR 0001 is
     Implemented.
   - A reserved item ignores the 24-hour idle rule and survives a relay
     restart. An ordinary Create still makes an ephemeral item.
-  - The relay is not deployed with the reserved class. Nothing in `v4vmm`
+  - The relay is not deployed with the reserved class. Nothing in `hitit`
     calls the reserve route.
   - Until the app packet exists, the operator reserves an item from a
     terminal. The relay runbook `docs/runbooks/reserved-live-items.md` gives
     the steps. That reservation does not add the event to the app registry.
   - On 2026-10-04 the operator reserved an event for the Mixxx target. The
-    request `docs/plans/reserved-event-safety-request.md` lists the v4vmm
+    request `docs/plans/reserved-event-safety-request.md` lists the HitIt
     paths that can change that target, and asks for four changes.
-- A `v4vmm` decision on the frame `TXXX:MusicIndex Image`. Both producers
+- A `hitit` decision on the frame `TXXX:MusicIndex Image`. Both producers
   read it, and no software writes it. Publisher ADR 0008 uses its URL as the
   artwork of a V4V track. The request is
   `docs/plans/musicindex-image-tag-request.md`. Recorded 2026-10-04.
@@ -544,10 +544,10 @@ Delivery Order above determines priority; an entry here is not a second order.
   2. The two ADR 0010 packets in one release.
   3. The relay of ADR 0005, then the two ADR 0012 packets in one release.
 
-  Requests for `v4vmm`, each one needs a `v4vmm` decision:
+  Requests for `hitit`, each one needs a `hitit` decision:
   - Show `stream_delay_secs` as the delay that podcast apps get, not as a
     delay of every transport (publisher ADR 0011). Done 2026-10-06 for the
-    present code. No `v4vmm` screen shows the value. The doc comment of
+    present code. No `hitit` screen shows the value. The doc comment of
     `PublisherTarget::stream_delay_secs` gives its meaning. A screen that
     shows or changes the value must use that meaning.
   - In the feed, keep the ICY MP3 stream as the default `enclosure` and give
@@ -566,15 +566,15 @@ Delivery Order above determines priority; an entry here is not a second order.
 
   The research report with the evidence is
   `~/build/musicindex-research/reports/Live RSS metadata delivery paths.md`.
-- A seventh `ServiceState` in `v4vmm`, for a publisher that is installed and
+- A seventh `ServiceState` in `hitit`, for a publisher that is installed and
   not configured. `musicindex-live-publisher` control-surface task 002 supplies
   the two facts that separate it, through `--version` and `config show --json`.
-  Landing that packet does not change `v4vmm` on its own. Needs a `v4vmm` packet.
-- Episode generation in `v4vmm`, from the show log. Needs a future ADR.
-- A check in `v4vmm` that MusicIndex shows the live item of a show. Stophammer ADR 0064 is deployed on 2026-09-27.
+  Landing that packet does not change `hitit` on its own. Needs a `hitit` packet.
+- Episode generation in `hitit`, from the show log. Needs a future ADR.
+- A check in `hitit` that MusicIndex shows the live item of a show. Stophammer ADR 0064 is deployed on 2026-09-27.
   `GET /v1/feeds/{guid}` gives `live_items`, and `GET /v1/live-items` gives the views `now`, `upcoming` and `all`.
-  A row with `confirming_relay` set to `true` needs a question to its relay. Needs a `v4vmm` ADR. The steady-state phase is the earliest place for it.
-- Post-processing tools in `v4vmm`. Gates publisher-side backup recording.
+  A row with `confirming_relay` set to `true` needs a question to its relay. Needs a `hitit` ADR. The steady-state phase is the earliest place for it.
+- Post-processing tools in `hitit`. Gates publisher-side backup recording.
 - Broadcaster identity and quotas in `musicindex-live-relay`. Options recorded, no decision.
 - External broadcasters on AzuraCast. Recorded 2026-10-06. The relay does not
   depend on the audio host, so a broadcaster with an own AzuraCast can use it.
@@ -605,7 +605,7 @@ Delivery Order above determines priority; an entry here is not a second order.
 
 Scheduled for separate emitter/adapter design - 2026-09-10. The app framing
 and following portion moved before recovery 007 on 2026-09-13. The operator
-requires consistent UTC timestamps across all logs, including producers outside `v4vmm` where
+requires consistent UTC timestamps across all logs, including producers outside `hitit` where
 changes are needed. This requirement accompanies
 [per-log following and reading positions](hig-product-polish-backlog.md#a12---follow-latest-logs-and-remember-each-reading-position).
 It is not implemented or an additional gate on task 017.

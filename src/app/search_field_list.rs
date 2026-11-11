@@ -547,7 +547,7 @@ mod tests {
         let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
         crate::db::init_schema(&conn).expect("the schema");
         crate::db::migrate_schema(&conn).expect("the migrations");
-        let dir = std::env::temp_dir().join("v4vmm-search-field-list-test");
+        let dir = std::env::temp_dir().join("hitit-search-field-list-test");
         let services = crate::application::ApplicationServices::local_with_service_adapters()
             .expect("the local services");
         LibraryApp::new(

@@ -1,6 +1,6 @@
-# v4vmm Design System vs. musicindex.org Look
+# HitIt Design System vs. musicindex.org Look
 
-This note maps the musicindex.org website tokens onto the v4vmm token system.
+This note maps the musicindex.org website tokens onto the HitIt token system.
 It is a read-only inventory. The work does not change a file in the v4vmm repository.
 
 Sources read:
@@ -27,8 +27,8 @@ Sources read:
 
 `search.html` is the live app shell, not a marketing page. It has a sidebar
 search and browse list on the left, and a detail inspector on the right. It
-is the closest web match to v4vmm's own Library/Search two-pane shell. Some
-of its screens map onto v4vmm features directly. `.compare-table` runs an
+is the closest web match to HitIt's own Library/Search two-pane shell. Some
+of its screens map onto HitIt features directly. `.compare-table` runs an
 RSS/tag/MusicBrainz-style metadata compare, the same function as
 `track_metadata_grid.rs`. `.value-route-list`/`.history-list` show
 payment routes, the same area as ADR 0076's stored payment routes.
@@ -160,7 +160,7 @@ Pills are not a fixed-radius token; they are "radius = half of element
 height," so a 44px-tall pill gets `border-radius: 22px` (`.theme-toggle`,
 `.history-btn`, `.open-action`/`.copy-btn`, `#load-more`,
 `.scope-control`'s current item via `44px` rows, `#inspector-back`). The
-outcome is the same stadium shape v4vmm reaches with `Radius::Full` (999px),
+outcome is the same stadium shape HitIt reaches with `Radius::Full` (999px),
 just computed per control instead of fixed at an oversized constant.
 
 Radii actually in use: **4px** (skeleton blocks), **6px** (40/44px row
@@ -243,7 +243,7 @@ action) followed by detail sections: a definition-list `detail-grid`, a
 
 ---
 
-## 2. v4vmm tokens — `src/ui/tokens.rs`
+## 2. HitIt tokens — `src/ui/tokens.rs`
 
 ### 2.1 Colors — `SemanticColor` (Apple HIG-style roles)
 
@@ -279,7 +279,7 @@ through a `ThemeProfile` (see §3). No raw hex lives outside `tokens.rs` and
 | `DiffMatch` / `DiffDifferent` / `DiffMissing` | green/amber/orange | dark green/brown/red |
 | `Id3FrameV22/V23Only/V24Only/Unknown` | purple/amber/teal/orange | darker variants |
 
-v4vmm's accent in Dark mode is a **blue-violet (`#8b9bff`)**, not an orange.
+HitIt's accent in Dark mode is a **blue-violet (`#8b9bff`)**, not an orange.
 There is no gold or purple *brand* role — `Id3FrameV22` happens to be purple
 but it means "ID3 v2.2 frame", not a brand color.
 
@@ -310,7 +310,7 @@ Two extra `ThemeProfile` variants add high-contrast dark/light palettes
 
 The largest named radius (14px) is far below the website's smallest
 (`--radius-sm` = 12px is close, but `--radius-lg`/`--radius-xl` = 32/48px have
-no v4vmm equivalent at all).
+no HitIt equivalent at all).
 
 ### 2.4 Typography — `FontSize` (type scale) and `Weight`
 
@@ -327,7 +327,7 @@ no v4vmm equivalent at all).
 `Weight`: `Regular` / `Medium` / `Semibold` / `Bold` (maps to
 `FontWeight::NORMAL/MEDIUM/SEMIBOLD/BOLD`). There is no `Weight::Light` or
 `Weight::Thin` token — the website leans on `font-weight: 100–300` for its
-hero and section headings, which v4vmm's type system cannot express today.
+hero and section headings, which HitIt's type system cannot express today.
 
 Every `FontSize` also scales through `ScaleFactor` (`XSmall…XLarge`, ADR 0039)
 with per-role interpolated multipliers (e.g. `Title` at `XSmall` = 20.40px,
@@ -436,7 +436,7 @@ real profile/scale is known. It:
    window repaints immediately.
 
 This is the single bridge point: every third-party `gpui-component` widget
-(`Button`, `Popover`, `Input`, `Sidebar`, tables, tabs) inherits v4vmm's
+(`Button`, `Popover`, `Input`, `Sidebar`, tables, tabs) inherits HitIt's
 palette through this file, never through per-widget overrides.
 
 ### 3.4 `src/ui/style.rs` (legacy compatibility shim)
@@ -473,14 +473,14 @@ hover tooltip (`prefers_tooltip()`).
 `ButtonVariant`: `Filled`, `Tinted`, `Plain`, `Destructive`. Tinted buttons
 composite the accent color over the surface at two fixed alpha steps:
 `TINTED_BUTTON_BG_ALPHA = 0.08`, `TINTED_BUTTON_HOVER_BG_ALPHA = 0.12` — the
-closest thing v4vmm has to the website's `--accent-glow` wash, but it is an
+closest thing HitIt has to the website's `--accent-glow` wash, but it is an
 alpha-composited tint, not a separate glow token, and it is not used as a
 free-standing background glow anywhere else.
 
 `ButtonSize`: `Sm` 28px, `Md` 32px, `Lg` 40px — all wrapped in the shared
 44pt minimum hit-target contract.
 
-Buttons never use a `box-shadow`-equivalent; v4vmm has no elevation/shadow
+Buttons never use a `box-shadow`-equivalent; HitIt has no elevation/shadow
 token at all (see §7, gap 1).
 
 ### 3.7 `src/ui/primitives/surface.rs` — `SurfaceElevation`
@@ -491,7 +491,7 @@ token at all (see §7, gap 1).
 | `Raised` | `SecondarySystemBackground` | `OpaqueSeparator` | `LG` (10px) |
 | `Floating` | `TertiarySystemBackground` | `OpaqueSeparator` | `LG` (10px) |
 
-v4vmm expresses "raised" purely through background tier + border weight, not
+HitIt expresses "raised" purely through background tier + border weight, not
 through shadow/blur. This is the opposite of the website's approach, which
 uses a flat near-white surface everywhere and expresses elevation only
 through a hover drop-shadow.
@@ -511,13 +511,13 @@ suite is green.
 
 ## 4. Fonts
 
-**Current state:** v4vmm sets no explicit `font_family`. The `gpui-component`
+**Current state:** HitIt sets no explicit `font_family`. The `gpui-component`
 `Theme` default is the literal string `".SystemUIFont"`
 (`gpui-component-0.6.1/src/theme/mod.rs:625`). This is a virtual family name.
 GPUI's `font-kit` backend (the `font-kit` feature on `gpui_platform` in
 `Cargo.toml`) resolves this name to the platform UI font at paint time. On
 Linux, this is whatever `fontconfig` names as the default sans family.
-v4vmm does not override `theme.font_family` in `theme_bridge.rs`.
+HitIt does not override `theme.font_family` in `theme_bridge.rs`.
 
 The monospace family (`mono_font_family`, used by `tokens::log_font_family`
 for all log text, ADR 0063) follows the same pattern. But `gpui-component`
@@ -537,7 +537,7 @@ no fonts and has no font-loading API.
 1. Add the two `.woff2` files as embedded assets. (An alternative is to
    change them to `.ttf`/`.otf`. Format support depends on the
    `font-kit`/text-system backend.) Use a small `rust_embed`-style
-   `AssetSource` that v4vmm registers alongside `gpui_kit_assets::Assets`.
+   `AssetSource` that HitIt registers alongside `gpui_kit_assets::Assets`.
    Then read the file bytes at startup and call the GPUI text system's
    font-registration call before the first window opens. Check the
    method name and signature against the pinned `gpui-pre 0.3.1` version.
@@ -553,7 +553,7 @@ no fonts and has no font-loading API.
    stop with an error on first layout.
 4. Figtree ships only Regular-to-Bold static weights in most distributions.
    Confirm whether the `.woff2` files here are a variable font (one file,
-   many weights) or fixed-weight instances. v4vmm's `Weight` enum has only
+   many weights) or fixed-weight instances. HitIt's `Weight` enum has only
    four steps (`Regular/Medium/Semibold/Bold`). The website uses weights as
    low as 100–200 for its display type. Figtree's lower weight range would
    need to supply those.
@@ -653,7 +653,7 @@ Every image-present path uses `ObjectFit::Cover` (`src/ui/primitives/image.rs`)
 so artwork always fills its box without letterboxing. Every fallback is a
 flat `SystemFill`-colored square (or, for the tile grid, an outlined empty
 square) with a centered emoji or glyph — there is no gradient placeholder
-anywhere in v4vmm, unlike the website's gradient-filled `.artist-visual` and
+anywhere in HitIt, unlike the website's gradient-filled `.artist-visual` and
 `.player-thumb` stand-ins.
 
 ---
@@ -690,32 +690,32 @@ value in a screen or composite file.
 
 ---
 
-## 8. Mapping table — website token → closest v4vmm token → gap
+## 8. Mapping table — website token → closest HitIt token → gap
 
-| Website token/effect | Value | Closest v4vmm token today | Gap |
+| Website token/effect | Value | Closest HitIt token today | Gap |
 |---|---|---|---|
-| `--accent` (one blue) | `#2d7bff` dark / `#0a5bd6` light | `SemanticColor::Accent` (`#8b9bff` dark / `#007aff` light) | **Smallest gap in this document.** Both are blue. v4vmm's dark accent leans more violet and lighter; its light accent (`#007aff`, iOS blue) is close to the website's `#0a5bd6`. This needs a value tune, not a new role. |
-| `--c-feed`/`--c-track`/`--c-playlist`/`--c-artist`/`--c-label`/`--c-publisher`, and seven more (13-hue entity family) | see §1.2 table | `EntityKind::fill_token()` (`tag_badge.rs`), which reuses `Success`/`Warning`/`Info`/`Danger`/`Accent`/`SystemFill` | **Role conflict, not a missing token.** v4vmm already colors entities by kind, but it borrows the 6-color status palette to do it. `Track` and `Playlist` both resolve to `Info` (one hue for two kinds); `Publisher` resolves to `Danger` (red), which the website reserves for "Live" only. v4vmm has no dedicated identity-color family independent of status meaning, and no `Host`/`Author`/`Producer`/`Network`/`Hosting`/`Sponsor` equivalents at all. |
-| `.kind-dot` (7–8px solid/hollow entity dot) | `background: var(--entity)` or an inset ring | none | **No equivalent.** v4vmm shows entity kind through `TagBadge`, a filled text pill (`"artist"`, `"track"`, …), never a small color dot, and has no "confirmed vs. inferred" visual (solid vs. hollow). |
+| `--accent` (one blue) | `#2d7bff` dark / `#0a5bd6` light | `SemanticColor::Accent` (`#8b9bff` dark / `#007aff` light) | **Smallest gap in this document.** Both are blue. HitIt's dark accent leans more violet and lighter; its light accent (`#007aff`, iOS blue) is close to the website's `#0a5bd6`. This needs a value tune, not a new role. |
+| `--c-feed`/`--c-track`/`--c-playlist`/`--c-artist`/`--c-label`/`--c-publisher`, and seven more (13-hue entity family) | see §1.2 table | `EntityKind::fill_token()` (`tag_badge.rs`), which reuses `Success`/`Warning`/`Info`/`Danger`/`Accent`/`SystemFill` | **Role conflict, not a missing token.** HitIt already colors entities by kind, but it borrows the 6-color status palette to do it. `Track` and `Playlist` both resolve to `Info` (one hue for two kinds); `Publisher` resolves to `Danger` (red), which the website reserves for "Live" only. HitIt has no dedicated identity-color family independent of status meaning, and no `Host`/`Author`/`Producer`/`Network`/`Hosting`/`Sponsor` equivalents at all. |
+| `.kind-dot` (7–8px solid/hollow entity dot) | `background: var(--entity)` or an inset ring | none | **No equivalent.** HitIt shows entity kind through `TagBadge`, a filled text pill (`"artist"`, `"track"`, …), never a small color dot, and has no "confirmed vs. inferred" visual (solid vs. hollow). |
 | Placeholder monogram (`FD`/`TR`/`PB`/`MI`) | 2-letter glyph on a tinted tile | `EntityKind::emoji()` (🎤 🎶 📡 💿 …) | **Different content language**, same job (identify a missing-art row/tile). A redesign following the website would swap emoji for short letter codes — a `Thumbnail`/`Image` fallback change, not a new token. |
-| `--gloss-top`/`--gloss-bottom`/`--gloss-edge`/`--gloss-hi` (selection sheen) | rgba copies of `--accent` | `SemanticColor::SelectedContent` (flat fill, `#2a3352` dark / `#d1e0ff` light) | **Different mechanism for the same state.** Both mark "selected/current," but the website layers a gradient + two inset `box-shadow` highlights from the accent; v4vmm uses one flat color. No gradient or inset-highlight primitive exists to reproduce the sheen. |
-| `--grain` (SVG noise texture) | `mix-blend-mode: overlay`, hero only | none | **No equivalent.** No texture/noise concept exists in v4vmm's token system. |
-| `--art-shadow` (artwork-only drop shadow, 12–48px blur scaled by art size) | `rgba(0,0,0,.5)` dark / `rgba(0,0,0,.18)` light | none | **No shadow token**, but note the website itself shadows only artwork, never chrome — closer to v4vmm's existing restraint (`SurfaceElevation` uses border, not shadow, for chrome) than the discarded marketing page was. The gap is narrower than it first looks: v4vmm would need one new artwork-only shadow token, not a general elevation system. |
-| `backdrop-filter: blur(24px) saturate(180%)` (52px top bar) | `--bar-bg` | none (`FrameShell`/`frame_shell.rs` renders an opaque bar) | **No equivalent**, and no context-sensitive collapse: the website's bar goes fully transparent when the inspector title is empty; v4vmm's frame chrome does not currently vary by content state. |
-| `--bar-h: 52px` | — | `TAB_BAR_HEIGHT` (44px, `src/ui/layouts.rs`) | **Close, not exact.** v4vmm's nearest named bar-height constant is smaller; a redesign would add or adjust a token rather than invent a new family. |
-| Pills, radius = half of control height (22px at 44px tall) | `border-radius: 22px`/`100px` | `Radius::Full` (999px, fixed) | **Matches in outcome.** Both always draw a stadium shape; v4vmm forces it with an oversized constant instead of computing half the height, which is a simpler, already-solved case. |
+| `--gloss-top`/`--gloss-bottom`/`--gloss-edge`/`--gloss-hi` (selection sheen) | rgba copies of `--accent` | `SemanticColor::SelectedContent` (flat fill, `#2a3352` dark / `#d1e0ff` light) | **Different mechanism for the same state.** Both mark "selected/current," but the website layers a gradient + two inset `box-shadow` highlights from the accent; HitIt uses one flat color. No gradient or inset-highlight primitive exists to reproduce the sheen. |
+| `--grain` (SVG noise texture) | `mix-blend-mode: overlay`, hero only | none | **No equivalent.** No texture/noise concept exists in HitIt's token system. |
+| `--art-shadow` (artwork-only drop shadow, 12–48px blur scaled by art size) | `rgba(0,0,0,.5)` dark / `rgba(0,0,0,.18)` light | none | **No shadow token**, but note the website itself shadows only artwork, never chrome — closer to HitIt's existing restraint (`SurfaceElevation` uses border, not shadow, for chrome) than the discarded marketing page was. The gap is narrower than it first looks: HitIt would need one new artwork-only shadow token, not a general elevation system. |
+| `backdrop-filter: blur(24px) saturate(180%)` (52px top bar) | `--bar-bg` | none (`FrameShell`/`frame_shell.rs` renders an opaque bar) | **No equivalent**, and no context-sensitive collapse: the website's bar goes fully transparent when the inspector title is empty; HitIt's frame chrome does not currently vary by content state. |
+| `--bar-h: 52px` | — | `TAB_BAR_HEIGHT` (44px, `src/ui/layouts.rs`) | **Close, not exact.** HitIt's nearest named bar-height constant is smaller; a redesign would add or adjust a token rather than invent a new family. |
+| Pills, radius = half of control height (22px at 44px tall) | `border-radius: 22px`/`100px` | `Radius::Full` (999px, fixed) | **Matches in outcome.** Both always draw a stadium shape; HitIt forces it with an oversized constant instead of computing half the height, which is a simpler, already-solved case. |
 | Radii 4/6/8/10/12px (chrome and small art) | see §1.5 | `Radius::SM` 4, `MD` 6, `LG` 10, `XL` 14 | **Close fit.** 4, 6, and 10 already exist as named tokens. Only 8px (list rows) and 12px (the 232px hero cover) have no matching step; `XL` (14) is unused by anything in `search.html`. |
-| Sidebar `width: clamp(280px, 24vw, 340px)` | — | `INSPECTOR_WIDTH` 360px (a different pane, v4vmm's right-hand detail rail) | **No matching left-rail width token.** v4vmm's closest named width governs the opposite pane (its inspector sits on the right, not a fixed-width search rail on the left). |
-| `cover-grid` 150px auto-fill tiles / `row-grid` 280px auto-fill rows | — | `Size::ContentTileArtwork` 152px / `FEED_TILE_WIDTH` 140px / `SEARCH_TILE_WIDTH` 168px | **Close fit.** v4vmm's existing tile tokens are within a few px of the website's; this is a value check, not a new token. |
-| Content row heights: 52px (`result-item`), 56px (`track-row`), 64px (`playlist-row`) | — | `Size::RowMd` 36px, `Size::RowLg` 44px | **v4vmm's rows run shorter.** Even the tallest named row token (44px) is below the website's shortest content row (52px); a redesign needs a new, taller row-height step. |
+| Sidebar `width: clamp(280px, 24vw, 340px)` | — | `INSPECTOR_WIDTH` 360px (a different pane, HitIt's right-hand detail rail) | **No matching left-rail width token.** HitIt's closest named width governs the opposite pane (its inspector sits on the right, not a fixed-width search rail on the left). |
+| `cover-grid` 150px auto-fill tiles / `row-grid` 280px auto-fill rows | — | `Size::ContentTileArtwork` 152px / `FEED_TILE_WIDTH` 140px / `SEARCH_TILE_WIDTH` 168px | **Close fit.** HitIt's existing tile tokens are within a few px of the website's; this is a value check, not a new token. |
+| Content row heights: 52px (`result-item`), 56px (`track-row`), 64px (`playlist-row`) | — | `Size::RowMd` 36px, `Size::RowLg` 44px | **HitIt's rows run shorter.** Even the tallest named row token (44px) is below the website's shortest content row (52px); a redesign needs a new, taller row-height step. |
 | Figtree, self-hosted, one variable file, weight range 300–900 | `assets/fonts/figtree-latin*.woff2` | `.SystemUIFont` (platform default; no custom font loaded) | **No font loaded.** Unlike the discarded marketing page, the real site both ships and uses Figtree, so there is no open question about whether it is a variable font — it is one, confirmed by `font-weight: 300 900` in the `@font-face` rule. See §4 for what loading it would take. |
-| Hero title `font-weight: 800`, section heading `700` | — | `Weight::Bold` (`FontWeight::BOLD`) | **Matches well.** Unlike the discarded marketing page's 100–300 ultralight display type, the real site's heaviest text sits at 700–800, inside v4vmm's existing `Weight` range. |
+| Hero title `font-weight: 800`, section heading `700` | — | `Weight::Bold` (`FontWeight::BOLD`) | **Matches well.** Unlike the discarded marketing page's 100–300 ultralight display type, the real site's heaviest text sits at 700–800, inside HitIt's existing `Weight` range. |
 
 ---
 
-## Three biggest gaps between the website look and v4vmm's token system
+## Three biggest gaps between the website look and HitIt's token system
 
-1. **v4vmm's entity colors carry status meaning; the website's do not.**
+1. **HitIt's entity colors carry status meaning; the website's do not.**
    `EntityKind::fill_token()` reuses `Success`/`Warning`/`Info`/`Danger`/`Accent`
    for identity color, so `Track` and `Playlist` share one hue (`Info`), and
    `Publisher` inherits `Danger` (red) — a color the website keeps reserved
@@ -727,24 +727,24 @@ value in a screen or composite file.
    family in `tokens.rs`, not a remap of the existing status roles, plus new
    `contrast.rs` pairs for every hue against every surface tier.
 
-2. **v4vmm has no selection "sheen," no texture, and no artwork-only
+2. **HitIt has no selection "sheen," no texture, and no artwork-only
    shadow.** The website marks a selected or current row with a layered
    gradient and two inset highlights built from `--accent`
    (`--gloss-top/bottom/edge/hi`), textures its hero with a real SVG noise
    layer (`--grain`), and shadows artwork alone, scaling the blur to the art's
-   size (`--art-shadow`, 12–48px). `SelectedContent` in v4vmm is one flat
+   size (`--art-shadow`, 12–48px). `SelectedContent` in HitIt is one flat
    color, there is no texture concept, and no artwork-only shadow token
    exists (`SurfaceElevation` shadows nothing at all). The artwork-shadow gap
    is narrow — one new token, scoped to `Thumbnail`/`Image` — but the sheen
    and the grain are each a new rendering primitive, not a value change.
 
-3. **v4vmm's identity visuals (dot, monogram, pill) and row heights differ
+3. **HitIt's identity visuals (dot, monogram, pill) and row heights differ
    from the website's.** The website marks entity kind with a small color
-   dot (hollow when inferred) and a two-letter monogram placeholder; v4vmm
+   dot (hollow when inferred) and a two-letter monogram placeholder; HitIt
    uses a filled text `TagBadge` pill and an emoji fallback — a different
    content language for the same job, which a redesign could swap without a
    new token family. Separately, the website's content rows (52–64px) run
-   taller than v4vmm's tallest named row token (`Size::RowLg`, 44px), so
+   taller than HitIt's tallest named row token (`Size::RowLg`, 44px), so
    adopting the look also means a new, taller row-height step. Both changes
    stay inside the existing kinds of token (`SemanticColor` for the dot,
    `Size` for the row), unlike gap 2's new primitives.

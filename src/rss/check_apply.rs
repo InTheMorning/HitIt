@@ -1123,7 +1123,7 @@ fn write_reader_revision(conn: &Connection, feed_id: i64) -> Result<()> {
         LocalMetadataOwner::Feed(feed_id),
         crate::local_metadata::RSS_READER_REVISION_FACT,
         Some(LocalMetadataValue::Integer(RSS_READER_REVISION)),
-        "v4vmm reader revision",
+        "hitit reader revision",
     )
 }
 

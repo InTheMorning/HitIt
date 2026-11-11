@@ -331,11 +331,11 @@ cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test --test architecture_tests
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
-Run `cargo build --bin v4vmm` last. `cargo test` can leave a binary with GPUI test support at
-`target/debug/v4vmm`.
+Run `cargo build --bin hitit` last. `cargo test` can leave a binary with GPUI test support at
+`target/debug/hitit`.
 
 ## Rollback
 
@@ -404,8 +404,8 @@ Stop and report the problem, and do not guess, when:
 The check needs a desktop session, the built app, network access to `https://api.musicindex.org`
 and a Library with the album "Survival Guide". Steps 7 to 11 make MusicIndex not reachable.
 
-1. Build the app: `cd ~/build/v4vmm && cargo build --bin v4vmm`.
-2. Start the app: `./target/debug/v4vmm`.
+1. Build the app: `cd ~/build/v4vmm && cargo build --bin hitit`.
+2. Start the app: `./target/debug/hitit`.
 3. Open the Music tab. Click Discover in the sidebar.
 4. V1: click in the toolbar search field. Type `survival` and stop. Do not press Enter.
    - Look at: the 2 Library rows show after the pause. Three loading rows show under them. In
@@ -420,9 +420,9 @@ and a Library with the album "Survival Guide". Steps 7 to 11 make MusicIndex not
    - Wrong: a row shows two times, or the Index rows do not show.
 7. V4: close the app.
 8. Copy the configuration:
-   `cp ~/.config/v4vmm/config.toml ~/.config/v4vmm/config.toml.v4-check`.
-9. In `~/.config/v4vmm/config.toml`, set `musicindex_endpoint = "http://127.0.0.1:9"`.
-10. Start the app: `./target/debug/v4vmm`. Open Discover.
+   `cp ~/.config/hitit/config.toml ~/.config/hitit/config.toml.v4-check`.
+9. In `~/.config/hitit/config.toml`, set `musicindex_endpoint = "http://127.0.0.1:9"`.
+10. Start the app: `./target/debug/hitit`. Open Discover.
 11. Type `haleen`, wait 1 s, then type ` d`. Stop.
    - Look at: one error shows after the Library rows, for `haleen d` only.
    - Wrong: two errors show, or the error names `haleen`.
@@ -431,7 +431,7 @@ Cleanup:
 
 1. Close the app.
 2. Restore the configuration:
-   `mv ~/.config/v4vmm/config.toml.v4-check ~/.config/v4vmm/config.toml`.
+   `mv ~/.config/hitit/config.toml.v4-check ~/.config/hitit/config.toml`.
 3. Start the app and delete the text in the search field.
 
 The check changes no stored data. Step 9 changes the configuration file. Step 2 of the cleanup

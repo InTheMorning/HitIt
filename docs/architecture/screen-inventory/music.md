@@ -1,6 +1,6 @@
 # Music Section Screen Inventory
 
-Scope: the Music section of v4vmm. This covers the toolbar search and its
+Scope: the Music section of HitIt. This covers the toolbar search and its
 result tabs. It covers the Index feed and track pages, the Library, and the
 Library album and track pages. It covers playlist pages, publisher pages,
 artist and name-match pages, and the Music popups and dialogs. This is a

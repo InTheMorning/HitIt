@@ -202,7 +202,7 @@ Owner text alone cannot supply a verified publisher relationship.
 [ADR 0077](../adr/0077-publisher-feed-artist-binding.md) owns artist binding. It uses the publisher feed GUID and never name text.
 
 Packet 006's accepted artist selection remains separate: select declared artist text before any labeled feed fallback.
-Do not derive new artist identities from owner text, contributor names, or platform URL slugs in v4vmm.
+Do not derive new artist identities from owner text, contributor names, or platform URL slugs in HitIt.
 Unknown upstream derivation remains unknown. Retaining its scalar does not certify that derivation.
 
 ## Proposed Artist Sort Rules

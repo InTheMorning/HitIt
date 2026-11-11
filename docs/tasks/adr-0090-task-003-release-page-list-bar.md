@@ -136,7 +136,7 @@ These criteria need a person in a desktop session. They are open.
   and 0 failed. The first run had one failure. A guard needle had a space that the
   compact source does not keep. The needle is fixed, and the guard passes.
 - `cargo test --test architecture_tests`: 407 passed, 0 failed.
-- `touch src/main.rs src/lib.rs && cargo build --bin v4vmm`: finished.
+- `touch src/main.rs src/lib.rs && cargo build --bin hitit`: finished.
 - The app was not run. The visual list above is open.
 - The shared STE linter reports 40 findings, the same count as the finished task 002.
   The findings are dictionary and heuristic checks. The sentence length of the position

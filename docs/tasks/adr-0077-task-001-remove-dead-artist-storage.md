@@ -121,7 +121,7 @@ cargo test
 cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 Report each result. Say "Green" for a passing check.
@@ -243,7 +243,7 @@ The existing MusicBrainz tests pass without change.
 | `cargo test --test architecture_tests` | Green, 272 guards |
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 ## Operator Visual Check
 
@@ -253,15 +253,15 @@ It needs no network service and no audio hardware.
 The new binary upgrades the configured database to version 13 when it opens. Migration 13 deletes the artist rows.
 The in-app ADR 0066 **Back up database** action runs only after that upgrade. Thus make the backup with SQLite while the app is closed.
 
-1. Close v4vmm. Find the configured database path:
+1. Close HitIt. Find the configured database path:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db"
    ```
 
-   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/v4vmm/config.toml`.
+   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/hitit/config.toml`.
 2. Record the schema version and the artist rows:
 
    ```bash
@@ -289,8 +289,8 @@ The in-app ADR 0066 **Back up database** action runs only after that upgrade. Th
 5. Build and open the app:
 
    ```bash
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 6. Open **Music**. In the Library artist list, click the name from step 4.
@@ -308,7 +308,7 @@ The in-app ADR 0066 **Back up database** action runs only after that upgrade. Th
     ```bash
     sqlite3 "$db" "SELECT version, name FROM schema_migrations WHERE version = 13;"
     sqlite3 "$db" "SELECT name FROM sqlite_schema WHERE name LIKE '%artist_source%';"
-    ls -d "$(dirname "$db")"/.v4vmm-upgrade-*
+    ls -d "$(dirname "$db")"/.hitit-upgrade-*
     ```
 
     Expect `13|drop_artist_storage`, no table name, and one app preservation directory. The app wrote that directory before the upgrade.
@@ -333,4 +333,4 @@ After acceptance, remove the files that this check made:
 rm -i "$backup" "$db.after-adr-0079.sqlite"
 ```
 
-The app preservation directory `.v4vmm-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.
+The app preservation directory `.hitit-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.

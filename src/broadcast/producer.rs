@@ -33,7 +33,7 @@ pub const EMBEDDED_ID3_ROUTES_SOURCE: &str = "embedded-id3";
 /// Readiness reason retained when a playing track has no embedded route tag.
 pub const MISSING_VALUE_ROUTES_TAG_REASON: &str = "missing embedded MusicIndex Value Routes tag";
 /// Operator warning emitted before app shutdown clears the mpv source file.
-pub const SHUTDOWN_WARNING: &str = "v4vmm::broadcast: closing v4vmm removes the mpv now-playing drop file; publisher output for the built-in player stops.";
+pub const SHUTDOWN_WARNING: &str = "hitit::broadcast: closing HitIt removes the mpv now-playing drop file; publisher output for the built-in player stops.";
 
 const FEED_GUID_KEY: &str = "Feed Guid";
 const IMAGE_KEY: &str = "Image";
@@ -92,7 +92,7 @@ impl DropFileProducer {
     pub(crate) fn prepare_directory(&self) -> Result<()> {
         fs::create_dir_all(&self.drop_directory).context("prepare producer directory")?;
         let probe = self.drop_directory.join(format!(
-            ".v4vmm-producer-probe-{}-{}",
+            ".hitit-producer-probe-{}-{}",
             std::process::id(),
             PREPARATION_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
@@ -102,7 +102,7 @@ impl DropFileProducer {
             .open(&probe)
             .context("create producer write probe")?;
         let written = file
-            .write_all(b"v4vmm producer probe")
+            .write_all(b"hitit producer probe")
             .context("write producer probe");
         drop(file);
         fs::remove_file(&probe)

@@ -141,7 +141,7 @@ cargo test
 cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 Report each result. Say "Green" for a passing check.
@@ -348,7 +348,7 @@ The first full run had one failure in a packet 004 test: `runtime::tag_update::t
 | `cargo test --test architecture_tests` | Green, 279 guards |
 | `cargo fmt -- --check` | Green |
 | `cargo clippy -- -D warnings` | Green |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred.
 
@@ -366,15 +366,15 @@ It also adds two fixture playlists. Track `T3` is two times in the first playlis
 
 **"Remove from library" deletes the audio file.** This check opens its confirmation and then cancels it. Do not confirm it.
 
-1. Close v4vmm. Find the configured database path:
+1. Close HitIt. Find the configured database path:
 
    ```bash
    cd /home/citizen/build/v4vmm
-   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/v4vmm/config.toml)
+   db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db"
    ```
 
-   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/v4vmm/config.toml`.
+   An empty line is wrong. Set `db` to the `db_path` value from `~/.config/hitit/config.toml`.
 2. Record the schema version:
 
    ```bash
@@ -394,8 +394,8 @@ It also adds two fixture playlists. Track `T3` is two times in the first playlis
 4. Build and open the app once, so that migration 17 runs. Then close it:
 
    ```bash
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    sqlite3 "$db" "SELECT version, name FROM schema_migrations WHERE version = 17;"
    ```
 
@@ -403,7 +403,7 @@ It also adds two fixture playlists. Track `T3` is two times in the first playlis
 5. Record the readiness state before the fixture:
 
    ```bash
-   ./target/debug/v4vmm broadcast readiness --json > /tmp/adr-0076-task-003-before.json
+   ./target/debug/hitit broadcast readiness --json > /tmp/adr-0076-task-003-before.json
    python3 -c 'import collections, json, sys; print(collections.Counter(t["state"] for t in json.load(open(sys.argv[1]))["tracks"]))' /tmp/adr-0076-task-003-before.json
    ```
 
@@ -439,7 +439,7 @@ It also adds two fixture playlists. Track `T3` is two times in the first playlis
 8. Open the app:
 
    ```bash
-   ./target/debug/v4vmm
+   ./target/debug/hitit
    ```
 
 9. **V1 - the readiness rows.** Open **Show**. On the **Source** card, click **Open**. The Music readiness list opens.
@@ -518,4 +518,4 @@ After acceptance, remove the files that this check made:
 rm -i "$backup" "$db.after-adr-0076-task-003.sqlite" "$db.adr-0076-task-003-route.txt" /tmp/adr-0076-task-003-before.json /tmp/adr-0076-task-003-ready.txt
 ```
 
-The app preservation directory `.v4vmm-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.
+The app preservation directory `.hitit-upgrade-*` beside the database is an ADR 0066 artifact. Keep it, or remove it with the other upgrade backups.

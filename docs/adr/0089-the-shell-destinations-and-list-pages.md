@@ -106,7 +106,7 @@ The scope of Releases and Artists is the segmented control "All | In Library", b
 - All holds the Index items and the Library items. Each Library item keeps its state.
 - In Library holds what is downloaded, downloading or failed.
 - A release that the curator removed shows only in All.
-- In Library shows a count. All shows no count, because the Index gives no total. [Open request 13](../plans/v4vmm-open-requests.md) asks for a total.
+- In Library shows a count. All shows no count, because the Index gives no total. [Open request 13](../plans/hitit-open-requests.md) asks for a total.
 - With the sort Newest, Releases groups the singles of one artist by the window of ADR 0086. With the sort A to Z, it uses the group of ADR 0084 Decision 6.
 
 ### 6. A Row Keeps One Main Action

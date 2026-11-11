@@ -240,7 +240,7 @@ post-run preservation inspection and operator fixture cleanup pass.
 ### Operator Evidence — 2026-09-11
 
 The operator supplied the Background tools report from
-`/tmp/v4vmm-startup-6rsrpoyp`. Its four observations are recorded at
+`/tmp/hitit-startup-6rsrpoyp`. Its four observations are recorded at
 `2026-09-11 12:06:06 UTC`:
 
 - App started its background runtime, explicitly without claiming external
@@ -273,7 +273,7 @@ fixture cleanup is recorded; presentation acceptance is recorded below.
 The operator subsequently reported that the original fixture's `fixture.json`
 was missing. Fixture discovery found no verified replacement. The cause of the
 missing fixture is not established. The agent created
-`/tmp/v4vmm-startup-yz5928gu`, selected `presentation-invalid`, and verified its
+`/tmp/hitit-startup-yz5928gu`, selected `presentation-invalid`, and verified its
 baseline preservation without opening the app. The earlier report and inspection
 evidence remains recorded. This replacement is retained for the operator's
 remaining checks. The runbook now explicitly keeps cleanup after all five cases.

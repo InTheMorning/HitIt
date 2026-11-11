@@ -40,7 +40,7 @@ const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
 /// agent: `files.catbox.moe` resets the stream, and `hogstory.net` gives 400
 /// (walk of 2026-11-07). A caller such as the MusicBrainz lookup can set its
 /// own agent after the builder.
-const USER_AGENT: &str = concat!("v4vmm/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("hitit/", env!("CARGO_PKG_VERSION"));
 
 /// ADR 0075 uses this duration for the complete observed request.
 pub(crate) const fn document_timeout() -> Duration {

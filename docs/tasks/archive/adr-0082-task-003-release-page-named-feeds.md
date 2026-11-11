@@ -34,7 +34,7 @@ No release page and no track page shows the word "Publisher".
 - `set_music_to_publisher_remote` (`src/db/publisher_relationships.rs`) writes the one `podcast:publisher` remote item of a checked RSS document (ADR 0076 packet 002).
 - Schema version 18 is current.
 - Stophammer release 0.11.0, deployed on 2026-10-18, gives `album_names_rank` on each publisher entry, in the two directions. Packet 008 decodes it. This packet keeps the position of `remote_items`, as ADR 0085 states.
-- The release record of the [open requests](../../plans/v4vmm-open-requests.md#release-0110---2026-10-18) says that 6 albums name two feeds. Each one names the artist first and Sir Libre Records second. These albums are the candidates for V1.
+- The release record of the [open requests](../../plans/hitit-open-requests.md#release-0110---2026-10-18) says that 6 albums name two feeds. Each one names the artist first and Sir Libre Records second. These albums are the candidates for V1.
 
 ## Design
 

@@ -59,8 +59,8 @@ files can be moved into `music_dir` and downloaded again.
    reached. Follow the route that ADR 0062 and ADR 0059 task 012 established.
 4. Add a row action that removes one repair row, and one that removes them all.
    Both are operator actions. Nothing removes a row on its own.
-5. Add `v4vmm library repairs list --json` and
-   `v4vmm library repairs clear` to the CLI.
+5. Add `hitit library repairs list --json` and
+   `hitit library repairs clear` to the CLI.
 6. Show a count in `Settings`, beside the music folder, so an operator who
    changes the folder sees the result of that change.
 7. Add view-model tests:
@@ -79,7 +79,7 @@ Mechanical, proved by a test:
 - A row carries the old path and the track title.
 - Removing one row leaves the others, and nothing removes a row without an
   operator action.
-- `v4vmm library repairs list --json` prints the rows.
+- `hitit library repairs list --json` prints the rows.
 - The guard blocks a repair list inside `Show`.
 
 Visual, operator only:

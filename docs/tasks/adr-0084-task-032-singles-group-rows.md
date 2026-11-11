@@ -311,7 +311,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 ```
 
 ## Rollback
@@ -456,7 +456,7 @@ Stop and report the problem, and do not guess, when:
 | `cargo fmt -- --check` | Green |
 | `cargo clippy --all-targets -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 ### Behavior Changed
 
@@ -525,8 +525,8 @@ operator Library holds none.
 
    ```bash
    cd ~/build/v4vmm
-   cargo build --bin v4vmm
-   ./target/debug/v4vmm
+   cargo build --bin hitit
+   ./target/debug/hitit
    ```
 
 2. Open Music, then Releases, in the sidebar. Set the scope to "Everything". Open a singles group

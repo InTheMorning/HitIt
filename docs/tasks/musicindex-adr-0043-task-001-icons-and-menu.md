@@ -4,7 +4,7 @@ Status: Implemented on 2026-11-06. The visual check is open.
 
 ## Goal
 
-The two icons of R-LIST-7 exist in `musicindex-assets` and v4vmm. A menu entry has the text color, and only its check mark has the accent color (R-LIST-6 item 3).
+The two icons of R-LIST-7 exist in `musicindex-assets` and HitIt. A menu entry has the text color, and only its check mark has the accent color (R-LIST-6 item 3).
 
 ## Files To Inspect
 
@@ -19,7 +19,7 @@ The two icons of R-LIST-7 exist in `musicindex-assets` and v4vmm. A menu entry h
 
 Mechanical:
 
-- `python3 scripts/check.py verify` passes in `musicindex-assets`, and `compare` passes for v4vmm.
+- `python3 scripts/check.py verify` passes in `musicindex-assets`, and `compare` passes for HitIt.
 - `IconName` has the two icons, and a test proves that each one resolves to a copied asset.
 - A test proves that a menu entry that is not destructive has the `Label` color and that its check mark has `Accent`.
 

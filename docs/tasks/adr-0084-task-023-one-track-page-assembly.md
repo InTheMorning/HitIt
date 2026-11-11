@@ -235,7 +235,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo check --all-targets
-cargo build --bin v4vmm
+cargo build --bin hitit
 ```
 
 ## Rollback
@@ -291,7 +291,7 @@ Acceptance criteria:
 - The packet has an "Implementation Result - 2026-10-20" section and an "Operator Visual Check" section for V1 to V5.
 
 Test commands:
-- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin v4vmm` last.
+- The commands in "Checks", with `cargo fmt -- --check` after the last edit and `cargo build --bin hitit` last.
 
 At the end, report:
 1. files changed
@@ -361,7 +361,7 @@ The session completed Part A and Part B.
 | `cargo fmt -- --check` | Green |
 | `cargo clippy --all-targets -- -D warnings` | Green |
 | `cargo check --all-targets` | Green, no warning |
-| `cargo build --bin v4vmm` | Green |
+| `cargo build --bin hitit` | Green |
 
 No application launch and no production-data change occurred.
 
@@ -404,7 +404,7 @@ This check needs a Linux desktop session, this checkout and a connection to `Mus
 - An Index track that is not in the Library, with no date of its own. Its feed has a website or a Nostr key, and a publication date.
 - For V3, an Index track with a website or a Nostr key of its own.
 
-1. Build the app: `cargo build --bin v4vmm`. Then start `target/debug/v4vmm` from a desktop session.
+1. Build the app: `cargo build --bin hitit`. Then start `target/debug/hitit` from a desktop session.
 2. Open Music in the sidebar.
 
 ### V1: A Library track page
@@ -448,4 +448,4 @@ This check needs a Linux desktop session, this checkout and a connection to `Mus
 
 **Wrong if:** a part of V1 or V2 moves from its position, or a text is clipped.
 
-**Cleanup:** step 15 adds one release to the Library. Remove it if you do not want it. Do not delete `/tmp/v4vmm-governance.ie6k8TQf`.
+**Cleanup:** step 15 adds one release to the Library. Remove it if you do not want it. Do not delete `/tmp/hitit-governance.ie6k8TQf`.

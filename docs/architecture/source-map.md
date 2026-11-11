@@ -1,10 +1,10 @@
-# v4vmm Source Map
+# HitIt Source Map
 
 ## Source Minimap
 
 When you need to look something up, consult this map first to find the right file.
 
-### v4vmm source (`src/`)
+### HitIt source (`src/`)
 
 | What you need | File |
 |---------------|------|
@@ -166,7 +166,7 @@ Each ADR phase must pass all four checks above before proceeding.
 
 ## Architecture Overview
 
-`v4vmm` is a single-binary Rust desktop app (GPUI frontend) with a small CLI surface. It is **not** a general-purpose media player or tag editor — it manages a MusicIndex-backed music library stored in a local SQLite database.
+`hitit` is a single-binary Rust desktop app (GPUI frontend) with a small CLI surface. It is **not** a general-purpose media player or tag editor — it manages a MusicIndex-backed music library stored in a local SQLite database.
 
 ### Data sources (kept separate, not merged)
 
@@ -180,7 +180,7 @@ Each ADR phase must pass all four checks above before proceeding.
 | Module | Role |
 |--------|------|
 | `db.rs` | All SQLite schema, row types (`FeedRow`, `TrackRow`, `PlaybackSessionRow`), and queries |
-| `config.rs` | `Config` struct, `~/.config/v4vmm/config.toml` read/write |
+| `config.rs` | `Config` struct, `~/.config/hitit/config.toml` read/write |
 | `api.rs` | MusicIndex HTTP client |
 | `rss/` | RSS fetch, parse, Podcasting 2.0 extensions |
 | `audio_tags.rs` | ID3v2.4 read/write; `lofty` for non-MP3 formats |

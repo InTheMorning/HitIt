@@ -3139,6 +3139,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
+name = "hitit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "chrono",
+ "directories",
+ "encoding_rs",
+ "gpui-base",
+ "gpui-component",
+ "gpui-kit-assets",
+ "gpui-pre",
+ "gpui-pre-platform",
+ "html5ever",
+ "icu_collator",
+ "icu_locale_core",
+ "id3",
+ "image",
+ "lofty",
+ "lru",
+ "markup5ever_rcdom",
+ "mime",
+ "musicindex-search",
+ "open",
+ "quick-xml 0.37.5",
+ "reqwest",
+ "roxmltree 0.21.1",
+ "rss",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sys-locale",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "toml 1.0.3+spec-1.1.0",
+ "ttf-parser",
+]
+
+[[package]]
 name = "hkdf"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7693,47 +7734,6 @@ dependencies = [
  "serde_core",
  "sha1_smol",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "v4vmm"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "chrono",
- "directories",
- "encoding_rs",
- "gpui-base",
- "gpui-component",
- "gpui-kit-assets",
- "gpui-pre",
- "gpui-pre-platform",
- "html5ever",
- "icu_collator",
- "icu_locale_core",
- "id3",
- "image",
- "lofty",
- "lru",
- "markup5ever_rcdom",
- "mime",
- "musicindex-search",
- "open",
- "quick-xml 0.37.5",
- "reqwest",
- "roxmltree 0.21.1",
- "rss",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "sys-locale",
- "tempfile",
- "tokio",
- "tokio-util",
- "toml 1.0.3+spec-1.1.0",
- "ttf-parser",
 ]
 
 [[package]]

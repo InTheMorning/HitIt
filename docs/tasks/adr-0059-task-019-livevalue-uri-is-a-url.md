@@ -76,12 +76,12 @@ and Stophammer can match the `uri` to a confirming relay.
 - The create response has an optional `socket_io_url` (`src/api.rs:853`). The relay sends the
   relative path `/event?event_id=<event_id>` (`musicindex-live-relay` `src/lib.rs:751`, commit
   `3764bac`). The app does not store it. The relay document `docs/interoperability.md:53` says
-  that `v4vmm` stores the create response fields. That statement is not correct for this app.
+  that `hitit` stores the create response fields. That statement is not correct for this app.
 - The relay makes an event identifier with `random_urlsafe` (`musicindex-live-relay`
   `src/lib.rs:2079`). The relay registers the Socket.IO namespace `/event` at the root
   (`src/lib.rs:1970`, `:3494`).
 - An event that the operator reserved from a terminal is not in the app registry (delivery
-  order, "A `v4vmm` packet for reserving a durable live item"). The app cannot show a tag for
+  order, "A `hitit` packet for reserving a durable live item"). The app cannot show a tag for
   it. The runbook gives the form for that case.
 
 ### Documents that show the old form
@@ -197,7 +197,7 @@ All of these changes go in one commit.
    built by task 019" to the scope of ADR 0059.
 8. `docs/runbooks/broadcast-operations.md`: replace the example at `:47-49` with
    `<podcast:liveValue uri="https://api.musicindex.org/event?event_id=EVENT_ID" protocol="socket.io"/>`.
-   Say that the host is the relay endpoint of the event, from `v4vmm broadcast events list
+   Say that the host is the relay endpoint of the event, from `hitit broadcast events list
    --json`, without its path. Say that the operator builds this form by hand for an event that
    the operator reserved from a terminal. Change step 3 at `:153` to "Update the `uri` of the
    RSS `podcast:liveValue` tag with the new `EVENT_ID`."
@@ -254,7 +254,7 @@ Each criterion here is visual. Only a person can examine it. No test proves it.
 - No schema change, no migration and no new configuration key.
 - No storage of `socket_io_url` (D6).
 - No feed writer. The app does not write the feed (ADR 0059).
-- No reservation of a durable event. That is the `v4vmm` packet of delivery order row 3.
+- No reservation of a durable event. That is the `hitit` packet of delivery order row 3.
 - No check that the relay answers at the URI. The delivery order records that check as future
   work, with a `confirming_relay` question to the relay.
 - No change to the relay repository. Its statement at `docs/interoperability.md:53` is a fact for
@@ -283,7 +283,7 @@ cargo test --test architecture_tests
 cargo fmt -- --check
 cargo clippy --all-targets -- -D warnings
 cargo check --all-targets
-touch src/main.rs && cargo build --bin v4vmm
+touch src/main.rs && cargo build --bin hitit
 python3 docs/runbooks/test_broadcast_event_recovery_fixture.py
 ```
 
@@ -303,9 +303,9 @@ show. They need write access to that feed and a published event.
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --bin v4vmm
-   nm -C target/debug/v4vmm | grep -c TestDispatcher
-   task016_dir=$(mktemp -d /tmp/v4vmm-task016.XXXXXX)
+   cargo build --bin hitit
+   nm -C target/debug/hitit | grep -c TestDispatcher
+   task016_dir=$(mktemp -d /tmp/hitit-task016.XXXXXX)
    python3 docs/runbooks/broadcast-event-recovery-fixture.py setup "$task016_dir"
    python3 docs/runbooks/broadcast-event-recovery-fixture.py serve "$task016_dir"
    ```
@@ -319,7 +319,7 @@ show. They need write access to that feed and a published event.
    if task016_dir=$(python3 docs/runbooks/broadcast-event-recovery-fixture.py locate) &&
       python3 docs/runbooks/broadcast-event-recovery-fixture.py verify "$task016_dir"; then
      env XDG_CONFIG_HOME="$task016_dir/config" PATH="$task016_dir/bin:$PATH" \
-       ./target/debug/v4vmm &
+       ./target/debug/hitit &
      task016_app_pid=$!
    fi
    ```
@@ -354,10 +354,10 @@ show. They need write access to that feed and a published event.
    unset task016_dir task016_app_pid
    ```
 
-8. Start the normal app with `./target/debug/v4vmm`. Open Show, then Live Metadata. Select the
+8. Start the normal app with `./target/debug/hitit`. Open Show, then Live Metadata. Select the
    event of the show. Click More, then "Copy feed tag".
    **Wrong if:** the host of the `uri` is not the relay endpoint that
-   `./target/debug/v4vmm broadcast events list --json` gives for that event.
+   `./target/debug/hitit broadcast events list --json` gives for that event.
 
 9. V4: this step is outside the app. In each RSS feed of a show that holds a
    `podcast:liveValue` tag, replace the old tag with the tag of step 8. Publish the feed. Then
@@ -405,6 +405,6 @@ feed and publish it again.
   R19-09.
 - The runbook `broadcast-operations.md` also tells the operator where to find the relay address
   of an event that the operator reserved from a terminal. That event is not in the output of
-  `v4vmm broadcast events list --json`.
+  `hitit broadcast events list --json`.
 - The tag of the fixture event in step 4 is
   `<podcast:liveValue uri="http://127.0.0.1:17863/event?event_id=fixture-event-1" protocol="socket.io"/>`.

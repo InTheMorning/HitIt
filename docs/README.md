@@ -168,7 +168,7 @@ Current plans:
   HIG completeness work such as search suggestions, sidebar show/hide, Liquid
   Glass materials, keyboard coverage, and per-log following/reading positions
 - [Reserved event safety request](plans/reserved-event-safety-request.md):
-  the publisher asks v4vmm to keep a reserved live event and its token safe
+  the publisher asks HitIt to keep a reserved live event and its token safe
   from Attach, Replace and forget. Open
 - [Research UI shell and search request](plans/research-ui-shell-and-search-request.md):
   the research repository gives the stack shell, the destinations, sort,
@@ -181,13 +181,13 @@ Current plans:
   answered: ADR 0091 moves the parser. Shared response types, request 11 and
   the four client results are open
 - [Live segment request](plans/live-segment-request.md): the publisher asks
-  v4vmm to start a talk break or a live set through the `segment` commands,
+  HitIt to start a talk break or a live set through the `segment` commands,
   with a split for each show, and to decide the custody of the token. Open
 - [Episode export request](plans/episode-export-request.md): the publisher
-  asks v4vmm to record an ADR that exports an episode from the show log of
+  asks HitIt to record an ADR that exports an episode from the show log of
   publisher ADR 0017, with chapters, value time splits and art. Open
 - [MusicIndex Image tag request](plans/musicindex-image-tag-request.md):
-  the publisher asks v4vmm to write `TXXX:MusicIndex Image`, the artwork URL
+  the publisher asks HitIt to write `TXXX:MusicIndex Image`, the artwork URL
   of a track. Decided as ADR 0080 Decision 9
 - [Broadcast chain delivery order](plans/broadcast-chain-delivery-order.md):
   the only cross-repository order. Read it before starting a session on the

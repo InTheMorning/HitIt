@@ -30,7 +30,7 @@ The stored MusicIndex contract is the contract of Stophammer release 0.18.1. `ap
 3. Add `label: Option<String>` and `url_scheme_added: Option<bool>` to `SourceEntityLink`. Keep the struct defaults.
 4. Pass `label` through `IdentityLinkFact` in `src/views.rs` only if packet 009 needs it. This packet adds no reader.
 5. In `AGENTS.md`, change the stored contract line to name the new file.
-6. Read the section "Release 0.18.1" of [the open requests](../../plans/v4vmm-open-requests.md). Correct it if this packet finds a different fact. Make the same change in the Stophammer copy.
+6. Read the section "Release 0.18.1" of [the open requests](../../plans/hitit-open-requests.md). Correct it if this packet finds a different fact. Make the same change in the Stophammer copy.
 
 ## Do Not Change
 

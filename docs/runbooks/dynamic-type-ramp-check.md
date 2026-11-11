@@ -31,7 +31,7 @@ Do not reuse the retained ADR 0066 task 004 fixture.
 
    ```bash
    cd /home/citizen/build/v4vmm
-   cargo build --locked --offline --bin v4vmm
+   cargo build --locked --offline --bin hitit
    type_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
    python3 docs/runbooks/startup-recovery-fixture.py verify "$type_fixture"
    ```
@@ -49,7 +49,7 @@ Do not reuse the retained ADR 0066 task 004 fixture.
    manifest = json.loads((root / 'fixture.json').read_text())
    assert manifest['root'] == str(root)
    assert root.parent == pathlib.Path('/tmp')
-   assert root.name.startswith('v4vmm-startup-')
+   assert root.name.startswith('hitit-startup-')
    with sqlite3.connect(root / 'data/library.sqlite') as db:
        assert db.execute('SELECT count(*) FROM tracks').fetchone()[0] == 3
        db.execute('UPDATE tracks SET track_title=?, artist_name=? WHERE id=1', (
