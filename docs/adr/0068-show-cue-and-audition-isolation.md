@@ -419,8 +419,8 @@ index until a person supplies these observations and preservation/cleanup result
 
 ## Follow-Up Work
 
-Before implementation, allocate bounded
-packets in the [delivery order](../plans/broadcast-chain-delivery-order.md).
+The [phase plan](../plans/adr-0068-show-cue-and-audition-phase-plan.md) holds the packets and their order.
+The text below is the brief that the plan follows.
 Packet boundaries should cover cue persistence and Show commands, independent
 audition/output ownership, then UI integration and operator verification. Each
 packet must be useful and reviewable on its own; no parallel legacy GUI route

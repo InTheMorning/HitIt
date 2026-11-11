@@ -207,7 +207,7 @@ Each step needs its packet written first. Each new screen uses the design of ste
 
 ### Phase 6: Player And Cue
 
-11. The operator accepted [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) on 2026-11-11. Its packets are written, and an agent diagnoses the mpv IPC error. Then the playback defect of one song that does not change. Then the playback position after a move or a removal of playlist rows (open finding of the ADR 0084 phase plan). ADR 0066 task 004 can then pass, and the configuration-format gate opens for ADR 0069 phase 003 and deferred item 7.
+11. The operator accepted [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) on 2026-11-11. Its packets are written in its [phase plan](adr-0068-show-cue-and-audition-phase-plan.md). Its packet 001 diagnoses the mpv IPC error. Then the playback defect of one song that does not change. Then the playback position after a move or a removal of playlist rows (open finding of the ADR 0084 phase plan). ADR 0066 task 004 can then pass, and the configuration-format gate opens for ADR 0069 phase 003 and deferred item 7.
 
 ### Later
 
