@@ -116,11 +116,10 @@ impl RenderOnce for Checkbox {
         let box_size = Size::CheckboxIndicator.scaled(cx);
         let hit_target = CHECKBOX_HIT_TARGET.scaled(cx);
         let radius = Radius::SM.scaled(cx);
-        // The operator found on 2026-10-19 that the clear box was almost
-        // invisible: `Separator` is a translucent divider color. A control
-        // border needs 3:1 on its surface, and `OpaqueSeparator` meets it
-        // in Light and Dark (`src/ui/contrast.rs`).
-        let border = color(cx, SemanticColor::OpaqueSeparator);
+        // musicindex ADR 0063 R-CHECK-1 item 3: the clear box has its own
+        // border color, with 3:1 on each surface of a box
+        // (`src/ui/contrast.rs`).
+        let border = color(cx, SemanticColor::CheckboxBorder);
         let accent = color(cx, SemanticColor::Accent);
         let on_accent = color(cx, SemanticColor::OnAccent);
 

@@ -99,6 +99,7 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
 
         SemanticColor::Separator => hex(0x7a_7a7a),
         SemanticColor::OpaqueSeparator => hex(0xd0_d0d0),
+        SemanticColor::CheckboxBorder => hex(0xd0_d0d0),
 
         SemanticColor::Accent => hex(0x66_d9ff),
         SemanticColor::AccentHover => hex(0x9a_e8ff),
@@ -182,6 +183,7 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
 
         SemanticColor::Separator => hex(0x76_7676),
         SemanticColor::OpaqueSeparator => hex(0x3a_3a3c),
+        SemanticColor::CheckboxBorder => hex(0x3a_3a3c),
 
         SemanticColor::Accent => hex(0x00_40dd),
         SemanticColor::AccentHover => hex(0x00_53ff),
