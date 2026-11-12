@@ -31,7 +31,7 @@ use crate::db::TrackRow;
 use crate::view_models::live_run::RunGeneration;
 use crate::view_models::search_query::{QueryScope, QueryTerm, SearchQuery};
 
-/// The sentence of v4vmm about its Library rows. It follows the text of a
+/// The sentence of the app about its Library rows. It follows the text of a
 /// note of the crate under the rows (musicindex ADR 0052 R-QUERY-8 item 2,
 /// ADR 0091).
 pub(crate) const INDEX_SKIP_ROWS_TEXT: &str = "The Library rows show.";

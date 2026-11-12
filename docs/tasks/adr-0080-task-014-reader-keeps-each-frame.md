@@ -42,7 +42,7 @@ Visual, listed apart, for the operator to walk:
 
 ## Operator Visual Check
 
-1. Close HitIt. Start `~/build/v4vmm/target/release/hitit`.
+1. Close HitIt. Start `~/build/HitIt/target/release/hitit`.
 2. Wait for the button in the left sidebar. Click **Update n files**.
 3. Wrong: "To be in Nashville" or "The Wait Is Over" shows a frame with `file: no value` that `exiftool -a -G1 -s FILE` shows in the file.
 4. Click **Cancel**.

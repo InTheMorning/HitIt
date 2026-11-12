@@ -1,8 +1,8 @@
-//! The Music search query text of v4vmm (ADR 0087 Decisions 1 and 2, ADR 0091).
+//! The Music search query text of the app (ADR 0087 Decisions 1 and 2, ADR 0091).
 //!
 //! The parser of the query text is the crate `musicindex-search`, module
 //! `query` (musicindex ADR 0049 R-QUERY-1). This module re-exports its names,
-//! so the other files of v4vmm do not change. The module keeps the two scope
+//! so the other files of the app do not change. The module keeps the two scope
 //! rules of ADR 0089 Decision 4. They read and write the Library scope of a
 //! query text, and each range is a byte range on a character boundary.
 //!

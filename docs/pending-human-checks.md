@@ -34,7 +34,7 @@ Run them in a terminal of the i3 desktop session. Each numbered section has a `R
 Close each open HitIt window first. Then build and start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -115,7 +115,7 @@ Open - implementation and mechanical checks recorded 2026-09-11.
 - Run: the runbook section [Task 004](runbooks/startup-recovery-check.md#task-004-optional-tool-isolation) gives each command. It starts with this fixture setup:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 recovery_dir="$(python3 docs/runbooks/startup-recovery-fixture.py setup)"
 python3 docs/runbooks/startup-recovery-fixture.py verify "$recovery_dir"
 ```
@@ -153,7 +153,7 @@ Open - the run closed on 2026-10-23. The Walk Log of the run record shows the ch
 - Run: do "Before A Migration" of the Operator Run Sheet, then start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -284,7 +284,7 @@ Open and paused - implementation and mechanical checks are complete on 2026-09-2
 - Run: build the app, then do the steps of the [Operator Visual Check](tasks/adr-0080-task-002-musicbrainz-url-relations-by-type.md#operator-visual-check) of task 002. They make an isolated database copy:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 ```
 
@@ -301,7 +301,7 @@ Open for macOS only - the operator passed V1, V3 and the Linux part of V2 on 202
 - Run: on a macOS desktop, build and start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -318,7 +318,7 @@ Open - the run closed on 2026-10-24 before the end of its walk. Each check below
 - Run: start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -344,7 +344,7 @@ Open - the run closed on 2026-10-24 after its walk. The operator passed ADR 0084
 - Run: start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -363,7 +363,7 @@ Open - the packets are implemented. The mechanical suite is Green. No person che
 - Run: start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -382,7 +382,7 @@ Open - both packets are implemented on 2026-10-25. The visual checks are not wal
 - Run: for packet 009, close the app, then make MusicIndex not reachable and start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 cp ~/.config/hitit/config.toml ~/.config/hitit/config.toml.v009-check
 sed -i 's|^musicindex_endpoint = .*|musicindex_endpoint = "http://127.0.0.1:9"|' ~/.config/hitit/config.toml
@@ -410,7 +410,7 @@ Open - the packets are implemented, and the mechanical suite is Green. No person
 - Run: start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -434,7 +434,7 @@ Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No
 - Run: do "Before A Migration" of the Operator Run Sheet, then start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```
@@ -473,7 +473,7 @@ Open - the packets below are implemented, and the mechanical suite is Green. The
 - Run: do "Before A Migration" of the Operator Run Sheet, then start the app:
 
 ```bash
-cd ~/build/v4vmm
+cd ~/build/HitIt
 cargo build --bin hitit
 target/debug/hitit &
 ```

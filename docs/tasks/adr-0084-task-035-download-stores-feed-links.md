@@ -267,7 +267,7 @@ needs the Haleen artist feed `64569161` with MusicIndex singles that are not in 
 1. Build and start the debug binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    nm -C target/debug/hitit | grep -c TestDispatcher
    ./target/debug/hitit

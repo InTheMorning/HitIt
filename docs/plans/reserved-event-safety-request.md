@@ -90,4 +90,4 @@ These rules are advisory. They stay until the requests are decided.
   `docs/runbooks/reserved-live-items.md`
 - `musicindex-live-publisher`: `docs/adr/0004-publisher-control-cli.md`,
   `docs/plans/reserved-event-safety.md`
-- v4vmm: ADR 0059, `docs/plans/broadcast-chain-delivery-order.md`
+- HitIt: ADR 0059, `docs/plans/broadcast-chain-delivery-order.md`

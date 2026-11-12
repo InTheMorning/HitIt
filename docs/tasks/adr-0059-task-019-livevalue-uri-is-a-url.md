@@ -302,7 +302,7 @@ show. They need write access to that feed and a published event.
 1. In terminal A, prepare the fixture and start its relay:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --bin hitit
    nm -C target/debug/hitit | grep -c TestDispatcher
    task016_dir=$(mktemp -d /tmp/hitit-task016.XXXXXX)
@@ -315,7 +315,7 @@ show. They need write access to that feed and a published event.
 2. In terminal B, start the app with the fixture configuration:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    if task016_dir=$(python3 docs/runbooks/broadcast-event-recovery-fixture.py locate) &&
       python3 docs/runbooks/broadcast-event-recovery-fixture.py verify "$task016_dir"; then
      env XDG_CONFIG_HOME="$task016_dir/config" PATH="$task016_dir/bin:$PATH" \

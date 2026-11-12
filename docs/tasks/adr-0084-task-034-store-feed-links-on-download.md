@@ -469,7 +469,7 @@ opened as an album page, to exercise V3.
 1. Build and start the binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    ./target/debug/hitit
    ```

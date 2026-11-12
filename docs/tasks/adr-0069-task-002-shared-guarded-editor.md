@@ -302,7 +302,7 @@ No audio hardware, real publisher or public endpoint is required.
    Prepare a new fixture with the following commands:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --locked --offline --quiet --bin hitit
    settings_editor_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
    python3 docs/runbooks/startup-recovery-fixture.py verify "$settings_editor_fixture"

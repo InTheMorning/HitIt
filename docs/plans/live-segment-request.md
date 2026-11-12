@@ -108,5 +108,5 @@ These rules are advisory. They stay until the requests are decided.
   `docs/adr/0016-instances-events-and-producer-lock.md`
 - `musicindex-live-relay`: `docs/adr/0003-display-state-and-artwork.md`,
   `docs/adr/0004-listener-timeline-delay.md`
-- v4vmm: ADR 0059, `docs/plans/reserved-event-safety-request.md`,
+- HitIt: ADR 0059, `docs/plans/reserved-event-safety-request.md`,
   `docs/plans/broadcast-chain-delivery-order.md`

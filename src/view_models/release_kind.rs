@@ -1,7 +1,7 @@
 //! The kind of a release (ADR 0084 Decision 5, ADR 0091 Decision 1).
 //!
 //! The kind rule is the crate `musicindex-search`, module `kind` (musicindex
-//! ADR 0020 R-WORD-1). This module re-exports it, so the uses in v4vmm do not
+//! ADR 0020 R-WORD-1). This module re-exports it, so the uses in the app do not
 //! change. The action labels stay in their own owners.
 
 pub(crate) use musicindex_search::kind::ReleaseKind;

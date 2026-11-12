@@ -524,7 +524,7 @@ operator Library holds none.
 1. Build and start the binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    ./target/debug/hitit
    ```

@@ -76,7 +76,7 @@ python3 docs/runbooks/test_broadcast_event_recovery_fixture.py
 1. In terminal A, prepare the fixture and keep its relay running:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build
    task016_dir=$(mktemp -d /tmp/hitit-task016.XXXXXX)
    python3 docs/runbooks/broadcast-event-recovery-fixture.py setup "$task016_dir"
@@ -88,7 +88,7 @@ python3 docs/runbooks/test_broadcast_event_recovery_fixture.py
    launching the app:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    if task016_dir=$(python3 docs/runbooks/broadcast-event-recovery-fixture.py locate) &&
       python3 docs/runbooks/broadcast-event-recovery-fixture.py verify "$task016_dir"; then
      env XDG_CONFIG_HOME="$task016_dir/config" PATH="$task016_dir/bin:$PATH" \

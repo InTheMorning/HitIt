@@ -629,7 +629,7 @@ and a search query that returns both a Library release and a `MusicIndex`-only r
 1. Build and start the binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    ./target/debug/hitit
    ```

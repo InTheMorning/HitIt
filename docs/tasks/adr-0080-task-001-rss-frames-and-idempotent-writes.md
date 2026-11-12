@@ -273,7 +273,7 @@ No step writes to a file under the real music folder. Only step 6 reads one.
 1. Close HitIt. Build the app:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --bin hitit
    ```
 

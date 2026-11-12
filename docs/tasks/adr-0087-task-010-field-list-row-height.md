@@ -331,7 +331,7 @@ Stop and report the problem, and do not guess, when:
 The check needs a desktop session, the built app and a Library with one or more artists. V3
 needs an artist with a long name, or MusicIndex for more names.
 
-1. Build the app: `cd ~/build/v4vmm && cargo build --release`.
+1. Build the app: `cd ~/build/HitIt && cargo build --release`.
 2. Start the app: `./target/release/hitit`.
 3. Open the Music tab.
 4. V1: click in the empty toolbar search field.

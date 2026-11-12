@@ -354,7 +354,7 @@ in the Library. An example is the group of the walk of 2026-10-24 at 18:13.
 1. Build and start the debug binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    nm -C target/debug/hitit | grep -c TestDispatcher
    ./target/debug/hitit

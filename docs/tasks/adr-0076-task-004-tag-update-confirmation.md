@@ -297,7 +297,7 @@ The fixture changes the title tag of three files. It adds one playback session r
 1. Close HitIt. Set the database path and the music directory:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    music=$(sed -n 's/^music_dir = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db" "$music"

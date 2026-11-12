@@ -158,6 +158,6 @@ could not join its track. The publisher repository corrected this on
   `docs/adr/0010-live-value-payload-reference-shape.md`,
   `docs/adr/0014-one-assembler-and-track-reporting.md`,
   `docs/adr/0015-live-segments-from-v4vmm.md`
-- v4vmm: ADR 0059, `docs/research/broadcast-recording-and-feed-publishing.md`,
+- HitIt: ADR 0059, `docs/research/broadcast-recording-and-feed-publishing.md`,
   `docs/plans/broadcast-chain-delivery-order.md`,
   `docs/plans/live-segment-request.md`

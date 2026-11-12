@@ -351,7 +351,7 @@ Necessary state: a desktop session, a reachable MusicIndex endpoint, and a Libra
 2. Build and start the app:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    ./target/debug/hitit
    ```

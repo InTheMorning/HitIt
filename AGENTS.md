@@ -11,7 +11,7 @@ Governance model: ADR 0061.
 
 ## Where The Work Stands
 
-[ADR 0096](docs/adr/0096-the-app-name-is-hitit.md), Accepted on 2026-11-11, renames the app HitIt with the machine name `hitit`. The GitHub repository `InTheMorning/v4vmm` and the directory `~/build/v4vmm` keep the name v4vmm.
+[ADR 0096](docs/adr/0096-the-app-name-is-hitit.md), Accepted on 2026-11-11, renames the app HitIt with the machine name `hitit`. The GitHub repository is `InTheMorning/HitIt` and the directory is `~/build/HitIt`.
 
 The [overhaul plan](docs/plans/design-and-cleanup-overhaul-plan.md) is the current priority. It orders the
 design and cleanup work in six phases. Phases 1 and 2 are complete. Phase 2 ended with

@@ -93,5 +93,5 @@ After HitIt writes the frame, the publisher repository repeats the probe:
 - `musicindex-live-publisher`: `docs/adr/0002-nowplaying-drop-file-contract.md`,
   `docs/adr/0008-display-path.md`, `docs/tasks/tag-read-task-001-image-tag.md`
 - `musicindex-live-relay`: `docs/adr/0003-display-state-and-artwork.md`
-- v4vmm: `docs/adr/0080-tag-frames-follow-their-owner.md`,
+- HitIt: `docs/adr/0080-tag-frames-follow-their-owner.md`,
   `docs/plans/broadcast-chain-delivery-order.md`

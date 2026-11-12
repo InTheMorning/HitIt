@@ -95,7 +95,7 @@ Do not delete `/tmp/hitit-governance.ie6k8TQf`. Color alone is not a valid diffe
 
 ### What You Need
 
-- A Linux desktop session (X11) and this checkout at `/home/citizen/build/v4vmm`.
+- A Linux desktop session (X11) and this checkout at `/home/citizen/build/HitIt`.
 - The `sqlite3` command and `python3` 3.11 or later.
 - The `flac` command on `PATH` for V2. Without it, write "not run" for V2.
 - Network access to the configured MusicIndex endpoint and to the Delta OG feed host for V2.
@@ -107,7 +107,7 @@ Do not delete `/tmp/hitit-governance.ie6k8TQf`. Color alone is not a valid diffe
 2. Build the desktop binary:
 
    ```bash
-   cd /home/citizen/build/v4vmm && cargo build --bin hitit
+   cd /home/citizen/build/HitIt && cargo build --bin hitit
    ```
 
 3. Make the fixture directory, the database copy and the configuration. The configuration sets its own `db_path` and `music_dir`, and no `flac_path`. Corrected on 2026-10-07: the app rejects `flac_path = false` as a setup issue that pauses configuration saves (ADR 0066).
@@ -127,7 +127,7 @@ Do not delete `/tmp/hitit-governance.ie6k8TQf`. Color alone is not a valid diffe
    open(f"{fx}/config/hitit/config.toml", "w").write("\n".join(head + keep) + "\n")
    EOF
    PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
-   fx_run() { ( export XDG_CONFIG_HOME="$1/config" XDG_DATA_HOME="$1/data" XDG_CACHE_HOME="$1/cache"; shift; /home/citizen/build/v4vmm/target/debug/hitit "$@" ) }
+   fx_run() { ( export XDG_CONFIG_HOME="$1/config" XDG_DATA_HOME="$1/data" XDG_CACHE_HOME="$1/cache"; shift; /home/citizen/build/HitIt/target/debug/hitit "$@" ) }
    ```
 
    The Python command closes its socket when it stops. Thus nothing listens on `$PORT`.
@@ -171,7 +171,7 @@ Do not delete `/tmp/hitit-governance.ie6k8TQf`. Color alone is not a valid diffe
 
    ```bash
    mkdir -p "$FX/bin"; printf '#!/bin/sh\nexit 1\n' > "$FX/bin/ffmpeg"; chmod +x "$FX/bin/ffmpeg"
-   ( export PATH="$FX/bin:$PATH" XDG_CONFIG_HOME="$FX/config" XDG_DATA_HOME="$FX/data" XDG_CACHE_HOME="$FX/cache"; /home/citizen/build/v4vmm/target/release/hitit )
+   ( export PATH="$FX/bin:$PATH" XDG_CONFIG_HOME="$FX/config" XDG_DATA_HOME="$FX/data" XDG_CACHE_HOME="$FX/cache"; /home/citizen/build/HitIt/target/release/hitit )
    ```
 
    Search the Index for "Delta OG". Download the feed.
