@@ -103,20 +103,24 @@ pub struct ContrastPair {
 /// Every text-on-surface or graphic-on-surface combination that the app uses.
 /// Add a new entry whenever a primitive renders a new token pairing.
 pub const REQUIRED_PAIRS: &[ContrastPair] = &[
-    // ADR 0084 Decision 10: the selection checkbox and the keyboard focus
-    // of a list row (operator check of 2026-10-19).
+    // musicindex ADR 0063 R-CHECK-1 item 3: the border of a clear check
+    // box on each surface where a clear box can be. A row or a tile is on
+    // the canvas, and its hover fill is the raised surface. A selected row
+    // or tile has a checked box, which has the accent border.
     ContrastPair {
-        fg: SemanticColor::OpaqueSeparator,
+        fg: SemanticColor::CheckboxBorder,
         bg: SemanticColor::SystemBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "clear selection checkbox border on canvas",
+        note: "clear check box border on canvas",
     },
     ContrastPair {
-        fg: SemanticColor::OpaqueSeparator,
+        fg: SemanticColor::CheckboxBorder,
         bg: SemanticColor::SecondarySystemBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "clear selection checkbox border on raised surface",
+        note: "clear check box border on a hovered row",
     },
+    // ADR 0084 Decision 10: the keyboard focus of a list row (operator
+    // check of 2026-10-19).
     ContrastPair {
         fg: SemanticColor::Focus,
         bg: SemanticColor::SystemBackground,

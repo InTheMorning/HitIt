@@ -110,6 +110,11 @@ pub enum SemanticColor {
     Separator,
     OpaqueSeparator,
 
+    /// The border of a clear check box (musicindex ADR 0063 R-CHECK-1
+    /// item 3 and R-CHECK-5). It has its own value, so a change to the
+    /// separator lines does not change the check box.
+    CheckboxBorder,
+
     // Tint / Accent.
     Accent,
     AccentHover,
@@ -238,6 +243,7 @@ impl SemanticColor {
             // adapts to whatever surface sits behind it.
             Self::Separator => hex_alpha(0xff_ffff, 0.10),
             Self::OpaqueSeparator => hex(0x6a_708a),
+            Self::CheckboxBorder => hex(0x6a_708a),
 
             Self::Accent => hex(0x2d_7bff),
             // Derived: Accent blended 20% toward white (hover) and 20%
@@ -346,6 +352,7 @@ impl SemanticColor {
             // adapts to whatever surface sits behind it.
             Self::Separator => hex_alpha(0x3c_3c43, 0.16),
             Self::OpaqueSeparator => hex(0x8e_8e93),
+            Self::CheckboxBorder => hex(0x7c_7c80),
 
             Self::Accent => hex(0x0a_5bd6),
             // Derived: Accent blended 20% toward white (hover) and 20%
