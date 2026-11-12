@@ -333,7 +333,7 @@ Necessary state: a desktop session and a reachable `MusicIndex` endpoint at `htt
 1. Build and start the binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    ./target/debug/hitit
    ```

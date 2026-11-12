@@ -31,7 +31,7 @@ visible-whitespace support for V3's exact CRLF comparison.
 1. Close the normal app. From a desktop terminal, create a fresh log fixture:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --locked --offline --quiet
    selection_fixture=$(python3 docs/runbooks/log-frame-fixture.py setup)
    python3 docs/runbooks/log-frame-fixture.py verify "$selection_fixture"

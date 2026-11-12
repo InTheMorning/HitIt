@@ -224,7 +224,7 @@ each label changes. A dateless track shows the label with a blank value, not a m
 1. Close HitIt. Build the app:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --bin hitit
    ```
 2. Open your real app:

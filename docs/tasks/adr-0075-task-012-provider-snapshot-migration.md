@@ -307,7 +307,7 @@ No audio hardware, publisher, encoder, or external service is required.
 1. Create the supported interruption in a temporary fixture from the normal binary.
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --locked --offline --quiet --bin hitit
    ADR0075_MIGRATION_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
    python3 docs/runbooks/startup-recovery-fixture.py mode "$ADR0075_MIGRATION_FIXTURE" upgrade-interrupted

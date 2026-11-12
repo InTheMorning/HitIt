@@ -549,7 +549,7 @@ Use a **new** fixture; retain task 004's separate fixture.
 Close the normal app. In a desktop terminal:
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 cargo build --locked --offline --quiet
 session_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py verify "$session_fixture"
@@ -561,7 +561,7 @@ Keep that terminal open. In a second terminal, assign `session_fixture` to the
 exact directory printed by verify, then run:
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 python3 docs/runbooks/startup-recovery-fixture.py session-status "$session_fixture"
 ```
 
@@ -1372,7 +1372,7 @@ The fixture changes no real settings or service units.
 1. Create a fresh isolated fixture and open it. Keep this terminal open.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 cargo build --quiet --bin hitit
 conversion_fixture="$(python3 docs/runbooks/startup-recovery-fixture.py setup)"
 python3 docs/runbooks/startup-recovery-fixture.py mode "$conversion_fixture" conversion-retry
@@ -1390,7 +1390,7 @@ python3 docs/runbooks/startup-recovery-fixture.py run "$conversion_fixture"
    rows. No failed FLAC output should remain in staging.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 conversion_fixture="$(python3 docs/runbooks/startup-recovery-fixture.py locate)"
 python3 docs/runbooks/startup-recovery-fixture.py conversion-status "$conversion_fixture"
 ```
@@ -1502,7 +1502,7 @@ helper running until the preservation inspection finishes.
 1. Create the fixture and open its normal app. Only the operator runs `run`.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 cargo build --locked --offline --quiet --bin hitit
 fixture=$(python3 -B docs/runbooks/startup-recovery-fixture.py setup)
 python3 -B docs/runbooks/startup-recovery-fixture.py mode "$fixture" database-tools
@@ -1530,7 +1530,7 @@ python3 -B docs/runbooks/startup-recovery-fixture.py run "$fixture"
 1. In a second terminal, recover the same fixture path and list its test paths.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 fixture=$(python3 -B docs/runbooks/startup-recovery-fixture.py locate)
 python3 -B docs/runbooks/startup-recovery-fixture.py database-status "$fixture"
 ```
@@ -1566,7 +1566,7 @@ If an existing fixture reports `exclusive_lock_blocks_reader: false`, keep its
 original WAL helper running. In a second terminal, restore only the lock:
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 fixture=$(python3 -B docs/runbooks/startup-recovery-fixture.py locate)
 python3 -B docs/runbooks/startup-recovery-fixture.py database-lock "$fixture"
 ```
@@ -1654,7 +1654,7 @@ inspection passes. Use a fresh fixture for each case below.
    `maintenance_fixture` value for all V1/V2 commands.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 cargo build --locked --offline --quiet --bin hitit
 maintenance_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$maintenance_fixture" database-maintenance
@@ -1686,7 +1686,7 @@ verified backup.
    writer. Confirm `writer_running` and `exclusive_access_blocked` are false.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 maintenance_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py locate)
 python3 docs/runbooks/startup-recovery-fixture.py verify "$maintenance_fixture"
 python3 docs/runbooks/startup-recovery-fixture.py maintenance-release "$maintenance_fixture"
@@ -1735,7 +1735,7 @@ controls, or an inspector failure. Retain the fixture on failure.
    Release the owned writer so the other source remains usable for the check.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 recovery_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$recovery_fixture" database-maintenance-recovery
 python3 docs/runbooks/startup-recovery-fixture.py maintenance-release "$recovery_fixture"
@@ -1796,7 +1796,7 @@ encoder or reachable MusicIndex is required. Do not use a production backup.
 Create the normal fixture. Keep this terminal's variable for V3 and cleanup.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 cargo build --locked --offline --quiet --bin hitit
 RESTORE_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$RESTORE_FIXTURE" database-restore
@@ -1841,7 +1841,7 @@ set the variable to the exact path printed in the first terminal; `locate`
 selects the newest verified startup fixture, so confirm its output.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 RESTORE_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py locate)
 python3 docs/runbooks/startup-recovery-fixture.py verify "$RESTORE_FIXTURE"
 python3 docs/runbooks/startup-recovery-fixture.py restore-status "$RESTORE_FIXTURE"
@@ -1903,7 +1903,7 @@ Use a second fresh fixture with lockable database damage. The configured
 library cannot pass its startup write probe. The chosen backup is still valid.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 RECOVERY_RESTORE_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$RECOVERY_RESTORE_FIXTURE" database-restore-recovery
 python3 docs/runbooks/startup-recovery-fixture.py restore-status "$RECOVERY_RESTORE_FIXTURE"
@@ -1969,7 +1969,7 @@ use the same commands and safety conditions through these pages.
 Create the supported interruption through Rust's migration failure seam.
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 cargo build --locked --offline --quiet --bin hitit
 UPGRADE_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
 python3 docs/runbooks/startup-recovery-fixture.py mode "$UPGRADE_FIXTURE" upgrade-interrupted
@@ -1996,7 +1996,7 @@ python3 docs/runbooks/startup-recovery-fixture.py run "$UPGRADE_FIXTURE"
    only this fixture's installation interruption:
 
 ```bash
-cd /home/citizen/build/v4vmm
+cd /home/citizen/build/HitIt
 UPGRADE_FIXTURE=$(python3 docs/runbooks/startup-recovery-fixture.py locate)
 python3 docs/runbooks/startup-recovery-fixture.py verify "$UPGRADE_FIXTURE"
 python3 docs/runbooks/startup-recovery-fixture.py upgrade-ready "$UPGRADE_FIXTURE"
@@ -2099,7 +2099,7 @@ external service is required. Close each fixture app before starting the other.
 1. Open the repaired fixture with the normal debug binary:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    python3 docs/runbooks/startup-recovery-fixture.py run "$UPGRADE_FIXTURE"
    ```
 

@@ -206,7 +206,7 @@ Necessary state: a desktop session, a reachable `MusicIndex` endpoint, a Library
 1. Build and start the binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    ./target/debug/hitit
    ```

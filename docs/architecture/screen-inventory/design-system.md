@@ -1,24 +1,24 @@
 # HitIt Design System vs. musicindex.org Look
 
 This note maps the musicindex.org website tokens onto the HitIt token system.
-It is a read-only inventory. The work does not change a file in the v4vmm repository.
+It is a read-only inventory. The work does not change a file in the HitIt repository.
 
 Sources read:
-- `/home/citizen/build/v4vmm/AGENTS.md` (durable set, token discipline)
-- `/home/citizen/build/v4vmm/docs/architecture/source-map.md`
-- `/home/citizen/build/v4vmm/src/ui/tokens.rs`
-- `/home/citizen/build/v4vmm/src/ui/theme_profiles.rs`
-- `/home/citizen/build/v4vmm/src/ui/theme_bridge.rs`
-- `/home/citizen/build/v4vmm/src/ui/style.rs`
-- `/home/citizen/build/v4vmm/src/ui/control_styles.rs`
-- `/home/citizen/build/v4vmm/src/ui/contrast.rs`
-- `/home/citizen/build/v4vmm/src/theme_profile.rs`
-- `/home/citizen/build/v4vmm/src/config.rs`
-- `/home/citizen/build/v4vmm/src/app/bootstrap.rs`
-- `/home/citizen/build/v4vmm/src/ui/primitives/*.rs`
-- `/home/citizen/build/v4vmm/src/ui/composites/*.rs`
-- `/home/citizen/build/v4vmm/src/ui/icons.rs`, `src/ui/layouts.rs`
-- `/home/citizen/build/v4vmm/tests/architecture_tests.rs`
+- `/home/citizen/build/HitIt/AGENTS.md` (durable set, token discipline)
+- `/home/citizen/build/HitIt/docs/architecture/source-map.md`
+- `/home/citizen/build/HitIt/src/ui/tokens.rs`
+- `/home/citizen/build/HitIt/src/ui/theme_profiles.rs`
+- `/home/citizen/build/HitIt/src/ui/theme_bridge.rs`
+- `/home/citizen/build/HitIt/src/ui/style.rs`
+- `/home/citizen/build/HitIt/src/ui/control_styles.rs`
+- `/home/citizen/build/HitIt/src/ui/contrast.rs`
+- `/home/citizen/build/HitIt/src/theme_profile.rs`
+- `/home/citizen/build/HitIt/src/config.rs`
+- `/home/citizen/build/HitIt/src/app/bootstrap.rs`
+- `/home/citizen/build/HitIt/src/ui/primitives/*.rs`
+- `/home/citizen/build/HitIt/src/ui/composites/*.rs`
+- `/home/citizen/build/HitIt/src/ui/icons.rs`, `src/ui/layouts.rs`
+- `/home/citizen/build/HitIt/tests/architecture_tests.rs`
 - `/home/citizen/build/musicindex/search.html` (this is the live site. `index.html` is discarded)
 
 ---

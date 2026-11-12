@@ -424,7 +424,7 @@ Stop and report the problem, and do not guess, when:
 The check needs a desktop session and the built app. The Library must hold Haleen releases. Step 4
 makes MusicIndex not reachable.
 
-1. Build the app: `cd ~/build/v4vmm && cargo build --bin hitit`.
+1. Build the app: `cd ~/build/HitIt && cargo build --bin hitit`.
 2. Copy the configuration:
    `cp ~/.config/hitit/config.toml ~/.config/hitit/config.toml.v009-check`.
 3. If the app runs, close it.

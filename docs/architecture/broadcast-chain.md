@@ -58,7 +58,7 @@ Producer: `hitit`. Consumer: each now-playing producer.
 - `TXXX:MusicIndex Value Routes`
 
 `Value Routes` holds a JSON array of payment routes. The field names are the
-names in `v4vmm/src/api.rs`, `PaymentRoute`.
+names in `src/api.rs`, `PaymentRoute`.
 
 If `hitit` writes no `Value Routes` tag, the chain has no payment splits for
 that track. The publisher then sends a payload with no destinations.

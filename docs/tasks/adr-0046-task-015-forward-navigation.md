@@ -229,7 +229,7 @@ Use the on-screen Back and Forward buttons, then the keys, for each step below.
 1. Close HitIt. Make the binary:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --bin hitit
    ```
 2. Open the app:

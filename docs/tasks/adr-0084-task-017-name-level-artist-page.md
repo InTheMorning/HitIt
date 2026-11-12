@@ -622,7 +622,7 @@ Do each check in the Light theme and in the Dark theme. The checks need network 
 1. Build and open the app:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --release
    ./target/release/hitit
    ```

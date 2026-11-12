@@ -404,7 +404,7 @@ Stop and report the problem, and do not guess, when:
 The check needs a desktop session, the built app, network access to `https://api.musicindex.org`
 and a Library with the album "Survival Guide". Steps 7 to 11 make MusicIndex not reachable.
 
-1. Build the app: `cd ~/build/v4vmm && cargo build --bin hitit`.
+1. Build the app: `cd ~/build/HitIt && cargo build --bin hitit`.
 2. Start the app: `./target/debug/hitit`.
 3. Open the Music tab. Click Discover in the sidebar.
 4. V1: click in the toolbar search field. Type `survival` and stop. Do not press Enter.

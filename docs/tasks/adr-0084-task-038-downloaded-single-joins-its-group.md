@@ -191,7 +191,7 @@ This check needs a Linux desktop session and a connection to `https://api.musici
 1. Build and start the debug binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    nm -C target/debug/hitit | grep -c TestDispatcher
    ./target/debug/hitit

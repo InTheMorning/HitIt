@@ -369,7 +369,7 @@ It also adds two fixture playlists. Track `T3` is two times in the first playlis
 1. Close HitIt. Find the configured database path:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db"
    ```

@@ -453,7 +453,7 @@ Necessary state: a desktop session, a reachable MusicIndex endpoint, and a Libra
 1. Build the binary:
 
    ```bash
-   cd ~/build/v4vmm
+   cd ~/build/HitIt
    cargo build --bin hitit
    ./target/debug/hitit
    ```

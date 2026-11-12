@@ -395,7 +395,7 @@ The check also writes RSS values into the stored feed and track values. Only the
 1. Close HitIt. Find the configured database path:
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    db=$(sed -n 's/^db_path = "\(.*\)"$/\1/p' ~/.config/hitit/config.toml)
    echo "$db"
    ```

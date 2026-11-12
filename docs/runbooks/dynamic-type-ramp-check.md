@@ -30,7 +30,7 @@ Do not reuse the retained ADR 0066 task 004 fixture.
    Do not create a replacement fixture during the checks.
 
    ```bash
-   cd /home/citizen/build/v4vmm
+   cd /home/citizen/build/HitIt
    cargo build --locked --offline --bin hitit
    type_fixture=$(python3 docs/runbooks/startup-recovery-fixture.py setup)
    python3 docs/runbooks/startup-recovery-fixture.py verify "$type_fixture"
