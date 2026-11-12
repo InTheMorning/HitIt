@@ -204,7 +204,7 @@ It does not start the desktop binary.
 
 ```bash
 ADR0075_BASELINE_ROOT=/tmp/v4vmm-adr0075-016-1c_nchth
-cargo test --manifest-path "$ADR0075_BASELINE_ROOT/Cargo.toml" --target-dir /home/citizen/build/v4vmm/target --locked --offline --lib adr_0075_request_write_baseline -- --nocapture > "$ADR0075_BASELINE_ROOT/baseline-replay.log" 2>&1
+cargo test --manifest-path "$ADR0075_BASELINE_ROOT/Cargo.toml" --target-dir /home/citizen/build/HitIt/target --locked --offline --lib adr_0075_request_write_baseline -- --nocapture > "$ADR0075_BASELINE_ROOT/baseline-replay.log" 2>&1
 python3 - "$ADR0075_BASELINE_ROOT/baseline-replay.log" <<'PY'
 import json
 import sys
