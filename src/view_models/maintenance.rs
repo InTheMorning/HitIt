@@ -62,6 +62,30 @@ impl MaintenanceLayout {
             Self::Columns
         }
     }
+
+    /// The display sequence of the action controls of a maintenance page.
+    /// `destructive` gives one flag for each control, in the sequence of the
+    /// page. The result gives the indices of the controls in display
+    /// sequence.
+    ///
+    /// In the vertical column, the destructive controls are last, as in a
+    /// menu (ADR 0020 R-ACT-3 item 2). In the horizontal band, they are first
+    /// (musicindex ADR 0064 R-ACT-11 and R-ACT-8). The other controls keep their sequence.
+    #[must_use]
+    pub(crate) fn action_sequence(self, destructive: &[bool]) -> Vec<usize> {
+        let (first, last) = match self {
+            Self::Columns => (false, true),
+            Self::Stacked => (true, false),
+        };
+        let pick = |wanted: bool| {
+            destructive
+                .iter()
+                .enumerate()
+                .filter(move |(_, flag)| **flag == wanted)
+                .map(|(index, _)| index)
+        };
+        pick(first).chain(pick(last)).collect()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

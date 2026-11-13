@@ -271,8 +271,8 @@ fn download_added_track_slot(
 fn remove_from_all_playlists_slot(
     track_id: i64,
     cx: &mut Context<LibraryApp>,
-) -> crate::ui::shells::playlist::PlaylistClickHandler {
-    click_slot(cx.listener(move |this, _, window, cx| {
+) -> crate::ui::shells::playlist::PlaylistCommandHandler {
+    command_slot(cx.listener(move |this, (), window, cx| {
         this.request_remove_track_from_all_playlists(track_id, window, cx);
     }))
 }

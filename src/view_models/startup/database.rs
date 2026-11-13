@@ -1161,4 +1161,59 @@ mod tests {
         assert!(text.contains("Use a compatible app version"));
         assert!(text.contains("An unfamiliar schema does not prove corruption"));
     }
+
+    /// musicindex ADR 0064 R-ACT-11: in the
+    /// action column of a database task, the destructive controls are last,
+    /// as in a menu. In the horizontal band, they are first (musicindex ADR
+    /// 0064 R-ACT-8).
+    #[test]
+    fn adr_0064_database_controls_follow_the_column_and_band_rules() {
+        use crate::view_models::button_row::{adr_0064_violation, ButtonRowRole};
+        use crate::view_models::maintenance::MaintenanceLayout;
+
+        let vm = DatabaseVm::new(true);
+        let mut destructive_tasks = 0;
+        for task in DatabaseTask::ALL {
+            let actions: Vec<DatabaseAction> = task
+                .actions()
+                .iter()
+                .copied()
+                .chain([DatabaseAction::Cancel, DatabaseAction::CopyReport])
+                .collect();
+            let flags: Vec<bool> = actions
+                .iter()
+                .map(|action| vm.action(*action).destructive)
+                .collect();
+            if flags.contains(&true) {
+                destructive_tasks += 1;
+            }
+            let column: Vec<bool> = MaintenanceLayout::Columns
+                .action_sequence(&flags)
+                .into_iter()
+                .map(|index| flags[index])
+                .collect();
+            assert!(
+                column.windows(2).all(|pair| !pair[0] || pair[1]),
+                "musicindex ADR 0064 R-ACT-11: in the action column of {task:?}, the destructive controls are last, as in a menu. Change `MaintenanceLayout::action_sequence`. Column: {column:?}"
+            );
+            let band: Vec<ButtonRowRole> = MaintenanceLayout::Stacked
+                .action_sequence(&flags)
+                .into_iter()
+                .map(|index| {
+                    if flags[index] {
+                        ButtonRowRole::Destructive
+                    } else {
+                        ButtonRowRole::Other
+                    }
+                })
+                .collect();
+            if let Some(violation) = adr_0064_violation(&band) {
+                panic!("{violation} Database task {task:?}: change `MaintenanceLayout::action_sequence`.");
+            }
+        }
+        assert_eq!(
+            destructive_tasks, 2,
+            "Restore and Repair have a destructive control"
+        );
+    }
 }

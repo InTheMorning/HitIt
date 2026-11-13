@@ -34,6 +34,7 @@ pub(crate) mod release_page;
 pub(crate) mod saved_search_delete_confirmation;
 pub mod search_result_rows;
 pub mod search_results_inspector;
+pub(crate) mod settings_defaults_confirmation;
 pub mod show;
 pub(crate) mod tag_update_confirmation;
 pub mod track;

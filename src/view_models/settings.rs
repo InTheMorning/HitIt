@@ -141,13 +141,55 @@ pub(crate) enum SettingsAction {
     SetTheme(ThemeProfile),
 }
 
+impl SettingsAction {
+    /// True for an action that changes stored data with no undo. "Use
+    /// Defaults…" resets and saves the defaults, so it is destructive: it has
+    /// the red tint and a confirmation (ADR 0020 R-ACT-3 items 1 and 4,
+    /// musicindex ADR 0064 R-ACT-12).
+    #[must_use]
+    pub(crate) const fn is_destructive(self) -> bool {
+        matches!(self, Self::UseDefaults)
+    }
+}
+
+/// The text of the confirmation of "Use Defaults…".
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct UseDefaultsConfirmation {
+    pub(crate) title: &'static str,
+    pub(crate) message: &'static str,
+    pub(crate) cancel_button_id: &'static str,
+    pub(crate) cancel_label: &'static str,
+    pub(crate) cancel_a11y_label: &'static str,
+    pub(crate) confirm_button_id: &'static str,
+    pub(crate) confirm_label: &'static str,
+    pub(crate) confirm_a11y_label: &'static str,
+}
+
+/// The confirmation of "Use Defaults…". Only its confirm button resets and
+/// saves the defaults.
+#[must_use]
+pub(crate) const fn use_defaults_confirmation() -> UseDefaultsConfirmation {
+    UseDefaultsConfirmation {
+        title: "Use the default settings?",
+        message: "This resets the General and Library settings to the defaults and saves them. You cannot undo this.",
+        cancel_button_id: "settings-default-cancel",
+        cancel_label: "Cancel",
+        cancel_a11y_label: "Keep the current settings",
+        confirm_button_id: "settings-default-confirm",
+        confirm_label: "Use Defaults",
+        confirm_a11y_label: "Reset and save the General and Library defaults",
+    }
+}
+
 /// Only explicit editing actions can produce an effect outside navigation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SettingsEffect {
     Navigate,
     ConfigureConverter,
     Save,
-    UseDefaults,
+    /// Opens the confirmation of "Use Defaults…". Its confirm button resets
+    /// and saves the defaults.
+    ConfirmUseDefaults,
     SetScale(UiScale),
     SetTheme(ThemeProfile),
 }
@@ -235,7 +277,7 @@ impl SettingsVm {
                 SettingsEffect::Navigate
             }
             SettingsAction::Save => SettingsEffect::Save,
-            SettingsAction::UseDefaults => SettingsEffect::UseDefaults,
+            SettingsAction::UseDefaults => SettingsEffect::ConfirmUseDefaults,
             SettingsAction::SetScale(scale) => SettingsEffect::SetScale(scale),
             SettingsAction::SetTheme(profile) => SettingsEffect::SetTheme(profile),
         }
@@ -300,7 +342,7 @@ impl SettingsVm {
             (
                 SettingsAction::UseDefaults,
                 "settings-default",
-                "Use Defaults",
+                "Use Defaults…",
                 "Reset and save General and Library defaults",
             ),
             (
@@ -500,6 +542,36 @@ mod tests {
         }
     }
 
+    /// musicindex ADR 0064 R-ACT-12: "Use
+    /// Defaults…" is destructive (ADR 0020 R-ACT-3 items 1 and 4). It opens
+    /// a confirmation and does not save the defaults at once.
+    #[test]
+    fn adr_0020_r_act_3_use_defaults_is_destructive_and_asks_first() {
+        const FIX: &str = "musicindex ADR 0064 R-ACT-12: \"Use Defaults…\" is destructive. Give it the red tint, and open the confirmation before the reset.";
+        let mut vm = SettingsVm::default();
+        vm.dispatch(SettingsAction::SelectGroup(SettingsGroup::General));
+        let use_defaults = vm
+            .edit_actions(true)
+            .into_iter()
+            .find(|display| display.action == SettingsAction::UseDefaults)
+            .expect("General has Use Defaults");
+        assert!(use_defaults.action.is_destructive(), "{FIX}");
+        assert!(!SettingsAction::Save.is_destructive());
+        assert_eq!(use_defaults.label, "Use Defaults…", "{FIX}");
+        assert_eq!(
+            vm.dispatch(SettingsAction::UseDefaults),
+            SettingsEffect::ConfirmUseDefaults,
+            "{FIX}"
+        );
+        let confirmation = use_defaults_confirmation();
+        assert_eq!(confirmation.cancel_label, "Cancel");
+        assert_eq!(confirmation.confirm_label, "Use Defaults");
+        assert_ne!(
+            confirmation.cancel_button_id,
+            confirmation.confirm_button_id
+        );
+    }
+
     #[test]
     fn adr_0069_edit_actions_have_one_shared_whole_form_route() {
         let mut vm = SettingsVm::default();
@@ -511,7 +583,10 @@ mod tests {
                 .iter()
                 .all(|action| action.availability == StartupAvailability::Working));
             assert_eq!(actions.len(), 2);
-            assert_eq!(vm.dispatch(actions[0].action), SettingsEffect::UseDefaults);
+            assert_eq!(
+                vm.dispatch(actions[0].action),
+                SettingsEffect::ConfirmUseDefaults
+            );
             assert_eq!(vm.dispatch(actions[1].action), SettingsEffect::Save);
             assert!(actions
                 .iter()

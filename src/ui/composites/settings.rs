@@ -150,8 +150,10 @@ pub(crate) fn settings_actions(
                 ControlStyle::Primary
             } else if display.selected {
                 ControlStyle::SelectedTab
-            } else if action == SettingsAction::UseDefaults {
-                ControlStyle::Secondary
+            } else if action.is_destructive() {
+                // musicindex ADR 0064 R-ACT-12: "Use Defaults…" has the red
+                // tint of ADR 0020 R-ACT-3.
+                ControlStyle::Destructive
             } else {
                 ControlStyle::Neutral
             };
@@ -164,9 +166,9 @@ pub(crate) fn settings_actions(
                 button = button.leading_icon(IconName::Check);
             }
             let mut elements = vec![button.into_any_element()];
-            // Use Defaults saves with no undo. A larger space follows it
-            // (musicindex ADR 0064 R-ACT-8 item 4).
-            if action == SettingsAction::UseDefaults {
+            // A larger space follows the destructive button (musicindex ADR
+            // 0064 R-ACT-8 item 4).
+            if action.is_destructive() {
                 elements.push(destructive_button_space(cx).into_any_element());
             }
             elements

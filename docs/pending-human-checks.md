@@ -546,4 +546,7 @@ target/debug/hitit &
 - A playlist page: "Delete" is the first button of the page bar, and a space follows it.
 - Select rows in the Library and in a playlist. The remove buttons are the first buttons of the selection bar, and a space follows them.
 - Inspect Sources with a staged edit: "Discard staged" is on the left with a space, and "Apply" is on the right.
+- R-ACT-12, Settings: "Use Defaults…" is red. A click opens the dialog "Use the default settings?" with "Use Defaults" on the left, a space, and "Cancel" on the right. Cancel and Escape keep the settings. "Use Defaults" resets and saves them.
+- R-ACT-10, a playlist with a track that the RSS check marks "Removed from feed": the row shows one red button "Remove…". Its menu lists "Remove from playlist", then "Remove from all playlists…". Each item does its action, and the second item opens its confirmation.
+- R-ACT-11, Settings, Diagnostics, Database, the task Restore: in a wide window, "Restore database" is the last control of the column, after a divider. Make the window narrower than 760 px. The controls wrap into a band, and "Restore database" is first, with a space after it.
 - Wrong: a red or destructive button at the right end of a row, or Enter that removes data.

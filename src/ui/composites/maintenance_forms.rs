@@ -7,7 +7,7 @@ use gpui_component::StyleSized as _;
 
 use crate::ui::composites::log_frame::{LogFrame, LogFrames};
 use crate::ui::composites::maintenance_page::{
-    instructions, MaintenancePage, PageCallback, PageMenu, PageNavigation,
+    instructions, MaintenanceControl, MaintenancePage, PageCallback, PageMenu, PageNavigation,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::layouts::{scaled_dimension, CONFIGURATION_EDITOR_HEIGHT};
@@ -349,21 +349,24 @@ pub(crate) fn database_tools(
             continue;
         }
         let callback = callback.clone();
-        actions.push(
-            Button::styled(
-                gpui::SharedString::from(format!("database-{:?}", display.action)),
-                if display.destructive {
-                    ControlStyle::Destructive
-                } else {
-                    ControlStyle::by_result(display.action.changes_stored_data())
-                },
-            )
-            .label(display.label)
-            .a11y_label(display.a11y_label)
-            .disabled(display.availability != StartupAvailability::Available)
-            .on_activate(move |window, cx| callback(action, window, cx))
-            .into_any_element(),
-        );
+        let destructive = display.destructive;
+        let button = Button::styled(
+            gpui::SharedString::from(format!("database-{:?}", display.action)),
+            if display.destructive {
+                ControlStyle::Destructive
+            } else {
+                ControlStyle::by_result(display.action.changes_stored_data())
+            },
+        )
+        .label(display.label)
+        .a11y_label(display.a11y_label)
+        .disabled(display.availability != StartupAvailability::Available)
+        .on_activate(move |window, cx| callback(action, window, cx));
+        actions.push(if destructive {
+            MaintenanceControl::destructive(button)
+        } else {
+            MaintenanceControl::from(button.into_any_element())
+        });
     }
     let mut report = div().flex().flex_col().flex_1().min_h_0().min_w_0();
     if let Some(message) = vm.working_message() {

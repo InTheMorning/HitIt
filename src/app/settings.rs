@@ -56,7 +56,14 @@ impl TopApp {
                 cx,
             ),
             SettingsEffect::Save => self.save_settings(window, cx),
-            SettingsEffect::UseDefaults => self.use_default_settings(window, cx),
+            SettingsEffect::ConfirmUseDefaults => {
+                crate::ui::shells::settings_defaults_confirmation::open_use_defaults_dialog(
+                    window,
+                    cx,
+                    crate::view_models::settings::use_defaults_confirmation(),
+                    Self::use_default_settings,
+                );
+            }
             SettingsEffect::SetScale(scale) => self.set_ui_scale(scale, window, cx),
             SettingsEffect::SetTheme(profile) => self.set_theme_profile(profile, window, cx),
         }

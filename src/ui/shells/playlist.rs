@@ -30,6 +30,7 @@ use crate::ui::composites::list_row::{
 };
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
+use crate::ui::composites::remove_menu::{remove_menu, RemoveMenuItem};
 use crate::ui::composites::track_drag::{PlaylistTrackDragPayload, TrackDragPreview};
 use crate::ui::composites::track_row::checkbox_state_for;
 use crate::ui::composites::track_row_menu::{
@@ -57,13 +58,13 @@ use crate::view_models::library::{
 use crate::view_models::playlist_detail::PlaylistDetailPageVm;
 use crate::view_models::playlist_rss_check::{
     PlaylistRemovedFromFeedDisplay, PlaylistRemovedTrackActionDisplay,
-    PlaylistRssCheckReportDisplay, PlaylistRssFeedRowRole,
+    PlaylistRemovedTrackActionKind, PlaylistRssCheckReportDisplay, PlaylistRssFeedRowRole,
 };
 
 pub(crate) type PlaylistClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 /// ADR 0076 Decision 6: downloads the added track with this id.
 pub(crate) type PlaylistTrackIdHandler = Rc<dyn Fn(i64, &mut Window, &mut App) + 'static>;
-type PlaylistCommandHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
+pub(crate) type PlaylistCommandHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 type PlaylistReorderHandler = Rc<dyn Fn(&(i64, i64), &mut Window, &mut App) + 'static>;
 
 #[derive(Default)]
@@ -118,8 +119,8 @@ pub(crate) struct PlaylistTrackRowSlot {
     /// "Remove from playlist" of the "removed from feed" block (ADR 0076
     /// Decision 7).
     pub(crate) on_remove: Option<PlaylistCommandHandler>,
-    /// ADR 0076 Decision 7: "Remove from all playlists" of a removed track.
-    pub(crate) on_remove_from_all_playlists: Option<PlaylistClickHandler>,
+    /// ADR 0076 Decision 7: "Remove from all playlists…" of a removed track.
+    pub(crate) on_remove_from_all_playlists: Option<PlaylistCommandHandler>,
     /// ADR 0084 packet 025: a click on the row checkbox.
     pub(crate) on_toggle_selection: Option<PlaylistClickHandler>,
     /// ADR 0084 packet 025: the scroll probe of the focused row.
@@ -1145,11 +1146,14 @@ fn render_playlist_track_body(
         .into_any_element()
 }
 
-/// The row error and the two removal actions of a track with an unconfirmed
+/// The row error and the "Remove…" menu of a track with an unconfirmed
 /// "removed from feed" mark (ADR 0076 Decision 7). The block takes the full
 /// row width below the row controls. The error text states the condition, so
 /// its color is never the only signal. The text wraps and is not truncated
 /// (ADR 0063).
+///
+/// The two removal actions are destructive, so they are items of one menu
+/// and not two buttons (musicindex ADR 0064 R-ACT-10).
 fn render_removed_from_feed(
     display: &PlaylistTrackRowDisplay,
     slot: &PlaylistTrackRowSlot,
@@ -1158,15 +1162,23 @@ fn render_removed_from_feed(
     let removed = display.removed_from_feed.clone()?;
     let on_remove = slot.on_remove.clone();
     let on_remove_from_all_playlists = slot.on_remove_from_all_playlists.clone();
+    let items = removed.menu_items().map(|action| {
+        let handler = match action.kind {
+            PlaylistRemovedTrackActionKind::RemoveFromPlaylist { .. } => on_remove.clone(),
+            PlaylistRemovedTrackActionKind::RemoveFromAllPlaylists { .. } => {
+                on_remove_from_all_playlists.clone()
+            }
+        };
+        render_removed_track_action(action.clone(), handler)
+    });
     let PlaylistRemovedFromFeedDisplay {
         error,
-        remove_from_playlist,
-        remove_from_all_playlists,
+        menu_id,
+        menu_label,
+        menu_a11y_label,
+        ..
     } = removed;
-    let on_remove: Option<PlaylistClickHandler> = on_remove.map(|handler| {
-        let handler: PlaylistClickHandler = Rc::new(move |_, window, cx| handler(window, cx));
-        handler
-    });
+    let menu = remove_menu(menu_id, menu_label, menu_a11y_label, items);
     div()
         .w_full()
         .min_w_0()
@@ -1184,31 +1196,21 @@ fn render_removed_from_feed(
                 .text_color(StatusRole::Danger.color(cx))
                 .child(SharedString::from(error)),
         )
-        .child(render_removed_track_action(remove_from_playlist, on_remove))
-        .child(render_removed_track_action(
-            remove_from_all_playlists,
-            on_remove_from_all_playlists,
-        ))
+        .child(menu)
         .into_any_element()
         .into()
 }
 
 fn render_removed_track_action(
     action: PlaylistRemovedTrackActionDisplay,
-    handler: Option<PlaylistClickHandler>,
-) -> UiButton {
-    let disabled = action.availability.disabled();
-    let button = UiButton::styled(
-        SharedString::from(action.id),
-        ControlStyle::DestructiveRowAction,
-    )
-    .label(action.label)
-    .a11y_label(action.a11y_label)
-    .disabled(disabled);
-    if disabled {
-        button
-    } else {
-        apply_click_handler(button, handler)
+    handler: Option<PlaylistCommandHandler>,
+) -> RemoveMenuItem {
+    RemoveMenuItem {
+        id: SharedString::from(action.id),
+        label: SharedString::from(action.label),
+        a11y_label: SharedString::from(action.a11y_label),
+        disabled: action.availability.disabled(),
+        on_select: handler,
     }
 }
 

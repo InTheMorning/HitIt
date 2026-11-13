@@ -12319,8 +12319,7 @@ fn adr_0076_route_readiness_removal_actions_reuse_existing_flows() {
     for required in [
         "let on_remove = slot.on_remove.clone();",
         "slot.on_remove_from_all_playlists.clone()",
-        "remove_from_playlist",
-        "remove_from_all_playlists",
+        "removed.menu_items()",
     ] {
         if !removed_block.contains(required) {
             violations.push(format!(
@@ -16537,11 +16536,16 @@ fn adr_0069_settings_group_ownership() {
         dispatch.matches("self.save_settings(window, cx)").count(),
         1
     );
+    // musicindex ADR 0064 R-ACT-12: Use Defaults resets the settings only
+    // from the confirm button of its dialog.
     assert_eq!(
-        dispatch
-            .matches("self.use_default_settings(window, cx)")
-            .count(),
-        1
+        dispatch.matches("Self::use_default_settings").count(),
+        1,
+        "musicindex ADR 0064 R-ACT-12: pass `Self::use_default_settings` to `open_use_defaults_dialog` once."
+    );
+    assert!(
+        !dispatch.contains("self.use_default_settings("),
+        "musicindex ADR 0064 R-ACT-12: Use Defaults must not reset the settings without its confirmation. Call `open_use_defaults_dialog`."
     );
     assert!(!dispatch.contains("set_value(") && !dispatch.contains("present_command("));
     let defaults = source_between(

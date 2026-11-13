@@ -285,12 +285,31 @@ pub(crate) struct PlaylistRemovedTrackActionDisplay {
 
 /// The row error and the two actions of a playlist row of a track with an
 /// unconfirmed "removed from feed" mark (ADR 0076 Decision 7).
+///
+/// The two actions are destructive. A row with only destructive buttons
+/// cannot obey musicindex ADR 0064 R-ACT-8, so the row shows one button
+/// "Remove…" that opens a menu with the two actions (musicindex ADR 0064
+/// R-ACT-10).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaylistRemovedFromFeedDisplay {
     /// The row error, with the recorded UTC time of the check.
     pub(crate) error: String,
+    /// The element id of the "Remove…" menu button.
+    pub(crate) menu_id: String,
+    /// The label of the menu button.
+    pub(crate) menu_label: &'static str,
+    /// The accessible name of the menu button.
+    pub(crate) menu_a11y_label: String,
     pub(crate) remove_from_playlist: PlaylistRemovedTrackActionDisplay,
     pub(crate) remove_from_all_playlists: PlaylistRemovedTrackActionDisplay,
+}
+
+impl PlaylistRemovedFromFeedDisplay {
+    /// The items of the "Remove…" menu, from top to bottom.
+    #[must_use]
+    pub(crate) const fn menu_items(&self) -> [&PlaylistRemovedTrackActionDisplay; 2] {
+        [&self.remove_from_playlist, &self.remove_from_all_playlists]
+    }
 }
 
 /// The row error and actions of a playlist row, when the track has a
@@ -309,6 +328,9 @@ pub(crate) fn removed_from_feed_row(
             "Removed from feed on {}. Remove it from the playlist, or confirm it in the readiness list.",
             time(at)
         ),
+        menu_id: format!("playlist-removed-menu-{playlist_id}-{position}"),
+        menu_label: "Remove…",
+        menu_a11y_label: format!("Remove {title}: choose from this playlist or from all playlists"),
         remove_from_playlist: PlaylistRemovedTrackActionDisplay {
             kind: PlaylistRemovedTrackActionKind::RemoveFromPlaylist {
                 playlist_id,
@@ -322,7 +344,7 @@ pub(crate) fn removed_from_feed_row(
         remove_from_all_playlists: PlaylistRemovedTrackActionDisplay {
             kind: PlaylistRemovedTrackActionKind::RemoveFromAllPlaylists { track_id },
             id: format!("playlist-removed-remove-all-{playlist_id}-{position}"),
-            label: "Remove from all playlists",
+            label: "Remove from all playlists…",
             a11y_label: format!("Remove {title} from all playlists"),
             availability: PlaylistRemovedTrackActionAvailability::Available,
         },
@@ -1007,7 +1029,7 @@ mod tests {
         );
         assert_eq!(
             row.remove_from_all_playlists.label,
-            "Remove from all playlists"
+            "Remove from all playlists…"
         );
         assert_eq!(
             row.remove_from_all_playlists.a11y_label,
@@ -1022,6 +1044,36 @@ mod tests {
             None
         );
         assert_eq!(removed_from_feed_row(None, 3, 11, 4, "Gone Song"), None);
+    }
+
+    /// musicindex ADR 0064 R-ACT-10: the row
+    /// of a removed track shows one button "Remove…". Its menu lists
+    /// "Remove from playlist", then "Remove from all playlists…" (ADR 0020
+    /// R-ACT-3 item 2).
+    #[test]
+    fn adr_0064_removed_track_row_shows_one_remove_menu() {
+        use crate::runtime::playlist_rss_check::test_support::snapshot_with_differences;
+
+        let snapshot = snapshot_with_differences(3, Vec::new(), &[(11, 1_790_244_000_000_000)]);
+        let row = removed_from_feed_row(Some(&snapshot), 3, 11, 4, "Gone Song").unwrap();
+        assert_eq!(
+            row.menu_label, "Remove…",
+            "musicindex ADR 0064 R-ACT-10: the removed track row shows one button \"Remove…\" that opens a menu. Do not show the two destructive actions as buttons."
+        );
+        let kinds = row.menu_items().map(|item| item.kind);
+        assert_eq!(
+            kinds,
+            [
+                PlaylistRemovedTrackActionKind::RemoveFromPlaylist {
+                    playlist_id: 3,
+                    position: 4
+                },
+                PlaylistRemovedTrackActionKind::RemoveFromAllPlaylists { track_id: 11 },
+            ],
+            "musicindex ADR 0064 R-ACT-10: the menu lists \"Remove from playlist\", then \"Remove from all playlists…\"."
+        );
+        assert_ne!(row.menu_id, row.remove_from_playlist.id);
+        assert!(row.menu_a11y_label.contains("Gone Song"));
     }
 
     /// R3-14: the confirmation names each playlist that holds the track.

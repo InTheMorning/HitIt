@@ -46,6 +46,7 @@ pub(crate) mod release_download_state;
 pub(crate) mod release_row_menu;
 pub(crate) mod release_section_controls;
 pub(crate) mod release_section_list;
+pub(crate) mod remove_menu;
 pub(crate) mod search_field_list;
 pub mod section_heading;
 pub mod segmented_control;

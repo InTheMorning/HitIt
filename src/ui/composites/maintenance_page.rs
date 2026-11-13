@@ -9,11 +9,12 @@ use gpui::{
 };
 use gpui_component::scroll::ScrollableElement;
 
+use crate::ui::composites::confirmation_dialog::destructive_button_space;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
 use crate::ui::layouts::{self, scaled_dimension};
-use crate::ui::primitives::{Button, Popover};
+use crate::ui::primitives::{Button, Divider, Popover};
 use crate::ui::tokens::{color, FontSize, ScaleFactor, SemanticColor, Size, Spacing};
 use crate::view_models::maintenance::{MaintenanceLayout, MaintenanceView, PageChoice};
 use crate::view_models::startup::StartupAvailability;
@@ -190,12 +191,39 @@ fn view_toggle(view: MaintenanceView, select: PageCallback<MaintenanceView>) -> 
         .into_any_element()
 }
 
+/// One action control of a maintenance page.
+pub(crate) struct MaintenanceControl {
+    element: AnyElement,
+    destructive: bool,
+}
+
+impl MaintenanceControl {
+    /// A control that changes stored data with no undo. The page puts it
+    /// last in the column and first in the band
+    /// ([`MaintenanceLayout::action_sequence`]).
+    pub(crate) fn destructive(element: impl IntoElement) -> Self {
+        Self {
+            element: element.into_any_element(),
+            destructive: true,
+        }
+    }
+}
+
+impl From<AnyElement> for MaintenanceControl {
+    fn from(element: AnyElement) -> Self {
+        Self {
+            element,
+            destructive: false,
+        }
+    }
+}
+
 /// The report is a sibling of the instruction viewport, never its child.
 #[derive(IntoElement)]
 pub(crate) struct MaintenancePage {
     title: &'static str,
     navigation: PageNavigation,
-    actions: Vec<AnyElement>,
+    actions: Vec<MaintenanceControl>,
     instructions: AnyElement,
     report: AnyElement,
     selector: Option<AnyElement>,
@@ -205,14 +233,14 @@ impl MaintenancePage {
     pub(crate) fn new(
         title: &'static str,
         navigation: PageNavigation,
-        actions: Vec<AnyElement>,
+        actions: impl IntoIterator<Item = impl Into<MaintenanceControl>>,
         instructions: AnyElement,
         report: AnyElement,
     ) -> Self {
         Self {
             title,
             navigation,
-            actions,
+            actions: actions.into_iter().map(Into::into).collect(),
             instructions,
             report,
             selector: None,
@@ -233,6 +261,36 @@ impl RenderOnce for MaintenancePage {
             f32::from(window.viewport_size().width) / ScaleFactor::current(cx).chrome_multiplier();
         self.render_layout(MaintenanceLayout::for_width(width), cx)
     }
+}
+
+/// The controls in the sequence of [`MaintenanceLayout::action_sequence`].
+/// In the column, a divider comes before the destructive controls, as in a
+/// menu. In the band, a larger space follows them (musicindex ADR 0064
+/// R-ACT-8 item 4).
+fn ordered_controls(
+    controls: Vec<MaintenanceControl>,
+    layout: MaintenanceLayout,
+    cx: &App,
+) -> Vec<AnyElement> {
+    let flags: Vec<bool> = controls.iter().map(|control| control.destructive).collect();
+    let mut slots: Vec<Option<MaintenanceControl>> = controls.into_iter().map(Some).collect();
+    let mut elements = Vec::with_capacity(slots.len() + 1);
+    let mut previous: Option<bool> = None;
+    for index in layout.action_sequence(&flags) {
+        let Some(control) = slots[index].take() else {
+            continue;
+        };
+        let destructive = control.destructive;
+        if previous.is_some_and(|flag| flag != destructive) {
+            elements.push(match layout {
+                MaintenanceLayout::Columns => Divider::horizontal().into_any_element(),
+                MaintenanceLayout::Stacked => destructive_button_space(cx).into_any_element(),
+            });
+        }
+        previous = Some(destructive);
+        elements.push(control.element);
+    }
+    elements
 }
 
 impl MaintenancePage {
@@ -261,7 +319,8 @@ impl MaintenancePage {
                 cx,
             ));
         }
-        actions = actions.child(action_content.children(self.actions));
+        actions =
+            actions.child(action_content.children(ordered_controls(self.actions, layout, cx)));
         #[cfg(test)]
         let actions = actions.debug_selector(|| "maintenance-actions".to_owned());
 
@@ -428,7 +487,7 @@ mod tests {
                         row.debug_selector(|| "last-instruction".to_owned())
                     })
             }));
-            let commands = (0..12)
+            let commands: Vec<AnyElement> = (0..12)
                 .map(|index| {
                     Button::styled(
                         SharedString::from(format!("test-action-{index}")),

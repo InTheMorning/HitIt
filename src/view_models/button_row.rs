@@ -22,9 +22,11 @@ pub(crate) enum ButtonRowRole {
 /// R-ACT-8, or `None` when it does. `row` gives the roles from left to
 /// right.
 ///
-/// When a row has two or more destructive buttons, they are adjacent at the
-/// left end of the row. ADR 0064 does not decide this case. This app applies
-/// R-ACT-8 item 3 to each destructive button.
+/// When a row has two or more destructive buttons and other buttons, the
+/// destructive buttons are adjacent at the left end of the row. This app
+/// applies R-ACT-8 item 3 to each destructive button. A row with only
+/// destructive buttons fails the check: it shows one "Remove…" menu button
+/// (R-ACT-10).
 #[must_use]
 pub(crate) fn adr_0064_violation(row: &[ButtonRowRole]) -> Option<String> {
     const FIX: &str =
