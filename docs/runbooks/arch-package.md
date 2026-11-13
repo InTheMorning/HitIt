@@ -4,7 +4,7 @@
 
 Use this runbook to build and install the `hitit-git` Arch Linux package.
 `packaging/arch/PKGBUILD` gets the source from GitHub. The package installs
-the `hitit` binary, a desktop file, the license and the README.
+the `hitit` binary, a desktop file, the app icon, the license and the README.
 
 The package builds the commit at the top of `main` on GitHub. It does not
 build local commits that nobody pushed.
