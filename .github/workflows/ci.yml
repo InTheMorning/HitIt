@@ -1,0 +1,68 @@
+# The AGENTS.md "Zero warnings" checks and the test suite on each push and
+# each pull request. AGENTS.md owns these checks. Change them there first.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # The GPUI debug build with full debug data can fill the runner disk.
+  # This value changes no warning and no test result.
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
+jobs:
+  check:
+    name: Zero warnings and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # gpui-pre-linux links libxcb, libxkbcommon and libxkbcommon-x11.
+      # The font and Wayland crates find their libraries through pkg-config.
+      - name: Install Linux system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libwayland-dev
+
+      # rustup reads rust-toolchain.toml: the channel and the rustfmt and
+      # clippy components.
+      - name: Install the toolchain in rust-toolchain.toml
+        run: |
+          rustup toolchain install
+          rustup show active-toolchain
+          cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        run: cargo fmt --check
+
+      - name: cargo check
+        run: cargo check
+
+      - name: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
+
+      # The tests need no display, no network and no local data. They use
+      # temporary folders and fake programs instead of flac, ffmpeg and mpv.
+      - name: cargo test
+        run: cargo test

@@ -304,8 +304,10 @@ cargo fmt -- --check                      # Check formatting
 cargo clippy --all-targets -- -D warnings # Strict clippy, every target
 ```
 
-This repository has no CI workflow file. The agent runs build, test, clippy
-and format check locally before a commit.
+The agent runs build, test, clippy and format check locally before a commit.
+`.github/workflows/ci.yml` runs the "Zero warnings" checks and `cargo test` on
+each push and each pull request. It does not replace the local checks. A
+change to the "Zero warnings" commands also changes that file.
 
 ## Conventions
 
