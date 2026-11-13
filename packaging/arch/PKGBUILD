@@ -1,0 +1,99 @@
+# Maintainer: MAINTAINER-PLACEHOLDER
+#
+# docs/runbooks/arch-package.md tells how to build and install this package.
+
+pkgname=hitit-git
+_pkgname=hitit
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Desktop app for MusicIndex music feeds, a local audio library and live value broadcasts'
+arch=('x86_64')
+url='https://github.com/InTheMorning/HitIt'
+license=('AGPL-3.0-only')
+# The binary links glibc, gcc-libs, libxcb, libxkbcommon and
+# libxkbcommon-x11. At run time it loads libwayland-client, libwayland-egl,
+# libEGL (libglvnd) and libvulkan (vulkan-icd-loader). The font system reads
+# the fontconfig configuration files. rustls reads the system certificates.
+depends=(
+  'ca-certificates'
+  'fontconfig'
+  'gcc-libs'
+  'glibc'
+  'libglvnd'
+  'libxcb'
+  'libxkbcommon'
+  'libxkbcommon-x11'
+  'vulkan-driver'
+  'vulkan-icd-loader'
+  'wayland'
+)
+# rustup installs the toolchain in rust-toolchain.toml. freetype-sys finds
+# FreeType through pkg-config at build time. The C compiler comes from
+# base-devel.
+makedepends=('freetype2' 'git' 'pkgconf' 'rustup')
+optdepends=(
+  'musicindex-live-publisher: Show page control of a publisher on this machine: event targets and the publisher and mixxx-now-playing user services'
+  'mpv: the mpv playback driver'
+  'flac: FLAC encoding of WAV downloads'
+  'ffmpeg: FLAC encoding of WAV downloads when flac is missing or fails'
+  'openssh: control of a publisher or an encoder on a remote host'
+  'butt: the stream encoder that the Show page controls'
+)
+provides=("${_pkgname}")
+conflicts=("${_pkgname}")
+source=("${_pkgname}::git+https://github.com/InTheMorning/HitIt.git")
+sha256sums=('SKIP')
+
+# The makepkg default options=(lto) adds -flto=auto to CFLAGS. The cc crate
+# compiles the bundled SQLite (rusqlite) and aws-lc (aws-lc-sys) C sources with
+# these CFLAGS. The result is GCC LTO bitcode that rust-lld cannot read, and
+# the link stops with "undefined symbol: sqlite3_reset".
+options=('!lto')
+
+pkgver() {
+  cd "${_pkgname}"
+
+  local _crate_ver
+  _crate_ver=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+
+  printf '%s.r%s.g%s' \
+    "${_crate_ver}" \
+    "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short=7 HEAD)"
+}
+
+prepare() {
+  cd "${_pkgname}"
+
+  # Without an argument, rustup installs the toolchain in rust-toolchain.toml.
+  rustup toolchain install
+
+  local _host
+  _host=$(rustc -vV | sed -n 's/^host: //p')
+  cargo fetch --locked --target "${_host}"
+}
+
+build() {
+  cd "${_pkgname}"
+
+  export CARGO_TARGET_DIR="${srcdir}/target"
+  cargo build --frozen --release --bin hitit
+}
+
+check() {
+  cd "${_pkgname}"
+
+  # The tests need no display, no network and no local data.
+  export CARGO_TARGET_DIR="${srcdir}/target"
+  cargo test --frozen
+}
+
+package() {
+  cd "${_pkgname}"
+
+  install -Dm0755 "${srcdir}/target/release/hitit" -t "${pkgdir}/usr/bin/"
+  install -Dm0644 packaging/arch/hitit.desktop \
+    "${pkgdir}/usr/share/applications/hitit.desktop"
+  install -Dm0644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm0644 README.md "${pkgdir}/usr/share/doc/${_pkgname}/README.md"
+}

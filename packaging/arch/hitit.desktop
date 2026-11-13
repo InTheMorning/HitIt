@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=HitIt
+Comment=MusicIndex music feeds, a local audio library and live value broadcasts
+Exec=hitit
+Terminal=false
+Categories=AudioVideo;Audio;
+StartupWMClass=hitit

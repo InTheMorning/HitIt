@@ -25,6 +25,8 @@ Core:
 - [Broadcast operations](runbooks/broadcast-operations.md): how to create an
   event, publish the RSS live tag, back up the token file, operate services,
   read logs, and recover when a relay event dies
+- [Arch Linux package](runbooks/arch-package.md): how to build and install
+  the `hitit-git` package from `packaging/arch/PKGBUILD`
 - [Event recovery visual check](runbooks/broadcast-event-recovery-check.md):
   isolated relay and service fixtures for ADR 0059 task 016
 - [Column text truncation](troubleshooting/column-text-truncation.md): why text

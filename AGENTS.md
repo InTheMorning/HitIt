@@ -309,6 +309,10 @@ The agent runs build, test, clippy and format check locally before a commit.
 each push and each pull request. It does not replace the local checks. A
 change to the "Zero warnings" commands also changes that file.
 
+`packaging/arch/PKGBUILD` builds the `hitit-git` Arch Linux package from
+GitHub. The [Arch package runbook](docs/runbooks/arch-package.md) tells how to
+build it. A new run-time library, program or file also changes the PKGBUILD.
+
 ## Conventions
 
 **Naming.** PascalCase types and enums, snake_case functions, variables and
