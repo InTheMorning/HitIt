@@ -24,7 +24,7 @@ Replace the group menu of Settings with a segmented control below the page bar. 
 2. The Diagnostics page menu stays. It is below the tab row on the Diagnostics group.
 3. `SettingsVm` gives the sections and rows of ADR 0093 Decision 7. Each row has its name, its hint of one line and its control type. The renderer chooses no row and no text.
 4. A shared row composite puts the name and the hint at the start and the control at the end. It puts the control below the name when the row is too narrow, and always for the endpoint text field.
-5. The "Use Defaults" button moves to the row "Default values" of General. In this task it keeps its current behavior. ADR 0069 task 002 changes it to a draft edit.
+5. The "Use Defaults" button moves to the row "Default values" of General. In this task it keeps its current behavior. ADR 0069 task 002 changes it to a draft edit. It keeps the red tint and the confirmation until that change. After that change it keeps the red tint and the first position, and it has no confirmation (ADR 0093 status, musicindex ADR 0020 R-ACT-3 item 4).
 6. Save stays where it is in this task. ADR 0069 task 002 moves it to the page bar.
 
 ## Do Not Touch
