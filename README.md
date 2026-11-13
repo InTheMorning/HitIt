@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/hitit-logo.png" alt="HitIt logo" width="640">
+</p>
+
 # HitIt
 
 HitIt (`hitit`) is a Linux-first GPUI desktop app for working with
