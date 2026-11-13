@@ -59,6 +59,8 @@ The bar removes, downloads, copies, moves and deletes the selected tracks. The k
 | 6 | "Remove from Library…" | One or more selected tracks are downloaded. The count names distinct tracks | The confirmation of packet 009 |
 | Last | "Clear" | Rows are selected | Clears the rows and keeps `Selecting` |
 
+On 2026-11-12, musicindex ADR 0064 R-ACT-8 changed this sequence. "Remove from Library…" moves to the second position, after "Remove 3 from playlist". A larger space follows it. The other actions keep their sequence, and "Select all" comes after the two destructive actions.
+
 - Its accessibility labels name the count and the object, for example "Remove 2 tracks from Library…".
 - An action that cannot act is absent.
 

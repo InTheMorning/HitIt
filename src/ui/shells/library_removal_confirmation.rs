@@ -3,10 +3,9 @@
 #![warn(clippy::pedantic)]
 
 use gpui::{App, Context, SharedString, Window};
-use gpui_component::WindowExt;
 
 use crate::ui::composites::{
-    confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
+    open_confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
     ConfirmationDialogItem,
 };
 use crate::ui::tokens::SemanticColor;
@@ -36,14 +35,7 @@ pub(crate) fn open_library_removal_confirmation_dialog<T>(
             let _ = confirm_entity.update(cx, |this, cx| on_confirm(this, cx));
         },
     );
-    window.open_dialog(cx, move |dialog, _window, cx| {
-        confirmation_dialog(
-            dialog,
-            confirmation_display(display.clone()),
-            handlers.clone(),
-            cx,
-        )
-    });
+    open_confirmation_dialog(window, cx, confirmation_display(display), handlers);
 }
 
 /// Opens the whole-selection removal confirmation (ADR 0084 Decision
@@ -69,14 +61,12 @@ pub(crate) fn open_selection_removal_confirmation_dialog<T>(
             let _ = confirm_entity.update(cx, |this, cx| on_confirm(this, cx));
         },
     );
-    window.open_dialog(cx, move |dialog, _window, cx| {
-        confirmation_dialog(
-            dialog,
-            selection_confirmation_display(display.clone()),
-            handlers.clone(),
-            cx,
-        )
-    });
+    open_confirmation_dialog(
+        window,
+        cx,
+        selection_confirmation_display(display),
+        handlers,
+    );
 }
 
 fn selection_confirmation_display(

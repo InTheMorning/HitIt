@@ -17,6 +17,7 @@ use gpui::{
     Window,
 };
 
+use crate::ui::composites::confirmation_dialog::destructive_button_space;
 use crate::ui::composites::list_page_head::{
     reverse_toggle, sort_menu, view_icons, ListReverseHandler, ListSortHandler, ListViewHandler,
 };
@@ -172,7 +173,16 @@ impl RenderOnce for SelectionActionBar {
             .color(SemanticColor::SecondaryLabel)
             .into_any_element()];
 
-        for action in bar.actions {
+        let last_destructive = bar
+            .actions
+            .iter()
+            .rposition(|action| action.kind.is_destructive());
+        for (index, action) in bar.actions.into_iter().enumerate() {
+            if index > 0 && last_destructive == Some(index - 1) {
+                // A larger space follows the last destructive action
+                // (musicindex ADR 0064 R-ACT-8 item 4).
+                children.push(destructive_button_space(cx).into_any_element());
+            }
             let (style, handler) = match action.kind {
                 SelectionActionKind::AddToPlaylist => {
                     let mut popover = AddToPlaylistPopover::new(AddToPlaylistDisplay {

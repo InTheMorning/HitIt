@@ -535,3 +535,15 @@ target/debug/hitit &
 - [musicindex ADR 0057](adr/0085-artists-by-confirmation.md) R-ARTIST-1: Artists in All, its tiles and the Artists tab of a search show three groups with a note each. The groups are "Stated artists · n", "Inferred artists" and "Artist names with no feed", in this sequence.
   - The agent Xvfb run of 2026-11-08 shows this in Light and Dark. "Show more" in the inferred group adds rows, and the other groups stay. A search with no stated artist, such as `haleen`, shows no empty group. The tiles cut their second line, for example "2 albu…" and "by na…". A person checks that the groups are clear and that the cut text is satisfactory.
 - Wrong: a control that does nothing, rows in an incorrect sequence, or no selection after a sort. A sort control on a list that R-LIST-9 does not give one is also wrong.
+
+## 13. musicindex ADR 0064 The Destructive Button - 2026-11-12
+
+- Delete a playlist. The dialog shows "Delete" on the left, a space, and "Cancel" on the right. Cancel has the focus ring. Enter and Escape close the dialog, and the playlist stays.
+  - The agent Xvfb run of 2026-11-12, Dark: the dialog shows "Delete", a space and "Cancel". Enter and Escape close it, and the playlist stays. Tab moves the focus from Cancel to Delete. The page bar and the Settings row show the new sequence.
+  - Open: the focus ring of Cancel shows only after a key press. A person decides if Cancel must show the ring when the dialog opens.
+- Remove a track from the Library and update the tags of a file. Each dialog has the same sequence and the same focus.
+- Settings: "Use Defaults" is on the left with a space after it, and "Save" is on the right.
+- A playlist page: "Delete" is the first button of the page bar, and a space follows it.
+- Select rows in the Library and in a playlist. The remove buttons are the first buttons of the selection bar, and a space follows them.
+- Inspect Sources with a staged edit: "Discard staged" is on the left with a space, and "Apply" is on the right.
+- Wrong: a red or destructive button at the right end of a row, or Enter that removes data.

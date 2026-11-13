@@ -20,14 +20,15 @@ use crate::metadata::{
     TagCompareResult, TrackContext,
 };
 use crate::ui::composites::{
-    action_button, ActionButtonDisplay, ActionRow, ActionRowDisplay, ActionRowMessage, FileHeader,
-    MusicBrainzPanel,
+    action_button, destructive_button_space, ActionButtonDisplay, ActionRow, ActionRowDisplay,
+    ActionRowMessage, FileHeader, MusicBrainzPanel,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::LoadingMessage;
 use crate::ui::style::spacing;
 use crate::view_models::entity_detail::{
-    EntityActionTarget, EntitySurfaceContext, MetadataPanelState, TrackMetadataActionState,
+    EntityActionTarget, EntitySurfaceContext, MetadataPanelState, StagedId3EditAction,
+    StagedId3EditsDisplay, TrackMetadataActionState,
 };
 use crate::view_models::metadata::FileHeaderVm;
 use crate::view_models::musicbrainz_panel::MusicBrainzPanelVm;
@@ -188,35 +189,45 @@ fn render_inspect_sources_controls(
         row = row.message(ActionRowMessage::from_status_display(
             staged_display.message,
         ));
-        let mut staged = vec![action_button(
-            ActionButtonDisplay {
-                key: "apply-id3-edits",
-                label: SharedString::from(staged_display.apply_label.clone()),
-                a11y_label: SharedString::from(staged_display.apply_label),
-            },
-            cx,
-        )
-        .control_style(ControlStyle::CompactAction)
-        .disabled(!staged_display.apply_enabled)
-        .on_click(cx.listener(|this, _, _, cx| {
-            this.apply_pending_id3_edits(cx);
-        }))
-        .into_any_element()];
-        if staged_display.show_discard {
-            staged.push(
-                action_button(
-                    ActionButtonDisplay {
-                        key: "discard-id3-edits",
-                        label: SharedString::from(staged_display.discard_label),
-                        a11y_label: SharedString::from(staged_display.discard_label),
-                    },
-                    cx,
-                )
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.clear_pending_id3_edits(cx);
-                }))
-                .into_any_element(),
-            );
+        let mut staged = Vec::new();
+        // The view model owns the order (musicindex ADR 0064 R-ACT-8).
+        for action in StagedId3EditsDisplay::ROW_ORDER {
+            match action {
+                StagedId3EditAction::Discard if staged_display.show_discard => {
+                    staged.push(
+                        action_button(
+                            ActionButtonDisplay {
+                                key: "discard-id3-edits",
+                                label: SharedString::from(staged_display.discard_label),
+                                a11y_label: SharedString::from(staged_display.discard_label),
+                            },
+                            cx,
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.clear_pending_id3_edits(cx);
+                        }))
+                        .into_any_element(),
+                    );
+                    staged.push(destructive_button_space(cx).into_any_element());
+                }
+                StagedId3EditAction::Discard => {}
+                StagedId3EditAction::Apply => staged.push(
+                    action_button(
+                        ActionButtonDisplay {
+                            key: "apply-id3-edits",
+                            label: SharedString::from(staged_display.apply_label.clone()),
+                            a11y_label: SharedString::from(staged_display.apply_label.clone()),
+                        },
+                        cx,
+                    )
+                    .control_style(ControlStyle::CompactAction)
+                    .disabled(!staged_display.apply_enabled)
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.apply_pending_id3_edits(cx);
+                    }))
+                    .into_any_element(),
+                ),
+            }
         }
         row = row.control_group(staged);
         if let Some(conflict_message) = staged_display.conflict_message {

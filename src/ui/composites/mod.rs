@@ -75,8 +75,8 @@ pub use action_row::{
 };
 pub use collection_art::{CollectionArt, CollectionArtImage};
 pub use confirmation_dialog::{
-    confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
-    ConfirmationDialogItem,
+    destructive_button_space, open_confirmation_dialog, ConfirmationDialogDisplay,
+    ConfirmationDialogHandlers, ConfirmationDialogItem,
 };
 pub use cover_backdrop::CoverBackdrop;
 pub use detail_grid::{DetailElementRow, DetailGrid, DetailRow, DetailTextRow};

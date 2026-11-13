@@ -8,10 +8,9 @@
 #![warn(clippy::pedantic)]
 
 use gpui::{div, prelude::*, AnyElement, App, ClickEvent, Context, SharedString, Window};
-use gpui_component::WindowExt;
 
 use crate::ui::composites::{
-    confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
+    open_confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
     ConfirmationDialogItem,
 };
 use crate::ui::control_styles::ControlStyle;
@@ -81,9 +80,7 @@ pub(crate) fn open_tag_update_confirmation_dialog<T>(
         },
     );
     let display = confirmation_display(display);
-    window.open_dialog(cx, move |dialog, _window, cx| {
-        confirmation_dialog(dialog, display.clone(), handlers.clone(), cx)
-    });
+    open_confirmation_dialog(window, cx, display, handlers);
 }
 
 fn confirmation_display(display: TagUpdatePopupDisplay) -> ConfirmationDialogDisplay {

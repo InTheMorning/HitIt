@@ -4,6 +4,8 @@
 
 Accepted - 2026-11-10. The operator accepted [musicindex ADR 0059](../../../musicindex/docs/adr/0059-settings-has-a-tab-row-and-one-save-bar.md) (musicindex `5c4375c`, updated in `83142d2` and `9c81ccd`) on 2026-11-10, and decided that v4vmm uses the same Settings layout as Studio. The orchestrator session relayed the decision. This record applies R-SET-1 to R-SET-5 to v4vmm. Decisions 3, 6 and 9 are choices of the planning session. This record changes no code.
 
+Amended 2026-11-12 by operator decision: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 and R-ACT-9 give the sequence and the focus of the Save bar and the leave question. These are Decisions 9 and 13. The orchestrator session relayed the decision.
+
 Applies: musicindex ADR 0059 R-SET-1 to R-SET-5. Uses: musicindex ADR 0051 R-SEG-1 for the tab row, and musicindex ADR 0032 R-DOT-1 for the type dot.
 
 Supersedes: the Settings group menu and the shared Settings header of [ADR 0074](0074-repair-and-diagnostics-pages.md). Amends: [ADR 0069](0069-grouped-settings-and-selective-presets.md), the group navigation, "leaving Settings retains the working draft" and Cancel. Amends: [ADR 0069 task 002](../tasks/adr-0069-task-002-shared-guarded-editor.md), the names of the commands, the leave and the quit.
@@ -56,13 +58,15 @@ On 2026-11-10 Settings has these actions: Converter setup, Test converters and C
 
 ### The draft and the Save bar (R-SET-3)
 
-9. The page bar shows the state of the draft, Discard and Save on each group, Diagnostics included. The state texts are those of R-SET-3 item 2: "No changes", "1 change not saved", "N changes not saved" and "Saved". Discard replaces Cancel of ADR 0069 and its task 002.
+9. The page bar shows the state of the draft, Discard and Save on each group, Diagnostics included. The state texts are those of R-SET-3 item 2: "No changes", "1 change not saved", "N changes not saved" and "Saved". Discard replaces Cancel of ADR 0069 and its task 002. Discard is the leftmost button, a larger space follows it, and Save is the rightmost button (musicindex ADR 0064 R-ACT-8).
 10. The settings of the draft are UI scale, Theme, Music Index endpoint and FLAC path (ADR 0069 task 002 step 2). Use Defaults puts the default value of these four settings in the draft. It does not save.
 11. When v4vmm cannot save the draft, Save is off and the page bar gives the cause (R-SET-3 item 6). These are the causes in v4vmm:
     - ADR 0066 pauses ordinary saves while a saved optional value is not correct.
     - Configuration repair has edits that are not saved (ADR 0069 task 002 step 2).
 12. A changed row shows a pencil in the accent color after its name, with the accessible name "Not saved". A tab with a pending change shows the same pencil after its label. This is the shared mark of musicindex ADR 0059 R-SET-3 item 4. It is not the type dot.
-13. The leave question opens before each of these with a pending change: a move to a different destination of the sidebar, End session, and the close of the window. The question is "Leave without saving?". It names the number of changes. The buttons are "Keep Editing" and "Discard Changes" (destructive). A change of the group or of the Diagnostics page does not ask.
+13. The leave question opens before each of these with a pending change: a move to a different destination of the sidebar, End session, and the close of the window. The question is "Leave without saving?". It names the number of changes. The buttons are "Discard Changes" (destructive) on the left, with a larger space after it, and "Keep Editing" on the right (musicindex ADR 0064 R-ACT-8). A change of the group or of the Diagnostics page does not ask.
+
+    "Keep Editing" has the first focus, and Enter does not start "Discard Changes" (musicindex ADR 0064 R-ACT-9).
 
 ### The preview (R-SET-4)
 

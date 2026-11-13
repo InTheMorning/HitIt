@@ -70,6 +70,8 @@ pub(crate) mod artist_groups;
 pub mod artist_identity;
 pub(crate) mod artists_everything;
 pub(crate) mod artists_tiles;
+#[cfg(test)]
+pub(crate) mod button_row;
 pub(crate) mod detail_selection;
 pub(crate) mod download_progress;
 pub mod entity_detail;

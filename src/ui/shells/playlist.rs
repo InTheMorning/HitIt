@@ -24,6 +24,7 @@ use gpui::{
 use gpui_component::input::{Input, InputState};
 use gpui_component::Size;
 
+use crate::ui::composites::destructive_button_space;
 use crate::ui::composites::list_row::{
     menu_cell, row_menu_parts, row_outline, RowMenu, RowMenuRoot, RowOutline,
 };
@@ -50,7 +51,8 @@ use crate::ui::{
 };
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::library::{
-    PlaylistTrackControlsDisplay, PlaylistTrackRowDisplay, RowCellVisibility,
+    PlaylistDetailActionsDisplay, PlaylistPageBarAction, PlaylistTrackControlsDisplay,
+    PlaylistTrackRowDisplay, RowCellVisibility,
 };
 use crate::view_models::playlist_detail::PlaylistDetailPageVm;
 use crate::view_models::playlist_rss_check::{
@@ -297,45 +299,54 @@ fn render_playlist_actions(
         );
     }
 
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(spacing::SM)
-        .child(apply_click_handler(
-            UiButton::styled(
-                SharedString::from(actions.rename_button_id),
-                ControlStyle::Neutral,
-            )
-            .label(actions.rename_label)
-            .a11y_label(actions.rename_a11y_label),
-            slots.on_rename,
-        ))
-        .child(apply_click_handler(
-            UiButton::styled(
-                SharedString::from(actions.delete_button_id),
-                ControlStyle::Destructive,
-            )
-            .label(actions.delete_label)
-            .a11y_label(actions.delete_a11y_label),
-            slots.on_delete,
-        ))
-        .child(apply_click_handler(
-            UiButton::styled(
-                SharedString::from(actions.check_rss.button_id),
-                ControlStyle::Secondary,
-            )
-            .label(actions.check_rss.label)
-            .a11y_label(actions.check_rss.a11y_label)
-            .tooltip(actions.check_rss.a11y_label)
-            .disabled(!actions.check_rss.enabled),
-            actions
-                .check_rss
-                .enabled
-                .then_some(slots.on_check_rss)
-                .flatten(),
-        ))
-        .into_any_element()
+    let PlaylistActionSlots {
+        mut on_rename,
+        mut on_delete,
+        mut on_check_rss,
+        ..
+    } = slots;
+    let mut bar = div().flex().flex_row().items_center().gap(spacing::SM);
+    // The view model owns the order (musicindex ADR 0064 R-ACT-8).
+    for action in PlaylistDetailActionsDisplay::PAGE_BAR_ORDER {
+        bar = match action {
+            PlaylistPageBarAction::Delete => bar
+                .child(apply_click_handler(
+                    UiButton::styled(
+                        SharedString::from(actions.delete_button_id.clone()),
+                        ControlStyle::Destructive,
+                    )
+                    .label(actions.delete_label)
+                    .a11y_label(actions.delete_a11y_label),
+                    on_delete.take(),
+                ))
+                .child(destructive_button_space(cx)),
+            PlaylistPageBarAction::Rename => bar.child(apply_click_handler(
+                UiButton::styled(
+                    SharedString::from(actions.rename_button_id.clone()),
+                    ControlStyle::Neutral,
+                )
+                .label(actions.rename_label)
+                .a11y_label(actions.rename_a11y_label),
+                on_rename.take(),
+            )),
+            PlaylistPageBarAction::CheckRss => bar.child(apply_click_handler(
+                UiButton::styled(
+                    SharedString::from(actions.check_rss.button_id.clone()),
+                    ControlStyle::Secondary,
+                )
+                .label(actions.check_rss.label)
+                .a11y_label(actions.check_rss.a11y_label)
+                .tooltip(actions.check_rss.a11y_label)
+                .disabled(!actions.check_rss.enabled),
+                if actions.check_rss.enabled {
+                    on_check_rss.take()
+                } else {
+                    None
+                },
+            )),
+        };
+    }
+    bar.into_any_element()
 }
 
 /// The report of the latest RSS check of the playlist (ADR 0076 Decision 2).

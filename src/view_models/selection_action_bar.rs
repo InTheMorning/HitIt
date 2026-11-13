@@ -36,6 +36,23 @@ pub(crate) enum SelectionActionKind {
     Clear,
 }
 
+impl SelectionActionKind {
+    /// The action removes items with no undo. The bar draws it in the
+    /// destructive style, at the left end, with a larger space after the
+    /// last destructive action (musicindex ADR 0064 R-ACT-8).
+    #[must_use]
+    pub(crate) const fn is_destructive(self) -> bool {
+        matches!(self, Self::Remove | Self::RemoveFromPlaylist)
+    }
+}
+
+/// Puts the destructive actions at the left end of the bar. The other
+/// actions keep their order (musicindex ADR 0064 R-ACT-8 item 3).
+fn destructive_first(mut actions: Vec<SelectionActionVm>) -> Vec<SelectionActionVm> {
+    actions.sort_by_key(|action| !action.kind.is_destructive());
+    actions
+}
+
 /// A command of the list bar above the rows of a group page (ADR 0090).
 /// The page renders the bar. The top app runs each command through its
 /// own selection path, so the bar holds no dispatch of its own.
@@ -241,15 +258,16 @@ impl SelectionActionBarVm {
                 counts.selected_count,
                 noun_for(counts.selected_count)
             ),
-            actions,
+            actions: destructive_first(actions),
         })
     }
 
     /// Builds the bar of the playlist page (ADR 0084 Decision 10, packet
     /// 025), or gives `None` outside [`SelectionMode::Selecting`]. The
-    /// order is "Remove n from playlist", "Download n tracks", "Add n to
-    /// playlist", "Move to top", "Move to bottom", "Remove from
-    /// Library…" and "Clear". An action that cannot act is absent.
+    /// order is "Remove n from playlist", "Remove from Library…", "Download
+    /// n tracks", "Add n to playlist", "Move to top", "Move to bottom" and
+    /// "Clear". The destructive actions come first (musicindex ADR 0064
+    /// R-ACT-8). An action that cannot act is absent.
     #[must_use]
     pub(crate) fn for_playlist(
         mode: SelectionMode,
@@ -332,7 +350,7 @@ impl SelectionActionBarVm {
         ));
         Some(Self {
             count_label: format!("{} selected", tracks(selected)),
-            actions,
+            actions: destructive_first(actions),
         })
     }
 
@@ -346,6 +364,53 @@ impl SelectionActionBarVm {
 
 #[cfg(test)]
 mod tests {
+    /// musicindex ADR 0064 R-ACT-8: the destructive actions of each
+    /// selection bar are at the left end, and "Clear" is the rightmost
+    /// button. The test takes each bar with each action present.
+    #[test]
+    fn adr_0064_r_act_8_selection_bars_put_the_destructive_actions_first() {
+        use super::*;
+        use crate::view_models::button_row::{adr_0064_violation, ButtonRowRole};
+
+        let general = SelectionActionBarVm::from_counts(
+            SelectionMode::Selecting,
+            SelectionActionCounts {
+                selected_count: 2,
+                visible_count: 5,
+                item_noun: "track",
+                download_count: 1,
+                add_count: 2,
+                remove_count: 2,
+            },
+        );
+        let playlist = SelectionActionBarVm::for_playlist(
+            SelectionMode::Selecting,
+            PlaylistSelectionCounts {
+                selected_count: 2,
+                visible_count: 5,
+                download_count: 1,
+                remove_count: 2,
+                at_top: false,
+                at_bottom: false,
+            },
+        );
+        for bar in [general, playlist] {
+            let bar = bar.expect("the bar shows while the user selects");
+            let roles: Vec<ButtonRowRole> = bar
+                .actions
+                .iter()
+                .map(|action| match action.kind {
+                    kind if kind.is_destructive() => ButtonRowRole::Destructive,
+                    SelectionActionKind::Clear => ButtonRowRole::Safe,
+                    _ => ButtonRowRole::Other,
+                })
+                .collect();
+            if let Some(violation) = adr_0064_violation(&roles) {
+                panic!("{violation} Keep `destructive_first` in `SelectionActionBarVm`.");
+            }
+        }
+    }
+
     use super::*;
 
     /// R9-06: `SelectionActionBarVm` gives the count text, and the four

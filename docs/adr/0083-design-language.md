@@ -18,6 +18,11 @@ Amended 2026-10-27: Decision 2 cites musicindex ADR 0032 R-DOT-1 for the dot. Th
 
 Amended 2026-10-25 by operator decision: musicindex ADRs 0020 to 0026 replace parts of Decisions 1 to 6 and 8. They also replace one item of Consequences and two verification items. Those records own the interface rules that musicindex.org, Studio and v4vmm share. [Rules that musicindex replaces](#rules-that-musicindex-replaces) names each part.
 
+Amended 2026-11-12 by operator decision: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 and R-ACT-9 add to Decision 5 for a button row. The orchestrator session relayed the decision. The menu sequence of Decision 5 does not change. Open items:
+
+- The removed track row of a playlist has two destructive buttons and no other button. Thus it cannot obey R-ACT-8 item 1, and it keeps its sequence.
+- The action column of a maintenance page (ADR 0066) is a vertical column at the usual width. It wraps into a band when the page is narrow. This amendment does not change its sequence. The operator decides if R-ACT-8 applies to the band.
+
 It amends [ADR 0025](0025-theme-icon-style-boundary.md) (entity roles get their own palette), [ADR 0062](0062-music-content-surface.md) (a tile is a release) and [ADR 0066](0066-configuration-and-startup-failure-recovery.md) (the normal-shell notice opens from the status bar).
 
 ## Context
@@ -100,6 +105,8 @@ The renderer gets the backdrop from a view-model fact, for example derived color
 | Rare, technical or destructive action | The "⋯" menu and the right-click menu | MusicBrainz lookup, download again, remove |
 
 A destructive item is last in its menu, after a divider, in the danger color, and its label ends with "…". It asks for confirmation.
+
+In a horizontal row of buttons, musicindex ADR 0064 R-ACT-8 applies. This includes a dialog, a bar and the buttons of a list entry. The destructive button is the leftmost button, a larger space follows it, and the safe action is the rightmost button. When a row has two destructive buttons, the two buttons are at the left end. A destructive confirmation obeys R-ACT-9: Cancel has the first focus, Enter does not start the destructive action, and Escape closes the dialog with no action.
 
 Until a page can play a track ([ADR 0068](0068-show-cue-and-audition-isolation.md)), the filled main action is the next curation step for the state of the item. A track that is not in the Library gets "Download album". A Library track that is not downloaded gets "Download track". A downloaded track gets "Add to playlist". Play replaces it when playback exists. The operator decided this on 2026-10-07.
 

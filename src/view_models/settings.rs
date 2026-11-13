@@ -293,18 +293,21 @@ impl SettingsVm {
         if !self.editable() {
             return Vec::new();
         }
+        // Use Defaults saves the default values with no undo. It is the
+        // leftmost button, and Save is the rightmost button (musicindex ADR
+        // 0064 R-ACT-8).
         [
-            (
-                SettingsAction::Save,
-                "settings-save",
-                "Save",
-                "Save General and Library settings",
-            ),
             (
                 SettingsAction::UseDefaults,
                 "settings-default",
                 "Use Defaults",
                 "Reset and save General and Library defaults",
+            ),
+            (
+                SettingsAction::Save,
+                "settings-save",
+                "Save",
+                "Save General and Library settings",
             ),
         ]
         .into_iter()
@@ -472,6 +475,31 @@ mod tests {
         assert_eq!(vm.selected(), SettingsGroup::Diagnostics);
     }
 
+    /// musicindex ADR 0064 R-ACT-8: Use Defaults saves the default values
+    /// with no undo. It is the leftmost button, and Save is the rightmost
+    /// button.
+    #[test]
+    fn adr_0064_r_act_8_use_defaults_is_left_of_save() {
+        use crate::view_models::button_row::{adr_0064_violation, ButtonRowRole};
+
+        let mut vm = SettingsVm::default();
+        for group in [SettingsGroup::General, SettingsGroup::Library] {
+            vm.dispatch(SettingsAction::SelectGroup(group));
+            let roles: Vec<ButtonRowRole> = vm
+                .edit_actions(true)
+                .iter()
+                .map(|display| match display.action {
+                    SettingsAction::UseDefaults => ButtonRowRole::Destructive,
+                    SettingsAction::Save => ButtonRowRole::Safe,
+                    _ => ButtonRowRole::Other,
+                })
+                .collect();
+            if let Some(violation) = adr_0064_violation(&roles) {
+                panic!("{violation} Change the order in `SettingsVm::edit_actions`.");
+            }
+        }
+    }
+
     #[test]
     fn adr_0069_edit_actions_have_one_shared_whole_form_route() {
         let mut vm = SettingsVm::default();
@@ -483,8 +511,8 @@ mod tests {
                 .iter()
                 .all(|action| action.availability == StartupAvailability::Working));
             assert_eq!(actions.len(), 2);
-            assert_eq!(vm.dispatch(actions[0].action), SettingsEffect::Save);
-            assert_eq!(vm.dispatch(actions[1].action), SettingsEffect::UseDefaults);
+            assert_eq!(vm.dispatch(actions[0].action), SettingsEffect::UseDefaults);
+            assert_eq!(vm.dispatch(actions[1].action), SettingsEffect::Save);
             assert!(actions
                 .iter()
                 .all(|action| action.a11y_label.contains("General and Library")));

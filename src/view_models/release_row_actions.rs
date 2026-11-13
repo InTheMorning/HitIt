@@ -456,17 +456,22 @@ mod tests {
 
     /// R31-03 (ADR 0084 Decision 10): for each Library case of R31-01 and
     /// R31-02, the menu and the bar of a selection of that one release
-    /// give the same "Download", "Add to playlist" and "Remove".
+    /// give the same "Download", "Add to playlist" and "Remove". The menu
+    /// gives "Remove" last, and the bar gives it first (musicindex ADR
+    /// 0064).
     #[test]
     fn adr_0084_release_row_actions_r31_03_menu_and_bar_agree() {
         for tracks in TRACKS {
             for job in [false, true] {
                 for removing in [false, true] {
                     let state = library(tracks, job, removing);
-                    let menu_kinds: Vec<_> = actions(state).into_iter().map(bar_kind_of).collect();
+                    let mut menu_kinds: Vec<_> =
+                        actions(state).into_iter().map(bar_kind_of).collect();
+                    // The menu gives "Remove" last, and the bar gives it
+                    // first (musicindex ADR 0064). The other actions have the
+                    // same order.
+                    menu_kinds.sort_by_key(|kind| !kind.is_destructive());
                     let mut bar = bar_kinds(state);
-                    // The bar order is "Download", "Add", "Remove". The
-                    // menu has the same order.
                     bar.retain(|kind| {
                         matches!(
                             kind,

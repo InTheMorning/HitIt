@@ -8,10 +8,9 @@
 #![warn(clippy::pedantic)]
 
 use gpui::{App, Context, SharedString, Window};
-use gpui_component::WindowExt;
 
 use crate::ui::composites::{
-    confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
+    open_confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
 };
 use crate::view_models::library::PlaylistDeleteConfirmation;
 
@@ -33,9 +32,7 @@ pub(crate) fn open_playlist_delete_dialog<T>(
         },
     );
     let display = confirmation_display(display);
-    window.open_dialog(cx, move |dialog, _window, cx| {
-        confirmation_dialog(dialog, display.clone(), handlers.clone(), cx)
-    });
+    open_confirmation_dialog(window, cx, display, handlers);
 }
 
 fn confirmation_display(display: PlaylistDeleteConfirmation) -> ConfirmationDialogDisplay {

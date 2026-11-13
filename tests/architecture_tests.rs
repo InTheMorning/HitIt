@@ -7009,8 +7009,7 @@ fn library_removal_confirmation_presentation_has_shell_owner() {
     ));
     for required in [
         "LibraryRemovalConfirmationDisplay",
-        "confirmation_dialog(",
-        "window.open_dialog",
+        "open_confirmation_dialog(",
     ] {
         assert!(
             shell_source.contains(required),

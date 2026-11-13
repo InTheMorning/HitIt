@@ -9,6 +9,7 @@ use gpui_component::input::{Input, InputState};
 use gpui_component::scroll::ScrollableElement;
 use gpui_component::Size;
 
+use crate::ui::composites::confirmation_dialog::destructive_button_space;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
@@ -142,7 +143,7 @@ pub(crate) fn settings_actions(
         .flex_wrap()
         .items_center()
         .gap(Spacing::XS.scaled(cx))
-        .children(actions.into_iter().map(|display| {
+        .children(actions.into_iter().flat_map(|display| {
             let callback = Rc::clone(callback);
             let action = display.action;
             let style = if action == SettingsAction::Save {
@@ -162,7 +163,13 @@ pub(crate) fn settings_actions(
             if display.selected {
                 button = button.leading_icon(IconName::Check);
             }
-            button
+            let mut elements = vec![button.into_any_element()];
+            // Use Defaults saves with no undo. A larger space follows it
+            // (musicindex ADR 0064 R-ACT-8 item 4).
+            if action == SettingsAction::UseDefaults {
+                elements.push(destructive_button_space(cx).into_any_element());
+            }
+            elements
         }))
         .into_any_element()
 }

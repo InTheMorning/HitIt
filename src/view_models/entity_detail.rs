@@ -222,6 +222,23 @@ pub struct StagedId3EditsDisplay {
     pub show_discard: bool,
 }
 
+impl StagedId3EditsDisplay {
+    /// The buttons of the staged edit row from left to right. "Discard
+    /// staged" removes the edits with no undo. It is the leftmost button,
+    /// and a larger space follows it (musicindex ADR 0064 R-ACT-8).
+    pub const ROW_ORDER: [StagedId3EditAction; 2] =
+        [StagedId3EditAction::Discard, StagedId3EditAction::Apply];
+}
+
+/// One button of the staged edit row.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StagedId3EditAction {
+    /// "Discard staged".
+    Discard,
+    /// "Apply tags (N)". It is the usual action of the row.
+    Apply,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MetadataFileActionsDisplay {
     pub reread_label: &'static str,
@@ -2137,6 +2154,24 @@ mod tests {
                 show_discard: false,
             })
         );
+    }
+
+    /// musicindex ADR 0064 R-ACT-8: "Discard staged" is the leftmost button
+    /// of the staged edit row, and Apply is the rightmost button.
+    #[test]
+    fn adr_0064_r_act_8_staged_edit_row_puts_discard_first() {
+        use crate::view_models::button_row::{adr_0064_violation, ButtonRowRole};
+
+        let roles: Vec<ButtonRowRole> = StagedId3EditsDisplay::ROW_ORDER
+            .iter()
+            .map(|action| match action {
+                StagedId3EditAction::Discard => ButtonRowRole::Destructive,
+                StagedId3EditAction::Apply => ButtonRowRole::Safe,
+            })
+            .collect();
+        if let Some(violation) = adr_0064_violation(&roles) {
+            panic!("{violation} Change `StagedId3EditsDisplay::ROW_ORDER`.");
+        }
     }
 
     #[test]

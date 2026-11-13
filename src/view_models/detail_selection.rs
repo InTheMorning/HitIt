@@ -2149,9 +2149,10 @@ mod tests {
             .collect()
     }
 
-    /// R25-04: the bar gives the six actions and "Clear" in the order of
-    /// the packet table. "Download" and "Remove from Library…" count
-    /// distinct tracks.
+    /// R25-04: the bar gives the six actions and "Clear". The two
+    /// destructive actions come first (musicindex ADR 0064 R-ACT-8). The
+    /// other actions keep the order of the packet table. "Download" and
+    /// "Remove from Library…" count distinct tracks.
     #[test]
     fn adr_0084_playlist_selection_r25_04_bar_order_and_distinct_counts() {
         let tracks = playlist_tracks();
@@ -2165,13 +2166,13 @@ mod tests {
         assert_eq!(
             bar_labels(&rows, &selection),
             [
-                "Select all",
                 "Remove 3 from playlist",
+                "Remove from Library\u{2026}",
+                "Select all",
                 "Download 1 track",
                 "Add 3 to playlist",
                 "Move to top",
                 "Move to bottom",
-                "Remove from Library\u{2026}",
                 "Clear",
             ]
         );

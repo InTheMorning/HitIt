@@ -6957,6 +6957,50 @@ pub(crate) struct PlaylistDetailActionsDisplay {
 
 impl PlaylistDetailActionsDisplay {
     pub(crate) const RENAME_INPUT_PLACEHOLDER: &'static str = "Playlist name";
+
+    /// The buttons of the page bar from left to right. "Delete…" is the
+    /// leftmost button, and a larger space follows it (musicindex ADR 0064
+    /// R-ACT-8).
+    pub(crate) const PAGE_BAR_ORDER: [PlaylistPageBarAction; 3] = [
+        PlaylistPageBarAction::Delete,
+        PlaylistPageBarAction::Rename,
+        PlaylistPageBarAction::CheckRss,
+    ];
+}
+
+/// One button of the page bar of a playlist.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PlaylistPageBarAction {
+    /// "Delete…". It opens the delete confirmation.
+    Delete,
+    /// "Rename".
+    Rename,
+    /// "Check RSS" (ADR 0076 Decision 2).
+    CheckRss,
+}
+
+#[cfg(test)]
+mod playlist_page_bar_tests {
+    use super::{PlaylistDetailActionsDisplay, PlaylistPageBarAction};
+    use crate::view_models::button_row::{adr_0064_violation, ButtonRowRole};
+
+    /// musicindex ADR 0064 R-ACT-8: "Delete…" is the leftmost button of the
+    /// page bar of a playlist.
+    #[test]
+    fn adr_0064_r_act_8_playlist_page_bar_puts_delete_first() {
+        let roles: Vec<ButtonRowRole> = PlaylistDetailActionsDisplay::PAGE_BAR_ORDER
+            .iter()
+            .map(|action| match action {
+                PlaylistPageBarAction::Delete => ButtonRowRole::Destructive,
+                PlaylistPageBarAction::Rename | PlaylistPageBarAction::CheckRss => {
+                    ButtonRowRole::Other
+                }
+            })
+            .collect();
+        if let Some(violation) = adr_0064_violation(&roles) {
+            panic!("{violation} Change `PlaylistDetailActionsDisplay::PAGE_BAR_ORDER`.");
+        }
+    }
 }
 
 /// The texts of the delete confirmation of a playlist (ADR 0083 Decision 5,
@@ -10500,7 +10544,7 @@ mod tests {
                     )
                 })
                 .collect();
-            let menu: Vec<SelectionActionKind> = row
+            let mut menu: Vec<SelectionActionKind> = row
                 .menu
                 .as_ref()
                 .map(|menu| {
@@ -10516,6 +10560,9 @@ mod tests {
                         .collect()
                 })
                 .unwrap_or_default();
+            // The menu gives "Remove" last, and the bar gives it first
+            // (musicindex ADR 0064). The other actions have the same order.
+            menu.sort_by_key(|kind| !kind.is_destructive());
             assert_eq!(menu, bar, "{}", row.label);
         }
     }
