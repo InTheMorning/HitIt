@@ -579,7 +579,8 @@ visible-whitespace support for V3's exact CRLF comparison.
 ## ADR 0072 Correction Retry
 
 Run these checks one at a time on X11 with xfce4-terminal and xclip installed.
-The app must use gpui-base commit `5463fe4e72fd740b0db08da92003488b32661867`.
+The app must use gpui-kit commit `9e2392bcc57de0e6dc782901447d86e41483cded`.
+That commit holds the gpui-base correction `5463fe4` (ADR 0097 Decision 3).
 No real service or audio hardware is needed. Keep every edit unsaved and do
 not submit a search. This is a focused selection follow-up; it does not reopen
 the completed log packet or discard earlier accepted checks.

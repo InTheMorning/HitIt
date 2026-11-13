@@ -12,6 +12,9 @@ use crate::ui::tokens::{FontSize, ScaleFactor, Size, Spacing};
 
 pub const WINDOW_WIDTH: Pixels = px(1120.0);
 pub const WINDOW_HEIGHT: Pixels = px(760.0);
+/// ADR 0097 Decision 1: the narrowest supported window width. The window
+/// cannot become narrower, and the fit tests run at this width.
+pub const WINDOW_MIN_WIDTH: Pixels = px(390.0);
 pub const TAB_BAR_HEIGHT: Pixels = px(44.0);
 pub const APP_TOOLBAR_GLOBAL_SEARCH_COMPACT_BREAKPOINT: Pixels = px(1120.0);
 /// R-TOOLBAR-1 item 2: the center area of the toolbar is at most this wide.

@@ -58,6 +58,8 @@ tokio-util = { version = "0.7", features = ["rt"] }
 
 [dev-dependencies]
 gpui = { package = "gpui-pre", version = "=0.3.1", features = ["test-support"] }
+# ADR 0097 Decision 3: the fit tests measure text with Figtree.
+gpui_wgpu = { package = "gpui-pre-wgpu", version = "=0.3.1" }
 tempfile = "3"
 # ADR 0083 task 002 proves the embedded Figtree files' family name directly.
 # The gpui test text system is a no-op. It cannot resolve a family name.
@@ -67,8 +69,11 @@ ttf-parser = "0.25"
 tokio = { version = "1", features = ["test-util"] }
 
 # ADR 0072: final-glyph hit testing and complete grapheme word selection only.
+# ADR 0097 Decision 3: the same rev also patches gpui-pre, so a test context
+# can take a platform text system.
 [patch.crates-io]
-gpui-base = { git = "https://github.com/InTheMorning/gpui-kit", rev = "5463fe4e72fd740b0db08da92003488b32661867" }
+gpui-base = { git = "https://github.com/InTheMorning/gpui-kit", rev = "9e2392bcc57de0e6dc782901447d86e41483cded" }
+gpui-pre = { git = "https://github.com/InTheMorning/gpui-kit", rev = "9e2392bcc57de0e6dc782901447d86e41483cded" }
 
 [[bin]]
 name = "hitit"

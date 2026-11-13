@@ -6,7 +6,7 @@ Accepted - 2026-11-13. The operator selected the narrowest width and the text sy
 
 ## Context
 
-[musicindex ADR 0065](../../../musicindex/docs/adr/0065-each-app-checks-its-fit-at-two-widths.md), Accepted on 2026-11-13, makes each app check its fit at two widths. R-FIT-2 gives the two widths. R-FIT-3 gives the three faults: a break inside a word, an edge cut and an overflow. R-FIT-4 item 2 makes HitIt do the check as GPUI layout tests. musicindex ADR 0065 leaves the narrowest width of HitIt to this app (musicindex ADR 0020 R-FIT-1 item 1).
+[musicindex ADR 0065](../../../musicindex/docs/adr/0065-each-app-checks-its-fit-at-two-widths.md), Accepted on 2026-11-13, makes each app check its fit at two widths. R-FIT-2 gives the two widths. R-FIT-3 gives the faults: a break inside a word, an edge cut, an overflow and an overlap. The overlap, and the overflow of a text out of its own box, came with the R-FIT-3 change of 2026-11-13. R-FIT-4 item 2 makes HitIt do the check as GPUI layout tests. musicindex ADR 0065 leaves the narrowest width of HitIt to this app (musicindex ADR 0020 R-FIT-1 item 1).
 
 These facts about HitIt and gpui-pre 0.3.1 control the design:
 
@@ -34,14 +34,16 @@ These facts about HitIt and gpui-pre 0.3.1 control the design:
 1. A patch of `gpui-pre` adds a public `TestAppContext` constructor that takes a `PlatformTextSystem`. The patch is in the `InTheMorning/gpui-kit` fork. `Cargo.toml` pins it by rev in `[patch.crates-io]`, with the same method as the `gpui-base` patch.
 2. The fit tests give that constructor the `CosmicTextSystem` of `gpui-pre-wgpu`. Then they install the embedded Figtree files through `crate::ui::fonts::install`.
 3. When gpui-pre has a public constructor that gives a test a text system, a superseding change removes the patch.
+4. The fork rev holds the gpui-base correction of [ADR 0072](archive/0072-pinned-gpui-base-selection-corrections.md). Thus `gpui-base` and `gpui-pre` use one rev. The ADR 0072 guard in `tests/architecture_tests.rs` allows these two patches and that rev only.
 
 ### 4. The shared primitives record fit probes
 
-1. In a test binary, the shared text and control primitives of `src/ui/primitives` record one fit probe for each element. A probe holds the bounds of the element, the content mask at prepaint, and the text layout of a text. A production binary records no probe.
-2. The test finds the three faults of musicindex ADR 0065 R-FIT-3 from the probes:
+1. In a test binary, the shared text and control primitives of `src/ui/primitives` record fit probes. A probe holds the bounds of the element, the content mask at prepaint, and the text layout of a text. A control also records a probe of its text, linked to the control by its element id. A production binary records no probe.
+2. The test finds the faults of musicindex ADR 0065 R-FIT-3 from the probes:
    - A break inside a word: a wrap boundary of a text is between two characters that are letters or digits.
    - An edge cut: an edge of the content mask crosses the element on the horizontal axis. Or an edge of the window crosses the element on the vertical axis.
-   - An overflow: the element is wider than its content mask, or the element is fully out of its content mask on the horizontal axis.
+   - An overflow: the element is wider than its content mask, or the element is fully out of its content mask on the horizontal axis. A text that is wider than its own box is also an overflow. So is a text that goes out of the box of its control on the horizontal axis.
+   - An overlap: the boxes of two controls intersect by more than 1 px on each axis in the part that shows, and no box of the two holds the other.
 3. The attribute of R-FIT-3 item 3 is `Label::break_anywhere`. A text with this attribute, for example a URL or a GUID, can break inside a word, and the test does not count that break.
 4. A vertical scroll area cuts its rows on the vertical axis during a scroll. Thus the test does not count a vertical cut by a content mask that is not the window.
 
@@ -73,6 +75,8 @@ Mechanical:
 
 - A unit test makes a label with a long word in a narrow box. The test must report a break inside a word. The same test with `Label::break_anywhere` must report no break.
 - A unit test puts a button across the right edge of a box with `overflow_hidden`. The test must report an edge cut. A button fully out of the box must give an overflow.
+- A unit test puts a button with a long label in a narrow box, and a label with no wrap in a narrow box. The test must report an overflow of the text for each.
+- A unit test puts two buttons on top of each other. The test must report an overlap. Two buttons that do not touch must give no fault.
 - The phase 1 layout test mounts `TopApp` at 390 px and at 940 px. It finds no fault in the start page, the tab bar or the sidebar, and the Settings navigation. The test mounts the list bar at the content width of each window width.
 - A unit test reads the window options of `src/app/bootstrap.rs` and requires a minimum width of 390 px.
 

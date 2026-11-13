@@ -598,6 +598,56 @@ impl Button {
     }
 }
 
+/// ADR 0097 Decision 4: the fit probe names a button by its label, or by its
+/// id when it has no label. The id is the key of the control.
+#[cfg(test)]
+fn fit_probe_name(id: &ElementId, label: &gpui::SharedString) -> gpui::SharedString {
+    if label.is_empty() {
+        id.to_string().into()
+    } else {
+        label.clone()
+    }
+}
+
+/// In a test binary, the box of the button records a control fit probe.
+#[cfg(test)]
+fn with_control_fit_probe<E: ParentElement>(
+    el: E,
+    id: &ElementId,
+    label: &gpui::SharedString,
+) -> E {
+    el.child(super::fit_probe::control_probe(
+        fit_probe_name(id, label),
+        id.to_string().into(),
+    ))
+}
+
+#[cfg(not(test))]
+fn with_control_fit_probe<E>(el: E, _: &ElementId, _: &gpui::SharedString) -> E {
+    el
+}
+
+/// `text_box` with the label text. In a test binary, the text also records a
+/// fit probe that is linked to the button.
+fn text_with_fit_probe(
+    text_box: gpui::Div,
+    id: &ElementId,
+    label: gpui::SharedString,
+) -> gpui::Div {
+    #[cfg(test)]
+    let name = fit_probe_name(id, &label);
+    let text = gpui::StyledText::new(label);
+    #[cfg(test)]
+    let text_box = text_box.child(super::fit_probe::control_text_probe(
+        name,
+        id.to_string().into(),
+        text.layout().clone(),
+    ));
+    #[cfg(not(test))]
+    let _ = id;
+    text_box.child(text)
+}
+
 impl RenderOnce for Button {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let min_hit_target = Self::min_hit_target(cx);
@@ -648,8 +698,8 @@ impl RenderOnce for Button {
             visual = visual.w_full();
         }
 
-        let mut hit_target = hit_target_base(self.id)
-            .children(reveal_probe)
+        let hit_target = hit_target_base(self.id.clone()).children(reveal_probe);
+        let mut hit_target = with_control_fit_probe(hit_target, &self.id, &label)
             .when(!self.narrow_hit_target, |el| el.min_w(min_hit_target))
             .min_h(min_hit_target)
             .flex()
@@ -700,9 +750,8 @@ impl RenderOnce for Button {
         if let Some(icon) = leading_icon {
             visual = visual.child(button_icon(icon, icon_color));
         }
-        let label = div()
-            .when(label_treatment.line_through(), Styled::line_through)
-            .child(label);
+        let text_box = div().when(label_treatment.line_through(), Styled::line_through);
+        let label = text_with_fit_probe(text_box, &self.id, label);
         // An empty label takes a gap of its own, and that gap moves the icon of
         // an icon button away from the center of its circle.
         if icon_only {

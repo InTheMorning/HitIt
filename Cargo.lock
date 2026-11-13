@@ -2377,7 +2377,7 @@ dependencies = [
 [[package]]
 name = "gpui-base"
 version = "0.6.1"
-source = "git+https://github.com/InTheMorning/gpui-kit?rev=5463fe4e72fd740b0db08da92003488b32661867#5463fe4e72fd740b0db08da92003488b32661867"
+source = "git+https://github.com/InTheMorning/gpui-kit?rev=9e2392bcc57de0e6dc782901447d86e41483cded#9e2392bcc57de0e6dc782901447d86e41483cded"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -2482,8 +2482,7 @@ dependencies = [
 [[package]]
 name = "gpui-pre"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abb3eb3e6977fe9d138c57e56b7e7066352be1bd0ca1300d7ed40ddbf9587b77"
+source = "git+https://github.com/InTheMorning/gpui-kit?rev=9e2392bcc57de0e6dc782901447d86e41483cded#9e2392bcc57de0e6dc782901447d86e41483cded"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -3152,6 +3151,7 @@ dependencies = [
  "gpui-kit-assets",
  "gpui-pre",
  "gpui-pre-platform",
+ "gpui-pre-wgpu",
  "html5ever",
  "icu_collator",
  "icu_locale_core",

@@ -2254,6 +2254,9 @@ impl Render for TopApp {
 }
 
 #[cfg(test)]
+mod fit_check;
+
+#[cfg(test)]
 mod tests {
     use super::{
         TopApp, WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,

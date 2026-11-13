@@ -323,6 +323,7 @@ const SCREEN_FILES: &[&str] = &[
     "src/app/settings.rs",
     "src/app/bootstrap.rs",
     "src/app/events.rs",
+    "src/app/fit_check.rs",
     "src/app/keyboard.rs",
     "src/app/menu.rs",
     "src/app/name_level_dispatch.rs",
@@ -15718,7 +15719,13 @@ fn adr_0071_debug_layout_dependencies_remain_optimized() {
         .unwrap_or(true));
 }
 
-/// Situational ADR 0072: only the reviewed gpui-base correction may override published packages.
+/// Situational ADR 0072 and ADR 0097 Decision 3: only the reviewed gpui-kit fork
+/// may override published packages. It patches gpui-base (ADR 0072) and
+/// gpui-pre (ADR 0097), both at one rev.
+/// The gpui-kit fork rev. It holds the gpui-base correction `5463fe4` of
+/// ADR 0072 and the gpui-pre test text system of ADR 0097 Decision 3.
+const GPUI_KIT_REV: &str = "9e2392bcc57de0e6dc782901447d86e41483cded";
+
 #[test]
 fn adr_0072_gpui_base_fork_is_the_only_pinned_source_override() {
     let manifest = read_source(&manifest_path("Cargo.toml"))
@@ -15727,25 +15734,31 @@ fn adr_0072_gpui_base_fork_is_the_only_pinned_source_override() {
     let patches = manifest["patch"].as_table().unwrap();
     assert_eq!(patches.len(), 1, "ADR 0072: only crates.io may be patched");
     let crates_io = patches["crates-io"].as_table().unwrap();
+    let mut patched: Vec<&str> = crates_io.keys().map(String::as_str).collect();
+    patched.sort_unstable();
     assert_eq!(
-        crates_io.len(),
-        1,
-        "ADR 0072: only gpui-base may be patched"
+        patched,
+        ["gpui-base", "gpui-pre"],
+        "ADR 0072 and ADR 0097 Decision 3: only gpui-base and gpui-pre may be patched. \
+         A new patch needs a decision record."
     );
-    let base = crates_io["gpui-base"].as_table().unwrap();
-    assert_eq!(
-        base.len(),
-        2,
-        "ADR 0072: the override requires only git and rev"
-    );
-    assert_eq!(
-        base["git"].as_str(),
-        Some("https://github.com/InTheMorning/gpui-kit")
-    );
-    assert_eq!(
-        base["rev"].as_str(),
-        Some("5463fe4e72fd740b0db08da92003488b32661867")
-    );
+    for name in ["gpui-base", "gpui-pre"] {
+        let patch = crates_io[name].as_table().unwrap();
+        assert_eq!(
+            patch.len(),
+            2,
+            "ADR 0072: the override of {name} requires only git and rev"
+        );
+        assert_eq!(
+            patch["git"].as_str(),
+            Some("https://github.com/InTheMorning/gpui-kit")
+        );
+        assert_eq!(
+            patch["rev"].as_str(),
+            Some(GPUI_KIT_REV),
+            "ADR 0097 Decision 3: gpui-base and gpui-pre use one gpui-kit rev"
+        );
+    }
     assert!(!manifest.contains_key("replace"));
 
     let dependencies = manifest["dependencies"].as_table().unwrap();
@@ -15777,12 +15790,14 @@ fn adr_0072_gpui_base_fork_is_the_only_pinned_source_override() {
             .collect();
         assert_eq!(matches.len(), 1, "ADR 0072: require one version of {name}");
         assert_eq!(matches[0]["version"].as_str(), Some(version));
-        let source = if name == "gpui-base" {
-            "git+https://github.com/InTheMorning/gpui-kit?rev=5463fe4e72fd740b0db08da92003488b32661867#5463fe4e72fd740b0db08da92003488b32661867"
+        let source = if matches!(name, "gpui-base" | "gpui-pre") {
+            format!(
+                "git+https://github.com/InTheMorning/gpui-kit?rev={GPUI_KIT_REV}#{GPUI_KIT_REV}"
+            )
         } else {
-            "registry+https://github.com/rust-lang/crates.io-index"
+            "registry+https://github.com/rust-lang/crates.io-index".to_owned()
         };
-        assert_eq!(matches[0]["source"].as_str(), Some(source));
+        assert_eq!(matches[0]["source"].as_str(), Some(source.as_str()));
     }
 }
 

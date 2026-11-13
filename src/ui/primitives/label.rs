@@ -7,7 +7,9 @@
 
 #![warn(clippy::pedantic)]
 
-use gpui::{div, prelude::*, App, FontWeight, IntoElement, RenderOnce, SharedString, Window};
+use gpui::{
+    div, prelude::*, App, FontWeight, IntoElement, RenderOnce, SharedString, StyledText, Window,
+};
 
 use crate::ui::tokens::{resolve_color, Appearance, FontSize, SemanticColor};
 
@@ -37,6 +39,9 @@ pub struct Label {
     weight: Option<FontWeight>,
     size: Option<FontSize>,
     truncated: bool,
+    // ADR 0097 Decision 4: only the fit probe of a test binary reads it.
+    #[cfg(test)]
+    break_anywhere: bool,
 }
 
 impl Label {
@@ -49,6 +54,8 @@ impl Label {
             weight: None,
             size: None,
             truncated: false,
+            #[cfg(test)]
+            break_anywhere: false,
         }
     }
 
@@ -88,6 +95,20 @@ impl Label {
         self.truncated = true;
         self
     }
+
+    /// The text can break inside a word, for example a URL or a GUID. The fit
+    /// check of a test does not count that break (musicindex ADR 0065 R-FIT-3
+    /// item 3, ADR 0097 Decision 4).
+    pub fn break_anywhere(self) -> Self {
+        #[cfg(test)]
+        let self_ = Self {
+            break_anywhere: true,
+            ..self
+        };
+        #[cfg(not(test))]
+        let self_ = self;
+        self_
+    }
 }
 
 impl RenderOnce for Label {
@@ -121,7 +142,15 @@ impl RenderOnce for Label {
         if self.truncated {
             el = el.min_w_0().truncate();
         }
-        el.child(self.text)
+        #[cfg(test)]
+        let name = self.text.clone();
+        let text = StyledText::new(self.text);
+        #[cfg(test)]
+        let probe = super::fit_probe::probe(name, Some(text.layout().clone()), self.break_anywhere);
+        let el = el.child(text);
+        #[cfg(test)]
+        let el = el.child(probe);
+        el
     }
 }
 

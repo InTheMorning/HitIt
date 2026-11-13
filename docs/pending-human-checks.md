@@ -550,3 +550,10 @@ target/debug/hitit &
 - R-ACT-10, a playlist with a track that the RSS check marks "Removed from feed": the row shows one red button "Remove…". Its menu lists "Remove from playlist", then "Remove from all playlists…". Each item does its action, and the second item opens its confirmation.
 - R-ACT-11, Settings, Diagnostics, Database, the task Restore: in a wide window, "Restore database" is the last control of the column, after a divider. Make the window narrower than 760 px. The controls wrap into a band, and "Restore database" is first, with a space after it.
 - Wrong: a red or destructive button at the right end of a row, or Enter that removes data.
+
+## 14. ADR 0097 The Fit Check At Two Widths - 2026-11-13
+
+- Open HitIt at a window width of 940 px. The sidebar shows, and no label breaks inside a word (musicindex ADR 0065).
+- Make the window as narrow as possible. It stops at 390 px, and the tab bar shows each tab.
+- The agent test of 2026-11-13 draws the shell at 390 px and at 940 px with Figtree and finds no fault. It does not use a real window manager, so a person checks the two items above.
+- Wrong: a window narrower than 390 px, or a label with a part of a word on the next line.

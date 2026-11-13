@@ -68,20 +68,11 @@ pub fn run_app() -> bool {
             cx,
         );
         let window = cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
-                    None,
-                    size(layout::WINDOW_WIDTH, layout::WINDOW_HEIGHT),
-                    cx,
-                ))),
-                // ADR 0096 Decision 4.
-                titlebar: Some(gpui::TitlebarOptions {
-                    title: Some(crate::config::APP_DISPLAY_NAME.into()),
-                    ..Default::default()
-                }),
-                app_id: Some(crate::config::APP_ID.to_owned()),
-                ..Default::default()
-            },
+            main_window_options(Bounds::centered(
+                None,
+                size(layout::WINDOW_WIDTH, layout::WINDOW_HEIGHT),
+                cx,
+            )),
             |window, cx| {
                 window.on_window_should_close(cx, |_, cx| {
                     quit_after_window_close(cx);
@@ -330,9 +321,43 @@ fn nudge_window(window_handle: gpui::AnyWindowHandle, cx: &mut gpui::App) {
     .detach();
 }
 
+/// The options of the main window.
+fn main_window_options(bounds: Bounds<gpui::Pixels>) -> WindowOptions {
+    WindowOptions {
+        window_bounds: Some(WindowBounds::Windowed(bounds)),
+        // ADR 0097 Decision 1. This record gives no minimum height.
+        window_min_size: Some(size(layout::WINDOW_MIN_WIDTH, gpui::Pixels::ZERO)),
+        // ADR 0096 Decision 4.
+        titlebar: Some(gpui::TitlebarOptions {
+            title: Some(crate::config::APP_DISPLAY_NAME.into()),
+            ..Default::default()
+        }),
+        app_id: Some(crate::config::APP_ID.to_owned()),
+        ..Default::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ADR 0097 Decision 1: the window cannot become narrower than 390 px.
+    #[test]
+    fn adr_0097_the_window_has_a_minimum_width_of_390_px() {
+        let bounds = Bounds::new(
+            gpui::point(gpui::px(0.0), gpui::px(0.0)),
+            size(gpui::px(1.0), gpui::px(1.0)),
+        );
+        let minimum = main_window_options(bounds)
+            .window_min_size
+            .map(|minimum| minimum.width);
+        assert_eq!(
+            minimum,
+            Some(gpui::px(390.0)),
+            "ADR 0097 Decision 1: the narrowest supported width is 390 px. \
+             Set window_min_size in main_window_options to layout::WINDOW_MIN_WIDTH."
+        );
+    }
 
     #[test]
     #[expect(

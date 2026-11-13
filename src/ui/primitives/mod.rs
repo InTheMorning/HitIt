@@ -24,6 +24,8 @@ pub mod button;
 pub(crate) mod checkbox;
 pub mod context_menu;
 pub mod divider;
+#[cfg(test)]
+pub(crate) mod fit_probe;
 pub mod image;
 pub mod label;
 pub mod loading;
