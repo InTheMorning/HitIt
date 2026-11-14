@@ -24902,3 +24902,28 @@ fn adr_0091_name_order_vectors_pass() {
         panic!("{message}");
     }
 }
+
+/// Durable guard, musicindex ADR 0032 R-DOT-2: the app copy of the shared
+/// tokens equals `../musicindex-assets/tokens/tokens.json` byte for byte.
+/// Commit e101446 edited the copy, and no check found it. When the shared
+/// file is not on this machine, the guard prints that it did not run.
+#[test]
+fn shared_token_copy_equals_musicindex_assets() {
+    let shared = manifest_path("../musicindex-assets/tokens/tokens.json");
+    let Ok(expected) = fs::read(&shared) else {
+        println!(
+            "shared_token_copy_equals_musicindex_assets did not run: {} is not on this machine",
+            shared.display()
+        );
+        return;
+    };
+    let copy = manifest_path("src/assets/tokens.json");
+    let actual = fs::read(&copy).expect("read src/assets/tokens.json");
+    assert!(
+        actual == expected,
+        "musicindex ADR 0032 R-DOT-2: src/assets/tokens.json must equal \
+../musicindex-assets/tokens/tokens.json byte for byte. Copy the shared file \
+over src/assets/tokens.json. Do not edit the copy: a change goes into \
+musicindex-assets first, under a musicindex decision record."
+    );
+}
