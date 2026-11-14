@@ -2178,10 +2178,9 @@ fn adr_0066_search_failure_report_stays_readable_and_vm_owned() {
         "Size::NoticeWidth",
         "min_w_0()",
         "wrap_lines()",
-        // ADR 0084 Decision 1, amended 2026-10-17 (task 014): the notice
-        // scrolls through the shared helper, not its own
-        // `overflow_y_scrollbar()` call.
-        "music_column_scrollbar(",
+        // ADR 0090 Invariants: the notice scrolls through the shared helper
+        // with a held handle.
+        "music_column_tracked_scrollbar(",
         "flex_wrap()",
         "failure.action(intent)",
         "failure.visible_report()",
@@ -2190,7 +2189,8 @@ fn adr_0066_search_failure_report_stays_readable_and_vm_owned() {
     ] {
         assert!(
             notice.contains(required),
-            "search failure presentation missing {required}"
+            "search failure presentation missing {required}. ADR 0090 Invariants: scroll the \
+notice with `music_column_tracked_scrollbar` and a held handle."
         );
     }
     for forbidden in [
@@ -5291,9 +5291,7 @@ drag handle and give no row menu in selection mode."
                 .to_owned(),
         );
     }
-    if !shell.contains("music_column_tracked_scrollbar(container, scroll, None)")
-        || shell.contains("music_column_scrollbar(")
-    {
+    if !shell.contains("music_column_tracked_scrollbar(container, scroll, None)") {
         violations.push(
             "src/ui/shells/playlist.rs: the playlist page must scroll through \
 `music_column_tracked_scrollbar` with the held detail column handle."
@@ -16508,12 +16506,14 @@ fn adr_0069_settings_group_ownership() {
     assert!(form.contains(".flex_wrap()") && form.contains(".on_activate("));
     assert!(form.contains(".a11y_label(") && form.contains(".disabled(display.availability"));
     assert!(
-        form.find(".children(navigation)").unwrap()
-            < form.find(".id(\"settings-scroll\")").unwrap()
+        form.find(".children(navigation)").unwrap() < form.find(".id(\"settings-page\")").unwrap()
     );
-    assert!(form.contains(".min_h_0()") && form.contains(".overflow_y_scroll()"));
-    assert!(form.contains(".track_scroll(scroll_handle)"));
-    assert!(form.contains(".vertical_scrollbar(scroll_handle)"));
+    assert!(form.contains(".min_h_0()"));
+    assert!(
+        form.contains("music_column_tracked_scrollbar("),
+        "ADR 0090 Invariants: Settings must scroll with a held handle. \
+Call `music_column_tracked_scrollbar` with the held `scroll_handle`."
+    );
     assert!(app.contains("settings_scroll: crate::ui::composites::settings::SettingsScrollHandles"));
     assert!(screen.contains("app.settings_scroll.handle(app.settings.selected())"));
     assert!(!form.contains("truncate()"));
@@ -21510,8 +21510,7 @@ fn adr_0084_scrollbars_r14_01_music_columns_use_the_shared_helper() {
         if combined.contains(".overflow_y_scroll()") {
             violations.push(format!("{label}: calls `.overflow_y_scroll()` on its own."));
         }
-        let uses_helper = combined.contains("music_column_scrollbar(")
-            || combined.contains("music_column_tracked_scrollbar(")
+        let uses_helper = combined.contains("music_column_tracked_scrollbar(")
             || combined.contains("music_column_list_scrollbar(");
         if !uses_helper {
             violations.push(format!("{label}: calls neither shared helper function."));
@@ -21520,10 +21519,11 @@ fn adr_0084_scrollbars_r14_01_music_columns_use_the_shared_helper() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0084 Decision 1, amended 2026-10-17: a Music column must scroll through \
-`music_column_scrollbar`, `music_column_tracked_scrollbar` or, for a virtual list (task 037), \
-`music_column_list_scrollbar` in `src/ui/composites/music_column_scroll.rs`, never through its \
-own `.overflow_y_scroll()`. Fix each named file.\n{}",
+        "ADR 0090 Invariants: a Music column must scroll through \
+`music_column_tracked_scrollbar` with a held handle, so a focused control scrolls into view. A \
+virtual list (ADR 0084 task 037) uses `music_column_list_scrollbar`. Both live in \
+`src/ui/composites/music_column_scroll.rs`. A column never calls `.overflow_y_scroll()` on its \
+own. Call `music_column_tracked_scrollbar` with a held handle in each named file.\n{}",
         violations.join("\n")
     );
 }
@@ -22683,7 +22683,7 @@ fn adr_0089_no_view_model_exposes_a_breadcrumb() {
 /// ADR 0084 Decision 9 is superseded.
 #[test]
 fn adr_0084_music_open_defects_r30_12_detail_pages_scroll_with_the_held_handle() {
-    const FIX: &str = "ADR 0084 §9 One Navigation Stack (packet 018): a Music detail page must scroll with the held detail column handle.\nCall `music_column_tracked_scrollbar` with the handle of `LibraryApp::detail_scroll_handle`, not `music_column_scrollbar`.";
+    const FIX: &str = "ADR 0090 Invariants and ADR 0084 §9 (packet 018): a Music detail page must scroll with the held detail column handle.\nCall `music_column_tracked_scrollbar` with the handle of `LibraryApp::detail_scroll_handle`.";
     let pages = [
         "src/ui/shells/track_page.rs",
         "src/ui/shells/publisher.rs",
@@ -22697,11 +22697,6 @@ fn adr_0084_music_open_defects_r30_12_detail_pages_scroll_with_the_held_handle()
         if !source.contains("music_column_tracked_scrollbar(") {
             violations.push(format!(
                 "{page}: the page must call `music_column_tracked_scrollbar(`"
-            ));
-        }
-        if source.contains("music_column_scrollbar(") {
-            violations.push(format!(
-                "{page}: the page must not scroll with `music_column_scrollbar(`"
             ));
         }
     }

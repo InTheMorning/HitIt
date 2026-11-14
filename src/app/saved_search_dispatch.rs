@@ -213,7 +213,11 @@ impl TopApp {
                 .is_some_and(|(id, query)| page.id == *id && page.query == *query)
         });
         let Some(page) = mounted else {
-            return render_search_empty_state(&SavedSearchPage::loading_empty_state(), cx);
+            return render_search_empty_state(
+                &SavedSearchPage::loading_empty_state(),
+                self.search_notice_scroll(SearchPageSlot::SavedSearch),
+                cx,
+            );
         };
         let header_title = page.header_title();
         let header_status = page.header_status().map(str::to_owned);
@@ -222,7 +226,11 @@ impl TopApp {
             let library = self.library.read(cx);
             let lookup = library.search_lookup();
             let Some(results) = page.results() else {
-                return render_search_empty_state(&SavedSearchPage::deleted_empty_state(), cx);
+                return render_search_empty_state(
+                    &SavedSearchPage::deleted_empty_state(),
+                    self.search_notice_scroll(SearchPageSlot::SavedSearch),
+                    cx,
+                );
             };
             (
                 results.visible_items(&lookup),
@@ -284,7 +292,8 @@ impl TopApp {
             .with_thumbnails(thumbnails)
             .with_arts(arts)
             .with_items(items)
-            .with_scroll(self.search_page_scroll(SearchPageSlot::SavedSearch));
+            .with_scroll(self.search_page_scroll(SearchPageSlot::SavedSearch))
+            .with_notice_scroll(self.search_notice_scroll(SearchPageSlot::SavedSearch));
         if let Some(select_action) = select_action {
             let select_action_entity = action_entity.clone();
             slots = slots.header_action(select_action, move |window, cx: &mut App| {
@@ -302,7 +311,11 @@ impl TopApp {
             });
         }
         let Some(results) = self.search_page(SearchPageSlot::SavedSearch) else {
-            return render_search_empty_state(&SavedSearchPage::deleted_empty_state(), cx);
+            return render_search_empty_state(
+                &SavedSearchPage::deleted_empty_state(),
+                self.search_notice_scroll(SearchPageSlot::SavedSearch),
+                cx,
+            );
         };
         let content = render_search_results_inspector(results, &slots, cx);
         let bar = bar.map(|(bar, rows)| {

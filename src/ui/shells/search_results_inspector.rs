@@ -19,9 +19,7 @@ use gpui::{
 use crate::ui::composites::list_page_head::{
     list_page_head, ListHeadButtonHandler, ListPageHeadHandlers, ListScopeHandler, ListSortHandler,
 };
-use crate::ui::composites::music_column_scroll::{
-    music_column_scrollbar, music_column_tracked_scrollbar,
-};
+use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::{
     CollectionArtImage, EntityKind, Segment, SegmentDisplay, SegmentedControl, TagBadge,
@@ -69,6 +67,9 @@ pub(crate) struct SearchResultsInspectorSlots {
     items: Vec<SearchResultItemVm>,
     arts: BTreeMap<String, CollectionArtImage>,
     scroll: ScrollHandle,
+    /// The held scroll of the notice page that replaces the rows (ADR 0090
+    /// Invariants).
+    notice_scroll: ScrollHandle,
     /// The page that Back left open over the search results list (R-NAV-2
     /// item 2). `None` for a page that has no list root.
     marked_entry: Option<FrameNavigationEntry>,
@@ -214,6 +215,13 @@ impl SearchResultsInspectorSlots {
         self
     }
 
+    /// Supplies the scroll of the notice page. The owner keeps the handle,
+    /// so a focused button of the notice scrolls into view.
+    pub(crate) fn with_notice_scroll(mut self, scroll: &ScrollHandle) -> Self {
+        self.notice_scroll = scroll.clone();
+        self
+    }
+
     /// Supplies the page that Back left open over the results list, for the
     /// marked row (R-NAV-2 item 2).
     pub(crate) fn with_marked_entry(mut self, entry: Option<FrameNavigationEntry>) -> Self {
@@ -250,7 +258,12 @@ pub(crate) fn render_search_results_inspector(
         cx,
     );
     let body = if let Some(empty) = vm.empty_state() {
-        render_empty_state(empty, slots.failure_action.as_ref(), cx)
+        render_empty_state(
+            empty,
+            slots.failure_action.as_ref(),
+            &slots.notice_scroll,
+            cx,
+        )
     } else {
         render_active_result_list(
             tab,
@@ -278,7 +291,11 @@ pub(crate) fn render_search_results_inspector(
 }
 
 /// Renders a remote Index detail page reached from search-result drill-down.
-pub(crate) fn render_index_detail_display(display: &IndexDetailDisplay, cx: &App) -> AnyElement {
+pub(crate) fn render_index_detail_display(
+    display: &IndexDetailDisplay,
+    scroll: &ScrollHandle,
+    cx: &App,
+) -> AnyElement {
     let kind = entity_kind_for_index_detail(display.kind);
     let mut heading = div()
         .flex()
@@ -340,10 +357,7 @@ pub(crate) fn render_index_detail_display(display: &IndexDetailDisplay, cx: &App
                         .child(detail_metadata_row("ID", &display.id, cx)),
                 ),
         );
-    music_column_scrollbar(
-        container,
-        SharedString::from(format!("index-detail-{suffix}-scrollbar")),
-    )
+    music_column_tracked_scrollbar(container, scroll, None)
 }
 
 /// The parts of the header of a search page.
@@ -431,8 +445,12 @@ fn render_inspector_header(header: InspectorHeader<'_>, cx: &App) -> AnyElement 
 
 /// Renders one empty state with no failure action, for example the page
 /// of a deleted saved search (packet 012).
-pub(crate) fn render_search_empty_state(empty: &EmptyStateDisplay, cx: &App) -> AnyElement {
-    render_empty_state(empty, None, cx)
+pub(crate) fn render_search_empty_state(
+    empty: &EmptyStateDisplay,
+    scroll: &ScrollHandle,
+    cx: &App,
+) -> AnyElement {
+    render_empty_state(empty, None, scroll, cx)
 }
 
 /// The type tabs, each with its count (ADR 0089 Decision 4). The counts
@@ -642,6 +660,7 @@ fn render_active_result_list(
 fn render_empty_state(
     empty: &EmptyStateDisplay,
     on_failure: Option<&FailureHandler>,
+    scroll: &ScrollHandle,
     cx: &App,
 ) -> AnyElement {
     let content = empty_state_content(empty, LabelVariant::Headline, on_failure, cx);
@@ -660,7 +679,7 @@ fn render_empty_state(
                 .items_center()
                 .child(content),
         );
-    music_column_scrollbar(container, "search-results-notice-scrollbar")
+    music_column_tracked_scrollbar(container, scroll, None)
 }
 
 /// The title, the text, the failure actions and the open report of one

@@ -62,7 +62,7 @@ pub(crate) struct ReleasePageImages<'a> {
     /// no contributors panel.
     pub(crate) contributor_thumbnails: Option<&'a BTreeMap<String, Option<Arc<Image>>>>,
     /// The held scroll handle of the Music detail column.
-    pub(crate) scroll_handle: Option<ScrollHandle>,
+    pub(crate) scroll_handle: ScrollHandle,
     /// The focus that the right-click menu of a row gives back on its
     /// dismissal: the focus of the Music detail column (ADR 0083 task
     /// 006). `None` attaches no row menu.

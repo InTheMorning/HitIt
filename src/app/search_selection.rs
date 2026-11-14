@@ -123,6 +123,15 @@ impl TopApp {
         }
     }
 
+    /// The scroll of the notice page of the search page `slot` (ADR 0090
+    /// Invariants).
+    pub(super) const fn search_notice_scroll(&self, slot: SearchPageSlot) -> &ScrollHandle {
+        match slot {
+            SearchPageSlot::ToolbarSearch => &self.search_notice_scroll,
+            SearchPageSlot::SavedSearch => &self.saved_search_notice_scroll,
+        }
+    }
+
     /// Scrolls the search page `slot` to its first row. A tab change calls
     /// this, because the rows of the new tab start at the top (packet 028
     /// D2).

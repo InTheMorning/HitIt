@@ -1,6 +1,6 @@
 # ADR 0090 Task 005: Each Music Column Shows The Focused Control
 
-Status: Ready - 2026-11-14. The operator put the defect fixes before ADR 0068 on 2026-11-14. Implementation has not started.
+Status: Implemented - 2026-11-14. Mechanical checks are Green. The visual checks V1 to V4 are open in section 15 of [pending human checks](../pending-human-checks.md).
 
 ## Goal
 
@@ -78,6 +78,13 @@ Visual, listed apart, for the operator to walk:
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo build --bin hitit`
+
+## Implementation Notes - 2026-11-14
+
+- The destinations list holds `LibraryApp::destinations_scroll`.
+- The Index detail panes use the held detail column handle, `LibraryApp::detail_scroll_handle`. It already gets the reset on a navigation.
+- The search notice pages hold `search_notice_scroll` and `saved_search_notice_scroll` on `TopApp`. The notices of one search page share one handle. A notice is short, so a stale offset is improbable. No reset on a change of notice exists.
+- `ReleaseDetailSurface` takes a `&ScrollHandle`, not an `Option`. Its only scrollable caller, `src/ui/shells/entity.rs`, gives the held handle.
 
 ## Report
 

@@ -13,9 +13,7 @@ use gpui::{
     SharedString, Window,
 };
 
-use crate::ui::composites::music_column_scroll::{
-    music_column_scrollbar, music_column_tracked_scrollbar,
-};
+use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 
@@ -26,8 +24,8 @@ pub struct ReleaseDetailSurface {
     id: SharedString,
     scrollable: bool,
     /// The held scroll handle of the Music detail column (ADR 0084
-    /// Decision 10, packet 018). `None` scrolls with no held handle.
-    scroll_handle: Option<ScrollHandle>,
+    /// Decision 10, packet 018). A page that is not scrollable ignores it.
+    scroll_handle: ScrollHandle,
     header: Option<ReleaseSurfaceElement>,
     actions: Option<ReleaseSurfaceElement>,
     actions_a11y_label: Option<SharedString>,
@@ -58,7 +56,7 @@ impl ReleaseDetailSurface {
         Self {
             id: id.into(),
             scrollable: false,
-            scroll_handle: None,
+            scroll_handle: ScrollHandle::new(),
             header: None,
             actions: None,
             actions_a11y_label: None,
@@ -78,8 +76,8 @@ impl ReleaseDetailSurface {
 
     /// Scrolls the surface with `scroll_handle`, so the keys of the detail
     /// column can scroll it (ADR 0084 Decision 10, packet 018).
-    pub fn scroll_handle(mut self, scroll_handle: Option<ScrollHandle>) -> Self {
-        self.scroll_handle = scroll_handle;
+    pub fn scroll_handle(mut self, scroll_handle: &ScrollHandle) -> Self {
+        self.scroll_handle = scroll_handle.clone();
         self
     }
 
@@ -167,12 +165,10 @@ impl RenderOnce for ReleaseDetailSurface {
 
         if scrollable {
             // ADR 0084 Decision 1, amended 2026-10-17: the release page
-            // scrolls with the shared gutter scrollbar. With a held scroll
-            // handle, the handle holds the offset, and the id gives no
-            // scroll position. The detail column sets the offset of each
-            // history entry (ADR 0084 Decision 9, amended 2026-10-21).
-            // With no handle, the id of each release keeps its own offset.
-            let scrollbar_id = SharedString::from(format!("{id}-scrollbar"));
+            // scrolls with the shared gutter scrollbar. The held scroll
+            // handle holds the offset, and the id gives no scroll position.
+            // The detail column sets the offset of each history entry (ADR
+            // 0084 Decision 9, amended 2026-10-21).
             let container = div()
                 .id(id)
                 .flex_1()
@@ -180,10 +176,8 @@ impl RenderOnce for ReleaseDetailSurface {
                 .min_w_0()
                 .p(Spacing::LG.scaled(cx))
                 .child(page_scroll_content(cx).child(body));
-            match &self.scroll_handle {
-                Some(scroll) => music_column_tracked_scrollbar(container, scroll, pinned_list_bar),
-                None => music_column_scrollbar(container, scrollbar_id),
-            }
+            let scroll = &self.scroll_handle;
+            music_column_tracked_scrollbar(container, scroll, pinned_list_bar)
         } else {
             body.id(id).into_any_element()
         }

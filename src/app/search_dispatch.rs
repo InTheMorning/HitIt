@@ -1407,7 +1407,8 @@ impl TopApp {
         if let Some(track) = detail.track.as_ref() {
             return self.render_index_track_page(track, cx);
         }
-        render_index_detail_display(detail, cx)
+        let scroll = self.library.read(cx).detail_scroll_handle();
+        render_index_detail_display(detail, &scroll, cx)
     }
 
     /// The Index release page (ADR 0084 Decision 4, packet 021). It builds
@@ -1495,7 +1496,7 @@ impl TopApp {
             row_thumbnails,
             row_probes,
             contributor_thumbnails: None,
-            scroll_handle: Some(scroll_handle),
+            scroll_handle,
             row_menu_focus: Some(detail_focus),
             list_bar,
             pinned_list_bar,

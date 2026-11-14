@@ -184,6 +184,9 @@ pub struct TopApp {
     /// The scroll of the search list in the list column (packet 028 D2). A
     /// keyboard focus move scrolls the focused row into view.
     search_list_scroll: gpui::ScrollHandle,
+    /// The scroll of the notice page that replaces the search list (ADR 0090
+    /// Invariants).
+    search_notice_scroll: gpui::ScrollHandle,
     /// The mounted saved-search page of the detail column (ADR 0084
     /// Decision 3, packet 012). It is separate from the toolbar search, so
     /// a toolbar search does not change it. Back and Forward to the same
@@ -193,6 +196,9 @@ pub struct TopApp {
     saved_search_focus: gpui::FocusHandle,
     /// The scroll of the saved-search page (packet 028 D2).
     saved_search_scroll: gpui::ScrollHandle,
+    /// The scroll of the notice page of the saved-search page (ADR 0090
+    /// Invariants).
+    saved_search_notice_scroll: gpui::ScrollHandle,
     queue_text_filter: Option<String>,
     show_page: ShowPageVm,
     show_commands: ShowCommandState,
@@ -540,9 +546,11 @@ impl TopApp {
             search_list_focus: cx.focus_handle(),
             music_focus_applied: None,
             search_list_scroll: gpui::ScrollHandle::new(),
+            search_notice_scroll: gpui::ScrollHandle::new(),
             saved_search_page: None,
             saved_search_focus: cx.focus_handle(),
             saved_search_scroll: gpui::ScrollHandle::new(),
+            saved_search_notice_scroll: gpui::ScrollHandle::new(),
             queue_text_filter: None,
             show_page,
             show_commands: ShowCommandState::default(),
@@ -1684,6 +1692,7 @@ impl TopApp {
             .with_arts(arts)
             .with_items(items)
             .with_scroll(self.search_page_scroll(SearchPageSlot::ToolbarSearch))
+            .with_notice_scroll(self.search_notice_scroll(SearchPageSlot::ToolbarSearch))
             .with_marked_entry(
                 self.workspace_layout
                     .frame_nav(content_frame_id)

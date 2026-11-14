@@ -370,6 +370,9 @@ pub struct LibraryApp {
     /// packet 009). The Library holds it, so the offset survives a change
     /// of view.
     public_playlists_tiles_scroll: ScrollHandle,
+    /// The scroll of the destinations list in the sidebar (ADR 0090
+    /// Invariants). A focused entry scrolls into view.
+    destinations_scroll: ScrollHandle,
     /// The pages of the Public playlists list, one for each sort (ADR 0089
     /// packet 009). The Index gives its rows in order, so the list keeps
     /// the request state of its current sort.

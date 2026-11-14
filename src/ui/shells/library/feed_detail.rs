@@ -70,7 +70,7 @@ pub(crate) fn render_library_feed_detail(
             .collect(),
         row_probes,
         contributor_thumbnails: Some(album_thumbs),
-        scroll_handle: Some(scroll.clone()),
+        scroll_handle: scroll.clone(),
         row_menu_focus: Some(detail_focus.clone()),
         list_bar,
         pinned_list_bar,

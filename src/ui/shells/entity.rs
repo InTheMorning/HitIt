@@ -62,7 +62,7 @@ pub struct ReleaseDetailBehaviorSlots {
     pub after_section: Vec<ReleaseSurfaceElement>,
     /// The held scroll handle of the Music detail column (ADR 0084
     /// Decision 10, packet 018).
-    pub scroll_handle: Option<ScrollHandle>,
+    pub scroll_handle: ScrollHandle,
 }
 
 #[must_use]
@@ -72,7 +72,7 @@ pub fn render_release_detail_shell(
 ) -> AnyElement {
     let mut surface = ReleaseDetailSurface::new(page.detail_scroll_key.clone())
         .scrollable(true)
-        .scroll_handle(slots.scroll_handle)
+        .scroll_handle(&slots.scroll_handle)
         .header(ReleaseSurfaceElement::from_element(
             CoverBackdrop::new(
                 slots.cover_color,

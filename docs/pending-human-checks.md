@@ -558,3 +558,13 @@ target/debug/hitit &
 - Make the window as narrow as possible. It stops at 390 px, and the tab bar shows each tab.
 - The agent test of 2026-11-13 draws the shell at 390 px and at 940 px with Figtree and finds no fault. It does not use a real window manager, so a person checks the two items above.
 - Wrong: a window narrower than 390 px, or a label with a part of a word on the next line.
+
+## 15. ADR 0090 Task 005 Each Music Column Shows The Focus - 2026-11-14
+
+[ADR 0090 task 005](tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) gives the procedure. Make the window 600 px high, and use Tab only.
+
+- V1: Tab through the destinations list. Each focused entry is in view with its focus ring.
+- V2: on an Index detail pane, Tab to a button below the visible part. The pane scrolls to show it.
+- V3: on a search notice page, Tab to the last button. The page scrolls to show it.
+- V4: in Settings, Tab to a control below the visible part. The page scrolls to show it. The padding and the scrollbar of Settings look as before.
+- Wrong: a focused control is out of view, or its focus ring is cut at the edge of the column.

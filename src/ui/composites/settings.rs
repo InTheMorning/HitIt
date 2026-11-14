@@ -10,6 +10,7 @@ use gpui_component::scroll::ScrollableElement;
 use gpui_component::Size;
 
 use crate::ui::composites::confirmation_dialog::destructive_button_space;
+use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
@@ -104,31 +105,22 @@ pub(crate) fn settings_frame(
                 .children(content)
                 .into_any_element()
         } else {
-            div()
-                .id("settings-scroll")
-                .relative()
-                .flex_1()
-                .min_h_0()
-                .min_w_0()
-                .child(
-                    div()
-                        .id("settings-page")
-                        .size_full()
-                        .min_w_0()
-                        .min_h_0()
-                        .flex()
-                        .flex_col()
-                        .overflow_y_scroll()
-                        .track_scroll(scroll_handle)
-                        .p(Spacing::LG.scaled(cx))
-                        .child(
-                            page_scroll_content(cx)
-                                .gap(Spacing::LG.scaled(cx))
-                                .children(content),
-                        ),
-                )
-                .vertical_scrollbar(scroll_handle)
-                .into_any_element()
+            music_column_tracked_scrollbar(
+                div()
+                    .id("settings-page")
+                    .min_w_0()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .p(Spacing::LG.scaled(cx))
+                    .child(
+                        page_scroll_content(cx)
+                            .gap(Spacing::LG.scaled(cx))
+                            .children(content),
+                    ),
+                scroll_handle,
+                None,
+            )
         })
         .into_any_element()
 }

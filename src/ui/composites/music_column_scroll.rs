@@ -1,7 +1,7 @@
 //! The one scrollbar choice for a Music column (ADR 0084 Decision 1,
 //! amended 2026-10-17, and ADR 0063's shared scrollbar gutter).
 //!
-//! A Music column that scrolls calls one of the three functions below. No
+//! A Music column that scrolls calls one of the two functions below. No
 //! shell in Music picks its own scroll method. The caller still wraps its
 //! own content in [`page_scroll_content`](super::page_scroll_content), so
 //! the scrollbar covers no content.
@@ -16,8 +16,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, point, prelude::*, AnyElement, App, ElementId, Entity, List, ListAlignment,
-    ListState, Pixels, ScrollHandle, Window,
+    canvas, div, point, prelude::*, AnyElement, App, Entity, List, ListAlignment, ListState,
+    Pixels, ScrollHandle, Window,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -27,25 +27,13 @@ use crate::view_models::detail_selection::list_bar_is_pinned;
 use crate::view_models::list_selection::FocusStep;
 use crate::view_models::releases_everything::item_id_runs;
 
-/// Makes `container` a Music column with its own scrollbar (ADR 0084
-/// Decision 1, amended 2026-10-17). Use this for a column that keeps no
-/// scroll position across a navigation change.
-///
-/// `id` must be stable. When one call site renders more than one page,
-/// give each page a different `id`, so the two pages do not share one
-/// scroll position (task 014 Recorded Facts).
-pub(crate) fn music_column_scrollbar<E>(container: E, id: impl Into<ElementId>) -> AnyElement
-where
-    E: ScrollableElement + 'static,
-{
-    container.overflow_y_scrollbar().id(id).into_any_element()
-}
-
 /// Makes `container` a Music column that scrolls with `scroll`, with the
 /// scrollbar on the returned parent (ADR 0084 Decision 1, amended
 /// 2026-10-17). Use this when the column must keep a scroll position
 /// across a navigation change, for example Back to "New releases"
-/// (task 006 V3). `container` already has a stable `.id(..)`.
+/// (task 006 V3). It also scrolls a focused control into view (ADR 0090
+/// Invariants). `container` already has a stable `.id(..)`. When one call
+/// site renders more than one page, each page needs its own handle.
 ///
 /// `probe` is an optional layer over the column. A caller that reads the
 /// scroll position after each change, as `src/ui/composites/log_frame.rs`

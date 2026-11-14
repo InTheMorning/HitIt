@@ -62,7 +62,7 @@ use crate::ui::composites::list_page_head::{
 };
 use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::music_column_scroll::{
-    music_column_scrollbar, ListBarPin, MusicColumnList, ScrollReveal,
+    music_column_tracked_scrollbar, ListBarPin, MusicColumnList, ScrollReveal,
 };
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::playlist_popover::{CreateHandler, SelectHandler};
@@ -1223,6 +1223,7 @@ impl LibraryApp {
             artists_tiles_scroll,
             public_playlists_list_state: MusicColumnList::new(cx),
             public_playlists_tiles_scroll: gpui::ScrollHandle::new(),
+            destinations_scroll: gpui::ScrollHandle::new(),
             public_playlist_list: IndexNameListPage::default(),
             public_playlist_pages: PublicPlaylistPages::default(),
             live_list_state: MusicColumnList::new(cx),
@@ -5567,7 +5568,7 @@ impl LibraryApp {
                 .min_h_0()
                 .p(spacing::SM)
                 .child(page_scroll_content(cx).gap(spacing::XXS).children(items));
-            music_column_scrollbar(container, "music-destinations-scroll-scrollbar")
+            music_column_tracked_scrollbar(container, &self.destinations_scroll, None)
         };
         div()
             .flex()
