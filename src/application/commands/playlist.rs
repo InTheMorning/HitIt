@@ -19,6 +19,92 @@ use crate::{db, playlist_service, rss};
 
 type SharedConnection = Arc<Mutex<Connection>>;
 
+pub(crate) const fn cue_load_rss_check_trigger(
+    loaded: bool,
+) -> Option<crate::runtime::RssCheckTrigger> {
+    if loaded {
+        Some(crate::runtime::RssCheckTrigger::CueLoad)
+    } else {
+        None
+    }
+}
+
+/// Loads a playlist into the stored Show cue without starting playback.
+#[derive(Clone, Debug)]
+pub struct LoadShowCue {
+    conn: SharedConnection,
+    playlist_id: i64,
+    loaded_at_us: i64,
+}
+
+impl LoadShowCue {
+    #[must_use]
+    pub fn new(conn: SharedConnection, playlist_id: i64, loaded_at_us: i64) -> Self {
+        Self {
+            conn,
+            playlist_id,
+            loaded_at_us,
+        }
+    }
+}
+
+impl ApplicationCommand for LoadShowCue {
+    type Output = bool;
+
+    fn execute(self, _context: &CommandContext) -> CommandResult<Self::Output> {
+        let mut conn = self.conn.lock().map_err(|_| poisoned_lock())?;
+        let loaded = db::load_show_cue(&mut conn, self.playlist_id, self.loaded_at_us, false)
+            .map_err(|error| CommandError::Playlist(error.to_string()))?;
+        Ok(CommandOutcome::without_events(loaded))
+    }
+}
+
+/// Replaces the stored Show cue with a playlist snapshot.
+#[derive(Clone, Debug)]
+pub struct ReplaceShowCue(LoadShowCue);
+
+impl ReplaceShowCue {
+    #[must_use]
+    pub fn new(conn: SharedConnection, playlist_id: i64, loaded_at_us: i64) -> Self {
+        Self(LoadShowCue::new(conn, playlist_id, loaded_at_us))
+    }
+}
+
+impl ApplicationCommand for ReplaceShowCue {
+    type Output = bool;
+
+    fn execute(self, _context: &CommandContext) -> CommandResult<Self::Output> {
+        let command = self.0;
+        let mut conn = command.conn.lock().map_err(|_| poisoned_lock())?;
+        let loaded = db::load_show_cue(&mut conn, command.playlist_id, command.loaded_at_us, true)
+            .map_err(|error| CommandError::Playlist(error.to_string()))?;
+        Ok(CommandOutcome::without_events(loaded))
+    }
+}
+
+/// Clears the stored Show cue while Show playback is stopped.
+#[derive(Clone, Debug)]
+pub struct ClearShowCue {
+    conn: SharedConnection,
+}
+
+impl ClearShowCue {
+    #[must_use]
+    pub fn new(conn: SharedConnection) -> Self {
+        Self { conn }
+    }
+}
+
+impl ApplicationCommand for ClearShowCue {
+    type Output = ();
+
+    fn execute(self, _context: &CommandContext) -> CommandResult<Self::Output> {
+        let mut conn = self.conn.lock().map_err(|_| poisoned_lock())?;
+        db::clear_show_cue(&mut conn).map_err(|error| CommandError::Playlist(error.to_string()))?;
+        Ok(CommandOutcome::without_events(()))
+    }
+}
+
 /// Command result for creating a playlist.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CreatePlaylistResult {
@@ -689,7 +775,6 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn adr_0076_playlist_check_playback_start_runs_without_delaying_playback(
     ) -> anyhow::Result<()> {
-        use std::path::PathBuf;
         use std::time::Duration;
 
         use crate::application::commands::playback::PlayPlaylistAt;
@@ -700,6 +785,7 @@ mod tests {
             database, finished, response, FakeClock, FakeFetcher, RSS,
         };
         use crate::runtime::playlist_rss_check::{spawn_with, CheckClock, RssDocumentFetcher};
+        use std::path::PathBuf;
 
         let url = "https://play.test/r114/feed.xml";
         let (conn, playlist_id, _) = database(&[(url, 1)]);
@@ -767,6 +853,76 @@ mod tests {
         assert!(
             arm.contains("RssCheckTrigger::PlaybackStart"),
             "ADR 0076 packet 001: the PlayPlaylistAt handling in src/app.rs must send CheckPlaylistRss with RssCheckTrigger::PlaybackStart"
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn adr_0068_successful_cue_loads_start_one_rss_check_each() -> anyhow::Result<()> {
+        use crate::runtime::playlist_rss_check::test_support::{
+            database, finished, finished_after, response, FakeClock, FakeFetcher, RSS,
+        };
+        use crate::runtime::playlist_rss_check::{spawn_with, CheckClock, RssDocumentFetcher};
+
+        let url = "https://cue.test/rss-check/feed.xml";
+        let (conn, playlist_id, _) = database(&[(url, 1)]);
+        let clock = FakeClock::new();
+        let fetcher =
+            FakeFetcher::new(Arc::clone(&clock), |url| response(url, 200, &[], Some(RSS)));
+        let session = crate::application::session_lifecycle::SessionLifecycle::new();
+        let checker = spawn_with(
+            Arc::clone(&conn),
+            Arc::clone(&fetcher) as Arc<dyn RssDocumentFetcher>,
+            Arc::clone(&clock) as Arc<dyn CheckClock>,
+            &session,
+        );
+        let bus = CommandBus::new();
+        let load_and_check = |result: CommandResult<bool>| -> anyhow::Result<()> {
+            let loaded = result?.value().to_owned();
+            if let Some(trigger) = cue_load_rss_check_trigger(loaded) {
+                bus.execute(
+                    CheckPlaylistRss::new(checker.clone(), playlist_id, trigger),
+                    &CommandContext::next(),
+                )?;
+            }
+            Ok(())
+        };
+
+        load_and_check(bus.execute(
+            LoadShowCue::new(Arc::clone(&conn), playlist_id, 1),
+            &CommandContext::next(),
+        ))?;
+        let first = finished(&checker, playlist_id).await;
+        assert_eq!(first.trigger, RssCheckTrigger::CueLoad);
+
+        load_and_check(bus.execute(
+            ReplaceShowCue::new(Arc::clone(&conn), playlist_id, 2),
+            &CommandContext::next(),
+        ))?;
+        let second = finished_after(&checker, playlist_id, first.run_id).await;
+        assert_eq!(second.trigger, RssCheckTrigger::CueLoad);
+
+        let empty_id = {
+            let db = conn.lock().expect("lock test database");
+            db::playlist_create(&db, "Empty")?
+        };
+        load_and_check(bus.execute(
+            ReplaceShowCue::new(Arc::clone(&conn), empty_id, 3),
+            &CommandContext::next(),
+        ))?;
+        assert!(bus
+            .execute(
+                LoadShowCue::new(Arc::clone(&conn), i64::MAX, 4),
+                &CommandContext::next()
+            )
+            .is_err());
+        assert_eq!(
+            conn.lock().expect("lock test database").query_row(
+                "SELECT COUNT(*) FROM rss_check_runs WHERE trigger = 'cue_load'",
+                [],
+                |row| row.get::<_, i64>(0)
+            )?,
+            2
         );
         Ok(())
     }

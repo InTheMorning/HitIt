@@ -21,9 +21,9 @@ use crate::application::commands::payment_routes::{
     PaymentRouteRepairStatus, PaymentRouteRepairTrackResult, RepairPaymentRoutesForTrack,
 };
 use crate::application::commands::playlist::{
-    ConfirmRemovedTrack, CreatePlaylist, DeletePlaylist, MovePlaylist, MovePlaylistEntries,
-    RemovePlaylistEntries, RemovePlaylistTrackAt, RemoveTrackFromAllPlaylists, RenamePlaylist,
-    ReorderPlaylistTrack,
+    ConfirmRemovedTrack, CreatePlaylist, DeletePlaylist, LoadShowCue, MovePlaylist,
+    MovePlaylistEntries, RemovePlaylistEntries, RemovePlaylistTrackAt, RemoveTrackFromAllPlaylists,
+    RenamePlaylist, ReorderPlaylistTrack, ReplaceShowCue,
 };
 use crate::application::errors::command::CommandError;
 use crate::application::library_removal::{
@@ -914,7 +914,8 @@ impl LibraryApp {
             | TrackRowMenuAction::Remove
             | TrackRowMenuAction::CopyToMyPlaylists
             | TrackRowMenuAction::RenamePlaylist
-            | TrackRowMenuAction::DeletePlaylist => {
+            | TrackRowMenuAction::DeletePlaylist
+            | TrackRowMenuAction::LoadShowCue => {
                 self.run_track_row_menu_action(track_id, action, window, cx);
             }
         }
@@ -949,7 +950,8 @@ impl LibraryApp {
             | TrackRowMenuAction::RemoveFromPlaylist
             | TrackRowMenuAction::CopyToMyPlaylists
             | TrackRowMenuAction::RenamePlaylist
-            | TrackRowMenuAction::DeletePlaylist => return,
+            | TrackRowMenuAction::DeletePlaylist
+            | TrackRowMenuAction::LoadShowCue => return,
         }
         cx.notify();
     }
@@ -1710,6 +1712,8 @@ impl LibraryApp {
             Ok(load) => {
                 self.vm.replace_playlists(load.playlists);
                 self.vm.replace_playlist_covers(load.covers);
+                self.vm
+                    .set_show_cue_state(load.show_cue_exists, load.show_cue_replace_available);
             }
             Err(error) => self.vm.fail_playlist_load(error),
         }
@@ -2082,7 +2086,7 @@ impl LibraryApp {
     /// Runs one item of the menu of a playlist row. "Rename" opens the
     /// playlist page with its rename input. "Delete" opens the confirmation
     /// of the playlist page, and only its confirm deletes the playlist.
-    fn run_playlist_row_menu_command(
+    pub(crate) fn run_playlist_row_menu_command(
         &mut self,
         playlist_id: i64,
         name: &str,
@@ -2111,6 +2115,38 @@ impl LibraryApp {
                     this.delete_playlist(playlist_id, cx);
                 });
             }
+            TrackRowMenuAction::LoadShowCue => {
+                let loaded_at_us = chrono::Utc::now().timestamp_micros();
+                if self.vm.show_cue_exists() {
+                    let command =
+                        ReplaceShowCue::new(Arc::clone(&self.conn), playlist_id, loaded_at_us);
+                    present_command(
+                        &self.command_runner,
+                        command,
+                        CommandContext::next(),
+                        cx,
+                        move |this, loaded, cx| this.finish_show_cue_load(playlist_id, loaded, cx),
+                        |this, error, cx| {
+                            this.vm.fail_show_cue_change(error);
+                            this.reload_playlists(cx);
+                        },
+                    );
+                } else {
+                    let command =
+                        LoadShowCue::new(Arc::clone(&self.conn), playlist_id, loaded_at_us);
+                    present_command(
+                        &self.command_runner,
+                        command,
+                        CommandContext::next(),
+                        cx,
+                        move |this, loaded, cx| this.finish_show_cue_load(playlist_id, loaded, cx),
+                        |this, error, cx| {
+                            this.vm.fail_show_cue_change(error);
+                            this.reload_playlists(cx);
+                        },
+                    );
+                }
+            }
             // ADR 0089 amendment of 2026-11-08: the keyboard way to move a
             // playlist. The view model offers these two items only in the
             // sort Curator Order, not reversed, in the Rows view.
@@ -2134,6 +2170,21 @@ impl LibraryApp {
             _ => return,
         }
         cx.notify();
+    }
+
+    fn finish_show_cue_load(&mut self, playlist_id: i64, loaded: bool, cx: &mut Context<Self>) {
+        if let Some(trigger) =
+            crate::application::commands::playlist::cue_load_rss_check_trigger(loaded)
+        {
+            let replace_available = self.conn.lock().is_ok_and(|conn| {
+                crate::db::playback_session(&conn, crate::playback::DEFAULT_SESSION_ID)
+                    .is_ok_and(|session| session.is_none_or(|session| session.state == "stopped"))
+            });
+            self.vm.set_show_cue_state(true, replace_available);
+            self.check_playlist_rss(playlist_id, trigger, cx);
+            cx.emit(crate::library::LibraryAppEvent::ShowCueLoaded);
+            cx.notify();
+        }
     }
 
     /// Moves the playlist `playlist_id` to `to_index` of the curator order of

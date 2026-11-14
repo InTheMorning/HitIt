@@ -77,6 +77,7 @@ pub(crate) struct PlaylistDetailBehaviorSlots {
     pub(crate) on_delete: Option<PlaylistClickHandler>,
     /// ADR 0076 Decision 2: starts the RSS check of the playlist.
     pub(crate) on_check_rss: Option<PlaylistClickHandler>,
+    pub(crate) on_show_cue: Option<PlaylistClickHandler>,
     /// ADR 0076 Decision 6: the existing download action of an added track.
     pub(crate) on_download_added_track: Option<PlaylistTrackIdHandler>,
     pub(crate) on_reorder: Option<PlaylistReorderHandler>,
@@ -135,6 +136,7 @@ struct PlaylistActionSlots {
     on_cancel_rename: Option<PlaylistClickHandler>,
     on_delete: Option<PlaylistClickHandler>,
     on_check_rss: Option<PlaylistClickHandler>,
+    on_show_cue: Option<PlaylistClickHandler>,
 }
 
 #[must_use]
@@ -177,6 +179,7 @@ pub(crate) fn render_playlist_detail_shell(
         on_cancel_rename,
         on_delete,
         on_check_rss,
+        on_show_cue,
         on_download_added_track,
         on_reorder,
         track_rows: rows,
@@ -229,6 +232,7 @@ pub(crate) fn render_playlist_detail_shell(
                     on_cancel_rename,
                     on_delete,
                     on_check_rss,
+                    on_show_cue,
                 },
                 cx,
             ))
@@ -304,6 +308,7 @@ fn render_playlist_actions(
         mut on_rename,
         mut on_delete,
         mut on_check_rss,
+        mut on_show_cue,
         ..
     } = slots;
     let mut bar = div().flex().flex_row().items_center().gap(spacing::SM);
@@ -343,6 +348,20 @@ fn render_playlist_actions(
                     on_check_rss.take()
                 } else {
                     None
+                },
+            )),
+            PlaylistPageBarAction::ShowCue => bar.child(apply_click_handler(
+                UiButton::styled(
+                    SharedString::from(actions.show_cue.id.clone()),
+                    ControlStyle::Secondary,
+                )
+                .label(actions.show_cue.label.clone())
+                .a11y_label(actions.show_cue.a11y_label.clone())
+                .disabled(actions.show_cue.disabled),
+                if actions.show_cue.disabled {
+                    None
+                } else {
+                    on_show_cue.take()
                 },
             )),
         };

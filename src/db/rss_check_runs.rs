@@ -79,6 +79,8 @@ pub enum RssCheckTrigger {
     Button,
     /// Playback started from the playlist (phase plan trigger mapping).
     PlaybackStart,
+    /// The curator loaded or replaced the Show cue from this playlist.
+    CueLoad,
 }
 
 impl RssCheckTrigger {
@@ -87,6 +89,7 @@ impl RssCheckTrigger {
         match self {
             Self::Button => "button",
             Self::PlaybackStart => "playback_start",
+            Self::CueLoad => "cue_load",
         }
     }
 
@@ -94,6 +97,7 @@ impl RssCheckTrigger {
         match token {
             "button" => Some(Self::Button),
             "playback_start" => Some(Self::PlaybackStart),
+            "cue_load" => Some(Self::CueLoad),
             _ => None,
         }
     }

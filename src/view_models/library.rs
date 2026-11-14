@@ -719,6 +719,7 @@ pub(crate) fn playlist_row_menu_with_moves(
             label: label.to_owned(),
             a11y_label,
             destructive,
+            disabled: false,
         };
     TrackRowMenuVm {
         id: format!("playlist-row-{playlist_id}-menu"),
@@ -763,6 +764,44 @@ pub(crate) fn playlist_row_menu_with_moves(
         .collect(),
         playlist_level: TRACK_ROW_PLAYLIST_LEVEL,
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum ShowCueMenuState {
+    #[default]
+    Empty,
+    ReplaceAvailable,
+    ReplaceUnavailable,
+}
+
+#[must_use]
+pub(crate) fn playlist_row_menu_with_cue(
+    playlist_id: i64,
+    name: &str,
+    can_move_up: bool,
+    can_move_down: bool,
+    cue_state: ShowCueMenuState,
+) -> TrackRowMenuVm {
+    let mut menu = playlist_row_menu_with_moves(playlist_id, name, can_move_up, can_move_down);
+    let cue_item = TrackRowMenuItemVm {
+        action: TrackRowMenuAction::LoadShowCue,
+        id: format!("playlist-row-{playlist_id}-show-cue"),
+        label: if cue_state == ShowCueMenuState::Empty {
+            "Load into Show Cue"
+        } else {
+            "Replace Show Cue"
+        }
+        .to_owned(),
+        a11y_label: if cue_state == ShowCueMenuState::Empty {
+            format!("Load the playlist \"{name}\" into the Show cue")
+        } else {
+            format!("Replace the Show cue with the playlist \"{name}\"")
+        },
+        destructive: false,
+        disabled: cue_state == ShowCueMenuState::ReplaceUnavailable,
+    };
+    menu.items.insert(1, cue_item);
+    menu
 }
 
 /// The drag fact of a track row (ADR 0083 Decision 6, task 008). A row
@@ -3240,6 +3279,7 @@ pub(crate) struct LibraryViewModel {
     // Playlist creation.
     creating_playlist: bool,
     renaming_playlist_id: Option<i64>,
+    show_cue_state: ShowCueMenuState,
     /// The values of `artist:`, `release:` and `playlist:` for the field
     /// list (ADR 0087 Decision 3, packet 005). `replace_tree` and
     /// `replace_playlists` build it again.
@@ -3279,6 +3319,7 @@ impl LibraryViewModel {
             library_loading: false,
             creating_playlist: false,
             renaming_playlist_id: None,
+            show_cue_state: ShowCueMenuState::Empty,
             field_values: Arc::default(),
         }
     }
@@ -3882,6 +3923,22 @@ impl LibraryViewModel {
         self.rebuild_field_values();
     }
 
+    pub(crate) fn set_show_cue_state(&mut self, exists: bool, replace_available: bool) {
+        self.show_cue_state = match (exists, replace_available) {
+            (false, _) => ShowCueMenuState::Empty,
+            (true, true) => ShowCueMenuState::ReplaceAvailable,
+            (true, false) => ShowCueMenuState::ReplaceUnavailable,
+        };
+    }
+
+    pub(crate) const fn show_cue_exists(&self) -> bool {
+        !matches!(self.show_cue_state, ShowCueMenuState::Empty)
+    }
+
+    pub(crate) const fn show_cue_menu_state(&self) -> ShowCueMenuState {
+        self.show_cue_state
+    }
+
     /// Replaces the first four images of each playlist (ADR 0084
     /// Decision 12). One database read gives them for each playlist.
     pub(crate) fn replace_playlist_covers(&mut self, covers: BTreeMap<i64, Vec<String>>) {
@@ -3890,6 +3947,12 @@ impl LibraryViewModel {
 
     pub(crate) fn fail_playlist_load(&mut self, error: impl std::fmt::Display) {
         self.status = format!("Error loading playlists: {error:#}");
+    }
+
+    /// Reports a Load or a Replace of the Show cue that did not change it
+    /// (ADR 0068 task 002).
+    pub(crate) fn fail_show_cue_change(&mut self, error: impl std::fmt::Display) {
+        self.status = format!("The Show cue did not change: {error:#}");
     }
 
     #[must_use]
@@ -3944,11 +4007,12 @@ impl LibraryViewModel {
                     selected: self.selected_playlist_id == Some(playlist.id),
                     marked: false,
                     focused: false,
-                    menu: playlist_row_menu_with_moves(
+                    menu: playlist_row_menu_with_cue(
                         playlist.id,
                         &playlist.name,
                         reorders && index > 0,
                         reorders && index < last,
+                        self.show_cue_state,
                     ),
                     delete_confirmation: playlist_delete_confirmation(
                         &playlist.name,
@@ -6963,6 +7027,7 @@ pub(crate) struct PlaylistDetailActionsDisplay {
     pub(crate) delete_confirmation: PlaylistDeleteConfirmation,
     /// ADR 0076 Decision 2: the "Check RSS" action with typed availability.
     pub(crate) check_rss: super::playlist_rss_check::PlaylistCheckRssActionDisplay,
+    pub(crate) show_cue: crate::view_models::release_page::TrackRowMenuItemVm,
 }
 
 impl PlaylistDetailActionsDisplay {
@@ -6971,10 +7036,11 @@ impl PlaylistDetailActionsDisplay {
     /// The buttons of the page bar from left to right. "Delete…" is the
     /// leftmost button, and a larger space follows it (musicindex ADR 0064
     /// R-ACT-8).
-    pub(crate) const PAGE_BAR_ORDER: [PlaylistPageBarAction; 3] = [
+    pub(crate) const PAGE_BAR_ORDER: [PlaylistPageBarAction; 4] = [
         PlaylistPageBarAction::Delete,
         PlaylistPageBarAction::Rename,
         PlaylistPageBarAction::CheckRss,
+        PlaylistPageBarAction::ShowCue,
     ];
 }
 
@@ -6987,6 +7053,8 @@ pub(crate) enum PlaylistPageBarAction {
     Rename,
     /// "Check RSS" (ADR 0076 Decision 2).
     CheckRss,
+    /// Loads or replaces the stored Show cue.
+    ShowCue,
 }
 
 #[cfg(test)]
@@ -7002,9 +7070,9 @@ mod playlist_page_bar_tests {
             .iter()
             .map(|action| match action {
                 PlaylistPageBarAction::Delete => ButtonRowRole::Destructive,
-                PlaylistPageBarAction::Rename | PlaylistPageBarAction::CheckRss => {
-                    ButtonRowRole::Other
-                }
+                PlaylistPageBarAction::Rename
+                | PlaylistPageBarAction::CheckRss
+                | PlaylistPageBarAction::ShowCue => ButtonRowRole::Other,
             })
             .collect();
         if let Some(violation) = adr_0064_violation(&roles) {
@@ -7247,6 +7315,7 @@ pub(crate) struct PlaylistDetailVm<'a> {
     tracks: &'a [TrackRow],
     text_filter: Option<String>,
     rss_check: Option<&'a crate::runtime::PlaylistRssCheckSnapshot>,
+    show_cue_state: ShowCueMenuState,
 }
 
 impl<'a> PlaylistDetailVm<'a> {
@@ -7257,6 +7326,7 @@ impl<'a> PlaylistDetailVm<'a> {
             tracks,
             text_filter: None,
             rss_check: None,
+            show_cue_state: ShowCueMenuState::Empty,
         }
     }
 
@@ -7286,6 +7356,12 @@ impl<'a> PlaylistDetailVm<'a> {
         snapshot: Option<&'a crate::runtime::PlaylistRssCheckSnapshot>,
     ) -> Self {
         self.rss_check = snapshot;
+        self
+    }
+
+    #[must_use]
+    pub(crate) fn with_show_cue_state(mut self, state: ShowCueMenuState) -> Self {
+        self.show_cue_state = state;
         self
     }
 
@@ -7403,6 +7479,17 @@ impl<'a> PlaylistDetailVm<'a> {
                     self.rss_check,
                 ),
             ),
+            show_cue: playlist_row_menu_with_cue(
+                playlist_id,
+                &self.playlist.name,
+                false,
+                false,
+                self.show_cue_state,
+            )
+            .items
+            .into_iter()
+            .find(|item| item.action == TrackRowMenuAction::LoadShowCue)
+            .expect("playlist cue action exists"),
         }
     }
 
@@ -8285,8 +8372,24 @@ mod tests {
                     availability: crate::view_models::playlist_rss_check::PlaylistRssCheckAvailability::RuntimeUnavailable,
                     enabled: false,
                 },
+                show_cue: playlist_row_menu_with_cue(
+                    42,
+                    "Mix",
+                    false,
+                    false,
+                    ShowCueMenuState::Empty,
+                )
+                .items
+                .into_iter()
+                .find(|item| item.action == TrackRowMenuAction::LoadShowCue)
+                .expect("cue action"),
             }
         );
+        let actions = PlaylistDetailVm::new(&pl, &[])
+            .with_show_cue_state(ShowCueMenuState::ReplaceUnavailable)
+            .actions_display();
+        assert_eq!(actions.show_cue.label, "Replace Show Cue");
+        assert!(actions.show_cue.disabled);
     }
 
     /// R30-05 (ADR 0083 Decision 5): "Delete…" opens a confirmation. The
@@ -9696,8 +9799,8 @@ mod tests {
         );
     }
 
-    /// ADR 0089 Decision 6: each playlist row has the item menu with Rename
-    /// and Delete, and its delete confirmation is the one of the page.
+    /// ADR 0089 Decision 6 and ADR 0068 task 002: the playlist menu has cue,
+    /// rename, and delete actions with the page delete confirmation.
     #[test]
     fn adr_0089_playlist_row_menu_gives_rename_and_delete_with_the_page_confirmation() {
         let mut vm = LibraryViewModel::new();
@@ -9713,9 +9816,11 @@ mod tests {
             actions,
             [
                 TrackRowMenuAction::RenamePlaylist,
+                TrackRowMenuAction::LoadShowCue,
                 TrackRowMenuAction::DeletePlaylist
             ]
         );
+        assert_eq!(row.menu.items[1].label, "Load into Show Cue");
         assert!(
             row.menu.items.last().is_some_and(|item| item.destructive),
             "Delete is the destructive item, and it is last"
@@ -9725,6 +9830,11 @@ mod tests {
             playlist_delete_confirmation("Alpha", 3),
             "the row confirms with the text of the playlist page"
         );
+
+        vm.set_show_cue_state(true, false);
+        let row = &vm.playlist_sidebar().rows[0];
+        assert_eq!(row.menu.items[1].label, "Replace Show Cue");
+        assert!(row.menu.items[1].disabled);
     }
 
     /// ADR 0089 Decision 6 and R-NAV-2 item 2: after Back, the playlist page
@@ -12263,6 +12373,7 @@ mod tests {
             LibraryRemovalTarget::Track(42),
             LibraryRemovalImpact::Track {
                 playlist_reference_count: 1,
+                show_cue_reference_count: 0,
             },
         );
         assert!(!vm.confirm_library_removal(plan, RemovalConfirmation::WhenReferenced));
@@ -12312,6 +12423,7 @@ mod tests {
             LibraryRemovalTarget::Track(7),
             LibraryRemovalImpact::Track {
                 playlist_reference_count: 1,
+                show_cue_reference_count: 0,
             },
         );
 
@@ -12426,6 +12538,7 @@ mod tests {
             LibraryRemovalTarget::Track(42),
             LibraryRemovalImpact::Track {
                 playlist_reference_count: 1,
+                show_cue_reference_count: 0,
             },
         );
         assert!(!vm.confirm_library_removal(plan, RemovalConfirmation::WhenReferenced));
@@ -12547,6 +12660,7 @@ mod tests {
                 LibraryRemovalTarget::Track(1),
                 LibraryRemovalImpact::Track {
                     playlist_reference_count: 0,
+                    show_cue_reference_count: 0,
                 },
             )
         ));
@@ -12556,6 +12670,7 @@ mod tests {
                 LibraryRemovalTarget::Track(1),
                 LibraryRemovalImpact::Track {
                     playlist_reference_count: 2,
+                    show_cue_reference_count: 0,
                 },
             )
         ));
@@ -12570,6 +12685,7 @@ mod tests {
                 LibraryRemovalTarget::Feed(5),
                 LibraryRemovalImpact::Feed {
                     playlist_track_count: 1,
+                    show_cue_track_count: 0,
                 },
             )
         ));

@@ -149,6 +149,7 @@ pub(crate) fn render_library_detail(
                 playlists,
                 track_works: library_vm.library_track_works(),
                 detail_focus,
+                show_cue_state: library_vm.show_cue_menu_state(),
             },
             cx,
         ),

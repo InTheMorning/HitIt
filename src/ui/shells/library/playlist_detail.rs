@@ -50,7 +50,7 @@ use crate::ui::shells::playlist::{
 use crate::ui::shells::playlist_delete_confirmation::open_playlist_delete_dialog;
 use crate::view_models::library::{
     playlist_row_add_choices, LibraryChromeDisplay, PlaylistDetailVm, PlaylistTrackRowVm,
-    TrackRowWork,
+    ShowCueMenuState, TrackRowWork,
 };
 use crate::view_models::playlist_detail::PlaylistDetailPageVm;
 use crate::view_models::playlist_rss_check::removed_from_feed_row;
@@ -80,6 +80,7 @@ pub(crate) struct LibraryPlaylistPage<'a> {
     /// The focus that the right-click menu of a row gives back (decision
     /// D15).
     pub(crate) detail_focus: &'a FocusHandle,
+    pub(crate) show_cue_state: ShowCueMenuState,
 }
 
 /// The facts that each row of one render shares.
@@ -119,6 +120,7 @@ pub(crate) fn render_library_playlist_detail(
         playlists,
         track_works,
         detail_focus,
+        show_cue_state,
     } = input;
     let playlist_id = detail.playlist.id;
     let menu = PlaylistRowMenuContext {
@@ -139,6 +141,7 @@ pub(crate) fn render_library_playlist_detail(
     };
     let page = PlaylistDetailVm::new(&detail.playlist, &detail.tracks)
         .with_rss_check(playlist_rss_check)
+        .with_show_cue_state(show_cue_state)
         .page(chrome.playlist_detail_scroll_id);
     let mut slots: Vec<Option<DetailRowSlot>> = row_slots.into_iter().map(Some).collect();
     let mut take_slot = |position: usize| slots.get_mut(position).and_then(Option::take);
@@ -200,6 +203,8 @@ fn behavior_slots(
     let actions = page.actions_display();
     let rename_placeholder = actions.rename_input_placeholder;
     let delete_confirmation = actions.delete_confirmation;
+    let cue_confirmation = delete_confirmation.clone();
+    let cue_playlist_name = detail.playlist.name.clone();
     PlaylistDetailBehaviorSlots {
         on_rename: Some(click_slot(cx.listener(move |this, _, window, cx| {
             this.begin_playlist_rename(
@@ -231,6 +236,16 @@ fn behavior_slots(
             );
         }))),
         on_check_rss: Some(check_rss_slot(playlist_id, cx)),
+        on_show_cue: Some(click_slot(cx.listener(move |this, _, window, cx| {
+            this.run_playlist_row_menu_command(
+                playlist_id,
+                &cue_playlist_name,
+                &cue_confirmation,
+                crate::view_models::release_page::TrackRowMenuAction::LoadShowCue,
+                window,
+                cx,
+            );
+        }))),
         on_download_added_track: Some(download_added_track_slot(cx)),
         on_reorder: Some(reorder_slot(cx.listener(
             move |this, positions: &(i64, i64), _, cx| {

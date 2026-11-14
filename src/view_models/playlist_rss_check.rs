@@ -725,6 +725,10 @@ fn summary(run: &PlaylistRssRun) -> String {
             "Playback from this playlist started this check at {}.",
             time(run.started_at_us)
         ),
+        RssCheckTrigger::CueLoad => format!(
+            "Loading this playlist into the Show cue started this check at {}.",
+            time(run.started_at_us)
+        ),
     };
     let total = run.feeds.len();
     let state = match run.state {

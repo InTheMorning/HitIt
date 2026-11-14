@@ -178,7 +178,8 @@ impl ReleaseRowCommand {
             | TrackRowMenuAction::RemoveFromPlaylist
             | TrackRowMenuAction::CopyToMyPlaylists
             | TrackRowMenuAction::RenamePlaylist
-            | TrackRowMenuAction::DeletePlaylist => None,
+            | TrackRowMenuAction::DeletePlaylist
+            | TrackRowMenuAction::LoadShowCue => None,
         }
     }
 }
@@ -226,6 +227,7 @@ pub(crate) fn release_row_menu(facts: &ReleaseRowActionFacts<'_>) -> Option<Rele
             label: label.label(facts.kind),
             a11y_label,
             destructive: label.is_destructive(),
+            disabled: false,
         }
     };
     let mut items = Vec::new();

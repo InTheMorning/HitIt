@@ -595,3 +595,21 @@ target/debug/hitit &
 - A long name shows its first words and an ellipsis on one line. No part of a word goes to the next line.
 - The agent test draws these pages with names of 40 letters and finds no fault. It cannot see an ellipsis with no words (ADR 0063), so a person checks this.
 - Wrong: a row that shows only "...", or a name on two lines.
+
+## 19. ADR 0068 Task 002 The Stored Show Cue - 2026-11-14
+
+Use a database copy with a populated playlist. Use a Linux desktop session.
+
+1. Compile HitIt with `cargo build --locked --offline --bin hitit`.
+2. Set `database_path` from `db_path` with `database_path="$(sed -n 's/^db_path = \"\(.*\)\"/\1/p' ~/.config/hitit/config.toml)"`.
+3. Make a scratch directory with `scratch="$(mktemp -d)"`.
+4. Make its data folder with `mkdir -p "$scratch/data/hitit"`.
+5. Use `cp "$database_path" "$scratch/data/hitit/hitit.sqlite"` to write the configured database to the scratch folder.
+6. Start HitIt with `XDG_CONFIG_HOME="$scratch/config" XDG_DATA_HOME="$scratch/data" XDG_CACHE_HOME="$scratch/cache" target/debug/hitit`.
+7. Open My playlists. Open the populated playlist menu, then select "Load into Show Cue".
+8. Open Show. Make sure that each cue row appears and no audio plays.
+9. Open the playlist menu again. Make sure that it says "Replace Show Cue". Select it and make sure that Show lists the playlist.
+10. Make sure that an unavailable row stays in the list and names its cause.
+11. Close HitIt. Use `rm -rf "$scratch"` to remove the database copy and scratch files.
+
+- Incorrect: no cue rows appear, a missing file hides its row, the menu label is incorrect, or audio starts.

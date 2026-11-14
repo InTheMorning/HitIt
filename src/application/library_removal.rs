@@ -31,8 +31,14 @@ pub enum LibraryRemovalTarget {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LibraryRemovalImpact {
-    Track { playlist_reference_count: i64 },
-    Feed { playlist_track_count: i64 },
+    Track {
+        playlist_reference_count: i64,
+        show_cue_reference_count: i64,
+    },
+    Feed {
+        playlist_track_count: i64,
+        show_cue_track_count: i64,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -69,10 +75,12 @@ impl LibraryRemovalPlan {
         match self.impact {
             LibraryRemovalImpact::Track {
                 playlist_reference_count,
-            } => playlist_reference_count > 0,
+                show_cue_reference_count,
+            } => playlist_reference_count > 0 || show_cue_reference_count > 0,
             LibraryRemovalImpact::Feed {
                 playlist_track_count,
-            } => playlist_track_count > 0,
+                show_cue_track_count,
+            } => playlist_track_count > 0 || show_cue_track_count > 0,
         }
     }
 }
@@ -145,10 +153,16 @@ pub fn plan_library_removal(
 fn plan_track_removal(conn: &Connection, track_id: i64) -> Result<LibraryRemovalPlan> {
     let playlist_reference_count =
         library_service::playlist_reference_count_for_track(conn, track_id)?;
+    let show_cue_reference_count = conn.query_row(
+        "SELECT COUNT(*) FROM show_cue_entries WHERE track_id = ?1",
+        [track_id],
+        |row| row.get(0),
+    )?;
     Ok(LibraryRemovalPlan::new(
         LibraryRemovalTarget::Track(track_id),
         LibraryRemovalImpact::Track {
             playlist_reference_count,
+            show_cue_reference_count,
         },
     ))
 }
@@ -156,10 +170,16 @@ fn plan_track_removal(conn: &Connection, track_id: i64) -> Result<LibraryRemoval
 fn plan_feed_removal(conn: &Connection, feed_id: i64) -> Result<LibraryRemovalPlan> {
     let playlist_track_count =
         library_service::playlist_referenced_library_track_count_for_feed(conn, feed_id)?;
+    let show_cue_track_count = conn.query_row(
+        "SELECT COUNT(DISTINCT t.id) FROM show_cue_entries e JOIN tracks t ON t.id = e.track_id WHERE t.feed_id = ?1 AND t.is_in_library = 1",
+        [feed_id],
+        |row| row.get(0),
+    )?;
     Ok(LibraryRemovalPlan::new(
         LibraryRemovalTarget::Feed(feed_id),
         LibraryRemovalImpact::Feed {
             playlist_track_count,
+            show_cue_track_count,
         },
     ))
 }
@@ -262,7 +282,8 @@ mod tests {
         assert_eq!(
             plan.impact(),
             LibraryRemovalImpact::Track {
-                playlist_reference_count: 1
+                playlist_reference_count: 1,
+                show_cue_reference_count: 0
             }
         );
         assert!(plan.requires_confirmation());
@@ -287,7 +308,8 @@ mod tests {
         assert_eq!(
             plan.impact(),
             LibraryRemovalImpact::Feed {
-                playlist_track_count: 1
+                playlist_track_count: 1,
+                show_cue_track_count: 0
             }
         );
         assert!(plan.requires_confirmation());
@@ -314,6 +336,7 @@ mod tests {
             let plan = plan_track_removal(&conn, track_id)?;
             let LibraryRemovalImpact::Track {
                 playlist_reference_count,
+                ..
             } = plan.impact()
             else {
                 panic!("a track removal has a track impact");

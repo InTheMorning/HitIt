@@ -321,6 +321,7 @@ impl TopApp {
         let command = RefreshShowPage::new(
             Arc::clone(&self.conn),
             Arc::clone(&self.application_services),
+            self.music_dir.clone(),
             self.queue_text_filter.clone(),
             self.broadcast.clone(),
         );
@@ -1422,6 +1423,7 @@ fn apply_event_refresh(
 struct RefreshShowPage {
     conn: Arc<Mutex<Connection>>,
     application_services: Arc<ApplicationServices>,
+    music_dir: PathBuf,
     queue_text_filter: Option<String>,
     broadcast: config::BroadcastCapabilities,
 }
@@ -1430,12 +1432,14 @@ impl RefreshShowPage {
     fn new(
         conn: Arc<Mutex<Connection>>,
         application_services: Arc<ApplicationServices>,
+        music_dir: PathBuf,
         queue_text_filter: Option<String>,
         broadcast: config::BroadcastCapabilities,
     ) -> Self {
         Self {
             conn,
             application_services,
+            music_dir,
             queue_text_filter,
             broadcast,
         }
@@ -1455,8 +1459,12 @@ impl ApplicationCommand for RefreshShowPage {
                 .conn
                 .lock()
                 .map_err(|_| CommandError::Query("database lock poisoned".to_string()))?;
-            let queue =
-                queue_now_playing_vm(&self.application_services, &conn, self.queue_text_filter);
+            let queue = queue_now_playing_vm(
+                &self.application_services,
+                &conn,
+                &self.music_dir,
+                self.queue_text_filter,
+            );
             let input = load_event_section(&conn, &self.broadcast);
             (queue, Some(input))
         };

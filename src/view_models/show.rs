@@ -3550,6 +3550,8 @@ mod tests {
     fn track(id: i64, title: &str, now_playing: bool) -> QueueTrackInput {
         QueueTrackInput {
             id,
+            entry_id: None,
+            unavailable_reason: None,
             title: Some(title.to_string()),
             artist: Some("Artist".to_string()),
             duration_seconds: Some(125),

@@ -89,6 +89,7 @@ pub(crate) enum LibraryAppEvent {
         playlist_id: i64,
         playlist_position: i64,
     },
+    ShowCueLoaded,
     OpenIndexFeedDetail {
         feed_guid: String,
         label: String,

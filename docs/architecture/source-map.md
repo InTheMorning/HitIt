@@ -93,6 +93,7 @@ When you need to look something up, consult this map first to find the right fil
 | `ensure_feed_in_db`, feed subscription glue | `src/feed_service.rs` |
 | Library membership, `subscribe_then_append_to_playlist` | `src/library_service.rs` |
 | Playlist CRUD and track append | `src/playlist_service.rs` |
+| Stored Show cue, its entries, and the load, replace, and clear queries (ADR 0068 task 002) | `src/db/show_cue.rs`; migration registry and read contract in `src/db.rs` |
 | Now-playing session state | `src/playback.rs` |
 | mpv driver, IPC socket lifecycle | `src/playback_driver/` |
 | Long-running playback owner (desktop/daemon) | `src/playback_owner.rs` |

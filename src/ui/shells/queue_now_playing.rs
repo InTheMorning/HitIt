@@ -217,6 +217,14 @@ fn render_queue_row(row: QueueRowDisplay, cx: &App) -> impl IntoElement {
                     .child(SharedString::from(duration)),
             )
         })
+        .when_some(row.unavailable_label, |el, reason| {
+            el.child(
+                div()
+                    .text_size(FontSize::Micro.scaled(cx))
+                    .text_color(tertiary_label)
+                    .child(SharedString::from(reason)),
+            )
+        })
 }
 
 fn render_control_deck(
@@ -321,6 +329,7 @@ mod tests {
             artist: artist.map(str::to_owned),
             duration_label: duration.map(str::to_owned),
             now_playing,
+            unavailable_label: None,
             a11y_label: title.to_owned(),
         }
     }

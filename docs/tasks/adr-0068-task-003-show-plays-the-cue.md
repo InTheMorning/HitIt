@@ -32,6 +32,12 @@ The Show owner plays the stored cue. Only typed Show commands start and control 
 - `src/ui/shells/library/playlist_detail.rs`
 - `tests/architecture_tests.rs`
 
+## Open Point From Task 002 - 2026-11-14
+
+Migration 25 adds `playback_sessions.cue_entry_id` with no foreign key. `show_cue_entries.id` uses `AUTOINCREMENT`, so a Replace does not use an entry id again. The test `replace_never_gives_an_old_entry_id_again` proves it.
+
+When this task writes the column, a Clear or a Replace can remove the entry of a stopped session. The session then points to an entry that is not in the table. Before the first write, give the rule for this condition and a test for it. If the rule needs a schema change, stop and ask.
+
 ## Scope
 
 1. Typed Show commands: Start, Pause, Resume, Stop, Select, Next and Previous. Each acts on a cue entry id, not on a playlist row.
@@ -44,6 +50,7 @@ The Show owner plays the stored cue. Only typed Show commands start and control 
 8. Keys, Answer 4: the three keys are Show commands. They work on each page while a cue is loaded. With no cue, they are not available. They never start an audition.
 9. Restart: the app keeps the cue and the selection, sets the session to stopped, and starts no audio.
 10. Change each guard that names a removed path. Each new guard cites ADR 0068 and names the fix in its failure message.
+11. The Show page gets a Clear item that runs `ClearShowCue` from task 002. Operator decision of 2026-11-14. The item is available only while playback is stopped. After a Clear, the cue menu and the Show page show no cue.
 
 ## Do Not Touch
 
@@ -57,6 +64,7 @@ The Show owner plays the stored cue. Only typed Show commands start and control 
 - M7 of ADR 0068, Show part: the Show commands have their own intents and accessible labels. With no cue, the keys are not available.
 - M8 of ADR 0068, Show part: after a restart, the cue stays, and audio is stopped.
 - No production code emits or handles `PlayPlaylistAt`.
+- The Show view model gives the Clear item as available only while playback is stopped. A test of the Clear handler proves that `ClearShowCue` runs and that a Clear while playback plays or is paused changes nothing.
 - Only the Show owner calls the drop-file producer.
 - The commit checks of AGENTS.md pass.
 
@@ -66,6 +74,7 @@ The Show owner plays the stored cue. Only typed Show commands start and control 
 - V2: pause, skip and stop. The cue and its order stay.
 - V3: on a different page, `cmd-alt-p` pauses and resumes the show.
 - V4: quit and open the app. The cue shows, and no audio plays.
+- V5: stop playback, then select Clear on the Show page. The cuelist is empty, and the playlist menu shows "Load into Show Cue".
 
 ## Test Commands
 

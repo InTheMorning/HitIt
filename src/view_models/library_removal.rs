@@ -99,32 +99,67 @@ pub(crate) fn removal_impact_message(impact: LibraryRemovalImpact) -> String {
     match impact {
         LibraryRemovalImpact::Track {
             playlist_reference_count,
+            show_cue_reference_count,
         } => {
-            if playlist_reference_count == 0 {
-                "This track is in no playlist. Removing it takes it out of the library."
-                    .to_owned()
+            if playlist_reference_count == 0 && show_cue_reference_count == 0 {
+                "This track is in no playlist. Removing it takes it out of the library.".to_owned()
+            } else if show_cue_reference_count == 0 {
+                let playlist_label = if playlist_reference_count == 1 {
+                    "playlist"
+                } else {
+                    "playlists"
+                };
+                format!("This track is in {playlist_reference_count} {playlist_label}. Removing it from the library will make it unavailable for playlist playback.")
+            } else if playlist_reference_count == 0 {
+                let cue_entry_label = if show_cue_reference_count == 1 {
+                    "cue entry"
+                } else {
+                    "cue entries"
+                };
+                format!("The Show cue has {show_cue_reference_count} {cue_entry_label} for this track. Removing it from the library makes it unavailable for playback.")
             } else {
                 let playlist_label = if playlist_reference_count == 1 {
                     "playlist"
                 } else {
                     "playlists"
                 };
-                format!(
-                    "This track is in {playlist_reference_count} {playlist_label}. Removing it from the library will make it unavailable for playlist playback."
-                )
+                let cue_entry_label = if show_cue_reference_count == 1 {
+                    "cue entry"
+                } else {
+                    "cue entries"
+                };
+                format!("This track is in {playlist_reference_count} {playlist_label}. The Show cue also has {show_cue_reference_count} {cue_entry_label} for this track. Removing it from the library will make it unavailable for playback.")
             }
         }
         LibraryRemovalImpact::Feed {
             playlist_track_count,
-        } => match playlist_track_count {
-            0 => "No track from this album is in a playlist. Removing the album takes its tracks out of the library."
-                .to_owned(),
-            1 => "1 track from this album is in playlists. Removing it from the library will make it unavailable for playlist playback."
-                .to_owned(),
-            count => format!(
-                "{count} tracks from this album are in playlists. Removing them from the library will make them unavailable for playlist playback."
-            ),
-        },
+            show_cue_track_count,
+        } => {
+            let tracks = |count: i64| {
+                if count == 1 {
+                    "1 track from this album is".to_owned()
+                } else {
+                    format!("{count} tracks from this album are")
+                }
+            };
+            match (playlist_track_count, show_cue_track_count) {
+                (0, 0) => "No track from this album is in a playlist. Removing the album takes its tracks out of the library."
+                    .to_owned(),
+                (0, cue_count) => format!(
+                    "{} in the Show cue. Removing the album makes them unavailable for playback.",
+                    tracks(cue_count)
+                ),
+                (1, 0) => "1 track from this album is in playlists. Removing it from the library will make it unavailable for playlist playback.".to_owned(),
+                (playlist_count, 0) => format!(
+                    "{playlist_count} tracks from this album are in playlists. Removing them from the library will make them unavailable for playlist playback."
+                ),
+                (playlist_count, cue_count) => format!(
+                    "{} in playlists. {} in the Show cue. Removing the album makes them unavailable for playback.",
+                    tracks(playlist_count),
+                    tracks(cue_count)
+                ),
+            }
+        }
     }
 }
 
@@ -337,6 +372,37 @@ impl SelectionRemovalReport {
 mod tests {
     use super::*;
 
+    // ADR 0068 task 002 review: the album text gives one number form for
+    // each count, and counts tracks, not cue entries.
+    #[test]
+    fn album_removal_message_names_each_count_with_its_number_form() {
+        assert_eq!(
+            removal_impact_message(LibraryRemovalImpact::Feed {
+                playlist_track_count: 2,
+                show_cue_track_count: 1,
+            }),
+            "2 tracks from this album are in playlists. 1 track from this album is in the Show cue. Removing the album makes them unavailable for playback."
+        );
+        assert_eq!(
+            removal_impact_message(LibraryRemovalImpact::Feed {
+                playlist_track_count: 0,
+                show_cue_track_count: 2,
+            }),
+            "2 tracks from this album are in the Show cue. Removing the album makes them unavailable for playback."
+        );
+    }
+
+    #[test]
+    fn show_cue_removal_message_counts_cue_entries() {
+        let message = removal_impact_message(LibraryRemovalImpact::Track {
+            playlist_reference_count: 0,
+            show_cue_reference_count: 2,
+        });
+
+        assert!(message.contains("2 cue entries"));
+        assert!(!message.contains("2 tracks"));
+    }
+
     /// ADR 0084 Decision 10, orchestrator review of task 009: a removal of
     /// many items names each failed item and its error, after the last
     /// item returns. A batch with no failure gives no text.
@@ -379,6 +445,7 @@ mod tests {
             LibraryRemovalTarget::Track(7),
             LibraryRemovalImpact::Track {
                 playlist_reference_count: 1,
+                show_cue_reference_count: 0,
             },
         );
 
@@ -410,6 +477,7 @@ mod tests {
             LibraryRemovalTarget::Track(7),
             LibraryRemovalImpact::Track {
                 playlist_reference_count: 0,
+                show_cue_reference_count: 0,
             },
         );
 
@@ -448,6 +516,7 @@ mod tests {
                 LibraryRemovalTarget::Feed(5),
                 LibraryRemovalImpact::Feed {
                     playlist_track_count: count,
+                    show_cue_track_count: 0,
                 },
             );
 
@@ -467,6 +536,7 @@ mod tests {
             LibraryRemovalTarget::Feed(5),
             LibraryRemovalImpact::Feed {
                 playlist_track_count: 2,
+                show_cue_track_count: 0,
             },
         );
 
@@ -489,6 +559,7 @@ mod tests {
                     LibraryRemovalTarget::Track(7),
                     LibraryRemovalImpact::Track {
                         playlist_reference_count: 2,
+                        show_cue_reference_count: 0,
                     },
                 ),
                 "Face Pale",
@@ -499,6 +570,7 @@ mod tests {
                     LibraryRemovalTarget::Track(8),
                     LibraryRemovalImpact::Track {
                         playlist_reference_count: 0,
+                        show_cue_reference_count: 0,
                     },
                 ),
                 "Hollow",
@@ -544,6 +616,7 @@ mod tests {
                     LibraryRemovalTarget::Feed(9),
                     LibraryRemovalImpact::Feed {
                         playlist_track_count: 0,
+                        show_cue_track_count: 0,
                     },
                 ),
                 "Haleen",
@@ -568,6 +641,7 @@ mod tests {
                         LibraryRemovalTarget::Track(1),
                         LibraryRemovalImpact::Track {
                             playlist_reference_count: 0,
+                            show_cue_reference_count: 0,
                         },
                     ),
                     "A",
@@ -578,6 +652,7 @@ mod tests {
                         LibraryRemovalTarget::Track(2),
                         LibraryRemovalImpact::Track {
                             playlist_reference_count: 0,
+                            show_cue_reference_count: 0,
                         },
                     ),
                     "B",

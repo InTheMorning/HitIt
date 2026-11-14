@@ -188,8 +188,14 @@ mod tests {
 
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
-        assert_eq!(CURRENT_VERSION, 24);
-        assert_eq!(inspect_schema(&conn).unwrap(), SchemaCompatibility::Current);
+        assert_eq!(CURRENT_VERSION, 25);
+        assert_eq!(
+            inspect_schema(&conn).unwrap(),
+            SchemaCompatibility::UpgradeRequired {
+                applied: 24,
+                current: 25,
+            }
+        );
         upgrades::verify_target(&conn, 24).unwrap();
         assert_eq!(names(&conn), ["Apple", "mango", "zebra"]);
         assert_eq!(positions(&conn), [0, 1, 2]);

@@ -589,6 +589,8 @@ pub(crate) enum TrackRowMenuAction {
     /// playlist page (ADR 0089 Decision 6). Only the menu of a playlist row
     /// gives it.
     DeletePlaylist,
+    /// Loads or replaces the stored Show cue from a playlist row.
+    LoadShowCue,
 }
 
 impl TrackRowMenuAction {
@@ -603,7 +605,8 @@ impl TrackRowMenuAction {
             | Self::RemoveFromPlaylist
             | Self::CopyToMyPlaylists
             | Self::RenamePlaylist
-            | Self::DeletePlaylist => None,
+            | Self::DeletePlaylist
+            | Self::LoadShowCue => None,
             Self::Download => Some(ReleasePageCommand::DownloadTrack(index)),
             Self::InspectSources => Some(ReleasePageCommand::InspectSources(index)),
             Self::Remove => Some(ReleasePageCommand::RemoveTrack(index)),
@@ -619,6 +622,7 @@ pub(crate) struct TrackRowMenuItemVm {
     pub(crate) label: String,
     pub(crate) a11y_label: String,
     pub(crate) destructive: bool,
+    pub(crate) disabled: bool,
 }
 
 /// The labels of the "Add to playlist" level of the track row menu
@@ -667,6 +671,7 @@ pub(crate) fn public_playlist_copy_menu_vm(id: String, title: &str) -> TrackRowM
             label: "Copy to My Playlists\u{2026}".to_owned(),
             a11y_label: format!("Copy the public playlist {title} to My Playlists"),
             destructive: false,
+            disabled: false,
         }],
         playlist_level: TRACK_ROW_PLAYLIST_LEVEL,
         id,
@@ -777,6 +782,7 @@ impl TrackRowMenuVm {
                 label: label.to_owned(),
                 a11y_label,
                 destructive: action == TrackRowMenuAction::Remove,
+                disabled: false,
             }
         };
         let mut items = Vec::new();

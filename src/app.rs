@@ -438,6 +438,9 @@ impl TopApp {
                         );
                     });
                 }
+                LibraryAppEvent::ShowCueLoaded => {
+                    this.refresh_show_page(cx);
+                }
                 LibraryAppEvent::OpenIndexFeedDetail { feed_guid, label } => {
                     this.open_index_feed_detail_from_music(feed_guid, label.clone(), cx);
                 }
@@ -1108,9 +1111,12 @@ impl TopApp {
                 // ADR 0076 packet 005: the show released its files. The
                 // tag update scan runs again, so the marks "In use by the
                 // show" are current.
+                // ADR 0068 task 002: Replace Show Cue is available again.
                 self.refresh_show_page(cx);
-                self.library
-                    .update(cx, |library, _cx| library.scan_tag_updates());
+                self.library.update(cx, |library, cx| {
+                    library.scan_tag_updates();
+                    library.reload_playlists(cx);
+                });
             }
             PlaybackTickOutcome::Error(error) => {
                 self.settings_status = format!("Playback error: {error}");

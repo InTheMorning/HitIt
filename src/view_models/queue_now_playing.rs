@@ -64,6 +64,10 @@ impl TransportState {
 pub(crate) struct QueueTrackInput {
     /// Stable local track identifier.
     pub(crate) id: i64,
+    /// Cue entry identifier when the row belongs to a stored cue.
+    pub(crate) entry_id: Option<i64>,
+    /// Why a stored cue entry cannot play, when known.
+    pub(crate) unavailable_reason: Option<QueueUnavailableReason>,
     /// Primary track title.
     pub(crate) title: Option<String>,
     /// Secondary artist label.
@@ -72,6 +76,21 @@ pub(crate) struct QueueTrackInput {
     pub(crate) duration_seconds: Option<i64>,
     /// Whether this row represents the active playback item.
     pub(crate) now_playing: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum QueueUnavailableReason {
+    NotInLibrary,
+    MissingFile,
+}
+
+impl QueueUnavailableReason {
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::NotInLibrary => "Not in Library",
+            Self::MissingFile => "File missing",
+        }
+    }
 }
 
 /// Display-ready queue row.
@@ -91,6 +110,8 @@ pub(crate) struct QueueRowDisplay {
     pub(crate) duration_label: Option<String>,
     /// Whether this row is the active now-playing item.
     pub(crate) now_playing: bool,
+    /// Why this cue entry cannot play, when known.
+    pub(crate) unavailable_label: Option<&'static str>,
     /// Accessibility label summarizing the row.
     pub(crate) a11y_label: String,
 }
@@ -110,14 +131,22 @@ impl QueueRowDisplay {
             duration_label.as_deref(),
             input.now_playing,
         );
+        let unavailable_label = input.unavailable_reason.map(QueueUnavailableReason::label);
+        let a11y_label = unavailable_label.map_or(a11y_label.clone(), |reason| {
+            format!("{a11y_label}. Unavailable: {reason}")
+        });
 
         Self {
             track_id: input.id,
-            id: format!("queue-row-{}", input.id),
+            id: input.entry_id.map_or_else(
+                || format!("queue-row-{}", input.id),
+                |entry_id| format!("queue-entry-{entry_id}"),
+            ),
             title,
             artist: input.artist,
             duration_label,
             now_playing: input.now_playing,
+            unavailable_label,
             a11y_label,
         }
     }
@@ -353,6 +382,8 @@ mod tests {
     fn track(id: i64, title: &str, now_playing: bool) -> QueueTrackInput {
         QueueTrackInput {
             id,
+            entry_id: None,
+            unavailable_reason: None,
             title: Some(title.to_string()),
             artist: Some("Artist".to_string()),
             duration_seconds: Some(245),
@@ -369,6 +400,21 @@ mod tests {
         assert!(vm.transport.skip_previous.disabled);
         assert!(vm.transport.skip_next.disabled);
         assert_eq!(vm.empty_label, "Queue is empty");
+    }
+
+    #[test]
+    fn cue_row_uses_entry_identity_and_names_a_missing_file() {
+        let row = QueueRowDisplay::from_track(QueueTrackInput {
+            id: 7,
+            entry_id: Some(19),
+            unavailable_reason: Some(QueueUnavailableReason::MissingFile),
+            title: Some("Cue track".to_owned()),
+            ..QueueTrackInput::default()
+        });
+
+        assert_eq!(row.id, "queue-entry-19");
+        assert_eq!(row.unavailable_label, Some("File missing"));
+        assert!(row.a11y_label.contains("Unavailable: File missing"));
     }
 
     #[test]
@@ -447,10 +493,12 @@ mod tests {
         let mut vm = QueueNowPlayingPageVm::builder()
             .tracks([
                 QueueTrackInput {
+                    entry_id: None,
                     artist: Some("Alice".to_string()),
                     ..track(1, "First", true)
                 },
                 QueueTrackInput {
+                    entry_id: None,
                     artist: Some("Bob".to_string()),
                     ..track(2, "Second", false)
                 },

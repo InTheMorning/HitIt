@@ -167,7 +167,7 @@ pub(crate) fn track_row_menu_items(
                 label: SharedString::from(item.label.clone()),
                 a11y_label: SharedString::from(item.a11y_label.clone()),
                 destructive: item.destructive,
-                disabled: false,
+                disabled: item.disabled,
             });
             if item.action == TrackRowMenuAction::AddToPlaylist {
                 let menu = menu.clone();

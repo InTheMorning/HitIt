@@ -2805,13 +2805,12 @@ pub fn stop_playback_session(conn: &Connection, session_id: &str) -> Result<Play
 
 /// The tracks that the show plays or holds (ADR 0076 Decision 8).
 ///
-/// ADR 0068 is Proposed. Until it is accepted, the playback session defines
-/// the tracks in use. A session with a state other than `stopped` holds its
-/// own track and each track of its playlist.
+/// An active session holds its track and playlist tracks. The stored cue holds
+/// each cue track, even when playback stops.
 ///
 /// # Errors
 ///
-/// Returns an error when the playback sessions cannot be read.
+/// Returns an error when the playback sessions or cue cannot be read.
 pub(crate) fn tracks_in_use_by_show(conn: &Connection) -> Result<BTreeSet<i64>> {
     let mut stmt = conn
         .prepare(
@@ -2820,7 +2819,9 @@ pub(crate) fn tracks_in_use_by_show(conn: &Connection) -> Result<BTreeSet<i64>> 
              SELECT pt.track_id
              FROM playlist_tracks pt
              JOIN playback_sessions s ON s.playlist_id = pt.playlist_id
-             WHERE s.state <> 'stopped'",
+             WHERE s.state <> 'stopped'
+             UNION
+             SELECT track_id FROM show_cue_entries",
         )
         .context("prepare the tracks in use by the show")?;
     let rows = stmt
@@ -2840,7 +2841,11 @@ pub(crate) mod maintenance;
 pub(crate) mod named_feed_position;
 pub(crate) mod payment_routes;
 mod playlist_order;
+mod show_cue;
 pub use playlist_order::{move_playlist, set_playlist_order};
+pub use show_cue::{
+    clear_show_cue, load_show_cue, show_cue, CueEntry, CueUnavailableReason, ShowCue,
+};
 pub mod provider_observations;
 mod provider_snapshot_schema;
 pub(crate) mod publisher_feed_image;
@@ -2864,7 +2869,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 24;
+pub(crate) const CURRENT_VERSION: i64 = 25;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -2986,6 +2991,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 24,
         name: "playlist_order",
         apply: playlist_order::apply,
+    },
+    Migration {
+        version: 25,
+        name: "stored_show_cue",
+        apply: show_cue::apply,
     },
 ];
 
@@ -3122,6 +3132,9 @@ pub(crate) fn schema_contract(
             if version >= 24 && entry.0 == "playlists" {
                 return playlist_order::COLUMNS;
             }
+            if version >= 25 && entry.0 == "playback_sessions" {
+                return show_cue::PLAYBACK_SESSION_COLUMNS;
+            }
             let extended = match version {
                 ..=15 => return entry,
                 16 => rss_field_holds::EXTENDED_COLUMNS,
@@ -3173,6 +3186,11 @@ pub(crate) fn schema_contract(
         })
         .chain(if version >= 22 {
             saved_search_seen::COLUMNS
+        } else {
+            &[]
+        })
+        .chain(if version >= 25 {
+            show_cue::COLUMNS
         } else {
             &[]
         })
@@ -5113,10 +5131,7 @@ mod tests {
         );
         assert_eq!(
             applied_migration_versions(&conn)?,
-            vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24
-            ],
+            (1..=CURRENT_VERSION).collect::<Vec<_>>(),
             "ADR 0016: fresh schema should record all registry migrations"
         );
 
@@ -5459,7 +5474,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24
+                24, 25
             ],
             "cleanup migration should be recorded exactly once"
         );

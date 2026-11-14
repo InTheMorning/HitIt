@@ -212,6 +212,9 @@ impl TopApp {
                 this.maybe_start_playback_polling(cx);
                 this.settings_status = result.message().to_string();
                 this.refresh_show_page(cx);
+                this.library.update(cx, |library, cx| {
+                    library.reload_playlists(cx);
+                });
             },
             move |this, error, cx| {
                 if let Some(id) = retry_id {
@@ -225,6 +228,9 @@ impl TopApp {
                     this.retain_failed_action(action, Dependency::Playback, cx);
                 }
                 this.settings_status = format!("Playback error: {error:#}");
+                this.library.update(cx, |library, cx| {
+                    library.reload_playlists(cx);
+                });
             },
         );
     }

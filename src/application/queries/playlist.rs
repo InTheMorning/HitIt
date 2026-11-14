@@ -32,6 +32,8 @@ impl LoadPlaylistSidebar {
 pub(crate) struct PlaylistSidebarLoad {
     pub(crate) playlists: Vec<db::Playlist>,
     pub(crate) covers: BTreeMap<i64, Vec<String>>,
+    pub(crate) show_cue_exists: bool,
+    pub(crate) show_cue_replace_available: bool,
 }
 
 impl ApplicationCommand for LoadPlaylistSidebar {
@@ -50,9 +52,18 @@ impl ApplicationCommand for LoadPlaylistSidebar {
         // A failed cover read shows each row in the entity color (ADR 0084
         // Decision 12), so it gives no error.
         let covers = query.playlist_cover_images(&conn).unwrap_or_default();
+        let show_cue_exists = db::show_cue(&conn)
+            .map_err(|error| CommandError::Query(error.to_string()))?
+            .is_some();
+        let show_cue_replace_available =
+            db::playback_session(&conn, crate::playback::DEFAULT_SESSION_ID)
+                .map_err(|error| CommandError::Query(error.to_string()))?
+                .is_none_or(|session| session.state == "stopped");
         Ok(CommandOutcome::without_events(PlaylistSidebarLoad {
             playlists,
             covers,
+            show_cue_exists,
+            show_cue_replace_available,
         }))
     }
 }
