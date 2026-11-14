@@ -10,6 +10,8 @@ Accepted - 2026-09-07.
 
 - Changed by: [ADR 0063](0063-show-dashboard-layout.md), 2026-09-13: ADR 0063 says how the sections in `Show` are arranged.
 
+- Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
+
 - Changes: [ADR 0048](archive/0048-content-list-frame-breadcrumb-search.md), the app-section tab set.
 - Changes: [ADR 0059](0059-broadcast-control-surface.md), the `Broadcast` workspace frame. Everything else in ADR 0059 stays.
 - Changes: [ADR 0037](0037-same-entity-surface-parity.md), the separate Library and Discover screens.
@@ -110,7 +112,7 @@ the curator was not doing.
 Auditioning stays in `Music` as an inline affordance on a row, and it is a
 separate mechanism from show playback. [ADR 0068](0068-show-cue-and-audition-isolation.md)
 records that mechanism; its implementation remains open. Its revision of
-2026-11-11 moves audition controls to the now-playing panel of ADR 0089.
+2026-11-11 moves audition controls to the now-playing panel of ADR 0098 Decision 18.
 
 ### Curation Shows Nothing Operational
 
@@ -171,10 +173,10 @@ and that decision belongs to a view model, not to a renderer condition.
 
 ## Invariants
 
-- The sidebar holds each destination, and the toolbar has no section tabs (ADR 0089 Decision 1).
-- Search is a toolbar command on each page. The Search destination holds the saved searches, not the search (ADR 0089 Decision 4).
+- The sidebar holds each destination, and the toolbar has no section tabs (ADR 0098 Decision 1).
+- Search is a toolbar command on each page. The Search destination holds the saved searches, not the search (ADR 0098 Decision 3).
 - `Show` is a screen mount. No workspace frame kind is named for broadcasting.
-- Queue and transport render only inside `Show` and the now-playing panel (ADR 0089 Decision 7).
+- Queue and transport render only inside `Show` and the now-playing panel (ADR 0098 Decision 18).
 - Audition renders only inside `Music` and never sets now-playing state.
 - `Music` and `Settings` render no operational surface while nothing plays and no show is active.
 - The live status strip renders only when a show is active, and it dispatches no

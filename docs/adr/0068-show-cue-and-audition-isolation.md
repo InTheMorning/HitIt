@@ -20,6 +20,9 @@ Future isolation packets must integrate both playback owners with that lifecycle
 The packets of this record are not written yet.
 
 Revised 2026-11-11 for the shell of [ADR 0089](archive/0089-the-shell-destinations-and-list-pages.md).
+
+- Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
+
 The section [Revision For The ADR 0089 Shell](#revision-for-the-adr-0089-shell---2026-11-11) changes the text of this record where the two records do not agree.
 The operator accepted each recommendation of that section on 2026-11-11. Implementation has not started.
 
@@ -54,11 +57,11 @@ This record was written for the three sections of ADR 0060. ADR 0089, Accepted o
 
 These facts come from the accepted record. This revision does not change them.
 
-- The panel of musicindex ADR 0027 R-SHELL-1 item 5 is on the right. It shows only while something plays or a show is live (ADR 0089 Decision 7).
-- The panel holds the current track, the transport, a seek control and Up Next. The transport and Up Next move there from the Show page (ADR 0089 Decision 7).
-- Play stays on the current page and opens the panel (ADR 0089 Decision 7).
-- The main action of an album or a track in the Library is Play (ADR 0089 Decision 6).
-- Show stays a screen mount (ADR 0089 Decision 1).
+- The panel of musicindex ADR 0027 R-SHELL-1 item 5 is on the right. It shows only while something plays or a show is live (ADR 0098 Decision 18).
+- The panel holds the current track, the transport, a seek control and Up Next. The transport and Up Next move there from the Show page (ADR 0098 Decision 18).
+- Play stays on the current page and opens the panel (ADR 0098 Decision 18).
+- The main action of an album or a track in the Library is Play (ADR 0098 Decision 15).
+- Show stays a screen mount (ADR 0098 Decision 1).
 
 ### How To Read The Text Below
 
@@ -66,7 +69,7 @@ These facts come from the accepted record. This revision does not change them.
 | --- | --- |
 | "Music", "in Music" or "from Music" | A page of a destination above the line of the sidebar, for example Releases, a release page or a playlist page |
 | "Show transport" or "Show renders the loaded cue" | The Show part of the panel has the transport and Up Next. The Show page keeps the full cue, its Load, Replace and Clear actions and the broadcast status of ADRs 0059 and 0063 |
-| "Load into Show cue" for a playlist | An entry in the item menu of a playlist. Play stays the main action (ADR 0089 Decision 6) |
+| "Load into Show cue" for a playlist | An entry in the item menu of a playlist. Play stays the main action (ADR 0098 Decision 15) |
 | "Audition remains an inline Music utility" | Answer 1 decides where the audition control shows |
 | "Leaving Music stops audition" | Answer 3 decides when an audition stops |
 | "Play/Pause and Next/Previous ... require the Show section" | Answer 4 decides where the Show keys work |
@@ -83,7 +86,7 @@ The operator accepted each recommendation below on 2026-11-11. Each recommendati
 
    Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. On 2026-11-11 the orchestrator session examined musicindex ADR 0027 R-SHELL-1 item 5. The rule does not limit the panel to one track or one player, so B needs no musicindex record. Two parts in one panel are one pane, so B also agrees with item 6.
 
-2. **What does Play on an album do?** The text below gives an audition one track, and the end of that track stops it. ADR 0089 Decision 6 makes Play the main action of an album.
+2. **What does Play on an album do?** The text below gives an audition one track, and the end of that track stops it. ADR 0098 Decision 15 makes Play the main action of an album.
    - A: Play auditions the first track only.
    - B: Play auditions the tracks of the album in their order. At the end of a track, the audition goes to the next track of that album only. At the last track it stops. It never changes the Show cue.
 

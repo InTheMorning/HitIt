@@ -4,6 +4,8 @@
 
 Accepted - 2026-11-13. The operator selected the narrowest width and the text system of the tests. The orchestrator session relayed the two decisions and selected the scope of phase 1.
 
+- Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
+
 ## Context
 
 [musicindex ADR 0065](../../../musicindex/docs/adr/0065-each-app-checks-its-fit-at-two-widths.md), Accepted on 2026-11-13, makes each app check its fit at two widths. R-FIT-2 gives the two widths. R-FIT-3 gives the faults: a break inside a word, an edge cut, an overflow and an overlap. The overlap, and the overflow of a text out of its own box, came with the R-FIT-3 change of 2026-11-13. R-FIT-4 item 2 makes HitIt do the check as GPUI layout tests. musicindex ADR 0065 leaves the narrowest width of HitIt to this app (musicindex ADR 0020 R-FIT-1 item 1).
@@ -11,7 +13,7 @@ Accepted - 2026-11-13. The operator selected the narrowest width and the text sy
 These facts about HitIt and gpui-pre 0.3.1 control the design:
 
 - No HitIt ADR stated a narrowest width. The window set no minimum size in `src/app/bootstrap.rs`.
-- Below `SHELL_TAB_BAR_BREAKPOINT` (940 px, `src/ui/layouts.rs`) the tab bar replaces the sidebar ([ADR 0089](archive/0089-the-shell-destinations-and-list-pages.md) Decision 1). Thus 940 px is the first width with the sidebar.
+- Below `SHELL_TAB_BAR_BREAKPOINT` (940 px, `src/ui/layouts.rs`) the tab bar replaces the sidebar ([ADR 0098](0098-the-music-shell-pages-lists-and-search.md) Decision 1). Thus 940 px is the first width with the sidebar.
 - A GPUI test uses `NoopTextSystem`. Each character is 0.6 em wide, and the test does not use Figtree. `TestAppContext::build` always makes this text system, and `App::new_app` is not public. Thus a test cannot find the correct width of a label.
 - A GPUI test can read the bounds of an element only through its `debug_selector`. GPUI gives a test no walk of all elements.
 - GPUI gives the wrap boundaries of a text through `TextLayout::line_layouts`. During prepaint and paint, `Window::content_mask` gives the area that the window, the panels and the scroll areas let the element show.

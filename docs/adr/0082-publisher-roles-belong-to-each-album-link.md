@@ -6,7 +6,9 @@ Implemented - 2026-10-18. Tasks 001 to 003 are complete, and the operator passed
 
 - Changes: [ADR 0077](0077-publisher-feed-artist-binding.md), the page type: roles belong to each album link.
 
-Decisions 1, 2, 3 and 6 are superseded by [ADR 0085](archive/0085-artists-by-confirmation.md) on 2026-10-18. Decisions 4 and 5 stay in force.
+Decisions 1, 2, 3 and 6 are superseded by [ADR 0085](archive/0085-artists-by-confirmation.md) on 2026-10-18. Decisions 4 and 5 stay in force. ADR 0098 Decisions 11.3 to 11.6 restate the rules that replace Decisions 1, 2, 3 and 6.
+
+- Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
 
 - Changed by: [ADR 0084](archive/0084-music-column-browser.md) Decisions 6 and 7, 2026-10-08: inside each group of Decision 2, "Albums and EPs" come before "Singles". The publisher page is the publisher level of the one artist page. [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0084.
 
@@ -40,13 +42,13 @@ The 0.7.0 contract text of `album_names_as` still names `credit`. The Stophammer
 
 ### 1. A Page Has No Type
 
-Superseded by ADR 0085 Decision 3.
+Superseded by ADR 0085 Decision 3, now ADR 0098 Decision 11.3.
 
 A publisher page shows no single type. It shows the roles that its album links state.
 
 ### 2. Albums Group By How They Name The Feed, Then By Role
 
-Superseded by ADR 0085 Decisions 3 and 4.
+Superseded by ADR 0085 Decisions 3 and 4, now ADR 0098 Decisions 11.3 and 11.4.
 
 The page groups its albums first by `album_names_as`:
 
@@ -68,7 +70,7 @@ An album appears one time. A subgroup with no album is absent.
 
 ### 3. Each Album Row Shows Its Role And Its Source
 
-Superseded by ADR 0085 Decision 3. ADR 0085 keeps the source texts of this decision for one-side and conflict rows.
+Superseded by ADR 0085 Decision 3, now ADR 0098 Decision 11.3. ADR 0098 Decision 11.3 keeps the source texts of this decision for one-side and conflict rows.
 
 - An agreed row shows its role set and "agreed by both feeds".
 - A one-side row shows the stated set and its side: "stated by the album only" for `music_rel`, or "stated by the publisher only" for `publisher_rel`.
@@ -87,7 +89,7 @@ The section is absent when the list is empty.
 
 ### 6. The Album Page Shows Its Publisher Link
 
-Superseded by ADR 0085 Decisions 5 and 6.
+Superseded by ADR 0085 Decisions 5 and 6, now ADR 0098 Decisions 11.5 and 11.6.
 
 An album page shows the publisher that the album names, with the role, the agreement and the source of that link, as Decision 3 gives.
 ADR 0077 Decision 2 stays: the album binds to the publisher that it names. A role never makes the album page show the publisher as its artist.

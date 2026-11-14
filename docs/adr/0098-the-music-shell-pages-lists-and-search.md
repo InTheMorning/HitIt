@@ -12,6 +12,7 @@ Accepted - 2026-11-14.
 - Supersedes: [ADR 0089](archive/0089-the-shell-destinations-and-list-pages.md), the shell, the destinations and the list pages.
 - Supersedes: [ADR 0090](archive/0090-one-list-bar-above-the-rows.md), one list bar above the rows.
 - Changed by: [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), 2026-11-07. The parser, the Index plan and the kind rule of Decisions 21 to 25 are in the `musicindex-search` crate. musicindex ADR 0049 owns the syntax. ADR 0091 records this change against ADR 0087.
+- Revised: 2026-11-14: Decision 16 states the open point of ADR 0068 Answer 1. No rule changes.
 
 The six ADRs above changed other ADRs. Their "Changes" lines and the "Changed by" lines in ADRs 0046, 0047, 0049, 0060, 0062, 0082, 0083 and 0091 stay as they are. Each of those "Changed by" lines names this ADR as the place of the restated rule.
 
@@ -405,6 +406,8 @@ These host rules apply to the RSS request of a download only. They do not apply 
 ### 16. Each Track Row Keeps A Place For Audition
 
 Each track row and each release page keep a position for an audition control. The audition player of [ADR 0068](0068-show-cue-and-audition-isolation.md) fills it. Until then, no control shows in that position: a control that cannot act is absent.
+
+Open point: [ADR 0068](0068-show-cue-and-audition-isolation.md) Answer 1, B, Accepted on 2026-11-11, puts the Audition part in the now-playing panel (Decision 18). Thus the row position can be not necessary. The operator decides this point before the ADR 0068 packets start, and until then this rule stays.
 
 ### 17. The Logo Frames A Collection
 

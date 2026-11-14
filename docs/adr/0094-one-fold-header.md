@@ -4,6 +4,8 @@
 
 Accepted - 2026-11-10. The operator accepted musicindex ADR 0060 R-FOLD-1 and R-FOLD-2 on 2026-11-10 (musicindex `1959db9`, updated in `1e0bb12`). The orchestrator session relayed the rules and the operator decisions. This record applies them to v4vmm. Decisions 3 and 5 are choices of the planning session. This record changes no code.
 
+- Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
+
 On 2026-11-10 the operator also accepted musicindex `5123573`. It changes R-FOLD-1 items 1, 3 and 5. It adds R-FOLD-3 and musicindex ADR 0061.
 
 Applies: musicindex ADR 0060 R-FOLD-1, R-FOLD-2 and R-FOLD-3. Uses: musicindex ADR 0024 R-TARGET-1 for the target size, and musicindex ADR 0061 R-LISTKEY-1 for the keys of the singles group row.
@@ -35,7 +37,7 @@ GPUI 0.2.x has no sink for the label of a row (`src/ui/composites/list_row.rs`).
 8. **Not fold headers (R-FOLD-1 item 5).** R-FOLD-1 applies only to a fold header. The singles group row is a tree row. An expandable value cell of the track metadata shows more text, and it is none of the three row types. R-FOLD-1 does not apply to them. A tree row has no `›` at the end (R-FOLD-3 item 5).
 9. **The keys of the singles group row.** The operator decided on 2026-11-10 that the singles group row keeps the keys of a tree row (R-FOLD-1 item 5, musicindex ADR 0061 R-LISTKEY-1):
     - Right opens the focused group row, and Left closes it (R-LISTKEY-1 item 3). Left on a single of an open group gives the focus to its group row (R-LISTKEY-1 item 3). These keys exist in `src/app/keyboard.rs`.
-    - The chevron gets no Tab stop (R-LISTKEY-1 item 6). The list stays one Tab stop (R-LISTKEY-1 item 1, ADR 0092 Decision 1), and ADR 0090 Invariants need no exception.
+    - The chevron gets no Tab stop (R-LISTKEY-1 item 6). The list stays one Tab stop (R-LISTKEY-1 item 1, ADR 0092 Decision 1), and ADR 0098 Invariants need no exception.
     - Enter on the row keeps opening the group page (R-LISTKEY-1 item 4).
     - The a11y label of the row gives the open condition, for example "Open" or "Closed". The view model gives it. GPUI 0.2.x has no sink for it (R-LISTKEY-2).
 
