@@ -6,6 +6,8 @@
 //! mounts the list bar at the content width of each window width. The fit
 //! probes of the shared primitives give the faults (ADR 0097 Decision 4).
 
+mod list_pages;
+
 use std::{
     cell::RefCell,
     path::PathBuf,

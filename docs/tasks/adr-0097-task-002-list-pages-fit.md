@@ -1,6 +1,6 @@
 # ADR 0097 Task 002: The List Pages Fit At The Two Widths
 
-Status: Ready - 2026-11-14. Implementation has not started. This is phase 2 of the [ADR 0097 phase plan](../plans/adr-0097-fit-check-phase-plan.md).
+Status: Implemented - 2026-11-14. The test found faults at 390 px. [Task 007](adr-0097-task-007-list-rows-truncate-long-names.md) corrects them, and the test then passes. The test opens the search results after the queued destination event. Without this sequence, that event replaces the results page. This is phase 2 of the [ADR 0097 phase plan](../plans/adr-0097-fit-check-phase-plan.md).
 
 ## Goal
 

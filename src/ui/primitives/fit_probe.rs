@@ -132,6 +132,18 @@ pub(crate) fn count() -> usize {
     PROBES.with(|probes| probes.borrow().len())
 }
 
+/// Returns the text names that the last frame recorded.
+#[cfg(test)]
+pub(crate) fn recorded_names() -> Vec<String> {
+    PROBES.with(|probes| {
+        probes
+            .borrow()
+            .iter()
+            .map(|probe| probe.name.to_string())
+            .collect()
+    })
+}
+
 fn empty(bounds: &Bounds<Pixels>) -> bool {
     bounds.size.width <= gpui::px(0.) || bounds.size.height <= gpui::px(0.)
 }

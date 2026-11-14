@@ -256,22 +256,17 @@ pub(crate) fn render_pending_result_row(tab: SearchResultsTab, index: usize) -> 
     .into_any_element()
 }
 
-/// The title and the second line. Column text does not call `truncate()`
-/// (ADR 0063, docs/troubleshooting/column-text-truncation.md).
-/// `overflow_hidden()` is the required mitigation for text stacked in a
-/// flex column.
+/// The title and the second line. The container is a block row item with
+/// `flex_1()`, not a flex column, so the title can truncate (ADR 0063,
+/// Column Text Does Not Truncate). A long title then stays on one line
+/// (ADR 0097 task 007).
 fn result_row_text(row: &SearchResultRowVm) -> AnyElement {
-    let mut text = div()
-        .flex()
-        .flex_col()
-        .flex_1()
-        .min_w_0()
-        .overflow_hidden()
-        .child(
-            Label::new(row.label.clone())
-                .size(FontSize::Micro)
-                .weight(FontWeight::MEDIUM),
-        );
+    let mut text = div().flex_1().min_w_0().overflow_hidden().child(
+        Label::new(row.label.clone())
+            .size(FontSize::Micro)
+            .weight(FontWeight::MEDIUM)
+            .truncated(),
+    );
 
     text = text.children(destination_row_second_line(
         row.type_tag.clone(),

@@ -323,7 +323,8 @@ const SCREEN_FILES: &[&str] = &[
     "src/app/settings.rs",
     "src/app/bootstrap.rs",
     "src/app/events.rs",
-    "src/app/fit_check.rs",
+    "src/app/fit_check/mod.rs",
+    "src/app/fit_check/list_pages.rs",
     "src/app/keyboard.rs",
     "src/app/menu.rs",
     "src/app/name_level_dispatch.rs",
@@ -2927,11 +2928,28 @@ fn adr_0084_search_list_r10_08_feed_rows_open_the_feed_page() {
         } else {
             source
         };
-        for forbidden in [".truncated()", ".truncate()"] {
-            if checked.contains(forbidden) {
-                violations.push(format!(
-                    "{path}: ADR 0063: search column text must not call `{forbidden}`; use `overflow_hidden()`"
-                ));
+        if path.ends_with("search_results_inspector.rs") {
+            for forbidden in [".truncated()", ".truncate()"] {
+                if checked.contains(forbidden) {
+                    violations.push(format!(
+                        "{path}: ADR 0063: search column text must not call `{forbidden}`; use `overflow_hidden()`"
+                    ));
+                }
+            }
+        } else {
+            // ADR 0063 permits truncation in a row item with `flex_1()` and
+            // forbids it in a flex column (ADR 0097 task 007).
+            let functions = checked.replace("\npub(crate) fn ", "\nfn ");
+            for function in functions.split("\nfn ") {
+                let truncates =
+                    function.contains(".truncated()") || function.contains(".truncate()");
+                if truncates && function.contains(".flex_col()") {
+                    let name = function.split('(').next().unwrap_or_default();
+                    violations.push(format!(
+                        "{path}: ADR 0063 Column Text Does Not Truncate: `{name}` truncates text in a flex column. \
+                         Make the text container a block row item with `flex_1()`, or use `overflow_hidden()`"
+                    ));
+                }
             }
         }
     }

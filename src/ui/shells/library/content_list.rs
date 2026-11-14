@@ -233,14 +233,16 @@ fn render_content_list_row_text(
     let mut text = div().flex_1().min_w_0().overflow_hidden().child(
         Label::new(row.title().to_string())
             .size(FontSize::Micro)
-            .weight(FontWeight::MEDIUM),
+            .weight(FontWeight::MEDIUM)
+            .truncated(),
     );
 
     if !row.secondary_text().is_empty() {
         text = text.child(
             Label::new(row.secondary_text().to_string())
                 .size(FontSize::Micro)
-                .color(SemanticColor::TertiaryLabel),
+                .color(SemanticColor::TertiaryLabel)
+                .truncated(),
         );
     }
 

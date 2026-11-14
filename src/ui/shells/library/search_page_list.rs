@@ -115,8 +115,9 @@ fn render_saved_search_row(
                 .child(Icon::new(IconName::Search).size(IconSize::Action)),
         )
         .child(
-            // ADR 0063: stacked column text calls no `truncate()`. The
-            // container clips the text with `overflow_hidden()`.
+            // A block row item with `flex_1()` has a definite width, so its
+            // text can truncate (ADR 0063, Column Text Does Not Truncate). A
+            // long name then stays on one line (ADR 0097 task 007).
             div()
                 .flex_1()
                 .min_w_0()
@@ -129,12 +130,14 @@ fn render_saved_search_row(
                         } else {
                             SemanticColor::Label
                         })
-                        .weight(FontWeight::MEDIUM),
+                        .weight(FontWeight::MEDIUM)
+                        .truncated(),
                 )
                 .child(
                     Label::new(row.subtitle.clone())
                         .size(FontSize::Micro)
-                        .color(SemanticColor::TertiaryLabel),
+                        .color(SemanticColor::TertiaryLabel)
+                        .truncated(),
                 )
                 // ADR 0089 Decision 4: the count is text, not color alone.
                 .children(row.new_results.as_ref().map(|text| {

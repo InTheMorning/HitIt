@@ -588,3 +588,10 @@ target/debug/hitit &
 - V2: the same in the Tiles view. The focused tile shows the focus outline and is in view.
 - V3: press "Show more" with the keyboard. The focus goes to the first new row of that group, not to the sidebar.
 - Wrong: Tab skips the list, the focus ring does not show, or the focus goes to the sidebar.
+
+## 18. ADR 0097 Task 007 The List Rows Truncate A Long Name - 2026-11-14
+
+- Make the window 390 px wide. Open the Inbox, Search and a search with results.
+- A long name shows its first words and an ellipsis on one line. No part of a word goes to the next line.
+- The agent test draws these pages with names of 40 letters and finds no fault. It cannot see an ellipsis with no words (ADR 0063), so a person checks this.
+- Wrong: a row that shows only "...", or a name on two lines.

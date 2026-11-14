@@ -523,6 +523,8 @@ mod column_view;
 mod detail_selection;
 mod download_queue;
 mod downloads;
+#[cfg(test)]
+pub(crate) mod fit_fixtures;
 mod live_page;
 mod music_scopes;
 mod public_playlists;
