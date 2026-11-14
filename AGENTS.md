@@ -53,7 +53,7 @@ The run of 2026-10-23 implemented ADR 0086 packets 001 to 005 and ADR 0087 packe
 The run of 2026-10-24 implemented ADR 0084 packets 035 to 037, ADR 0087 packets 007 and 008 and ADR 0059 packet 019. It closed on 2026-10-24 after its walk.
 Its open checks stay in [pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-24.md) lists them.
 
-On 2026-11-14 the operator put the defect fixes first: [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) and [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md) come before the ADR 0068 packets.
+On 2026-11-14 the operator put the defect fixes first: [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md), [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md) and [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) come before the ADR 0068 packets.
 Ready packets include
 [ADR 0064 task 002](docs/tasks/adr-0064-task-002-repair-report-surface.md) and
 [ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
@@ -84,8 +84,8 @@ Known open defects:
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
 - A Music column that scrolls with `music_column_scrollbar`, with no scroll handle, does not scroll to show a button that takes the keyboard focus. These are the destinations list, the Index detail panes, the search notice page and Settings. [ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) Invariants require keyboard reach. [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) owns the fix, and it is Ready.
-- A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role. The packet that fixes it waits for the text of musicindex ADR 0037 R-WORD-7. On 2026-11-14 this session asked the orchestrator for that text.
-- Sir Libre Records shows the badge "Publisher", because one side gives `rel="recordLabel"`. On 2026-11-14 the operator decided that the badge ignores an unknown role word. Decision 1 of the [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09) records it. musicindex ADR 0023 R-WORD-3 owns the rule, so a musicindex record comes first. The fix and the fix for two or more roles are one packet.
+- A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role. [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) owns the fix, and it is Ready.
+- Sir Libre Records shows the badge "Publisher", because one side gives `rel="recordLabel"`. On 2026-11-14 the operator decided that the badge ignores an unknown role word. Decision 1 of the [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09) records it. [musicindex ADR 0066](../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md) owns the rule. ADR 0085 task 001 owns the fix.
 - Tab does not go to an artist tile on Artists, and after "Show more" the focus goes to the sidebar. ADR 0092 task 001 owns the fix, and it is Ready.
 
 Stored facts that agents need:

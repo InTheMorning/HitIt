@@ -42,6 +42,7 @@ The Artists list is one Tab stop in its Rows view and in its Tiles view, as Rele
 5. After "Show more", put the focus on the first new row of that group, and show it. If the next page loads after the press, move the focus when its rows arrive. If no new row arrives, keep the focus on the list.
 6. Remove the comment at `src/library/music_scopes.rs:496` that says the list has no list focus.
 7. Change the ADR 0092 Status text in the same change: Artists has the list focus. Public playlists, Live and Search continue to differ.
+8. In the same change, remove the ADR 0085 Status sentence that says the focus does not move to the first new row.
 
 ## Do Not Change
 
