@@ -6,8 +6,10 @@
 //! packet 008 uses it for the "As <roles>" headings and the "Role not
 //! confirmed" rows of a feed page.
 //!
-//! The app keeps no list of role words. "label" and "recordLabel" are two
-//! different words.
+//! The eight known roles are [`KnownRole`] (musicindex ADR 0066 R-ROLE-3).
+//! A text that tells what one source states shows each other word as RSS
+//! text (R-ROLE-5 item 3). "label" and "recordLabel" are two different
+//! words.
 
 #![warn(clippy::pedantic)]
 
@@ -181,22 +183,19 @@ pub(crate) fn capitalize_first(text: &str) -> String {
 /// 3). The side that states a role comes first. When both sides state a
 /// role, the feed side comes first. A side with no role gives "no role".
 ///
-/// Examples: "Sir Libre Records: label \u{b7} the album: recordLabel" and
-/// "The album: label \u{b7} Sir Libre Records: no role".
+/// A known word stays a role word. The unknown words of one side show as
+/// RSS text in one `rel="…"` (musicindex ADR 0066 R-ROLE-5 items 3 and 4).
+///
+/// Examples: "Sir Libre Records: label \u{b7} the album: rel=\"recordLabel\""
+/// and "The album: label \u{b7} Sir Libre Records: no role".
 #[must_use]
 pub(crate) fn stated_sides_text(
     feed_title: &str,
     feed_rel: Option<&str>,
     album_rel: Option<&str>,
 ) -> String {
-    let feed_part = format!(
-        "{feed_title}: {}",
-        nonempty(feed_rel).unwrap_or(NO_ROLE_LABEL)
-    );
-    let album_part = format!(
-        "{ALBUM_SIDE_LABEL}: {}",
-        nonempty(album_rel).unwrap_or(NO_ROLE_LABEL)
-    );
+    let feed_part = format!("{feed_title}: {}", side_text(feed_rel));
+    let album_part = format!("{ALBUM_SIDE_LABEL}: {}", side_text(album_rel));
     // Only the album label gets a capital letter when it comes first. The
     // feed title keeps the case that the feed states.
     if nonempty(feed_rel).is_none() && nonempty(album_rel).is_some() {
@@ -206,6 +205,27 @@ pub(crate) fn stated_sides_text(
         )
     } else {
         format!("{feed_part}{SIDE_SEPARATOR}{album_part}")
+    }
+}
+
+/// The text of one side of [`stated_sides_text`]. The known words come
+/// first, in the sequence of the feed, then the unknown words in one
+/// `rel="…"`. A side with no word gives "no role".
+fn side_text(rel: Option<&str>) -> String {
+    let (known, unknown): (Vec<&str>, Vec<&str>) = rel
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|word| !word.is_empty())
+        .partition(|word| KnownRole::from_word(word).is_some());
+    let mut parts: Vec<String> = known.into_iter().map(str::to_owned).collect();
+    if !unknown.is_empty() {
+        parts.push(format!("rel=\"{}\"", unknown.join(" ")));
+    }
+    if parts.is_empty() {
+        NO_ROLE_LABEL.to_owned()
+    } else {
+        parts.join(", ")
     }
 }
 
@@ -273,14 +293,25 @@ mod tests {
         assert_eq!(capitalize_first(""), "");
     }
 
-    /// R85-3-11: `stated_sides_text` gives "Sir Libre Records: label \u{b7}
-    /// the album: recordLabel" and "The album: label \u{b7} Sir Libre
-    /// Records: no role".
+    /// R85-3-11 and musicindex ADR 0066 R-ROLE-5 items 3 and 4:
+    /// `stated_sides_text` gives "Sir Libre Records: label \u{b7} the album:
+    /// rel=\"recordLabel\"" and "The album: label \u{b7} Sir Libre Records:
+    /// no role". A known word stays a role word, and the unknown words of a
+    /// side show in one `rel="…"`.
     #[test]
     fn adr_0085_named_feeds_stated_sides_text_names_each_side() {
         assert_eq!(
             stated_sides_text("Sir Libre Records", Some("label"), Some("recordLabel")),
-            "Sir Libre Records: label \u{b7} the album: recordLabel"
+            "Sir Libre Records: label \u{b7} the album: rel=\"recordLabel\"",
+            "musicindex ADR 0066 R-ROLE-5 item 4: an unknown word shows as RSS text"
+        );
+        assert_eq!(
+            stated_sides_text(
+                "Sir Libre Records",
+                Some("label, recordLabel, fooBar"),
+                Some("Producer")
+            ),
+            "Sir Libre Records: label, rel=\"recordLabel fooBar\" \u{b7} the album: Producer"
         );
         assert_eq!(
             stated_sides_text("Sir Libre Records", None, Some("label")),

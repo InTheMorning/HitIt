@@ -25,6 +25,7 @@ Amended 2026-11-14 by [musicindex ADR 0066](../../../musicindex/docs/adr/0066-a-
 A feed with only unknown role words has no role (R-ROLE-4). The one dot has the color and the fill of the first role in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8). Inspect sources shows each role word as RSS text (R-ROLE-5). Task 001 implements this on 2026-11-14.
 
 Amended 2026-11-14 again by musicindex ADR 0066 R-ROLE-6 (commit `06f5fde`), an advisory decision of the orchestrator. Each interface text that names the roles of a feed uses only the known roles, in the R-ROLE-1 sequence. The "Roles" fact joins them with ", ", and the "As <roles>" heading of Decision 3 joins them with "and". A text that only lists the roles does not show when no known role stays.
+A text that tells what one source states, such as the line of a "Role not confirmed" row, shows an unknown word as RSS text in the form `rel="…"` (R-ROLE-5 items 3 and 4, musicindex commit `b998344`). The `releases give rel="…"` text of "Shares releases with" is RSS text and keeps each word.
 
 Amended 2026-11-08 by musicindex ADR 0057 R-ARTIST-1, by operator decision. Each artist list shows three groups: the stated artists, the inferred artists, and the artist names with no feed.
 These lists are the Artists list in each scope, its tiles and the Artists tab of the search results. Each group has a heading that gives its type.
@@ -105,7 +106,7 @@ The page of a feed has no type. It shows the level of Decision 2 in its header, 
 - No section heading names the relation "artist". On an artist page, the heading is the release kind.
 - An "As <roles>" heading gives only the known roles, in the sequence of musicindex ADR 0036 R-ROLE-1. It joins the last two words with "and" (musicindex ADR 0066 R-ROLE-6).
   A link with an agreed role set that has no known role has no role (musicindex ADR 0066 R-ROLE-4). Its release goes in "Albums and EPs" or "Singles". The agreement of the two sides compares the words of the feeds, so "label" and "recordLabel" on the two sides gives the agreement `conflict`.
-- Each row in "Role not confirmed" tells who stated which role, by feed title. Examples: "Sir Libre Records: label · the album: recordLabel" and "The album: label · Sir Libre Records: no role".
+- Each row in "Role not confirmed" tells who stated which role, by feed title. A known word stays a role word. The unknown words of one side show as RSS text in one `rel="…"` (musicindex ADR 0066 R-ROLE-5 items 3 and 4). Examples: "Sir Libre Records: label · the album: rel="recordLabel"" and "The album: label · Sir Libre Records: no role".
 - A row in another section shows no role line. Its section already tells the relation.
 - A release appears one time. A section with no release is absent.
 

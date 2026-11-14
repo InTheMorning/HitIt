@@ -2500,7 +2500,8 @@ mod tests {
         assert_eq!(rows[0].value, "Sir Libre Records");
         assert_eq!(
             rows[0].detail.as_deref(),
-            Some("Sir Libre Records: label \u{b7} the album: recordLabel")
+            Some("Sir Libre Records: label \u{b7} the album: rel=\"recordLabel\""),
+            "musicindex ADR 0066 R-ROLE-5 item 4: an unknown word shows as RSS text"
         );
         assert_eq!(rows[1].label, "Also named");
         assert_eq!(rows[1].value, "Quiet Feed");

@@ -111,9 +111,8 @@ Visual, listed apart, for the operator to walk:
 - A second commit changes `FeedLinkClass::OtherRoles` to known roles. A feed with only unknown role words has no role (R-ROLE-4). The badge of a search result row is the type label, for example "Label · Producer".
 - R-ROLE-6: the "Roles" fact of `header_facts` and the "As <roles>" heading use only the known roles, in the R-ROLE-1 sequence. The fact joins with ", ", and each word has a capital first letter. The heading joins with "and". When no known role stays, the page shows no "Roles" fact and no "As" heading.
 - Resolved in the main session: an agreed role set with no known role has no role (R-ROLE-4). Its release goes in "Albums and EPs" or "Singles", as a release with no stated role (ADR 0085 Decision 3).
-- Open, sent to the orchestrator on 2026-11-14:
-  - The role line of a "Role not confirmed" row, for example "Sir Libre Records: label · the album: recordLabel", shows the words of each side. ADR 0085 Decision 3 gives `recordLabel` as an example of this line.
-  - The "Shares releases with" row shows `releases give rel="…"` (musicindex ADR 0023 R-WORD-10 item 3).
+- musicindex ADR 0066 R-ROLE-5 items 3 to 5 (commit `b998344`, an advisory decision of the orchestrator): the role line of a "Role not confirmed" row tells what one source states. `stated_sides_text` keeps each known word and shows the unknown words of one side in one `rel="…"` (item 4), for example "Sir Libre Records: label · the album: rel="recordLabel"". The feed page and the release page call this function.
+- The `releases give rel="…"` text of "Shares releases with" is RSS text under R-ROLE-5. It does not change.
 
 ## Report
 

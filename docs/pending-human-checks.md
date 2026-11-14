@@ -577,7 +577,8 @@ target/debug/hitit &
 - V2: a feed page with two or more known roles shows each role with " · ", and the dot has the color of the first role.
 - V3: Inspect sources of Sir Libre Records still shows `recordLabel`.
 - V4: on a feed page with an agreed role other than artist, the "Roles" fact and the "As" heading show only known roles, in the sequence artist, label, hosting, producer, host, author, network, sponsor (musicindex ADR 0066 R-ROLE-6).
-- Wrong: a page shows "Publisher" for a feed with a known role, Inspect sources hides a role word, or a "Roles" fact or an "As" heading shows an unknown word.
+- V5: a "Role not confirmed" row of a feed page or a release page shows an unknown word as `rel="…"`, for example "Sir Libre Records: label · the album: rel="recordLabel"" (R-ROLE-5 item 4).
+- Wrong: a page shows "Publisher" for a feed with a known role, Inspect sources hides a role word, a "Roles" fact or an "As" heading shows an unknown word, or a "Role not confirmed" row shows an unknown word without `rel="…"`.
 
 ## 17. ADR 0092 Task 001 Artists Takes The List Focus - 2026-11-14
 
