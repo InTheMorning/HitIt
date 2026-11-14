@@ -307,9 +307,13 @@ cargo test                                # All tests
 cargo test --test architecture_tests      # The guards
 cargo fmt -- --check                      # Check formatting
 cargo clippy --all-targets -- -D warnings # Strict clippy, every target
+python3 ~/.agents/skills/project-baseline/scripts/check_adr_links.py --skip limit .  # ADR links
 ```
 
-The agent runs build, test, clippy and format check locally before a commit.
+The agent runs build, test, clippy, format check and the ADR link check locally
+before a commit. The project-baseline skill, section "A Binding Rule Lives In A
+Decision Record", owns the ADR link check. The check is in the shared skill
+folder, so CI does not run it.
 `.github/workflows/ci.yml` runs the "Zero warnings" checks and `cargo test` on
 each push and each pull request. It does not replace the local checks. A
 change to the "Zero warnings" commands also changes that file.
