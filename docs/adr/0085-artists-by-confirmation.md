@@ -24,6 +24,8 @@ Amended 2026-11-05 by musicindex ADR 0037 R-WORD-7, by operator decision. Decisi
 Amended 2026-11-14 by [musicindex ADR 0066](../../../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md), by operator decision. A type label and its dot use only the eight known roles of musicindex ADR 0036 R-ROLE-1 item 1. They ignore each other role word, and the compare ignores capital letters (R-ROLE-3).
 A feed with only unknown role words has no role (R-ROLE-4). The one dot has the color and the fill of the first role in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8). Inspect sources shows each role word as RSS text (R-ROLE-5). Task 001 implements this on 2026-11-14.
 
+Amended 2026-11-14 again by musicindex ADR 0066 R-ROLE-6 (commit `06f5fde`), an advisory decision of the orchestrator. Each interface text that names the roles of a feed uses only the known roles, in the R-ROLE-1 sequence. The "Roles" fact joins them with ", ", and the "As <roles>" heading of Decision 3 joins them with "and". A text that only lists the roles does not show when no known role stays.
+
 Amended 2026-11-08 by musicindex ADR 0057 R-ARTIST-1, by operator decision. Each artist list shows three groups: the stated artists, the inferred artists, and the artist names with no feed.
 These lists are the Artists list in each scope, its tiles and the Artists tab of the search results. Each group has a heading that gives its type.
 The shared rule replaces the rejected alternative "Two sections in the Artists list". The rows show no level word.
@@ -96,20 +98,20 @@ The page of a feed has no type. It shows the level of Decision 2 in its header, 
 | Section | Releases |
 |---|---|
 | "Albums and EPs", then "Singles" (ADR 0084 Decision 6) | The release names the feed, and the link has an agreed role set that contains `artist`, or no stated role. This is the discography of the feed |
-| "As <roles>", for example "As label" or "As label and producer" | The release names the feed, and the link has an agreed role set without `artist`. One section for each different role set |
+| "As <roles>", for example "As label" or "As label and producer" | The release names the feed, and the link has an agreed role set with a known role and without `artist`. One section for each different set of known roles |
 | "Role not confirmed" | The release names the feed, and the link has `role_agreement` `one_side` or `conflict` |
 | "Listed by <feed title> only" | The feed lists the release, and the release does not name the feed (`album_names_as` is null) |
 
 - No section heading names the relation "artist". On an artist page, the heading is the release kind.
-- An "As <roles>" heading gives the role words in alphabetical sequence. It writes the first word with a capital letter and joins the last two words with "and".
-  The role words come from the feeds. The app keeps no list of role words. Thus "label" and "recordLabel" are different words, and a link with each one is a conflict.
+- An "As <roles>" heading gives only the known roles, in the sequence of musicindex ADR 0036 R-ROLE-1. It joins the last two words with "and" (musicindex ADR 0066 R-ROLE-6).
+  A link with an agreed role set that has no known role has no role (musicindex ADR 0066 R-ROLE-4). Its release goes in "Albums and EPs" or "Singles". The agreement of the two sides compares the words of the feeds, so "label" and "recordLabel" on the two sides gives the agreement `conflict`.
 - Each row in "Role not confirmed" tells who stated which role, by feed title. Examples: "Sir Libre Records: label · the album: recordLabel" and "The album: label · Sir Libre Records: no role".
 - A row in another section shows no role line. Its section already tells the relation.
 - A release appears one time. A section with no release is absent.
 
 ### 4. Other Roles Appear When A Feed States Them
 
-- An "As <roles>" section of Decision 3 shows only when a feed states a role other than `artist`.
+- An "As <roles>" section of Decision 3 shows only when a feed states a known role other than `artist`.
 - The header lists the agreed roles, as ADR 0082 Decision 4 gives.
 - "Shares releases with" stays as ADR 0082 Decision 5 gives. Each row shows the feed title, its roles and the count of shared releases, with no source text. The count holds releases of each kind, so the words are "release" and "releases" (musicindex ADR 0023 R-SCOPE-1 item 2 and R-WORD-9 item 5, 2026-11-08).
 - A Labels destination is a subsequent decision. The operator makes it when many feeds have a label role.

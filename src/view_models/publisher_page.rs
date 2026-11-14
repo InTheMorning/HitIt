@@ -29,8 +29,8 @@ use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::release_row_actions::ReleaseRowMenuVm;
 use crate::view_models::release_section_order::ReleaseSectionControlsVm;
 use crate::view_models::role_words::{
-    known_roles, role_contains_artist, role_list_text, role_words, stated_sides_text, type_label,
-    KnownRole,
+    capitalize_first, known_roles, role_contains_artist, role_list_text, role_words,
+    stated_sides_text, type_label, KnownRole,
 };
 use crate::view_models::workspace::ReleaseKey;
 use std::collections::{BTreeMap, BTreeSet};
@@ -755,7 +755,7 @@ impl PublisherPageVm {
     /// R-ROLE-1. The dot has the color and the fill of the first role.
     #[must_use]
     pub(crate) fn header_badge(&self) -> HeaderBadge {
-        let agreed = known_roles(Some(&self.agreed_role_words().join(",")));
+        let agreed = self.agreed_known_roles();
         let level = self.level();
         let mut roles = agreed.clone();
         roles.extend(known_roles(Some(&self.side_role_words().join(","))));
@@ -844,11 +844,18 @@ impl PublisherPageVm {
                 value: level_text.to_owned(),
             });
         }
-        let agreed_roles = self.agreed_role_words();
+        // The fact lists only the known roles, in the R-ROLE-1 sequence. It
+        // does not show when no known role stays (musicindex ADR 0066
+        // R-ROLE-6 items 1, 2, 4 and 5).
+        let agreed_roles = self.agreed_known_roles();
         if !agreed_roles.is_empty() {
             facts.push(PublisherPageHeaderFact {
                 label: Self::ROLES_LABEL,
-                value: agreed_roles.join(", "),
+                value: agreed_roles
+                    .iter()
+                    .map(|role| capitalize_first(role.word()))
+                    .collect::<Vec<_>>()
+                    .join(", "),
             });
         }
         if matches!(self.title(), TitleDisplay::Missing(_)) {
@@ -872,11 +879,11 @@ impl PublisherPageVm {
         facts
     }
 
-    /// The different roles of the agreed rows, sorted (ADR 0082 Decision
-    /// 4). Each agreed row's role set splits into its own role words, so
-    /// an agreed "label, producer" row contributes both "label" and
-    /// "producer". Empty when the page has no agreed row.
-    fn agreed_role_words(&self) -> Vec<String> {
+    /// The known roles of the agreed rows, in the R-ROLE-1 sequence (ADR
+    /// 0082 Decision 4, musicindex ADR 0066 R-ROLE-6). An agreed "label,
+    /// producer" row gives both roles. An unknown word gives no role. Empty
+    /// when the page has no agreed row with a known role.
+    fn agreed_known_roles(&self) -> Vec<KnownRole> {
         let combined = self
             .facts
             .albums
@@ -885,7 +892,7 @@ impl PublisherPageVm {
             .filter_map(|album| album.role.as_deref())
             .collect::<Vec<_>>()
             .join(",");
-        role_words(Some(&combined))
+        known_roles(Some(&combined))
     }
 
     /// The sections of this feed page, in the sequence of ADR 0085
@@ -914,7 +921,12 @@ impl PublisherPageVm {
                     }
                 }
                 SectionBucket::AsRoles => {
-                    let words = role_words(album.role.as_deref());
+                    // Only the known roles, in the R-ROLE-1 sequence, with
+                    // the "and" join (musicindex ADR 0066 R-ROLE-6).
+                    let words: Vec<String> = known_roles(album.role.as_deref())
+                        .into_iter()
+                        .map(|role| role.word().to_owned())
+                        .collect();
                     let heading = format!("As {}", role_list_text(&words));
                     as_roles
                         .entry(heading)
@@ -1069,7 +1081,11 @@ impl PublisherPageVm {
         match &album.role_agreement {
             None => SectionBucket::Discography,
             Some(RoleAgreement::Both) => {
-                if role_contains_artist(album.role.as_deref()) {
+                // An agreed set with no known role has no role (musicindex
+                // ADR 0066 R-ROLE-4), so it is a release with no stated role.
+                if role_contains_artist(album.role.as_deref())
+                    || known_roles(album.role.as_deref()).is_empty()
+                {
                     SectionBucket::Discography
                 } else {
                     SectionBucket::AsRoles
@@ -1672,8 +1688,10 @@ mod tests {
     }
 
     /// R85-8-04: agreed sets `label` and `label, producer` give two
-    /// sections, "As label" and "As label and producer". `label` and
-    /// `recordLabel` give two sections.
+    /// sections, "As label" and "As label and producer". An agreed
+    /// `recordLabel` has no known role (musicindex ADR 0066 R-ROLE-4 and
+    /// R-ROLE-6 item 2), so it gives no "As" heading. Its release is in the
+    /// discography, as a release with no stated role (Decision 3).
     #[test]
     fn adr_0085_feed_page_as_roles_split_by_role_set_r85_8_04() {
         let label = album_with_guid(
@@ -1718,9 +1736,57 @@ mod tests {
             .map(|section| section.heading)
             .collect();
         assert_eq!(
-            headings.len(),
-            2,
-            "label and recordLabel are different words"
+            headings,
+            vec![
+                PublisherPageVm::ALBUMS_AND_EPS_HEADING.to_owned(),
+                "As label".to_owned()
+            ],
+            "ADR 0085 Decision 3, musicindex ADR 0066 R-ROLE-6: recordLabel gives no As heading"
+        );
+    }
+
+    /// musicindex ADR 0066 R-ROLE-6 items 1, 2, 4 and 5: the "Roles" fact
+    /// and the "As" heading list only the known roles, in the R-ROLE-1
+    /// sequence. The fact joins with ", " and the heading joins with "and".
+    /// No "Roles" fact shows when no known role stays.
+    #[test]
+    fn adr_0085_r_role_6_roles_fact_and_heading_use_known_roles() {
+        let album = album_with_guid(
+            "a1",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("host, recordLabel, PRODUCER"),
+        );
+        let vm = PublisherPageVm::new(facts(vec![album]));
+        let roles_fact = vm
+            .header_facts()
+            .into_iter()
+            .find(|fact| fact.label == PublisherPageVm::ROLES_LABEL)
+            .map(|fact| fact.value);
+        assert_eq!(
+            roles_fact.as_deref(),
+            Some("Producer, Host"),
+            "ADR 0085, musicindex ADR 0066 R-ROLE-6: known roles in R-ROLE-1 sequence"
+        );
+        let headings: Vec<String> = vm
+            .sections()
+            .into_iter()
+            .map(|section| section.heading)
+            .collect();
+        assert_eq!(headings, vec!["As producer and host".to_owned()]);
+
+        let unknown = album_with_guid(
+            "a2",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("recordLabel"),
+        );
+        let vm = PublisherPageVm::new(facts(vec![unknown]));
+        assert!(
+            vm.header_facts()
+                .iter()
+                .all(|fact| fact.label != PublisherPageVm::ROLES_LABEL),
+            "musicindex ADR 0066 R-ROLE-6 item 2: no Roles fact without a known role"
         );
     }
 

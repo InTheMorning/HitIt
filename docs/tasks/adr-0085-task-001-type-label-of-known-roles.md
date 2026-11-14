@@ -19,6 +19,7 @@ The type label of a feed page lists each known role in the R-ROLE-1 sequence, wi
   - R-ROLE-4: a feed with only unknown role words has no role. It gets "Publisher" or "Feed" with a hollow dot.
   - R-ROLE-5: a technical view, such as Inspect sources, shows each role word as RSS text, also an ignored word, with no added capital letter.
   - R-WORD-8: the one dot has the color and the fill of the first role. It is filled when the two sides give the first role. It is hollow when one side gives it or the app infers it. The other roles do not change the dot.
+- musicindex ADR 0066 R-ROLE-6 (commit `06f5fde`, an advisory decision of the orchestrator, relayed on 2026-11-14): each interface text that names the roles of a feed uses only the known roles, in the R-ROLE-1 sequence. A text that only lists the roles does not show when no known role stays. A sentence or a fact keeps its own join: "As label and producer", "Roles: Label, Producer". Only a technical view shows an unknown word.
 - The R-ROLE-1 sequence: artist, label, hosting, producer, host, author, network, sponsor.
 - The separator is a space, the middle dot U+00B7 and a space.
 
@@ -53,7 +54,7 @@ The type label of a feed page lists each known role in the R-ROLE-1 sequence, wi
    - `confirmed` is true when the two sides give the first role (R-WORD-8). For "Artist" from the level, `confirmed` is true when the level is Artist.
    - With no known role, keep the "Publisher" and "Feed" rules of Decision 7, with a hollow dot (R-ROLE-4).
 4. Make each caller in Recorded Facts that shows a role name use the known roles. A row that adds a count puts the count after the roles (R-WORD-7 item 3).
-5. Keep the role row of the release page with its "and" join. Remove only the unknown words from it. This is an open point of this task: R-ROLE-3 names a type label, and the role row is a label of the same type. The operator can change this selection at the visual check.
+5. Keep the role row of the release page with its "and" join. Remove only the unknown words from it. R-ROLE-6 item 1 gives this rule.
 6. Inspect sources keeps each role word as RSS text (R-ROLE-5). Do not change it.
 7. Remove `HeaderRole::Publisher` from `header_role_for_word`, or remove the function, if no caller can give it a word that is not known.
 8. Change the tests that assert the earlier label. Each changed test names ADR 0085 Decision 7 and musicindex ADR 0037 R-WORD-7.
@@ -108,7 +109,11 @@ Visual, listed apart, for the operator to walk:
 - `header_role_for` replaces `header_role_for_word`. `HeaderRole::Publisher` is now only the color of a feed with no known role that is definitely not an artist.
 - The Artists list (`confirmed_feed_roles`) and the role row of the release page use the known roles. A role row with no known role is an "Also named" row (Decision 6).
 - A second commit changes `FeedLinkClass::OtherRoles` to known roles. A feed with only unknown role words has no role (R-ROLE-4). The badge of a search result row is the type label, for example "Label · Producer".
-- Open, asked of the orchestrator on 2026-11-14: the "Roles" fact of `header_facts` and the "As <roles>" section heading show all role words. R-ROLE-3 names only a type label and a dot.
+- R-ROLE-6: the "Roles" fact of `header_facts` and the "As <roles>" heading use only the known roles, in the R-ROLE-1 sequence. The fact joins with ", ", and each word has a capital first letter. The heading joins with "and". When no known role stays, the page shows no "Roles" fact and no "As" heading.
+- Resolved in the main session: an agreed role set with no known role has no role (R-ROLE-4). Its release goes in "Albums and EPs" or "Singles", as a release with no stated role (ADR 0085 Decision 3).
+- Open, sent to the orchestrator on 2026-11-14:
+  - The role line of a "Role not confirmed" row, for example "Sir Libre Records: label · the album: recordLabel", shows the words of each side. ADR 0085 Decision 3 gives `recordLabel` as an example of this line.
+  - The "Shares releases with" row shows `releases give rel="…"` (musicindex ADR 0023 R-WORD-10 item 3).
 
 ## Report
 

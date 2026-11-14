@@ -576,7 +576,8 @@ target/debug/hitit &
 - V1: the page of Sir Libre Records shows the badge and the title "Label". Its shared releases heading is "Artists on these releases".
 - V2: a feed page with two or more known roles shows each role with " · ", and the dot has the color of the first role.
 - V3: Inspect sources of Sir Libre Records still shows `recordLabel`.
-- Wrong: a page shows "Publisher" for a feed with a known role, or Inspect sources hides a role word.
+- V4: on a feed page with an agreed role other than artist, the "Roles" fact and the "As" heading show only known roles, in the sequence artist, label, hosting, producer, host, author, network, sponsor (musicindex ADR 0066 R-ROLE-6).
+- Wrong: a page shows "Publisher" for a feed with a known role, Inspect sources hides a role word, or a "Roles" fact or an "As" heading shows an unknown word.
 
 ## 17. ADR 0092 Task 001 Artists Takes The List Focus - 2026-11-14
 
