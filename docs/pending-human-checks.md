@@ -99,6 +99,7 @@ The agent checks run on an Xvfb display with scratch `XDG_CONFIG_HOME`, `XDG_DAT
 Each item gives the recommendation of the agent. The operator decides.
 
 1. **The badge of Sir Libre Records.** Must the header badge ignore a role word that it does not know, such as `recordLabel`? Recommendation: yes, and the orchestrator agrees. Then the badge reads "Label", and the section heading is "Artists on these releases". musicindex ADR 0023 R-WORD-3, as musicindex ADR 0033 changed it, owns this rule. A change needs a record in `../musicindex` first.
+   Answer, 2026-11-14: yes. The operator accepted the recommendation. On 2026-11-14 this session asked the orchestrator for the musicindex record. The code change waits for that record.
 2. **The tiles icon at 300 px (section 12, packet 4).** Is the cut tiles icon a fault? Recommendation: yes. A control that a person cannot see is not available. Let the bar go on two lines when one line cannot hold the two ends.
 3. **The cut second line of an artist tile (section 12, musicindex ADR 0057).** Is "2 albu…" satisfactory? Recommendation: accept it in tiles, because the rows view gives the full text.
 4. **The stale strip in Dark (section 12, packet 4).** The agent saw one stale strip after a scroll. Recommendation: walk the step on your display. If the strip shows there, open a fix packet.
