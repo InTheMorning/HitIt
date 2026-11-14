@@ -20,11 +20,13 @@ GPUI layout tests run at 390 px and at 940 px on each page, sheet and dialog of 
 | 1A | The `gpui-pre` patch in the `InTheMorning/gpui-kit` fork: a public `TestAppContext` constructor that takes a `PlatformTextSystem`. The operator pushes the branch. `Cargo.toml` pins the rev | Done - 2026-11-13 |
 | 1B | `WINDOW_MIN_WIDTH` of 390 px and `window_min_size` (ADR 0097 Decision 1). The fit probe in `Label` and `Button`, `Label::break_anywhere`, the fault finder and its unit tests (Decision 4) | Done - 2026-11-13 |
 | 1C | The shell test mounts `TopApp` with an in-memory database at 390 px and at 940 px. It examines the start page, the tab bar or the sidebar, and the Settings navigation. It mounts the list bar at the content width of each window width | Done - 2026-11-13. The test found no fault |
-| 2 | The list pages of the sidebar destinations with fixture rows. These are Releases, Artists, My playlists, Public playlists, Live, Search and the Inbox | Open |
-| 3 | The item pages with fixture rows. These are the release, track, feed, name level, playlist, singles group and window group pages | Open |
-| 4 | The Settings groups and the maintenance pages, the Show page, the startup report and the recovery pages | Open |
-| 5 | The sheets, the dialogs, the menus and the popovers. These are Inspect sources, each confirmation dialog, the playlist popover, the context menus and the search field list | Open |
-| 6 | The other text primitives and composites that draw a text with `div().child`. Each one records a probe, or moves to `Label` | Open |
+| 2 | The list pages of the sidebar destinations with fixture rows. These are Releases, Artists, My playlists, Public playlists, Live, Search and the Inbox | Open - [task 002](../tasks/adr-0097-task-002-list-pages-fit.md) is Ready |
+| 3 | The item pages with fixture rows. These are the release, track, feed, name level, playlist, singles group and window group pages | Open - [task 003](../tasks/adr-0097-task-003-item-pages-fit.md) is Ready |
+| 4 | The Settings groups and the maintenance pages, the Show page, the startup report and the recovery pages | Open - [task 004](../tasks/adr-0097-task-004-settings-show-and-recovery-fit.md) is Ready |
+| 5 | The sheets, the dialogs, the menus and the popovers. These are Inspect sources, each confirmation dialog, the playlist popover, the context menus and the search field list | Open - [task 005](../tasks/adr-0097-task-005-sheets-dialogs-and-menus-fit.md) is Ready |
+| 6 | The other text primitives and composites that draw a text with `div().child`. Each one records a probe, or moves to `Label` | Open - [task 006](../tasks/adr-0097-task-006-each-text-and-control-records-a-probe.md) is Ready |
+
+Task 002 makes the fixture adapter and moves the harness, so tasks 003 to 005 wait for it. Task 004 makes the fault finder ignore the horizontal scroll area of `LogFrame`. Task 005 gives each probe a layer, so that an open overlay does not overlap the page below it.
 
 ADR 0093 task 001 replaces the Settings group menu with a tab row. The change of that task also makes the phase 1C test examine the tab row.
 
