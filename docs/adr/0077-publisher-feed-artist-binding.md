@@ -14,14 +14,14 @@ Packet 002 completes the storage of Decision 5 on 2026-09-24 with mechanical che
 
 This ADR supersedes [ADR 0045](archive/0045-track-artist-binding.md).
 
-Amended 2026-09-24: [ADR 0078](archive/0078-publisher-page-type-from-stated-role.md) supersedes Decision 4.
-The page type comes from a stated role only. The label threshold proposal is removed.
-[ADR 0079](0079-remove-musicindex-artist-subject-storage.md) closes the proposal for ADR 0029 artist facts. It deletes that storage.
+- Changed by: [ADR 0078](archive/0078-publisher-page-type-from-stated-role.md), 2026-09-24. ADR 0078 supersedes Decision 4.
+  The page type comes from a stated role only. The label threshold proposal is removed.
+  [ADR 0079](0079-remove-musicindex-artist-subject-storage.md) closes the proposal for ADR 0029 artist facts. It deletes that storage.
 
 Amended 2026-09-24: the operator accepted proposals as refinements. "Accepted Refinements" records them.
 
 
-Amended 2026-10-02: [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) gives roles to each album link and no page type. Decision 2 stays for the publisher that an album names. A role never makes the album page show the publisher as its artist.
+- Changed by: [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md), 2026-10-02. ADR 0082 gives roles to each album link and no page type. Decision 2 stays for the publisher that an album names. A role never makes the album page show the publisher as its artist.
 ## Context
 
 ADR 0045 bound a Library track to a MusicIndex artist identifier. `src/identity_ingest.rs` reads that identifier from `Track.artist_credit`.

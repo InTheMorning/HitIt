@@ -24,12 +24,12 @@ and [first packet](../tasks/archive/adr-0069-task-001-grouped-settings-foundatio
 separate the existing-field foundation from guarded editing, new configuration
 and playback integration.
 
-Amended 2026-11-10 by [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md),
-which applies musicindex ADR 0059. A segmented control selects the group.
-One Save bar in the page bar holds Save and Discard for all groups.
-Discard replaces Cancel. A leave of Settings with a pending change asks the
-leave question. The draft does not stay after a leave. ADR 0068 is Accepted on 2026-11-11. This Settings
-decision does not implement its playback design.
+- Changed by: [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md), 2026-11-10. ADR 0093
+  applies musicindex ADR 0059. A segmented control selects the group.
+  One Save bar in the page bar holds Save and Discard for all groups.
+  Discard replaces Cancel. A leave of Settings with a pending change asks the
+  leave question. The draft does not stay after a leave. ADR 0068 is Accepted on 2026-11-11. This Settings
+  decision does not implement its playback design.
 
 ## Context
 
@@ -60,15 +60,15 @@ labeled group tabs, a segmented control of ADR 0093, and a persistent indication
 and Library use bounded scroll areas. ADR 0074 owns separate Diagnostics pages. Remember the selected group within the
 session. Changing groups retains the working draft. A leave of Settings with a pending change asks the leave question of ADR 0093.
 
-Amended 2026-09-13 during ADR 0063 task 005 operator checks: retain an
-independent page scroll position for each group throughout the app session,
-including while Settings is hidden. A group's first visit starts at the top;
-returning restores its own position, clamped only to its current content bounds.
-The shared Settings composite owns renderer handles, retained by the app root;
-the view model owns the selected group. No scroll position is persisted in
-configuration. Group content uses the available page width with the shared
-scrollbar gutter; the former fixed form-column width does not constrain logs.
-This presentation correction does not reopen task 001's accepted behavior.
+- Revised: 2026-09-13 during ADR 0063 task 005 operator checks: retain an
+  independent page scroll position for each group throughout the app session,
+  including while Settings is hidden. A group's first visit starts at the top;
+  returning restores its own position, clamped only to its current content bounds.
+  The shared Settings composite owns renderer handles, retained by the app root;
+  the view model owns the selected group. No scroll position is persisted in
+  configuration. Group content uses the available page width with the shared
+  scrollbar gutter; the former fixed form-column width does not constrain logs.
+  This presentation correction does not reopen task 001's accepted behavior.
 
 Amended 2026-09-13 during the shared-log packet's recovery-editor check:
 the shared Button primitive dispatches an activation once per keyboard press.

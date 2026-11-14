@@ -9,9 +9,9 @@ also states the three-layer ownership model, adds the remote transcript path, an
 requires byte-derived image typing on every artifact path. Tasks 001-004 are
 complete.
 
-Amended 2026-10-03: the operator removed the enclosure length check. A declared enclosure byte count is a publisher claim, and the app reads it from MusicIndex, which is a cache of RSS (ADR 0075 Decision I).
-On 2026-10-03 that check rejected two good HeyCitizen files. One file was larger and one was smaller than the declared count. Container detection stays the content check.
-[Task 005](../tasks/archive/adr-0056-task-005-remove-enclosure-length-check.md) implemented this amendment on 2026-10-03.
+- Revised: 2026-10-03: the operator removed the enclosure length check. A declared enclosure byte count is a publisher claim, and the app reads it from MusicIndex, which is a cache of RSS (ADR 0075 Decision I).
+  On 2026-10-03 that check rejected two good HeyCitizen files. One file was larger and one was smaller than the declared count. Container detection stays the content check.
+  [Task 005](../tasks/archive/adr-0056-task-005-remove-enclosure-length-check.md) implemented this amendment on 2026-10-03.
 
 ## Context
 

@@ -4,6 +4,12 @@
 
 Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in the [research request](../plans/research-ui-shell-and-search-request.md), and lifted its hold on 2026-10-25. The operator asked for this record, answered its five questions and accepted it on 2026-11-05 (see [Operator Answers](#operator-answers---2026-11-05)). Packets 001 to 015 of the [phase plan](../plans/adr-0089-shell-phase-plan.md) are implemented on 2026-11-06, and their visual checks are open. Packet 016, the panel and the row action Play, waits for the packets of ADR 0068, Accepted on 2026-11-11.
 
+- Changes: [ADR 0046](0046-workspace-frame-architecture.md), the separate Music list frame and detail frame.
+- Changes: [ADR 0060](0060-workflow-surface-structure.md), the section tabs and the place of the saved searches.
+- Changes: [ADR 0084](0084-music-column-browser.md), Decisions 2, 3 and 8, and the location breadcrumb of Decision 9.
+- Changes: [ADR 0086](0086-new-releases-singles-window.md), the New releases page.
+- Changes: [ADR 0087](0087-search-fields-and-live-results.md), the place of the saved searches.
+
 This record makes these changes:
 
 - It supersedes [ADR 0084](0084-music-column-browser.md) Decisions 2, 3 and 8. It amends Decision 9: the location breadcrumb goes. ADR 0084 Decision 1 is already replaced by musicindex ADR 0027 R-SHELL-1.

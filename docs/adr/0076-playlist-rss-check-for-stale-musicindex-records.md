@@ -6,6 +6,9 @@ Accepted - 2026-09-24. The operator gave each decision below on 2026-09-23 and a
 Implementation partial: packets 001 to 006 and ADR 0075 packet 020 are implemented on 2026-09-24 and 2026-09-25 with mechanical checks Green. Their visual gates are open and paused.
 The operator reviewed each decision on 2026-09-24. The review changed Decisions 3, 5 and 7.
 
+- Changes: [ADR 0059](0059-broadcast-control-surface.md), through Decisions 7 and 9 of this ADR.
+- Changes: [ADR 0075](0075-metadata-ownership-and-completeness.md), Decisions F, G and H.
+
 Amended 2026-09-25: the operator limited the `Retry-After` wait to 60 seconds. This tightens Decision 2. "Accepted Values" records the limit.
 "Accepted Values" records the three numeric values that the operator accepted on 2026-09-24.
 
@@ -15,7 +18,7 @@ This tightens Decision 3. Section 3 states the rule.
 Amended 2026-10-03: the operator decided that a download writes the tags of the stored values. Section 10 states the rule.
 On 2026-10-03 two fresh HeyCitizen downloads had no `WOAR` frame, and the next scan listed them at once. [Packet 009](../tasks/archive/adr-0076-task-009-download-writes-stored-values.md) implements the rule.
 
-Amended 2026-11-05: the operator decided that a new RSS reader reads each stored feed one time. Decision 2 states the rule. On 2026-11-05 a Check RSS answered HTTP 304, so the readers of ADR 0080 packets 008 and 010 did not see that document.
+- Revised: 2026-11-05: the operator decided that a new RSS reader reads each stored feed one time. Decision 2 states the rule. On 2026-11-05 a Check RSS answered HTTP 304, so the readers of ADR 0080 packets 008 and 010 did not see that document.
 
 ## Context
 

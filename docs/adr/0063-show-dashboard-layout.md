@@ -18,12 +18,12 @@ monospace typography, and per-source following now precede ADR 0066 task 007.
 bounded change and records its completed acceptance. Earlier dashboard and task 017
 acceptance remain closed for their shipped scope.
 
-Amended 2026-09-13: [ADR 0070](archive/0070-show-log-space-priority.md) supersedes the
-simultaneous card-visibility requirement while a log is open, at the operator's
-request during task 005. It gives logs priority over a scrolling card viewport
-while retaining the sidebar's space and actions. Task 005 owns the retest.
-The XL narrow-width follow-up keeps shared footers to one row, using ADR 0070's
-compact state/action presentation and full hover descriptions where needed.
+- Changed by: [ADR 0070](archive/0070-show-log-space-priority.md), 2026-09-13. ADR 0070 supersedes the
+  simultaneous card-visibility requirement while a log is open, at the operator's
+  request during task 005. It gives logs priority over a scrolling card viewport
+  while retaining the sidebar's space and actions. Task 005 owns the retest.
+  The XL narrow-width follow-up keeps shared footers to one row, using ADR 0070's
+  compact state/action presentation and full hover descriptions where needed.
 
 Reconciled 2026-09-16: [ADR 0073](archive/0073-show-card-overflow-scrolling.md) supersedes
 the remaining prohibition on card scrolling with logs closed. ADR 0066 task 007
@@ -57,7 +57,10 @@ Earlier amendments on 2026-09-09 moved the log to a bottom pane, reduced the
 grid to three cards after ADR 0059 made Event a row of Live Metadata, and
 recorded the column-text rule.
 
-Amends ADR 0060, which made `Show` a screen mount but did not say how the
+- Changes: [ADR 0060](0060-workflow-surface-structure.md), the positions of the sections in `Show`.
+- Changes: [ADR 0066](0066-configuration-and-startup-failure-recovery.md), the typography, scrolling and following of the recovery and Settings reports.
+
+ADR 0060 made `Show` a screen mount but did not say how the
 sections inside it are arranged. ADR 0059 keeps the section set and the section
 order. This record covers arrangement only.
 
@@ -384,7 +387,7 @@ results are session diagnostics, not a newly promised persistent audit log.
 
 ### The Grid Holds Three Cards
 
-Amended 2026-09-09, when ADR 0059 made `Event` a row of `Live Metadata`.
+- Revised: 2026-09-09, when ADR 0059 made `Event` a row of `Live Metadata`.
 
 The grid draws one card for each section, so it holds three. The column count
 still comes from the width class, and a width that fits three cards on one row

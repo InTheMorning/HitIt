@@ -4,9 +4,9 @@
 
 Accepted - 2026-09-24. Implemented on 2026-09-10 before the ADR 0076 amendment. ADR 0076 packet 003 implemented the amendment on 2026-09-24.
 
-Amended 2026-09-24 by [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md) Decisions 7 and 9.
-A playlist track is not ready for a show when its file payment route differs from the stored route.
-A track with the "removed from feed" mark is not ready until the operator confirms it or removes it from the playlist.
+- Changed by: [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md) Decisions 7 and 9, 2026-09-24.
+  A playlist track is not ready for a show when its file payment route differs from the stored route.
+  A track with the "removed from feed" mark is not ready until the operator confirms it or removes it from the playlist.
 
 Amended 2026-10-18: the operator heard the processor fan run faster while the app was open in Music. The service watch read the services each second, also when no screen showed the result.
 The new decision "The Service Watch Reads At The Pace Of Its Viewer" gives the pace. [Task 018](../tasks/archive/adr-0059-task-018-service-watch-pace.md) builds it.
@@ -346,10 +346,10 @@ than one stream must not need a data model change.
 
 ### The Broadcast Sections Live In Show
 
-Amended 2026-09-08 by ADR 0060, which removed the `Broadcast` frame. The four
-broadcast sections mount inside the `Show` screen. Amended 2026-09-09 to three,
-in this order: `Source`, `Live Metadata`, and `Stream`. `Event` became the first
-row of `Live Metadata`.
+- Changed by: ADR 0060, 2026-09-08. ADR 0060 removed the `Broadcast` frame. The four
+  broadcast sections mount inside the `Show` screen. Revised 2026-09-09 to three,
+  in this order: `Source`, `Live Metadata`, and `Stream`. `Event` became the first
+  row of `Live Metadata`.
 
 Amended 2026-09-08. The section that holds the two services is named
 `Live Metadata`, not `Publisher`. It holds the metadata producer and the

@@ -6,6 +6,8 @@ Implemented - 2026-05-16. Verified by the ADR 0048 architecture guards in
 `tests/architecture_tests.rs`. The earlier "commits TBD" placeholder is
 resolved: the guards, not a commit list, are the durable evidence.
 
+- Changed by: [ADR 0060](../0060-workflow-surface-structure.md), the app-section tab set.
+
 Archived 2026-10-03: a guard enforces each rule ([ADR triage](../../reviews/adr-triage-2026-10-03.md)).
 
 ## Context

@@ -13,9 +13,9 @@ the inherited scroll check under ADRs 0047/0048/0060/0062. Verify bounded
 scrolling on current Music details and Settings; this does not reopen Show's
 accepted task 017 gate. See the [reconciliation review](../reviews/2026-09-10-governance-reconciliation.md).
 
-Amended - 2026-09-07: ADR 0062 withdraws the Recent Feeds
-reachability invariant because the separate Recent Feeds destination was
-removed. The recency query remains as Music's default content source.
+- Changed by: ADR 0062, 2026-09-07. ADR 0062 withdraws the Recent Feeds
+  reachability invariant because the separate Recent Feeds destination was
+  removed. The recency query remains as Music's default content source.
 
 ## Context
 

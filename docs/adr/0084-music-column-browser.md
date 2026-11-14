@@ -4,13 +4,21 @@
 
 Accepted - 2026-10-08. The operator accepted this text on 2026-10-08. The operator made each choice below on 2026-10-08, in Phase 4A of the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md#phase-4a-flow-and-information-architecture). The choices come from the [Music flow map](../architecture/music-flow-map.md) and a private prototype canvas.
 
+- Changes: [ADR 0046](0046-workspace-frame-architecture.md), the Music frames.
+- Changes: [ADR 0047](0047-library-search-unification.md), items 1, 5 and 9.
+- Changes: [ADR 0049](0049-inspector-source-ownership.md), the Library source tree and the route for each origin (Decision 4).
+- Changes: [ADR 0060](0060-workflow-surface-structure.md), the Vocabulary and the scope control.
+- Changes: [ADR 0062](0062-music-content-surface.md), the scope control and the source tree.
+- Changes: [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md), the sequence of the groups of Decision 2 and the publisher page (Decisions 6 and 7).
+- Changes: [ADR 0083](0083-design-language.md), Decisions 4, 5, 6 and 9.
+
 Amended 2026-10-19: the operator found the hidden checkboxes unclear and asked for the selection mode of Apple Photos, Files and Mail. Decision 10 now gives a "Select" button and a selection mode.
 
-Amended 2026-11-06: [ADR 0090](0090-one-list-bar-above-the-rows.md) replaces the position of "Select", "Done" and the action bar in Decision 10. The rest of Decision 10 stays.
+- Changed by: [ADR 0090](0090-one-list-bar-above-the-rows.md), 2026-11-06. ADR 0090 replaces the position of "Select", "Done" and the action bar in Decision 10. The rest of Decision 10 stays.
 
-Amended 2026-10-25 by operator decision: musicindex ADR 0027 R-SHELL-1 replaces Decision 1. The shell is a stack: a list is a page at full width, and an item opens over it. Its numbers are musicindex numbers. A new v4vmm ADR records the destinations, the start page and the scopes of the [research request](../plans/research-ui-shell-and-search-request.md), which change Decisions 2, 3 and 8.
+- Changed by: musicindex ADR 0027 R-SHELL-1, 2026-10-25, by operator decision. R-SHELL-1 replaces Decision 1. The shell is a stack: a list is a page at full width, and an item opens over it. Its numbers are musicindex numbers. A new v4vmm ADR records the destinations, the start page and the scopes of the [research request](../plans/research-ui-shell-and-search-request.md), which change Decisions 2, 3 and 8.
 
-Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): ADR 0089 supersedes Decisions 2, 3 and 8. The location breadcrumb of Decision 9 goes. The other decisions stay. The app keeps the replaced behavior until the packets of ADR 0089 land.
+- Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05: ADR 0089 supersedes Decisions 2, 3 and 8. The location breadcrumb of Decision 9 goes. The other decisions stay. The app keeps the replaced behavior until the packets of ADR 0089 land.
 
 The first draft left three points open. The operator decided them on the same day:
 
@@ -28,17 +36,17 @@ It amends these decisions:
 - [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) Decision 2: each group of a publisher page divides its releases by kind (Decision 6).
 - [ADR 0083](0083-design-language.md): Decision 9 is superseded by Decision 3 of this ADR. Decisions 4, 5 and 6 gain the additions of Decisions 12, 5 and 10.
 
-Amended 2026-10-23 by [ADR 0087](0087-search-fields-and-live-results.md): in Decision 2, the toolbar search field shows a field list, reads fields in the query text and shows results while the curator types. In Decision 3, a saved search runs its fields.
+- Changed by: [ADR 0087](0087-search-fields-and-live-results.md), 2026-10-23: in Decision 2, the toolbar search field shows a field list, reads fields in the query text and shows results while the curator types. In Decision 3, a saved search runs its fields.
 
-Amended 2026-10-23 by [ADR 0086](0086-new-releases-singles-window.md): in Decision 3, New releases and the saved searches group the singles of one artist by a window. Decision 6 stays for the Releases list.
+- Changed by: [ADR 0086](0086-new-releases-singles-window.md), 2026-10-23: in Decision 3, New releases and the saved searches group the singles of one artist by a window. Decision 6 stays for the Releases list.
 
-Amended 2026-10-18 by [ADR 0085](0085-artists-by-confirmation.md): in Decision 7, the publisher level is the feed level, and ADR 0085 Decisions 5 and 6 replace the "Publisher" link and the label rule. ADR 0085 Decision 3 groups the releases of an artist page by kind.
+- Changed by: [ADR 0085](0085-artists-by-confirmation.md), 2026-10-18: in Decision 7, the publisher level is the feed level, and ADR 0085 Decisions 5 and 6 replace the "Publisher" link and the label rule. ADR 0085 Decision 3 groups the releases of an artist page by kind.
 
 Amended 2026-10-20: the operator decided the download rules of the action bar. Decision 10 now gives one download queue and a progress item. The operator also decided that an image that an artist feed gives replaces the logo mosaic (Decision 12). The name level uses the sort key of a name (Decision 7). A feed page lists the releases that match its name (Decision 7).
 
 Amended 2026-10-22 by operator decision: in Decision 6, a name that matches exactly one artist feed has no group. Its singles join the group of that feed. [Task 032](../tasks/adr-0084-task-032-singles-group-rows.md) builds it.
 
-Amended 2026-10-24 by operator decision: Decision 10 owns the host rule of the download queue. It spaces the RSS requests to one host and waits after HTTP 429. ADR 0058 leaves this host policy unowned. [Task 039](../tasks/adr-0084-task-039-download-queue-host-limit.md) builds it.
+- Revised: 2026-10-24 by operator decision: Decision 10 owns the host rule of the download queue. It spaces the RSS requests to one host and waits after HTTP 429. ADR 0058 leaves this host policy unowned. [Task 039](../tasks/adr-0084-task-039-download-queue-host-limit.md) builds it.
 
 Amended 2026-10-21 by operator decision: in Decision 9, Back and Forward show a page at its scroll position of that history entry. A new open shows a page at the top. [Task 030](../tasks/adr-0084-task-030-music-open-defects.md) builds it.
 
@@ -66,7 +74,7 @@ The operator compared three clickable structures and chose the column browser. T
 
 ### 1. Music Is Three Columns
 
-Replaced by musicindex ADR 0027 R-SHELL-1 on 2026-10-25. The text below records the replaced decision.
+- Changed by: musicindex ADR 0027 R-SHELL-1, 2026-10-25. R-SHELL-1 replaces this decision. The text below records the replaced decision.
 
 The Music section shows three columns:
 
@@ -82,7 +90,7 @@ Each column that can scroll shows a vertical scrollbar. A person can drag it, so
 
 ### 2. The Destinations
 
-Replaced by [ADR 0089](0089-the-shell-destinations-and-list-pages.md) on 2026-11-05. The text below records the replaced decision.
+- Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05. ADR 0089 replaces this decision. The text below records the replaced decision.
 
 The sidebar lists these destinations, in this order:
 
@@ -101,7 +109,7 @@ Saved searches are views in the Discover column (Decision 3). The operator decid
 
 ### 3. Music Opens On Discover
 
-Replaced by [ADR 0089](0089-the-shell-destinations-and-list-pages.md) on 2026-11-05. The text below records the replaced decision.
+- Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05. ADR 0089 replaces this decision. The text below records the replaced decision.
 
 Discover is the first destination and the default when Music opens. Its list column holds views. The first view is "New releases": the Index releases, newest first, as tiles or rows, with the recency order and the paging of [ADR 0062](0062-music-content-surface.md).
 
@@ -163,7 +171,7 @@ This replaces the Library artist page by name and the Index name match page.
 
 ### 8. Two Scopes
 
-Replaced by [ADR 0089](0089-the-shell-destinations-and-list-pages.md) on 2026-11-05. The text below records the replaced decision.
+- Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05. ADR 0089 replaces this decision. The text below records the replaced decision.
 
 Releases and Artists have one scope control with two states: "Library" and "Everything". "Everything" adds the Index items, and each Library item keeps its state word. Tracks has no scope control and shows the Library only. Discover and search show everything, with the state word on each Library item.
 

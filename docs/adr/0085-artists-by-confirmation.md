@@ -5,31 +5,33 @@
 Accepted - 2026-10-18. The operator asked for this decision, answered its open questions and accepted it on 2026-10-18.
 Implementation partial: ADR 0082 task 003 and ADR 0084 task 008 built Decisions 1 to 7. The operator passed their checks on 2026-10-18. The name level of Decision 2 waits for ADR 0084 packet 017.
 
-Amended 2026-10-18: the operator passed ADR 0082 packet 002 V3 with Sir Libre Records and found "Publisher of" over a role caption unclear. Decision 3 now gives one section for each relation, with "As <roles>" for a role other than artist, and one "Role not confirmed" section.
+- Changes: [ADR 0084](0084-music-column-browser.md), Decision 7.
+
+- Revised: 2026-10-18: the operator passed ADR 0082 packet 002 V3 with Sir Libre Records and found "Publisher of" over a role caption unclear. Decision 3 now gives one section for each relation, with "As <roles>" for a role other than artist, and one "Role not confirmed" section.
 
 Amended 2026-10-18 again: the operator decided the frame title of a feed page. Decision 7 gives it. It reserves "Publisher" for a feed that is definitely not an artist, which is the one exception to Decision 1.
 The operator also accepted the read of Decision 6 for a primary named feed with an agreed role without `artist`. Decision 6 now states it.
 
-Amended 2026-10-18 a third time: the operator decided that "Unverified artist" needs a confirmed link, as Stophammer ADR 0071 counts `first_named_count`. Decisions 2 and 6 now state it.
-An album can name any feed, so a link that only the album states does not make the feed an artist.
+- Revised: 2026-10-18 a third time: the operator decided that "Unverified artist" needs a confirmed link, as Stophammer ADR 0071 counts `first_named_count`. Decisions 2 and 6 now state it.
+  An album can name any feed, so a link that only the album states does not make the feed an artist.
 
-Amended 2026-10-27 again by musicindex ADR 0033 R-WORD-3 items 1 and 6. Decision 7 gives the type label of that rule. One stated role gives its word. Two or more roles give "Publisher". A side that states `artist` gives "Artist".
+- Changed by: musicindex ADR 0033 R-WORD-3 items 1 and 6, 2026-10-27. Decision 7 gives the type label of that rule. One stated role gives its word. Two or more roles give "Publisher". A side that states `artist` gives "Artist".
 
-Amended 2026-10-27 by musicindex ADR 0033. Decision 1 and the Invariants line cite that record for the word rules of a publisher feed. Decision 7 keeps its test for a feed that is definitely not an artist. Its frame title constant is also the label of the Publisher badge (ADR 0033 R-WORD-3 item 3).
+- Changed by: musicindex ADR 0033, 2026-10-27. Decision 1 and the Invariants line cite that record for the word rules of a publisher feed. Decision 7 keeps its test for a feed that is definitely not an artist. Its frame title constant is also the label of the Publisher badge (ADR 0033 R-WORD-3 item 3).
 
 The header badge of a feed page follows R-WORD-3. A role that the two sides agree on has a filled dot. An inferred role, or a role that one side gives, has a hollow dot. A feed with no role has a hollow dot, with the word "Publisher" or "Feed" of Decision 7.
 
-Amended 2026-11-05 by musicindex ADR 0037 R-WORD-7, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. [Task 001](../tasks/adr-0085-task-001-type-label-of-known-roles.md) implements this on 2026-11-14.
+- Changed by: musicindex ADR 0037 R-WORD-7, 2026-11-05, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. [Task 001](../tasks/adr-0085-task-001-type-label-of-known-roles.md) implements this on 2026-11-14.
 
-Amended 2026-11-14 by [musicindex ADR 0066](../../../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md), by operator decision. A type label and its dot use only the eight known roles of musicindex ADR 0036 R-ROLE-1 item 1. They ignore each other role word, and the compare ignores capital letters (R-ROLE-3).
-A feed with only unknown role words has no role (R-ROLE-4). The one dot has the color and the fill of the first role in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8). Inspect sources shows each role word as RSS text (R-ROLE-5). Task 001 implements this on 2026-11-14.
+- Changed by: [musicindex ADR 0066](../../../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md), 2026-11-14, by operator decision. A type label and its dot use only the eight known roles of musicindex ADR 0036 R-ROLE-1 item 1. They ignore each other role word, and the compare ignores capital letters (R-ROLE-3).
+  A feed with only unknown role words has no role (R-ROLE-4). The one dot has the color and the fill of the first role in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8). Inspect sources shows each role word as RSS text (R-ROLE-5). Task 001 implements this on 2026-11-14.
 
-Amended 2026-11-14 again by musicindex ADR 0066 R-ROLE-6 (commit `06f5fde`), an advisory decision of the orchestrator. Each interface text that names the roles of a feed uses only the known roles, in the R-ROLE-1 sequence. The "Roles" fact joins them with ", ", and the "As <roles>" heading of Decision 3 joins them with "and". A text that only lists the roles does not show when no known role stays.
-A text that tells what one source states, such as the line of a "Role not confirmed" row, shows an unknown word as RSS text in the form `rel="…"` (R-ROLE-5 items 3 and 4, musicindex commit `b998344`). The `releases give rel="…"` text of "Shares releases with" is RSS text and keeps each word.
+- Changed by: musicindex ADR 0066 R-ROLE-6 (commit `06f5fde`), 2026-11-14, an advisory decision of the orchestrator. Each interface text that names the roles of a feed uses only the known roles, in the R-ROLE-1 sequence. The "Roles" fact joins them with ", ", and the "As <roles>" heading of Decision 3 joins them with "and". A text that only lists the roles does not show when no known role stays.
+  A text that tells what one source states, such as the line of a "Role not confirmed" row, shows an unknown word as RSS text in the form `rel="…"` (R-ROLE-5 items 3 and 4, musicindex commit `b998344`). The `releases give rel="…"` text of "Shares releases with" is RSS text and keeps each word.
 
-Amended 2026-11-08 by musicindex ADR 0057 R-ARTIST-1, by operator decision. Each artist list shows three groups: the stated artists, the inferred artists, and the artist names with no feed.
-These lists are the Artists list in each scope, its tiles and the Artists tab of the search results. Each group has a heading that gives its type.
-The shared rule replaces the rejected alternative "Two sections in the Artists list". The rows show no level word.
+- Changed by: musicindex ADR 0057 R-ARTIST-1, 2026-11-08, by operator decision. Each artist list shows three groups: the stated artists, the inferred artists, and the artist names with no feed.
+  These lists are the Artists list in each scope, its tiles and the Artists tab of the search results. Each group has a heading that gives its type.
+  The shared rule replaces the rejected alternative "Two sections in the Artists list". The rows show no level word.
 
 In the scope All, each group loads its own pages of 200 rows, and the stated group sends `stated_rel=artist`. The inferred group and the names group show 20 rows and a "Show more" button, as musicindex ADR 0057 R-SITE-15 gives. This replaces the "Load more" row of ADR 0084 packet 016 decision D7 for the Artists list.
 

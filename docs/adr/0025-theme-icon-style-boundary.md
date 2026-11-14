@@ -4,7 +4,7 @@
 
 Implemented - 2026-09-18.
 
-Amended 2026-10-03 by [ADR 0083](0083-design-language.md) Decision 2: entity kinds get their own palette and stop using status colors. Payment shares use the value palette.
+- Changed by: [ADR 0083](0083-design-language.md) Decision 2, 2026-10-03: entity kinds get their own palette and stop using status colors. Payment shares use the value palette.
 
 Reconciled 2026-09-18: all eleven packets, including task 003b, record implementation.
 The [review checklist](../reviews/adr-0025-review-checklist.md) records mechanical

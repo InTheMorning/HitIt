@@ -4,13 +4,15 @@
 
 Accepted - 2026-09-07.
 
-Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): one sidebar replaces the three section tabs, and the Search destination holds the saved searches. The now-playing panel shows while something plays. The invariants below state the result. The sections below them record the earlier design where they differ. The app keeps the earlier behavior until the packets of ADR 0089 land.
+- Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05: one sidebar replaces the three section tabs, and the Search destination holds the saved searches. The now-playing panel shows while something plays. The invariants below state the result. The sections below them record the earlier design where they differ. The app keeps the earlier behavior until the packets of ADR 0089 land.
 
-Amended 2026-10-08 by [ADR 0084](0084-music-column-browser.md): the Vocabulary adds "Release". The curator sees "Release" for a feed of music, in place of "Album" and "Feed", and each release shows its kind. The scope control has two states, "Library" and "Everything".
+- Changed by: [ADR 0084](0084-music-column-browser.md), 2026-10-08: the Vocabulary adds "Release". The curator sees "Release" for a feed of music, in place of "Album" and "Feed", and each release shows its kind. The scope control has two states, "Library" and "Everything".
 
-Amends ADR 0048 for the app-section tab set. Supersedes the `Broadcast`
-workspace frame introduced under ADR 0059 and retains everything else in that
-ADR.
+- Changed by: [ADR 0063](0063-show-dashboard-layout.md), 2026-09-13: ADR 0063 says how the sections in `Show` are arranged.
+
+- Changes: [ADR 0048](archive/0048-content-list-frame-breadcrumb-search.md), the app-section tab set.
+- Changes: [ADR 0059](0059-broadcast-control-surface.md), the `Broadcast` workspace frame. Everything else in ADR 0059 stays.
+- Changes: [ADR 0037](0037-same-entity-surface-parity.md), the separate Library and Discover screens.
 
 Amended 2026-09-11: corrected the obsolete reserved audition ADR number to
 [proposed ADR 0068](0068-show-cue-and-audition-isolation.md). The workflow

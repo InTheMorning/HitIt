@@ -4,7 +4,7 @@
 
 Accepted - 2026-09-10.
 
-Amended 2026-10-03 by [ADR 0083](0083-design-language.md) Decision 7: the normal-shell notice opens from the reports item of the status bar. Its subjects, repair actions and retained actions stay reachable there and in Settings.
+- Changed by: [ADR 0083](0083-design-language.md) Decision 7, 2026-10-03: the normal-shell notice opens from the reports item of the status bar. Its subjects, repair actions and retained actions stay reachable there and in Settings.
 
 Amended 2026-09-18: the operator rejected the inline repair/diagnostics layout
 during task 013 acceptance. [ADR 0074](0074-repair-and-diagnostics-pages.md)
@@ -46,19 +46,19 @@ V1–V3 walkthrough, presentation acceptance, configuration restoration,
 preservation inspection and fixture cleanup. Its procedure remains a regression
 check; task 004 retains its separate gate and task 010 is also complete with operator acceptance and cleanup confirmed.
 
-Amended 2026-09-13: [ADR 0063's shared log frame](0063-show-dashboard-layout.md#shared-log-frames-and-following)
-owns recovery and Settings report typography, scrolling and following. The
-operator prioritized its acceptance before task 007. Report contents, recorded
-times, redaction and task 006 acceptance remain unchanged.
+- Changed by: [ADR 0063](0063-show-dashboard-layout.md#shared-log-frames-and-following), 2026-09-13. The shared log frame of ADR 0063
+  owns recovery and Settings report typography, scrolling and following. The
+  operator prioritized its acceptance before task 007. Report contents, recorded
+  times, redaction and task 006 acceptance remain unchanged.
 
 Amended 2026-09-13 during the shared-log packet's operator acceptance: the
 shared configuration editor gains explicit Close editor and Reopen editor
 disclosure. Its bounded implementation and visual checks belong to that packet;
 task 006's accepted repair behavior remains closed.
 
-Amended 2026-09-10: [ADR 0067](archive/0067-platform-shortcut-modifiers.md) changes Linux
-shortcuts to Ctrl at the operator's request. Task 003's keyboard checks
-use those bindings; its runtime-rejection requirement and recorded passes remain.
+- Changed by: [ADR 0067](archive/0067-platform-shortcut-modifiers.md), 2026-09-10. ADR 0067 changes Linux
+  shortcuts to Ctrl at the operator's request. Task 003's keyboard checks
+  use those bindings; its runtime-rejection requirement and recorded passes remain.
 
 Revised 2026-09-10 after operator review: normal startup requires valid core
 configuration, usable storage for music files, and a working SQLite database.

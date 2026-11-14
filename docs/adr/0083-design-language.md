@@ -4,27 +4,28 @@
 
 Accepted - 2026-10-03. The operator chose the direction on 2026-10-03 from a private mockup canvas, and accepted this text on the same day. Phase 3 of the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md) implements Decisions 1 to 4.
 
-Amended 2026-10-08 by [ADR 0084](0084-music-column-browser.md): Decision 9 is superseded by ADR 0084 Decision 3, except that a tile is a release. Decision 4 gains the logo frame for a collection (ADR 0084 Decision 12). Decision 5 names a release by its kind in labels (ADR 0084 Decision 5). Decision 6 gains the shared selection checkbox and action bar (ADR 0084 Decision 10).
+- Changed by: [ADR 0084](0084-music-column-browser.md), 2026-10-08: Decision 9 is superseded by ADR 0084 Decision 3, except that a tile is a release. Decision 4 gains the logo frame for a collection (ADR 0084 Decision 12). Decision 5 names a release by its kind in labels (ADR 0084 Decision 5). Decision 6 gains the shared selection checkbox and action bar (ADR 0084 Decision 10).
 
 Amended 2026-10-20: Decision 6 gives the drop target of a dragged track (operator decision).
 
 Amended 2026-10-21: Decision 6 lets a drag in selection mode carry each checked track (operator decision of 2026-10-21).
 
-Amended 2026-10-22 by operator decision: Decision 6 shows the download state of a track row and a release row as one icon. A partly downloaded release also shows a count. [ADR 0084 task 033](../tasks/adr-0084-task-033-download-state-icons.md) builds it.
+- Revised: 2026-10-22 by operator decision: Decision 6 shows the download state of a track row and a release row as one icon. A partly downloaded release also shows a count. [ADR 0084 task 033](../tasks/adr-0084-task-033-download-state-icons.md) builds it.
 
 Amended 2026-10-07: Decision 5 names the main action until a page can play a track.
 
-Amended 2026-10-27: Decision 2 cites musicindex ADR 0032 R-DOT-1 for the dot. The shared rule sets the dot dimensions and the hollow dot, and the shared copy `src/assets/tokens.json` gives the entity values that R-DOT-2 checks.
+- Changed by: musicindex ADR 0032 R-DOT-1, 2026-10-27. Decision 2 cites that rule for the dot. The shared rule sets the dot dimensions and the hollow dot, and the shared copy `src/assets/tokens.json` gives the entity values that R-DOT-2 checks.
 
-Amended 2026-10-25 by operator decision: musicindex ADRs 0020 to 0026 replace parts of Decisions 1 to 6 and 8. They also replace one item of Consequences and two verification items. Those records own the interface rules that musicindex.org, Studio and v4vmm share. [Rules that musicindex replaces](#rules-that-musicindex-replaces) names each part.
+- Changed by: musicindex ADRs 0020 to 0026, 2026-10-25, by operator decision. These records replace parts of Decisions 1 to 6 and 8. They also replace one item of Consequences and two verification items. Those records own the interface rules that musicindex.org, Studio and v4vmm share. [Rules that musicindex replaces](#rules-that-musicindex-replaces) names each part.
 
-Amended 2026-11-12 by operator decision: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 to R-ACT-12 add to Decision 5. The orchestrator session relayed the decisions. The amendment of musicindex ADR 0064 in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. The menu sequence of Decision 5 does not change. Open items:
+- Changed by: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 to R-ACT-12, 2026-11-12, by operator decision. These rules add to Decision 5. The orchestrator session relayed the decisions. The amendment of musicindex ADR 0064 in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. The menu sequence of Decision 5 does not change. Open items:
+  - Recovery has "Retry" and "Dismiss". In one condition, "Dismiss" can discard a retained conversion file. This app does not identify "Dismiss" as destructive. The operator decides.
+  - The staged edit row of Inspect Sources has no Enter binding, and the focus stays on the sheet. The row is not a confirmation, so R-ACT-9 item 1 has no clear safe button there. The operator decides.
+  - In a destructive confirmation, Cancel has the first focus, but its focus ring shows only after a key press. The operator decides if the ring must show when the dialog opens.
 
-- Recovery has "Retry" and "Dismiss". In one condition, "Dismiss" can discard a retained conversion file. This app does not identify "Dismiss" as destructive. The operator decides.
-- The staged edit row of Inspect Sources has no Enter binding, and the focus stays on the sheet. The row is not a confirmation, so R-ACT-9 item 1 has no clear safe button there. The operator decides.
-- In a destructive confirmation, Cancel has the first focus, but its focus ring shows only after a key press. The operator decides if the ring must show when the dialog opens.
-
-It amends [ADR 0025](0025-theme-icon-style-boundary.md) (entity roles get their own palette), [ADR 0062](0062-music-content-surface.md) (a tile is a release) and [ADR 0066](0066-configuration-and-startup-failure-recovery.md) (the normal-shell notice opens from the status bar).
+- Changes: [ADR 0025](0025-theme-icon-style-boundary.md), Decision 2: entity roles get their own palette.
+- Changes: [ADR 0062](0062-music-content-surface.md), Decision 9: a tile is a release.
+- Changes: [ADR 0066](0066-configuration-and-startup-failure-recovery.md), Decision 7: the normal-shell notice opens from the status bar.
 
 ## Context
 
@@ -186,7 +187,7 @@ The other rules of musicindex ADRs 0020 to 0028 add to this record. They replace
 - `tokens.rs`, the theme profiles and `contrast.rs` get new roles: surfaces, entity colors, value colors, a display size and an artwork shadow. Each needs contrast pairs.
 - `EntityKind` stops using status colors. Code that colors a payment recipient by kind must change.
 - Pages lose most visible buttons. Users find rare actions in the "⋯" and right-click menus.
-- Replaced by musicindex ADR 0021 R-ART-5: the page header shows a blurred glow from the cover, with grain, as `.hero-glow` in `../musicindex/search.html` does. GPUI 0.3.1 has no blur filter, no blend mode and only two stops in a gradient. Thus the app prepares the glow image outside the renderer: it blurs and saturates the cover and adds the grain with the `image` crate. GPUI draws that image below a veil of two stacked gradients. The first packet must prove this method, also for an animated cover.
+- Owned by musicindex ADR 0021 R-ART-5: the page header shows a blurred glow from the cover, with grain, as `.hero-glow` in `../musicindex/search.html` does. GPUI 0.3.1 has no blur filter, no blend mode and only two stops in a gradient. Thus the app prepares the glow image outside the renderer: it blurs and saturates the cover and adds the grain with the `image` crate. GPUI draws that image below a veil of two stacked gradients. The first packet must prove this method, also for an animated cover.
 - The status bar removes the live status band, and the ADR 0066 notice moves behind it.
 
 ## Alternatives Considered
@@ -203,7 +204,7 @@ Mechanical, at the owning layer:
 
 - `tokens.rs` exposes each palette role of Decision 1 for each theme profile, and the contrast tests cover each new pair.
 - `EntityKind` resolves no status color. A guard blocks a status token in the entity palette.
-- Replaced by musicindex ADR 0020 R-VALUE-2: the value palette exposes steps that differ in lightness.
+- Owned by musicindex ADR 0020 R-VALUE-2: the value palette exposes steps that differ in lightness.
 - A status bar view model exposes no show item when no show is active.
 - The status bar has one composite owner, and no screen renders a second status band.
 - The Library tile view model exposes one tile for each release.
@@ -212,5 +213,5 @@ Mechanical, at the owning layer:
 Visual, for the operator:
 
 - Each section at M, in Dark and Light, matches the accepted mockups in hierarchy, color roles and artwork treatment.
-- Replaced by musicindex ADR 0021 R-ART-5: the page header shows a blurred glow from the cover, with grain. The glow fades into the background before the content. It agrees with the album page of musicindex.org for the same cover.
+- Owned by musicindex ADR 0021 R-ART-5: the page header shows a blurred glow from the cover, with grain. The glow fades into the background before the content. It agrees with the album page of musicindex.org for the same cover.
 - The status bar reads clearly at normal and narrow widths.

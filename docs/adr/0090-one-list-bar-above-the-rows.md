@@ -4,6 +4,8 @@
 
 Accepted - 2026-11-06. The operator selected this option from the [mockups](https://claude.ai/artifact/G7nujJr3pXwU77Y3oeiQ9E), walked the singles group page and the window group page, and accepted it.
 
+- Changes: [ADR 0084](0084-music-column-browser.md), the position of Select, Done and the action bar in Decision 10.
+
 Each other page moves in a packet of the [phase plan](../plans/adr-0090-list-bar-phase-plan.md). Until its packet, a page keeps the position that [ADR 0084](0084-music-column-browser.md) Decision 10 and [ADR 0089](0089-the-shell-destinations-and-list-pages.md) Decision 6 give it.
 
 ## Context

@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented - 2026-09-18. Amended 2026-11-10: [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md) supersedes the Settings group menu.
+Implemented - 2026-09-18.
+
+- Changed by: [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md), 2026-11-10. ADR 0093 replaces the Settings group menu.
 
 The operator requested pages, smaller consistent text, predictable scrolling and
 separate action controls during ADR 0066 task 013 acceptance. This correction

@@ -5,7 +5,10 @@
 Accepted - 2026-10-23. The operator asked for this proposal and answered its first questions on 2026-10-22. The operator answered the four open questions and accepted the ADR on 2026-10-23 (see "Operator Answers").
 The [ADR 0086 phase plan](../plans/adr-0086-new-releases-window-groups-phase-plan.md) holds its packets.
 
-Amended 2026-11-05 by [ADR 0089](0089-the-shell-destinations-and-list-pages.md): New releases is not a page. Its window groups move to Releases with the sort Newest, and the saved searches move to the Search page. The app keeps the earlier behavior until the packets of ADR 0089 land.
+- Changes: [ADR 0062](0062-music-content-surface.md), the New releases pager.
+- Changes: [ADR 0084](0084-music-column-browser.md), Decision 3.
+
+- Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05: New releases is not a page. Its window groups move to Releases with the sort Newest, and the saved searches move to the Search page. The app keeps the earlier behavior until the packets of ADR 0089 land.
 
 It amends [ADR 0084](0084-music-column-browser.md) Decision 3: New releases and the saved searches of Discover show window groups. ADR 0084 Decision 6 stays for the Releases list.
 It amends [ADR 0062](0062-music-content-surface.md): the New releases pager can load more pages before it shows a page. The recency order stays.

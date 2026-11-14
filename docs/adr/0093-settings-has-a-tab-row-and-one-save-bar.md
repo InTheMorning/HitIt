@@ -4,13 +4,16 @@
 
 Accepted - 2026-11-10. The operator accepted [musicindex ADR 0059](../../../musicindex/docs/adr/0059-settings-has-a-tab-row-and-one-save-bar.md) (musicindex `5c4375c`, updated in `83142d2` and `9c81ccd`) on 2026-11-10, and decided that v4vmm uses the same Settings layout as Studio. The orchestrator session relayed the decision. This record applies R-SET-1 to R-SET-5 to v4vmm. Decisions 3, 6 and 9 are choices of the planning session. This record changes no code.
 
-Amended 2026-11-12 by operator decision: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 and R-ACT-9 give the sequence and the focus of the Save bar and the leave question. These are Decisions 9 and 13. The orchestrator session relayed the decision.
+- Changed by: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 and R-ACT-9, 2026-11-12, by operator decision. These rules give the sequence and the focus of the Save bar and the leave question. These are Decisions 9 and 13. The orchestrator session relayed the decision.
 
 R-ACT-12 makes "Use Defaults" destructive. Today it saves immediately, so it has the red tint and a confirmation. Decision 10 changes it to an edit of the draft that does not save, and Discard in the same view undoes that edit. Thus musicindex ADR 0020 R-ACT-3 item 4 removes the confirmation at that time. The red tint and the first position stay (R-ACT-12). The orchestrator session gave this answer on 2026-11-12.
 
 Applies: musicindex ADR 0059 R-SET-1 to R-SET-5. Uses: musicindex ADR 0051 R-SEG-1 for the tab row, and musicindex ADR 0032 R-DOT-1 for the type dot.
 
-Supersedes: the Settings group menu and the shared Settings header of [ADR 0074](0074-repair-and-diagnostics-pages.md). Amends: [ADR 0069](0069-grouped-settings-and-selective-presets.md), the group navigation, "leaving Settings retains the working draft" and Cancel. Amends: [ADR 0069 task 002](../tasks/adr-0069-task-002-shared-guarded-editor.md), the names of the commands, the leave and the quit.
+- Changes: [ADR 0074](0074-repair-and-diagnostics-pages.md), the Settings group menu and the shared Settings header.
+- Changes: [ADR 0069](0069-grouped-settings-and-selective-presets.md), the group navigation, "leaving Settings retains the working draft" and Cancel.
+
+This ADR also changes [ADR 0069 task 002](../tasks/adr-0069-task-002-shared-guarded-editor.md): the names of the commands, the leave and the quit.
 
 ## Context
 

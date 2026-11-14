@@ -5,9 +5,11 @@
 Implemented - 2026-05-18. Scope is stated in this ADR. Promotes the
 shared content surface and inspector across Library and Search origins.
 
-Amended 2026-10-08 by [ADR 0084](0084-music-column-browser.md): the source list holds destinations, not a Library tree (item 1). The content filter has two states, "Library" and "Everything" (item 5). Saved searches are views of the Discover column (item 9).
+- Changes: [ADR 0037](0037-same-entity-surface-parity.md), the separate Library and Discover screens.
 
-Amended 2026-10-16 by operator decision, item 8: a long description that is collapsed shows its first lines, with "Show more" at the end. "Show more" and the section header open the full text. A short description that the operator collapses shows no body. The view model owns the preview text and the line estimate. Each release page and each track page uses this rule, for both origins. [ADR 0084 task 013](../tasks/archive/adr-0084-task-013-index-release-page-parity.md) builds it.
+- Changed by: [ADR 0084](0084-music-column-browser.md), 2026-10-08: the source list holds destinations, not a Library tree (item 1). The content filter has two states, "Library" and "Everything" (item 5). Saved searches are views of the Discover column (item 9).
+
+- Revised: 2026-10-16 by operator decision, item 8: a long description that is collapsed shows its first lines, with "Show more" at the end. "Show more" and the section header open the full text. A short description that the operator collapses shows no body. The view model owns the preview text and the line estimate. Each release page and each track page uses this rule, for both origins. [ADR 0084 task 013](../tasks/archive/adr-0084-task-013-index-release-page-parity.md) builds it.
 
 ## Context
 

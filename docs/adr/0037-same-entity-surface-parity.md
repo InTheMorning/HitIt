@@ -8,7 +8,11 @@ Tasks 001 and 002 have recorded mechanical evidence. Task 001 is complete on
 2026-09-19, including local/Index feed checks in both themes and confirmed
 fixture cleanup. Task 002 retains its track-detail visual parity checks.
 
-Amended 2026-09-10: ADRs 0047/0048/0060 replaced separate Library/Discover
+- Changed by: [ADR 0047](0047-library-search-unification.md), 2026-09-10.
+- Changed by: [ADR 0048](archive/0048-content-list-frame-breadcrumb-search.md), 2026-09-10.
+- Changed by: [ADR 0060](0060-workflow-surface-structure.md), 2026-09-10.
+
+ADRs 0047, 0048 and 0060 replaced separate Library/Discover
 screens with local and Index origins in Music. Preserve the identity/parity
 checks on those reachable paths. ADR 0038 owns the migrated shared helpers and
 display identifiers. The [review checklist](../reviews/adr-0037-review-checklist.md)

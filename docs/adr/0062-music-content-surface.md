@@ -4,11 +4,11 @@
 
 Accepted - 2026-09-07.
 
-Amended 2026-10-23 by [ADR 0086](0086-new-releases-singles-window.md): the New releases pager can load more pages before it shows a page. The recency order stays.
+- Changed by: [ADR 0086](0086-new-releases-singles-window.md), 2026-10-23: the New releases pager can load more pages before it shows a page. The recency order stays.
 
-Amended 2026-10-08 by [ADR 0084](0084-music-column-browser.md): the scope control has two states, "Library" and "Everything", and no control shows Index items only. The source tree and its invariant go. Music opens on Discover, which supersedes the home of the ADR 0083 amendment above. Recency order and paging stay with this ADR.
+- Changed by: [ADR 0084](0084-music-column-browser.md), 2026-10-08: the scope control has two states, "Library" and "Everything", and no control shows Index items only. The source tree and its invariant go. Music opens on Discover, which supersedes the home of the ADR 0083 change below. Recency order and paging stay with this ADR.
 
-Amended 2026-10-03 by [ADR 0083](0083-design-language.md) Decision 9: Music opens on a home, and the tile view shows one tile for each release. Recency order and paging stay with this ADR.
+- Changed by: [ADR 0083](0083-design-language.md) Decision 9, 2026-10-03: Music opens on a home, and the tile view shows one tile for each release. Recency order and paging stay with this ADR.
 
 Reconciled 2026-09-18: the [delivery index](../plans/broadcast-chain-delivery-order.md#surface-rewrite--complete)
 records tasks 001–005 complete on 2026-09-07. Their stale Ready headers are corrected.
@@ -23,8 +23,9 @@ rows belong to search and expansion, not the default order. The row contract
 carries all three kinds. This amendment defines the intended paths, not proof
 that both paths are implemented.
 
-Extends ADR 0060. Reverses the Recent Feeds reachability invariant that ADR
-0030 established.
+Extends ADR 0060.
+
+- Changes: [ADR 0030](0030-discovery-library-ui-fixes.md), the Recent Feeds reachability invariant.
 
 ## Context
 

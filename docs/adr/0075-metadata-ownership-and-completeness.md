@@ -5,6 +5,9 @@
 Accepted - 2026-09-19. The operator accepted this decision and answered its two open questions.
 Amended 2026-09-19 with Decisions D to G, and 2026-09-20 with Decision H.
 
+- Changes: [ADR 0028](0028-local-identity-source-fact-persistence.md), the replacement key of a source-fact collection.
+- Changes: [ADR 0054](0054-local-metadata-source-fact-persistence.md), the replacement key of a metadata source-fact collection.
+
 Amended 2026-09-21. The operator recorded Decision I: MusicIndex is a cache of RSS, and
 RSS is the only provenance. The operator also reduced the field scope in Decision A and
 deferred nine field policies. Provider-ownership display work is superseded.
@@ -15,9 +18,9 @@ Amended 2026-09-26: the MusicIndex title refinements no longer name the legacy `
 Amended 2026-09-30: a MusicIndex `release_date` claim with the path `feed.pub_date` now proves a channel publication date. The operator decided this on 2026-09-30.
 The MusicIndex oldest-item date shows as the derived fact "First track published", never as a release date.
 
-Amended 2026-09-24: [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md) supersedes Decisions F, G and H.
-It also supersedes two Decision I rules. One rule gives fresh RSS the value. The other rule limits MusicIndex to a feed that the app has not fetched.
-It supersedes the provider priority, freshness, expiry and stale-label parts of each field refinement. The other parts stay in force.
+- Changed by: [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md), 2026-09-24. ADR 0076 supersedes Decisions F, G and H.
+  It also supersedes two Decision I rules. One rule gives fresh RSS the value. The other rule limits MusicIndex to a feed that the app has not fetched.
+  It supersedes the provider priority, freshness, expiry and stale-label parts of each field refinement. The other parts stay in force.
 
 Amended 2026-10-07: each MusicIndex request asks for each collection that its endpoint supports. A feed request asks for the nine feed collections, `tracks` included. A track request asks for the ten track collections.
 
@@ -148,7 +151,7 @@ Retain removed track artwork as evidence. Expiry cannot restore a removed track 
 Feed-artwork extraction order, accepted on 2026-09-20: prefer `podcast:image`, then iTunes artwork, then the RSS image.
 Report conflicting ties as unresolved and retain their evidence.
 Track-artwork extraction order, accepted separately: prefer `podcast:image`, then iTunes artwork. Report conflicting ties as unresolved.
-Amended 2026-11-04: a `podcast:image` counts as artwork when it has no `purpose`, or when its `purpose` holds the word `artwork`. A `podcast:image` with only other purposes, for example `banner`, `icon` or `social`, is not artwork. The operator can change this refinement. [ADR 0080 packet 008](../tasks/adr-0080-task-008-rss-readers-agree.md) applies the order in each RSS reader.
+- Revised: 2026-11-04: a `podcast:image` counts as artwork when it has no `purpose`, or when its `purpose` holds the word `artwork`. A `podcast:image` with only other purposes, for example `banner`, `icon` or `social`, is not artwork. The operator can change this refinement. [ADR 0080 packet 008](../tasks/adr-0080-task-008-rss-readers-agree.md) applies the order in each RSS reader.
 
 Legacy track artwork, accepted on 2026-09-20: keep the image for display and report unknown ownership in metadata details.
 The compatibility value does not become a track-owned source fact.

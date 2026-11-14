@@ -4,11 +4,11 @@
 
 Accepted - 2026-09-07.
 
-Amended 2026-09-07: added the acceptance-criterion rule below. Three ADR 0060
-packets reported green while an operator found five visible defects, and one of
-those defects failed a criterion the packet itself stated. The criterion was
-phrased as a visual property with no mechanical form, so nothing evaluated it
-and it passed by omission.
+- Revised: 2026-09-07: added the acceptance-criterion rule below. Three ADR 0060
+  packets reported green while an operator found five visible defects, and one of
+  those defects failed a criterion the packet itself stated. The criterion was
+  phrased as a visual property with no mechanical form, so nothing evaluated it
+  and it passed by omission.
 
 Canonical for all three repositories of the broadcast chain.
 `musicindex-live-publisher` and `musicindex-live-relay` adopt this ADR by reference from
