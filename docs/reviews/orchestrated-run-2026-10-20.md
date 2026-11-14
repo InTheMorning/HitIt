@@ -248,7 +248,7 @@ The order puts the checks that only read pages first, and the checks that downlo
 1. [Packet 021](../tasks/adr-0084-task-021-one-release-page-assembly.md), V1 to V3: one release page for the Library and the Index. These steps read pages only.
 2. [Packet 011](../tasks/adr-0084-task-011-logo-frame.md), V1 to V7: the logo frame. V6 turns the network off for a short time. Its cleanup turns it on again.
 3. [Packet 024](../tasks/adr-0084-task-024-artist-feed-image.md), V1 to V3: the image of an artist feed. Open one album page of the artist first, so the app stores the image.
-4. [Packet 020](../tasks/adr-0084-task-020-discover-selection.md), V1 to V6: selection on Discover. V4 downloads three releases.
+4. [Packet 020](../tasks/archive/adr-0084-task-020-discover-selection.md), V1 to V6: selection on Discover. V4 downloads three releases.
 5. [Packet 022](../tasks/adr-0084-task-022-download-queue.md), V1 to V6: the download queue and its progress item. V3 sets an unreachable MusicIndex endpoint. Its cleanup restores the endpoint.
 6. [Packet 025](../tasks/adr-0084-task-025-playlist-selection.md), V1 to V7: selection on the playlist page. Use the test playlist.
 7. [Packet 023](../tasks/adr-0084-task-023-one-track-page-assembly.md), V1 to V5: one track page for the Library and the Index. These steps read pages only.

@@ -29,7 +29,7 @@ HitIt gets the neutral button of Studio. Each button with a text label has a fil
 
 | Packet | Content | Worker |
 |---|---|---|
-| [001](../tasks/musicindex-adr-0042-task-001-shared-tokens.md) | The tokens in `musicindex-assets` and each app copy | Planning model |
+| [001](../tasks/archive/musicindex-adr-0042-task-001-shared-tokens.md) | The tokens in `musicindex-assets` and each app copy | Planning model |
 | [002](../tasks/musicindex-adr-0042-task-002-neutral-role.md) | The tokens in Rust, the role, the primitive and the guards | Planning model |
 | [003](../tasks/musicindex-adr-0042-task-003-call-site-roles.md) | The role of each call site by its result | Coding model |
 

@@ -92,7 +92,7 @@ there is no mounted focused control. Focus could also remain on an input removed
 by a section change. The correction explicitly focuses the existing selected-tab
 handle at both transitions. Whether an additional startup stall occurred is
 unconfirmed. The operator subsequently reported a Settings-entry stall; its
-[bounded correction and focused recheck](../adr-0066-task-003-runtime-failure-and-shell-availability.md#operator-correction-settings-responsiveness)
+[bounded correction and focused recheck](adr-0066-task-003-runtime-failure-and-shell-availability.md#operator-correction-settings-responsiveness)
 belong to task 003 under ADR 0040. The operator accepted Settings responsiveness
 and readability on 2026-09-11 after the debug text dependencies were optimized;
 temporary diagnostics are removed. The first-press navigation recheck below

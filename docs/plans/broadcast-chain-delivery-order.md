@@ -234,7 +234,7 @@ This trigger does not combine two implementation phases into one session.
 Show view-model decomposition and wider all-target Clippy cleanup remain
 unscheduled. Cache/dump policy and play history remain separate future decisions.
 [ADR 0068: Show cue and audition isolation](../adr/0068-show-cue-and-audition-isolation.md)
-is Accepted - 2026-11-11. Its [phase plan](../plans/adr-0068-show-cue-and-audition-phase-plan.md) gives the order of its five packets.
+is Accepted - 2026-11-11. Its [phase plan](adr-0068-show-cue-and-audition-phase-plan.md) gives the order of its five packets.
 
 On 2026-09-11, the operator clarified that a playlist loads into the Show cue
 before Show starts playback; other playback buttons use a separate audition
@@ -311,7 +311,7 @@ Update this table when a packet lands.
 | `hitit` | [0066 interrupted upgrade repair 013](../tasks/archive/adr-0066-task-013-interrupted-upgrade-repair.md) | Complete — 2026-09-18; mechanical checks Green; V1–V3 behavior, [ADR 0074 presentation](../runbooks/startup-recovery-check.md#repair-and-diagnostics-pages--adr-0074) and both final preservation inspections accepted; cleanup confirmed; task 004 retains its separate gate; ADR stays Accepted |
 | `hitit` | [0071 shared text selection 001](../tasks/archive/adr-0071-task-001-shared-text-selection.md) | Complete - 2026-09-15; migration and pinned ADR 0072 correction verified; mechanical checks Green; available X11 operator checks, preservation and fixture/scratch cleanup accepted; IME composition and Wayland untested; completed log packet remains closed |
 | `hitit` | [0067 platform shortcuts 001](../tasks/archive/adr-0067-task-001-platform-shortcuts.md) | Complete - 2026-09-11; mechanical gate Green; all shortcut checks, preservation and fixture cleanup accepted; ADR Implemented |
-| `hitit` | [0068 Show cue and audition isolation](../adr/0068-show-cue-and-audition-isolation.md) | Accepted - 2026-11-11; packets written in the [phase plan](../plans/adr-0068-show-cue-and-audition-phase-plan.md); implementation and its visual/audio checks not started; does not close 0066 task 004's paused playback gate |
+| `hitit` | [0068 Show cue and audition isolation](../adr/0068-show-cue-and-audition-isolation.md) | Accepted - 2026-11-11; packets written in the [phase plan](adr-0068-show-cue-and-audition-phase-plan.md); implementation and its visual/audio checks not started; does not close 0066 task 004's paused playback gate |
 | `hitit` | [0030 006 scroll containers](../tasks/adr-0030-task-006-scroll-containers.md) | Implementation recorded. The Music portion of the visual check moved to the [overhaul plan](design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07) on 2026-10-07, under Phase 4. The Settings portion moved there too, under Phase 5. |
 | `hitit` | [0037 001 feed identity](../tasks/archive/adr-0037-task-001-feed-identity-action-parity.md) | Complete - 2026-09-19. Local/Index controls, Nostr copy, Website and RSS accepted in both themes. Corrected fixture launch and Firefox accepted. Fixture removal confirmed. Task 002 retains its separate gate. |
 | `hitit` | [0037 002 track detail parity](../tasks/archive/adr-0037-task-002-track-header-action-parity.md) | Complete - 2026-10-07. The operator walked track detail parity on the one track page of ADR 0083 task 004. |
@@ -333,7 +333,7 @@ Update this table when a packet lands.
 | `hitit` | [0084 018 detail column selection](../tasks/archive/adr-0084-task-018-detail-column-selection.md) | Complete - 2026-10-20. The mechanical checks are Green. The operator passed V1 to V7 on 2026-10-20. |
 | `hitit` | [0084 021 one release page](../tasks/adr-0084-task-021-one-release-page-assembly.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
 | `hitit` | [0084 022 download queue](../tasks/adr-0084-task-022-download-queue.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V6 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
-| `hitit` | [0084 020 Discover selection](../tasks/adr-0084-task-020-discover-selection.md) | Complete - 2026-10-23. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-23. |
+| `hitit` | [0084 020 Discover selection](../tasks/archive/adr-0084-task-020-discover-selection.md) | Complete - 2026-10-23. The mechanical checks are Green. The operator passed V1 to V6 on 2026-10-23. |
 | `hitit` | [0084 025 playlist selection](../tasks/adr-0084-task-025-playlist-selection.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
 | `hitit` | [0084 011 logo frame](../tasks/adr-0084-task-011-logo-frame.md) | Implemented - 2026-10-20. The mechanical checks are Green. V1 to V7 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
 | `hitit` | [0084 024 artist feed image](../tasks/adr-0084-task-024-artist-feed-image.md) | Implemented - 2026-10-20. The mechanical checks are Green. Migration 20. V1 to V3 are open, in the final walk of the [run of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md#final-walk). |
@@ -482,7 +482,7 @@ Unscheduled follow-ups:
 
 1. Write the cache and dump policy decision. `Dump` needs it.
 2. Do the packets of [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md) in the order of its
-   [phase plan](../plans/adr-0068-show-cue-and-audition-phase-plan.md). Its final gate reconciles task 004's paused playback checks.
+   [phase plan](adr-0068-show-cue-and-audition-phase-plan.md). Its final gate reconciles task 004's paused playback checks.
 3. Write the play-history decision.
 
 Unwritten decisions carry no number until somebody writes them. A number

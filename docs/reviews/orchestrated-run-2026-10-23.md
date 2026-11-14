@@ -147,7 +147,7 @@ The checks need these states:
 
 Walk each check in Light and Dark, and at normal and narrow width. Each packet names what is wrong for each check in its "Visual Acceptance Criteria".
 
-1. ADR 0084 [packet 020](../tasks/adr-0084-task-020-discover-selection.md) V1 to V6 and [packet 026](../tasks/adr-0084-task-026-index-singles-groups.md) V1 to V10. These checks come first, so that an older defect is not mixed with a defect of the run.
+1. ADR 0084 [packet 020](../tasks/archive/adr-0084-task-020-discover-selection.md) V1 to V6 and [packet 026](../tasks/adr-0084-task-026-index-singles-groups.md) V1 to V10. These checks come first, so that an older defect is not mixed with a defect of the run.
 2. ADR 0086 [packet 001](../tasks/adr-0086-task-001-parallel-new-releases-detail-reads.md) V1 to V4, with the release binary.
 3. ADR 0086 [packet 002](../tasks/adr-0086-task-002-new-releases-window-groups.md) V1 to V4, V6 and V8.
 4. ADR 0086 [packet 003](../tasks/adr-0086-task-003-pager-closes-windows.md) V1 to V10. The checks of the load time use the release binary.

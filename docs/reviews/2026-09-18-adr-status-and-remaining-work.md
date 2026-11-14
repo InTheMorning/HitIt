@@ -239,7 +239,7 @@ links in the changed files or incoming links to their anchors.
 | v4vmm | [docs/tasks/adr-0062-task-005-retire-recent-feeds-destination.md](../tasks/archive/adr-0062-task-005-retire-recent-feeds-destination.md) |
 | v4vmm | [docs/tasks/adr-0063-task-005-shared-log-frames-and-following.md](../tasks/archive/adr-0063-task-005-shared-log-frames-and-following.md) |
 | v4vmm | [docs/tasks/adr-0066-task-001-config-snapshot-and-safe-persistence.md](../tasks/archive/adr-0066-task-001-config-snapshot-and-safe-persistence.md) |
-| v4vmm | [docs/tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md](../tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md) |
+| v4vmm | [docs/tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md](../tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md) |
 | v4vmm | [docs/tasks/adr-0066-task-004-optional-tool-isolation.md](../tasks/adr-0066-task-004-optional-tool-isolation.md) |
 | v4vmm | [docs/tasks/adr-0066-task-006-configuration-repair-and-resumption.md](../tasks/archive/adr-0066-task-006-configuration-repair-and-resumption.md) |
 | v4vmm | [docs/tasks/adr-0066-task-008-converter-verification-and-setup.md](../tasks/archive/adr-0066-task-008-converter-verification-and-setup.md) |

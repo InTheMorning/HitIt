@@ -16,7 +16,7 @@ Amended 2026-10-24: the operator decided that a live run retains no failed actio
 
 Amended 2026-11-07: Decision 4 runs a query with only exclusions, so that the note of Decision 5 shows.
 
-Amended 2026-11-06: Decision 5 sends each Index field as its own filter. [ADR 0087 task 011](../tasks/adr-0087-task-011-index-receives-the-fields.md) builds it. The known differences from the Library are in "Known Differences From The Library".
+Amended 2026-11-06: Decision 5 sends each Index field as its own filter. [ADR 0087 task 011](../tasks/archive/adr-0087-task-011-index-receives-the-fields.md) builds it. The known differences from the Library are in "Known Differences From The Library".
 
 ## Context
 
@@ -138,7 +138,7 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 
 ## Known Differences From The Library
 
-These differences stay after packet 011 of [ADR 0087 task 011](../tasks/adr-0087-task-011-index-receives-the-fields.md). Each one comes from the Index, not from the parser. The values were read on 2026-11-06 with read-only GET calls.
+These differences stay after packet 011 of [ADR 0087 task 011](../tasks/archive/adr-0087-task-011-index-receives-the-fields.md). Each one comes from the Index, not from the parser. The values were read on 2026-11-06 with read-only GET calls.
 
 1. Closed on 2026-11-07. Stophammer release 0.19.0 (its ADR 0085) makes the `title` filter of a track match the track title or the title of its feed, as the Library does. On 2026-11-07, `title=assorted&type=track` returned rows. No code in v4vmm changed.
 2. **`kind:`.** Closed on 2026-11-07. The crate `musicindex-search` builds the kind requests of musicindex ADR 0049 R-QUERY-6, and v4vmm sends them. `kind:single` sends `kind=unknown&tracks=1`, and `kind:album` sends `kind=unknown&min_tracks=2`. On 2026-11-07, `kind=unknown&tracks=1` and `kind=unknown&min_tracks=2` each gave rows. `kind:ep` still sends no Index request, because a count never gives EP (R-QUERY-6). The Library gives `single` to one track, `album` to each other release and no `ep`. Open request 14, part 2, was declined, and its answer gives the filters that an app sends.

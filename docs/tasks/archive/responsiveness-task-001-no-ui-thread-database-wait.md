@@ -2,9 +2,9 @@
 
 Status: Implemented - 2026-11-06. The operator ran downloads and removals on 2026-11-06 and reported that the app does not hang.
 
-Owner items: [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md#throughout-responsiveness-and-background-feedback), items 9, 13, 14, 34 and 35.
+Owner items: [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md#throughout-responsiveness-and-background-feedback), items 9, 13, 14, 34 and 35.
 
-Authority: [ADR 0084](../adr/0084-music-column-browser.md) Decision 10 as amended 2026-10-24, task 039, and AGENTS "Async" and "Current-view state must update in place".
+Authority: [ADR 0084](../../adr/0084-music-column-browser.md) Decision 10 as amended 2026-10-24, task 039, and AGENTS "Async" and "Current-view state must update in place".
 
 ## Problem
 
@@ -40,7 +40,7 @@ Each criterion names the test or guard that checks it.
 
 ## Visual Checks
 
-These checks need a person in a desktop session. They are open. The operator owns the list in [pending human checks](../pending-human-checks.md).
+These checks need a person in a desktop session. They are open. The operator owns the list in [pending human checks](../../pending-human-checks.md).
 
 1. Start a download of one release. The window keeps its response to a click while the download runs.
 2. Remove one track from the Library. The window keeps its response, and the Inbox count updates in place.

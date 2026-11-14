@@ -543,7 +543,7 @@ open their own runnable checks when implemented.
 
 Task 003 adds `adr_0066_missing_runtime_has_no_implicit_runner` and
 `adr_0066_runtime_retry_keeps_one_host_and_independent_reports` in the same
-architecture suite. Its [proof inventory](../tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md#mechanical-evidence)
+architecture suite. Its [proof inventory](../tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md#mechanical-evidence)
 links runner rejection, independent local queries, runtime retry, issue isolation
 and cache-failure tests. Its [operator check](../runbooks/startup-recovery-check.md#task-003-background-tools)
 passed, including preservation inspection and fixture cleanup, on 2026-09-11.
@@ -603,7 +603,7 @@ task 010 is complete on 2026-09-17 with operator acceptance, preservation and cl
 
 Task 003's operator-reported search-error clipping correction is guarded by
 `adr_0066_search_failure_report_stays_readable_and_vm_owned`. The packet's
-[correction evidence](../tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md#operator-correction-readable-search-failures)
+[correction evidence](../tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md#operator-correction-readable-search-failures)
 links typed failure wording, shared wrapping/disclosure, recorded UTC and
 safe report-copy checks. The focused operator recheck passed, including
 Library-filter separation and playlist uniqueness. Task 003's later acceptance,

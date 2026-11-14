@@ -59,7 +59,7 @@ the ADR. They describe proof to obtain, not proof already obtained.
 | Byte preservation across failure, ordinary saves, first-run race/symlink/cleanup | [001](../tasks/archive/adr-0066-task-001-config-snapshot-and-safe-persistence.md) |
 | Explicit backup-protected config repair, editor conflicts, fresh validation before autosave | [006](../tasks/archive/adr-0066-task-006-configuration-repair-and-resumption.md) |
 | Snapshot remains coherent when file changes after read | [001](../tasks/archive/adr-0066-task-001-config-snapshot-and-safe-persistence.md), [004](../tasks/adr-0066-task-004-optional-tool-isolation.md) |
-| Independent work survives optional failure; CLI/keyboard/toolbar guards cannot bypass scope | [003](../tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md), [004](../tasks/adr-0066-task-004-optional-tool-isolation.md), [007](../tasks/archive/adr-0066-task-007-optional-tool-correction-and-retry.md) |
+| Independent work survives optional failure; CLI/keyboard/toolbar guards cannot bypass scope | [003](../tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md), [004](../tasks/adr-0066-task-004-optional-tool-isolation.md), [007](../tasks/archive/adr-0066-task-007-optional-tool-correction-and-retry.md) |
 | Missing converter becomes available in same process; real fallback/warning outcome | [008](../tasks/archive/adr-0066-task-008-converter-verification-and-setup.md), [009](../tasks/archive/adr-0066-task-009-conversion-retry-and-retained-input.md) |
 | Same-track repair/retry, staging validation/cleanup, no duplicate materialization | [009](../tasks/archive/adr-0066-task-009-conversion-retry-and-retained-input.md) |
 | Database tools without TopApp/runtime, check without migration, committed WAL backup | [010](../tasks/archive/adr-0066-task-010-database-check-and-backup.md) |
@@ -69,7 +69,7 @@ the ADR. They describe proof to obtain, not proof already obtained.
 | Existing Null/absent producer/lazy mpv/presentation fallback and ADR 0064 skips survive | [001](../tasks/archive/adr-0066-task-001-config-snapshot-and-safe-persistence.md), [004](../tasks/adr-0066-task-004-optional-tool-isolation.md) |
 | Partial repair error preserves completed changes and contains unvalidated bindings | [004](../tasks/adr-0066-task-004-optional-tool-isolation.md) |
 | Window close/failure, single-flight checks, stale callbacks and one resumption | [002](../tasks/archive/adr-0066-task-002-core-checks-and-startup-reports.md), [005](../tasks/archive/adr-0066-task-005-session-drain-and-resumption.md), [006](../tasks/archive/adr-0066-task-006-configuration-repair-and-resumption.md) |
-| Safe full-copy reports, multi-issue notice and recorded UTC | [002](../tasks/archive/adr-0066-task-002-core-checks-and-startup-reports.md), [003](../tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md), then each tool's VM tests |
+| Safe full-copy reports, multi-issue notice and recorded UTC | [002](../tasks/archive/adr-0066-task-002-core-checks-and-startup-reports.md), [003](../tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md), then each tool's VM tests |
 | Shared owner/token/VM paths and original architecture guard intent survive | Every packet; actual guard names recorded in its completion evidence |
 
 ## Packet Review Procedure
@@ -227,7 +227,7 @@ Implementation revision: `beb2ed4` contains task 003, including its scoped
 runtime/cache recovery and search-error reporting correction. Its commit subject
 names only the correction; this record identifies the full packet for traceability.
 
-Scope: [runtime failure and shell availability](../tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md#implementation-and-proof).
+Scope: [runtime failure and shell availability](../tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md#implementation-and-proof).
 Green: formatting, cargo check, strict production Clippy, build, 1,314 unit
 tests and 227 architecture tests, including the search-error correction. Ten existing documentation examples remain
 ignored. The full suite used local socket fixtures outside the sandbox.

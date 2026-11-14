@@ -23,7 +23,7 @@ Open the app with valid core resources even when optional configuration or tool 
 Read [ADR 0066](../adr/0066-configuration-and-startup-failure-recovery.md),
 the [phase plan](../plans/adr-0066-startup-recovery-phase-plan.md), this whole packet, and the
 [review checklist](../reviews/adr-0066-startup-recovery-review-checklist.md).
-Execute after [task 003](adr-0066-task-003-runtime-failure-and-shell-availability.md) in the phase plan's order.
+Execute after [task 003](archive/adr-0066-task-003-runtime-failure-and-shell-availability.md) in the phase plan's order.
 Complete this packet in one session; do not start its successor.
 Names marked **new**, including tests and guards, are implementation targets,
 not claims that those files or symbols already exist. If a predecessor already

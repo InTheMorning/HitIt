@@ -188,7 +188,7 @@ All of these changes go in one commit.
    > Amended 2026-10-24: the `podcast:liveValue` tag names the relay of the event. Its `uri` is
    > `https://<relay host>/event?event_id=<EVENT_ID>`, made from the stored endpoint of the event.
    > A tag with the identifier only names no relay, so no listener app can connect. Stophammer
-   > found the defect in the work on its ADR 0064. [Task 019](../tasks/adr-0059-task-019-livevalue-uri-is-a-url.md)
+   > found the defect in the work on its ADR 0064. [Task 019](adr-0059-task-019-livevalue-uri-is-a-url.md)
    > builds it.
 
    Replace the XML example at `:368-372` with the new form. Add one sentence that names the

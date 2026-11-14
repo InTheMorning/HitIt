@@ -9,10 +9,10 @@ Keep navigation, reports and repair access working when the normal background ru
 
 ## Read First And Dependency
 
-Read [ADR 0066](../adr/0066-configuration-and-startup-failure-recovery.md),
-the [phase plan](../plans/adr-0066-startup-recovery-phase-plan.md), this whole packet, and the
-[review checklist](../reviews/adr-0066-startup-recovery-review-checklist.md).
-Execute after [task 002](archive/adr-0066-task-002-core-checks-and-startup-reports.md) in the phase plan's order.
+Read [ADR 0066](../../adr/0066-configuration-and-startup-failure-recovery.md),
+the [phase plan](../../plans/adr-0066-startup-recovery-phase-plan.md), this whole packet, and the
+[review checklist](../../reviews/adr-0066-startup-recovery-review-checklist.md).
+Execute after [task 002](adr-0066-task-002-core-checks-and-startup-reports.md) in the phase plan's order.
 Complete this packet in one session; do not start its successor.
 
 ## Files To Inspect
@@ -121,7 +121,7 @@ disclosure/reset and Library/Index separation. Existing navigation race and
 remote-search guards remain unchanged. These references replace the correction's
 implementation instructions.
 
-The [visual recheck](../runbooks/startup-recovery-check.md#2a-recheck-search-failure-readability)
+The [visual recheck](../../runbooks/startup-recovery-check.md#2a-recheck-search-failure-readability)
 passed for normal/narrow widths, expanded details, complete copy, Library-filter
 separation and playlist uniqueness. This focused correction is operator-accepted;
 the remaining task 003 checks subsequently passed as recorded below.
@@ -338,7 +338,7 @@ integration-test file.
 Complete - 2026-09-11. Refresh/playback keyboard rejection and both cached-file
 state checks passed. Quit returned exit code 0; final preservation inspection
 and fixture cleanup passed. The procedures in this packet and the
-[shortcut packet](archive/adr-0067-task-001-platform-shortcuts.md#operator-visual-check)
+[shortcut packet](adr-0067-task-001-platform-shortcuts.md#operator-visual-check)
 remain for regression checks. No acceptance check remains open for this packet.
 
 ### Operator Evidence — 2026-09-10

@@ -194,7 +194,7 @@ own optional constructor isolation and the in-app correction editors.
 
 ## Task 003: Background Tools
 
-Owner: [task 003](../tasks/adr-0066-task-003-runtime-failure-and-shell-availability.md).
+Owner: [task 003](../tasks/archive/adr-0066-task-003-runtime-failure-and-shell-availability.md).
 Operator acceptance and fixture cleanup are complete - 2026-09-11. These
 procedures remain for regression checks: failed background tools do not prevent
 startup, and Check again repairs them in the same window.

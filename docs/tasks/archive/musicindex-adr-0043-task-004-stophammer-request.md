@@ -4,7 +4,7 @@ Status: Complete on 2026-11-06. Request 15 is in both copies. Stophammer owns th
 
 ## Goal
 
-The [open Stophammer requests](../plans/hitit-open-requests.md) ask for a sort direction, in both copies of that file.
+The [open Stophammer requests](../../plans/hitit-open-requests.md) ask for a sort direction, in both copies of that file.
 
 ## Request Text
 

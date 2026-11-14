@@ -115,7 +115,7 @@ details.
 - AGENTS.md names `tests/fixtures/musicindex-openapi-0.19.0.json` as the
   stored contract. It replaces the 0.13.0 file under ADR 0075 §6.
 - Stophammer release 0.15.0 delivers items 2 to 7 of open request 10. ADR 0087
-  [packet 011](../tasks/adr-0087-task-011-index-receives-the-fields.md)
+  [packet 011](../tasks/archive/adr-0087-task-011-index-receives-the-fields.md)
   replaces packet 006, and it is implemented on 2026-11-06.
 - The test `adr_0084_search_list_http_400_is_a_rejected_query` continues to
   check the `400` path. It needs no change.

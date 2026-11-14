@@ -109,7 +109,7 @@ a second copy of those instructions.
 |---|---|
 | Snapshot, first-run publication, ordinary persistence guard | [001](adr-0066-task-001-config-snapshot-and-safe-persistence.md) |
 | Music/SQLite checks, startup-stage classification, safe UTC reports, window lifecycle and independent worker | [002](adr-0066-task-002-core-checks-and-startup-reports.md) |
-| Missing runtime, dispatch guard, optional thumbnail worker, common issue notice | [003](../adr-0066-task-003-runtime-failure-and-shell-availability.md) |
+| Missing runtime, dispatch guard, optional thumbnail worker, common issue notice | [003](adr-0066-task-003-runtime-failure-and-shell-availability.md) |
 | Optional config consumers, driver/producer/encoder construction, command/query dependencies, failed path-repair containment | [004](../adr-0066-task-004-optional-tool-isolation.md) |
 | Internal command/actor drain, connection closure, managed resumption | [005](adr-0066-task-005-session-drain-and-resumption.md) |
 | Configuration preservation, explicit correction, editor conflict, Check again/Open app | [006](adr-0066-task-006-configuration-repair-and-resumption.md) |

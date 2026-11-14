@@ -57,7 +57,7 @@ You are implementing one bounded task from a larger plan.
 Implement only this task. Do not redesign the architecture.
 
 Read:
-- `docs/tasks/musicindex-adr-0043-task-002-list-state-and-names.md`
+- `docs/tasks/archive/musicindex-adr-0043-task-002-list-state-and-names.md`
 - `/home/citizen/build/musicindex/docs/adr/0043-a-list-sort-can-be-reversed.md`
 - `src/view_models/list_page.rs`
 - `/home/citizen/.agents/skills/asd-ste100/SKILL.md`

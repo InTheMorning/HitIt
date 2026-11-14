@@ -9,11 +9,11 @@ A tile shows its checkbox at the top-left corner of its cover. The bar downloads
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-19 and on 2026-10-20: the selection model, the two modes, the bar and the download queue.
-- [ADR 0083](../adr/0083-design-language.md) Decisions 4 and 6: artwork leads, and a row shows its state at all times.
-- The archived packets [018](archive/adr-0084-task-018-detail-column-selection.md) and [019](archive/adr-0084-task-019-selection-mode.md), and packet [022](adr-0084-task-022-download-queue.md).
+- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-19 and on 2026-10-20: the selection model, the two modes, the bar and the download queue.
+- [ADR 0083](../../adr/0083-design-language.md) Decisions 4 and 6: artwork leads, and a row shows its state at all times.
+- The archived packets [018](adr-0084-task-018-detail-column-selection.md) and [019](adr-0084-task-019-selection-mode.md), and packet [022](../adr-0084-task-022-download-queue.md).
 - Operator decisions of 2026-10-20: a tile shows its checkbox at the top-left corner of its cover, with a backing so that it reads on each cover. A selected tile also gets an outline. A plain click in selection mode toggles the tile.
-- The [run record of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md): the tile focus moves in a line. Packet 025 owns the playlist page.
+- The [run record of 2026-10-20](../../reviews/orchestrated-run-2026-10-20.md): the tile focus moves in a line. Packet 025 owns the playlist page.
 
 ## Recorded Facts - 2026-10-20
 
@@ -101,7 +101,7 @@ These are for the operator, in the final walk of the run. No test proves them.
 
 ## Files To Inspect
 
-- [Agent rules](../../AGENTS.md) and the [source map](../architecture/source-map.md).
+- [Agent rules](../../../AGENTS.md) and the [source map](../../architecture/source-map.md).
 - `src/ui/shells/library/content_list.rs`, `src/ui/composites/list_row.rs`, `src/ui/primitives/checkbox.rs`, `src/ui/tokens.rs`.
 - `src/view_models/detail_selection.rs`, `src/library/detail_selection.rs`, `src/app/detail_selection.rs`, `src/view_models/library.rs` (`ContentListRowDisplay`).
 - `tests/architecture_tests.rs`: the tile contract guards, `surface_modules_under_500_loc`, and the packet 018 guards R18-07 and R18-08.
@@ -283,7 +283,7 @@ Implement only this task. Do not redesign the architecture.
 
 Read:
 - `AGENTS.md` and `docs/architecture/source-map.md`
-- This packet: `docs/tasks/adr-0084-task-020-discover-selection.md`
+- This packet: `docs/tasks/archive/adr-0084-task-020-discover-selection.md`
 - ADR 0084 Decision 10, and the packets 018, 019 and 022
 - Each file in "Files To Inspect"
 
