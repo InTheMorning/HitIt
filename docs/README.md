@@ -12,8 +12,10 @@ Core:
 
 - [App overview](architecture/app-overview.md): tabs, dependencies, config,
   and the main operator model
-- [Architecture diagrams](architecture/architecture-diagrams.md): current and
-  ideal module/data-flow shape
+- [Architecture snapshot](architecture/architecture-current-snapshot.md): the
+  layers, the shell, the async model and four call flows at commit `86d97e7`
+- [Architecture diagrams of 2026-04-30](architecture/architecture-diagrams.md):
+  the earlier view and the "ideal" target that older ADRs cite
 - [Library and discovery workflows](runbooks/workflows.md): subscribing,
   caching, compare, feed refresh, and now-playing CLI flows
 - [Storage and metadata model](schema/storage-and-metadata.md): SQLite tables,
