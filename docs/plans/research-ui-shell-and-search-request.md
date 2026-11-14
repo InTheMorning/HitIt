@@ -101,7 +101,7 @@ title case, for example "Copy to My Playlists…".
 - **Public Playlists** lists the public playlists of the Index (musicL feeds),
   as the website does. Its item menu has "Copy to My Playlists…".
 - **Live** lists what is live now on the Index, as the website does. Red is
-  only for an item that is live now (musicindex ADR 0012 item 3).
+  only for an item that is live now (musicindex ADR 0067 item 41).
 - **Play stays on the current page** and opens the now-playing playlist. It
   does not move to the Show page.
 - Adding to a playlist is in the item menu only. A row has no "+ Episode 42".
@@ -136,7 +136,7 @@ controls into one list bar.
 | The results and a saved search | Newest | Rows | In the query, section 4 |
 
 - **Each row shows the entity dot and the type word**, for example "Album",
-  "Track" or "Artist" (musicindex ADR 0012 item 8). A numbered track row on a
+  "Track" or "Artist" (musicindex ADR 0067 items 11 and 47 to 49). A numbered track row on a
   release page does not, because the section heading gives the type.
 - **The library icon is muted.** A warning or a danger keeps its status
   color. The icon and the time each have one column, so they align in a
