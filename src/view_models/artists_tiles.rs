@@ -35,6 +35,8 @@ pub(crate) struct ArtistsTileVm {
     /// `true` when the tile opens the page that Back left open (R-NAV-2
     /// item 2).
     pub(crate) marked: bool,
+    /// `true` when the tile has the keyboard cursor (ADR 0092 Decision 1).
+    pub(crate) focused: bool,
 }
 
 impl ArtistsTileVm {
@@ -57,6 +59,7 @@ impl ArtistsTileVm {
             art: row.art.clone(),
             open: row.open.clone(),
             marked: row.marked,
+            focused: row.selection.focused,
         }
     }
 }

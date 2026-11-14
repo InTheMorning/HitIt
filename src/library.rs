@@ -32,7 +32,7 @@ use crate::presentation::RuntimeHost;
 use crate::runtime::actor::ActorHandle;
 use crate::runtime::musicbrainz_feed_saga::MusicBrainzFeedSagaHandle;
 use crate::ui::composites::music_column_scroll::{ListBarPin, MusicColumnList, ScrollReveal};
-use crate::view_models::artist_groups::ArtistGroupPages;
+use crate::view_models::artist_groups::{ArtistGroupPages, ShowMoreFocus};
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::index_name_list::IndexNameListPage;
 use crate::view_models::library::{
@@ -303,6 +303,13 @@ pub struct LibraryApp {
     /// The request to keep the focused playlist row in view (ADR 0092
     /// Decision 1).
     playlists_reveal: ScrollReveal,
+    /// The keyboard cursor of the Artists list, by the element id of the row
+    /// (ADR 0092 Decision 1). The Rows view and the Tiles view share it. A
+    /// change of destination clears it.
+    artists_selection: ListSelection<String>,
+    /// A press of "Show more" that waits to move the cursor to the first new
+    /// row of its group (musicindex ADR 0057 R-SITE-15 item 4).
+    artists_show_more_focus: Option<ShowMoreFocus>,
     /// The loaded MusicIndex artist name pages of the Artists scope
     /// "Everything", one for each group (packet 016 decision D9, musicindex
     /// ADR 0057 R-ARTIST-1). They stay until the app stops.

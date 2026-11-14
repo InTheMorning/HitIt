@@ -278,7 +278,8 @@ fn render_singles_group_tile(
 
 /// Renders the tile of one Artists row (musicindex ADR 0053 R-LIST-10). The
 /// art is the art of the row, so a name with no feed shows the logo
-/// placeholder. A click opens the page of the row. The Artists list has no
+/// placeholder. A click opens the page of the row. The tile shows the keyboard
+/// cursor of the list (ADR 0092 Decision 1). The Artists list has no
 /// selection, so the tile has no checkbox.
 pub(crate) fn render_artists_tile(
     tile: ArtistsTileVm,
@@ -294,6 +295,7 @@ pub(crate) fn render_artists_tile(
     .into_any_element();
     let target = tile.open.clone();
     let mut element = SelectableTile::new(SharedString::from(tile.element_id), artwork)
+        .focused(tile.focused)
         .marked(tile.marked)
         .child(tile_text_line(
             tile.label,

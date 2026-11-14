@@ -23,6 +23,7 @@ use crate::view_models::index_name_list::{
 use crate::view_models::letter_bar::name_at_or_after;
 use crate::view_models::library::DestinationListRowVm;
 use crate::view_models::list_page::ListScope;
+use crate::view_models::list_selection::SelectionRow;
 
 /// The count of rows that a group of the scope "All" shows at first, and
 /// the count that each "Show more" adds (musicindex ADR 0057 R-SITE-15 item
@@ -400,6 +401,84 @@ pub(crate) fn artist_sections(input: &ArtistSectionsInput<'_>) -> Vec<ArtistSect
     sections
 }
 
+/// The rows of the Artists list that take the keyboard focus, in their render
+/// sequence (ADR 0092 Decision 1). The rows of the three groups follow each
+/// other. A group heading and a status row, for example "Show more", are not
+/// rows. The Rows view and the Tiles view use the same sequence.
+#[must_use]
+pub(crate) fn artist_selection_rows(
+    sections: &[ArtistSection],
+) -> Vec<SelectionRow<String, String>> {
+    sections
+        .iter()
+        .flat_map(|section| section.rows.iter())
+        .map(|row| SelectionRow::of_one(row.element_id.clone()))
+        .collect()
+}
+
+/// The state of a "Show more" press that waits for the focus to move. It
+/// holds the group and the count of rows that the group showed before the
+/// press (musicindex ADR 0057 R-SITE-15 item 4).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct ShowMoreFocus {
+    group: ArtistGroup,
+    rows_before: usize,
+}
+
+/// The result of [`ShowMoreFocus::resolve`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum ShowMoreFocusStep {
+    /// The next rows of the group are not here yet. Ask again at the next
+    /// draw.
+    Wait,
+    /// Put the focus on this row. `None` means that the group has no row.
+    Focus(Option<String>),
+}
+
+impl ShowMoreFocus {
+    /// Records the press of "Show more" of `group`, before the group shows
+    /// more rows.
+    #[must_use]
+    pub(crate) fn begin(sections: &[ArtistSection], group: ArtistGroup) -> Self {
+        Self {
+            group,
+            rows_before: group_rows_of(sections, group).len(),
+        }
+    }
+
+    /// Finds the row that takes the focus. The first new row of the group
+    /// takes it. When no new row comes and the group does not load, the last
+    /// row of the group takes it, so the focus stays in the list.
+    #[must_use]
+    pub(crate) fn resolve(self, sections: &[ArtistSection]) -> ShowMoreFocusStep {
+        let rows = group_rows_of(sections, self.group);
+        if let Some(row) = rows.get(self.rows_before) {
+            return ShowMoreFocusStep::Focus(Some(row.element_id.clone()));
+        }
+        let loading = sections
+            .iter()
+            .find(|section| section.group == self.group)
+            .and_then(|section| section.status.as_ref())
+            .is_some_and(|status| match status {
+                IndexListStatusRowVm::Loading { .. } => true,
+                IndexListStatusRowVm::LoadMore(action) => !action.available,
+                IndexListStatusRowVm::Failed { .. } => false,
+            });
+        if loading {
+            return ShowMoreFocusStep::Wait;
+        }
+        ShowMoreFocusStep::Focus(rows.last().map(|row| row.element_id.clone()))
+    }
+}
+
+/// The rows of `group` in `sections`.
+fn group_rows_of(sections: &[ArtistSection], group: ArtistGroup) -> &[DestinationListRowVm] {
+    sections
+        .iter()
+        .find(|section| section.group == group)
+        .map_or(&[], |section| section.rows.as_slice())
+}
+
 /// The local rows of `group`, in the sort of the list (musicindex ADR 0053
 /// R-LIST-9 and R-LIST-12).
 fn local_rows(input: &ArtistSectionsInput<'_>, group: ArtistGroup) -> Vec<DestinationListRowVm> {
@@ -541,5 +620,144 @@ mod tests {
         assert!(ArtistGroup::Names
             .intro()
             .contains("No artist feed confirms"));
+    }
+
+    fn test_row(id: &str) -> DestinationListRowVm {
+        use crate::view_models::library::DestinationListRowTarget;
+        use crate::view_models::list_selection::RowSelectionVm;
+
+        DestinationListRowVm {
+            element_id: id.to_owned(),
+            label: id.to_owned(),
+            secondary_text: String::new(),
+            a11y_label: id.to_owned(),
+            thumbnail_href: None,
+            art: None,
+            open: DestinationListRowTarget::Publisher(id.to_owned()),
+            selection: RowSelectionVm::none(),
+            release_kind: None,
+            menu: None,
+            download_state: None,
+            marked: false,
+            duration_label: None,
+            feed_roles: Vec::new(),
+        }
+    }
+
+    fn test_section(
+        group: ArtistGroup,
+        ids: &[&str],
+        status: Option<IndexListStatusRowVm>,
+    ) -> ArtistSection {
+        ArtistSection {
+            group,
+            heading: Some(ArtistGroupHeadingVm::new(group, None)),
+            rows: ids.iter().map(|id| test_row(id)).collect(),
+            status,
+        }
+    }
+
+    fn three_sections() -> Vec<ArtistSection> {
+        vec![
+            test_section(ArtistGroup::Stated, &["s1", "s2"], None),
+            test_section(
+                ArtistGroup::Inferred,
+                &["i1", "i2"],
+                Some(show_more(ArtistGroup::Inferred, true)),
+            ),
+            test_section(ArtistGroup::Names, &["n1"], None),
+        ]
+    }
+
+    /// ADR 0092 Decision 1: Down from the last row of a group moves the focus
+    /// to the first row of the next group. A heading and "Show more" are not
+    /// rows.
+    #[test]
+    fn adr_0092_down_moves_to_the_first_row_of_the_next_group() {
+        use crate::view_models::list_selection::{FocusStep, ListSelection};
+
+        let rows = artist_selection_rows(&three_sections());
+        let ids: Vec<&str> = rows.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(ids, ["s1", "s2", "i1", "i2", "n1"]);
+        let mut selection: ListSelection<String> = ListSelection::new();
+        selection.focus_row("s2".to_owned());
+        assert_eq!(
+            selection.move_focus(FocusStep::Down, &rows).as_deref(),
+            Some("i1")
+        );
+        selection.focus_row("i2".to_owned());
+        assert_eq!(
+            selection.move_focus(FocusStep::Down, &rows).as_deref(),
+            Some("n1")
+        );
+        assert_eq!(
+            selection.move_focus(FocusStep::Up, &rows).as_deref(),
+            Some("i2")
+        );
+    }
+
+    /// ADR 0089 Decision 9: a list with one or more rows is a Tab stop. The
+    /// rule holds with one group and with three groups.
+    #[test]
+    fn adr_0089_artists_with_rows_is_a_tab_stop_in_each_shape() {
+        use crate::view_models::list_selection::list_is_tab_stop;
+
+        let one = vec![test_section(ArtistGroup::Stated, &["s1"], None)];
+        let all = three_sections();
+        assert!(list_is_tab_stop(true, artist_selection_rows(&one).len()));
+        assert!(list_is_tab_stop(true, artist_selection_rows(&all).len()));
+        assert!(!list_is_tab_stop(true, artist_selection_rows(&[]).len()));
+    }
+
+    /// Musicindex ADR 0057 R-SITE-15 item 4: after "Show more" the focus goes
+    /// to the first new row of the group.
+    #[test]
+    fn r_site_15_show_more_focuses_the_first_new_row() {
+        let press = ShowMoreFocus::begin(&three_sections(), ArtistGroup::Inferred);
+        let after = vec![
+            test_section(ArtistGroup::Stated, &["s1", "s2"], None),
+            test_section(ArtistGroup::Inferred, &["i1", "i2", "i3", "i4"], None),
+            test_section(ArtistGroup::Names, &["n1"], None),
+        ];
+        assert_eq!(
+            press.resolve(&after),
+            ShowMoreFocusStep::Focus(Some("i3".to_owned()))
+        );
+    }
+
+    /// Musicindex ADR 0057 R-SITE-15 item 4: when the next page loads after
+    /// the press, the focus waits, then goes to the first new row.
+    #[test]
+    fn r_site_15_show_more_waits_for_the_next_page() {
+        let press = ShowMoreFocus::begin(&three_sections(), ArtistGroup::Inferred);
+        let loading = vec![test_section(
+            ArtistGroup::Inferred,
+            &["i1", "i2"],
+            Some(show_more(ArtistGroup::Inferred, false)),
+        )];
+        assert_eq!(press.resolve(&loading), ShowMoreFocusStep::Wait);
+        let loaded = vec![test_section(
+            ArtistGroup::Inferred,
+            &["i1", "i2", "i3"],
+            None,
+        )];
+        assert_eq!(
+            press.resolve(&loaded),
+            ShowMoreFocusStep::Focus(Some("i3".to_owned()))
+        );
+    }
+
+    /// Musicindex ADR 0057 R-SITE-15 item 4: with no new row, the focus stays
+    /// on a row of the list, the last row of the group.
+    #[test]
+    fn r_site_15_show_more_without_new_row_keeps_a_focused_row() {
+        let press = ShowMoreFocus::begin(&three_sections(), ArtistGroup::Inferred);
+        let same = vec![test_section(ArtistGroup::Inferred, &["i1", "i2"], None)];
+        assert_eq!(
+            press.resolve(&same),
+            ShowMoreFocusStep::Focus(Some("i2".to_owned()))
+        );
+        let empty = vec![test_section(ArtistGroup::Names, &["n1"], None)];
+        assert_eq!(press.resolve(&empty), ShowMoreFocusStep::Focus(None));
     }
 }

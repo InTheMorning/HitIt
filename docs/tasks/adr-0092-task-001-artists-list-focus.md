@@ -1,6 +1,6 @@
 # ADR 0092 Task 001: Artists Takes The List Focus
 
-Status: Ready - 2026-11-14. The operator set the sequence on 2026-11-14: this task first, then one task for Public playlists, Live and Search. Implementation has not started.
+Status: Implemented - 2026-11-14. Mechanical checks are Green. The visual checks V1 to V3 are open in section 17 of [pending human checks](../pending-human-checks.md). The subsequent task for Public playlists, Live and Search is not written.
 
 ## Goal
 
@@ -84,6 +84,15 @@ Visual, listed apart, for the operator to walk:
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo build --bin hitit`
+
+## Implementation Notes - 2026-11-14
+
+- `artist_selection_rows` in `src/view_models/artist_groups.rs` gives the rows of the three groups in their display sequence. `LibraryApp::artists_selection` holds the cursor. The Rows view and the Tiles view share it.
+- The Releases key path takes Artists with one match arm in each method. It uses the shared `ListSelection::move_focus`. No key code is copied.
+- `ShowMoreFocus` records a press of "Show more". The draw moves the cursor to the first new row when the rows are there. While the next page loads, it waits. With no new row, the cursor goes to the last row of the group.
+- The cause of the focus loss is not tested. `group_status` gives no status row when the group shows all its rows, so the button leaves the tree. The change works for each cause: the list column takes the window focus when the press resolves.
+- Open: the window focus moves also after a mouse press. If the user moves the focus while a page loads, the late rows bring the focus back to the list. A change of destination or a call of `send_artist_group_requests` clears the press.
+- Open: the cursor identifies a row by its `element_id`. No test proves that this id is unique across the three groups.
 
 ## Report
 

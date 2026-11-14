@@ -34,7 +34,7 @@ use crate::application::queries::node_sorts::FetchNodeSorts;
 use crate::application::CommandContext;
 use crate::presentation::present_command;
 use crate::ui::shells::library::index_list_status::IndexListActions;
-use crate::view_models::artist_groups::{ArtistGroup, ArtistGroupIntent};
+use crate::view_models::artist_groups::{ArtistGroup, ArtistGroupIntent, ShowMoreFocus};
 use crate::view_models::index_feed_singles::{finish_release_page, FeedSinglesResult};
 use crate::view_models::index_name_list::IndexNameListLoadIntent;
 use crate::view_models::letter_bar::{first_letter_index, LetterKey};
@@ -492,9 +492,11 @@ impl LibraryApp {
 
     /// Shows the next rows of `group`. The next page loads at once when the
     /// loaded rows are fewer than the rows that the group shows now. The
-    /// Artists list has no list focus, so the focus does not move to the
-    /// first new row (musicindex ADR 0057 R-SITE-15 item 4).
+    /// focus goes to the first new row when the next draw has the rows
+    /// (musicindex ADR 0057 R-SITE-15 item 4).
     fn show_more_artist_group(&mut self, group: ArtistGroup, cx: &mut Context<Self>) {
+        let sections = self.artists_sections();
+        self.artists_show_more_focus = Some(ShowMoreFocus::begin(&sections, group));
         self.artist_pages.show_more(group);
         self.continue_artist_group(group, cx);
         cx.notify();
@@ -711,6 +713,8 @@ impl LibraryApp {
         intents: Vec<ArtistGroupIntent>,
         cx: &mut Context<Self>,
     ) {
+        // A new request list starts the groups again, so no press waits.
+        self.artists_show_more_focus = None;
         for (group, intent) in intents {
             self.send_artist_group_request(group, intent, cx);
         }

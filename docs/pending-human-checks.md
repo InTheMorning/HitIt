@@ -577,3 +577,12 @@ target/debug/hitit &
 - V2: a feed page with two or more known roles shows each role with " · ", and the dot has the color of the first role.
 - V3: Inspect sources of Sir Libre Records still shows `recordLabel`.
 - Wrong: a page shows "Publisher" for a feed with a known role, or Inspect sources hides a role word.
+
+## 17. ADR 0092 Task 001 Artists Takes The List Focus - 2026-11-14
+
+[ADR 0092 task 001](tasks/adr-0092-task-001-artists-list-focus.md) gives the procedure. Open Artists in the scope All.
+
+- V1: in the Rows view, Tab reaches the list in one stop. Up and Down move the focus ring across the three groups. Enter opens the artist.
+- V2: the same in the Tiles view. The focused tile shows the focus outline and is in view.
+- V3: press "Show more" with the keyboard. The focus goes to the first new row of that group, not to the sidebar.
+- Wrong: Tab skips the list, the focus ring does not show, or the focus goes to the sidebar.

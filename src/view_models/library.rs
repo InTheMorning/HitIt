@@ -2200,6 +2200,20 @@ impl ArtistsListItemVm {
 }
 
 impl ArtistsListItemVm {
+    /// Gives the keyboard cursor to the row `focused` (ADR 0092 Decision 1).
+    /// A list that does not have the keyboard focus (`shows` false) shows no
+    /// cursor. A heading and a status row carry no cursor.
+    #[must_use]
+    pub(crate) fn with_focus(self, focused: Option<&str>, shows: bool) -> Self {
+        match self {
+            Self::Row(mut row) => {
+                row.selection.focused = shows && focused == Some(row.element_id.as_str());
+                Self::Row(row)
+            }
+            other @ (Self::Heading(_) | Self::Status(..)) => other,
+        }
+    }
+
     /// The items of `sections`: for each group, its heading, then its rows,
     /// then its status row. The loading row or the error row of page 1
     /// comes first in its section (packet 016 decision D8).

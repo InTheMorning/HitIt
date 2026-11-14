@@ -106,7 +106,9 @@ use crate::ui::shells::tag_update_confirmation::{
 use crate::ui::style::color;
 use crate::ui::style::spacing;
 use crate::ui::tokens::Motion;
-use crate::view_models::artist_groups::{ArtistGroup, ArtistGroupPages};
+use crate::view_models::artist_groups::{
+    artist_selection_rows, ArtistGroup, ArtistGroupPages, ArtistSection, ShowMoreFocusStep,
+};
 use crate::view_models::artist_identity::{ArtistNameDestination, ArtistNameKey, NameFeedMatches};
 use crate::view_models::detail_selection::DetailSelection;
 use crate::view_models::entity_detail::TrackMetadataActionState;
@@ -1206,6 +1208,8 @@ impl LibraryApp {
             playlists_scroll: playlists_scroll.clone(),
             playlists_selection: ListSelection::new(),
             playlists_reveal: ScrollReveal::new(playlists_scroll),
+            artists_selection: ListSelection::new(),
+            artists_show_more_focus: None,
             expanded_singles_groups: BTreeSet::new(),
             download_queue: super::DownloadQueue::default(),
             releases_selection: ListSelection::new(),
@@ -2959,6 +2963,8 @@ impl LibraryApp {
         self.releases_selection = ListSelection::new();
         self.track_selection = ListSelection::new();
         self.playlists_selection = ListSelection::new();
+        self.artists_selection = ListSelection::new();
+        self.artists_show_more_focus = None;
         self.releases_selection_mode = SelectionMode::Normal;
         self.track_selection_mode = SelectionMode::Normal;
         match destination {
@@ -4586,6 +4592,7 @@ impl LibraryApp {
             MusicDestination::Releases => self.releases_selection.focused().is_some(),
             MusicDestination::Inbox => self.track_selection.focused().is_some(),
             MusicDestination::Playlists => self.playlists_selection.focused().is_some(),
+            MusicDestination::Artists => self.artists_selection.focused().is_some(),
             _ => return,
         };
         let Some(step) = keyboard_entry_step(
@@ -4622,7 +4629,58 @@ impl LibraryApp {
                     self.playlists_reveal.request();
                 }
             }
+            MusicDestination::Artists => self.move_artists_focus(step),
             _ => {}
+        }
+    }
+
+    /// The sections of the Artists list in the scope that it shows now.
+    pub(crate) fn artists_sections(&self) -> Vec<ArtistSection> {
+        let scope = self.vm.list_scope(ListPageKey::Artists);
+        self.vm.artists_sections(scope, &self.artist_pages)
+    }
+
+    /// Moves the keyboard cursor of the Artists list by `step`, through the
+    /// rows of the three groups, and shows the new row (ADR 0092 Decision 1).
+    fn move_artists_focus(&mut self, step: FocusStep) {
+        let sections = self.artists_sections();
+        let visible = artist_selection_rows(&sections);
+        if let Some(focused) = self.artists_selection.move_focus(step, &visible) {
+            self.reveal_artists_row(&focused, &ArtistsListItemVm::of_sections(sections));
+        }
+    }
+
+    /// Shows the row `element` of the Artists `items`. The Rows view scrolls
+    /// the list. The Tiles view scrolls the grid.
+    fn reveal_artists_row(&mut self, element: &str, items: &[ArtistsListItemVm]) {
+        if matches!(self.vm.list_view(ListPageKey::Artists), ListView::Tiles) {
+            self.reveal_artists_tile(Some(element));
+        } else if let Some(index) = items.iter().position(|item| item.element_id() == element) {
+            self.artists_list_state.scroll_to_reveal_item(index);
+        }
+    }
+
+    /// Moves the cursor after "Show more" to the first new row of its group,
+    /// when the rows are here (musicindex ADR 0057 R-SITE-15 item 4). The
+    /// button can leave the tree, so the list column takes the keyboard focus.
+    fn settle_artists_show_more_focus(
+        &mut self,
+        sections: &[ArtistSection],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(press) = self.artists_show_more_focus else {
+            return;
+        };
+        let ShowMoreFocusStep::Focus(row) = press.resolve(sections) else {
+            return;
+        };
+        self.artists_show_more_focus = None;
+        window.focus(&self.list_column_focus.clone(), cx);
+        if let Some(row) = row {
+            self.artists_selection.focus_row(row.clone());
+            let items = ArtistsListItemVm::of_sections(sections.to_vec());
+            self.reveal_artists_row(&row, &items);
         }
     }
 
@@ -4759,8 +4817,11 @@ impl LibraryApp {
                 }
                 cx.notify();
             }
+            MusicDestination::Artists => {
+                self.move_artists_focus(step);
+                cx.notify();
+            }
             MusicDestination::Search
-            | MusicDestination::Artists
             | MusicDestination::PublicPlaylists
             | MusicDestination::Live => {}
         }
@@ -4934,8 +4995,23 @@ impl LibraryApp {
                 );
                 true
             }
+            MusicDestination::Artists => {
+                let Some(focused) = self.artists_selection.focused().cloned() else {
+                    return false;
+                };
+                let open = self
+                    .artists_sections()
+                    .into_iter()
+                    .flat_map(|section| section.rows)
+                    .find(|row| row.element_id == focused)
+                    .map(|row| row.open);
+                let Some(open) = open else {
+                    return false;
+                };
+                self.open_destination_row(&open, cx);
+                true
+            }
             MusicDestination::Search
-            | MusicDestination::Artists
             | MusicDestination::PublicPlaylists
             | MusicDestination::Live => false,
         }
@@ -5698,6 +5774,7 @@ impl LibraryApp {
             || self.list_column_focus.contains_focused(window, cx))
             && crate::ui::focus_ring::focus_ring_shows(cx);
         self.mark_row_for_keyboard_entry();
+        let mut artists_row_count = 0;
         let mut action_bar: Option<AnyElement> = None;
         let page_head: Option<AnyElement>;
         let content_list_pane = match self.vm.active_destination() {
@@ -5857,8 +5934,9 @@ impl LibraryApp {
                 pane
             }
             MusicDestination::Artists => {
-                let artists_scope = self.vm.list_scope(ListPageKey::Artists);
-                let sections = self.vm.artists_sections(artists_scope, &self.artist_pages);
+                let sections = self.artists_sections();
+                self.settle_artists_show_more_focus(&sections, window, cx);
+                artists_row_count = artist_selection_rows(&sections).len();
                 let library_count = self
                     .vm
                     .artists_list(ListScope::InLibrary, &self.artist_pages)
@@ -5870,7 +5948,17 @@ impl LibraryApp {
                 // ADR 0084 task 037, operator answer Q1 option B: the
                 // Artists list is a virtual list with no cache of its
                 // merge. Each item reads its art only when it renders.
-                let items = Rc::new(ArtistsListItemVm::of_sections(sections));
+                let items = Rc::new(
+                    ArtistsListItemVm::of_sections(sections)
+                        .into_iter()
+                        .map(|item| {
+                            item.with_focus(
+                                self.artists_selection.focused().map(String::as_str),
+                                self.list_row_focus_shows,
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                );
                 let ids: Vec<String> = items
                     .iter()
                     .map(|item| item.element_id().to_owned())
@@ -5926,6 +6014,9 @@ impl LibraryApp {
             // ADR 0092 Decision 1: the Rows view of My playlists is a list
             // with row focus. The Tiles view has no row focus.
             MusicDestination::Playlists => (true, self.playlist_selection_rows().len()),
+            // ADR 0092 Decision 1: the Artists list has row focus in the Rows
+            // view and in the Tiles view, across its three groups.
+            MusicDestination::Artists => (true, artists_row_count),
             _ => (false, 0),
         };
         let list_tab_stop = list_is_tab_stop(has_row_focus, row_count);
