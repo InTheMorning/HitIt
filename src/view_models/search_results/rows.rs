@@ -15,7 +15,7 @@ use crate::view_models::library::{RowTypeKind, RowTypeTag};
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
 use crate::view_models::release_kind::ReleaseKind;
-use crate::view_models::role_words::{capitalize_first, role_list_text};
+use crate::view_models::role_words::type_label;
 use crate::view_models::singles_group::SinglesGroupKey;
 use crate::view_models::window_groups::WindowLength;
 use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey, TrackKey};
@@ -139,9 +139,8 @@ impl SearchRowBadge {
     /// row with no link class is "Feed".
     fn for_feed(is_library_artist: bool, link_class: Option<&FeedLinkClass>) -> Self {
         match link_class {
-            Some(FeedLinkClass::OtherRoles(words)) => {
-                Self::Roles(capitalize_first(&role_list_text(words)))
-            }
+            // The type label of musicindex ADR 0037 R-WORD-7.
+            Some(FeedLinkClass::OtherRoles(roles)) => Self::Roles(type_label(roles)),
             _ if is_library_artist => Self::Artist,
             Some(FeedLinkClass::Artist | FeedLinkClass::UnverifiedArtist) => Self::Artist,
             Some(FeedLinkClass::NotNamedFirst) | None => Self::Feed,

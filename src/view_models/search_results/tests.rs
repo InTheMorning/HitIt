@@ -1646,8 +1646,9 @@ fn adr_0084_search_link_facts_r29_07_badge_sequence() {
     }
 }
 
-/// R29-07, the role text: two other roles give the joined role words with a
-/// capital first letter, the text of the frame title of the feed page.
+/// R29-07, the role text: two other roles give the type label of the feed
+/// page (musicindex ADR 0037 R-WORD-7). A word that is not known is left out
+/// (musicindex ADR 0066 R-ROLE-3).
 #[test]
 fn adr_0084_search_link_facts_r29_07_two_roles_give_the_frame_title_text() {
     let mut vm = SearchResultsInspectorPageVm::new("label");
@@ -1656,7 +1657,7 @@ fn adr_0084_search_link_facts_r29_07_two_roles_give_the_frame_title_text() {
             4_000_000_000,
             "label-guid",
             "A Label",
-            &["producer", "label"],
+            &["producer", "recordLabel", "label"],
             0,
         )],
         ..no_index_rows()
@@ -1664,7 +1665,7 @@ fn adr_0084_search_link_facts_r29_07_two_roles_give_the_frame_title_text() {
     let rows = rows(&vm, &RecordedLibrary::default());
     assert_eq!(
         rows[0].badge,
-        Some(SearchRowBadge::Roles("Label and producer".to_owned()))
+        Some(SearchRowBadge::Roles("Label \u{b7} Producer".to_owned()))
     );
 }
 

@@ -2499,7 +2499,9 @@ mod adr_0084_name_level_query_tests {
         assert_eq!(
             classes,
             [
-                Some(FeedLinkClass::OtherRoles(vec!["label".to_owned()])),
+                Some(FeedLinkClass::OtherRoles(vec![
+                    crate::view_models::role_words::KnownRole::Label
+                ])),
                 Some(FeedLinkClass::UnverifiedArtist),
             ]
         );

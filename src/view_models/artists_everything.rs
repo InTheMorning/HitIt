@@ -24,7 +24,7 @@ use crate::view_models::library::{
 };
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::release_count::with_release_count;
-use crate::view_models::role_words::{role_contains_artist, role_words};
+use crate::view_models::role_words::{known_roles, KnownRole};
 
 /// The secondary text of a `MusicIndex` row (packet 016 decision D12).
 const NOT_IN_LIBRARY: &str = "Not in Library";
@@ -152,9 +152,10 @@ pub(crate) fn sort_by_newest(rows: &mut [LibraryArtistRow], reversed: bool) {
 pub(crate) enum FeedLinkClass {
     /// The agreed roles hold `artist`.
     Artist,
-    /// The agreed roles are not empty and hold no `artist`. The words are
-    /// the role words of [`role_words`], for example `["label"]`.
-    OtherRoles(Vec<String>),
+    /// The agreed known roles are not empty and hold no `artist`, for
+    /// example `[KnownRole::Label]`. A word that is not known is not a role
+    /// (musicindex ADR 0066 R-ROLE-3 and R-ROLE-4).
+    OtherRoles(Vec<KnownRole>),
     /// The feed has no agreed role, and a confirmed link names it first.
     UnverifiedArtist,
     /// The feed has no agreed role, and no confirmed link names it first.
@@ -171,11 +172,11 @@ impl FeedLinkClass {
         first_named_count: Option<i64>,
     ) -> Self {
         let combined = agreed_roles.unwrap_or_default().join(",");
-        let words = role_words(Some(&combined));
-        if role_contains_artist(Some(&combined)) {
+        let roles = known_roles(Some(&combined));
+        if roles.contains(&KnownRole::Artist) {
             Self::Artist
-        } else if !words.is_empty() {
-            Self::OtherRoles(words)
+        } else if !roles.is_empty() {
+            Self::OtherRoles(roles)
         } else if first_named_count.unwrap_or(0) > 0 {
             Self::UnverifiedArtist
         } else {
@@ -856,7 +857,7 @@ mod tests {
                 "Sir Libre Records",
                 Some(roles(&["label"])),
                 Some(0),
-                FeedLinkClass::OtherRoles(roles(&["label"])),
+                FeedLinkClass::OtherRoles(vec![KnownRole::Label]),
             ),
             (
                 "Kolomona Myer - AKA Sir Libre",
@@ -916,7 +917,7 @@ mod tests {
                 "two other roles",
                 Some(roles(&["producer", "label"])),
                 None,
-                FeedLinkClass::OtherRoles(roles(&["label", "producer"])),
+                FeedLinkClass::OtherRoles(vec![KnownRole::Label, KnownRole::Producer]),
             ),
         ];
         for (name, agreed_roles, first_named_count, expected) in cases {
@@ -934,6 +935,23 @@ mod tests {
             FeedLinkClass::from_link_facts(Some(&roles(&["Artist"])), Some(0)),
             FeedLinkClass::Artist,
             "the artist role is read without case"
+        );
+    }
+
+    /// Musicindex ADR 0066 R-ROLE-3 and R-ROLE-4: a word that is not known is
+    /// not a role. A feed with only unknown role words has no role.
+    #[test]
+    fn adr_0085_feed_link_class_ignores_unknown_role_words() {
+        let roles = |words: &[&str]| -> Vec<String> {
+            words.iter().map(|word| (*word).to_owned()).collect()
+        };
+        assert_eq!(
+            FeedLinkClass::from_link_facts(Some(&roles(&["recordLabel"])), Some(2)),
+            FeedLinkClass::UnverifiedArtist
+        );
+        assert_eq!(
+            FeedLinkClass::from_link_facts(Some(&roles(&["recordLabel", "LABEL"])), Some(0)),
+            FeedLinkClass::OtherRoles(vec![KnownRole::Label])
         );
     }
 
