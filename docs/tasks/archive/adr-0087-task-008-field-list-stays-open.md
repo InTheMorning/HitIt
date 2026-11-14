@@ -20,10 +20,10 @@ still close the list.
 
 ## Authority
 
-- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decision 3: "While the curator types a
+- [ADR 0087](../../adr/archive/0087-search-fields-and-live-results.md) Decision 3: "While the curator types a
   field name, the list shows the fields that start with that text." An empty field name is a
   prefix of each field. The list is the help for the next term.
-- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decision 1: the terms of one query all
+- [ADR 0087](../../adr/archive/0087-search-fields-and-live-results.md) Decision 1: the terms of one query all
   apply together. A query of more than one term is the normal case.
 - [Packet 004](../adr-0087-task-004-field-list.md): this packet replaces three items of packet 004.
   They are its decision D8, its case R87-4-14 and one part of its decision D9. That part closes
@@ -261,7 +261,7 @@ Each criterion is visual. Only a person can examine it in the running app. No te
 ## Files To Inspect
 
 - [AGENTS.md](../../../AGENTS.md) and the [source map](../../architecture/source-map.md).
-- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decisions 1 and 3.
+- [ADR 0087](../../adr/archive/0087-search-fields-and-live-results.md) Decisions 1 and 3.
 - [Packet 004](../adr-0087-task-004-field-list.md) and
   [packet 005](../adr-0087-task-005-field-list-values.md).
 - `src/view_models/search_field_list.rs`: `FieldListOpening`, `FieldListState::apply`,

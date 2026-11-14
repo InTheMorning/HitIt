@@ -38,3 +38,9 @@ research. Never read it to find a live rule.
 | 0072 | Pinned gpui-base Selection Corrections | Fully guarded |
 | 0073 | Show Card Overflow Scrolling | Fully guarded |
 | 0078 | Publisher Page Type From Stated Role Only | Superseded by ADR 0082 |
+| 0084 | Music Is A Column Browser | Superseded by ADR 0098 |
+| 0085 | Artists By Confirmation, And No Publisher Word | Superseded by ADR 0098 |
+| 0086 | New Releases Groups The Singles Of One Artist By A Window | Superseded by ADR 0098 |
+| 0087 | Search Has Fields, A Field List And Live Results | Superseded by ADR 0098 |
+| 0089 | The Shell, The Destinations And The List Pages | Superseded by ADR 0098 |
+| 0090 | One List Bar Above The Rows | Superseded by ADR 0098 |

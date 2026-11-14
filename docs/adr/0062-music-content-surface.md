@@ -4,9 +4,9 @@
 
 Accepted - 2026-09-07.
 
-- Changed by: [ADR 0086](0086-new-releases-singles-window.md), 2026-10-23: the New releases pager can load more pages before it shows a page. The recency order stays.
+- Changed by: [ADR 0086](archive/0086-new-releases-singles-window.md), 2026-10-23: the New releases pager can load more pages before it shows a page. The recency order stays. [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0086.
 
-- Changed by: [ADR 0084](0084-music-column-browser.md), 2026-10-08: the scope control has two states, "Library" and "Everything", and no control shows Index items only. The source tree and its invariant go. Music opens on Discover, which supersedes the home of the ADR 0083 change below. Recency order and paging stay with this ADR.
+- Changed by: [ADR 0084](archive/0084-music-column-browser.md), 2026-10-08: the scope control has two states, "Library" and "Everything", and no control shows Index items only. The source tree and its invariant go. Music opens on Discover, which supersedes the home of the ADR 0083 change below. Recency order and paging stay with this ADR. [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0084.
 
 - Changed by: [ADR 0083](0083-design-language.md) Decision 9, 2026-10-03: Music opens on a home, and the tile view shows one tile for each release. Recency order and paging stay with this ADR.
 

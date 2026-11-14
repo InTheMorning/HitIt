@@ -73,8 +73,8 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-008-results-rows.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md (Decisions 4 and 5)
-- docs/adr/0087-search-fields-and-live-results.md
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md (Decisions 4 and 5)
+- docs/adr/archive/0087-search-fields-and-live-results.md
 - the files that the task lists
 
 Goal:

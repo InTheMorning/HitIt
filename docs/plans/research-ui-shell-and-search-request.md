@@ -24,7 +24,7 @@ The research examined HitIt at HEAD `58ce1ab`. The mockups are research
 commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 `10fd7eb` and `e2cd3a3` give the corrections of sections 2 to 4.
 
-[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md), Accepted on 2026-11-05, records sections 1 to 4.
+[ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md), Accepted on 2026-11-05, records sections 1 to 4.
 
 ## The Data
 
@@ -44,7 +44,7 @@ commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 ## 1. The Shell Is A Stack With Two Exceptions
 
 **Section status - 2026-11-11: Answered** by
-[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decisions 1,
+[ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) Decisions 1,
 7 and 8. [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md), in its
 revision of 2026-11-11, gives the cue and the two players of the panel. ADR
 0089 packet 016 builds the panel after ADR 0068 packets 003 and 004.
@@ -70,7 +70,7 @@ ADR 0084 Decision 1 (three columns).
 ## 2. The Destinations
 
 **Section status - 2026-11-11: Answered** by
-[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decisions 1
+[ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) Decisions 1
 to 3 and 6. Folders, moves and renames in My Playlists stay a Non-Goal of ADR
 0089.
 
@@ -110,9 +110,9 @@ title case, for example "Copy to My Playlists…".
 ## 3. Sort, View And Scope
 
 **Section status - 2026-11-11: Answered** by
-[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decisions 5
+[ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) Decisions 5
 and 6, and its amendment of 2026-11-08 for the Curator Order.
-[ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) moves the sort
+[ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md) moves the sort
 controls into one list bar.
 
 - **Sort** is a plain button that names the current sort, for example
@@ -145,8 +145,8 @@ controls into one list bar.
 ## 4. The Search
 
 **Section status - 2026-11-11: Answered.**
-[ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decision 4
-and [ADR 0087](../adr/0087-search-fields-and-live-results.md) answer each
+[ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) Decision 4
+and [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) answer each
 item, apart from the `host:` field. musicindex ADR 0062 answers the `host:`
 field (R-QUERY-13 to R-QUERY-17). By
 [ADR 0091](../adr/0091-search-parser-moves-to-the-shared-crate.md), musicindex

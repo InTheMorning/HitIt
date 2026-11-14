@@ -28,7 +28,7 @@ still runs only on Enter. Packet 003 adds the live runs.
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 1: the search runs read the
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 1: the search runs read the
   typed query. A field value that is not correct applies nothing.
 - ADR 0087 Decision 2: the fields, their Library meaning and the scope rules. Operator answer 2:
   `title:` matches the track title and the release title. `release:` matches the release title
@@ -38,8 +38,8 @@ still runs only on Enter. Packet 003 adds the live runs.
 - ADR 0087 Decision 6: a saved search keeps its text, and each run parses it again.
 - ADR 0087 invariants: one parser, bound Library values with escaped `LIKE` characters, no field
   syntax in `q`, and Index rows only when Stophammer applies each Index field.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 5: the release kind.
-  [ADR 0086](../adr/0086-new-releases-singles-window.md) Decision 1: the release date of a Library
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 5: the release kind.
+  [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decision 1: the release date of a Library
   release.
 - ADR 0059: the show readiness. ADR 0076: the "Removed from feed" mark and the stored payment
   route.
@@ -613,7 +613,7 @@ width and at narrow width.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md), packet 001 and its
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md), packet 001 and its
   "Implementation Result", and ADR 0086 packet 005 and its "Implementation Result".
 - `src/view_models/search_query.rs` (from packet 001).
 - `src/db.rs`: `search_library_tracks`, `like_contains_pattern`, `track_row_from_sql`,

@@ -13,7 +13,7 @@ The curator loads a playlist into one stored Show cue. The load starts no audio 
 - [ADR 0068](../adr/0068-show-cue-and-audition-isolation.md), "The Show Cue Exists Before Playback", "Persistence, Restart And CLI Compatibility" and its [revision of 2026-11-11](../adr/0068-show-cue-and-audition-isolation.md#revision-for-the-adr-0089-shell---2026-11-11).
 - [ADR 0016](../adr/archive/0016-schema-migration-discipline.md): each schema change goes through the migration registry.
 - [ADR 0076](../adr/0076-playlist-rss-check-for-stale-musicindex-records.md) Decision 2: the RSS check runs when the curator selects a playlist for a show.
-- [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decision 6: adding to a playlist is in the item menu, and Play stays the main action.
+- [ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) Decision 6: adding to a playlist is in the item menu, and Play stays the main action.
 
 ## Recorded Facts - 2026-11-11
 

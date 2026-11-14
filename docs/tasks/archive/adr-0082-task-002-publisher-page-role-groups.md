@@ -1,7 +1,7 @@
 # ADR 0082 Task 002: Publisher Page Role Groups
 
 Status: Implemented - 2026-10-17. Cases R82-2-01 to R82-2-08 pass. Mechanical checks are Green.
-Complete - 2026-10-18. The operator passed V3 on 2026-10-18 with Faces Pale and Sir Libre Records. V1, V2 and V4 retired on 2026-10-18, because [ADR 0085](../../adr/0085-artists-by-confirmation.md) replaces the groups and the row role text. ADR 0078 moved to the archive with this packet.
+Complete - 2026-10-18. The operator passed V3 on 2026-10-18 with Faces Pale and Sir Libre Records. V1, V2 and V4 retired on 2026-10-18, because [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) replaces the groups and the row role text. ADR 0078 moved to the archive with this packet.
 
 ## Goal
 

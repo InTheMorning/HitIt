@@ -12,11 +12,11 @@ This packet starts after packet 001 is complete. Packet 001 changes `fetch_recen
 
 ## Authority
 
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decision 1: the window group, its key, the release date of each kind of single, and the chain from newest to oldest.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decision 1: the window group, its key, the release date of each kind of single, and the chain from newest to oldest.
 - ADR 0086 Decision 2: the group tile takes the place of its anchor single.
 - ADR 0086 Decision 3: the title, the date span, the "n Singles" badge, the state word and the Library count. The List mode shows the same facts.
 - ADR 0086 Decision 5: the definition of a closed window. Packet 003 uses it. This packet only exposes it.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 3: New releases is the first Discover view, in the recency order.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 3: New releases is the first Discover view, in the recency order.
 - ADR 0084 Decision 6: `SinglesGroupKey` and the "Matched by name" rule of 2026-10-22. The Releases list keeps its groups.
 - ADR 0084 Decision 8: the state words "New" and "In library".
 - ADR 0084 Decision 10: the two selection modes.
@@ -327,7 +327,7 @@ These are for the operator. No test proves them.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md), the rust-dev skill and [the source map](../architecture/source-map.md).
-- [ADR 0086](../adr/0086-new-releases-singles-window.md), and ADR 0084 Decisions 3, 6, 8, 10 and 12.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md), and ADR 0084 Decisions 3, 6, 8, 10 and 12.
 - `src/view_models/singles_group.rs`: `SinglesGroupKey`, `GroupSingle`, `library_singles_grouped`.
 - `src/view_models/artist_identity.rs`: `ArtistIdentity::resolve`, `NameFeedMatches::get`.
 - `src/view_models/library.rs`: `ContentListRowDisplay`, `ContentListPageVm`, `release_kind_of_feed_result`, `mark_recent_library_releases`, `tree_name_feed_matches`, `AlbumNode`.

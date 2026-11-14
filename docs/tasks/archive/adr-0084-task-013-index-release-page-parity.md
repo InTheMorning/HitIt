@@ -10,7 +10,7 @@ A long description that is collapsed shows its first lines, with "Show more" at 
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 4: one page for each item, whatever its origin. The origin selects only the data source.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 4: one page for each item, whatever its origin. The origin selects only the data source.
 - [ADR 0047](../../adr/0047-library-search-unification.md) item 8, with its amendment of 2026-10-16: a collapsed long description shows a preview and "Show more".
 - The operator decided on 2026-10-16 to do this packet before packet 007.
 

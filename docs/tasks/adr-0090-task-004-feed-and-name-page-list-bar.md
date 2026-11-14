@@ -4,7 +4,7 @@
 
 Implemented - 2026-11-08. Visual checks are open. It is built together with packet 6 of the [musicindex ADR 0053 phase plan](../plans/musicindex-adr-0053-list-controls-phase-plan.md).
 
-This task is packet 004 of the [ADR 0090 phase plan](../plans/adr-0090-list-bar-phase-plan.md). It implements Decision 1 of [ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) on the feed page and on the name level page.
+This task is packet 004 of the [ADR 0090 phase plan](../plans/adr-0090-list-bar-phase-plan.md). It implements Decision 1 of [ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md) on the feed page and on the name level page.
 
 ## Goal
 

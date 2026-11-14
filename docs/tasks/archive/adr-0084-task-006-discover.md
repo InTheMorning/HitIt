@@ -11,7 +11,7 @@ The saved-search code that no path loads goes. A later packet adds saved searche
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 3 (Discover and "New releases"), Decision 8 (Discover shows everything, with the state word on each Library item) and Decision 9 (the location path).
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 3 (Discover and "New releases"), Decision 8 (Discover shows everything, with the state word on each Library item) and Decision 9 (the location path).
 - [ADR 0062](../../adr/0062-music-content-surface.md): the recency order and the paging. ADR 0084 replaces its three-state control.
 - AGENTS.md: code that no entry point reaches is deleted, not parked.
 

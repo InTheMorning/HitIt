@@ -64,7 +64,7 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-001-one-page-stack.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md
 - the files that the task lists
 
 Goal:

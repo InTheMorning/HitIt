@@ -10,7 +10,7 @@ A search with a field never asked the Index. `IndexSearchPlan::for_query` return
 
 ## Authority
 
-- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decision 5: "HitIt sends the words and the phrases in `q`, and each Index field as its own parameter." Its invariants "No Index request carries field syntax in `q`" and "Index rows show only when each Index field of the query is applied by Stophammer".
+- [ADR 0087](../../adr/archive/0087-search-fields-and-live-results.md) Decision 5: "HitIt sends the words and the phrases in `q`, and each Index field as its own parameter." Its invariants "No Index request carries field syntax in `q`" and "Index rows show only when each Index field of the query is applied by Stophammer".
 - ADR 0087 Decision 4: each run sends at most three Index requests.
 - [ADR 0075](../../adr/0075-metadata-ownership-and-completeness.md) section 6: the search sends no detail request for a row. A request uses its named profile.
 - The stored contract `tests/fixtures/musicindex-openapi-0.18.1.json`, `GET /v1/search`: the parameters, the types that accept each one, and the `400` codes.
@@ -135,7 +135,7 @@ Each criterion is visual. Only a person can examine it in the running app. No te
 
 ## Files To Inspect
 
-- [ADR 0087](../../adr/0087-search-fields-and-live-results.md) Decision 5, "Known Differences From The Library" and the invariants.
+- [ADR 0087](../../adr/archive/0087-search-fields-and-live-results.md) Decision 5, "Known Differences From The Library" and the invariants.
 - `src/view_models/search_results/search_run.rs`, `src/view_models/search_query.rs`, `src/api.rs` `Client::search`, `src/application/queries/search.rs` `fetch_index_search_result_rows`.
 - `src/runtime/saved_search_counts.rs`, `src/app/search_dispatch.rs` and `src/app/search_live.rs`, which send the plan. No change was needed there.
 - `tests/fixtures/musicindex-openapi-0.18.1.json`, `GET /v1/search`.

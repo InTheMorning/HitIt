@@ -9,8 +9,8 @@ The origin selects only the data source of the page. A download changes the data
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 4 and its Verification section. Decision 4 amends ADR 0049: the drill-down route for each origin goes.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 9: one navigation stack ([task 001](adr-0084-task-001-one-navigation-stack.md)).
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 4 and its Verification section. Decision 4 amends ADR 0049: the drill-down route for each origin goes.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 9: one navigation stack ([task 001](adr-0084-task-001-one-navigation-stack.md)).
 - The durable set in [AGENTS.md](../../../AGENTS.md): renderer portability, typed action state, and "Current-view state must update in place".
 
 ## Recorded Facts - 2026-10-08

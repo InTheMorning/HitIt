@@ -9,7 +9,7 @@ The bar removes, downloads, copies, moves and deletes the selected tracks. The k
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-19 and on 2026-10-20: the selection model, the two modes, the bar and the download queue.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10, amended on 2026-10-19 and on 2026-10-20: the selection model, the two modes, the bar and the download queue.
 - [ADR 0083](../adr/0083-design-language.md) Decision 5: a destructive item is last, ends with "…", and asks for confirmation.
 - The archived packets [009](archive/adr-0084-task-009-list-selection-and-action-bar.md), [018](archive/adr-0084-task-018-detail-column-selection.md) and [019](archive/adr-0084-task-019-selection-mode.md), and packet [022](adr-0084-task-022-download-queue.md).
 - Operator decisions of 2026-10-20:

@@ -13,12 +13,12 @@ Part B gives the group page, its main action and the link "All n singles" with t
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md):
+- [ADR 0084](../adr/archive/0084-music-column-browser.md):
   - Decision 6: two or more singles of one artist in the current scope show as one group row. The group page lists the singles, newest first. The group key is the artist identity of Decision 7.
   - Decision 8: the two scopes.
   - Decision 4: one page for each item, and the state word.
   - Decision 10: the selection model and the download queue. Decision 12: the logo frame.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) Decision 2 and Decision 6: the artist feed of a release is the first named feed with an agreed `artist` role, else the primary named feed with a confirmed link. A link that only the album states does not make an artist.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) Decision 2 and Decision 6: the artist feed of a release is the first named feed with an agreed `artist` role, else the primary named feed with a confirmed link. A link that only the album states does not make an artist.
 - [ADR 0075](../adr/0075-metadata-contract.md) section 6: named request profiles, no detail read for each list row, and the stored contract changes in the same change as the decode.
 - [ADR 0040](../adr/README.md): background work runs on the async command runner. No screen calls `cx.spawn`.
 - [Open Stophammer requests](../plans/hitit-open-requests.md): request 9, "Stophammer Answers - 2026-10-21" and "Release 0.13.0 - 2026-10-21". Stophammer ADR 0076 owns the three additions.

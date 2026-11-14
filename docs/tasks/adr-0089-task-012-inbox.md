@@ -63,7 +63,7 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-012-inbox.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md (Decisions 1 to 3, Answer 3)
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md (Decisions 1 to 3, Answer 3)
 - the files that the task lists
 
 Goal:

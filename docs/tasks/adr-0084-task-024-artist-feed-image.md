@@ -8,9 +8,9 @@ The Library stores the image of each artist feed that an album names. Each Artis
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 12, amended on 2026-10-20: an image that an artist feed gives replaces the mosaic and shows as a square.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 12, amended on 2026-10-20: an image that an artist feed gives replaces the mosaic and shows as a square.
 - [ADR 0016](../adr/README.md): each schema change goes through the migration registry.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md): the named feeds of an album and the artist feed.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md): the named feeds of an album and the artist feed.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) Decision I: MusicIndex is a cache of RSS. The image is the RSS channel image, as MusicIndex reports it.
 - The [run record of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md): the orchestrator split this packet from packet 011.
 

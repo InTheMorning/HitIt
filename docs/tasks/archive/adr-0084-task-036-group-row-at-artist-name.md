@@ -10,7 +10,7 @@ The packet also states how this rule agrees with packet 016 decision D7: a row d
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 6: the singles groups. Decision 8: the two scopes.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 6: the singles groups. Decision 8: the two scopes.
 - [Packet 026](../adr-0084-task-026-index-singles-groups.md) decision D5 and its "Operator Answers - 2026-10-24": option B. A group row in "Everything" takes the place of its artist name. A fix packet decides how this agrees with packet 016 decision D7.
 - The [run record](../../reviews/orchestrated-run-2026-10-23.md#operator-answers---2026-10-24) of 2026-10-23, "Operator Answers - 2026-10-24", answer 1.
 - [Packet 016](../adr-0084-task-016-library-and-everything-scopes.md) decisions D6 (the order) and D7 (the paging and the watermark).

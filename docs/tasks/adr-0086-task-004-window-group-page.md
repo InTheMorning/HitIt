@@ -21,11 +21,11 @@ This packet starts after packet 002 is complete. It does not need packet 003.
 
 ## Authority
 
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decision 4: the window group page, its breadcrumb, its row order and its main action. It also owns the link to the Decision 6 group and the checkbox of a group tile.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decision 4: the window group page, its breadcrumb, its row order and its main action. It also owns the link to the Decision 6 group and the checkbox of a group tile.
 - ADR 0086 Decision 1: the window, its key and the release date of each kind of single.
 - ADR 0086 Decision 3: the facts of the group tile.
 - ADR 0086 Consequences: "The app adds one page kind: the window group page".
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 4: one page for each item. A page shows its Library state, and its actions follow that state.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 4: one page for each item. A page shows its Library state, and its actions follow that state.
 - ADR 0084 Decision 6: the group page of a key, its main action, its "All n singles" link, and the "Matched by name" rows.
 - ADR 0084 Decision 9: one navigation stack, a location breadcrumb, and the scroll position of Back and Forward.
 - ADR 0084 Decision 10: the two selection modes, the action bar and the one download queue.
@@ -369,7 +369,7 @@ These are for the operator. No test proves them.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md), the rust-dev skill and [the source map](../architecture/source-map.md).
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decisions 1, 3 and 4, and ADR 0084 Decisions 4, 6, 9, 10 and 11.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decisions 1, 3 and 4, and ADR 0084 Decisions 4, 6, 9, 10 and 11.
 - [Packet 002](adr-0086-task-002-new-releases-window-groups.md), and its code after it is implemented.
 - `src/view_models/window_groups.rs` and `src/view_models/library.rs` (`NewReleasesLayout`, `new_releases_layout`, `discover_selection_rows`, `singles_group_page`, `replace_tree`, `replace_recent_music_content`).
 - `src/view_models/singles_group.rs` (`SinglesGroupPageVm`, `library_single_row`, `main_action`, `SinglesGroupIndexRowVm`, `singles_group_name_link`, `find_group`).

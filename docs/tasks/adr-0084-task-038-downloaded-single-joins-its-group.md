@@ -10,7 +10,7 @@ The Library tree gives one release for each Library feed. Two feeds with the sam
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 4: the identity of a release is its feed GUID. Decision 5: the kind of a release. Decision 6: the singles groups.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 4: the identity of a release is its feed GUID. Decision 5: the kind of a release. Decision 6: the singles groups.
 - [Packet 035](adr-0084-task-035-download-stores-feed-links.md) V1, which failed on 2026-10-24.
 - [Packet 026](adr-0084-task-026-index-singles-groups.md) decision D8: the Library decides a Library release.
 - [Archived packet 036](archive/adr-0084-task-036-group-row-at-artist-name.md): the place of a group row.

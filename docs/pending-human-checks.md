@@ -106,7 +106,7 @@ Each item gives the recommendation of the agent. The operator decides.
 5. **Tab does not go to an artist tile (section 12, packet 8).** Recommendation: open a fix packet in ADR 0092 and ADR 0089 Decision 9. Do not close packet 8 before the fix.
 6. **Section 3, the migration repair report.** Its fixture needs schema 12, and the build has schema 24. Recommendation: revise the fixture for schema 24 in a packet, then walk the check. The agent did not examine if a database below schema 12 exists.
 7. **Section 5, macOS.** Recommendation: keep it open until a macOS desktop is available.
-8. **The questions of the [shell run record](reviews/orchestrated-run-2026-11-05-shell.md#questions-for-the-final-walk).** The [ADR 0089 amendment of 2026-11-08](adr/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) answers question 2. Questions 1 and 3 to 7 stay open. Recommendation: answer them during the walk of section 11.
+8. **The questions of the [shell run record](reviews/orchestrated-run-2026-11-05-shell.md#questions-for-the-final-walk).** The [ADR 0089 amendment of 2026-11-08](adr/archive/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) answers question 2. Questions 1 and 3 to 7 stay open. Recommendation: answer them during the walk of section 11.
 
 ## 1. Optional Tool Isolation — ADR 0066 Task 004
 
@@ -533,7 +533,7 @@ target/debug/hitit &
 - musicindex ADR 0023 R-WORD-9: open Artists, select All, and go to the letter #. The agent Xvfb run of 2026-11-08 shows these two rows with the text below in Dark. The row "$2 Holla" reads "Not in Library · by name · 1 album · 2 singles". The row "0$" reads "Not in Library · 1 album · 18 singles".
 - R-WORD-9, search: search `olamide` and open the Artists tab. The feed row of OLAMIDE reads "14 albums · 38 singles". Search `jsmovie`. Its feed row reads "17 singles". Make sure that the text does not overflow in a narrow window, in Light and Dark.
   - The agent Xvfb run of 2026-11-08 shows the two rows with this text in Dark. It shows OLAMIDE in Light. Each row is correct at full width and at 700 px.
-- [musicindex ADR 0057](adr/0085-artists-by-confirmation.md) R-ARTIST-1: Artists in All, its tiles and the Artists tab of a search show three groups with a note each. The groups are "Stated artists · n", "Inferred artists" and "Artist names with no feed", in this sequence.
+- [musicindex ADR 0057](adr/archive/0085-artists-by-confirmation.md) R-ARTIST-1: Artists in All, its tiles and the Artists tab of a search show three groups with a note each. The groups are "Stated artists · n", "Inferred artists" and "Artist names with no feed", in this sequence.
   - The agent Xvfb run of 2026-11-08 shows this in Light and Dark. "Show more" in the inferred group adds rows, and the other groups stay. A search with no stated artist, such as `haleen`, shows no empty group. The tiles cut their second line, for example "2 albu…" and "by na…". A person checks that the groups are clear and that the cut text is satisfactory.
 - Wrong: a control that does nothing, rows in an incorrect sequence, or no selection after a sort. A sort control on a list that R-LIST-9 does not give one is also wrong.
 

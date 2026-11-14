@@ -10,7 +10,7 @@ A GPUI layout test draws each item page with long fixture data at 390 px and at 
 
 - [ADR 0097](../adr/0097-the-fit-check-at-two-widths.md) Decisions 2, 4, 5 and 6.
 - musicindex ADR 0065 R-FIT-2 item 4 and R-FIT-3.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 4: one release page and one track page for the Library and the Index.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 4: one release page and one track page for the Library and the Index.
 
 ## Recorded Facts
 

@@ -113,7 +113,7 @@ Steps:
    - Artist, decided by the operator on 2026-10-08: one artist page type with two levels. When an album names a publisher feed, the artist page is that publisher, with its identity, its albums from the Library and the Index, and its links. With no publisher feed, the same layout shows a labeled name grouping, for example "Albums that name Ledbetter". The page says which identity it has. Names never merge into one identity (ADR 0077 Decision 1). A publisher feed can be a label and not the artist, so the page shows the feed title.
    - Library membership, decided by the operator on 2026-10-08: a state, not a place. Each album, track and artist has one page, whatever its origin. The page shows its Library state, for example "In Library", "3 of 7 tracks" or "Not downloaded", and the actions for that state. Each list has one scope control, "Library" or "Everything". The sidebar destinations show the Library by default. Search shows everything, with a badge on each Library item. This deletes the separate Index page routes.
    - Navigation, decided by the operator on 2026-10-08: one history stack for the content area. Each page change goes into it: a sidebar click, a row, a link or search. Back and Forward always show. A breadcrumb shows the location, not the history: the destination and the path inside it, for example "Playlists > 000 > Tiddies In My Face". A breadcrumb shows each page one time only.
-   - Multiple selection: [ADR 0084](../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-19, owns the model, the two modes and the action bar.
+   - Multiple selection: [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10, amended on 2026-10-19, owns the model, the two modes and the action bar.
 3. Structure options. Two or three clickable HTML prototypes of the Music section, scored against the four jobs and the two constraints.
    Built on 2026-10-08: [structure options canvas](https://claude.ai/artifact/Uy8HeawDJGpuyVWvutNme6) (private to the operator), with option A (destinations sidebar), option B (column browser) and option C (home first).
    - Structure, chosen by the operator on 2026-10-08: option B, the column browser. The sidebar holds the destinations, a list column shows the items of the destination, and a detail column shows the selected item. At a narrow width, the sidebar collapses to icons only.
@@ -123,7 +123,7 @@ Steps:
    - Scope controls, decided by the operator on 2026-10-08: Releases and Artists each have the control "Library" or "Everything". Tracks has no scope control and shows the Library only.
    - Collection art, requested by the operator on 2026-10-08: as on `../musicindex/search.html`, the MusicIndex logo shape frames the art of a collection. A collection is a singles group, an artist page or a playlist. The frame holds a mosaic of up to four covers, or the entity color when no cover exists. A collection with one cover shows that cover as a square. One release always shows its cover as a square.
 4. A decision record for the chosen structure. It amends ADR 0060 and the decisions on frames, the content list and the Library control that the structure changes.
-   [ADR 0084](../adr/0084-music-column-browser.md), accepted by the operator on 2026-10-08. It owns each structure decision listed above.
+   [ADR 0084](../adr/archive/0084-music-column-browser.md), accepted by the operator on 2026-10-08. It owns each structure decision listed above.
 5. Packets, each with its flow check walked right after it. A flow check counts the steps of each job before and after, and lists the dead ends.
    Proposed order on 2026-10-08. Each packet is one session, and the next packet starts only after the flow check of the one before it:
    1. One navigation stack and the location breadcrumb (ADR 0084 Decision 9). It fixes flow map findings 1 and 7.
@@ -141,8 +141,8 @@ Steps:
       The audit of 2026-10-20 added packet 021, one release page assembly for both origins, and packet 022, the download queue ([run record](../reviews/orchestrated-run-2026-10-20.md)).
    7. Search results in the list column (Decision 2). Saved searches need storage first. The [ADR 0084 phase plan](adr-0084-music-column-browser-phase-plan.md) registers them as packet 012, by operator decision of 2026-10-16.
    8. The logo frame for collections (Decision 12).
-   9. The window groups of New releases and the saved searches. The operator asked for them on 2026-10-22 and answered the open questions on 2026-10-23. [ADR 0086](../adr/0086-new-releases-singles-window.md) is Accepted. Its [phase plan](adr-0086-new-releases-window-groups-phase-plan.md) holds six packets.
-   10. Search fields, the field list and live results. The operator asked for them and accepted [ADR 0087](../adr/0087-search-fields-and-live-results.md) on 2026-10-23.
+   9. The window groups of New releases and the saved searches. The operator asked for them on 2026-10-22 and answered the open questions on 2026-10-23. [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) is Accepted. Its [phase plan](adr-0086-new-releases-window-groups-phase-plan.md) holds six packets.
+   10. Search fields, the field list and live results. The operator asked for them and accepted [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) on 2026-10-23.
 
 ### Phase 5: Settings
 
@@ -180,7 +180,7 @@ The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [
 ### Phase 7: Visual Overhaul
 
 4. The operator plans a new visual design, because of the use of screen space and the size and color of the interface (question 3 of the run record). The operator writes the design rules in `../musicindex`. This step starts when the operator says that those rules are stable.
-   - The shell ADR does not wait for the stable rules. The operator lifted the hold on the [research request](research-ui-shell-and-search-request.md) on 2026-10-25. [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md), Accepted on 2026-11-05, records the destinations, the start page and the scopes of sections 1 to 4 of that request. It cites musicindex ADRs 0027 and 0028 and does not restate them. musicindex ADR 0027 R-SHELL-1 replaces ADR 0084 Decision 1 with a stack. This ADR comes before the new tokens, because the stack changes the layout of each surface. The [shell run](../reviews/orchestrated-run-2026-11-05-shell.md) implemented its packets 001 to 015 on 2026-11-06.
+   - The shell ADR does not wait for the stable rules. The operator lifted the hold on the [research request](research-ui-shell-and-search-request.md) on 2026-10-25. [ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md), Accepted on 2026-11-05, records the destinations, the start page and the scopes of sections 1 to 4 of that request. It cites musicindex ADRs 0027 and 0028 and does not restate them. musicindex ADR 0027 R-SHELL-1 replaces ADR 0084 Decision 1 with a stack. This ADR comes before the new tokens, because the stack changes the layout of each surface. The [shell run](../reviews/orchestrated-run-2026-11-05-shell.md) implemented its packets 001 to 015 on 2026-11-06.
    - First, a HitIt ADR adopts the rules. It amends or supersedes [ADR 0083](../adr/0083-design-language.md) and the Phase 3 tokens. It names the `../musicindex` document as its source. A rule binds HitIt only through this ADR.
    - Then the new tokens in `src/ui/tokens.rs`.
    - Then one packet for each surface.

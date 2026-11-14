@@ -18,13 +18,13 @@ only". This packet shows no artist names, release titles or playlist names. Pack
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 3: the field list, its rows,
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 3: the field list, its rows,
   its keys, the focus and the error text. It also names the view model rule and the shared
   composite that does not use the popover primitive.
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 2: the fields, the
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 2: the fields, the
   Library-only fields, the "Library only" mark and the conflict of `in:index` with a Library-only
   field.
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) invariant "One parser reads the query
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) invariant "One parser reads the query
   text. No other code reads field syntax."
 - [Packet 001](archive/adr-0087-task-001-query-parser.md): `QUERY_FIELDS`, `QueryFieldInfo`,
   `fields_with_prefix`, `cursor_term`, `CursorTerm`, `CursorPartial`, `QueryFieldName`,
@@ -579,7 +579,7 @@ These are for the operator. No test proves them.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md), the
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md), the
   [ADR 0087 phase plan](../plans/adr-0087-search-fields-phase-plan.md) and
   [packet 001](archive/adr-0087-task-001-query-parser.md).
 - `src/view_models/search_query.rs` (packet 001) and `src/view_models/app_toolbar.rs`.

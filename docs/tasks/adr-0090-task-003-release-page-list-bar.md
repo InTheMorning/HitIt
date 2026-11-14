@@ -5,7 +5,7 @@
 Implemented - 2026-11-07. Visual checks are open.
 
 This task is packet 003 of the [ADR 0090 phase plan](../plans/adr-0090-list-bar-phase-plan.md).
-It implements Decision 1 of [ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) on the
+It implements Decision 1 of [ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md) on the
 release page. The release page has two forms: the Library form and the Index form. Both
 forms use one list bar renderer. The two forms cannot drift apart.
 

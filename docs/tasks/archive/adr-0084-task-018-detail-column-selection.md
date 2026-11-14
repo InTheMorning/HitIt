@@ -9,9 +9,9 @@ The detail column also gets the keyboard focus. The keys move through its rows, 
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-19: one selection model for each list of releases and tracks, the two modes, the keys and the action bar.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 11: each track row keeps a place for audition. No control shows in it.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 4: one page for each item. The Library page and the Index page of a release give the same selection.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 10, amended on 2026-10-19: one selection model for each list of releases and tracks, the two modes, the keys and the action bar.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 11: each track row keeps a place for audition. No control shows in it.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 4: one page for each item. The Library page and the Index page of a release give the same selection.
 - [Packet 009](adr-0084-task-009-list-selection-and-action-bar.md) and [packet 019](adr-0084-task-019-selection-mode.md): the model, the rows with members, the checkbox, the keys, the mode, the header button and the bar. This packet uses each of them and changes none of them.
 - Operator decisions of 2026-10-20:
   - Packet 018 covers the release page track rows (Library and Index), the singles group page and the feed page. It also covers the keyboard focus and scroll of the detail column.

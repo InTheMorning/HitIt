@@ -9,7 +9,7 @@ Each Music column that scrolls shows a vertical scrollbar. A person can drag it,
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 1, with its amendment of 2026-10-17: each column that can scroll shows a vertical scrollbar, with the shared scrollbar gutter.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 1, with its amendment of 2026-10-17: each column that can scroll shows a vertical scrollbar, with the shared scrollbar gutter.
 - [ADR 0063](../../adr/0063-show-dashboard-layout.md): the shared scrollbar gutter. `page_scroll_content` in `src/ui/composites/page_scroll_content.rs` gives it.
 - [ADR 0062](../../adr/0062-music-content-surface.md): the recency order and the paging of "New releases".
 - The operator decided on 2026-10-16 to do this packet after packet 013 and before packet 007.

@@ -4,7 +4,7 @@ Status: Implemented - 2026-11-06. The operator ran downloads and removals on 202
 
 Owner items: [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md#throughout-responsiveness-and-background-feedback), items 9, 13, 14, 34 and 35.
 
-Authority: [ADR 0084](../../adr/0084-music-column-browser.md) Decision 10 as amended 2026-10-24, task 039, and AGENTS "Async" and "Current-view state must update in place".
+Authority: [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 10 as amended 2026-10-24, task 039, and AGENTS "Async" and "Current-view state must update in place".
 
 ## Problem
 

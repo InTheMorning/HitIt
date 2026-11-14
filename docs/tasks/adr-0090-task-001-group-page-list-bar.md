@@ -4,7 +4,7 @@
 
 Complete - 2026-11-06. The operator walked it on 2026-11-06.
 
-This task is the first page of [ADR 0090](../adr/0090-one-list-bar-above-the-rows.md).
+This task is the first page of [ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md).
 The first page is the singles group page and the window group page.
 
 ## Goal

@@ -63,7 +63,7 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-003-one-sidebar.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md
 - docs/adr/0060-workflow-surface-structure.md
 - the files that the task lists
 

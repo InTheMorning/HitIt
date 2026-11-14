@@ -12,11 +12,11 @@ No release page and no track page shows the word "Publisher".
 
 ## Authority
 
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 5: the release page names its artist, and shows a role row only for a different role.
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 6: the named feeds keep the RSS sequence. The first named feed with an agreed `artist` role is the artist feed. An observation time never selects a named feed.
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 3: the role words come from the feeds, in alphabetical sequence. This packet adds their text owner, and packet 008 uses it.
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Non-Goals: the position of each named feed is the only storage change. It uses the migration registry of [ADR 0016](../../adr/0016-schema-migration-registry.md).
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 7: the artist name opens the feed level of the artist feed. When the release has no artist feed, it opens the name level.
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 5: the release page names its artist, and shows a role row only for a different role.
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 6: the named feeds keep the RSS sequence. The first named feed with an agreed `artist` role is the artist feed. An observation time never selects a named feed.
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 3: the role words come from the feeds, in alphabetical sequence. This packet adds their text owner, and packet 008 uses it.
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Non-Goals: the position of each named feed is the only storage change. It uses the migration registry of [ADR 0016](../../adr/0016-schema-migration-registry.md).
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 7: the artist name opens the feed level of the artist feed. When the release has no artist feed, it opens the name level.
 - [ADR 0077](../../adr/0077-publisher-feed-artist-binding.md) Decision 2: an album binds to the feed that it names. Decision 6: `publisher_text` is the feed owner, and no link takes its label or target from it.
 - The durable set in [AGENTS.md](../../../AGENTS.md): renderer portability, element hierarchy, typed action state and token discipline.
 

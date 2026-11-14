@@ -12,7 +12,7 @@ This packet fixes findings 1 and 7 of the [Music flow map](../../architecture/mu
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 9 and its Verification section.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 9 and its Verification section.
 - [ADR 0046](../../adr/0046-workspace-frame-architecture.md) Architectural Invariant 2, as ADR 0084 amends it: the frame chrome owns Back, Forward and history.
 - The durable set in [AGENTS.md](../../../AGENTS.md): renderer portability, typed action state, and "Current-view state must update in place".
 

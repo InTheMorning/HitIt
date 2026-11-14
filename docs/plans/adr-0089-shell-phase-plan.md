@@ -2,7 +2,7 @@
 
 ## Status
 
-Active - 2026-11-05. This plan is advisory. It states no rule. [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) owns the rules of HitIt, and musicindex ADRs 0027 and 0028 own the shared rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#phase-7-visual-overhaul) puts this work before the new tokens.
+Active - 2026-11-05. This plan is advisory. It states no rule. [ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) owns the rules of HitIt, and musicindex ADRs 0027 and 0028 own the shared rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#phase-7-visual-overhaul) puts this work before the new tokens.
 
 ## Goal
 

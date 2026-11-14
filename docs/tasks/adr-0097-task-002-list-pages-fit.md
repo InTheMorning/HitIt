@@ -12,7 +12,7 @@ The packet also makes the fixture adapter that tasks 003 to 005 use.
 
 - [ADR 0097](../adr/0097-the-fit-check-at-two-widths.md) Decision 2 (the two widths), Decision 4 (the probes and the faults), Decision 5 (the failure message) and Decision 6 (the phases).
 - musicindex ADR 0065 R-FIT-2 item 4: each page gets the check. R-FIT-3 gives the faults.
-- [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decision 1: the destinations and the tab bar below 940 px.
+- [ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) Decision 1: the destinations and the tab bar below 940 px.
 
 ## Recorded Facts
 

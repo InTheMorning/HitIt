@@ -24,7 +24,7 @@ This packet has two parts:
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 4: after the pause, the
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 4: after the pause, the
   search runs against the Library and the Index. Each run has a generation. The app drops a result
   of an older generation.
 - ADR 0087 invariant "A result of an older run never replaces the result of a newer run".
@@ -310,7 +310,7 @@ Examine V1 also at narrow width.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 4, and
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 4, and
   [packet 003](adr-0087-task-003-live-results.md) with its design and its decisions.
 - `src/app/search_live.rs`, `src/app/search_dispatch.rs` and `src/app.rs`
   (`restore_content_list_nav_entry` and each of its callers).

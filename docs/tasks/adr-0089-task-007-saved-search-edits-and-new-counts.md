@@ -62,7 +62,7 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-007-saved-search-edits-and-new-counts.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md (Decision 4)
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md (Decision 4)
 - docs/adr/0016-* and src/db/saved_searches.rs for the migration pattern
 - the files that the task lists
 

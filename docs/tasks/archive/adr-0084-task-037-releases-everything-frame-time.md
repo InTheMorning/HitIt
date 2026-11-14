@@ -10,7 +10,7 @@ The operator measured about 500 ms for each frame in the Releases list with the 
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md):
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md):
   - Decision 1: each Music column that scrolls shows a scrollbar with the shared gutter.
   - Decision 6: the singles groups. Decision 8: the two scopes.
   - Decision 10: the selection model, the checkboxes, the keyboard focus and the action bar.

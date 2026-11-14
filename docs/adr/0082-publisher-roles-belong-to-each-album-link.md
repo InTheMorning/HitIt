@@ -6,9 +6,9 @@ Implemented - 2026-10-18. Tasks 001 to 003 are complete, and the operator passed
 
 - Changes: [ADR 0077](0077-publisher-feed-artist-binding.md), the page type: roles belong to each album link.
 
-Decisions 1, 2, 3 and 6 are superseded by [ADR 0085](0085-artists-by-confirmation.md) on 2026-10-18. Decisions 4 and 5 stay in force.
+Decisions 1, 2, 3 and 6 are superseded by [ADR 0085](archive/0085-artists-by-confirmation.md) on 2026-10-18. Decisions 4 and 5 stay in force.
 
-- Changed by: [ADR 0084](0084-music-column-browser.md) Decisions 6 and 7, 2026-10-08: inside each group of Decision 2, "Albums and EPs" come before "Singles". The publisher page is the publisher level of the one artist page.
+- Changed by: [ADR 0084](archive/0084-music-column-browser.md) Decisions 6 and 7, 2026-10-08: inside each group of Decision 2, "Albums and EPs" come before "Singles". The publisher page is the publisher level of the one artist page. [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0084.
 
 Revised on 2026-10-02 against Stophammer 0.7.0, after the operator held it for that release. The credit link of Stophammer 0.6.0 is gone from this design.
 

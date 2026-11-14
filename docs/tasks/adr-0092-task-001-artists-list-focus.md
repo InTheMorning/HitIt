@@ -9,9 +9,9 @@ The Artists list is one Tab stop in its Rows view and in its Tiles view, as Rele
 ## Authority
 
 - [ADR 0092](../adr/0092-the-keys-of-a-list-row.md) Decision 1 and Status: a list with no list focus has the keys of R-LISTKEY-1 when it gets a list focus. musicindex ADR 0061 R-LISTKEY-1 owns the keys.
-- [ADR 0089](../adr/0089-the-shell-destinations-and-list-pages.md) Decision 9: a list is a Tab stop, and keyboard entry marks a row.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) amendment of 2026-11-08: the Artists list has three groups, and each group has a "Show more" button (musicindex ADR 0057 R-SITE-15).
-- [ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) Invariants: keyboard reach.
+- [ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md) Decision 9: a list is a Tab stop, and keyboard entry marks a row.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) amendment of 2026-11-08: the Artists list has three groups, and each group has a "Show more" button (musicindex ADR 0057 R-SITE-15).
+- [ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md) Invariants: keyboard reach.
 
 ## Recorded Facts
 

@@ -8,8 +8,8 @@ Each release shows its kind: Album, EP or Single. One pure function gives the ki
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 5: the kind comes from the value that the feed states, when it names album, EP or single. Without a stated value, a release with one track is a single, and any other release is an album. EP shows only when the feed states it.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 4: one page for each item, whatever its origin.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 5: the kind comes from the value that the feed states, when it names album, EP or single. Without a stated value, a release with one track is a single, and any other release is an album. EP shows only when the feed states it.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 4: one page for each item, whatever its origin.
 - [ADR 0060](../../adr/0060-workflow-surface-structure.md) Vocabulary: the curator sees "Release". Internal names do not change.
 - The orchestrator split the old packet 007 on 2026-10-17. This packet owns Decision 5. Packet 015 owns the singles groups (Decision 6), and packet 016 owns the scopes (Decision 8).
 

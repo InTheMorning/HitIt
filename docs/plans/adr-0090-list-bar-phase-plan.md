@@ -2,7 +2,7 @@
 
 ## Status
 
-Active - 2026-11-06. This plan is advisory. It states no rule. [ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) owns the rules.
+Active - 2026-11-06. This plan is advisory. It states no rule. [ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md) owns the rules.
 
 ## Goal
 

@@ -3,7 +3,7 @@
 ## Status
 
 Active - 2026-10-08. This plan is advisory. It states no rule.
-[ADR 0084](../adr/0084-music-column-browser.md) owns the rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#phase-4a-flow-and-information-architecture) owns the order of Phase 4A.
+[ADR 0084](../adr/archive/0084-music-column-browser.md) owns the rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#phase-4a-flow-and-information-architecture) owns the order of Phase 4A.
 
 ## Goal
 

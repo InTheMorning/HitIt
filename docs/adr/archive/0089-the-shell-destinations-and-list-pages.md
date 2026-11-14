@@ -2,10 +2,10 @@
 
 ## Status
 
-Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in the [research request](../plans/research-ui-shell-and-search-request.md), and lifted its hold on 2026-10-25. The operator asked for this record, answered its five questions and accepted it on 2026-11-05 (see [Operator Answers](#operator-answers---2026-11-05)). Packets 001 to 015 of the [phase plan](../plans/adr-0089-shell-phase-plan.md) are implemented on 2026-11-06, and their visual checks are open. Packet 016, the panel and the row action Play, waits for the packets of ADR 0068, Accepted on 2026-11-11.
+Superseded by ADR 0098 - 2026-11-14. [ADR 0098](../0098-the-music-shell-pages-lists-and-search.md) restates each live rule, and its item map gives the new place of each item. Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in the [research request](../../plans/research-ui-shell-and-search-request.md), and lifted its hold on 2026-10-25. The operator asked for this record, answered its five questions and accepted it on 2026-11-05 (see [Operator Answers](#operator-answers---2026-11-05)). Packets 001 to 015 of the [phase plan](../../plans/adr-0089-shell-phase-plan.md) are implemented on 2026-11-06, and their visual checks are open. Packet 016, the panel and the row action Play, waits for the packets of ADR 0068, Accepted on 2026-11-11.
 
-- Changes: [ADR 0046](0046-workspace-frame-architecture.md), the separate Music list frame and detail frame.
-- Changes: [ADR 0060](0060-workflow-surface-structure.md), the section tabs and the place of the saved searches.
+- Changes: [ADR 0046](../0046-workspace-frame-architecture.md), the separate Music list frame and detail frame.
+- Changes: [ADR 0060](../0060-workflow-surface-structure.md), the section tabs and the place of the saved searches.
 - Changes: [ADR 0084](0084-music-column-browser.md), Decisions 2, 3 and 8, and the location breadcrumb of Decision 9.
 - Changes: [ADR 0086](0086-new-releases-singles-window.md), the New releases page.
 - Changes: [ADR 0087](0087-search-fields-and-live-results.md), the place of the saved searches.
@@ -13,12 +13,12 @@ Accepted - 2026-11-05. The operator made the selections below on 2026-10-24 in t
 This record makes these changes:
 
 - It supersedes [ADR 0084](0084-music-column-browser.md) Decisions 2, 3 and 8. It amends Decision 9: the location breadcrumb goes. ADR 0084 Decision 1 is already replaced by musicindex ADR 0027 R-SHELL-1.
-- It amends [ADR 0060](0060-workflow-surface-structure.md): the invariants of [Amended Rules](#amended-rules).
+- It amends [ADR 0060](../0060-workflow-surface-structure.md): the invariants of [Amended Rules](#amended-rules).
 - It amends [ADR 0086](0086-new-releases-singles-window.md): New releases is not a page, and Releases uses the window groups with the sort Newest.
 - It amends [ADR 0087](0087-search-fields-and-live-results.md): saved searches move from Discover to the Search page.
-- It amends [ADR 0046](0046-workspace-frame-architecture.md): Music has no separate list frame and detail frame.
+- It amends [ADR 0046](../0046-workspace-frame-architecture.md): Music has no separate list frame and detail frame.
 - The [amendment of 2026-11-08](#amendment---2026-11-08-the-stored-curator-order) stores the Curator Order of My playlists, from an operator answer on musicindex ADR 0053.
-- `AGENTS.md` and the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md) state this record. Each packet deletes the guards of the rules that it replaces, in the same change.
+- `AGENTS.md` and the [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md) state this record. Each packet deletes the guards of the rules that it replaces, in the same change.
 
 ## Context
 
@@ -32,7 +32,7 @@ These facts control the design:
 - The app has no Inbox. A search of `src/` found no such destination.
 - The stored MusicIndex contract is version 0.18.1. Section [The Contract](#the-contract) records what it gives.
 
-The [v4vmm mockup](../../../musicindex-research/research_notes/ui-design/mockups/v4vmm.html) shows these selections at research commit `f22ab12`. The mockup is advisory. When the mockup and this record differ, this record is correct.
+The [v4vmm mockup](../../../../musicindex-research/research_notes/ui-design/mockups/v4vmm.html) shows these selections at research commit `f22ab12`. The mockup is advisory. When the mockup and this record differ, this record is correct.
 
 ## Decision
 
@@ -52,7 +52,7 @@ The sidebar is one list with no group labels. The toolbar has no section tabs.
 A line follows these destinations. Below the line are Show, Inbox and Settings.
 
 - Show stays a screen mount (ADR 0060). Settings keeps its pages.
-- The feed state and "Check All Feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](0083-design-language.md) Decision 7 takes them.
+- The feed state and "Check All Feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](../0083-design-language.md) Decision 7 takes them.
 - "Copy to My Playlists…" is in the item menu of a public playlist.
 
 In a narrow window, the tab bar of R-SHELL-1 item 7 has Search, Releases, Show, Inbox and More. More opens a menu with each other destination.
@@ -96,7 +96,7 @@ In each other condition, it can be a view of one run.
 
 ### 5. Each List Page Has Its Defaults
 
-R-LIST-1 gives the form of sort and view. musicindex ADR 0053 R-LIST-9 gives the sorts of each kind of list, and its [phase plan](../plans/musicindex-adr-0053-list-controls-phase-plan.md) applies them here. This table gives the defaults (R-LIST-1 item 6, R-LIST-10 item 3). Each page keeps its own sort, view and scope.
+R-LIST-1 gives the form of sort and view. musicindex ADR 0053 R-LIST-9 gives the sorts of each kind of list, and its [phase plan](../../plans/musicindex-adr-0053-list-controls-phase-plan.md) applies them here. This table gives the defaults (R-LIST-1 item 6, R-LIST-10 item 3). Each page keeps its own sort, view and scope.
 
 | Page | Sort at the start | View at the start | Scope |
 | --- | --- | --- | --- |
@@ -112,7 +112,7 @@ The scope of Releases and Artists is the segmented control "All | In Library", b
 - All holds the Index items and the Library items. Each Library item keeps its state.
 - In Library holds what is downloaded, downloading or failed.
 - A release that the curator removed shows only in All.
-- In Library shows a count. All shows no count, because the Index gives no total. [Open request 13](../plans/hitit-open-requests.md) asks for a total.
+- In Library shows a count. All shows no count, because the Index gives no total. [Open request 13](../../plans/hitit-open-requests.md) asks for a total.
 - With the sort Newest, Releases groups the singles of one artist by the window of ADR 0086. With the sort A to Z, it uses the group of ADR 0084 Decision 6.
 
 ### 6. A Row Keeps One Main Action
@@ -132,7 +132,7 @@ The right side holds the panel of R-SHELL-1 item 5, only while something plays o
 - Play stays on the current page and opens the panel. It does not move to the Show page.
 - The curator can expand and collapse the panel.
 
-ADR 0068 decides the audio route of Play. Its [revision of 2026-11-11](0068-show-cue-and-audition-isolation.md#revision-for-the-adr-0089-shell---2026-11-11) gives the panel a Show part and an Audition part.
+ADR 0068 decides the audio route of Play. Its [revision of 2026-11-11](../0068-show-cue-and-audition-isolation.md#revision-for-the-adr-0089-shell---2026-11-11) gives the panel a Show part and an Audition part.
 
 ### 8. Inspect Sources Is A Sheet
 
@@ -178,14 +178,14 @@ The stored contract, version 0.18.1, gives these sources:
 The operator accepted each recommendation:
 
 1. **The breadcrumb goes.** A stack page has one title and Back.
-2. **ADR 0068 comes first for the panel.** [ADR 0068](0068-show-cue-and-audition-isolation.md) is Proposed. It reserves Music playback for audition, and audition never sets now-playing state. The operator decides it before the panel packet.
+2. **ADR 0068 comes first for the panel.** [ADR 0068](../0068-show-cue-and-audition-isolation.md) is Proposed. It reserves Music playback for audition, and audition never sets now-playing state. The operator decides it before the panel packet.
 3. **The Inbox lists each track that a show cannot use.** The "Keep the Library ready" job needs the full list. The tracks of the show playlist come first. The mockup lists only the tracks that block the show playlist.
 4. **Releases uses two groups.** The window group of ADR 0086 applies with the sort Newest, and the group of ADR 0084 Decision 6 applies with the sort A to Z. The mockup uses only Decision 6.
 5. **All shows no count.** The Index gives no total. In Library shows its count, and open request 13 asks for a total.
 
 ## Amendment - 2026-11-08: The Stored Curator Order
 
-This amendment applies an operator answer. musicindex ADR 0053 R-LIST-9 gives a playlist that a person curates the sorts Curator Order, A to Z and Newest. Curator Order is the default. On 2026-11-08 the operator chose that the curator sets this sequence. The orchestrator session relayed the answer (answer 7 of the [phase plan](../plans/musicindex-adr-0053-list-controls-phase-plan.md)).
+This amendment applies an operator answer. musicindex ADR 0053 R-LIST-9 gives a playlist that a person curates the sorts Curator Order, A to Z and Newest. Curator Order is the default. On 2026-11-08 the operator chose that the curator sets this sequence. The orchestrator session relayed the answer (answer 7 of the [phase plan](../../plans/musicindex-adr-0053-list-controls-phase-plan.md)).
 
 1. **The sequence is stored.** The table `playlists` gets the column `position`. The migration of schema 24 fills it from the name sequence of today, so no playlist moves. The migration registry of ADR 0016 owns the change.
 2. **A new playlist goes last.** It gets the next free position.

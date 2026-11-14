@@ -12,14 +12,14 @@ The Releases tab and the Tracks tab get the selection model, the selection mode 
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md):
+- [ADR 0084](../adr/archive/0084-music-column-browser.md):
   - Decision 2: search is a toolbar command. Its results fill the list column, and a result opens in the detail column.
   - Decision 4: one page for each item. A Library row and an Index row of one item open the same page.
   - Decision 5: the curator sees "Release" in place of "Feed", and each release shows its kind.
   - Decision 8: search shows everything, with the state word on each Library item. No control shows Index items only.
   - Decision 9: each page change goes into the one navigation stack.
   - Decision 10, amended on 2026-10-19 and on 2026-10-20: the selection model, the two modes, the bar and the download queue.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) Decisions 1, 2 and 7: no interface text calls a feed a "publisher". A level comes from link facts only. The frame title of a feed page comes from its own facts.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) Decisions 1, 2 and 7: no interface text calls a feed a "publisher". A level comes from link facts only. The frame title of a feed page comes from its own facts.
 - [ADR 0047](../adr/0047-library-search-unification.md), as ADR 0084 amends it: the search results are one content surface for both origins.
 - [ADR 0077](../adr/0077-publisher-feed-artist-binding.md) task 006: a name match is a search result, `Tracks matching "<name>"`, not an artist.
 - [ADR 0063](../adr/0063-show-dashboard-layout.md): column text does not call `truncate()`.

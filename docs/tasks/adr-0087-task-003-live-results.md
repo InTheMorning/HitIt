@@ -22,14 +22,14 @@ the restored toolbar text start no live run.
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 4: the pause, the named token,
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 4: the pause, the named token,
   Enter at once and the generation. A text with no runnable content runs nothing. The page updates
   in place, and each run sends at most three Index requests.
 - ADR 0087 invariant "A result of an older run never replaces the result of a newer run".
 - ADR 0087 Decision 3: Enter with a selected row of the field list puts the row into the text. Enter
   with no selected row runs the search.
 - ADR 0087 Decision 6: a saved search keeps its text.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 9: one navigation stack. A search is a
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 9: one navigation stack. A search is a
   page change. A new open of a page shows it at the top.
 - [ADR 0040](../adr/0040-async-vm-runtime.md): screens do not call `cx.spawn`. Only
   `src/presentation/`, `src/runtime/` and `src/app/bootstrap.rs` call it.
@@ -543,7 +543,7 @@ width and at narrow width.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md), packets 001, 002 and 004 and their
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md), packets 001, 002 and 004 and their
   "Implementation Result" sections.
 - `src/view_models/search_query.rs` (packet 001) and `src/view_models/search_results/search_run.rs`
   (packet 002).

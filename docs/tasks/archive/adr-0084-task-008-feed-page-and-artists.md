@@ -9,12 +9,12 @@ The Artists list holds the confirmed artists, the unverified artists and the nam
 
 ## Authority
 
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 1: no interface text names a feed "publisher".
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 2: the three levels. The Artists list shows no level word. Only the artist page shows the level.
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 3: the sections, their sequence and their row text.
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 7: the frame title, and the one use of "Publisher".
-- [ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 4, and [ADR 0082](../../adr/0082-publisher-roles-belong-to-each-album-link.md) Decisions 4 and 5: the header roles and "Shares albums with" stay.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 7: the feed level of the artist page. Decision 4: one page for each item, and the Library is a state. Decision 6: "Albums and EPs" before "Singles". Decision 5: the kind of a release.
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 1: no interface text names a feed "publisher".
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 2: the three levels. The Artists list shows no level word. Only the artist page shows the level.
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 3: the sections, their sequence and their row text.
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 7: the frame title, and the one use of "Publisher".
+- [ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 4, and [ADR 0082](../../adr/0082-publisher-roles-belong-to-each-album-link.md) Decisions 4 and 5: the header roles and "Shares albums with" stay.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 7: the feed level of the artist page. Decision 4: one page for each item, and the Library is a state. Decision 6: "Albums and EPs" before "Singles". Decision 5: the kind of a release.
 - [ADR 0075](../../adr/0075-metadata-contract.md) section 6: the stored contract changes in the same change as its decode.
 - Operator decisions of 2026-10-18:
   - The old packet 008 is two packets. This packet builds the feed level and the Artists list. Packet 017 builds the name level, and replaces the Library artist page by name and the Index name match page.
@@ -127,7 +127,7 @@ Change each string below. Each new string is a named constant in its view model.
 
 ### The frame title
 
-[ADR 0085](../../adr/0085-artists-by-confirmation.md) Decision 7, decided by the operator on 2026-10-18, gives the frame title of a feed page.
+[ADR 0085](../../adr/archive/0085-artists-by-confirmation.md) Decision 7, decided by the operator on 2026-10-18, gives the frame title of a feed page.
 
 - `PublisherPageVm::frame_title()` gives it, from the facts of the page, in the sequence of the Decision 7 table:
   - "Artist" for the levels `Artist` and `UnverifiedArtist`.

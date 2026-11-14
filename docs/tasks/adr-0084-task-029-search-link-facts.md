@@ -10,11 +10,11 @@ A row shows the role words, for example "Label", for a feed with agreed roles wi
 
 ## Authority
 
-- [ADR 0085](../adr/0085-artists-by-confirmation.md):
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md):
   - Decision 1: no interface text names a feed "publisher".
   - Decision 2: the three confirmation levels. The Artists list shows no level word.
   - Decision 7: the frame title of a feed page names its relation, for example "Artist" or "Label". An unknown rank never gives "Publisher".
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 2: search results in the list column. Decision 5: the kind badge of a release.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 2: search results in the list column. Decision 5: the kind badge of a release.
 - [ADR 0075](../adr/0075-metadata-contract.md) section 6: named request profiles, no read for each list row, and the stored contract changes in the same change as the decode.
 - Packet [010](adr-0084-task-010-search-results-list-column.md): decision D5 and the operator answer of 2026-10-20. Publisher rows stay "Feed" until Stophammer request 9 item C gives link facts on search rows.
 - [Open Stophammer requests](../plans/hitit-open-requests.md): request 9 item 3, "Stophammer Answers - 2026-10-21" and "Release 0.13.0 - 2026-10-21". Stophammer ADR 0076 §3 owns the include.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted - 2026-10-18. The operator asked for this decision, answered its open questions and accepted it on 2026-10-18.
+Superseded by ADR 0098 - 2026-11-14. [ADR 0098](../0098-the-music-shell-pages-lists-and-search.md) restates each live rule, and its item map gives the new place of each item. Accepted - 2026-10-18. The operator asked for this decision, answered its open questions and accepted it on 2026-10-18.
 Implementation partial: ADR 0082 task 003 and ADR 0084 task 008 built Decisions 1 to 7. The operator passed their checks on 2026-10-18. The name level of Decision 2 waits for ADR 0084 packet 017.
 
 - Changes: [ADR 0084](0084-music-column-browser.md), Decision 7.
@@ -21,9 +21,9 @@ The operator also accepted the read of Decision 6 for a primary named feed with 
 
 The header badge of a feed page follows R-WORD-3. A role that the two sides agree on has a filled dot. An inferred role, or a role that one side gives, has a hollow dot. A feed with no role has a hollow dot, with the word "Publisher" or "Feed" of Decision 7.
 
-- Changed by: musicindex ADR 0037 R-WORD-7, 2026-11-05, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. [Task 001](../tasks/adr-0085-task-001-type-label-of-known-roles.md) implements this on 2026-11-14.
+- Changed by: musicindex ADR 0037 R-WORD-7, 2026-11-05, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. [Task 001](../../tasks/adr-0085-task-001-type-label-of-known-roles.md) implements this on 2026-11-14.
 
-- Changed by: [musicindex ADR 0066](../../../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md), 2026-11-14, by operator decision. A type label and its dot use only the eight known roles of musicindex ADR 0036 R-ROLE-1 item 1. They ignore each other role word, and the compare ignores capital letters (R-ROLE-3).
+- Changed by: [musicindex ADR 0066](../../../../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md), 2026-11-14, by operator decision. A type label and its dot use only the eight known roles of musicindex ADR 0036 R-ROLE-1 item 1. They ignore each other role word, and the compare ignores capital letters (R-ROLE-3).
   A feed with only unknown role words has no role (R-ROLE-4). The one dot has the color and the fill of the first role in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8). Inspect sources shows each role word as RSS text (R-ROLE-5). Task 001 implements this on 2026-11-14.
 
 - Changed by: musicindex ADR 0066 R-ROLE-6 (commit `06f5fde`), 2026-11-14, an advisory decision of the orchestrator. Each interface text that names the roles of a feed uses only the known roles, in the R-ROLE-1 sequence. The "Roles" fact joins them with ", ", and the "As <roles>" heading of Decision 3 joins them with "and". A text that only lists the roles does not show when no known role stays.
@@ -38,9 +38,9 @@ In the scope All, each group loads its own pages of 200 rows, and the stated gro
 One part of R-SITE-15 is not applied. The heading of a capped group gives its count only after each row of the group is loaded.
 The tests that name ADR 0057 in `src/view_models/artist_groups.rs` and `src/application/queries/name_lists.rs` check the group sequence and the page of each group. The visual check is open.
 
-Built 2026-10-21: [ADR 0084 packet 017](../tasks/adr-0084-task-017-name-level-artist-page.md) builds the name level page with the level word "Name only". Its visual check is open.
+Built 2026-10-21: [ADR 0084 packet 017](../../tasks/adr-0084-task-017-name-level-artist-page.md) builds the name level page with the level word "Name only". Its visual check is open.
 
-It supersedes [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) Decisions 1, 2, 3 and 6.
+It supersedes [ADR 0082](../0082-publisher-roles-belong-to-each-album-link.md) Decisions 1, 2, 3 and 6.
 ADR 0082 Decisions 4 and 5 stay.
 It amends [ADR 0084](0084-music-column-browser.md) Decision 7: the publisher level becomes the feed level, and Decisions 5 and 6 of this ADR replace the "Publisher" link of the release page.
 
@@ -51,12 +51,12 @@ ADR 0077 keys an artist page on the feed GUID that an album names with `podcast:
 On 2026-10-18 the operator inspected ADR 0082 packet 002 on the HeyCitizen page. The operator found three problems:
 
 - The word "publisher" has more than one meaning. A curator can read it as a record label, a podcast host or a company. The interface must not show it as the name of a feed.
-- A small number of feeds state `rel`. On 2026-10-02 the MusicIndex site counted 6 feeds with a stated `rel` ([site ADR 0011](../../../musicindex/docs/adr/0011-search-site-reads-rel-as-pr-793-gives.md)). Thus almost all pages show "Role not stated", and the role structure is mostly empty.
+- A small number of feeds state `rel`. On 2026-10-02 the MusicIndex site counted 6 feeds with a stated `rel` ([site ADR 0011](../../../../musicindex/docs/adr/0011-search-site-reads-rel-as-pr-793-gives.md)). Thus almost all pages show "Role not stated", and the role structure is mostly empty.
 - A "Publisher of" group with a role caption and a role line on each row states one fact three times.
 
 The operator wants the interface to show artists, confirmed and unverified, until more feeds state `rel`. Labels and other roles appear when feeds state them.
 
-[ADR 0075](0075-metadata-contract.md) Decision I stays: the app never derives a role from a count or a name match.
+[ADR 0075](../0075-metadata-contract.md) Decision I stays: the app never derives a role from a count or a name match.
 
 An album can name more than one feed. The orchestrator recorded these facts on 2026-10-18:
 

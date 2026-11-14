@@ -5,7 +5,7 @@
 Implemented - 2026-11-06. Visual checks are open.
 
 This task is packet 002 of the [ADR 0090 phase plan](../plans/adr-0090-list-bar-phase-plan.md).
-It implements Decision 5 of [ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) on the
+It implements Decision 5 of [ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md) on the
 two group pages of packet 001.
 
 ## Goal

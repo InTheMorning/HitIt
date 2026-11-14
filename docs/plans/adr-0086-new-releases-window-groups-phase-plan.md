@@ -3,7 +3,7 @@
 ## Status
 
 Active - 2026-10-23. This plan is advisory. It states no rule.
-[ADR 0086](../adr/0086-new-releases-singles-window.md) owns the rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23) owns the order of this plan among the other phases.
+[ADR 0086](../adr/archive/0086-new-releases-singles-window.md) owns the rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23) owns the order of this plan among the other phases.
 
 The operator accepted ADR 0086 on 2026-10-23.
 

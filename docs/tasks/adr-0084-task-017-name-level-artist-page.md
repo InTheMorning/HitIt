@@ -16,12 +16,12 @@ The Haleen feed page thus lists its feed releases, then the name-only releases o
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 7: the name level, the label "Releases that name <name>", the note that a name is not an identity, and no merge with a feed page. It replaces the Library artist page by name and the Index name match page.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 7: the name level, the label "Releases that name <name>", the note that a name is not an identity, and no merge with a feed page. It replaces the Library artist page by name and the Index name match page.
   - The amendment of 2026-10-20 adds two rules. The key of a name is its sort key. A name that matches exactly one artist feed shows on that feed page in a section "Matched by name". It has no name level page and no row of its own.
 - ADR 0084 Decision 4: one page for each item, and the Library is a state. Decision 6: "Albums and EPs" before "Singles". Decision 5: the kind of a release.
 - ADR 0084 Decision 9: one navigation stack, and a breadcrumb that holds a page one time at most. Decision 10: the selection model of each list of releases.
 - ADR 0084 Decision 12: the name level gives no image. Its art is the logo mosaic, or the entity color.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) Decision 2: the level "Name only" is the name level. Decision 1: no interface text names a feed "publisher". Decision 6: the rule that selects the name level for a Library release.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) Decision 2: the level "Name only" is the name level. Decision 1: no interface text names a feed "publisher". Decision 6: the rule that selects the name level for a Library release.
 - [ADR 0075](../adr/0075-metadata-contract.md) section 6: the stored contract changes in the same change as its decode.
 - [ADR 0016](../adr/README.md): no schema change in this packet.
 - The phase plan row of packet 017 and its note: "The 'Haleen · by name' row says 3 releases, and its page shows 6". The operator decided on 2026-10-18 that this defect waits for packet 017. The operator chose the fix on 2026-10-20: the feed page holds all (decision D1).

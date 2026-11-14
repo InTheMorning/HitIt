@@ -10,7 +10,7 @@ The operator can delete a saved search. Migration 21 stores the saved searches.
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md):
+- [ADR 0084](../adr/archive/0084-music-column-browser.md):
   - Decision 2: saved searches are views in the Discover column.
   - Decision 3: each saved search is a view after "New releases". A saved search runs its query against the Library and the Index.
   - Decision 9: each page change goes into the one navigation stack. The breadcrumb shows the location.

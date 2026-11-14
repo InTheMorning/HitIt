@@ -34,11 +34,11 @@ visual style of the list stays the same. The visual overhaul (Phase 7) owns the 
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 3: "Each row gives one field,
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 3: "Each row gives one field,
   its values and one example". "A shared composite under `src/ui/composites` draws the list".
 - ADR 0076 Decision 8, as `src/ui/composites/confirmation_dialog.rs:138-147` restates it: an item
   in a scrolling column carries `flex_shrink_0()`, so that it keeps its own height.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 1: the guard
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 1: the guard
   `adr_0084_columns_list_rows_do_not_shrink_in_a_scrolling_column`
   (`tests/architecture_tests.rs:21878-21890`) holds the same rule for `ListRow`. Its incident is
   from 2026-10-12.
@@ -247,7 +247,7 @@ Each criterion is visual. Only a person can examine it in the running app. No te
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 3.
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 3.
 - [Packet 004](adr-0087-task-004-field-list.md), [packet 005](adr-0087-task-005-field-list-values.md)
   and [packet 008](archive/adr-0087-task-008-field-list-stays-open.md).
 - `src/ui/composites/search_field_list.rs`.

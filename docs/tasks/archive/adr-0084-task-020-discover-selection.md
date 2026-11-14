@@ -9,7 +9,7 @@ A tile shows its checkbox at the top-left corner of its cover. The bar downloads
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-19 and on 2026-10-20: the selection model, the two modes, the bar and the download queue.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 10, amended on 2026-10-19 and on 2026-10-20: the selection model, the two modes, the bar and the download queue.
 - [ADR 0083](../../adr/0083-design-language.md) Decisions 4 and 6: artwork leads, and a row shows its state at all times.
 - The archived packets [018](adr-0084-task-018-detail-column-selection.md) and [019](adr-0084-task-019-selection-mode.md), and packet [022](../adr-0084-task-022-download-queue.md).
 - Operator decisions of 2026-10-20: a tile shows its checkbox at the top-left corner of its cover, with a backing so that it reads on each cover. A selected tile also gets an outline. A plain click in selection mode toggles the tile.

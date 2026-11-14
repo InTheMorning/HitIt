@@ -11,7 +11,7 @@ Accepted - 2026-11-13. The operator selected the narrowest width and the text sy
 These facts about HitIt and gpui-pre 0.3.1 control the design:
 
 - No HitIt ADR stated a narrowest width. The window set no minimum size in `src/app/bootstrap.rs`.
-- Below `SHELL_TAB_BAR_BREAKPOINT` (940 px, `src/ui/layouts.rs`) the tab bar replaces the sidebar ([ADR 0089](0089-the-shell-destinations-and-list-pages.md) Decision 1). Thus 940 px is the first width with the sidebar.
+- Below `SHELL_TAB_BAR_BREAKPOINT` (940 px, `src/ui/layouts.rs`) the tab bar replaces the sidebar ([ADR 0089](archive/0089-the-shell-destinations-and-list-pages.md) Decision 1). Thus 940 px is the first width with the sidebar.
 - A GPUI test uses `NoopTextSystem`. Each character is 0.6 em wide, and the test does not use Figtree. `TestAppContext::build` always makes this text system, and `App::new_app` is not public. Thus a test cannot find the correct width of a label.
 - A GPUI test can read the bounds of an element only through its `debug_selector`. GPUI gives a test no walk of all elements.
 - GPUI gives the wrap boundaries of a text through `TextLayout::line_layouts`. During prepaint and paint, `Window::content_mask` gives the area that the window, the panels and the scroll areas let the element show.

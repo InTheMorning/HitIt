@@ -18,11 +18,11 @@ This packet starts after packets 002, 003 and 004 are complete.
 
 ## Authority
 
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decision 6: the saved search views of Discover make window groups with the same key and window as New releases. A relevance order never closes a window. A saved search groups only its loaded rows and loads no extra page for a window. Each group that a later page can change shows the "+" of Decision 5. The group tile takes the place of its anchor single in the relevance order.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decision 6: the saved search views of Discover make window groups with the same key and window as New releases. A relevance order never closes a window. A saved search groups only its loaded rows and loads no extra page for a window. Each group that a later page can change shows the "+" of Decision 5. The group tile takes the place of its anchor single in the relevance order.
 - ADR 0086 Decision 1: the window group, its key, and the release date of each kind of single. A single with no release date joins no group.
 - ADR 0086 Decision 3: the facts of a group row. ADR 0086 Decision 4: the window group page and the group checkbox.
 - ADR 0086 "Operator Answers - 2026-10-23", answers 1 and 2: a saved search groups only its loaded rows, and a Library single takes the latest `pub_date` of its tracks.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 2: the saved searches are views of the Discover column. Decision 3: a saved search runs its query against the Library and the Index. Decision 8: the state words "New" and "In library".
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 2: the saved searches are views of the Discover column. Decision 3: a saved search runs its query against the Library and the Index. Decision 8: the state words "New" and "In library".
 - [Packet 002](adr-0086-task-002-new-releases-window-groups.md): the chain, the tile view model and "Names For Later Packets".
 - Packet 003: the "+" of an open group. Packet 004: the window group page and the group checkbox.
 - [ADR 0084 packet 012](adr-0084-task-012-saved-searches.md): the saved search page. ADR 0084 packet 010: the merge of the Library rows and the Index rows.
@@ -295,7 +295,7 @@ These are for the operator. No test proves them.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md), the rust-dev skill and [the source map](../architecture/source-map.md).
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decisions 1, 3, 4, 5 and 6, and ADR 0084 Decisions 2, 3 and 8.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decisions 1, 3, 4, 5 and 6, and ADR 0084 Decisions 2, 3 and 8.
 - Packets 002, 003 and 004 of ADR 0086, with their "Implementation Result" sections.
 - ADR 0084 packets 010 and 012.
 - `src/view_models/window_groups.rs` (from packet 002).

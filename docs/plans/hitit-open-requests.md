@@ -314,7 +314,7 @@ musicindex.org will also send these filters. On 2026-10-24 the operator decided 
 
 | Data | Path |
 | --- | --- |
-| The query text, the fields and the live results | `../HitIt/docs/adr/0087-search-fields-and-live-results.md` |
+| The query text, the fields and the live results | `../HitIt/docs/adr/archive/0087-search-fields-and-live-results.md` |
 | The kind rule of the apps | `../musicindex/docs/adr/0020-cross-app-interface-rules.md`, R-WORD-1 |
 | The search field and the pause of 300 ms | `../musicindex/docs/adr/0026-cross-app-controls-and-feedback.md`, R-SEARCH-1 |
 | A parser of the query text, and the field list | `../musicindex-research/research_notes/ui-design/mockups/kit/search.js` |

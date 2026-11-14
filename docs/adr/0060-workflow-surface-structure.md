@@ -4,9 +4,9 @@
 
 Accepted - 2026-09-07.
 
-- Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05: one sidebar replaces the three section tabs, and the Search destination holds the saved searches. The now-playing panel shows while something plays. The invariants below state the result. The sections below them record the earlier design where they differ. The app keeps the earlier behavior until the packets of ADR 0089 land.
+- Changed by: [ADR 0089](archive/0089-the-shell-destinations-and-list-pages.md), 2026-11-05: one sidebar replaces the three section tabs, and the Search destination holds the saved searches. The now-playing panel shows while something plays. The invariants below state the result. The sections below them record the earlier design where they differ. The app keeps the earlier behavior until the packets of ADR 0089 land. [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0089.
 
-- Changed by: [ADR 0084](0084-music-column-browser.md), 2026-10-08: the Vocabulary adds "Release". The curator sees "Release" for a feed of music, in place of "Album" and "Feed", and each release shows its kind. The scope control has two states, "Library" and "Everything".
+- Changed by: [ADR 0084](archive/0084-music-column-browser.md), 2026-10-08: the Vocabulary adds "Release". The curator sees "Release" for a feed of music, in place of "Album" and "Feed", and each release shows its kind. The scope control has two states, "Library" and "Everything". [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0084.
 
 - Changed by: [ADR 0063](0063-show-dashboard-layout.md), 2026-09-13: ADR 0063 says how the sections in `Show` are arranged.
 

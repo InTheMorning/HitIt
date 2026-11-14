@@ -1,10 +1,10 @@
 # ADR 0084 Review Checklist
 
-This checklist is advisory. It states no rule. [ADR 0084](../adr/0084-music-column-browser.md) owns the rules.
+This checklist is advisory. It states no rule. [ADR 0084](../adr/archive/0084-music-column-browser.md) owns the rules.
 
 ## Reviewed Artifact
 
-- ADR: `docs/adr/0084-music-column-browser.md`
+- ADR: `docs/adr/archive/0084-music-column-browser.md`
 - Plan: `docs/plans/adr-0084-music-column-browser-phase-plan.md`
 - Task: `docs/tasks/archive/adr-0084-task-001-one-navigation-stack.md`
 - Task: `docs/tasks/archive/adr-0084-task-002-one-release-route.md`

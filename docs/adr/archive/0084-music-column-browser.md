@@ -2,21 +2,21 @@
 
 ## Status
 
-Accepted - 2026-10-08. The operator accepted this text on 2026-10-08. The operator made each choice below on 2026-10-08, in Phase 4A of the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md#phase-4a-flow-and-information-architecture). The choices come from the [Music flow map](../architecture/music-flow-map.md) and a private prototype canvas.
+Superseded by ADR 0098 - 2026-11-14. [ADR 0098](../0098-the-music-shell-pages-lists-and-search.md) restates each live rule, and its item map gives the new place of each item. Accepted - 2026-10-08. The operator accepted this text on 2026-10-08. The operator made each choice below on 2026-10-08, in Phase 4A of the [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md#phase-4a-flow-and-information-architecture). The choices come from the [Music flow map](../../architecture/music-flow-map.md) and a private prototype canvas.
 
-- Changes: [ADR 0046](0046-workspace-frame-architecture.md), the Music frames.
-- Changes: [ADR 0047](0047-library-search-unification.md), items 1, 5 and 9.
-- Changes: [ADR 0049](0049-inspector-source-ownership.md), the Library source tree and the route for each origin (Decision 4).
-- Changes: [ADR 0060](0060-workflow-surface-structure.md), the Vocabulary and the scope control.
-- Changes: [ADR 0062](0062-music-content-surface.md), the scope control and the source tree.
-- Changes: [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md), the sequence of the groups of Decision 2 and the publisher page (Decisions 6 and 7).
-- Changes: [ADR 0083](0083-design-language.md), Decisions 4, 5, 6 and 9.
+- Changes: [ADR 0046](../0046-workspace-frame-architecture.md), the Music frames.
+- Changes: [ADR 0047](../0047-library-search-unification.md), items 1, 5 and 9.
+- Changes: [ADR 0049](../0049-inspector-source-ownership.md), the Library source tree and the route for each origin (Decision 4).
+- Changes: [ADR 0060](../0060-workflow-surface-structure.md), the Vocabulary and the scope control.
+- Changes: [ADR 0062](../0062-music-content-surface.md), the scope control and the source tree.
+- Changes: [ADR 0082](../0082-publisher-roles-belong-to-each-album-link.md), the sequence of the groups of Decision 2 and the publisher page (Decisions 6 and 7).
+- Changes: [ADR 0083](../0083-design-language.md), Decisions 4, 5, 6 and 9.
 
 Amended 2026-10-19: the operator found the hidden checkboxes unclear and asked for the selection mode of Apple Photos, Files and Mail. Decision 10 now gives a "Select" button and a selection mode.
 
 - Changed by: [ADR 0090](0090-one-list-bar-above-the-rows.md), 2026-11-06. ADR 0090 replaces the position of "Select", "Done" and the action bar in Decision 10. The rest of Decision 10 stays.
 
-- Changed by: musicindex ADR 0027 R-SHELL-1, 2026-10-25, by operator decision. R-SHELL-1 replaces Decision 1. The shell is a stack: a list is a page at full width, and an item opens over it. Its numbers are musicindex numbers. A new v4vmm ADR records the destinations, the start page and the scopes of the [research request](../plans/research-ui-shell-and-search-request.md), which change Decisions 2, 3 and 8.
+- Changed by: musicindex ADR 0027 R-SHELL-1, 2026-10-25, by operator decision. R-SHELL-1 replaces Decision 1. The shell is a stack: a list is a page at full width, and an item opens over it. Its numbers are musicindex numbers. A new v4vmm ADR records the destinations, the start page and the scopes of the [research request](../../plans/research-ui-shell-and-search-request.md), which change Decisions 2, 3 and 8.
 
 - Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05: ADR 0089 supersedes Decisions 2, 3 and 8. The location breadcrumb of Decision 9 goes. The other decisions stay. The app keeps the replaced behavior until the packets of ADR 0089 land.
 
@@ -28,13 +28,13 @@ The first draft left three points open. The operator decided them on the same da
 
 It amends these decisions:
 
-- [ADR 0046](0046-workspace-frame-architecture.md): the Music frames are the three columns of Decision 1, with one navigation stack (Decision 9).
-- [ADR 0047](0047-library-search-unification.md) items 1, 5 and 9: the source list holds destinations, the scope control has two states, and saved searches move (Decision 2).
-- [ADR 0049](0049-inspector-source-ownership.md): the Library source tree and the drill-down route for each origin go. Each item has one page (Decision 4).
-- [ADR 0060](0060-workflow-surface-structure.md) Vocabulary: the curator sees "Release" (Decision 5).
-- [ADR 0062](0062-music-content-surface.md): the scope control has two states, and the source tree goes. Recency order and paging stay.
-- [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) Decision 2: each group of a publisher page divides its releases by kind (Decision 6).
-- [ADR 0083](0083-design-language.md): Decision 9 is superseded by Decision 3 of this ADR. Decisions 4, 5 and 6 gain the additions of Decisions 12, 5 and 10.
+- [ADR 0046](../0046-workspace-frame-architecture.md): the Music frames are the three columns of Decision 1, with one navigation stack (Decision 9).
+- [ADR 0047](../0047-library-search-unification.md) items 1, 5 and 9: the source list holds destinations, the scope control has two states, and saved searches move (Decision 2).
+- [ADR 0049](../0049-inspector-source-ownership.md): the Library source tree and the drill-down route for each origin go. Each item has one page (Decision 4).
+- [ADR 0060](../0060-workflow-surface-structure.md) Vocabulary: the curator sees "Release" (Decision 5).
+- [ADR 0062](../0062-music-content-surface.md): the scope control has two states, and the source tree goes. Recency order and paging stay.
+- [ADR 0082](../0082-publisher-roles-belong-to-each-album-link.md) Decision 2: each group of a publisher page divides its releases by kind (Decision 6).
+- [ADR 0083](../0083-design-language.md): Decision 9 is superseded by Decision 3 of this ADR. Decisions 4, 5 and 6 gain the additions of Decisions 12, 5 and 10.
 
 - Changed by: [ADR 0087](0087-search-fields-and-live-results.md), 2026-10-23: in Decision 2, the toolbar search field shows a field list, reads fields in the query text and shows results while the curator types. In Decision 3, a saved search runs its fields.
 
@@ -44,17 +44,17 @@ It amends these decisions:
 
 Amended 2026-10-20: the operator decided the download rules of the action bar. Decision 10 now gives one download queue and a progress item. The operator also decided that an image that an artist feed gives replaces the logo mosaic (Decision 12). The name level uses the sort key of a name (Decision 7). A feed page lists the releases that match its name (Decision 7).
 
-Amended 2026-10-22 by operator decision: in Decision 6, a name that matches exactly one artist feed has no group. Its singles join the group of that feed. [Task 032](../tasks/adr-0084-task-032-singles-group-rows.md) builds it.
+Amended 2026-10-22 by operator decision: in Decision 6, a name that matches exactly one artist feed has no group. Its singles join the group of that feed. [Task 032](../../tasks/adr-0084-task-032-singles-group-rows.md) builds it.
 
-- Revised: 2026-10-24 by operator decision: Decision 10 owns the host rule of the download queue. It spaces the RSS requests to one host and waits after HTTP 429. ADR 0058 leaves this host policy unowned. [Task 039](../tasks/adr-0084-task-039-download-queue-host-limit.md) builds it.
+- Revised: 2026-10-24 by operator decision: Decision 10 owns the host rule of the download queue. It spaces the RSS requests to one host and waits after HTTP 429. ADR 0058 leaves this host policy unowned. [Task 039](../../tasks/adr-0084-task-039-download-queue-host-limit.md) builds it.
 
-Amended 2026-10-21 by operator decision: in Decision 9, Back and Forward show a page at its scroll position of that history entry. A new open shows a page at the top. [Task 030](../tasks/adr-0084-task-030-music-open-defects.md) builds it.
+Amended 2026-10-21 by operator decision: in Decision 9, Back and Forward show a page at its scroll position of that history entry. A new open shows a page at the top. [Task 030](../../tasks/adr-0084-task-030-music-open-defects.md) builds it.
 
-Amended 2026-10-17 by operator decision: Decision 1 adds a visible scrollbar to each Music column that scrolls. [Task 014](../tasks/archive/adr-0084-task-014-music-column-scrollbars.md) builds it.
+Amended 2026-10-17 by operator decision: Decision 1 adds a visible scrollbar to each Music column that scrolls. [Task 014](../../tasks/archive/adr-0084-task-014-music-column-scrollbars.md) builds it.
 
 ## Context
 
-The operator found the Music flow scattered and hard to learn on 2026-10-08. The [Music flow map](../architecture/music-flow-map.md) records seven structural findings in the code:
+The operator found the Music flow scattered and hard to learn on 2026-10-08. The [Music flow map](../../architecture/music-flow-map.md) records seven structural findings in the code:
 
 1. Two navigation stacks drive one content area. A path that starts in the sidebar shows no Back, no Forward and no breadcrumb.
 2. A Library track row in the content list does nothing when clicked. An Index row opens the Index album page.
@@ -66,7 +66,7 @@ The operator found the Music flow scattered and hard to learn on 2026-10-08. The
 
 The same album has a Library page and an Index page with different routes. "Artist" has three page types: the Library artist page by name, the Index name match page, and the publisher page.
 
-The operator set four curator jobs for the structure: find new music, take music in, build a show playlist, and keep the Library ready. The operator added two constraints. Multiple selection with one download action is essential. An audition player with its own audio route comes later ([ADR 0068](0068-show-cue-and-audition-isolation.md)).
+The operator set four curator jobs for the structure: find new music, take music in, build a show playlist, and keep the Library ready. The operator added two constraints. Multiple selection with one download action is essential. An audition player with its own audio route comes later ([ADR 0068](../0068-show-cue-and-audition-isolation.md)).
 
 The operator compared three clickable structures and chose the column browser. The operator then asked for the changes that Decisions 1, 3, 5, 6, 8 and 12 record.
 
@@ -86,7 +86,7 @@ The Music section shows three columns:
 
 One shared shell owns the three columns. At a narrow width the sidebar collapses to icons. Each icon has a tooltip and an accessibility label. A destination with items that need attention shows a mark on its icon. Its tooltip and its accessibility label give the count, so the mark never relies on color alone. The operator can collapse and expand the sidebar at any width.
 
-Each column that can scroll shows a vertical scrollbar. A person can drag it, so a column scrolls without a mouse wheel or a touchpad. The scrollbar keeps the shared scrollbar gutter of [ADR 0063](0063-show-dashboard-layout.md), so it covers no content. The operator decided this on 2026-10-17.
+Each column that can scroll shows a vertical scrollbar. A person can drag it, so a column scrolls without a mouse wheel or a touchpad. The scrollbar keeps the shared scrollbar gutter of [ADR 0063](../0063-show-dashboard-layout.md), so it covers no content. The operator decided this on 2026-10-17.
 
 ### 2. The Destinations
 
@@ -101,9 +101,9 @@ The sidebar lists these destinations, in this order:
 5. **Needs attention**: the tracks that a show cannot use as they are, with a count. Music reaches this list without Show (flow map finding 5).
 6. **Playlists**.
 
-Search stays a toolbar command ([ADR 0060](0060-workflow-surface-structure.md)). Its results fill the list column, and a result opens in the detail column.
+Search stays a toolbar command ([ADR 0060](../0060-workflow-surface-structure.md)). Its results fill the list column, and a result opens in the detail column.
 
-The feed state and "Check all feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](0083-design-language.md) Decision 7 takes them.
+The feed state and "Check all feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](../0083-design-language.md) Decision 7 takes them.
 
 Saved searches are views in the Discover column (Decision 3). The operator decided this on 2026-10-08.
 
@@ -111,7 +111,7 @@ Saved searches are views in the Discover column (Decision 3). The operator decid
 
 - Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05. ADR 0089 replaces this decision. The text below records the replaced decision.
 
-Discover is the first destination and the default when Music opens. Its list column holds views. The first view is "New releases": the Index releases, newest first, as tiles or rows, with the recency order and the paging of [ADR 0062](0062-music-content-surface.md).
+Discover is the first destination and the default when Music opens. Its list column holds views. The first view is "New releases": the Index releases, newest first, as tiles or rows, with the recency order and the paging of [ADR 0062](../0062-music-content-surface.md).
 
 Each saved search is a view after "New releases", for example "Saved: bluegrass". A saved search runs its query against the Library and the Index.
 
@@ -130,13 +130,13 @@ Each release, track, artist and playlist has one page, whatever its origin. The 
 | Artist | Decision 7 |
 | Playlist | Its local id |
 
-A page shows its Library state with a word, for example "In Library", "3 of 7 tracks" or "Not downloaded". Its actions follow that state ([ADR 0083](0083-design-language.md) Decision 5).
+A page shows its Library state with a word, for example "In Library", "3 of 7 tracks" or "Not downloaded". Its actions follow that state ([ADR 0083](../0083-design-language.md) Decision 5).
 
 This replaces the drill-down route for each origin of ADR 0049. A click on a Library row and a click on an Index row open the same page.
 
 ### 5. A Release Has A Kind
 
-The curator sees "Release" for a feed of music, in place of "Album" and "Feed". Many releases are singles. Internal names do not change ([ADR 0060](0060-workflow-surface-structure.md) Vocabulary).
+The curator sees "Release" for a feed of music, in place of "Album" and "Feed". Many releases are singles. Internal names do not change ([ADR 0060](../0060-workflow-surface-structure.md) Vocabulary).
 
 Each release shows its kind: Album, EP or Single. Labels that name a release use its kind, for example "Download single".
 
@@ -149,7 +149,7 @@ In the Releases list, two or more singles of one artist in the current scope sho
 - The row opens in place to show each single. Its checkbox selects each single of the group.
 - The group page lists the singles, newest first. Its main action is "Download n singles" when some are not in the Library, else "Add to playlist".
 - A single page links to its group, for example "All 7 singles".
-- On an artist page, inside each group of [ADR 0082](0082-publisher-roles-belong-to-each-album-link.md) Decision 2, "Albums and EPs" come before "Singles".
+- On an artist page, inside each group of [ADR 0082](../0082-publisher-roles-belong-to-each-album-link.md) Decision 2, "Albums and EPs" come before "Singles".
 
 The group key is the artist identity of Decision 7. Two artists with the same name never share a group.
 
@@ -159,7 +159,7 @@ A name that matches exactly one artist feed has no group of its own. Its singles
 
 An artist page has one layout and one of two identities. The page says which identity it has.
 
-- **Feed level.** The page of a feed that albums name, keyed by its feed GUID ([ADR 0077](0077-publisher-feed-artist-binding.md) Decision 1). It shows the feed title, its confirmation level and the releases of [ADR 0085](0085-artists-by-confirmation.md) Decisions 2 to 4.
+- **Feed level.** The page of a feed that albums name, keyed by its feed GUID ([ADR 0077](../0077-publisher-feed-artist-binding.md) Decision 1). It shows the feed title, its confirmation level and the releases of [ADR 0085](0085-artists-by-confirmation.md) Decisions 2 to 4.
 - **Name level.** A labeled grouping of the releases that name an artist text and name no publisher feed, for example "Releases that name Ledbetter". The page says that a name is not an identity. A name level page never merges with a publisher page. The "Matched by name" rule below lists such releases on a feed page, marked as inferred.
   The key of a name is its sort key, as Stophammer ADR 0070 gives it: white space collapsed and lowercase. Two names that differ only in case or white space are one name. The operator decided this on 2026-10-20.
 - **Matched by name.** A name can match exactly one artist feed. Then the feed page also lists the releases of that name, in a section "Matched by name". The section says that the relationship is inferred from the name.
@@ -175,7 +175,7 @@ This replaces the Library artist page by name and the Index name match page.
 
 Releases and Artists have one scope control with two states: "Library" and "Everything". "Everything" adds the Index items, and each Library item keeps its state word. Tracks has no scope control and shows the Library only. Discover and search show everything, with the state word on each Library item.
 
-This replaces the three-state control of [ADR 0062](0062-music-content-surface.md). No control shows Index items only.
+This replaces the three-state control of [ADR 0062](../0062-music-content-surface.md). No control shows Index items only.
 
 ### 9. One Navigation Stack And A Location Breadcrumb
 
@@ -187,7 +187,7 @@ The Music content area has one navigation stack. Each page change goes into it: 
 - A sidebar click starts a new path.
 - Back and Forward show a page at the scroll position that it had in that history entry. A new open of a page, by a sidebar click, a row, a link or a search, shows the page at the top. The operator decided this on 2026-10-21.
 
-No screen keeps a second navigation stack or a breadcrumb of its own. This completes [ADR 0046](0046-workspace-frame-architecture.md) Invariant 2 for Music.
+No screen keeps a second navigation stack or a breadcrumb of its own. This completes [ADR 0046](../0046-workspace-frame-architecture.md) Invariant 2 for Music.
 
 ### 10. Multiple Selection Is One Shared Behavior
 
@@ -220,7 +220,7 @@ The operator decided these host rules of the download queue on 2026-10-24. They 
 
 ### 11. Each Track Row Keeps A Place For Audition
 
-Each track row and each release page keep a position for an audition control. The audition player of [ADR 0068](0068-show-cue-and-audition-isolation.md) fills it. Until then, no control shows in that position: a control that cannot act is absent.
+Each track row and each release page keep a position for an audition control. The audition player of [ADR 0068](../0068-show-cue-and-audition-isolation.md) fills it. Until then, no control shows in that position: a control that cannot act is absent.
 
 ### 12. The Logo Frames A Collection
 

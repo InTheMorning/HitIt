@@ -9,7 +9,7 @@ The list column has two modes. In normal mode, rows show no checkbox and keep no
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-19: normal mode, selection mode, the "Select" and "Done" button, and the action bar with "Select items".
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 10, amended on 2026-10-19: normal mode, selection mode, the "Select" and "Done" button, and the action bar with "Select items".
 - [Packet 009](adr-0084-task-009-list-selection-and-action-bar.md): the selection model, the rows with members, the checkbox, the keys and the action bar. This packet keeps each of them.
 - The operator decided the design on 2026-10-19, on the model of Apple Photos, Files and Mail. Ctrl+click, Shift+click, Ctrl+A and Space also start selection mode.
 - The durable set in [AGENTS.md](../../../AGENTS.md): typed action state, renderer portability and token discipline.

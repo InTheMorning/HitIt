@@ -19,7 +19,7 @@ Reconciled 2026-09-18: ADR 0066 task 005 delivered session drain and resumption.
 Future isolation packets must integrate both playback owners with that lifecycle.
 The packets of this record are not written yet.
 
-Revised 2026-11-11 for the shell of [ADR 0089](0089-the-shell-destinations-and-list-pages.md).
+Revised 2026-11-11 for the shell of [ADR 0089](archive/0089-the-shell-destinations-and-list-pages.md).
 The section [Revision For The ADR 0089 Shell](#revision-for-the-adr-0089-shell---2026-11-11) changes the text of this record where the two records do not agree.
 The operator accepted each recommendation of that section on 2026-11-11. Implementation has not started.
 

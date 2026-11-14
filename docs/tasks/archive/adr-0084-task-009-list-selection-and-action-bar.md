@@ -9,9 +9,9 @@ The keyboard moves through the rows, keeps the focused row in view, and selects 
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 10: one shared selection model, the checkbox, the click and key rules, and the action bar with "Clear".
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 11: each track row keeps a place for audition. No control shows in it until [ADR 0068](../../adr/0068-show-cue-and-audition-isolation.md), which is Proposed.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 6: the checkbox of a singles group row selects each single of the group.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 10: one shared selection model, the checkbox, the click and key rules, and the action bar with "Clear".
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 11: each track row keeps a place for audition. No control shows in it until [ADR 0068](../../adr/0068-show-cue-and-audition-isolation.md), which is Proposed.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 6: the checkbox of a singles group row selects each single of the group.
 - The platform modifier: "Ctrl" in Decision 10 is Ctrl on Linux and Cmd on macOS. [ADR 0067](../../adr/archive/0067-platform-shortcut-modifiers.md) decided it, and the guard `adr_0067_keyboard_and_menu_share_platform_modifier_resolution` enforces it. Each new binding goes through the shared platform adapter.
 - Operator decisions of 2026-10-18:
   - Packet 009 covers the list column. Packet 018 covers the lists of the detail column.

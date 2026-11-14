@@ -11,8 +11,8 @@ This packet fixes finding 5 of the [Music flow map](../../architecture/music-flo
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 1 (the sidebar, its icons, tooltips, accessibility labels and attention mark) and Decision 2 (the destinations and their order).
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 9: a sidebar click starts a new path, with the destination first.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 1 (the sidebar, its icons, tooltips, accessibility labels and attention mark) and Decision 2 (the destinations and their order).
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 9: a sidebar click starts a new path, with the destination first.
 - The durable set in [AGENTS.md](../../../AGENTS.md): token discipline, typed action state, never rely on color alone, and "Current-view state must update in place".
 
 ## Recorded Facts - 2026-10-12

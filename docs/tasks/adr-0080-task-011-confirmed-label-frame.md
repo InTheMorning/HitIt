@@ -10,7 +10,7 @@ Status: Implemented 2026-11-05. Mechanical checks Green. Operator visual check o
 
 - [ADR 0080](../adr/0080-tag-frames-follow-their-owner.md) Decisions 3, 4 and 12.
 - [ADR 0082](../adr/0082-publisher-roles-belong-to-each-album-link.md): a role belongs to each album link.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md): the confirmation levels. musicindex ADR 0033 R-WORD-3 and R-WORD-4 own the words.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md): the confirmation levels. musicindex ADR 0033 R-WORD-3 and R-WORD-4 own the words.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) Decision I: a MusicBrainz label stays apart.
 
 ## Recorded Facts - 2026-11-04

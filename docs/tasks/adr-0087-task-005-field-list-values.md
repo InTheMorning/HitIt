@@ -30,19 +30,19 @@ the value into the text. A value with whitespace gets double quotes.
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 3: the value rows of
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 3: the value rows of
   `artist:`, `release:` and `playlist:`, the keys, the focus and the view model rule.
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) operator answer 1 of 2026-10-23: the
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) operator answer 1 of 2026-10-23: the
   field list sends one `GET /v1/artist-names?from=` request after each pause, with the Library
   names.
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 4: the pause, the generation
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 4: the pause, the generation
   and the rule that the app drops a result of an older generation.
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) invariants "One parser reads the query
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) invariants "One parser reads the query
   text" and "A Library value goes into SQL only as a bound parameter, with its `LIKE` characters
   escaped".
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) Decision 1: no interface text calls a feed
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) Decision 1: no interface text calls a feed
   "publisher". Decision 2: the confirmation levels of an artist.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 7: the sort key of a name.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 7: the sort key of a name.
 - [ADR 0040](../adr/0040-async-vm-runtime.md): background work runs through the command runner, never through
   `cx.spawn` in a screen.
 - [ADR 0063](../adr/0063-show-dashboard-layout.md): column text does not call `truncate()`.
@@ -553,7 +553,7 @@ and a Library with artists and playlists.
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md) and the [source map](../architecture/source-map.md).
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md), [ADR 0085](../adr/0085-artists-by-confirmation.md)
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md), [ADR 0085](../adr/archive/0085-artists-by-confirmation.md)
   and the [ADR 0087 phase plan](../plans/adr-0087-search-fields-phase-plan.md).
 - Packets 001 to 004 and their "Implementation Result" sections.
 - `src/view_models/search_query.rs`, `src/view_models/search_field_list.rs`,

@@ -3,7 +3,7 @@
 ## Status
 
 Active - 2026-10-23. This plan is advisory. It states no rule.
-[ADR 0087](../adr/0087-search-fields-and-live-results.md) owns the rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23) owns the order of this plan in the other work.
+[ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) owns the rules. The [overhaul plan](design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23) owns the order of this plan in the other work.
 
 The operator accepted ADR 0087 on 2026-10-23. Its packets come after ADR 0086 packet 005 and before ADR 0069 task 002.
 

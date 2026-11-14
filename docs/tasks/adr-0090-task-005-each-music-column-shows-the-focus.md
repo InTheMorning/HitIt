@@ -8,8 +8,8 @@ Each Music column scrolls to show a control that gets the keyboard focus. This i
 
 ## Authority
 
-- [ADR 0090](../adr/0090-one-list-bar-above-the-rows.md) Invariants, bullet 3: "A key that moves the focus to a button in a Music column scrolls the column to show that button, with its focus ring."
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 1: each Music column has its own scrollbar.
+- [ADR 0090](../adr/archive/0090-one-list-bar-above-the-rows.md) Invariants, bullet 3: "A key that moves the focus to a button in a Music column scrolls the column to show that button, with its focus ring."
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 1: each Music column has its own scrollbar.
 - [AGENTS.md](../../AGENTS.md) "Known open defects" lists this fault.
 
 ## Recorded Facts

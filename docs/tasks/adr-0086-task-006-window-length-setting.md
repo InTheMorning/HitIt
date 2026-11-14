@@ -16,7 +16,7 @@ The packet starts after ADR 0069 task 002 and ADR 0086 task 002 are complete. Th
 
 ## Authority
 
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decision 7: the range 1 to 60, the default 14 and no "off" value. It also gives `#[serde(default)]`, the change in the mounted view, the shared guarded editor and the configuration exception.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decision 7: the range 1 to 60, the default 14 and no "off" value. It also gives `#[serde(default)]`, the change in the mounted view, the shared guarded editor and the configuration exception.
 - ADR 0086 Decision 1: the window length controls the chain of each window group.
 - ADR 0086 Decision 6: the saved searches use the same window as New releases.
 - ADR 0086 "Operator Answers - 2026-10-23", answers 3 and 5.
@@ -280,7 +280,7 @@ These are for the operator. No test proves them. Examine each one in Light and i
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md), the rust-dev skill and [the source map](../architecture/source-map.md).
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decisions 1, 6 and 7, and its operator answers.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decisions 1, 6 and 7, and its operator answers.
 - [ADR 0069](../adr/0069-grouped-settings-and-selective-presets.md), [ADR 0069 task 002](adr-0069-task-002-shared-guarded-editor.md) and the [Settings phase plan](../plans/adr-0069-settings-presets-phase-plan.md).
 - [ADR 0066](../adr/0066-configuration-and-startup-failure-recovery.md): "Configuration Reads Have One Snapshot And One Creation Policy" and "Optional Failures Stay Visible And Limit Dependent Actions".
 - [ADR 0086 task 002](adr-0086-task-002-new-releases-window-groups.md): "Names For Later Packets".

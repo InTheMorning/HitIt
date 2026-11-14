@@ -22,7 +22,7 @@ The [run record](../reviews/orchestrated-run-2026-10-24.md) records the failure.
 
 ## Authority
 
-- [ADR 0087](../adr/0087-search-fields-and-live-results.md) Decision 4: after the pause, the search runs
+- [ADR 0087](../adr/archive/0087-search-fields-and-live-results.md) Decision 4: after the pause, the search runs
   against the Library and the Index. Each run has a generation. The app drops a result of an older
   generation.
 - ADR 0087 invariant "A result of an older run never replaces the result of a newer run".

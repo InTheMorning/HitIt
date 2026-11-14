@@ -12,13 +12,13 @@ artist feed's singles group with no page view.
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 6, amended 2026-10-22: a release
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 6, amended 2026-10-22: a release
   with a confirmed named feed joins that feed's singles group.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 7: the feed level of a release comes
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 7: the feed level of a release comes
   from its stored named feeds.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 10: the download queue, its jobs, and
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10: the download queue, its jobs, and
   `present_command` on the ADR 0040 runtime.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 12: the channel image of a named feed,
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 12: the channel image of a named feed,
   read with the same stored rows (packet 024's open finding, below).
 - [ADR 0085](../adr/0085-artists-not-publishers.md) Decisions 5 and 6: a named feed, its RSS
   position, and its confirmation.

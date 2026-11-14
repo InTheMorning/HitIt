@@ -60,7 +60,7 @@ The orchestrator session relayed these operator answers on 2026-11-08:
 |---|---|---|
 | 1 | Reverse from the node | Releases All, Public playlists, Artists All |
 | 2 | The search sorts | The results page and the saved search page: Relevance, A to Z, Newest, and reverse except on Relevance and in the scope All |
-| 3 | A curated list | My playlists: Curator Order, A to Z, Newest, reverse, rows and tiles. The [ADR 0089 amendment of 2026-11-08](../adr/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) stores the Curator Order (schema 24) and adds the drag |
+| 3 | A curated list | My playlists: Curator Order, A to Z, Newest, reverse, rows and tiles. The [ADR 0089 amendment of 2026-11-08](../adr/archive/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) stores the Curator Order (schema 24) and adds the drag |
 | 4 | Group pages | The singles group page and the window group page: Newest, A to Z, reverse, rows and tiles in the list bar |
 | 5 | Track and item order | Release tracks: Feed Order and its reverse. Public playlist items: Playlist Order and its reverse. Each from 8 rows |
 | 6 | Sections of an item page | The artist feed page and the name level page: Newest, A to Z, reverse and views from 8 releases, at the right end of the section heading. With ADR 0090 packet 004 |

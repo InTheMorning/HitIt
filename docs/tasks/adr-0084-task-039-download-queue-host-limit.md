@@ -12,7 +12,7 @@ did.
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 10, amended 2026-10-20: one
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10, amended 2026-10-20: one
   download queue, at most three downloads at the same time, one progress item. This packet
   amends Decision 10. The operator decided the amendment (Q1 to Q4).
 - [ADR 0058](../adr/0058-outbound-http-client-policy.md): all blocking HTTP clients are built in
@@ -233,7 +233,7 @@ The times come from the queue records. The renderer adds no time.
 
 ## Required Changes
 
-1. `docs/adr/0084-music-column-browser.md`: amend Decision 10 with the answers to Q1 to Q4. Add
+1. `docs/adr/archive/0084-music-column-browser.md`: amend Decision 10 with the answers to Q1 to Q4. Add
    one "Amended 2026-10-24" line at the top. Name ADR 0058 and say that Decision 10 now owns the
    host rule of the download queue. Update the ADR 0084 row of `docs/adr/README.md`.
 2. Move `feed_host` and the text parse of `retry_after` out of

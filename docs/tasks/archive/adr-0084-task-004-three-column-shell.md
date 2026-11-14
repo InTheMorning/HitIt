@@ -11,7 +11,7 @@ This packet builds the columns only. The sidebar keeps its present content. Task
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 1, the column table, and Decision 9: Back and Forward show in the chrome of the detail column.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 1, the column table, and Decision 9: Back and Forward show in the chrome of the detail column.
 - [ADR 0046](../../adr/0046-workspace-frame-architecture.md) as ADR 0084 amends it: the Music frames are `SourceList`, `ContentList` and `Detail`. Invariant 5: the frame shell is shared.
 - [ADR 0081](../../adr/0081-remove-the-staged-frame-model.md) Decision 2: a slot is added when a screen fills it. This packet fills the `SourceList` and `Detail` slots.
 - The durable set in [AGENTS.md](../../../AGENTS.md): renderer portability, token discipline, typed action state, and "Current-view state must update in place".

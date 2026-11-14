@@ -16,11 +16,11 @@ This packet starts after packets 001 and 002 are complete.
 
 ## Authority
 
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decision 5: the closed window, the extra pages, the cap of 5 pages, the loading state, the "+" and the change in place.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decision 5: the closed window, the extra pages, the cap of 5 pages, the loading state, the "+" and the change in place.
 - ADR 0086 Decision 1: the chain of the windows. Packet 002 builds it.
 - ADR 0086 Decision 6: a saved search loads no extra page, and its groups show the "+". Packet 005 does this. This packet gives the names that packet 005 uses.
 - [ADR 0062](../adr/0062-music-content-surface.md), amended by ADR 0086: the recency order and the paging. The pager can load more pages before it shows a page. The recency order stays.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 3: New releases is the first Discover view.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 3: New releases is the first Discover view.
 - ADR 0040: background work runs through the runtime, and `present_command` gives the result to the app.
 - [Phase plan](../plans/adr-0086-new-releases-window-groups-phase-plan.md), "Risk Areas": stale pages, in-place updates and the request load.
 - [Packet 002](adr-0086-task-002-new-releases-window-groups.md), "Names For Later Packets".
@@ -303,7 +303,7 @@ These are for the operator. No test proves them. Use the release build for the t
 ## Files To Inspect
 
 - [AGENTS.md](../../AGENTS.md), the rust-dev skill and [the source map](../architecture/source-map.md).
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decisions 1, 5 and 6, and [ADR 0062](../adr/0062-music-content-surface.md).
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decisions 1, 5 and 6, and [ADR 0062](../adr/0062-music-content-surface.md).
 - [Packet 002](adr-0086-task-002-new-releases-window-groups.md) and its implementation result.
 - `src/view_models/recent_feeds.rs`: the pager and its tests.
 - `src/view_models/index_name_list.rs`: `begin_load`, `finish_load` and the generation pattern.

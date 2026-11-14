@@ -26,7 +26,7 @@ each of these places:
   state at all times.
 - [ADR 0083 task 006](adr-0083-task-006-row-hover-actions.md): the shared track row, its
   `TrackRowColumn` columns, and the download-state slot this packet amends.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 6: the Releases list and the singles
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 6: the Releases list and the singles
   groups. Decision 7: the feed page and the name page.
 - Packet 016 decision D13 (superseded by this packet): a Library release row showed its state
   word only in the scope "Everything". It showed no word for a fully downloaded release in the

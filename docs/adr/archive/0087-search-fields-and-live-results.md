@@ -2,23 +2,23 @@
 
 ## Status
 
-Accepted - 2026-10-23. The operator asked for this design, answered its first four questions and accepted it on 2026-10-23 (see "Operator Answers").
-The [ADR 0087 phase plan](../plans/adr-0087-search-fields-phase-plan.md) holds its packets.
+Superseded by ADR 0098 - 2026-11-14. [ADR 0098](../0098-the-music-shell-pages-lists-and-search.md) restates each live rule, and its item map gives the new place of each item. Accepted - 2026-10-23. The operator asked for this design, answered its first four questions and accepted it on 2026-10-23 (see "Operator Answers").
+The [ADR 0087 phase plan](../../plans/adr-0087-search-fields-phase-plan.md) holds its packets.
 
 - Changes: [ADR 0084](0084-music-column-browser.md), Decisions 2 and 3.
 
-- Changed by: [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), 2026-11-07. ADR 0091 moves the parser, the Index plan and the kind rule to the `musicindex-search` crate, and musicindex ADR 0049 then owns the syntax. Until step 1 of its adoption, the code and the guards stay as they are.
+- Changed by: [ADR 0091](../0091-search-parser-moves-to-the-shared-crate.md), 2026-11-07. ADR 0091 moves the parser, the Index plan and the kind rule to the `musicindex-search` crate, and musicindex ADR 0049 then owns the syntax. Until step 1 of its adoption, the code and the guards stay as they are.
 
 It amends [ADR 0084](0084-music-column-browser.md) Decision 2. The toolbar search field shows a field list and reads fields in the query text. It shows results while the curator types. Search stays a toolbar command, never a section (ADR 0060).
 It amends [ADR 0084](0084-music-column-browser.md) Decision 3: a saved search runs its fields against the Library and the Index.
 
 - Changed by: [ADR 0089](0089-the-shell-destinations-and-list-pages.md), 2026-11-05: the saved searches move from Discover to the Search page. The toolbar field stays on each page.
 
-- Revised: 2026-10-24: the operator decided that a live run retains no failed action. Decision 4 now states it. [ADR 0087 task 009](../tasks/adr-0087-task-009-one-error-for-the-latest-text.md) builds it.
+- Revised: 2026-10-24: the operator decided that a live run retains no failed action. Decision 4 now states it. [ADR 0087 task 009](../../tasks/adr-0087-task-009-one-error-for-the-latest-text.md) builds it.
 
 Amended 2026-11-07: Decision 4 runs a query with only exclusions, so that the note of Decision 5 shows.
 
-- Revised: 2026-11-06: Decision 5 sends each Index field as its own filter. [ADR 0087 task 011](../tasks/archive/adr-0087-task-011-index-receives-the-fields.md) builds it. The known differences from the Library are in "Known Differences From The Library".
+- Revised: 2026-11-06: Decision 5 sends each Index field as its own filter. [ADR 0087 task 011](../../tasks/archive/adr-0087-task-011-index-receives-the-fields.md) builds it. The known differences from the Library are in "Known Differences From The Library".
 
 ## Context
 
@@ -100,7 +100,7 @@ After the curator stops typing for a pause, the search runs against the Library 
 
 ### 5. The Index Receives Filters, Never Syntax
 
-v4vmm sends the words and the phrases in `q`, and each Index field as its own parameter. Stophammer never parses the field syntax. [Open request 10](../plans/hitit-open-requests.md#10-search-accepts-words-phrases-and-field-filters) asks for these parameters. Stophammer deployed them in release 0.15.0.
+v4vmm sends the words and the phrases in `q`, and each Index field as its own parameter. Stophammer never parses the field syntax. [Open request 10](../../plans/hitit-open-requests.md#10-search-accepts-words-phrases-and-field-filters) asks for these parameters. Stophammer deployed them in release 0.15.0.
 
 - `q` holds the words and the phrases with no `-`. A query with fields and no word sends no `q`.
 - `artist:`, `title:` and `release:` give the parameters `artist`, `title` and `release`. Two values of one field join with a space, so each value applies.
@@ -140,7 +140,7 @@ Migration 21 added a unique index of the query. Migration 23 drops that index. T
 
 ## Known Differences From The Library
 
-These differences stay after packet 011 of [ADR 0087 task 011](../tasks/archive/adr-0087-task-011-index-receives-the-fields.md). Each one comes from the Index, not from the parser. The values were read on 2026-11-06 with read-only GET calls.
+These differences stay after packet 011 of [ADR 0087 task 011](../../tasks/archive/adr-0087-task-011-index-receives-the-fields.md). Each one comes from the Index, not from the parser. The values were read on 2026-11-06 with read-only GET calls.
 
 1. Closed on 2026-11-07. Stophammer release 0.19.0 (its ADR 0085) makes the `title` filter of a track match the track title or the title of its feed, as the Library does. On 2026-11-07, `title=assorted&type=track` returned rows. No code in v4vmm changed.
 2. **`kind:`.** Closed on 2026-11-07. The crate `musicindex-search` builds the kind requests of musicindex ADR 0049 R-QUERY-6, and v4vmm sends them. `kind:single` sends `kind=unknown&tracks=1`, and `kind:album` sends `kind=unknown&min_tracks=2`. On 2026-11-07, `kind=unknown&tracks=1` and `kind=unknown&min_tracks=2` each gave rows. `kind:ep` still sends no Index request, because a count never gives EP (R-QUERY-6). The Library gives `single` to one track, `album` to each other release and no `ep`. Open request 14, part 2, was declined, and its answer gives the filters that an app sends.
@@ -182,7 +182,7 @@ A different session relayed these answers on 2026-11-07. They accept the behavio
 2. The note title has no period at its end: "MusicIndex needs a word or a field to search for".
 3. Each selected sort makes one `GET /v1/node/capabilities`, with no cache.
 
-The operator visual check of these search corrections stays open in [pending human checks](../pending-human-checks.md).
+The operator visual check of these search corrections stays open in [pending human checks](../../pending-human-checks.md).
 
 Later answers of 2026-11-07, relayed by the orchestrator session:
 

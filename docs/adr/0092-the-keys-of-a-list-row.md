@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted - 2026-11-08. The orchestrator session made this decision on 2026-11-08 to apply the keyboard reach invariant of [ADR 0090](0090-one-list-bar-above-the-rows.md). The orchestrator session relayed it to this session, and on that date no person checked the keys. Implemented on 2026-11-08 for My playlists, Releases and the Inbox.
+Accepted - 2026-11-08. The orchestrator session made this decision on 2026-11-08 to apply the keyboard reach invariant of [ADR 0090](archive/0090-one-list-bar-above-the-rows.md). The orchestrator session relayed it to this session, and on that date no person checked the keys. Implemented on 2026-11-08 for My playlists, Releases and the Inbox.
 
 Artists has the list focus in its Rows view and its Tiles view. Public playlists, Live and Search have no list focus. Each has the keys when it has a list focus.
 
@@ -18,7 +18,7 @@ ADR 0090 Invariants require that each control keeps its keyboard reach. The agen
 
 1. My playlists has no row in the Tab sequence. Tab goes from "New Playlist" back to the sidebar. A keyboard user cannot open a playlist, its row menu, "Move up" or "Move down".
 2. A row menu opens only from its "…" button, which shows on a pointer hover. The menu of a list row stays out of the Tab sequence (ADR 0090 Invariants), so a keyboard user cannot open it.
-3. The Curator Order of the [ADR 0089 amendment of 2026-11-08](0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) has a drag, and the row menu has "Move up" and "Move down". With faults 1 and 2, no key moves a playlist.
+3. The Curator Order of the [ADR 0089 amendment of 2026-11-08](archive/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order) has a drag, and the row menu has "Move up" and "Move down". With faults 1 and 2, no key moves a playlist.
 
 ## Decision
 

@@ -14,11 +14,11 @@ the joined singles under a heading "Matched by name", after the feed's own singl
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 6, amended 2026-10-22: a name that
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 6, amended 2026-10-22: a name that
   matches exactly one artist feed has no group of its own. Its singles join the group of that
   feed. The group page shows them under "Matched by name", marked as inferred. A name that
   matches two or more feeds keeps its own group.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 7: the "Matched by name" rule of the
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 7: the "Matched by name" rule of the
   artist feed page, and the sort key of a name.
 - [ADR 0083 task 006](adr-0083-task-006-row-hover-actions.md): the shared track row, its
   `TrackRowColumn` columns, the download-state slot and the row menu.

@@ -64,7 +64,7 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-004-list-page-state.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md (Decisions 5 and 6)
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md (Decisions 5 and 6)
 - ../musicindex/docs/adr/0027-cross-app-shell-lists-and-toolbar.md (R-LIST-1)
 - the files that the task lists
 

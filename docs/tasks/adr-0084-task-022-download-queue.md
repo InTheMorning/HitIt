@@ -9,7 +9,7 @@ One progress item shows the batch on each page, for example "Downloading 3 of 9"
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-20: the queue rules and the progress item.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10, amended on 2026-10-20: the queue rules and the progress item.
 - [ADR 0040](../adr/README.md): background work runs on the async command runner. No screen calls `cx.spawn`.
 - [AGENTS.md](../../AGENTS.md) "Write reports for the operator": the item names the subject, the action and the object. Each time is a recorded time.
 - The [run record of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md): the orchestrator decisions on the owner, the dismissal and the cancel.

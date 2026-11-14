@@ -8,7 +8,7 @@ The type label of a feed page lists each known role in the R-ROLE-1 sequence, wi
 
 ## Authority
 
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) Decision 7 and its amendments of 2026-11-05 and 2026-11-14.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) Decision 7 and its amendments of 2026-11-05 and 2026-11-14.
 - musicindex ADR 0037 R-WORD-7, as the orchestrator relayed it on 2026-11-14:
   1. The type label of a publisher feed with roles is the word of each role, in the sequence of ADR 0036 R-ROLE-1. One " · " is between two words, for example "Artist · Label · Producer · Host · Author".
   2. The dot has the color of the first role in that sequence.

@@ -12,9 +12,9 @@ left with no link.
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 6, amended 2026-10-22: a release with
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 6, amended 2026-10-22: a release with
   a confirmed named feed joins the singles group of that feed.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) Decisions 5 and 6: a named feed, its RSS
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) Decisions 5 and 6: a named feed, its RSS
   position and its confirmation.
 - [ADR 0077](../adr/0077-publisher-feed-artist-binding.md) Decision 5: one row of
   `feed_publisher_relationships` for each publisher entry, with the time of the observation

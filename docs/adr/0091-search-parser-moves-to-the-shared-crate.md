@@ -4,9 +4,9 @@
 
 Accepted - 2026-11-07. The operator accepted this record with the answers below. It changes no code. The [search move plan](../../../musicindex-lib/docs/plans/search-move-phase-plan.md) in `../musicindex-lib` gives the sequence, and this record is its Phase 0 item for v4vmm.
 
-- Changes: [ADR 0087](0087-search-fields-and-live-results.md), the owner of the parser, the Index plan and the kind rule.
+- Changes: [ADR 0087](archive/0087-search-fields-and-live-results.md), the owner of the parser, the Index plan and the kind rule. [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0087.
 
-It amends [ADR 0087](0087-search-fields-and-live-results.md): the invariant "One parser reads the query text" stays, and the owner of that parser changes at step 1 of the adoption. Until step 1, the code and the guards stay as they are.
+It amends [ADR 0087](archive/0087-search-fields-and-live-results.md): the invariant "One parser reads the query text" stays, and the owner of that parser changes at step 1 of the adoption. Until step 1, the code and the guards stay as they are.
 
 ## Context
 

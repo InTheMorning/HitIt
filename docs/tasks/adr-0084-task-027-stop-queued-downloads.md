@@ -9,7 +9,7 @@ The finished item then names the stopped jobs, for example "Downloaded 3 of 9, 6
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 10, amended on 2026-10-20: one download queue and one progress item.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10, amended on 2026-10-20: one download queue and one progress item.
 - Operator decision of 2026-10-20: add "Stop queued". A running download is not stopped, because a stop during a write leaves partial files.
 - [AGENTS.md](../../AGENTS.md) "Write reports for the operator", and the durable rule of typed action state.
 - The [run record of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md).

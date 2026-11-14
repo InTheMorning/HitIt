@@ -60,7 +60,7 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-002-toolbar-history-and-marked-row.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md
 - ../musicindex/docs/adr/0027-cross-app-shell-lists-and-toolbar.md
 - the files that the task lists
 

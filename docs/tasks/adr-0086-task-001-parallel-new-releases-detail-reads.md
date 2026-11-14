@@ -8,7 +8,7 @@ The New releases page currently reads the detail of each of the 20 feeds on a pa
 
 ## Authority
 
-- [ADR 0086](../adr/0086-new-releases-singles-window.md) Decision 5: at most 4 feed detail reads of a page run at the same time, as in ADR 0084 packet 026.
+- [ADR 0086](../adr/archive/0086-new-releases-singles-window.md) Decision 5: at most 4 feed detail reads of a page run at the same time, as in ADR 0084 packet 026.
 - [ADR 0084 packet 026](adr-0084-task-026-index-singles-groups.md) decision D4 and the pattern of [`FEED_SINGLES_PARALLEL`](../../src/application/queries/name_lists.rs:50) with `std::thread::scope` in `src/application/queries/name_lists.rs`.
 - [Design and cleanup overhaul plan](../plans/design-and-cleanup-overhaul-plan.md) responsiveness item 10 (2026-10-17): the 400 ms fetch of each page.
 - [AGENTS.md](../../AGENTS.md): "Every fix gets a guard", the guard pattern, and the conventions.

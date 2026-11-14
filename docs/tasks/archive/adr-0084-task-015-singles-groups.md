@@ -8,9 +8,9 @@ In the Releases list, two or more Library singles of one artist identity show as
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 6: the group row, its count and its Library state, the group page, its main action, the single page link, and the group key.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 7: the artist identity. A release that names its publisher feed has the publisher level. Otherwise it has the name level. The operator decided on 2026-10-08: when the agreed role of the link does not include artist, the release has the name level.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 5: the kind of a release (`ReleaseKind`, task 007).
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 6: the group row, its count and its Library state, the group page, its main action, the single page link, and the group key.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 7: the artist identity. A release that names its publisher feed has the publisher level. Otherwise it has the name level. The operator decided on 2026-10-08: when the agreed role of the link does not include artist, the release has the name level.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 5: the kind of a release (`ReleaseKind`, task 007).
 - [ADR 0082](../../adr/0082-publisher-roles-belong-to-each-album-link.md) Decision 2: `role` is the role set of one link, joined by `", "`. `role_agreement` is `both`, `one_side`, `conflict` or null.
 - The orchestrator split the old packet 007 on 2026-10-17. This packet owns Decision 6 in the Library scope. Packet 016 owns the scope "Everything".
 

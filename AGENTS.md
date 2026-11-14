@@ -19,10 +19,10 @@ design and cleanup work in six phases. Phases 1 and 2 are complete. Phase 2 ende
 
 Phase 3, the tokens, is complete. Phase 4, the Library, is in progress. Its first two packets, one track page
 and one album page for the Library and the Index, are complete. Phase 4A, flow and information architecture, decided the
-Music structure in [ADR 0084](docs/adr/0084-music-column-browser.md).
+Music structure in [ADR 0084](docs/adr/archive/0084-music-column-browser.md).
 
 Phase 4A builds ADR 0084 in the packets of the
-[ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). [ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md) replaces its columns, destinations and Discover.
+[ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). [ADR 0089](docs/adr/archive/0089-the-shell-destinations-and-list-pages.md) replaces its columns, destinations and Discover.
 Stophammer release 0.13.0 delivered request 9 on 2026-10-21, so packets 026 and 029 wait for nothing outside this repository.
 Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). Stophammer release 0.19.0 of 2026-11-11 delivered requests 14 and 15 and item 1 of request 11 (Stophammer ADRs 0084, 0085 and 0094). The tag v0.19.0 is at git `9fcbdb5`, and on 2026-11-11 the live API gives version 0.19.0.
 
@@ -30,8 +30,8 @@ Packets 001 to 009, 013 to 015, 018, 019, 036 and 037 are complete. Packets 010 
 and so are ADR 0083 tasks 006 to 008. The run of 2026-10-20 closed on 2026-10-23. Its unwalked visual checks stay open in
 [pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-20.md) lists them.
 
-[ADR 0086](docs/adr/0086-new-releases-singles-window.md), Accepted on 2026-10-23, groups the singles of one artist in New releases by a window.
-[ADR 0087](docs/adr/0087-search-fields-and-live-results.md), Accepted on 2026-10-23, gives search its fields, a field list and live results.
+[ADR 0086](docs/adr/archive/0086-new-releases-singles-window.md), Accepted on 2026-10-23, groups the singles of one artist in New releases by a window.
+[ADR 0087](docs/adr/archive/0087-search-fields-and-live-results.md), Accepted on 2026-10-23, gives search its fields, a field list and live results.
 The [remaining order](docs/plans/design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23)
 of the overhaul plan is the order of the next work. The visual overhaul comes before each new screen.
 
@@ -61,15 +61,17 @@ Ready packets include
 [ADR 0094](docs/adr/0094-one-fold-header.md), Accepted on 2026-11-10, applies the fold header of musicindex ADR 0060. [ADR 0094 task 001](docs/tasks/adr-0094-task-001-fold-header-composite.md) and [task 002](docs/tasks/adr-0094-task-002-singles-group-row-keys.md), the keys of the singles group row, are Ready.
 The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented [ADR 0080 packets 006 to 016](docs/plans/adr-0080-tag-frames-phase-plan.md), the tag frames of the review of 2026-11-04, and [ADR 0076 packet 011](docs/tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md). The open checks of these packets are in section 10 of [pending human checks](docs/pending-human-checks.md). [Packet 014](docs/tasks/adr-0080-task-014-reader-keeps-each-frame.md) corrects a reader fault that the walk found. A write of 143 Library files ran on 2026-11-05. The next full write waits for more playlist checks, as the operator decided (open point 3 of the run record). 26 HeyCitizen files hold `TPUB: HeyCitizen`. The operator confirmed that this value is correct. The live HeyCitizen feeds state only `rel="artist"`.
 [ADR 0088](docs/adr/0088-a-feed-move-follows-musicindex.md), the feed move, is Accepted on 2026-11-11. A stored feed follows the MusicIndex `feed_url` when the RSS document proves the same `podcast:guid`. [ADR 0088 task 001](docs/tasks/adr-0088-task-001-rss-check-follows-a-move.md) is Ready.
-[ADR 0089](docs/adr/0089-the-shell-destinations-and-list-pages.md), the shell, is Accepted on 2026-11-05. The [shell run](docs/reviews/orchestrated-run-2026-11-05-shell.md) implemented packets 001 to 015 of its [phase plan](docs/plans/adr-0089-shell-phase-plan.md) on 2026-11-06. Their visual checks and the questions of the run record are open in section 11 of [pending human checks](docs/pending-human-checks.md). Packet 016, the now-playing panel and the row action Play, waits for the packets of ADR 0068, Accepted on 2026-11-11. The new tokens of the overhaul plan start after the walk.
+[ADR 0089](docs/adr/archive/0089-the-shell-destinations-and-list-pages.md), the shell, is Accepted on 2026-11-05. The [shell run](docs/reviews/orchestrated-run-2026-11-05-shell.md) implemented packets 001 to 015 of its [phase plan](docs/plans/adr-0089-shell-phase-plan.md) on 2026-11-06. Their visual checks and the questions of the run record are open in section 11 of [pending human checks](docs/pending-human-checks.md). Packet 016, the now-playing panel and the row action Play, waits for the packets of ADR 0068, Accepted on 2026-11-11. The new tokens of the overhaul plan start after the walk.
 
 [musicindex ADR 0042](../musicindex/docs/adr/0042-a-button-with-a-label-has-a-fill.md), the neutral button, is implemented here on 2026-11-06 in the [run record](docs/reviews/orchestrated-run-2026-11-06-neutral-button.md). The operator passed its check on 2026-11-07.
 
-[musicindex ADR 0053](../musicindex/docs/adr/0053-which-lists-have-a-sort-a-reverse-and-a-view.md), the sorts, the direction and the views of each list, is built in the packets of its [phase plan](docs/plans/musicindex-adr-0053-list-controls-phase-plan.md). Packets 1 to 9 are implemented on 2026-11-08, packet 6 with ADR 0090 task 004: Releases All, Public playlists and Artists All reverse through the node when the node lists the capability `sort`, the results page and the saved search page sort by Relevance, A to Z and Newest, the group pages have a sort, a reverse and views in the list bar, a release page and a public playlist page reverse their tracks or entries from 8 rows, each release section of a feed page and a name level page has its own sort, reverse and views from 8 rows, a local A to Z compares names in the language of the reader with numbers as numbers, Artists has rows and tiles and the sort Newest in each scope, and My playlists has the stored Curator Order of the [ADR 0089 amendment of 2026-11-08](docs/adr/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order). Their checks are open in section 12 of [pending human checks](docs/pending-human-checks.md).
+[musicindex ADR 0053](../musicindex/docs/adr/0053-which-lists-have-a-sort-a-reverse-and-a-view.md), the sorts, the direction and the views of each list, is built in the packets of its [phase plan](docs/plans/musicindex-adr-0053-list-controls-phase-plan.md). Packets 1 to 9 are implemented on 2026-11-08, packet 6 with ADR 0090 task 004: Releases All, Public playlists and Artists All reverse through the node when the node lists the capability `sort`, the results page and the saved search page sort by Relevance, A to Z and Newest, the group pages have a sort, a reverse and views in the list bar, a release page and a public playlist page reverse their tracks or entries from 8 rows, each release section of a feed page and a name level page has its own sort, reverse and views from 8 rows, a local A to Z compares names in the language of the reader with numbers as numbers, Artists has rows and tiles and the sort Newest in each scope, and My playlists has the stored Curator Order of the [ADR 0089 amendment of 2026-11-08](docs/adr/archive/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order). Their checks are open in section 12 of [pending human checks](docs/pending-human-checks.md).
 
 [musicindex ADR 0054](../musicindex/docs/adr/0054-the-sort-menu-names-both-directions.md), Accepted on 2026-11-08, replaces the reverse icon of musicindex ADR 0043 R-LIST-7. It is implemented on 2026-11-08: each sort menu lists the usual and the reversed entry of each sort that can reverse, a list with one fixed sequence has a text toggle "Reverse", and the "Add to playlist" menus follow the Curator Order. [ADR 0092](docs/adr/0092-the-keys-of-a-list-row.md), the keys of a list row, is implemented on 2026-11-08. It uses musicindex ADR 0061 R-LISTKEY-1. Artists is one Tab stop in its Rows view and its Tiles view ([ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md)). Public playlists, Live and Search are not one Tab stop yet, and a subsequent task gives them the list focus. musicindex ADR 0056, the accent glow at the top of the sidebar, is implemented on 2026-11-08. The shared releases section of a feed page uses the heading, the note and the row text of musicindex ADR 0023 R-WORD-10. An Index row of Artists All and a feed row of the search Artists tab count the releases of each kind from `release_track_counts`, for example "14 albums · 38 singles" (musicindex ADR 0023 R-WORD-9). A row with no valid map gives the total. Their visual checks are open in section 12 of [pending human checks](docs/pending-human-checks.md).
 
 [musicindex ADR 0064](../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md), Accepted on 2026-11-12, is implemented here on 2026-11-12. In each horizontal row of buttons, list entries included, the destructive button is leftmost, a larger space follows it, and the safe action is rightmost. A destructive confirmation gives the first focus to Cancel, and Enter and Escape close it with no action. The amendment in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. A playlist row of a removed track shows one "Remove…" menu button. A maintenance column puts its destructive controls last, and its narrow band puts them first. "Use Defaults…" in Settings is red and asks for confirmation. The [ADR 0083](docs/adr/0083-design-language.md) and [ADR 0093](docs/adr/0093-settings-has-a-tab-row-and-one-save-bar.md) amendments of 2026-11-12 record this and their open items. The visual checks are open in section 13 of [pending human checks](docs/pending-human-checks.md).
+
+[ADR 0098](docs/adr/0098-the-music-shell-pages-lists-and-search.md), Accepted on 2026-11-14, restates the live rules of ADRs 0084, 0085, 0086, 0087, 0089 and 0090. It makes no new decision. Those six ADRs are in `docs/adr/archive/`. The item map of ADR 0098 gives the new place of each item that code, tests and documents cite.
 
 [ADR 0097](docs/adr/0097-the-fit-check-at-two-widths.md), Accepted on 2026-11-13, applies musicindex ADR 0065. The narrowest window width is 390 px. GPUI layout tests with Figtree check the fit at 390 px and at 940 px. Phases 1 and 2 of its [phase plan](docs/plans/adr-0097-fit-check-phase-plan.md) are complete: `src/app/fit_check/` checks the shell, the list bar and each list page, `src/library/fit_fixtures.rs` gives the fixture rows, and `src/ui/primitives/fit_probe.rs` finds the faults. [ADR 0097 task 007](docs/tasks/adr-0097-task-007-list-rows-truncate-long-names.md) truncates a long name in the rows of the Inbox, Search and the search results, and its visual check is open in section 18 of [pending human checks](docs/pending-human-checks.md). Phases 3 to 6 are open, and their packets, [ADR 0097 tasks 003 to 006](docs/tasks/adr-0097-task-003-item-pages-fit.md), are Ready. A new text or control primitive records a fit probe.
 
@@ -83,8 +85,8 @@ Known open defects:
   [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Accepted on 2026-11-11. Its five packets are written in its [phase plan](docs/plans/adr-0068-show-cue-and-audition-phase-plan.md). [Packet 001](docs/tasks/adr-0068-task-001-mpv-ipc-read-error.md) fixes the mpv IPC read error on 2026-11-14: a read timeout is not an error before a reply deadline of 10 s. Packet 002 is Ready.
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
-- Each Music column scrolls with a held handle, so a focused control comes into view ([ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) Invariants). [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) implements this on 2026-11-14. The defect stays in this list until the operator passes its visual checks in section 15 of [pending human checks](docs/pending-human-checks.md).
-- A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/0085-artists-by-confirmation.md) Decision 7 lists each role. [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) implements the fix on 2026-11-14. The defect stays in this list until the operator passes the checks in section 16 of [pending human checks](docs/pending-human-checks.md).
+- Each Music column scrolls with a held handle, so a focused control comes into view ([ADR 0090](docs/adr/archive/0090-one-list-bar-above-the-rows.md) Invariants). [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) implements this on 2026-11-14. The defect stays in this list until the operator passes its visual checks in section 15 of [pending human checks](docs/pending-human-checks.md).
+- A feed page with two or more roles shows "Publisher". [ADR 0085](docs/adr/archive/0085-artists-by-confirmation.md) Decision 7 lists each role. [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) implements the fix on 2026-11-14. The defect stays in this list until the operator passes the checks in section 16 of [pending human checks](docs/pending-human-checks.md).
 - Sir Libre Records shows the badge "Publisher", because one side gives `rel="recordLabel"`. On 2026-11-14 the operator decided that the badge ignores an unknown role word. Decision 1 of the [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09) records it. [musicindex ADR 0066](../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md) owns the rule. ADR 0085 task 001 implements the fix on 2026-11-14, and its checks are open in section 16.
 - Tab does not go to an artist tile on Artists, and after "Show more" the focus goes to the sidebar. [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md) implements the fix on 2026-11-14. The defect stays in this list until the operator passes its visual checks in section 17 of [pending human checks](docs/pending-human-checks.md).
 
@@ -105,20 +107,20 @@ Stored facts that agents need:
 playlists and Live, then Show, Inbox and Settings. Music is curation and holds
 index results and the library together. `Show` is broadcasting. Search is a
 toolbar command on each page, and the Search destination holds the saved
-searches. ADR 0089.
+searches. ADR 0098 Decision 1.
 
-**One list bar above the rows.** A list of selectable rows has one bar directly above its rows, with selection at its left and sort and view at its right. ADR 0090. The singles group page and the window group page have it, and the [phase plan](docs/plans/adr-0090-list-bar-phase-plan.md) moves each other page.
+**One list bar above the rows.** A list of selectable rows has one bar directly above its rows, with selection at its left and sort and view at its right. ADR 0098 Decision 13. The singles group page and the window group page have it, and the [phase plan](docs/plans/adr-0090-list-bar-phase-plan.md) moves each other page.
 
 **Curation shows nothing operational.** While nothing plays and no show is
 active, `Music` and `Settings` show no queue, no transport, and no broadcast
-status. A surface that cannot act is absent, not disabled. ADR 0089 Decision 7.
+status. A surface that cannot act is absent, not disabled. ADR 0098 Decision 18.
 
-**One page for each item.** A list is a page, and an item opens over it (musicindex ADR 0027, ADR 0089). Each release, track, artist and playlist has one
-page, whatever its origin. The Library is a state that each page and list shows, not a place. ADR 0084.
+**One page for each item.** A list is a page, and an item opens over it (musicindex ADR 0027, ADR 0098 Decision 6). Each release, track, artist and playlist has one
+page, whatever its origin. The Library is a state that each page and list shows, not a place. ADR 0098 Decision 6.
 
 **Artists, not publishers.** A feed shows its role word, not the RSS word. The word rules are musicindex ADR 0033
-R-WORD-3 and R-WORD-4, and ADR 0085 applies them here. A feed that albums name through a confirmed link is an artist, confirmed or unverified.
-Each artist list shows the stated artists, then the inferred artists, then the names with no feed (musicindex ADR 0057 R-ARTIST-1, ADR 0085).
+R-WORD-3 and R-WORD-4, and ADR 0098 Decision 11 applies them here. A feed that albums name through a confirmed link is an artist, confirmed or unverified.
+Each artist list shows the stated artists, then the inferred artists, then the names with no feed (musicindex ADR 0057 R-ARTIST-1, ADR 0098 Decision 11.8).
 
 **Shared interface rules come from musicindex.** musicindex ADRs 0020 to 0029 own the interface rules that
 musicindex.org, Studio and HitIt share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a
@@ -307,7 +309,7 @@ cargo test                                # All tests
 cargo test --test architecture_tests      # The guards
 cargo fmt -- --check                      # Check formatting
 cargo clippy --all-targets -- -D warnings # Strict clippy, every target
-python3 ~/.agents/skills/project-baseline/scripts/check_adr_links.py --skip limit .  # ADR links
+python3 ~/.agents/skills/project-baseline/scripts/check_adr_links.py .  # ADR links
 ```
 
 The agent runs build, test, clippy, format check and the ADR link check locally

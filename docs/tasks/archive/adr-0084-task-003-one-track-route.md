@@ -11,8 +11,8 @@ This packet fixes finding 2 of the [Music flow map](../../architecture/music-flo
 
 ## Authority
 
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 4 and its Verification section. A track is identified by its item GUID and its feed GUID.
-- [ADR 0084](../../adr/0084-music-column-browser.md) Decision 9 and [task 001](adr-0084-task-001-one-navigation-stack.md).
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 4 and its Verification section. A track is identified by its item GUID and its feed GUID.
+- [ADR 0084](../../adr/archive/0084-music-column-browser.md) Decision 9 and [task 001](adr-0084-task-001-one-navigation-stack.md).
 - [Task 002](adr-0084-task-002-one-release-route.md): `ReleaseKey` and the resolver method.
 - The durable set in [AGENTS.md](../../../AGENTS.md).
 

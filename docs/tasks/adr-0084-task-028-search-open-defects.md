@@ -8,7 +8,7 @@ Correct five small defects of search and of saved searches. The run of 2026-10-2
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 2 (search results in the list column), Decision 3 (saved searches), Decision 7 (the name level), Decision 10 (selection and the keyboard) and Decision 12 (the logo frame).
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 2 (search results in the list column), Decision 3 (saved searches), Decision 7 (the name level), Decision 10 (selection and the keyboard) and Decision 12 (the logo frame).
 - Packets [010](adr-0084-task-010-search-results-list-column.md) and [012](adr-0084-task-012-saved-searches.md), with the walk fixes of 2026-10-21.
 - Operator decision of 2026-10-21: one packet for the open defects of the run.
 - [AGENTS.md](../../AGENTS.md): renderer portability, typed action state, "Every fix gets a guard", and "Column text does not call `truncate()`".

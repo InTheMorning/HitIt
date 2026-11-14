@@ -13,13 +13,13 @@ Part B gives the Releases list its "Everything" scope, with selection and downlo
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md):
+- [ADR 0084](../adr/archive/0084-music-column-browser.md):
   - Decision 8: the two scopes. Decision 2: the destinations.
   - Decision 4: one page for each item, and the state word.
   - Decision 6: the singles groups. Decision 7: the two artist levels.
   - ADR 0084 Decision 7 amended on 2026-10-20: the key of a name is its sort key. A name that matches exactly one artist feed has no row of its own. Packet 017 gives the match function.
   - Decision 10: the selection model and the download queue.
-- [ADR 0085](../adr/0085-artists-by-confirmation.md) Decision 2: the three confirmation levels. Decision 6: the artist feed of an album. A label feed is not an artist.
+- [ADR 0085](../adr/archive/0085-artists-by-confirmation.md) Decision 2: the three confirmation levels. Decision 6: the artist feed of an album. A label feed is not an artist.
 - [ADR 0062](../adr/0062-music-content-surface.md): paging. ADR 0084 replaces its three-state control.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) section 6: named request profiles, no detail read for each list row, and a defined refresh. [AGENTS.md](../../AGENTS.md) "Stored facts": replace the stored contract in the same change as the decode.
 - [ADR 0040](../adr/README.md): background work runs on the async command runner. No screen calls `cx.spawn`.

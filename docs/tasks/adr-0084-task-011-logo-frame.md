@@ -9,7 +9,7 @@ A collection with one cover shows that cover as a square. A collection with no c
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 12, amended on 2026-10-20: the logo frame, the mosaic, the square, the entity color, and the image that an artist feed gives.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 12, amended on 2026-10-20: the logo frame, the mosaic, the square, the entity color, and the image that an artist feed gives.
 - [ADR 0083](../adr/0083-design-language.md) Decision 4: the artwork tokens, the artwork shadow, and the placeholder in the entity color.
 - [ADR 0040](../adr/README.md): the composition runs on the async command runner, off the UI thread.
 - The [run record of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md): packet 024 stores the image of an artist feed. This packet shows the image only where the code already has it.

@@ -9,7 +9,7 @@ The origin selects only the data source and the commands. The page does not chan
 
 ## Authority
 
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 4: one page for each item. The origin selects the data source, not the route or the layout.
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 4: one page for each item. The origin selects the data source, not the route or the layout.
 - The durable set in [AGENTS.md](../../AGENTS.md): renderer portability. View models carry no renderer type, and screens stay thin.
 - The [run record of 2026-10-20](../reviews/orchestrated-run-2026-10-20.md): the operator added this packet to the run. The orchestrator decided the title rule and the contributors panel rule below.
 

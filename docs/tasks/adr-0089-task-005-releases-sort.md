@@ -75,8 +75,8 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-005-releases-sort.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md (Decisions 2 and 5, The Contract)
-- docs/adr/0086-new-releases-singles-window.md
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md (Decisions 2 and 5, The Contract)
+- docs/adr/archive/0086-new-releases-singles-window.md
 - the files that the task lists
 
 Goal:

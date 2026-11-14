@@ -12,7 +12,7 @@ Part B. In selection mode, a drag that starts on a checked track row carries eac
 
 - [ADR 0083](../adr/0083-design-language.md) Decision 5: the action hierarchy, the "⋯" menu, and a destructive item last with "…" and a confirmation.
 - [ADR 0083](../adr/0083-design-language.md) Decision 6, amended on 2026-10-21 by operator decision: a drag in selection mode carries each checked track, in list order, with a count on the drag image.
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 5 (the kind in action labels), Decision 7 (the feed level and the name level of the artist page) and Decision 10 (selection, the bar and the download queue).
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 5 (the kind in action labels), Decision 7 (the feed level and the name level of the artist page) and Decision 10 (selection, the bar and the download queue).
 - Packets [007](adr-0083-task-007-list-and-playlist-row-actions.md) (decision D2), [008](adr-0083-task-008-drag-track-to-playlist.md) (decision D5 and check V7), [009](archive/adr-0084-task-009-list-selection-and-action-bar.md), [016](adr-0084-task-016-library-and-everything-scopes.md), [017](adr-0084-task-017-name-level-artist-page.md), [018](archive/adr-0084-task-018-detail-column-selection.md) and [019](archive/adr-0084-task-019-selection-mode.md).
 - Operator answers of 2026-10-21 in the [run record](../reviews/orchestrated-run-2026-10-20.md):
   - A release row on an artist page or a name page gets the same actions as a row of the Releases list, with "Select".

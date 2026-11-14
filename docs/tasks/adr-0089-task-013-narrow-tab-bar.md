@@ -56,7 +56,7 @@ Implement only this task. Do not redesign the architecture.
 Read:
 - docs/tasks/adr-0089-task-013-narrow-tab-bar.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
-- docs/adr/0089-the-shell-destinations-and-list-pages.md (Decision 1)
+- docs/adr/archive/0089-the-shell-destinations-and-list-pages.md (Decision 1)
 - the files that the task lists
 
 Goal:

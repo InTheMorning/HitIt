@@ -12,7 +12,7 @@ Each correction gets a test or a guard. The packet records the cause of each def
 
 - [ADR 0083](../adr/0083-design-language.md) Decision 5: a destructive action is last, after a divider, and its label ends with "…". It asks for confirmation.
 - [ADR 0083](../adr/0083-design-language.md) Decision 6: the row menu and the right-click menu. Packet [006](adr-0083-task-006-row-hover-actions.md) decision D3: "Add to playlist" opens a second level with "New Playlist".
-- [ADR 0084](../adr/0084-music-column-browser.md) Decision 4 (one page for each item), Decision 9 (one navigation stack, Back and Forward), Decision 10 (selection, the bar and the download queue) and Decision 12 (the logo frame).
+- [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 4 (one page for each item), Decision 9 (one navigation stack, Back and Forward), Decision 10 (selection, the bar and the download queue) and Decision 12 (the logo frame).
 - Packets [018](archive/adr-0084-task-018-detail-column-selection.md) (the held scroll handle of the detail column), [022](adr-0084-task-022-download-queue.md) (the download queue), [025](adr-0084-task-025-playlist-selection.md) (the playlist bar) and [028](adr-0084-task-028-search-open-defects.md) (the search defects).
 - [AGENTS.md](../../AGENTS.md): the durable set (renderer portability, typed action state, cautious destructive actions), "Current-view state must update in place" and "Every fix gets a guard".
 - Operator answers of 2026-10-21 in the [run record](../reviews/orchestrated-run-2026-10-20.md): one packet for the open defects of the walk.
