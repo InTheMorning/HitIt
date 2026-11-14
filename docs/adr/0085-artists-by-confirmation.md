@@ -19,10 +19,10 @@ Amended 2026-10-27 by musicindex ADR 0033. Decision 1 and the Invariants line ci
 
 The header badge of a feed page follows R-WORD-3. A role that the two sides agree on has a filled dot. An inferred role, or a role that one side gives, has a hollow dot. A feed with no role has a hollow dot, with the word "Publisher" or "Feed" of Decision 7.
 
-Amended 2026-11-05 by musicindex ADR 0037 R-WORD-7, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. The code gives the earlier label (`src/view_models/publisher_page.rs`). [Task 001](../tasks/adr-0085-task-001-type-label-of-known-roles.md) owns the change.
+Amended 2026-11-05 by musicindex ADR 0037 R-WORD-7, by operator decision. Decision 7 lists each stated role and gives no "Publisher" label for two or more roles. [Task 001](../tasks/adr-0085-task-001-type-label-of-known-roles.md) implements this on 2026-11-14.
 
 Amended 2026-11-14 by [musicindex ADR 0066](../../../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md), by operator decision. A type label and its dot use only the eight known roles of musicindex ADR 0036 R-ROLE-1 item 1. They ignore each other role word, and the compare ignores capital letters (R-ROLE-3).
-A feed with only unknown role words has no role (R-ROLE-4). The one dot has the color and the fill of the first role in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8). Inspect sources shows each role word as RSS text (R-ROLE-5). Task 001 builds this.
+A feed with only unknown role words has no role (R-ROLE-4). The one dot has the color and the fill of the first role in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8). Inspect sources shows each role word as RSS text (R-ROLE-5). Task 001 implements this on 2026-11-14.
 
 Amended 2026-11-08 by musicindex ADR 0057 R-ARTIST-1, by operator decision. Each artist list shows three groups: the stated artists, the inferred artists, and the artist names with no feed.
 These lists are the Artists list in each scope, its tiles and the Artists tab of the search results. Each group has a heading that gives its type.

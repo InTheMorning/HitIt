@@ -12,7 +12,7 @@ use crate::view_models::format::{fmt_date, fmt_runtime};
 use crate::view_models::named_feeds::{select_artist_feed, ArtistFeed, NamedFeed};
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::role_words::{
-    capitalize_first, role_list_text, role_words, stated_sides_text,
+    capitalize_first, known_roles, role_list_text, stated_sides_text,
 };
 use crate::view_models::{ActionStatusMessageDisplay, ActionStatusMessageWidth};
 use crate::views::{
@@ -970,7 +970,17 @@ impl<'a> ReleaseDetailVm<'a> {
         let target = AlbumNameLinkTarget::Publisher(feed.feed_guid.clone());
         let a11y_label = format!("Open the page of {title}");
         if feed.role_agreement.as_deref() == Some(Self::ROLE_AGREEMENT_BOTH) {
-            let label = capitalize_first(&role_list_text(&role_words(feed.role.as_deref())));
+            // Only a known role gives a row label (musicindex ADR 0066
+            // R-ROLE-3). A feed with no known role is an "Also named" row.
+            let words: Vec<String> = known_roles(feed.role.as_deref())
+                .into_iter()
+                .map(|role| role.word().to_owned())
+                .collect();
+            let label = if words.is_empty() {
+                Self::ALSO_NAMED_LABEL.to_owned()
+            } else {
+                capitalize_first(&role_list_text(&words))
+            };
             return NamedFeedRowVm {
                 label,
                 value: title,
@@ -2428,6 +2438,33 @@ mod tests {
             rows[0].target,
             AlbumNameLinkTarget::Publisher("label-guid".into())
         );
+    }
+
+    /// ADR 0085 Decision 7 and musicindex ADR 0066 R-ROLE-3: the role row
+    /// leaves out a word that is not known and keeps the sequence of ADR 0036
+    /// R-ROLE-1. A link with no known role gives an "Also named" row.
+    #[test]
+    fn adr_0085_decision_7_role_row_ignores_unknown_role_words() {
+        let mut feed = feed_view();
+        feed.named_feeds = vec![
+            NamedFeed {
+                role: Some("producer, recordLabel, LABEL".to_owned()),
+                role_agreement: Some("both".to_owned()),
+                confirmed: true,
+                ..named_feed("label-guid", Some("Sir Libre Records"), true)
+            },
+            NamedFeed {
+                role: Some("recordLabel".to_owned()),
+                role_agreement: Some("both".to_owned()),
+                confirmed: true,
+                ..named_feed("other-guid", Some("Other Feed"), true)
+            },
+        ];
+
+        let rows = ReleaseDetailVm::new(&feed, EntitySurfaceContext::Library).named_feed_rows();
+
+        assert_eq!(rows[0].label, "Label and producer");
+        assert_eq!(rows[1].label, "Also named");
     }
 
     /// R85-3-13: a `conflict` link gives a "Role not confirmed" row, and a

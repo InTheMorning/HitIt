@@ -45,6 +45,87 @@ pub(crate) fn role_words(role_set: Option<&str>) -> Vec<String> {
     words
 }
 
+/// The separator between two roles of a type label (musicindex ADR 0037
+/// R-WORD-7 item 1): a space, the middle dot and a space.
+const ROLE_SEPARATOR: &str = " \u{b7} ";
+
+/// One of the eight known roles (musicindex ADR 0066 R-ROLE-3). The
+/// variants are in the sequence of musicindex ADR 0036 R-ROLE-1, so the
+/// derived order is the sequence of a type label.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub(crate) enum KnownRole {
+    Artist,
+    Label,
+    Hosting,
+    Producer,
+    Host,
+    Author,
+    Network,
+    Sponsor,
+}
+
+impl KnownRole {
+    /// The known role of one role word. The compare ignores capital letters.
+    /// Another word gives `None`.
+    #[must_use]
+    pub(crate) fn from_word(word: &str) -> Option<Self> {
+        let word = word.trim();
+        [
+            Self::Artist,
+            Self::Label,
+            Self::Hosting,
+            Self::Producer,
+            Self::Host,
+            Self::Author,
+            Self::Network,
+            Self::Sponsor,
+        ]
+        .into_iter()
+        .find(|role| word.eq_ignore_ascii_case(role.word()))
+    }
+
+    /// The word of this role with lowercase letters, as in the RSS text.
+    #[must_use]
+    pub(crate) const fn word(self) -> &'static str {
+        match self {
+            Self::Artist => "artist",
+            Self::Label => "label",
+            Self::Hosting => "hosting",
+            Self::Producer => "producer",
+            Self::Host => "host",
+            Self::Author => "author",
+            Self::Network => "network",
+            Self::Sponsor => "sponsor",
+        }
+    }
+}
+
+/// The known roles of `role_set`, each one time, in the sequence of
+/// musicindex ADR 0036 R-ROLE-1. The function ignores each other word.
+#[must_use]
+pub(crate) fn known_roles(role_set: Option<&str>) -> Vec<KnownRole> {
+    let mut roles: Vec<KnownRole> = role_set
+        .unwrap_or_default()
+        .split(',')
+        .filter_map(KnownRole::from_word)
+        .collect();
+    roles.sort();
+    roles.dedup();
+    roles
+}
+
+/// Joins `roles` into a type label with " \u{b7} ": "Artist \u{b7} Label".
+/// Each word has a capital first letter. The caller gives the roles in
+/// sequence.
+#[must_use]
+pub(crate) fn type_label(roles: &[KnownRole]) -> String {
+    roles
+        .iter()
+        .map(|role| capitalize_first(role.word()))
+        .collect::<Vec<_>>()
+        .join(ROLE_SEPARATOR)
+}
+
 /// The role word that confirms an artist link (ADR 0085 Decisions 2 and
 /// 6).
 const ARTIST_ROLE: &str = "artist";
@@ -219,5 +300,40 @@ mod tests {
             stated_sides_text("heyCitizen", None, Some("label")),
             "The album: label \u{b7} heyCitizen: no role"
         );
+    }
+
+    /// ADR 0085 Decision 7 and musicindex ADR 0037 R-WORD-7: `known_roles`
+    /// ignores capital letters, drops unknown words and gives the sequence
+    /// of R-ROLE-1.
+    #[test]
+    fn adr_0085_decision_7_known_roles_follow_the_sequence_without_case() {
+        assert_eq!(known_roles(Some("LABEL")), vec![KnownRole::Label]);
+        assert_eq!(known_roles(Some("Label")), known_roles(Some("label")));
+        assert_eq!(
+            known_roles(Some(
+                "sponsor, Host, recordLabel, producer, ARTIST, label, label"
+            )),
+            vec![
+                KnownRole::Artist,
+                KnownRole::Label,
+                KnownRole::Producer,
+                KnownRole::Host,
+                KnownRole::Sponsor,
+            ]
+        );
+        assert!(known_roles(Some("recordLabel, distributor")).is_empty());
+        assert!(known_roles(None).is_empty());
+    }
+
+    /// Musicindex ADR 0037 R-WORD-7 item 1: `type_label` joins the roles
+    /// with " \u{b7} " and gives each word a capital first letter.
+    #[test]
+    fn adr_0085_decision_7_type_label_joins_roles_with_a_dot() {
+        assert_eq!(
+            type_label(&known_roles(Some("producer, label, artist"))),
+            "Artist \u{b7} Label \u{b7} Producer"
+        );
+        assert_eq!(type_label(&[KnownRole::Label]), "Label");
+        assert_eq!(type_label(&[]), "");
     }
 }

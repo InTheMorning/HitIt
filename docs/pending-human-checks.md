@@ -568,3 +568,12 @@ target/debug/hitit &
 - V3: on a search notice page, Tab to the last button. The page scrolls to show it.
 - V4: in Settings, Tab to a control below the visible part. The page scrolls to show it. The padding and the scrollbar of Settings look as before.
 - Wrong: a focused control is out of view, or its focus ring is cut at the edge of the column.
+
+## 16. ADR 0085 Task 001 The Type Label Of Known Roles - 2026-11-14
+
+[ADR 0085 task 001](tasks/adr-0085-task-001-type-label-of-known-roles.md) gives the procedure.
+
+- V1: the page of Sir Libre Records shows the badge and the title "Label". Its shared releases heading is "Artists on these releases".
+- V2: a feed page with two or more known roles shows each role with " · ", and the dot has the color of the first role.
+- V3: Inspect sources of Sir Libre Records still shows `recordLabel`.
+- Wrong: a page shows "Publisher" for a feed with a known role, or Inspect sources hides a role word.

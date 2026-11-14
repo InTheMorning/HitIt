@@ -1,6 +1,6 @@
 # ADR 0085 Task 001: The Type Label Lists Each Known Role
 
-Status: Ready - 2026-11-14. The operator decided the rule for unknown role words on 2026-11-14. The orchestrator relayed musicindex ADR 0066 (commit `df500dc`) and the text of musicindex ADR 0037 R-WORD-7 on 2026-11-14. Implementation has not started.
+Status: Implemented - 2026-11-14. Mechanical checks are Green. The visual checks V1 to V3 are open in section 16 of [pending human checks](../pending-human-checks.md).
 
 ## Goal
 
@@ -101,6 +101,14 @@ Visual, listed apart, for the operator to walk:
 - `cargo fmt -- --check`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo build --bin hitit`
+
+## Implementation Notes - 2026-11-14
+
+- `role_words.rs` has `KnownRole`, `known_roles` and `type_label`. `role_words` stays for Inspect sources.
+- `header_role_for` replaces `header_role_for_word`. `HeaderRole::Publisher` is now only the color of a feed with no known role that is definitely not an artist.
+- The Artists list (`confirmed_feed_roles`) and the role row of the release page use the known roles. A role row with no known role is an "Also named" row (Decision 6).
+- `from_link_facts` in `artists_everything.rs` is not changed in this commit. It shows no text.
+- Open, asked of the orchestrator on 2026-11-14: the "Roles" fact of `header_facts` and the "As <roles>" section heading show all role words. R-ROLE-3 names only a type label and a dot.
 
 ## Report
 

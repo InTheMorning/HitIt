@@ -93,7 +93,7 @@ use crate::view_models::releases_everything::{
     ReleaseOrderKey, ReleasesDownloadPlan, ReleasesListCache, ReleasesListKey, ReleasesListRows,
     Revision,
 };
-use crate::view_models::role_words::{capitalize_first, role_contains_artist, role_words};
+use crate::view_models::role_words::{known_roles, type_label, KnownRole};
 use crate::view_models::search_field_values::LibraryFieldValues;
 use crate::view_models::search_results::{
     saved_search_window_page, FeedResultDisplay, IndexDetailDisplay, SearchLibraryLookup,
@@ -1975,7 +1975,7 @@ pub(crate) struct DestinationListRowVm {
     /// The confirmed roles of a feed row, each with a capital first letter
     /// (ADR 0085 Decision 7, musicindex ADR 0037 R-WORD-7). Empty for a name
     /// row and for a feed with no confirmed role.
-    pub(crate) feed_roles: Vec<String>,
+    pub(crate) feed_roles: Vec<KnownRole>,
 }
 
 /// The kind of a list row, for its type dot (musicindex ADR 0032 R-DOT-1).
@@ -2025,7 +2025,7 @@ impl DestinationListRowVm {
                 word: if self.feed_roles.is_empty() {
                     "Artist".to_owned()
                 } else {
-                    self.feed_roles.join(" \u{b7} ")
+                    type_label(&self.feed_roles)
                 },
             }),
             DestinationListRowTarget::PublicPlaylist(_) => Some(RowTypeTag {
@@ -2654,21 +2654,20 @@ pub(crate) fn tree_name_feed_matches(tree: &LibraryTree) -> NameFeedMatches {
 /// stay two rows.
 /// The confirmed roles of one feed in the Artists list (ADR 0085 Decision 7,
 /// musicindex ADR 0037 R-WORD-7). A role counts when both sides agree on it.
-/// Each role has a capital first letter, and each role appears once.
-fn confirmed_feed_roles(members: &[&AlbumNode], feed_guid: &str) -> Vec<String> {
-    let mut words: Vec<String> = Vec::new();
-    for link in members.iter().flat_map(|album| album.named_feeds.iter()) {
-        if link.feed_guid != feed_guid || link.role_agreement.as_deref() != Some("both") {
-            continue;
-        }
-        for word in role_words(link.role.as_deref()) {
-            let word = capitalize_first(&word);
-            if !words.contains(&word) {
-                words.push(word);
-            }
-        }
-    }
-    words
+/// The list has the known roles only, each one time, in the sequence of
+/// musicindex ADR 0036 R-ROLE-1.
+fn confirmed_feed_roles(members: &[&AlbumNode], feed_guid: &str) -> Vec<KnownRole> {
+    let mut roles: Vec<KnownRole> = members
+        .iter()
+        .flat_map(|album| album.named_feeds.iter())
+        .filter(|link| {
+            link.feed_guid == feed_guid && link.role_agreement.as_deref() == Some("both")
+        })
+        .flat_map(|link| known_roles(link.role.as_deref()))
+        .collect();
+    roles.sort();
+    roles.dedup();
+    roles
 }
 
 /// The Library releases of the names that match one artist feed (ADR 0084
@@ -2709,10 +2708,7 @@ fn artist_feed_row(
     // Musicindex ADR 0057 R-ARTIST-1: a feed whose confirmed roles hold
     // `artist` is a stated artist. Each other feed of the list is an
     // inferred artist.
-    let group = if feed_roles
-        .iter()
-        .any(|role| role_contains_artist(Some(role)))
-    {
+    let group = if feed_roles.contains(&KnownRole::Artist) {
         ArtistGroup::Stated
     } else {
         ArtistGroup::Inferred
@@ -11194,9 +11190,33 @@ mod tests {
         );
         assert_eq!(
             confirmed_feed_roles(&[&confirmed], "feed-guid"),
-            vec!["Label".to_owned(), "Producer".to_owned()]
+            vec![KnownRole::Label, KnownRole::Producer]
         );
         assert!(confirmed_feed_roles(&[&one_side], "feed-guid").is_empty());
+
+        // ADR 0085 Decision 7: the roles follow the sequence of musicindex
+        // ADR 0036 R-ROLE-1, and a word that is not known gives no role.
+        let sequence = with_named_feed(
+            minimal_album("Sequence Release", 3),
+            "feed-guid",
+            "Feed",
+            Some("sponsor, Producer, recordLabel, ARTIST"),
+            Some("both"),
+        );
+        let roles = confirmed_feed_roles(&[&sequence], "feed-guid");
+        assert_eq!(
+            roles,
+            vec![KnownRole::Artist, KnownRole::Producer, KnownRole::Sponsor]
+        );
+        assert_eq!(type_label(&roles), "Artist \u{b7} Producer \u{b7} Sponsor");
+        let unknown_only = with_named_feed(
+            minimal_album("Unknown Release", 4),
+            "feed-guid",
+            "Feed",
+            Some("recordLabel"),
+            Some("both"),
+        );
+        assert!(confirmed_feed_roles(&[&unknown_only], "feed-guid").is_empty());
     }
 
     /// R85-8-10: `artists_list` gives a feed row for an `Artist` feed and
@@ -15138,6 +15158,7 @@ mod marked_row_tests {
     fn adr_0089_task_014_row_exposes_its_type_word() {
         use super::{RowTypeKind, RowTypeTag};
         use crate::view_models::release_kind::ReleaseKind;
+        use crate::view_models::role_words::KnownRole;
 
         let mut row = release_row("guid-type");
         assert_eq!(row.type_tag(), None);
@@ -15163,6 +15184,15 @@ mod marked_row_tests {
             Some(RowTypeTag {
                 kind: RowTypeKind::Artist,
                 word: "Artist".to_owned(),
+            })
+        );
+        // ADR 0085 Decision 7: an artist row with roles lists each one.
+        row.feed_roles = vec![KnownRole::Artist, KnownRole::Label];
+        assert_eq!(
+            row.type_tag(),
+            Some(RowTypeTag {
+                kind: RowTypeKind::Artist,
+                word: "Artist \u{b7} Label".to_owned(),
             })
         );
     }
