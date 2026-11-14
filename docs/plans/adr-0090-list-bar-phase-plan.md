@@ -23,7 +23,7 @@ Each list of selectable rows has one list bar directly above its rows. The bar s
 | [004](../tasks/adr-0090-task-004-feed-and-name-page-list-bar.md) | The feed page and the name level page | Implemented |
 | 005 | The playlist page | Not started |
 | 006 | The search results page and the saved search page | Not started |
-| 007 | Releases and the Inbox. First check musicindex ADR 0027 R-LIST-1 item 4. A change to that rule needs a record in `../musicindex` | Not started |
+| 007 | Releases and the Inbox. First check musicindex ADR 0069 R-LIST-1 item 4. A change to that rule needs a record in `../musicindex` | Not started |
 
 Each packet removes the band or the title row button, and the bottom bar, of its pages. The last packet deletes the old bar paths and the guards that state them.
 

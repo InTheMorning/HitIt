@@ -8,7 +8,7 @@ Accepted - 2026-11-10. The operator accepted musicindex ADR 0060 R-FOLD-1 and R-
 
 On 2026-11-10 the operator also accepted musicindex `5123573`. It changes R-FOLD-1 items 1, 3 and 5. It adds R-FOLD-3 and musicindex ADR 0061.
 
-Applies: musicindex ADR 0060 R-FOLD-1, R-FOLD-2 and R-FOLD-3. Uses: musicindex ADR 0024 R-TARGET-1 for the target size, and musicindex ADR 0061 R-LISTKEY-1 for the keys of the singles group row.
+Applies: musicindex ADR 0060 R-FOLD-1, R-FOLD-2 and R-FOLD-3. Uses: musicindex ADR 0068 R-TARGET-1 for the target size, and musicindex ADR 0061 R-LISTKEY-1 for the keys of the singles group row.
 
 ## Context
 
@@ -31,7 +31,7 @@ GPUI 0.2.x has no sink for the label of a row (`src/ui/composites/list_row.rs`).
 2. **The closed header looks like a list row (R-FOLD-1 item 1).** It has the look of `ListRow`. The header starts with the chevron, which points right (R-FOLD-3 item 1). Then it shows the name in Body text and the Label color, not in capitals, and then the count. The header has no "show" or "hide" word. v4vmm draws the chevron with its own icon (R-FOLD-3 item 6).
 3. **The count is a field of its own.** The view model gives the name and the count separately. A metadata group gives its unused count, for example "3 unused", and gives no count when the number is 0. The Description panels and "How to Search" give no count.
 4. **The open header (R-FOLD-2 items 1 and 2).** When the fold opens, the header keeps the same text, size and place. Only the chevron turns, and it points down (R-FOLD-3 item 1).
-5. **One control (R-FOLD-1 item 3).** The full header is one control with the target size of musicindex ADR 0024 R-TARGET-1. It has its own Tab stop. Enter and Space open and close the fold. They use the activation route of the shared Button primitive, with one activation for each key press (ADR 0069 amendment of 2026-09-13). A pointer click on any part of the header does the same.
+5. **One control (R-FOLD-1 item 3).** The full header is one control with the target size of musicindex ADR 0068 R-TARGET-1. It has its own Tab stop. Enter and Space open and close the fold. They use the activation route of the shared Button primitive, with one activation for each key press (ADR 0069 amendment of 2026-09-13). A pointer click on any part of the header does the same.
 6. **The open condition.** The view model gives the open condition and an a11y label that names it, for example "Description, closed". GPUI 0.2.x does not send the label to assistive technology (R-FOLD-1 item 4). When GPUI gets a label sink, the composite sends it with no change to a view model.
 7. **The users.** The metadata groups, the two Description panels and "How to Search" use `FoldHeader`. The "Show more" button of a Description panel stays below the text, outside the header.
 8. **Not fold headers (R-FOLD-1 item 5).** R-FOLD-1 applies only to a fold header. The singles group row is a tree row. An expandable value cell of the track metadata shows more text, and it is none of the three row types. R-FOLD-1 does not apply to them. A tree row has no `›` at the end (R-FOLD-3 item 5).

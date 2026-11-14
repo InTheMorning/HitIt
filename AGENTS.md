@@ -115,14 +115,14 @@ searches. ADR 0098 Decision 1.
 active, `Music` and `Settings` show no queue, no transport, and no broadcast
 status. A surface that cannot act is absent, not disabled. ADR 0098 Decision 18.
 
-**One page for each item.** A list is a page, and an item opens over it (musicindex ADR 0027, ADR 0098 Decision 6). Each release, track, artist and playlist has one
+**One page for each item.** A list is a page, and an item opens over it (musicindex ADR 0069, ADR 0098 Decision 6). Each release, track, artist and playlist has one
 page, whatever its origin. The Library is a state that each page and list shows, not a place. ADR 0098 Decision 6.
 
 **Artists, not publishers.** A feed shows its role word, not the RSS word. The word rules are musicindex ADR 0033
 R-WORD-3 and R-WORD-4, and ADR 0098 Decision 11 applies them here. A feed that albums name through a confirmed link is an artist, confirmed or unverified.
 Each artist list shows the stated artists, then the inferred artists, then the names with no feed (musicindex ADR 0057 R-ARTIST-1, ADR 0098 Decision 11.8).
 
-**Shared interface rules come from musicindex.** musicindex ADRs 0020 to 0029 own the interface rules that
+**Shared interface rules come from musicindex.** musicindex ADRs 0021, 0022, 0023, 0026, 0028, 0068 and 0069 own the interface rules that
 musicindex.org, Studio and HitIt share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a
 shared rule needs a record in `../musicindex`.
 

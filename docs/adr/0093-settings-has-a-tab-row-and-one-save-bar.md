@@ -6,7 +6,7 @@ Accepted - 2026-11-10. The operator accepted [musicindex ADR 0059](../../../musi
 
 - Changed by: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 and R-ACT-9, 2026-11-12, by operator decision. These rules give the sequence and the focus of the Save bar and the leave question. These are Decisions 9 and 13. The orchestrator session relayed the decision.
 
-R-ACT-12 makes "Use Defaults" destructive. Today it saves immediately, so it has the red tint and a confirmation. Decision 10 changes it to an edit of the draft that does not save, and Discard in the same view undoes that edit. Thus musicindex ADR 0020 R-ACT-3 item 4 removes the confirmation at that time. The red tint and the first position stay (R-ACT-12). The orchestrator session gave this answer on 2026-11-12.
+R-ACT-12 makes "Use Defaults" destructive. Today it saves immediately, so it has the red tint and a confirmation. Decision 10 changes it to an edit of the draft that does not save, and Discard in the same view undoes that edit. Thus musicindex ADR 0069 R-ACT-3 item 4 removes the confirmation at that time. The red tint and the first position stay (R-ACT-12). The orchestrator session gave this answer on 2026-11-12.
 
 Applies: musicindex ADR 0059 R-SET-1 to R-SET-5. Uses: musicindex ADR 0051 R-SEG-1 for the tab row, and musicindex ADR 0032 R-DOT-1 for the type dot.
 

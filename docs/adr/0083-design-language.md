@@ -16,7 +16,7 @@ Amended 2026-10-07: Decision 5 names the main action until a page can play a tra
 
 - Changed by: musicindex ADR 0032 R-DOT-1, 2026-10-27. Decision 2 cites that rule for the dot. The shared rule sets the dot dimensions and the hollow dot, and the shared copy `src/assets/tokens.json` gives the entity values that R-DOT-2 checks.
 
-- Changed by: musicindex ADRs 0020 to 0026, 2026-10-25, by operator decision. These records replace parts of Decisions 1 to 6 and 8. They also replace one item of Consequences and two verification items. Those records own the interface rules that musicindex.org, Studio and v4vmm share. [Rules that musicindex replaces](#rules-that-musicindex-replaces) names each part.
+- Changed by: musicindex ADRs 0021, 0022, 0023, 0026, 0068 and 0069, 2026-10-25, by operator decision. These records replace parts of Decisions 1 to 6 and 8. They also replace one item of Consequences and two verification items. Those records own the interface rules that musicindex.org, Studio and v4vmm share. [Rules that musicindex replaces](#rules-that-musicindex-replaces) names each part.
 
 - Changed by: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 to R-ACT-12, 2026-11-12, by operator decision. These rules add to Decision 5. The orchestrator session relayed the decisions. The amendment of musicindex ADR 0064 in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. The menu sequence of Decision 5 does not change. Open items:
   - Recovery has "Retry" and "Dismiss". In one condition, "Dismiss" can discard a retained conversion file. This app does not identify "Dismiss" as destructive. The operator decides.
@@ -154,32 +154,32 @@ Superseded by [ADR 0084](archive/0084-music-column-browser.md) Decision 3 on 202
 
 ## Rules That MusicIndex Replaces
 
-The records are in `../musicindex/docs/adr/`. Their numbers are musicindex numbers, not v4vmm numbers. musicindex owns each rule below. A change to one needs a superseding record in `../musicindex`, not an amendment here (musicindex ADR 0020, Consequences).
+The records are in `../musicindex/docs/adr/`. Their numbers are musicindex numbers, not v4vmm numbers. musicindex owns each rule below. A change to one needs a superseding record in `../musicindex`, not an amendment here (musicindex ADR 0069).
 
 | Part of this record | Replaced by | What stays here |
 |---|---|---|
-| Decision 1: the light values of Background, Surface and Raised surface | musicindex ADR 0025 R-ELEVATION-1: the light page is `#f2f2f7`, a group or card is `#ffffff`, and an open entry in a group is `#f2f2f7` | The dark values, which agree. Sidebar, text, muted text, separator and accent. The high-contrast profiles |
-| Decisions 1 and 2: the accent as the focus ring color | musicindex ADR 0020 R-TOKEN-1: one focus token, `#2d7bff` dark and `#005bd3` light | The accent marks the selected item and a link |
-| Decision 2: the values of the status colors | musicindex ADR 0025 R-STATUS-1, and ADR 0020 R-TOKEN-1 for danger and its tint | Each status has one meaning. Danger marks a destructive action. Warning is orange |
-| Decision 2: the gold value colors of a payment split | musicindex ADR 0020 R-VALUE-2: one row for each recipient and one summary bar in the share color, `#2d7bff` dark and `#1a56c0` light | A payment split never uses entity colors. Text gives each value |
-| Decision 3: the type ramp of size M and the display size of 30 pixels | musicindex ADR 0024 R-TYPE-1: the macOS sizes of the Desktop profile. R-TYPE-2: an album, track or playlist page title is Large Title bold, 26 px. An artist or label name is Display bold, 42 px | Monospace for identifiers |
-| Decision 3: Figtree for all interface text | musicindex ADR 0024 R-TYPE-1 item 4: the system font on an Apple device, and Figtree on each other system | Figtree on Linux and on each other system that is not an Apple device |
-| Decision 4: "Artwork, and only artwork, has a shadow" | musicindex ADR 0021 R-ART-4 item 3: art has a shadow. ADR 0025 R-ELEVATION-1 item 2: a popover, a menu and a sheet have one shadow | A larger image has a larger shadow |
+| Decision 1: the light values of Background, Surface and Raised surface | musicindex ADR 0068 R-ELEVATION-1: the light page is `#f2f2f7`, a group or card is `#ffffff`, and an open entry in a group is `#f2f2f7` | The dark values, which agree. Sidebar, text, muted text, separator and accent. The high-contrast profiles |
+| Decisions 1 and 2: the accent as the focus ring color | musicindex ADR 0069 R-TOKEN-1: one focus token, `#2d7bff` dark and `#005bd3` light | The accent marks the selected item and a link |
+| Decision 2: the values of the status colors | musicindex ADR 0068 R-STATUS-1, and ADR 0069 R-TOKEN-1 for danger and its tint | Each status has one meaning. Danger marks a destructive action. Warning is orange |
+| Decision 2: the gold value colors of a payment split | musicindex ADR 0069 R-VALUE-2: one row for each recipient and one summary bar in the share color, `#2d7bff` dark and `#1a56c0` light | A payment split never uses entity colors. Text gives each value |
+| Decision 3: the type ramp of size M and the display size of 30 pixels | musicindex ADR 0068 R-TYPE-1: the macOS sizes of the Desktop profile. R-TYPE-2: an album, track or playlist page title is Large Title bold, 26 px. An artist or label name is Display bold, 42 px | Monospace for identifiers |
+| Decision 3: Figtree for all interface text | musicindex ADR 0068 R-TYPE-1 item 4: the system font on an Apple device, and Figtree on each other system | Figtree on Linux and on each other system that is not an Apple device |
+| Decision 4: "Artwork, and only artwork, has a shadow" | musicindex ADR 0021 R-ART-4 item 3: art has a shadow. ADR 0068 R-ELEVATION-1 item 2: a popover, a menu and a sheet have one shadow | A larger image has a larger shadow |
 | Decision 4: the cover backdrop that fades into the background | musicindex ADR 0021 R-ART-5: a blurred glow from the cover with film grain, and a veil that keeps header text at 4.5:1 | The renderer gets the header art from a view-model fact |
 | Decision 4: the placeholder with a two-letter monogram | musicindex ADR 0021 R-ART-2: the logo shape in 45 % of the entity color at each size, with no letters and no icon | A placeholder never shows an emoji |
 | Decision 4: the corner radius and the image order of art, which this record does not state | musicindex ADR 0021 R-ART-4 item 2, 6 % of the edge with a minimum of 4 px, and R-ART-3 | The sizes of the artwork tokens (R-ART-4 item 4). Show displays the cover of the current track |
-| Decision 5: the presentation of a destructive item | musicindex ADR 0020 R-ACT-3: a red label on a red tint, never filled. The label names the result. The item asks for a confirmation, except when the person can undo in the same view. ADR 0023 R-CONFIRM-1: the confirmation is a sheet with "Cancel" | The item is last in its menu, after a divider. Its label ends with "…" (ADR 0026 R-ELLIPSIS-1 item 2 agrees) |
+| Decision 5: the presentation of a destructive item | musicindex ADR 0069 R-ACT-3: a red label on a red tint, never filled. The label names the result. The item asks for a confirmation, except when the person can undo in the same view. ADR 0023 R-CONFIRM-1: the confirmation is a sheet with "Cancel" | The item is last in its menu, after a divider. Its label ends with "…" (ADR 0026 R-ELLIPSIS-1 item 2 agrees) |
 | Decision 5: "At most two plain buttons" for a frequent action, and a quiet link with a word for Website, Nostr and RSS | musicindex ADR 0042 R-ACT-4 and R-ACT-6: a button with a text label has a fill and one of four roles | The number of buttons, and a quiet link with an icon alone |
 | Decision 5: the capitalization of labels, for example "Add to playlist" and "Download album" | musicindex ADR 0023 R-CASE-1: title case on buttons and menu items, for example "Add to Playlist" and "Download Album" | The action hierarchy and the main action of each item state |
-| Decision 6: the value of the Success color of `CloudCheck` | musicindex ADR 0025 R-STATUS-1 | The icon of each download state, its tooltip, its label and the count |
+| Decision 6: the value of the Success color of `CloudCheck` | musicindex ADR 0068 R-STATUS-1 | The icon of each download state, its tooltip, its label and the count |
 | Decision 8: the capitalization of the entry "Inspect sources" | musicindex ADR 0023 R-CASE-1: a menu item is title case, "Inspect Sources" | One entry on an album or track page, and the content of the inspection view |
 | Consequences: "The cover backdrop needs a technique that GPUI can draw" | musicindex ADR 0021 R-ART-5 | GPUI must draw the glow with grain. Consequences gives the method |
-| Verification: "The value palette exposes steps that differ in lightness" | musicindex ADR 0020 R-VALUE-2 | None |
+| Verification: "The value palette exposes steps that differ in lightness" | musicindex ADR 0069 R-VALUE-2 | None |
 | Verification: "The cover backdrop fades into the background before the content" | musicindex ADR 0021 R-ART-5 | None. Verification gives the new visual item |
 
 Decisions 7 and 10 lose no part. Decision 9 is superseded by v4vmm ADR 0084.
 
-The other rules of musicindex ADRs 0020 to 0028 add to this record. They replace no part of it. This includes musicindex ADR 0022 on the shared assets. musicindex ADR 0029 applies only to the two web apps, not to v4vmm.
+The other rules of musicindex ADRs 0021, 0022, 0023, 0026, 0028, 0068 and 0069 add to this record. They replace no part of it. This includes musicindex ADR 0022 on the shared assets. musicindex ADR 0068 R-SCALE-2 applies only to the two web apps, not to v4vmm.
 
 ## Consequences
 
@@ -204,7 +204,7 @@ Mechanical, at the owning layer:
 
 - `tokens.rs` exposes each palette role of Decision 1 for each theme profile, and the contrast tests cover each new pair.
 - `EntityKind` resolves no status color. A guard blocks a status token in the entity palette.
-- Owned by musicindex ADR 0020 R-VALUE-2: the value palette exposes steps that differ in lightness.
+- Owned by musicindex ADR 0069 R-VALUE-2: the value palette exposes steps that differ in lightness.
 - A status bar view model exposes no show item when no show is active.
 - The status bar has one composite owner, and no screen renders a second status band.
 - The Library tile view model exposes one tile for each release.
