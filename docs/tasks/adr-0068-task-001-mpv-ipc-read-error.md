@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-11. Implementation has not started.
+Implemented - 2026-11-14. The check that listens to playback is in the [final gate](../plans/adr-0068-show-cue-and-audition-phase-plan.md#final-gate).
 
 ## Goal
 
@@ -65,7 +65,17 @@ git diff --check
 
 ## Report
 
-Give the cause, the evidence for it, the fix and the tests.
+Cause: `read_message` returned the read timeout of the socket as an error. The socket has a read timeout of 2 s (`IPC_TIMEOUT`). When mpv did not reply in 2 s, `read_line` gave `WouldBlock`, which is `os error 11`. `command()` then gave an error, and `PlaybackOwner::poll` showed a playback driver error. When a timeout came after part of a line, the code before the fix also discarded that part.
+
+Proof: a local socket test with a read timeout of 20 ms gets the reply after 50 ms. A second test sends the reply in two parts. The time between the parts is 50 ms. Each test fails without the fix and passes with the fix. This proves the mechanism. The 2026-09-11 log does not show why mpv took more than 2 s to reply. That cause is not known.
+
+Fix in `src/playback_driver/mpv.rs`:
+
+- `read_message` uses `read_until` on a byte buffer. A read timeout keeps each byte that was read, and the read continues.
+- Each command has a reply deadline of 10 s (`REPLY_DEADLINE`). After the deadline, the command fails with "mpv gave no IPC reply in 10 s". Thus a stopped mpv cannot hold the driver lock permanently. The orchestrating session selected 10 s. The phase plan can change it.
+- A closed socket, an end of stream in a line and each other read error stay errors.
+
+Tests: `command_retries_after_read_timeout`, `command_keeps_partial_message_after_read_timeout`, `command_reports_closed_socket_after_read_timeout` and `command_reports_missing_reply_after_deadline`.
 
 ## Stop And Ask
 

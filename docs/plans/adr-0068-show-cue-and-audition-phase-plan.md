@@ -35,7 +35,7 @@ Each fact below was read on 2026-11-11 at commit `ff0aca4`.
 
 | Packet | Scope | Depends on | State |
 |---|---|---|---|
-| [001](../tasks/adr-0068-task-001-mpv-ipc-read-error.md) | Find the cause of the mpv IPC read error, fix it and add a regression test | None | Ready |
+| [001](../tasks/adr-0068-task-001-mpv-ipc-read-error.md) | Find the cause of the mpv IPC read error, fix it and add a regression test | None | Implemented 2026-11-14 |
 | [002](../tasks/adr-0068-task-002-stored-show-cue.md) | The stored cue (migration 25), Load, Replace and Clear, the cue in Show while nothing plays, removal and tag-update checks, the RSS check trigger | None | Ready |
 | [003](../tasks/adr-0068-task-003-show-plays-the-cue.md) | The Show owner plays the cue. Music Play to Show goes. The Show keys, the restart and the Show states | 002 | Ready after 002 |
 | [004](../tasks/adr-0068-task-004-audition-player.md) | A second driver instance, the audition owner and the audition output | 001, 003 | Ready after 001 and 003 |

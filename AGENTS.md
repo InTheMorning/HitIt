@@ -80,7 +80,7 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for
-  [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Accepted on 2026-11-11, and for the mpv IPC error. Its five packets are written in its [phase plan](docs/plans/adr-0068-show-cue-and-audition-phase-plan.md). Packets 001 and 002 are Ready.
+  [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Accepted on 2026-11-11. Its five packets are written in its [phase plan](docs/plans/adr-0068-show-cue-and-audition-phase-plan.md). [Packet 001](docs/tasks/adr-0068-task-001-mpv-ipc-read-error.md) fixes the mpv IPC read error on 2026-11-14: a read timeout is not an error before a reply deadline of 10 s. Packet 002 is Ready.
 - The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
   owns the operator check, which is open.
 - Each Music column scrolls with a held handle, so a focused control comes into view ([ADR 0090](docs/adr/0090-one-list-bar-above-the-rows.md) Invariants). [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) implements this on 2026-11-14. The defect stays in this list until the operator passes its visual checks in section 15 of [pending human checks](docs/pending-human-checks.md).

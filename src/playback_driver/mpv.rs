@@ -16,6 +16,9 @@ use super::{DriverStatus, PlaybackDriver};
 
 const SOCKET_READY_TIMEOUT: Duration = Duration::from_secs(3);
 const IPC_TIMEOUT: Duration = Duration::from_secs(2);
+/// The longest time that one command waits for its reply. A read timeout of
+/// `IPC_TIMEOUT` is not an error before this time ends (ADR 0068 task 001).
+const REPLY_DEADLINE: Duration = Duration::from_secs(10);
 
 #[derive(Debug)]
 pub struct MpvDriver {
@@ -110,6 +113,15 @@ impl MpvDriver {
     }
 
     fn command(&self, state: &mut MpvState, command: Value) -> Result<Option<Value>> {
+        self.command_until(state, command, Instant::now() + REPLY_DEADLINE)
+    }
+
+    fn command_until(
+        &self,
+        state: &mut MpvState,
+        command: Value,
+        deadline: Instant,
+    ) -> Result<Option<Value>> {
         let request_id = state.next_request_id;
         state.next_request_id = state
             .next_request_id
@@ -135,7 +147,7 @@ impl MpvDriver {
         stream.get_mut().flush().context("flush mpv command")?;
 
         loop {
-            let message = read_message(stream)?;
+            let message = read_message(stream, deadline)?;
             handle_event(&mut state.status, &message);
             if message
                 .get("request_id")
@@ -276,13 +288,31 @@ impl Drop for MpvDriver {
     }
 }
 
-fn read_message(stream: &mut BufReader<UnixStream>) -> Result<Value> {
-    let mut line = String::new();
-    let bytes = stream
-        .read_line(&mut line)
-        .context("read mpv IPC message")?;
-    anyhow::ensure!(bytes > 0, "mpv IPC socket closed");
-    serde_json::from_str(line.trim_end()).context("parse mpv IPC message")
+fn read_message(stream: &mut BufReader<UnixStream>, deadline: Instant) -> Result<Value> {
+    // `read_until` keeps each byte that it read before a timeout, so a reply
+    // that arrives in parts, or a character split by a timeout, stays whole.
+    let mut line = Vec::new();
+    loop {
+        match stream.read_until(b'\n', &mut line) {
+            Ok(0) => anyhow::bail!("mpv IPC socket closed"),
+            Ok(_) if line.ends_with(b"\n") => break,
+            Ok(_) => anyhow::bail!("mpv IPC socket closed"),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                anyhow::ensure!(
+                    Instant::now() < deadline,
+                    "mpv gave no IPC reply in {} s",
+                    REPLY_DEADLINE.as_secs()
+                );
+            }
+            Err(error) => return Err(error).context("read mpv IPC message"),
+        }
+    }
+    serde_json::from_slice(line.trim_ascii_end()).context("parse mpv IPC message")
 }
 
 fn send_quit(state: &mut MpvState) -> Result<()> {
@@ -532,6 +562,116 @@ mod tests {
         assert_eq!(data, Some(json!("ok")));
         assert_eq!(state.status.position_ms, 4_200);
         assert!(state.status.paused);
+        Ok(())
+    }
+
+    #[test]
+    fn command_retries_after_read_timeout() -> Result<()> {
+        let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
+        driver_stream
+            .set_read_timeout(Some(Duration::from_millis(20)))
+            .context("set fake IPC read timeout")?;
+        let driver = test_driver();
+        let mut state = test_state(driver_stream);
+        let peer = run_fake_peer(peer_stream, |stream| {
+            let request = read_request(stream)?;
+            thread::sleep(Duration::from_millis(50));
+            write_message(
+                stream,
+                json!({"request_id": request["request_id"], "error": "success"}),
+            )
+        });
+
+        driver.command(&mut state, json!(["get_property", "time-pos"]))?;
+        join_fake_peer(peer)?;
+        Ok(())
+    }
+
+    #[test]
+    fn command_keeps_partial_message_after_read_timeout() -> Result<()> {
+        let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
+        driver_stream
+            .set_read_timeout(Some(Duration::from_millis(20)))
+            .context("set fake IPC read timeout")?;
+        let driver = test_driver();
+        let mut state = test_state(driver_stream);
+        let peer = run_fake_peer(peer_stream, |stream| {
+            let request = read_request(stream)?;
+            let response = format!(
+                "{{\"request_id\":{},\"error\":\"success\"}}",
+                request["request_id"]
+            );
+            stream
+                .get_mut()
+                .write_all(&response.as_bytes()[..8])
+                .context("write fake mpv response prefix")?;
+            stream.get_mut().flush().context("flush fake mpv prefix")?;
+            thread::sleep(Duration::from_millis(50));
+            stream
+                .get_mut()
+                .write_all(&response.as_bytes()[8..])
+                .context("write fake mpv response suffix")?;
+            stream
+                .get_mut()
+                .write_all(b"\n")
+                .context("write fake mpv response newline")?;
+            stream.get_mut().flush().context("flush fake mpv response")
+        });
+
+        driver.command(&mut state, json!(["get_property", "time-pos"]))?;
+        join_fake_peer(peer)?;
+        Ok(())
+    }
+
+    #[test]
+    fn command_reports_closed_socket_after_read_timeout() -> Result<()> {
+        let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
+        driver_stream
+            .set_read_timeout(Some(Duration::from_millis(20)))
+            .context("set fake IPC read timeout")?;
+        let driver = test_driver();
+        let mut state = test_state(driver_stream);
+        let peer = run_fake_peer(peer_stream, |stream| {
+            let request = read_request(stream)?;
+            assert_eq!(request["request_id"], 1);
+            Ok(())
+        });
+
+        let error = driver
+            .command(&mut state, json!(["get_property", "time-pos"]))
+            .expect_err("closed mpv socket must fail the command");
+        join_fake_peer(peer)?;
+
+        assert!(error.to_string().contains("mpv IPC socket closed"));
+        Ok(())
+    }
+
+    #[test]
+    fn command_reports_missing_reply_after_deadline() -> Result<()> {
+        let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
+        driver_stream
+            .set_read_timeout(Some(Duration::from_millis(20)))
+            .context("set fake IPC read timeout")?;
+        let driver = test_driver();
+        let mut state = test_state(driver_stream);
+        let peer = run_fake_peer(peer_stream, |stream| {
+            read_request(stream)?;
+            thread::sleep(Duration::from_millis(400));
+            Ok(())
+        });
+
+        let started = Instant::now();
+        let error = driver
+            .command_until(
+                &mut state,
+                json!(["get_property", "time-pos"]),
+                Instant::now() + Duration::from_millis(100),
+            )
+            .expect_err("a silent mpv must fail the command at the deadline");
+        assert!(started.elapsed() < Duration::from_millis(400));
+        join_fake_peer(peer)?;
+
+        assert!(error.to_string().contains("mpv gave no IPC reply"));
         Ok(())
     }
 
