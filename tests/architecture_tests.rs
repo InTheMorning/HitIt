@@ -4351,9 +4351,7 @@ fn workspace_frame_phase_4_guards_queue_frame_shell_wiring() {
 
     for required in [
         "QueueNowPlayingPageVm::builder()",
-        "services: &ApplicationServices",
-        "queue_tracks_for_session(",
-        "playlist_queue_projection(",
+        "queue_tracks_for_stored_cue(",
         ".skip_availability(",
         "queue_transport_action(",
         "entity.update(cx",
@@ -4363,6 +4361,13 @@ fn workspace_frame_phase_4_guards_queue_frame_shell_wiring() {
                 "src/app/queue_now_playing.rs: ADR 0046 Phase 4 queue VM adapter missing `{required}`"
             ));
         }
+    }
+    if adapter_source.contains("queue_tracks_for_session(")
+        || adapter_source.contains("playlist_queue_projection(")
+    {
+        violations.push(
+            "src/app/queue_now_playing.rs: ADR 0068 requires the Show cuelist to project the stored cue, not the session playlist".to_string(),
+        );
     }
 
     if !app_source.contains("mod queue_now_playing;") {
@@ -14495,15 +14500,19 @@ fn adr_0060_live_status_and_show_share_cached_projection() {
     }
 
     for required in [
-        "services: &ApplicationServices",
         "text_filter: Option<String>",
-        "queue_tracks_for_session(services, conn, session)",
+        "queue_tracks_for_stored_cue(",
     ] {
         if !queue_adapter_source.contains(required) {
             violations.push(format!(
                 "src/app/queue_now_playing.rs: ADR 0060 task 004 queue projection must be callable from a background refresh; missing `{required}`"
             ));
         }
+    }
+    if queue_adapter_source.contains("queue_tracks_for_session(") {
+        violations.push(
+            "src/app/queue_now_playing.rs: ADR 0068 requires cue entries to own the cuelist projection".to_string(),
+        );
     }
 
     if !playback_source.contains("this.refresh_show_page(cx)") {
@@ -15017,7 +15026,7 @@ fn adr_0063_show_detail_panel_owns_detail_and_transport_stays_on_show() {
         "pub(crate) struct ShowDetailPanelDisplay",
         "pub(crate) struct ShowDetailPanelSlots",
         ".w(Size::ColumnRegular.scaled(cx))",
-        "render_queue_cuelist(queue)",
+        "render_queue_cuelist(queue,",
         "ShowPanelMode::Cuelist =>",
         "ShowPanelMode::Detail(kind) =>",
         "fn render_source_detail(",
@@ -16360,7 +16369,7 @@ fn adr_0066_optional_dependencies_are_scoped() {
         playback
             .matches("let Some(owner) = self.available_playback_owner(&action, cx)")
             .count(),
-        3
+        4
     );
     assert!(playback.contains(".require(crate::application::capability::Dependency::Playback)"));
     assert!(playback.contains("this.maybe_start_playback_polling(cx)"));

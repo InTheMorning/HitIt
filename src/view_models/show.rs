@@ -3004,9 +3004,11 @@ const fn service_id_seed(role: PublisherServiceRole) -> &'static str {
 
 const fn transport_state_label(state: TransportState) -> &'static str {
     match state {
-        TransportState::Stopped => "Idle",
+        TransportState::Empty | TransportState::Stopped => "Idle",
+        TransportState::Starting => "Starting",
         TransportState::Playing => "Playing",
         TransportState::Paused => "Paused",
+        TransportState::Failed => "Failed",
     }
 }
 
@@ -3551,6 +3553,8 @@ mod tests {
         QueueTrackInput {
             id,
             entry_id: None,
+            selected: false,
+            selectable: false,
             unavailable_reason: None,
             title: Some(title.to_string()),
             artist: Some("Artist".to_string()),

@@ -231,6 +231,8 @@ mod tests {
         QueueTrackInput {
             id,
             entry_id: None,
+            selected: false,
+            selectable: false,
             unavailable_reason: None,
             title: Some(title.to_string()),
             artist: Some("Artist".to_string()),

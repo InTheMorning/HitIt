@@ -7,15 +7,47 @@ use gpui::Context;
 use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{PlaybackOperation, RecoveryAction, RecoveryIntent};
 use crate::application::commands::playback::{
-    PausePlayback, ResumePlayback, SkipPlaybackNext, SkipPlaybackPrevious,
+    PauseShow, ResumeShow, SelectShowCueEntry, SkipPlaybackNext, SkipPlaybackPrevious, StartShow,
+    StopShow,
 };
 use crate::application::{ApplicationCommand, CommandContext};
 use crate::presentation::present_command;
-use crate::view_models::queue_now_playing::TransportState;
+use crate::view_models::queue_now_playing::{ShowToggleIntent, TransportState};
 
 use super::TopApp;
 
 impl TopApp {
+    pub(super) fn stop_show(&mut self, cx: &mut Context<Self>) {
+        if !self.show_page.queue.can_stop_show() {
+            return;
+        }
+        let action = self.playback_action(PlaybackOperation::Stop);
+        let Some(owner) = self.available_playback_owner(&action, cx) else {
+            return;
+        };
+        let command = StopShow::new(Arc::clone(&self.conn), owner);
+        self.run_playback_command(command, action, None, cx);
+    }
+
+    pub(super) fn select_show_cue_entry(&mut self, entry_id: i64, cx: &mut Context<Self>) {
+        let command = SelectShowCueEntry::new(Arc::clone(&self.conn), entry_id);
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            |this, result, cx| {
+                this.playback_presentation_override = None;
+                result.message().clone_into(&mut this.settings_status);
+                this.refresh_show_page(cx);
+            },
+            |this, error, cx| {
+                this.settings_status = format!("Show selection error: {error:#}");
+                this.refresh_show_page(cx);
+            },
+        );
+    }
+
     pub(super) fn skip_playback_next(&mut self, cx: &mut Context<Self>) {
         let action = self.playback_action(PlaybackOperation::Next);
         let Some(owner) = self.available_playback_owner(&action, cx) else {
@@ -35,21 +67,30 @@ impl TopApp {
     }
 
     pub(super) fn toggle_playback_paused(&mut self, cx: &mut Context<Self>) {
-        let paused = self.show_page.queue.transport.play_pause_state == TransportState::Paused;
-        let action = self.playback_action(if paused {
-            PlaybackOperation::Resume
-        } else {
-            PlaybackOperation::Pause
+        // ADR 0068: the view model decides the Show intent. No cue gives no intent.
+        let Some((intent, _)) = self.show_page.queue.toggle_intent() else {
+            return;
+        };
+        let action = self.playback_action(match intent {
+            ShowToggleIntent::Start => PlaybackOperation::Start,
+            ShowToggleIntent::Pause => PlaybackOperation::Pause,
+            ShowToggleIntent::Resume => PlaybackOperation::Resume,
         });
         let Some(owner) = self.available_playback_owner(&action, cx) else {
             return;
         };
-        if paused {
-            let command = ResumePlayback::new(Arc::clone(&self.conn), Arc::clone(&owner));
-            self.run_playback_command(command, action, None, cx);
-        } else {
-            let command = PausePlayback::new(Arc::clone(&self.conn), Arc::clone(&owner));
-            self.run_playback_command(command, action, None, cx);
+        let conn = Arc::clone(&self.conn);
+        match intent {
+            ShowToggleIntent::Start => {
+                let entry_id = self.show_page.queue.selected_entry_id();
+                self.run_playback_command(StartShow::new(conn, owner, entry_id), action, None, cx);
+            }
+            ShowToggleIntent::Pause => {
+                self.run_playback_command(PauseShow::new(conn, owner), action, None, cx);
+            }
+            ShowToggleIntent::Resume => {
+                self.run_playback_command(ResumeShow::new(conn, owner), action, None, cx);
+            }
         }
     }
 
@@ -74,17 +115,23 @@ impl TopApp {
         };
         match operation {
             PlaybackOperation::Pause => {
-                self.run_retained_playback(
-                    PausePlayback::new(self.conn.clone(), owner),
-                    intent,
-                    cx,
-                );
+                self.run_retained_playback(PauseShow::new(self.conn.clone(), owner), intent, cx);
             }
-            PlaybackOperation::Resume => self.run_retained_playback(
-                ResumePlayback::new(self.conn.clone(), owner),
+            PlaybackOperation::Start => self.run_retained_playback(
+                StartShow::new(
+                    self.conn.clone(),
+                    owner,
+                    self.show_page.queue.selected_entry_id(),
+                ),
                 intent,
                 cx,
             ),
+            PlaybackOperation::Stop => {
+                self.run_retained_playback(StopShow::new(self.conn.clone(), owner), intent, cx);
+            }
+            PlaybackOperation::Resume => {
+                self.run_retained_playback(ResumeShow::new(self.conn.clone(), owner), intent, cx);
+            }
             PlaybackOperation::Next => self.run_retained_playback(
                 SkipPlaybackNext::new(self.conn.clone(), owner),
                 intent,
@@ -163,12 +210,20 @@ impl TopApp {
             Output = crate::application::commands::playback::PlaybackCommandResult,
         >,
     {
+        let is_start = matches!(
+            action,
+            RecoveryAction::Playback {
+                operation: PlaybackOperation::Start,
+                ..
+            }
+        );
         present_command(
             &self.command_runner,
             command,
             CommandContext::next(),
             cx,
             move |this, result, cx| {
+                this.playback_presentation_override = presentation_after_command(is_start, true);
                 if let Some(id) = retry_id {
                     this.capability_vm
                         .pending
@@ -192,11 +247,44 @@ impl TopApp {
                 } else {
                     this.retain_failed_action(action, Dependency::Playback, cx);
                 }
+                if is_start {
+                    this.playback_presentation_override = presentation_after_command(true, false);
+                    this.reproject_show_page_from_current_queue();
+                }
                 this.settings_status = format!("Playback error: {error:#}");
                 this.library.update(cx, |library, cx| {
                     library.reload_playlists(cx);
                 });
             },
         );
+    }
+}
+
+/// Gives the Show state that the page shows after a playback command (ADR 0068).
+/// An accepted Start is `Starting` until an observation of the driver proves playback.
+/// A Start that failed is `Failed`. Each other command shows the stored session.
+const fn presentation_after_command(is_start: bool, accepted: bool) -> Option<TransportState> {
+    match (is_start, accepted) {
+        (true, true) => Some(TransportState::Starting),
+        (true, false) => Some(TransportState::Failed),
+        (false, _) => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_accepted_start_is_starting_and_not_playing() {
+        assert_eq!(
+            presentation_after_command(true, true),
+            Some(TransportState::Starting)
+        );
+        assert_eq!(
+            presentation_after_command(true, false),
+            Some(TransportState::Failed)
+        );
+        assert_eq!(presentation_after_command(false, true), None);
     }
 }

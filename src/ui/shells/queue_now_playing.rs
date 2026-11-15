@@ -22,14 +22,17 @@ use crate::view_models::queue_now_playing::{
 use crate::view_models::workspace::FrameChromeButtonDisplay;
 
 type QueueClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
+type QueueSelectHandler = Rc<dyn Fn(i64, &ClickEvent, &mut Window, &mut App) + 'static>;
 
 /// Callback slots supplied by the application-owned queue frame.
-#[derive(Default)]
+#[derive(Clone, Default)]
 #[must_use]
 pub(crate) struct QueueNowPlayingSlots {
     skip_previous: Option<QueueClickHandler>,
     play_pause: Option<QueueClickHandler>,
     skip_next: Option<QueueClickHandler>,
+    select_entry: Option<QueueSelectHandler>,
+    stop: Option<QueueClickHandler>,
 }
 
 impl QueueNowPlayingSlots {
@@ -64,6 +67,22 @@ impl QueueNowPlayingSlots {
         self.skip_next = Some(Rc::new(handler));
         self
     }
+
+    pub(crate) fn on_select_entry(
+        mut self,
+        handler: impl Fn(i64, &ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.select_entry = Some(Rc::new(handler));
+        self
+    }
+
+    pub(crate) fn on_stop(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.stop = Some(Rc::new(handler));
+        self
+    }
 }
 
 /// Queue cuelist shell element.
@@ -71,6 +90,7 @@ impl QueueNowPlayingSlots {
 #[must_use]
 pub(crate) struct QueueCuelistShell {
     vm: QueueNowPlayingPageVm,
+    slots: QueueNowPlayingSlots,
 }
 
 /// Queue transport shell element.
@@ -82,8 +102,11 @@ pub(crate) struct QueueTransportShell {
 }
 
 /// Creates a queue-only shell for panel cuelist mode.
-pub(crate) fn render_queue_cuelist(vm: QueueNowPlayingPageVm) -> QueueCuelistShell {
-    QueueCuelistShell { vm }
+pub(crate) fn render_queue_cuelist(
+    vm: QueueNowPlayingPageVm,
+    slots: QueueNowPlayingSlots,
+) -> QueueCuelistShell {
+    QueueCuelistShell { vm, slots }
 }
 
 /// Creates a transport-only shell for the Show surface.
@@ -100,7 +123,7 @@ impl RenderOnce for QueueCuelistShell {
             rows, empty_label, ..
         } = self.vm;
 
-        render_queue_list(rows, empty_label, cx)
+        render_queue_list(rows, empty_label, self.slots.select_entry.as_ref(), cx)
     }
 }
 
@@ -113,6 +136,7 @@ impl RenderOnce for QueueTransportShell {
 fn render_queue_list(
     rows: Vec<QueueRowDisplay>,
     empty_label: &'static str,
+    select_entry: Option<&QueueSelectHandler>,
     cx: &App,
 ) -> impl IntoElement {
     let row_gap = Spacing::XXS.scaled(cx);
@@ -140,11 +164,18 @@ fn render_queue_list(
         .overflow_y_scroll()
         .p(Spacing::MD.scaled(cx))
         .gap(row_gap)
-        .children(rows.into_iter().map(|row| render_queue_row(row, cx)))
+        .children(
+            rows.into_iter()
+                .map(|row| render_queue_row(row, select_entry.cloned(), cx)),
+        )
         .into_any_element()
 }
 
-fn render_queue_row(row: QueueRowDisplay, cx: &App) -> impl IntoElement {
+fn render_queue_row(
+    row: QueueRowDisplay,
+    select_entry: Option<QueueSelectHandler>,
+    cx: &App,
+) -> impl IntoElement {
     let label_color = color(cx, SemanticColor::Label);
     let secondary_label = color(cx, SemanticColor::SecondaryLabel);
     let tertiary_label = color(cx, SemanticColor::TertiaryLabel);
@@ -163,6 +194,13 @@ fn render_queue_row(row: QueueRowDisplay, cx: &App) -> impl IntoElement {
         .py(Spacing::XS.scaled(cx))
         .rounded(Radius::MD.scaled(cx))
         .when(row.now_playing, |el| el.bg(fill))
+        .when(row.selected, |el| el.border_1().border_color(accent))
+        .when_some(
+            row.entry_id.filter(|_| row.selectable).zip(select_entry),
+            |el, (entry_id, handler)| {
+                el.on_click(move |event, window, cx| handler(entry_id, event, window, cx))
+            },
+        )
         .tooltip({
             let label = SharedString::from(row.a11y_label);
             move |window, cx| Tooltip::new(label.clone()).build(window, cx)
@@ -252,7 +290,11 @@ fn render_transport(
 ) -> impl IntoElement {
     let icon = match transport.play_pause_state {
         TransportState::Playing => IconName::Pause,
-        TransportState::Paused | TransportState::Stopped => IconName::Play,
+        TransportState::Paused
+        | TransportState::Stopped
+        | TransportState::Empty
+        | TransportState::Starting
+        | TransportState::Failed => IconName::Play,
     };
 
     div()
@@ -280,6 +322,7 @@ fn render_transport(
             IconName::Next,
             slots.skip_next,
         ))
+        .child(transport_button(transport.stop, IconName::Stop, slots.stop))
 }
 
 fn transport_button(
@@ -324,6 +367,9 @@ mod tests {
     ) -> QueueRowDisplay {
         QueueRowDisplay {
             track_id: 1,
+            entry_id: None,
+            selected: false,
+            selectable: false,
             id: "queue-row-1".to_owned(),
             title: title.to_owned(),
             artist: artist.map(str::to_owned),
@@ -346,7 +392,7 @@ mod tests {
         ) -> impl gpui::IntoElement {
             div()
                 .w(px(320.0))
-                .child(render_queue_row(self.display.clone(), cx))
+                .child(render_queue_row(self.display.clone(), None, cx))
         }
     }
 

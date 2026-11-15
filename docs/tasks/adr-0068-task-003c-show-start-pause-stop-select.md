@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-14. Implementation has not started. This is part 3 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
+Implemented - 2026-11-14. Mechanical checks are Green. This file has no visual criterion. This is part 3 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
 
 ## Goal
 
@@ -110,6 +110,27 @@ cargo clippy --locked --offline --quiet --all-targets -- -D warnings
 cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```
+
+## Result - 2026-11-14
+
+A ChatGPT run made the change. The run ended with a broker refusal and gave no report. The orchestrating session examined the diff and ran each check.
+
+The orchestrating session made these corrections:
+
+- It removed `PlaybackOwner::select_show_entry`, which had no caller. `SelectShowCueEntry` calls the store.
+- Start of an entry that cannot play gives the typed error `ShowCueEntryCannotPlay` with the entry and the reason.
+- The view model gives the toggle intent (`toggle_intent`) and the Stop availability. The handlers read them. Before, no production code read the action availability.
+- The starting state comes from the operation of the command, not from the text of its message. A failed Start gives the failed state.
+- The first current observation ends the starting state on each page, because the keys read the Show view model on each page.
+
+Deviations from this file:
+
+- `PauseShow`, `ResumeShow` and `StopShow` are type aliases of `PausePlayback`, `ResumePlayback` and `StopPlayback`. The Show page is the only desktop user of these commands.
+- The failure text is in the status line of the app. The view model gives the failed state and no text.
+- A retry of a retained Start starts the entry that is selected at the time of the retry.
+- The reducer test is at the function `PlaybackTickSnapshot::matches_owner`. `TopApp::apply_playback_tick` calls it.
+- The owner tests use `NullDriver` and a driver that reports the end of a track. They do not record the driver calls.
+- `src/ui/composites/show_detail_panel.rs` passes the select slot to the cuelist. The selected row has a border in the accent color. V1 of the parent task examines it.
 
 ## Stop And Ask
 

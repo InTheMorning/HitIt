@@ -20,7 +20,7 @@ use crate::ui::primitives::{
     status_badge::render_state_badge, Button, ContextMenu, ContextMenuItem, ContextMenuItemDisplay,
     ContextMenuScope,
 };
-use crate::ui::shells::queue_now_playing::render_queue_cuelist;
+use crate::ui::shells::queue_now_playing::{render_queue_cuelist, QueueNowPlayingSlots};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Size, Spacing};
 use crate::view_models::queue_now_playing::QueueNowPlayingPageVm;
 use crate::view_models::show::{
@@ -60,6 +60,7 @@ pub(crate) struct ShowDetailPanelDisplay {
 #[derive(Clone, Default)]
 #[must_use]
 pub(crate) struct ShowDetailPanelSlots {
+    queue: QueueNowPlayingSlots,
     open_panel: Option<PanelClickHandler>,
     close_panel: Option<PanelClickHandler>,
     show_cuelist: Option<PanelClickHandler>,
@@ -76,6 +77,13 @@ pub(crate) struct ShowDetailPanelSlots {
 }
 
 impl ShowDetailPanelSlots {
+    pub(crate) fn on_select_cue_entry(
+        mut self,
+        handler: impl Fn(i64, &ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.queue = self.queue.on_select_entry(handler);
+        self
+    }
     pub(crate) fn on_select_event(
         mut self,
         handler: impl Fn(String, &mut Window, &mut App) + 'static,
@@ -344,7 +352,7 @@ fn render_panel_body(
             .flex_1()
             .min_h_0()
             .min_w_0()
-            .child(render_queue_cuelist(queue))
+            .child(render_queue_cuelist(queue, slots.queue.clone()))
             .into_any_element(),
         ShowPanelMode::Detail(kind) => div()
             .id("show-detail-panel-detail")

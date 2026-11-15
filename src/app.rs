@@ -201,6 +201,7 @@ pub struct TopApp {
     saved_search_notice_scroll: gpui::ScrollHandle,
     queue_text_filter: Option<String>,
     show_page: ShowPageVm,
+    playback_presentation_override: Option<crate::view_models::queue_now_playing::TransportState>,
     show_commands: ShowCommandState,
     broadcast: config::BroadcastCapabilities,
     music_dir: PathBuf,
@@ -531,6 +532,7 @@ impl TopApp {
             saved_search_notice_scroll: gpui::ScrollHandle::new(),
             queue_text_filter: None,
             show_page,
+            playback_presentation_override: None,
             show_commands: ShowCommandState::default(),
             broadcast,
             music_dir,
@@ -624,7 +626,7 @@ impl TopApp {
         bridge_watch(
             handle.subscribe(),
             |this: &mut Self, snapshot, cx| {
-                this.apply_playback_tick(snapshot.outcome, cx);
+                this.apply_playback_tick(snapshot, cx);
             },
             cx,
         );
@@ -1071,10 +1073,34 @@ impl TopApp {
         });
     }
 
-    fn apply_playback_tick(&mut self, outcome: PlaybackTickOutcome, cx: &mut Context<Self>) {
+    fn apply_playback_tick(
+        &mut self,
+        snapshot: crate::runtime::PlaybackTickSnapshot,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(owner) = &self.playback_owner else {
+            return;
+        };
+        let Ok(owner) = owner.lock() else {
+            return;
+        };
+        if !snapshot.matches_owner(owner.generation(), owner.active_cue_entry_id()) {
+            return;
+        }
+        drop(owner);
+        let outcome = snapshot.outcome;
+        // ADR 0068: the first current observation ends the starting state. The keys
+        // read the Show view model on each page, so the refresh must then run on each page.
+        let had_override = self.playback_presentation_override.take().is_some();
+        if matches!(outcome, PlaybackTickOutcome::Error(_)) {
+            self.playback_presentation_override =
+                Some(crate::view_models::queue_now_playing::TransportState::Failed);
+            self.reproject_show_page_from_current_queue();
+            cx.notify();
+        }
         match outcome {
             PlaybackTickOutcome::Idle => {
-                if self.show_page.is_active() {
+                if had_override || self.show_page.is_active() {
                     self.refresh_show_page(cx);
                 }
             }

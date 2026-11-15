@@ -16,9 +16,7 @@ use rusqlite::Connection;
 
 use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{RecoveryAction, RecoveryIntent};
-use crate::application::{
-    ApplicationCommand, ApplicationServices, CommandContext, CommandError, CommandOutcome,
-};
+use crate::application::{ApplicationCommand, CommandContext, CommandError, CommandOutcome};
 use crate::broadcast::control::{self, UnitRef};
 use crate::broadcast::encoder::{self, EncoderTarget};
 use crate::broadcast::publisher_targets::{self, PublisherTargetCommandError, PublisherTargetList};
@@ -47,7 +45,8 @@ use crate::view_models::workspace::{FrameNavigationEntry, MusicDestination};
 use crate::{config, db};
 
 use super::queue_now_playing::{
-    queue_now_playing_input, queue_now_playing_vm, queue_transport_action,
+    queue_now_playing_input, queue_now_playing_vm, queue_select_entry_action,
+    queue_transport_action,
 };
 use super::{AppTab, TopApp, WorkspaceScreenMount};
 
@@ -82,7 +81,12 @@ pub(super) fn build_show_screen(
                 entity.clone(),
                 TopApp::toggle_playback_paused,
             ))
-            .on_skip_next(queue_transport_action(entity, TopApp::skip_playback_next))
+            .on_stop_show(queue_transport_action(entity.clone(), TopApp::stop_show))
+            .on_skip_next(queue_transport_action(
+                entity.clone(),
+                TopApp::skip_playback_next,
+            ))
+            .on_select_cue_entry(queue_select_entry_action(entity))
             .on_open_broadcast_readiness(move |_, _, cx| {
                 readiness_entity.update(cx, |this, cx| {
                     this.open_broadcast_readiness_in_music(cx);
@@ -322,7 +326,6 @@ impl TopApp {
         let requested_event_input = self.event_section_input.clone();
         let command = RefreshShowPage::new(
             Arc::clone(&self.conn),
-            Arc::clone(&self.application_services),
             self.music_dir.clone(),
             self.queue_text_filter.clone(),
             self.broadcast.clone(),
@@ -409,7 +412,10 @@ impl TopApp {
         cx.notify();
     }
 
-    fn reproject_show_page(&mut self, queue: QueueNowPlayingPageVm) {
+    fn reproject_show_page(&mut self, mut queue: QueueNowPlayingPageVm) {
+        if let Some(state) = self.playback_presentation_override {
+            queue.set_transport_state(state);
+        }
         if let Some(input) = &self.event_section_input {
             self.event_session.remember(input);
             if self.show_page.log_pane.shows_event() {
@@ -1424,7 +1430,6 @@ fn apply_event_refresh(
 
 struct RefreshShowPage {
     conn: Arc<Mutex<Connection>>,
-    application_services: Arc<ApplicationServices>,
     music_dir: PathBuf,
     queue_text_filter: Option<String>,
     broadcast: config::BroadcastCapabilities,
@@ -1433,14 +1438,12 @@ struct RefreshShowPage {
 impl RefreshShowPage {
     fn new(
         conn: Arc<Mutex<Connection>>,
-        application_services: Arc<ApplicationServices>,
         music_dir: PathBuf,
         queue_text_filter: Option<String>,
         broadcast: config::BroadcastCapabilities,
     ) -> Self {
         Self {
             conn,
-            application_services,
             music_dir,
             queue_text_filter,
             broadcast,
@@ -1461,8 +1464,7 @@ impl ApplicationCommand for RefreshShowPage {
                 .conn
                 .lock()
                 .map_err(|_| CommandError::Query("database lock poisoned".to_string()))?;
-            let queue =
-                queue_now_playing_input(&self.application_services, &conn, self.queue_text_filter);
+            let queue = queue_now_playing_input(&conn, self.queue_text_filter);
             let input = load_event_section(&conn, &self.broadcast);
             (queue, Some(input))
         };

@@ -220,6 +220,22 @@ pub fn show_cue_exists(conn: &Connection) -> Result<bool> {
     .context("Check whether a Show cue exists")
 }
 
+pub fn select_show_cue_entry(conn: &Connection, entry_id: i64) -> Result<()> {
+    anyhow::ensure!(
+        show_cue_can_change(conn)?,
+        "The Show cue cannot change while playback is active"
+    );
+    let changed = conn
+        .execute(
+            "UPDATE show_cue SET selected_entry_id = ?1
+         WHERE id = 1 AND EXISTS (SELECT 1 FROM show_cue_entries WHERE id = ?1)",
+            [entry_id],
+        )
+        .context("Select the Show cue entry")?;
+    anyhow::ensure!(changed == 1, "Show cue entry {entry_id} does not exist");
+    Ok(())
+}
+
 /// Returns whether ADR 0068 allows a Show cue change in the current session.
 pub fn show_cue_can_change(conn: &Connection) -> Result<bool> {
     let session_state: Option<String> = conn
@@ -792,6 +808,36 @@ mod tests {
             .entries
             .iter()
             .all(|entry| entry.unavailable_reason.is_none()));
+        Ok(())
+    }
+
+    #[test]
+    fn selecting_a_stopped_entry_changes_only_the_cue_selection() -> Result<()> {
+        let mut conn = setup()?;
+        let (playlist_id, _) = playlist_with_repeated_track(&conn)?;
+        load_show_cue(&mut conn, playlist_id, 123, false)?;
+        let before = show_cue(&conn)?.expect("cue exists");
+        let selected = before.entries[1].id;
+
+        select_show_cue_entry(&conn, selected)?;
+
+        let after = show_cue(&conn)?.expect("cue exists");
+        assert_eq!(after.selected_entry_id, Some(selected));
+        assert_eq!(after.loaded_at_us, before.loaded_at_us);
+        assert_eq!(after.source_playlist_id, before.source_playlist_id);
+        assert_eq!(
+            after
+                .entries
+                .iter()
+                .map(|entry| (entry.id, entry.track_id))
+                .collect::<Vec<_>>(),
+            before
+                .entries
+                .iter()
+                .map(|entry| (entry.id, entry.track_id))
+                .collect::<Vec<_>>()
+        );
+        assert!(db::playback_session(&conn, crate::playback::DEFAULT_SESSION_ID)?.is_none());
         Ok(())
     }
 

@@ -21,18 +21,24 @@ use crate::view_models::workspace::FrameChromeButtonDisplay;
 pub(crate) enum TransportState {
     /// No playable queue item is active.
     #[default]
+    Empty,
+    /// A cue is loaded and playback is stopped.
     Stopped,
+    /// A start command was accepted, but playback is not yet observed.
+    Starting,
     /// Playback is currently advancing.
     Playing,
     /// Playback is active but paused.
     Paused,
+    /// Playback failed and needs an explicit retry.
+    Failed,
 }
 
 impl TransportState {
     /// Returns whether transport commands should be enabled.
     #[must_use]
     pub(crate) const fn is_active(self) -> bool {
-        !matches!(self, Self::Stopped)
+        matches!(self, Self::Starting | Self::Playing | Self::Paused)
     }
 
     /// Returns the visible play/pause command label.
@@ -40,7 +46,10 @@ impl TransportState {
     pub(crate) const fn play_pause_label(self) -> &'static str {
         match self {
             Self::Playing => "Pause",
-            Self::Paused | Self::Stopped => "Play",
+            Self::Paused => "Resume",
+            Self::Stopped | Self::Empty => "Start",
+            Self::Failed => "Retry",
+            Self::Starting => "Starting",
         }
     }
 
@@ -48,9 +57,87 @@ impl TransportState {
     #[must_use]
     pub(crate) const fn play_pause_a11y_label(self) -> &'static str {
         match self {
-            Self::Playing => "Pause playback",
-            Self::Paused => "Resume playback",
-            Self::Stopped => "Play",
+            Self::Playing => "Pause Show",
+            Self::Paused => "Resume Show",
+            Self::Stopped | Self::Failed => "Start Show",
+            Self::Empty => "No Show cue is loaded",
+            Self::Starting => "Starting Show",
+        }
+    }
+}
+
+/// The Show intent of the play and pause control and of its key (ADR 0068).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ShowToggleIntent {
+    Start,
+    Pause,
+    Resume,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ShowActionAvailability {
+    Available,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ShowActionDisplay {
+    pub(crate) availability: ShowActionAvailability,
+    pub(crate) label: &'static str,
+    pub(crate) a11y_label: &'static str,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ShowActionsDisplay {
+    pub(crate) start: ShowActionDisplay,
+    pub(crate) pause: ShowActionDisplay,
+    pub(crate) resume: ShowActionDisplay,
+    pub(crate) stop: ShowActionDisplay,
+    pub(crate) select: ShowActionDisplay,
+}
+
+impl ShowActionsDisplay {
+    fn for_state(state: TransportState) -> Self {
+        let available = |condition| {
+            if condition {
+                ShowActionAvailability::Available
+            } else {
+                ShowActionAvailability::Unavailable
+            }
+        };
+        let (start, pause, resume, stop, select) = match state {
+            TransportState::Empty | TransportState::Starting => (false, false, false, false, false),
+            TransportState::Stopped => (true, false, false, false, true),
+            TransportState::Playing => (false, true, false, true, false),
+            TransportState::Paused => (false, false, true, true, false),
+            TransportState::Failed => (true, false, false, true, false),
+        };
+        Self {
+            start: ShowActionDisplay {
+                availability: available(start),
+                label: "Start",
+                a11y_label: "Start Show",
+            },
+            pause: ShowActionDisplay {
+                availability: available(pause),
+                label: "Pause",
+                a11y_label: "Pause Show",
+            },
+            resume: ShowActionDisplay {
+                availability: available(resume),
+                label: "Resume",
+                a11y_label: "Resume Show",
+            },
+            stop: ShowActionDisplay {
+                availability: available(stop),
+                label: "Stop",
+                a11y_label: "Stop Show",
+            },
+            select: ShowActionDisplay {
+                availability: available(select),
+                label: "Select",
+                a11y_label: "Select Show cue entry",
+            },
         }
     }
 }
@@ -66,6 +153,10 @@ pub(crate) struct QueueTrackInput {
     pub(crate) id: i64,
     /// Cue entry identifier when the row belongs to a stored cue.
     pub(crate) entry_id: Option<i64>,
+    /// Whether this is the selected cue entry.
+    pub(crate) selected: bool,
+    /// Whether a stopped Show can select this entry.
+    pub(crate) selectable: bool,
     /// Why a stored cue entry cannot play, when known.
     pub(crate) unavailable_reason: Option<QueueUnavailableReason>,
     /// Primary track title.
@@ -103,6 +194,10 @@ impl QueueUnavailableReason {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct QueueRowDisplay {
     pub(crate) track_id: i64,
+    pub(crate) entry_id: Option<i64>,
+    pub(crate) selected: bool,
+    /// Whether a stopped Show can select this entry.
+    pub(crate) selectable: bool,
     /// Stable row element identifier.
     pub(crate) id: String,
     /// Primary row title.
@@ -141,6 +236,9 @@ impl QueueRowDisplay {
 
         Self {
             track_id: input.id,
+            entry_id: input.entry_id,
+            selected: input.selected,
+            selectable: input.selectable,
             id: input.entry_id.map_or_else(
                 || format!("queue-row-{}", input.id),
                 |entry_id| format!("queue-entry-{entry_id}"),
@@ -173,6 +271,8 @@ pub(crate) struct TransportDisplay {
     pub(crate) skip_previous: FrameChromeButtonDisplay,
     /// Next-track command display.
     pub(crate) skip_next: FrameChromeButtonDisplay,
+    /// Stop command display.
+    pub(crate) stop: FrameChromeButtonDisplay,
     /// Whether transport commands should render unavailable.
     pub(crate) disabled: bool,
 }
@@ -185,7 +285,7 @@ impl TransportDisplay {
         can_skip_previous: bool,
         can_skip_next: bool,
     ) -> Self {
-        let disabled = !state.is_active();
+        let disabled = matches!(state, TransportState::Empty | TransportState::Starting);
         Self {
             play_pause_id: "queue-transport-playpause".to_string(),
             play_pause_label: state.play_pause_label(),
@@ -200,6 +300,14 @@ impl TransportDisplay {
                 "queue-transport-next",
                 "Next track",
                 disabled || !can_skip_next,
+            ),
+            stop: FrameChromeButtonDisplay::new(
+                "queue-transport-stop",
+                "Stop Show",
+                !matches!(
+                    state,
+                    TransportState::Playing | TransportState::Paused | TransportState::Failed
+                ),
             ),
             disabled,
         }
@@ -218,11 +326,17 @@ pub(crate) struct QueueNowPlayingPageVm {
     text_filter: Option<String>,
     /// Transport control display state.
     pub(crate) transport: TransportDisplay,
+    pub(crate) actions: ShowActionsDisplay,
     /// Empty-state label for the queue list.
     pub(crate) empty_label: &'static str,
 }
 
 impl QueueNowPlayingPageVm {
+    pub(crate) fn set_transport_state(&mut self, state: TransportState) {
+        self.transport = TransportDisplay::from_state_with_skip_availability(state, false, false);
+        self.actions = ShowActionsDisplay::for_state(state);
+    }
+
     pub(crate) fn track_ids(&self) -> Vec<i64> {
         self.all_rows.iter().map(|row| row.track_id).collect()
     }
@@ -232,6 +346,30 @@ impl QueueNowPlayingPageVm {
             .iter()
             .find(|row| row.now_playing)
             .map(|row| row.track_id)
+    }
+
+    /// Gives the available Show intent of the toggle with its accessibility label.
+    /// It gives `None` when no cue is loaded and while a start is in progress.
+    pub(crate) fn toggle_intent(&self) -> Option<(ShowToggleIntent, &'static str)> {
+        [
+            (ShowToggleIntent::Start, &self.actions.start),
+            (ShowToggleIntent::Pause, &self.actions.pause),
+            (ShowToggleIntent::Resume, &self.actions.resume),
+        ]
+        .into_iter()
+        .find(|(_, action)| action.availability == ShowActionAvailability::Available)
+        .map(|(intent, action)| (intent, action.a11y_label))
+    }
+
+    pub(crate) fn can_stop_show(&self) -> bool {
+        self.actions.stop.availability == ShowActionAvailability::Available
+    }
+
+    pub(crate) fn selected_entry_id(&self) -> Option<i64> {
+        self.all_rows
+            .iter()
+            .find(|row| row.selected)
+            .and_then(|row| row.entry_id)
     }
     pub(crate) fn apply_playback_availability(
         &mut self,
@@ -290,7 +428,7 @@ impl Default for QueueNowPlayingPageVmBuilder {
     fn default() -> Self {
         Self {
             tracks: Vec::new(),
-            transport_state: TransportState::Stopped,
+            transport_state: TransportState::Empty,
             can_skip_previous: false,
             can_skip_next: false,
         }
@@ -338,6 +476,7 @@ impl QueueNowPlayingPageVmBuilder {
                 self.can_skip_previous,
                 self.can_skip_next,
             ),
+            actions: ShowActionsDisplay::for_state(self.transport_state),
             empty_label: "Queue is empty",
         }
     }
@@ -395,6 +534,8 @@ mod tests {
         QueueTrackInput {
             id,
             entry_id: None,
+            selected: false,
+            selectable: false,
             unavailable_reason: None,
             title: Some(title.to_string()),
             artist: Some("Artist".to_string()),
@@ -412,6 +553,71 @@ mod tests {
         assert!(vm.transport.skip_previous.disabled);
         assert!(vm.transport.skip_next.disabled);
         assert_eq!(vm.empty_label, "Queue is empty");
+    }
+
+    #[test]
+    fn show_actions_match_each_transport_state() {
+        let cases = [
+            (TransportState::Empty, false, false, false, false, false),
+            (TransportState::Stopped, true, false, false, false, true),
+            (TransportState::Starting, false, false, false, false, false),
+            (TransportState::Playing, false, true, false, true, false),
+            (TransportState::Paused, false, false, true, true, false),
+            (TransportState::Failed, true, false, false, true, false),
+        ];
+        for (state, start, pause, resume, stop, select) in cases {
+            let vm = QueueNowPlayingPageVm::builder()
+                .transport_state(state)
+                .build();
+            assert_eq!(
+                vm.actions.start.availability == ShowActionAvailability::Available,
+                start
+            );
+            assert_eq!(
+                vm.actions.pause.availability == ShowActionAvailability::Available,
+                pause
+            );
+            assert_eq!(
+                vm.actions.resume.availability == ShowActionAvailability::Available,
+                resume
+            );
+            assert_eq!(
+                vm.actions.stop.availability == ShowActionAvailability::Available,
+                stop
+            );
+            assert_eq!(
+                vm.actions.select.availability == ShowActionAvailability::Available,
+                select
+            );
+        }
+    }
+
+    #[test]
+    fn toggle_gives_no_intent_without_a_cue_and_a_show_intent_with_a_cue() {
+        let intent = |state| {
+            QueueNowPlayingPageVm::builder()
+                .transport_state(state)
+                .build()
+                .toggle_intent()
+        };
+        assert_eq!(intent(TransportState::Empty), None);
+        assert_eq!(intent(TransportState::Starting), None);
+        assert_eq!(
+            intent(TransportState::Stopped),
+            Some((ShowToggleIntent::Start, "Start Show"))
+        );
+        assert_eq!(
+            intent(TransportState::Failed),
+            Some((ShowToggleIntent::Start, "Start Show"))
+        );
+        assert_eq!(
+            intent(TransportState::Playing),
+            Some((ShowToggleIntent::Pause, "Pause Show"))
+        );
+        assert_eq!(
+            intent(TransportState::Paused),
+            Some((ShowToggleIntent::Resume, "Resume Show"))
+        );
     }
 
     #[test]
@@ -462,7 +668,7 @@ mod tests {
 
         assert_eq!(vm.rows.len(), 2);
         assert_eq!(vm.transport.play_pause_state, TransportState::Paused);
-        assert_eq!(vm.transport.play_pause_a11y_label, "Resume playback");
+        assert_eq!(vm.transport.play_pause_a11y_label, "Resume Show");
         assert!(!vm.transport.disabled);
         assert!(vm.transport.skip_previous.disabled);
         assert!(!vm.transport.skip_next.disabled);

@@ -109,7 +109,7 @@ pub(super) const APP_KEY_BINDING_SPECS: &[AppKeyBindingSpec] = &[
     AppKeyBindingSpec {
         command: AppKeyCommand::TogglePlayback,
         keystroke: "cmd-alt-p",
-        label: "Play/Pause",
+        label: "Show Play/Pause",
         scope: AppKeyScope::Global,
     },
     AppKeyBindingSpec {

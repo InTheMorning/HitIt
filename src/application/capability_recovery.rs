@@ -31,6 +31,8 @@ pub(crate) enum StreamEncoderOperation {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum PlaybackOperation {
+    Start,
+    Stop,
     Pause,
     Resume,
     Next,
@@ -171,8 +173,17 @@ impl RecoveryAction {
                 }
             }
             Self::Playback {
-                track_id, queue, ..
+                operation,
+                track_id,
+                queue,
             } => {
+                if *operation == PlaybackOperation::Start {
+                    let cue = db::show_cue(conn).map_err(|_| RetryRejection::SubjectChanged)?;
+                    if cue.is_none_or(|cue| cue.selected_entry_id.is_none()) {
+                        return Err(RetryRejection::SubjectChanged);
+                    }
+                    return Ok(());
+                }
                 let track_id = track_id.ok_or(RetryRejection::SubjectChanged)?;
                 if db::track_row_by_id(conn, track_id)
                     .map_err(|_| RetryRejection::SubjectChanged)?

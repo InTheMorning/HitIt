@@ -9,6 +9,7 @@ use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
 use crate::application::events::playback::PlaybackEvent;
 use crate::application::events::ApplicationEvent;
+use crate::db;
 use crate::playback::NowPlayingUpdate;
 use crate::playback_driver::PlaybackDriver;
 use crate::playback_owner::PlaybackOwner;
@@ -304,6 +305,84 @@ pub struct StopPlayback<D> {
     playback_owner: SharedPlaybackOwner<D>,
 }
 
+/// Starts the selected Show cue entry or the named entry.
+pub struct StartShow<D> {
+    conn: SharedConnection,
+    playback_owner: SharedPlaybackOwner<D>,
+    entry_id: Option<i64>,
+}
+
+impl<D> StartShow<D> {
+    #[must_use]
+    pub fn new(
+        conn: SharedConnection,
+        playback_owner: SharedPlaybackOwner<D>,
+        entry_id: Option<i64>,
+    ) -> Self {
+        Self {
+            conn,
+            playback_owner,
+            entry_id,
+        }
+    }
+}
+
+impl<D: PlaybackDriver + 'static> ApplicationCommand for StartShow<D> {
+    type Output = PlaybackCommandResult;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        ensure_not_cancelled(context)?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| playback_error("database lock poisoned"))?;
+        let mut owner = self
+            .playback_owner
+            .lock()
+            .map_err(|_| playback_error("playback owner lock poisoned"))?;
+        let update = owner
+            .start_show_entry(&conn, self.entry_id)
+            .map_err(playback_error)?;
+        Ok(CommandOutcome::new(
+            PlaybackCommandResult::with_update(
+                update.clone(),
+                format!("Starting {}", update.title),
+            ),
+            playback_changed_events(),
+        ))
+    }
+}
+
+/// Selects a cue entry while Show is stopped.
+pub struct SelectShowCueEntry {
+    conn: SharedConnection,
+    entry_id: i64,
+}
+
+impl SelectShowCueEntry {
+    #[must_use]
+    pub fn new(conn: SharedConnection, entry_id: i64) -> Self {
+        Self { conn, entry_id }
+    }
+}
+
+impl ApplicationCommand for SelectShowCueEntry {
+    type Output = PlaybackCommandResult;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        ensure_not_cancelled(context)?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| playback_error("database lock poisoned"))?;
+        db::select_show_cue_entry(&conn, self.entry_id).map_err(playback_error)?;
+        Ok(CommandOutcome::new(
+            PlaybackCommandResult::without_update("Show cue entry selected"),
+            playback_changed_events(),
+        ))
+    }
+}
+
 impl<D> StopPlayback<D> {
     /// Creates a stop command.
     #[must_use]
@@ -314,6 +393,13 @@ impl<D> StopPlayback<D> {
         }
     }
 }
+
+/// Show-specific name for the pause command.
+pub type PauseShow<D> = PausePlayback<D>;
+/// Show-specific name for the resume command.
+pub type ResumeShow<D> = ResumePlayback<D>;
+/// Show-specific name for the stop command.
+pub type StopShow<D> = StopPlayback<D>;
 
 impl<D> ApplicationCommand for StopPlayback<D>
 where
