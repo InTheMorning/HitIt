@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready after task 003b - 2026-11-14. Implementation has not started. This is part 3 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
+Ready - 2026-11-14. Implementation has not started. This is part 3 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
 
 ## Goal
 
@@ -57,7 +57,7 @@ The files of "Files To Inspect".
 
 1. The owner gets a generation counter and the active cue entry id. Each load, each stop and each driver change adds one to the generation.
 2. Typed commands `StartShow`, `PauseShow`, `ResumeShow`, `StopShow` and `SelectShowCueEntry`. Each command names a cue entry id or acts on the selected entry. No command names a playlist row.
-3. Start loads the selected entry and writes the track and `cue_entry_id` with the function of task 003b. Start of an entry that cannot play reports the entry and its reason, and changes nothing.
+3. Start loads the selected entry and writes the track and `cue_entry_id` with `db::set_playback_session_track_with_cue` of task 003b. Start of an entry that cannot play reports the entry and its reason, and changes nothing.
 4. Pause and Resume act on the active entry. Stop ends audio, clears the local metadata, resets the position and keeps the cue and its selection.
 5. Select while stopped writes only `show_cue.selected_entry_id`. Select while playing or paused is not available in this task.
 6. The cuelist comes from the cue in each state. Remove `queue_tracks_for_session` and the projection from the session playlist. The active row is the entry of the session. The selected row is `selected_entry_id`.

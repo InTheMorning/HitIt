@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-14. Implementation has not started. This is part 2 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
+Implemented - 2026-11-14. Mechanical checks are Green. This file has no visual criterion. This is part 2 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
 
 ## Goal
 
@@ -90,6 +90,15 @@ cargo clippy --locked --offline --quiet --all-targets -- -D warnings
 cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```
+
+## Result - 2026-11-14
+
+A ChatGPT run made the change. The orchestrating session examined the diff and ran the checks.
+
+- `db::set_playback_session_track_with_cue` writes the track and the cue entry. It has no production caller until task 003c.
+- `db::playback_session` gives no entry when the stored entry id is not in `show_cue_entries`.
+- `db::stop_playback_session_after_restart` runs in `prepare_normal` of `src/app/bootstrap.rs`. A failed write blocks the startup with a database report.
+- The orchestrating session added the test `track_write_without_a_cue_entry_clears_the_session_cue_entry`.
 
 ## Stop And Ask
 

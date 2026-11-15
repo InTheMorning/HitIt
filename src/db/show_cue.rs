@@ -269,6 +269,10 @@ pub fn load_show_cue(
     }
     tx.execute("DELETE FROM show_cue_entries", [])?;
     tx.execute("DELETE FROM show_cue", [])?;
+    tx.execute(
+        "UPDATE playback_sessions SET cue_entry_id = NULL WHERE cue_entry_id IS NOT NULL",
+        [],
+    )?;
     tx.execute("INSERT INTO show_cue(id, loaded_at_us, source_playlist_id, source_playlist_name) VALUES (1, ?1, ?2, ?3)", params![loaded_at_us, playlist_id, playlist])?;
     for (position, (track_id, source_position)) in rows.iter().enumerate() {
         tx.execute("INSERT INTO show_cue_entries(position, track_id, source_playlist_id, source_position) VALUES (?1, ?2, ?3, ?4)", params![i64::try_from(position)?, track_id, playlist_id, source_position])?;
@@ -294,6 +298,10 @@ pub fn clear_show_cue(conn: &mut Connection) -> Result<()> {
     );
     tx.execute("DELETE FROM show_cue_entries", [])?;
     tx.execute("DELETE FROM show_cue", [])?;
+    tx.execute(
+        "UPDATE playback_sessions SET cue_entry_id = NULL WHERE cue_entry_id IS NOT NULL",
+        [],
+    )?;
     tx.commit().context("Commit the Show cue clear")?;
     Ok(())
 }
@@ -463,6 +471,111 @@ mod tests {
         );
         clear_show_cue(&mut conn)?;
         assert!(show_cue(&conn)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn replace_and_clear_remove_the_session_cue_entry() -> Result<()> {
+        for clear in [false, true] {
+            let mut conn = setup()?;
+            let (playlist_id, track_id) = playlist_with_repeated_track(&conn)?;
+            load_show_cue(&mut conn, playlist_id, 1, false)?;
+            let entry_id = show_cue(&conn)?.expect("cue stored").entries[0].id;
+            db::set_playback_session_track_with_cue(
+                &conn,
+                "default",
+                db::PlaybackSessionTrackUpdate {
+                    local_track_id: track_id,
+                    playlist_id: None,
+                    playlist_position: None,
+                    started_at: "started",
+                    position_ms: 0,
+                    cue_entry_id: Some(entry_id),
+                },
+            )?;
+            conn.execute(
+                "UPDATE playback_sessions SET state = 'stopped' WHERE session_id = 'default'",
+                [],
+            )?;
+
+            if clear {
+                clear_show_cue(&mut conn)?;
+            } else {
+                load_show_cue(&mut conn, playlist_id, 2, true)?;
+            }
+
+            let session = db::playback_session(&conn, "default")?.expect("session stored");
+            assert_eq!(session.cue_entry_id, None);
+            assert_eq!(session.local_track_id, track_id);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn track_write_without_a_cue_entry_clears_the_session_cue_entry() -> Result<()> {
+        let mut conn = setup()?;
+        let (playlist_id, track_id) = playlist_with_repeated_track(&conn)?;
+        load_show_cue(&mut conn, playlist_id, 1, false)?;
+        let entry_id = show_cue(&conn)?.expect("cue stored").entries[0].id;
+        db::set_playback_session_track_with_cue(
+            &conn,
+            "default",
+            db::PlaybackSessionTrackUpdate {
+                local_track_id: track_id,
+                playlist_id: None,
+                playlist_position: None,
+                started_at: "started",
+                position_ms: 0,
+                cue_entry_id: Some(entry_id),
+            },
+        )?;
+        let session = db::playback_session(&conn, "default")?.expect("session stored");
+        assert_eq!(session.cue_entry_id, Some(entry_id));
+
+        // The CLI simulator writes a track with no cue entry.
+        db::set_playback_session_track(&conn, "default", track_id, None, None, "later", 0)?;
+        let session = db::playback_session(&conn, "default")?.expect("session stored");
+        assert_eq!(session.cue_entry_id, None);
+        Ok(())
+    }
+
+    #[test]
+    fn playback_session_reader_hides_a_missing_cue_entry() -> Result<()> {
+        let conn = setup()?;
+        let (_, track_id) = playlist_with_repeated_track(&conn)?;
+        db::set_playback_session_track(&conn, "default", track_id, None, None, "started", 0)?;
+        conn.execute(
+            "UPDATE playback_sessions SET cue_entry_id = 999999 WHERE session_id = 'default'",
+            [],
+        )?;
+
+        let session = db::playback_session(&conn, "default")?.expect("session stored");
+        assert_eq!(session.cue_entry_id, None);
+        Ok(())
+    }
+
+    #[test]
+    fn restart_stop_preserves_track_position_and_observation_time() -> Result<()> {
+        let conn = setup()?;
+        let (_, track_id) = playlist_with_repeated_track(&conn)?;
+        db::set_playback_session_track(&conn, "default", track_id, None, None, "started", 812)?;
+        conn.execute(
+            "UPDATE playback_sessions SET state = 'paused', updated_at = 'fixed observation' WHERE session_id = 'default'",
+            [],
+        )?;
+
+        let session = db::stop_playback_session_after_restart(&conn, "default")?
+            .expect("session remains stored");
+        assert_eq!(session.state, "stopped");
+        assert_eq!(session.local_track_id, track_id);
+        assert_eq!(session.position_ms, 812);
+        assert_eq!(session.started_at, "started");
+        let observed_at: String = conn.query_row(
+            "SELECT updated_at FROM playback_sessions WHERE session_id = 'default'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(observed_at, "fixed observation");
         Ok(())
     }
 
@@ -714,7 +827,13 @@ mod tests {
             "INSERT INTO rss_check_feed_results(run_id, feed_id, outcome) VALUES (1, ?1, 'document')",
             [feed_id],
         )?;
-        db::set_playback_session_track(&conn, "default", track_id, None, None, "before", 0)?;
+        conn.execute(
+            "INSERT INTO playback_sessions (
+                 session_id, sequence, local_track_id, playlist_id, playlist_position,
+                 started_at, position_ms, state, updated_at
+             ) VALUES ('default', 1, ?1, NULL, NULL, 'before', 0, 'playing', datetime('now'))",
+            [track_id],
+        )?;
         let migration_count: i64 =
             conn.query_row("SELECT COUNT(*) FROM schema_migrations", [], |row| {
                 row.get(0)

@@ -98,6 +98,17 @@ pub struct PlaybackSessionRow {
     pub started_at: String,
     pub position_ms: u64,
     pub state: String,
+    pub cue_entry_id: Option<i64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PlaybackSessionTrackUpdate<'a> {
+    pub local_track_id: i64,
+    pub playlist_id: Option<i64>,
+    pub playlist_position: Option<i64>,
+    pub started_at: &'a str,
+    pub position_ms: u64,
+    pub cue_entry_id: Option<i64>,
 }
 
 pub fn subscribed_feeds(conn: &Connection) -> Result<Vec<FeedRow>> {
@@ -2143,6 +2154,7 @@ fn playback_session_from_sql(row: &rusqlite::Row) -> rusqlite::Result<PlaybackSe
         started_at: row.get(5)?,
         position_ms: u64::try_from(position_ms).unwrap_or_default(),
         state: row.get(7)?,
+        cue_entry_id: row.get(8)?,
     })
 }
 
@@ -2657,6 +2669,33 @@ pub fn set_playback_session_track(
     started_at: &str,
     position_ms: u64,
 ) -> Result<PlaybackSessionRow> {
+    set_playback_session_track_with_cue(
+        conn,
+        session_id,
+        PlaybackSessionTrackUpdate {
+            local_track_id,
+            playlist_id,
+            playlist_position,
+            started_at,
+            position_ms,
+            cue_entry_id: None,
+        },
+    )
+}
+
+pub fn set_playback_session_track_with_cue(
+    conn: &Connection,
+    session_id: &str,
+    update: PlaybackSessionTrackUpdate<'_>,
+) -> Result<PlaybackSessionRow> {
+    let PlaybackSessionTrackUpdate {
+        local_track_id,
+        playlist_id,
+        playlist_position,
+        started_at,
+        position_ms,
+        cue_entry_id,
+    } = update;
     let session_id = session_id.trim();
     anyhow::ensure!(!session_id.is_empty(), "session id cannot be empty");
     let sequence = conn
@@ -2674,9 +2713,9 @@ pub fn set_playback_session_track(
     conn.execute(
         "INSERT INTO playback_sessions (
              session_id, sequence, local_track_id, playlist_id, playlist_position,
-             started_at, position_ms, state, updated_at
+             started_at, position_ms, state, updated_at, cue_entry_id
          )
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'playing', datetime('now'))
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'playing', datetime('now'), ?8)
          ON CONFLICT(session_id) DO UPDATE SET
              sequence = excluded.sequence,
              local_track_id = excluded.local_track_id,
@@ -2685,6 +2724,7 @@ pub fn set_playback_session_track(
              started_at = excluded.started_at,
              position_ms = excluded.position_ms,
              state = excluded.state,
+             cue_entry_id = excluded.cue_entry_id,
              updated_at = datetime('now')",
         rusqlite::params![
             session_id,
@@ -2693,7 +2733,8 @@ pub fn set_playback_session_track(
             playlist_id,
             playlist_position,
             started_at,
-            position_ms
+            position_ms,
+            cue_entry_id
         ],
     )
     .context("upsert playback session")?;
@@ -2704,7 +2745,10 @@ pub fn set_playback_session_track(
 pub fn playback_session(conn: &Connection, session_id: &str) -> Result<Option<PlaybackSessionRow>> {
     conn.query_row(
         "SELECT session_id, sequence, local_track_id, playlist_id, playlist_position,
-                started_at, position_ms, state
+                started_at, position_ms, state,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM show_cue_entries WHERE id = playback_sessions.cue_entry_id
+                ) THEN cue_entry_id ELSE NULL END
          FROM playback_sessions
          WHERE session_id = ?1",
         rusqlite::params![session_id],
@@ -2712,6 +2756,22 @@ pub fn playback_session(conn: &Connection, session_id: &str) -> Result<Option<Pl
     )
     .optional()
     .context("query playback session")
+}
+
+pub fn stop_playback_session_after_restart(
+    conn: &Connection,
+    session_id: &str,
+) -> Result<Option<PlaybackSessionRow>> {
+    let session_id = session_id.trim();
+    anyhow::ensure!(!session_id.is_empty(), "session id cannot be empty");
+    conn.execute(
+        "UPDATE playback_sessions
+         SET sequence = sequence + 1, state = 'stopped'
+         WHERE session_id = ?1 AND state IN ('playing', 'paused')",
+        rusqlite::params![session_id],
+    )
+    .context("stop playback session after restart")?;
+    playback_session(conn, session_id)
 }
 
 pub fn update_playback_session_position(

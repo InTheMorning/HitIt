@@ -175,6 +175,18 @@ pub(super) fn prepare_normal(core: PreparedCore) -> Result<NormalStartup, CoreCh
             .at_path(db_path),
         );
     }
+    crate::db::stop_playback_session_after_restart(
+        &connection,
+        crate::playback::DEFAULT_SESSION_ID,
+    )
+    .map_err(|error| {
+        CoreCheckOutcome::blocked(StartupIssue::new(
+            StartupStage::Database(crate::db::startup::DbStage::Open),
+            Some(db_path),
+            format!("Could not stop playback session after restart: {error:#}"),
+            "Check the library database, then relaunch the app.",
+        ))
+    })?;
     let playback_owner =
         crate::startup::prepare_playback(&cfg, &cfg_path, &capability_observations)
             .map(|owner| Arc::new(Mutex::new(owner)));
@@ -357,6 +369,69 @@ mod tests {
             "ADR 0097 Decision 1: the narrowest supported width is 390 px. \
              Set window_min_size in main_window_options to layout::WINDOW_MIN_WIDTH."
         );
+    }
+
+    #[test]
+    fn startup_stops_a_stored_session_before_playback_owner_loads_it() {
+        use crate::startup::{CheckIntent, CoreResult, StartupBackend};
+
+        let temp = tempfile::tempdir().unwrap();
+        let music = temp.path().join("music");
+        std::fs::create_dir(&music).unwrap();
+        let cfg_path = temp.path().join("config.toml");
+        std::fs::write(
+            &cfg_path,
+            format!(
+                "music_dir = {:?}\ndb_path = {:?}\n[playback]\ndriver = \"null\"\n",
+                music,
+                temp.path().join("library.sqlite")
+            ),
+        )
+        .unwrap();
+        let mut backend = StartupBackend::new(Some(cfg_path));
+        let CoreResult::Prepared(core) = backend.execute(CheckIntent::Initial) else {
+            panic!("valid core");
+        };
+        core.connection
+            .execute(
+                "INSERT INTO feeds(feed_url, feed_guid, title) VALUES ('https://startup.test/feed', 'startup', 'Startup')",
+                [],
+            )
+            .unwrap();
+        let feed_id = core.connection.last_insert_rowid();
+        core.connection
+            .execute(
+                "INSERT INTO tracks(feed_id, item_guid, track_title, is_in_library) VALUES (?1, 'track', 'Track', 1)",
+                [feed_id],
+            )
+            .unwrap();
+        let track_id = core.connection.last_insert_rowid();
+        crate::db::set_playback_session_track(
+            &core.connection,
+            crate::playback::DEFAULT_SESSION_ID,
+            track_id,
+            None,
+            None,
+            "started",
+            0,
+        )
+        .unwrap();
+
+        let prepared = prepare_normal(*core).unwrap_or_else(|_| panic!("valid preparation"));
+        let conn = prepared.conn.lock().unwrap();
+        let (state, stored_track_id): (String, i64) = conn
+            .query_row(
+                "SELECT state, local_track_id FROM playback_sessions WHERE session_id = ?1",
+                [crate::playback::DEFAULT_SESSION_ID],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(state, "stopped");
+        assert_eq!(stored_track_id, track_id);
+        if let Some(owner) = &prepared.playback_owner {
+            let mut owner = owner.lock().unwrap();
+            assert!(owner.load_current_session(&conn).unwrap().is_none());
+        }
     }
 
     #[test]

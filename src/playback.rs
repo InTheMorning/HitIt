@@ -210,6 +210,7 @@ fn preview_session_row(
         started_at: DateTime::<Utc>::from(std::time::SystemTime::now()).to_rfc3339(),
         position_ms: 0,
         state: "playing".to_string(),
+        cue_entry_id: None,
     }
 }
 
