@@ -117,6 +117,16 @@ git diff --check
 
 Give the files changed, the removed paths, the changed guards and the tests.
 
+## Corrections From The Agent Visual Check - 2026-11-15
+
+The orchestrating session ran the app on an Xvfb display with mpv and a null audio output. The run found three defects, and each has a test now.
+
+- The mpv driver took each `end-file` event as the end of a track. mpv also sends the event when a command stops or replaces a file. A Start after a Stop and a Next while a track played then moved one more entry. The driver now ignores the reasons `stop`, `quit` and `redirect`. Test: `end_file_event_of_a_stopped_or_replaced_file_is_not_eof`.
+- mpv keeps its pause property across files. A Resume after a Next in pause and a Start after a Stop from pause loaded the track and stayed paused. The mpv `load` now clears the pause property first. Test: `load_clears_the_pause_of_the_file_before`.
+- After a driver failure the page shows the failed state while the stored session is `playing`. The Clear button showed, and the store refused the Clear with no visible result. The Clear action is now available only when the stored session is stopped. Test: `clear_action_requires_a_stored_cue_and_stopped_playback`.
+
+Operator choice: the two driver corrections are in `src/playback_driver/mpv.rs`. They change no trait and no command of the owner.
+
 ## Stop And Ask
 
 Stop if a different caller of `play_playlist_at` exists outside the CLI and the tests.

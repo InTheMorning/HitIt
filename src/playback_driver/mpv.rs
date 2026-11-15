@@ -225,6 +225,8 @@ impl PlaybackDriver for MpvDriver {
         let mut state = self.inner.lock().expect("mpv driver mutex");
         self.ensure_started(&mut state)?;
         state.status.eof = false;
+        // mpv keeps its pause property from the file before. A load starts playback.
+        self.command(&mut state, json!(["set_property", "pause", false]))?;
         self.command(&mut state, json!(["loadfile", path.display().to_string()]))?;
         if start_ms > 0 {
             let seconds = start_ms as f64 / 1000.0;
@@ -344,7 +346,12 @@ fn handle_event(status: &mut DriverStatus, message: &Value) {
     match message.get("event").and_then(Value::as_str) {
         Some("property-change") => handle_property_change(status, message),
         Some("end-file") => {
-            status.eof = true;
+            // mpv also sends this event when a command stops or replaces a file.
+            // Only an end that no command caused is the end of the track.
+            let reason = message.get("reason").and_then(Value::as_str);
+            if !matches!(reason, Some("stop" | "quit" | "redirect")) {
+                status.eof = true;
+            }
         }
         _ => {}
     }
@@ -498,6 +505,37 @@ mod tests {
                 anyhow!("fake mpv peer panicked")
             }
         })?
+    }
+
+    #[test]
+    fn load_clears_the_pause_of_the_file_before() -> Result<()> {
+        let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
+        let driver = test_driver();
+        *driver.inner.lock().expect("mpv driver mutex") = test_state(driver_stream);
+        let peer = run_fake_peer(peer_stream, |stream| {
+            let first = read_request(stream)?;
+            assert_eq!(first["command"], json!(["set_property", "pause", false]));
+            write_message(stream, json!({"request_id": 1, "error": "success"}))?;
+
+            let second = read_request(stream)?;
+            assert_eq!(second["command"], json!(["loadfile", "/music/a.flac"]));
+            // mpv reports the end of the replaced file after the load.
+            write_message(stream, json!({"event": "end-file", "reason": "stop"}))?;
+            write_message(stream, json!({"request_id": 2, "error": "success"}))
+        });
+
+        driver.load(Path::new("/music/a.flac"), 0)?;
+        join_fake_peer(peer)?;
+
+        let status = driver
+            .inner
+            .lock()
+            .expect("mpv driver mutex")
+            .status
+            .clone();
+        assert!(!status.paused);
+        assert!(!status.eof);
+        Ok(())
     }
 
     #[test]
@@ -732,6 +770,20 @@ mod tests {
 
         handle_event(&mut status, &json!({"event": "end-file"}));
 
+        assert!(status.eof);
+    }
+
+    #[test]
+    fn end_file_event_of_a_stopped_or_replaced_file_is_not_eof() {
+        for reason in ["stop", "quit", "redirect"] {
+            let mut status = DriverStatus::default();
+
+            handle_event(&mut status, &json!({"event": "end-file", "reason": reason}));
+
+            assert!(!status.eof, "reason {reason}");
+        }
+        let mut status = DriverStatus::default();
+        handle_event(&mut status, &json!({"event": "end-file", "reason": "eof"}));
         assert!(status.eof);
     }
 

@@ -98,7 +98,7 @@ pub(crate) struct ShowActionsDisplay {
 }
 
 impl ShowActionsDisplay {
-    fn for_state(state: TransportState, has_cue: bool) -> Self {
+    fn for_state(state: TransportState, cue_can_clear: bool) -> Self {
         let available = |condition| {
             if condition {
                 ShowActionAvailability::Available
@@ -141,7 +141,8 @@ impl ShowActionsDisplay {
             },
             clear: ShowActionDisplay {
                 availability: available(
-                    has_cue && matches!(state, TransportState::Stopped | TransportState::Failed),
+                    cue_can_clear
+                        && matches!(state, TransportState::Stopped | TransportState::Failed),
                 ),
                 label: "Clear",
                 a11y_label: "Clear Show cue",
@@ -337,7 +338,9 @@ pub(crate) struct QueueNowPlayingPageVm {
     /// Transport control display state.
     pub(crate) transport: TransportDisplay,
     pub(crate) actions: ShowActionsDisplay,
-    has_cue: bool,
+    /// A cue is stored, and the stored session is stopped. The store permits a Clear
+    /// only then. A state that the app shows in place of the stored state does not change it.
+    cue_can_clear: bool,
     /// Empty-state label for the queue list.
     pub(crate) empty_label: &'static str,
 }
@@ -349,7 +352,7 @@ impl QueueNowPlayingPageVm {
             self.can_skip_previous,
             self.can_skip_next,
         );
-        self.actions = ShowActionsDisplay::for_state(state, self.has_cue);
+        self.actions = ShowActionsDisplay::for_state(state, self.cue_can_clear);
     }
 
     pub(crate) fn track_ids(&self) -> Vec<i64> {
@@ -501,6 +504,7 @@ impl QueueNowPlayingPageVmBuilder {
             .into_iter()
             .map(QueueRowDisplay::from_track)
             .collect::<Vec<_>>();
+        let cue_can_clear = self.has_cue && matches!(self.transport_state, TransportState::Stopped);
         QueueNowPlayingPageVm {
             all_rows: rows.clone(),
             rows,
@@ -512,8 +516,8 @@ impl QueueNowPlayingPageVmBuilder {
                 self.can_skip_previous,
                 self.can_skip_next,
             ),
-            actions: ShowActionsDisplay::for_state(self.transport_state, self.has_cue),
-            has_cue: self.has_cue,
+            actions: ShowActionsDisplay::for_state(self.transport_state, cue_can_clear),
+            cue_can_clear,
             empty_label: "Queue is empty",
         }
     }
@@ -638,8 +642,19 @@ mod tests {
                 .build()
                 .can_clear_show_cue()
         };
+        // The app shows the failed state in place of the stored state.
+        let shown_failed = |stored| {
+            let mut vm = QueueNowPlayingPageVm::builder()
+                .transport_state(stored)
+                .has_cue(true)
+                .build();
+            vm.set_transport_state(TransportState::Failed);
+            vm.can_clear_show_cue()
+        };
         assert!(available(TransportState::Stopped, true));
-        assert!(available(TransportState::Failed, true));
+        assert!(shown_failed(TransportState::Stopped));
+        assert!(!shown_failed(TransportState::Playing));
+        assert!(!shown_failed(TransportState::Paused));
         assert!(!available(TransportState::Empty, false));
         assert!(!available(TransportState::Stopped, false));
         assert!(!available(TransportState::Playing, true));

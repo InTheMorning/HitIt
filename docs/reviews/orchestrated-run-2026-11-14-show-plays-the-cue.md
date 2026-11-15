@@ -29,6 +29,12 @@ A ChatGPT `ask` (`gpt-6.1-sol`, effort medium) gave the code locations at commit
 | 003d | ChatGPT `gpt-6-luna`, effort medium, then effort high. The first run stopped at the driver trait and changed no code. | The planning model read the diff, added four tests and ran the gate: 3104 tests and 411 guards passed. Clippy, the format check and the build are Green. |
 | 003e | ChatGPT `gpt-6-luna`, effort medium | The planning model read the diff, removed a database read on the render thread, added one test and ran the gate: 3107 tests and 411 guards passed. Clippy, the format check and the build are Green. |
 
+## Agent Visual Check - 2026-11-15
+
+The planning model ran the app on Xvfb display 78 with scratch XDG folders, a seeded playlist of tone files and mpv with a null audio output. It read the stored session after each step. The run found three defects, and the section "Corrections From The Agent Visual Check" of the task file lists them. After the corrections, each step of section 20 gave the expected session state: Select, Start, Pause, Next and Previous in each state, Resume, Stop, the key on a different page, the stopped session after a restart, and the Clear with its confirmation. The gate then passed with 3109 tests and 411 guards.
+
+The check cannot hear audio. A forced window close left mpv in operation, and a normal close stopped it.
+
 ## Open Visual Checks
 
 V1 to V5 of the task file are in section 20 of [pending human checks](../pending-human-checks.md). The walk is at the end of the run.

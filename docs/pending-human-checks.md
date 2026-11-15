@@ -622,18 +622,24 @@ Use a database copy with a populated playlist. Use a Linux desktop session.
 Use the scratch setup of section 19, steps 1 to 6. Use a playlist with three or more downloaded tracks. The check needs mpv and an audio output.
 
 1. Open My playlists. Open the playlist menu, then select "Load into Show Cue". Make sure that no row of the playlist page has a Play control.
-2. Open Show. Make sure that the first cue row has the selection border, that the play button reads "Start", and that no audio plays.
+2. Open Show. Make sure that the first cue row has the selection border, that the play control shows the play icon, and that no audio plays.
 3. Select the second cue row. Make sure that the selection border moves and no audio plays.
-4. Select Start. Make sure that the second row has the current mark, that audio plays, and that the play button changes to Pause (V1).
+4. Select Start. Make sure that the second row has the current mark, that audio plays, and that the play control shows the pause icon (V1).
 5. Select Pause, then Next. Make sure that the third row has the current mark and that no sound occurs. Select Resume and make sure that the third track plays from its start (V2).
 6. Select Previous. Make sure that the second track plays. Make sure that Previous is not available on the first row and that Next is not available on the last row (V2).
 7. Select Stop. Make sure that the audio stops and that the cue rows and their order stay (V2).
-8. Select Start, then open Music. Press `cmd-alt-p` two times. Make sure that the show pauses and then resumes (V3).
-9. Close HitIt while the track plays. Start HitIt again with the command of section 19 step 6. Open Show. Make sure that the cue shows, that the play button reads "Start", and that no audio plays (V4).
+8. Select Start, then open My playlists. Press `ctrl-alt-p` two times. On macOS the key is `cmd-alt-p`. Make sure that the show pauses and then resumes (V3).
+9. Close HitIt while the track plays. Start HitIt again with the command of section 19 step 6. Open Show. Make sure that the cue shows, that the play control shows the play icon, and that no audio plays (V4).
 10. Select Start. Make sure that the Clear button above the cuelist does not show. Select Stop.
 11. Select Clear. Make sure that a confirmation opens with the focus on Cancel. Select Clear in the confirmation. Make sure that the cuelist is empty (V5).
 12. Open My playlists and a playlist menu. Make sure that it says "Load into Show Cue" (V5).
-13. Press `cmd-alt-p`. Make sure that nothing plays.
+13. Press `ctrl-alt-p`. Make sure that nothing plays.
 
 - Incorrect: a sound at step 5 before Resume, a move by two entries at the end of a track, audio after the restart, a Clear button while a track plays, or a cue row that changes its order.
 - Also examine: the selection border of a cue row is a new mark. Say if the border is acceptable next to the current mark.
+- Also examine: after a Next, the current mark moves and the selection border stays on its row.
+- Also examine: the status line of Show uses the error color for each message, for example "Playback stopped". After a Next in pause it reads "Playing" and the track title.
+- Also examine: the tooltip of the play control stays "Start Show" until the pointer leaves the control.
+- Also examine: the empty cuelist reads "Queue is empty".
+
+The agent check of 2026-11-15 ran these steps on an Xvfb display with a null audio output. It read the stored session after each step. It cannot hear audio, so each audio statement stays open for a person.
