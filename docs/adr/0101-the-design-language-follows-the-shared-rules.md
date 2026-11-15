@@ -43,7 +43,8 @@ The theme profiles use these values. Dark is the default. Each value is a named 
 | Accent | `#2d7bff` | `#0a5bd6` |
 
 - **Dark levels.** The dark levels stay: background `#0b0b0d`, surface `#1c1c1f` and raised surface `#26262a`.
-- **Light levels.** The light levels obey musicindex ADR 0045 R-ELEVATION-2. The light page is white. This corrects ADR 0083 line 161, which gave the page `#f2f2f7` from the earlier R-ELEVATION-1. The ChatGPT log of the research note (line 192) gives `#f2f2f7` for a group or a card and white for an open entry in a group.
+- **Light levels.** The light levels obey musicindex ADR 0045 R-ELEVATION-2. The light page is white. This corrects ADR 0083 line 161, which gave the page `#f2f2f7` from the earlier R-ELEVATION-1.
+- **Light level values.** R-ELEVATION-2 gives three levels: the page `#ffffff`, a group or a card `#f2f2f7`, and an open entry in a group `#ffffff`. In light, a popover, a menu and a sheet have `#ffffff` with the shadow of R-ELEVATION-1. The open entry is not `#ececef`, because the status text `#1a7f37` has only 4.31:1 on it. The light raised surface is not a level. The orchestrator session read these values in musicindex at `3baa6f0` on 2026-11-15.
 - **Focus.** One focus token, `#2d7bff` dark and `#005bd3` light (musicindex ADR 0069 R-TOKEN-1). The accent is not the focus color.
 - **High contrast.** The high-contrast profiles keep their own values and their contrast tests. The system setting selects them (Decision 11, R-A11Y-1).
 
@@ -176,7 +177,7 @@ The code differs from the adopted rules in these points. The [check of the open 
 | Rule | HitIt now | Packet |
 |---|---|---|
 | R-TOKEN-1, the focus color | `#5795ff` dark, `#3b7cde` light (`src/ui/tokens.rs:256` and `:365`) | Token packet |
-| R-FOCUS-1, the focus ring | 2 px with no gap (`src/ui/layouts.rs:29`) | Token packet, after Open Decision B |
+| R-FOCUS-1, the focus ring | 2 px with no gap (`src/ui/layouts.rs:29`) | Open Decision B. With option 2, no packet |
 | R-TYPE-1 and R-TYPE-2 | Headline 15, Title 24, Display 30 (`src/ui/tokens.rs:632` to `:641`) | Token packet |
 | R-RADIUS-1 | 4, 6, 10, 14 (`src/ui/tokens.rs:583` to `:587`) | Token packet |
 | R-SPACE-1 | No 20 and no 48 (`src/ui/tokens.rs:538`) | Token packet |
@@ -193,7 +194,7 @@ The code differs from the adopted rules in these points. The [check of the open 
 
 The sequence of the work:
 
-1. The token packet. It changes the tokens of the first six rows in `src/ui/tokens.rs`. A test compares these values with `src/assets/tokens.json`. The packet is written after the operator accepts this ADR.
+1. The token packet. It changes the tokens of each row that names the token packet, in `src/ui/tokens.rs`. A test compares these values with `src/assets/tokens.json`. The packet is written after the operator accepts this ADR.
 2. One packet for each surface. The sequence starts with the header glow, the art radius, the payment split and the system settings. Then come the dates, the loading state, the notices, the link, the selected look and the main action.
 3. The Ready packets of ADR 0093, ADR 0069 task 002, ADR 0094 and ADR 0097 tasks 003 to 006 come after the token packet. Thus each one is built one time in the new design.
 
@@ -225,7 +226,7 @@ ADR 0083 Decision 5 fills the next curation step until a page can play a track. 
 
 ## Open Decision B: The Focus Ring
 
-musicindex ADR 0026 R-FOCUS-1 gives a ring of 3 px with a gap of 2 px. musicindex ADR 0068 R-SCALE-4 item 6 gives only Studio a ring of 2 px with no gap. HitIt draws 2 px with no gap, as an inset border (`src/ui/layouts.rs:29`, `src/ui/primitives/button.rs:807`).
+musicindex ADR 0026 R-FOCUS-1 gives a ring of 3 px with a gap of 2 px. musicindex ADR 0068 R-SCALE-4 item 6 gives only Studio a ring of 2 px with no gap. It restates item 6 of the archived musicindex ADR 0041: Studio copied the ring that HitIt draws. The reason was that a ring of 3 px with a gap "looked too heavy at this scale, and it did not match the field". The orchestrator session read this text on 2026-11-15. HitIt draws 2 px with no gap, as an inset border (`src/ui/layouts.rs:29`, `src/ui/primitives/button.rs:807`).
 
 **Option 1: the shared ring, 3 px with a gap of 2 px.**
 
@@ -234,10 +235,10 @@ musicindex ADR 0026 R-FOCUS-1 gives a ring of 3 px with a gap of 2 px. musicinde
 
 **Option 2: ask musicindex for the exception that Studio has.**
 
-- Good: the current ring stays. The inset ring needs no space outside the control, so the risk of a clip and of a fit change is lower.
-- Bad: the operator must change a musicindex record, and HitIt keeps its current ring only after that record. HitIt looks different from musicindex.org. The HitIt documents do not give the reason for the Studio exception. The orchestrator can supply it.
+- Good: the current ring stays. HitIt and Studio, the two desktop apps, have the same ring. The reason of musicindex ADR 0041 also applies to HitIt, because HitIt uses the same desktop scale (R-SCALE-1). The inset ring needs no space outside the control, so the risk of a clip and of a fit change is lower.
+- Bad: the operator must change a musicindex record, and HitIt keeps its current ring only after that record. Only the website has a different ring, so HitIt differs from musicindex.org in this point.
 
-**Recommendation: option 1.** The plan of the visual overhaul is to look like musicindex.org. The token packet first proves the ring on a list row, a tile and a dialog button at 390 px and at 940 px. If the ring is cut and no padding change corrects it, the operator gets option 2 again with that evidence.
+**Recommendation: option 2.** The two desktop apps then share one ring, and the reason that musicindex accepted for Studio applies to HitIt at the same scale. The ring needs no code change and has no clip risk. The token packet changes the focus color only. The musicindex record that extends R-SCALE-4 item 6 to HitIt comes before the token packet.
 
 ## Consequences
 
