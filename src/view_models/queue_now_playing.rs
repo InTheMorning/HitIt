@@ -294,12 +294,12 @@ impl TransportDisplay {
             skip_previous: FrameChromeButtonDisplay::new(
                 "queue-transport-previous",
                 "Previous track",
-                disabled || !can_skip_previous,
+                !can_skip_previous,
             ),
             skip_next: FrameChromeButtonDisplay::new(
                 "queue-transport-next",
                 "Next track",
-                disabled || !can_skip_next,
+                !can_skip_next,
             ),
             stop: FrameChromeButtonDisplay::new(
                 "queue-transport-stop",
@@ -324,6 +324,8 @@ pub(crate) struct QueueNowPlayingPageVm {
     pub(crate) rows: Vec<QueueRowDisplay>,
     all_rows: Vec<QueueRowDisplay>,
     text_filter: Option<String>,
+    can_skip_previous: bool,
+    can_skip_next: bool,
     /// Transport control display state.
     pub(crate) transport: TransportDisplay,
     pub(crate) actions: ShowActionsDisplay,
@@ -333,7 +335,11 @@ pub(crate) struct QueueNowPlayingPageVm {
 
 impl QueueNowPlayingPageVm {
     pub(crate) fn set_transport_state(&mut self, state: TransportState) {
-        self.transport = TransportDisplay::from_state_with_skip_availability(state, false, false);
+        self.transport = TransportDisplay::from_state_with_skip_availability(
+            state,
+            self.can_skip_previous,
+            self.can_skip_next,
+        );
         self.actions = ShowActionsDisplay::for_state(state);
     }
 
@@ -363,6 +369,14 @@ impl QueueNowPlayingPageVm {
 
     pub(crate) fn can_stop_show(&self) -> bool {
         self.actions.stop.availability == ShowActionAvailability::Available
+    }
+
+    pub(crate) fn can_skip_previous(&self) -> bool {
+        self.can_skip_previous
+    }
+
+    pub(crate) fn can_skip_next(&self) -> bool {
+        self.can_skip_next
     }
 
     pub(crate) fn selected_entry_id(&self) -> Option<i64> {
@@ -471,6 +485,8 @@ impl QueueNowPlayingPageVmBuilder {
             all_rows: rows.clone(),
             rows,
             text_filter: None,
+            can_skip_previous: self.can_skip_previous,
+            can_skip_next: self.can_skip_next,
             transport: TransportDisplay::from_state_with_skip_availability(
                 self.transport_state,
                 self.can_skip_previous,

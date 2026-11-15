@@ -7,7 +7,7 @@ use gpui::Context;
 use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{PlaybackOperation, RecoveryAction, RecoveryIntent};
 use crate::application::commands::playback::{
-    PauseShow, ResumeShow, SelectShowCueEntry, SkipPlaybackNext, SkipPlaybackPrevious, StartShow,
+    NextShowCueEntry, PauseShow, PreviousShowCueEntry, ResumeShow, SelectShowCueEntry, StartShow,
     StopShow,
 };
 use crate::application::{ApplicationCommand, CommandContext};
@@ -49,20 +49,26 @@ impl TopApp {
     }
 
     pub(super) fn skip_playback_next(&mut self, cx: &mut Context<Self>) {
+        if !self.show_page.queue.can_skip_next() {
+            return;
+        }
         let action = self.playback_action(PlaybackOperation::Next);
         let Some(owner) = self.available_playback_owner(&action, cx) else {
             return;
         };
-        let command = SkipPlaybackNext::new(Arc::clone(&self.conn), Arc::clone(&owner));
+        let command = NextShowCueEntry::new(Arc::clone(&self.conn), Arc::clone(&owner));
         self.run_playback_command(command, action, None, cx);
     }
 
     pub(super) fn skip_playback_previous(&mut self, cx: &mut Context<Self>) {
+        if !self.show_page.queue.can_skip_previous() {
+            return;
+        }
         let action = self.playback_action(PlaybackOperation::Previous);
         let Some(owner) = self.available_playback_owner(&action, cx) else {
             return;
         };
-        let command = SkipPlaybackPrevious::new(Arc::clone(&self.conn), Arc::clone(&owner));
+        let command = PreviousShowCueEntry::new(Arc::clone(&self.conn), Arc::clone(&owner));
         self.run_playback_command(command, action, None, cx);
     }
 
@@ -133,12 +139,12 @@ impl TopApp {
                 self.run_retained_playback(ResumeShow::new(self.conn.clone(), owner), intent, cx);
             }
             PlaybackOperation::Next => self.run_retained_playback(
-                SkipPlaybackNext::new(self.conn.clone(), owner),
+                NextShowCueEntry::new(self.conn.clone(), owner),
                 intent,
                 cx,
             ),
             PlaybackOperation::Previous => self.run_retained_playback(
-                SkipPlaybackPrevious::new(self.conn.clone(), owner),
+                PreviousShowCueEntry::new(self.conn.clone(), owner),
                 intent,
                 cx,
             ),

@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-14. Implementation has not started. This is part 4 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
+Implemented - 2026-11-15. Mechanical checks are Green. This file has no visual criterion. This is part 4 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
 
 ## Goal
 
@@ -21,6 +21,27 @@ Each fact was read at commit `3b387f7`. Tasks 003a to 003c change some of these 
 - The end of a track is handled in `PlaybackOwner::poll` at line 278. The owner disarms `eof_armed`, moves, loads and arms again.
 - `SkipPlaybackNext` and `SkipPlaybackPrevious` are defined in `src/app/keyboard.rs:21` and `:22`, bound at lines 116 and 122, and handled at lines 377 and 386. The handlers do not read the view model flags.
 - The CLI commands `playback next` and `playback previous` use `playback::skip_next` and `playback::skip_previous`.
+
+## Facts After Task 003c - commit `2843451`
+
+- `PlaybackOwner` has `generation`, `active_cue_entry_id`, `start_show_entry` and `advance_generation`. Use `start_show_entry` as the pattern for a load of a cue entry.
+- The typed error `ShowCueEntryCannotPlay` in `src/playback_owner.rs` holds the entry and the reason. Use it for a target entry that cannot play. Do not add a second error type.
+- In `PlaybackOwner::poll`, the end of a track of a session with a cue entry stops playback. The branch for a session with no cue entry calls `playback::skip_next`. Scope item 2 removes that call.
+- `QueueNowPlayingPageVm::toggle_intent` and `can_stop_show` in `src/view_models/queue_now_playing.rs` give the intent and the availability to the handlers in `src/app/playback_bar.rs`. Do the same for Next and Previous.
+- `QueueNowPlayingPageVm::set_transport_state` sets the two skip flags to false. Keep the skip availability when a state override applies.
+- `presentation_after_command` in `src/app/playback_bar.rs` gives the starting state after an accepted Start.
+- The guard `adr_0066_optional_dependencies_are_scoped` counts four owner availability calls in `src/app/playback_bar.rs`.
+
+## Paused Move Without A Driver Change - 2026-11-14
+
+The first run stopped, because `PlaybackDriver::load` starts playback and the trait has no load in pause. The orchestrating session confirmed this in `src/playback_driver/mpv.rs` and made this choice. The trait does not change.
+
+- The owner gets the field `prepared_cue_entry_id: Option<i64>`. It holds a cue entry that the session shows as paused and that the driver did not load.
+- Next or Previous while paused calls `driver.stop()`, which makes no sound. It does not call `driver.load`. It adds one to the generation. It writes the track and the cue entry of the target to the session with position 0, and the session stays `paused`. It sets `active_cue_entry_id` and `loaded_track_id` to the target, and `prepared_cue_entry_id` to the target entry.
+- While `prepared_cue_entry_id` is set and the session is `paused`, `poll` does not load, does not call `driver.poll` and gives `PollOutcome::Reconciled(None)`.
+- Resume with a prepared entry calls `driver.load` of that entry at position 0 in place of `driver.pause(false)`. It adds one to the generation, arms the end of track and clears `prepared_cue_entry_id`. When the file of the entry is missing, Resume gives `ShowCueEntryCannotPlay` and the pause stays.
+- Stop, Start and each load clear `prepared_cue_entry_id`.
+- The owner test for the paused move uses a driver that records each call. It proves that the move sends only `stop`, and that Resume sends one `load`.
 
 ## Files To Inspect
 
@@ -102,9 +123,25 @@ cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```
 
+## Result - 2026-11-15
+
+A ChatGPT run made the change. The orchestrating session examined the diff and ran each check.
+
+- The first run stopped at the driver trait. The section "Paused Move Without A Driver Change" records the choice that followed.
+- `PlaybackOwner::move_show_cue` replaces `skip_next` and `skip_previous` of the owner. The commands are `NextShowCueEntry` and `PreviousShowCueEntry`.
+- The end of a track of a session with no cue entry stops playback. Before, it moved through the session playlist.
+- The new guard is `adr_0068_show_transport_moves_through_cue_entries`.
+- The orchestrating session added four tests: the move while stopped, a target that cannot play, the end of a track before an entry that cannot play, and the skip availability at the cue boundaries and with no cue.
+
+Deviations from this file:
+
+- An entry that cannot play at the end of a track gives the typed error to the polling outcome. The status line of the app names the entry, and the view model gives the failed state until the subsequent observation.
+- The owner holds its lock for one poll, so an end of track from an old generation cannot reach the move. The owner compares the cue entry of the session with its active entry before it moves. No test sends an old generation to the owner.
+- The accessibility labels of the two transport buttons stay "Previous track" and "Next track".
+
 ## Stop And Ask
 
-- Stop if the driver cannot prepare an entry in pause without sound and without a change to the `PlaybackDriver` trait.
+- Stop if the section "Paused Move Without A Driver Change" cannot be done without a change to the `PlaybackDriver` trait.
 - Stop if a desktop caller of the playlist skips exists outside the owner.
 
 ## Prompt for lower-context coding model

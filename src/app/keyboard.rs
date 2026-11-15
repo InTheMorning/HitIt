@@ -115,13 +115,13 @@ pub(super) const APP_KEY_BINDING_SPECS: &[AppKeyBindingSpec] = &[
     AppKeyBindingSpec {
         command: AppKeyCommand::SkipPlaybackNext,
         keystroke: "cmd-alt-right",
-        label: "Next Track",
+        label: "Next Show cue entry",
         scope: AppKeyScope::Global,
     },
     AppKeyBindingSpec {
         command: AppKeyCommand::SkipPlaybackPrevious,
         keystroke: "cmd-alt-left",
-        label: "Previous Track",
+        label: "Previous Show cue entry",
         scope: AppKeyScope::Global,
     },
     AppKeyBindingSpec {

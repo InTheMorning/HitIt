@@ -109,14 +109,14 @@ where
     }
 }
 
-/// Skips to the next playlist track.
-pub struct SkipPlaybackNext<D> {
+/// Moves to the next Show cue entry.
+pub struct NextShowCueEntry<D> {
     conn: SharedConnection,
     playback_owner: SharedPlaybackOwner<D>,
 }
 
-impl<D> SkipPlaybackNext<D> {
-    /// Creates a skip-next command.
+impl<D> NextShowCueEntry<D> {
+    /// Creates a next Show cue entry command.
     #[must_use]
     pub fn new(conn: SharedConnection, playback_owner: SharedPlaybackOwner<D>) -> Self {
         Self {
@@ -126,7 +126,7 @@ impl<D> SkipPlaybackNext<D> {
     }
 }
 
-impl<D> ApplicationCommand for SkipPlaybackNext<D>
+impl<D> ApplicationCommand for NextShowCueEntry<D>
 where
     D: PlaybackDriver + 'static,
 {
@@ -143,22 +143,27 @@ where
             .playback_owner
             .lock()
             .map_err(|_| playback_error("playback owner lock poisoned"))?;
-        let update = owner.skip_next(&conn).map_err(playback_error)?;
+        let update = owner.move_show_cue(&conn, true).map_err(playback_error)?;
         Ok(CommandOutcome::new(
-            PlaybackCommandResult::with_update(update.clone(), playing_message(&update)),
+            update.as_ref().map_or_else(
+                || PlaybackCommandResult::without_update("Selected the next Show cue entry"),
+                |update| {
+                    PlaybackCommandResult::with_update(update.clone(), playing_message(update))
+                },
+            ),
             playback_changed_events(),
         ))
     }
 }
 
-/// Skips to the previous playlist track.
-pub struct SkipPlaybackPrevious<D> {
+/// Moves to the previous Show cue entry.
+pub struct PreviousShowCueEntry<D> {
     conn: SharedConnection,
     playback_owner: SharedPlaybackOwner<D>,
 }
 
-impl<D> SkipPlaybackPrevious<D> {
-    /// Creates a skip-previous command.
+impl<D> PreviousShowCueEntry<D> {
+    /// Creates a previous Show cue entry command.
     #[must_use]
     pub fn new(conn: SharedConnection, playback_owner: SharedPlaybackOwner<D>) -> Self {
         Self {
@@ -168,7 +173,7 @@ impl<D> SkipPlaybackPrevious<D> {
     }
 }
 
-impl<D> ApplicationCommand for SkipPlaybackPrevious<D>
+impl<D> ApplicationCommand for PreviousShowCueEntry<D>
 where
     D: PlaybackDriver + 'static,
 {
@@ -185,9 +190,14 @@ where
             .playback_owner
             .lock()
             .map_err(|_| playback_error("playback owner lock poisoned"))?;
-        let update = owner.skip_previous(&conn).map_err(playback_error)?;
+        let update = owner.move_show_cue(&conn, false).map_err(playback_error)?;
         Ok(CommandOutcome::new(
-            PlaybackCommandResult::with_update(update.clone(), playing_message(&update)),
+            update.as_ref().map_or_else(
+                || PlaybackCommandResult::without_update("Selected the previous Show cue entry"),
+                |update| {
+                    PlaybackCommandResult::with_update(update.clone(), playing_message(update))
+                },
+            ),
             playback_changed_events(),
         ))
     }

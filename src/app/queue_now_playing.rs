@@ -113,6 +113,11 @@ fn queue_tracks_for_stored_cue(
     let Ok(Some(cue)) = db::show_cue(conn) else {
         return QueueProjection::default();
     };
+    let cursor_entry_id = active_entry_id.or(cue.selected_entry_id);
+    let cursor_index =
+        cursor_entry_id.and_then(|id| cue.entries.iter().position(|entry| entry.id == id));
+    let can_skip_previous = cursor_index.is_some_and(|index| index > 0);
+    let can_skip_next = cursor_index.is_some_and(|index| index + 1 < cue.entries.len());
     let tracks = cue
         .entries
         .into_iter()
@@ -136,8 +141,8 @@ fn queue_tracks_for_stored_cue(
     QueueProjection {
         tracks,
         cue_paths,
-        can_skip_previous: false,
-        can_skip_next: false,
+        can_skip_previous,
+        can_skip_next,
     }
 }
 
@@ -218,6 +223,38 @@ mod tests {
             .map(|track| track.unavailable_label)
             .collect::<Vec<_>>();
         assert_eq!(reasons, [None, Some("File missing")]);
+        Ok(())
+    }
+
+    #[test]
+    fn skip_availability_follows_the_cue_boundaries_and_is_off_without_a_cue() -> anyhow::Result<()>
+    {
+        let mut conn = rusqlite::Connection::open_in_memory()?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
+        db::init_schema(&conn)?;
+        db::migrate_schema(&conn)?;
+        let skips = |conn: &rusqlite::Connection| {
+            let vm = queue_now_playing_vm(
+                queue_now_playing_input(conn, None),
+                Path::new("/nonexistent"),
+            );
+            (vm.can_skip_previous(), vm.can_skip_next())
+        };
+        assert_eq!(skips(&conn), (false, false));
+
+        conn.execute("INSERT INTO feeds(feed_url, feed_guid, title) VALUES ('https://cue.test/skip', 'skip', 'Skip')", [])?;
+        let feed_id = conn.last_insert_rowid();
+        conn.execute("INSERT INTO tracks(feed_id, item_guid, track_title, is_in_library) VALUES (?1, 'track', 'Track', 1)", [feed_id])?;
+        let track_id = conn.last_insert_rowid();
+        let playlist_id = db::playlist_create(&conn, "Skip")?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::load_show_cue(&mut conn, playlist_id, 1, false)?;
+        let entries = db::show_cue(&conn)?.expect("cue").entries;
+
+        assert_eq!(skips(&conn), (false, true));
+        db::select_show_cue_entry(&conn, entries[1].id)?;
+        assert_eq!(skips(&conn), (true, false));
         Ok(())
     }
 

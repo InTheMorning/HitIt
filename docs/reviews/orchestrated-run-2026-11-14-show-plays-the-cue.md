@@ -26,7 +26,7 @@ A ChatGPT `ask` (`gpt-6.1-sol`, effort medium) gave the code locations at commit
 | 003a | ChatGPT `gpt-6-luna`, effort medium, two runs | The first run stopped at the playlist shell file, and the planning model added the file to the scope. The planning model read the diff, removed the unused Library playback availability and ran the gate: 3085 tests and 410 guards passed. Clippy, the format check and the build are Green. |
 | 003b | ChatGPT `gpt-6-luna`, effort medium | The planning model read the diff, added one test and ran the gate: 3090 tests and 410 guards passed. Clippy, the format check and the build are Green. |
 | 003c | ChatGPT `gpt-6-luna`, effort high. The run ended with a broker refusal and no report. | The planning model read the diff, made five corrections and ran the gate: 3098 tests and 410 guards passed. Clippy, the format check and the build are Green. The task file lists the corrections and the deviations. |
-| 003d | | |
+| 003d | ChatGPT `gpt-6-luna`, effort medium, then effort high. The first run stopped at the driver trait and changed no code. | The planning model read the diff, added four tests and ran the gate: 3104 tests and 411 guards passed. Clippy, the format check and the build are Green. |
 | 003e | | |
 
 ## Open Visual Checks

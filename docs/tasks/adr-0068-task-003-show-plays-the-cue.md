@@ -13,8 +13,8 @@ Each part compiles and passes the commit checks alone. The parts run in this seq
 | [003a](adr-0068-task-003a-remove-playlist-play.md) | 6, and 10 for the removed paths | Implemented 2026-11-14 |
 | [003b](adr-0068-task-003b-session-cue-entry-and-silent-restart.md) | 5 for the session, 9, and the open point from task 002 | Implemented 2026-11-14 |
 | [003c](adr-0068-task-003c-show-start-pause-stop-select.md) | 1 and 2, 5 for the cuelist, 7, 8 for `cmd-alt-p`, 10 | Implemented 2026-11-14 |
-| [003d](adr-0068-task-003d-next-previous-and-end-of-track.md) | 3 and 4, 8 for the skip keys, 10 | Ready |
-| [003e](adr-0068-task-003e-show-clear-item.md) | 11 | Ready after 003d |
+| [003d](adr-0068-task-003d-next-previous-and-end-of-track.md) | 3 and 4, 8 for the skip keys, 10 | Implemented 2026-11-15 |
+| [003e](adr-0068-task-003e-show-clear-item.md) | 11 | Ready |
 
 Between part 003a and part 003c, the desktop app cannot start playback. The operator does each push, so no release has this state.
 
@@ -26,6 +26,7 @@ The orchestrating session made these choices on 2026-11-14 inside ADR 0068. Each
 - Restart: startup sets a `playing` or `paused` session to `stopped` and keeps its track, its position and its observation time, as ADR 0068 "Persistence, Restart And CLI Compatibility" says. Part 003b implements it.
 - `RssCheckTrigger::PlaybackStart` stays as a variant with no emitter, because stored rows of `rss_check_runs` hold its token.
 - Select while playing or paused is not available. ADR 0068 gives a rule only for Select while stopped.
+- Next or Previous while paused: the owner stops the driver, writes the target entry to the paused session and loads the entry at Resume. `PlaybackDriver::load` starts playback, so a load in pause makes a short sound. The driver trait does not change. Part 003d implements it.
 - The Clear item opens a confirmation, as the playlist delete does. Part 003e implements it.
 - "Stop And Ask" of this file: the only desktop caller of `play_playlist_at` is the chain that this task removes. The search of 2026-11-14 at commit `3b387f7` found no different caller.
 

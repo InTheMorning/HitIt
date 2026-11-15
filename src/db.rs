@@ -2905,7 +2905,8 @@ mod show_cue;
 pub use playlist_order::{move_playlist, set_playlist_order};
 pub use show_cue::{
     clear_show_cue, load_show_cue, select_show_cue_entry, show_cue, show_cue_can_change,
-    show_cue_exists, CueEntry, CueUnavailableReason, ShowCue,
+    show_cue_entry_after, show_cue_entry_before, show_cue_exists, CueEntry, CueUnavailableReason,
+    ShowCue,
 };
 pub mod provider_observations;
 mod provider_snapshot_schema;

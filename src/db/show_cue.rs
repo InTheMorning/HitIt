@@ -211,6 +211,37 @@ pub fn show_cue(conn: &Connection) -> Result<Option<ShowCue>> {
     }))
 }
 
+/// Returns the cue entry before the given entry by stored position.
+pub fn show_cue_entry_before(conn: &Connection, entry_id: i64) -> Result<Option<CueEntry>> {
+    show_cue_adjacent_entry(conn, entry_id, true)
+}
+
+/// Returns the cue entry after the given entry by stored position.
+pub fn show_cue_entry_after(conn: &Connection, entry_id: i64) -> Result<Option<CueEntry>> {
+    show_cue_adjacent_entry(conn, entry_id, false)
+}
+
+fn show_cue_adjacent_entry(
+    conn: &Connection,
+    entry_id: i64,
+    previous: bool,
+) -> Result<Option<CueEntry>> {
+    let Some(cue) = show_cue(conn)? else {
+        return Ok(None);
+    };
+    let Some(index) = cue.entries.iter().position(|entry| entry.id == entry_id) else {
+        return Ok(None);
+    };
+    Ok(if previous {
+        index
+            .checked_sub(1)
+            .and_then(|index| cue.entries.get(index))
+    } else {
+        cue.entries.get(index + 1)
+    }
+    .cloned())
+}
+
 pub fn show_cue_exists(conn: &Connection) -> Result<bool> {
     conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM show_cue WHERE id = 1)",

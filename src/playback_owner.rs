@@ -71,6 +71,7 @@ pub struct PlaybackOwner<D> {
     loaded_track_id: Option<i64>,
     generation: u64,
     active_cue_entry_id: Option<i64>,
+    prepared_cue_entry_id: Option<i64>,
     drop_file_producer: Option<DropFileProducer>,
 }
 
@@ -84,6 +85,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
             loaded_track_id: None,
             generation: 0,
             active_cue_entry_id: None,
+            prepared_cue_entry_id: None,
             drop_file_producer: None,
         }
     }
@@ -170,6 +172,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
         self.driver.load(path, start_ms)?;
         self.advance_generation();
         self.active_cue_entry_id = None;
+        self.prepared_cue_entry_id = None;
         self.eof_armed = true;
         self.loaded_track_id = Some(track_id);
         let update = playback::set_track(conn, track_id, &self.session_id)?;
@@ -225,6 +228,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
         self.advance_generation();
         self.loaded_track_id = Some(entry.track_id);
         self.active_cue_entry_id = Some(entry_id);
+        self.prepared_cue_entry_id = None;
         self.eof_armed = true;
         let started_at = chrono::Utc::now().to_rfc3339();
         db::set_playback_session_track_with_cue(
@@ -257,6 +261,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
         if session.state == "stopped" {
             self.loaded_track_id = None;
             self.active_cue_entry_id = None;
+            self.prepared_cue_entry_id = None;
             self.clear_drop_file()?;
             return Ok(None);
         }
@@ -270,6 +275,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
         self.eof_armed = true;
         self.loaded_track_id = Some(session.local_track_id);
         self.active_cue_entry_id = session.cue_entry_id;
+        self.prepared_cue_entry_id = None;
         let status = self.driver.poll()?;
         if session.state == "paused" {
             self.clear_drop_file()?;
@@ -291,8 +297,46 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
     }
 
     pub fn pause(&mut self, conn: &Connection, paused: bool) -> Result<playback::NowPlayingUpdate> {
-        self.driver.pause(paused)?;
-        let update = playback::update_paused(conn, paused, &self.session_id)?;
+        let update = if !paused {
+            if let Some(entry_id) = self.prepared_cue_entry_id {
+                let cue = db::show_cue(conn)?.context("No Show cue is loaded")?;
+                let entry = cue
+                    .entries
+                    .iter()
+                    .find(|entry| entry.id == entry_id)
+                    .context("Prepared Show cue entry does not exist")?;
+                if let Some(reason) = entry.unavailable_reason {
+                    return Err(ShowCueEntryCannotPlay {
+                        entry_id,
+                        reason: reason.into(),
+                    }
+                    .into());
+                }
+                let path = entry
+                    .track
+                    .local_path
+                    .as_ref()
+                    .map(|path| path.resolve(&self.music_dir))
+                    .filter(|path| path.is_file())
+                    .ok_or(ShowCueEntryCannotPlay {
+                        entry_id,
+                        reason: ShowCueEntryBlock::FileMissing,
+                    })?;
+                self.driver.load(&path, 0)?;
+                self.advance_generation();
+                self.eof_armed = true;
+                self.prepared_cue_entry_id = None;
+                db::update_playback_session_paused(conn, &self.session_id, false)?;
+                playback::now_playing_update(conn, &self.session_id)?
+                    .context("Show session did not resume")?
+            } else {
+                self.driver.pause(false)?;
+                playback::update_paused(conn, false, &self.session_id)?
+            }
+        } else {
+            self.driver.pause(true)?;
+            playback::update_paused(conn, true, &self.session_id)?
+        };
         if paused {
             self.clear_drop_file()?;
         } else {
@@ -301,18 +345,78 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
         Ok(update)
     }
 
-    pub fn skip_next(&mut self, conn: &Connection) -> Result<playback::NowPlayingUpdate> {
-        let update = playback::skip_next(conn, &self.session_id)?;
-        self.load_update_track(conn, &update)?;
+    pub fn move_show_cue(
+        &mut self,
+        conn: &Connection,
+        next: bool,
+    ) -> Result<Option<playback::NowPlayingUpdate>> {
+        let session = db::playback_session(conn, &self.session_id)?;
+        let cue = db::show_cue(conn)?.context("No Show cue is loaded")?;
+        let current_entry_id = session
+            .as_ref()
+            .filter(|session| session.state != "stopped")
+            .and_then(|session| session.cue_entry_id)
+            .or(cue.selected_entry_id)
+            .context("No Show cue entry is selected")?;
+        let target = if next {
+            db::show_cue_entry_after(conn, current_entry_id)?
+        } else {
+            db::show_cue_entry_before(conn, current_entry_id)?
+        }
+        .context("No adjacent Show cue entry")?;
+        let path = target
+            .track
+            .local_path
+            .as_ref()
+            .map(|path| path.resolve(&self.music_dir))
+            .filter(|path| path.is_file());
+        let reason = target
+            .unavailable_reason
+            .map(Into::into)
+            .or_else(|| path.is_none().then_some(ShowCueEntryBlock::FileMissing));
+        if let Some(reason) = reason {
+            return Err(ShowCueEntryCannotPlay {
+                entry_id: target.id,
+                reason,
+            }
+            .into());
+        }
+        let path = path.context("Show cue entry has no local file")?;
+        let Some(session) = session.filter(|session| session.state != "stopped") else {
+            db::select_show_cue_entry(conn, target.id)?;
+            return Ok(None);
+        };
+        let paused = session.state == "paused";
+        if paused {
+            self.driver.stop()?;
+        } else {
+            self.driver.load(&path, 0)?;
+        }
+        self.advance_generation();
+        let started_at = chrono::Utc::now().to_rfc3339();
+        db::set_playback_session_track_with_cue(
+            conn,
+            &self.session_id,
+            db::PlaybackSessionTrackUpdate {
+                local_track_id: target.track_id,
+                playlist_id: None,
+                playlist_position: None,
+                started_at: &started_at,
+                position_ms: 0,
+                cue_entry_id: Some(target.id),
+            },
+        )?;
+        if paused {
+            db::update_playback_session_paused(conn, &self.session_id, true)?;
+        }
+        self.active_cue_entry_id = Some(target.id);
+        self.loaded_track_id = Some(target.track_id);
+        self.prepared_cue_entry_id = paused.then_some(target.id);
+        self.eof_armed = !paused;
+        let update = playback::now_playing_update(conn, &self.session_id)?
+            .context("Show session did not move")?;
         self.sync_drop_file_for_update(conn, &update)?;
-        Ok(update)
-    }
-
-    pub fn skip_previous(&mut self, conn: &Connection) -> Result<playback::NowPlayingUpdate> {
-        let update = playback::skip_previous(conn, &self.session_id)?;
-        self.load_update_track(conn, &update)?;
-        self.sync_drop_file_for_update(conn, &update)?;
-        Ok(update)
+        Ok(Some(update))
     }
 
     /// Finish existing playback state during managed session maintenance (ADR 0066).
@@ -329,23 +433,10 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
         self.eof_armed = false;
         self.loaded_track_id = None;
         self.active_cue_entry_id = None;
+        self.prepared_cue_entry_id = None;
         let session = playback::stop(conn, &self.session_id)?;
         self.clear_drop_file()?;
         Ok(session)
-    }
-
-    fn load_update_track(
-        &mut self,
-        conn: &Connection,
-        update: &playback::NowPlayingUpdate,
-    ) -> Result<()> {
-        let identity = track_identity::local_track_identity(conn, update.local_track_id)?;
-        let path = identity.local_path.resolve(&self.music_dir);
-        self.driver.load(&path, 0)?;
-        self.advance_generation();
-        self.loaded_track_id = Some(update.local_track_id);
-        self.eof_armed = true;
-        Ok(())
     }
 
     pub fn poll(&mut self, conn: &Connection) -> Result<PollOutcome> {
@@ -355,6 +446,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
                 self.advance_generation();
             }
             self.active_cue_entry_id = None;
+            self.prepared_cue_entry_id = None;
             self.clear_drop_file()?;
             return Ok(PollOutcome::NoSession);
         };
@@ -365,12 +457,19 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
                 self.advance_generation();
             }
             self.active_cue_entry_id = None;
+            self.prepared_cue_entry_id = None;
             self.clear_drop_file()?;
             return Ok(if was_loaded {
                 PollOutcome::Stopped
             } else {
                 PollOutcome::Reconciled(None)
             });
+        }
+        if session.state == "paused"
+            && self.prepared_cue_entry_id.is_some()
+            && self.prepared_cue_entry_id == session.cue_entry_id
+        {
+            return Ok(PollOutcome::Reconciled(None));
         }
         if self.loaded_track_id != Some(session.local_track_id) {
             let identity = track_identity::local_track_identity(conn, session.local_track_id)?;
@@ -391,16 +490,28 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
             }
             return Ok(PollOutcome::Reconciled(update));
         }
+        let poll_generation = self.generation;
+        let poll_entry_id = self.active_cue_entry_id;
         let status = self.driver.poll()?;
         if let Some(error) = &status.error {
             anyhow::bail!("playback driver error: {error}");
         }
         if status.eof {
+            if poll_generation != self.generation
+                || poll_entry_id != self.active_cue_entry_id
+                || session.cue_entry_id != self.active_cue_entry_id
+            {
+                return Ok(PollOutcome::Reconciled(None));
+            }
             if !self.eof_armed {
                 return Ok(PollOutcome::Reconciled(None));
             }
             self.eof_armed = false;
-            if session.cue_entry_id.is_some() {
+            let target = match session.cue_entry_id {
+                Some(entry_id) => db::show_cue_entry_after(conn, entry_id)?,
+                None => None,
+            };
+            let Some(target) = target else {
                 self.driver.stop()?;
                 self.advance_generation();
                 self.loaded_track_id = None;
@@ -408,15 +519,52 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
                 playback::stop(conn, &self.session_id)?;
                 self.clear_drop_file()?;
                 return Ok(PollOutcome::Stopped);
+            };
+            let path = target
+                .track
+                .local_path
+                .as_ref()
+                .map(|path| path.resolve(&self.music_dir))
+                .filter(|path| path.is_file());
+            if target.unavailable_reason.is_some() || path.is_none() {
+                self.driver.stop()?;
+                self.advance_generation();
+                self.loaded_track_id = None;
+                self.active_cue_entry_id = None;
+                playback::stop(conn, &self.session_id)?;
+                self.clear_drop_file()?;
+                let reason = target
+                    .unavailable_reason
+                    .map(Into::into)
+                    .unwrap_or(ShowCueEntryBlock::FileMissing);
+                return Err(ShowCueEntryCannotPlay {
+                    entry_id: target.id,
+                    reason,
+                }
+                .into());
             }
-            let update = playback::skip_next(conn, &self.session_id)
-                .context("advance playlist after driver EOF")?;
-            let identity = track_identity::local_track_identity(conn, update.local_track_id)?;
-            let path = identity.local_path.resolve(&self.music_dir);
-            self.driver.load(&path, 0)?;
+            self.driver
+                .load(path.as_deref().expect("checked path"), 0)?;
             self.advance_generation();
-            self.loaded_track_id = Some(update.local_track_id);
-            self.eof_armed = true;
+            let started_at = chrono::Utc::now().to_rfc3339();
+            db::set_playback_session_track_with_cue(
+                conn,
+                &self.session_id,
+                db::PlaybackSessionTrackUpdate {
+                    local_track_id: target.track_id,
+                    playlist_id: None,
+                    playlist_position: None,
+                    started_at: &started_at,
+                    position_ms: 0,
+                    cue_entry_id: Some(target.id),
+                },
+            )?;
+            self.loaded_track_id = Some(target.track_id);
+            self.active_cue_entry_id = Some(target.id);
+            self.prepared_cue_entry_id = None;
+            self.eof_armed = false;
+            let update = playback::now_playing_update(conn, &self.session_id)?
+                .context("Show session did not advance")?;
             self.sync_drop_file_for_update(conn, &update)?;
             return Ok(PollOutcome::Advanced(update));
         }
@@ -464,6 +612,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
 mod tests {
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
 
     use anyhow::Result;
 
@@ -706,6 +855,38 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn cue_eof_advances_once_and_ignores_a_duplicate_observation() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let audio_path = temp.path().join("show.mp3");
+        fs::write(&audio_path, b"audio")?;
+        let mut conn = setup_test_db()?;
+        let feed_id = create_feed(&conn)?;
+        let track_id = create_track(&conn, feed_id, "eof-two", temp.path(), &audio_path)?;
+        let playlist_id = db::playlist_create(&conn, "Two entry cue")?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::load_show_cue(&mut conn, playlist_id, 1, false)?;
+        let entries = db::show_cue(&conn)?.expect("cue").entries;
+        let mut owner =
+            PlaybackOwner::new(EndOfTrackDriver, playback::DEFAULT_SESSION_ID, temp.path());
+        owner.start_show_entry(&conn, Some(entries[0].id))?;
+
+        assert!(matches!(owner.poll(&conn)?, PollOutcome::Advanced(_)));
+        let advanced_generation = owner.generation();
+        let advanced = db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.expect("session");
+        assert_eq!(advanced.cue_entry_id, Some(entries[1].id));
+        assert!(matches!(owner.poll(&conn)?, PollOutcome::Reconciled(None)));
+        assert_eq!(owner.generation(), advanced_generation);
+        assert_eq!(
+            db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?
+                .expect("session")
+                .cue_entry_id,
+            Some(entries[1].id)
+        );
+        Ok(())
+    }
+
     struct EndOfTrackDriver;
 
     impl PlaybackDriver for EndOfTrackDriver {
@@ -802,48 +983,208 @@ mod tests {
     }
 
     #[test]
-    fn owner_skip_next_loads_advanced_track() -> Result<()> {
-        let conn = setup_test_db()?;
+    fn show_next_moves_by_cue_entry_identity() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let first_path = temp.path().join("first.mp3");
+        fs::write(&first_path, b"audio")?;
+        let mut conn = setup_test_db()?;
         let feed_id = create_feed(&conn)?;
-        let first_track_id = create_track(
-            &conn,
-            feed_id,
-            "first-guid",
-            Path::new("/"),
-            Path::new("/tmp/first.mp3"),
-        )?;
-        let second_track_id = create_track(
-            &conn,
-            feed_id,
-            "second-guid",
-            Path::new("/"),
-            Path::new("/tmp/second.mp3"),
-        )?;
-        let playlist_id = db::playlist_create(&conn, "Phase 2")?;
+        let first_track_id = create_track(&conn, feed_id, "same-guid", temp.path(), &first_path)?;
+        let playlist_id = db::playlist_create(&conn, "Show cue")?;
         db::playlist_append(&conn, playlist_id, first_track_id)?;
-        db::playlist_append(&conn, playlist_id, second_track_id)?;
-        let mut owner = PlaybackOwner::new(
-            NullDriver::new(),
-            playback::DEFAULT_SESSION_ID,
-            PathBuf::from("/"),
+        db::playlist_append(&conn, playlist_id, first_track_id)?;
+        db::load_show_cue(&mut conn, playlist_id, 1, false)?;
+        let entries = db::show_cue(&conn)?.expect("cue").entries;
+        let mut owner =
+            PlaybackOwner::new(NullDriver::new(), playback::DEFAULT_SESSION_ID, temp.path());
+        owner.start_show_entry(&conn, Some(entries[0].id))?;
+
+        let update = owner.move_show_cue(&conn, true)?.expect("active move");
+
+        assert_eq!(update.local_track_id, first_track_id);
+        assert_eq!(owner.active_cue_entry_id(), Some(entries[1].id));
+        assert_eq!(
+            db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?
+                .expect("session")
+                .cue_entry_id,
+            Some(entries[1].id)
         );
-        db::set_playback_session_track(
-            &conn,
-            playback::DEFAULT_SESSION_ID,
-            first_track_id,
-            Some(playlist_id),
-            Some(0),
-            "2026-11-14T00:00:00Z",
-            0,
-        )?;
-        owner.load_current_session(&conn)?;
-
-        let update = owner.skip_next(&conn)?;
-        let snap = owner.driver().snapshot();
-
-        assert_eq!(update.local_track_id, second_track_id);
-        assert_eq!(snap.loaded_path, Some(PathBuf::from("/tmp/second.mp3")));
         Ok(())
+    }
+
+    #[test]
+    fn paused_show_move_stops_silently_and_resume_loads_prepared_entry() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let audio_path = temp.path().join("track.mp3");
+        fs::write(&audio_path, b"audio")?;
+        let mut conn = setup_test_db()?;
+        let feed_id = create_feed(&conn)?;
+        let track_id = create_track(&conn, feed_id, "same", temp.path(), &audio_path)?;
+        let playlist_id = db::playlist_create(&conn, "Repeated cue")?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::load_show_cue(&mut conn, playlist_id, 1, false)?;
+        let entries = db::show_cue(&conn)?.expect("cue").entries;
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let mut owner = PlaybackOwner::new(
+            RecordingDriver(Arc::clone(&calls)),
+            playback::DEFAULT_SESSION_ID,
+            temp.path(),
+        );
+        owner.start_show_entry(&conn, Some(entries[0].id))?;
+        owner.pause(&conn, true)?;
+        calls.lock().expect("calls").clear();
+
+        owner.move_show_cue(&conn, true)?;
+        assert_eq!(*calls.lock().expect("calls"), ["stop"]);
+        let paused = db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.expect("session");
+        assert_eq!(paused.state, "paused");
+        assert_eq!(paused.cue_entry_id, Some(entries[1].id));
+        assert!(matches!(owner.poll(&conn)?, PollOutcome::Reconciled(None)));
+        assert_eq!(*calls.lock().expect("calls"), ["stop"]);
+
+        owner.pause(&conn, false)?;
+        assert_eq!(*calls.lock().expect("calls"), ["stop", "load"]);
+        assert_eq!(
+            db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?
+                .expect("session")
+                .state,
+            "playing"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn stopped_show_move_changes_only_the_selection_and_stays_inside_the_cue() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let audio_path = temp.path().join("track.mp3");
+        fs::write(&audio_path, b"audio")?;
+        let mut conn = setup_test_db()?;
+        let feed_id = create_feed(&conn)?;
+        let track_id = create_track(&conn, feed_id, "same", temp.path(), &audio_path)?;
+        let playlist_id = db::playlist_create(&conn, "Stopped cue")?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::load_show_cue(&mut conn, playlist_id, 1, false)?;
+        // The source playlist changes after the load. The cue does not follow it.
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        let entries = db::show_cue(&conn)?.expect("cue").entries;
+        assert_eq!(entries.len(), 2);
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let mut owner = PlaybackOwner::new(
+            RecordingDriver(Arc::clone(&calls)),
+            playback::DEFAULT_SESSION_ID,
+            temp.path(),
+        );
+        let selected = |conn: &Connection| -> Result<Option<i64>> {
+            Ok(db::show_cue(conn)?.expect("cue").selected_entry_id)
+        };
+
+        assert!(owner.move_show_cue(&conn, false).is_err());
+        assert_eq!(selected(&conn)?, Some(entries[0].id));
+        assert!(owner.move_show_cue(&conn, true)?.is_none());
+        assert_eq!(selected(&conn)?, Some(entries[1].id));
+        assert!(owner.move_show_cue(&conn, true).is_err());
+        assert_eq!(selected(&conn)?, Some(entries[1].id));
+
+        assert!(db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.is_none());
+        assert_eq!(owner.generation(), 0);
+        assert!(calls.lock().expect("calls").is_empty());
+        Ok(())
+    }
+
+    fn cue_with_a_missing_second_file(
+        conn: &mut Connection,
+        music_dir: &Path,
+    ) -> Result<Vec<db::CueEntry>> {
+        let audio_path = music_dir.join("first.mp3");
+        fs::write(&audio_path, b"audio")?;
+        let feed_id = create_feed(conn)?;
+        let first = create_track(conn, feed_id, "first", music_dir, &audio_path)?;
+        let second = create_track(
+            conn,
+            feed_id,
+            "second",
+            music_dir,
+            &music_dir.join("missing.mp3"),
+        )?;
+        let playlist_id = db::playlist_create(conn, "Missing second")?;
+        db::playlist_append(conn, playlist_id, first)?;
+        db::playlist_append(conn, playlist_id, second)?;
+        db::load_show_cue(conn, playlist_id, 1, false)?;
+        Ok(db::show_cue(conn)?.expect("cue").entries)
+    }
+
+    #[test]
+    fn show_move_to_an_entry_that_cannot_play_keeps_the_state() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let mut conn = setup_test_db()?;
+        let entries = cue_with_a_missing_second_file(&mut conn, temp.path())?;
+        let mut owner =
+            PlaybackOwner::new(NullDriver::new(), playback::DEFAULT_SESSION_ID, temp.path());
+        owner.start_show_entry(&conn, Some(entries[0].id))?;
+        let generation = owner.generation();
+
+        let error = owner
+            .move_show_cue(&conn, true)
+            .expect_err("the target file is missing");
+
+        let typed = error
+            .downcast_ref::<ShowCueEntryCannotPlay>()
+            .expect("typed move error");
+        assert_eq!(typed.entry_id, entries[1].id);
+        assert_eq!(typed.reason, ShowCueEntryBlock::FileMissing);
+        assert_eq!(owner.generation(), generation);
+        let session = db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.expect("session");
+        assert_eq!(session.state, "playing");
+        assert_eq!(session.cue_entry_id, Some(entries[0].id));
+        Ok(())
+    }
+
+    #[test]
+    fn cue_eof_before_an_entry_that_cannot_play_stops_and_names_the_entry() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let mut conn = setup_test_db()?;
+        let entries = cue_with_a_missing_second_file(&mut conn, temp.path())?;
+        let mut owner =
+            PlaybackOwner::new(EndOfTrackDriver, playback::DEFAULT_SESSION_ID, temp.path());
+        owner.start_show_entry(&conn, Some(entries[0].id))?;
+
+        let error = owner.poll(&conn).expect_err("the next file is missing");
+
+        let typed = error
+            .downcast_ref::<ShowCueEntryCannotPlay>()
+            .expect("typed end of track error");
+        assert_eq!(typed.entry_id, entries[1].id);
+        let session = db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.expect("session");
+        assert_eq!(session.state, "stopped");
+        assert_eq!(db::show_cue(&conn)?.expect("cue").entries.len(), 2);
+        Ok(())
+    }
+
+    struct RecordingDriver(Arc<Mutex<Vec<&'static str>>>);
+
+    impl PlaybackDriver for RecordingDriver {
+        fn load(&self, _path: &Path, _start_ms: u64) -> Result<()> {
+            self.0.lock().expect("calls").push("load");
+            Ok(())
+        }
+        fn seek(&self, _position_ms: u64) -> Result<()> {
+            self.0.lock().expect("calls").push("seek");
+            Ok(())
+        }
+        fn pause(&self, _paused: bool) -> Result<()> {
+            self.0.lock().expect("calls").push("pause");
+            Ok(())
+        }
+        fn stop(&self) -> Result<()> {
+            self.0.lock().expect("calls").push("stop");
+            Ok(())
+        }
+        fn poll(&self) -> Result<DriverStatus> {
+            self.0.lock().expect("calls").push("poll");
+            Ok(DriverStatus::default())
+        }
     }
 
     #[test]

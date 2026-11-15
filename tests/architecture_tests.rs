@@ -166,14 +166,31 @@ const SCREEN_METADATA_FEED_FORBIDDEN_PATTERNS: &[&str] = &[
 ];
 
 const SCREEN_PLAYBACK_FORBIDDEN_PATTERNS: &[&str] = &[
-    "playback_owner.skip_next(",
-    "playback_owner.skip_previous(",
+    "playback_owner.move_show_cue(",
     "playback_owner.pause(",
     "playback_owner.stop(",
     "playback::now_playing_update(",
     "db::playback_session(",
     "StartPlayback",
 ];
+
+#[test]
+fn adr_0068_show_transport_moves_through_cue_entries() {
+    let owner = read_source(&manifest_path("src/playback_owner.rs"));
+    let commands = read_source(&manifest_path("src/application/commands/playback.rs"));
+    assert!(
+        !owner.contains("playback::skip_next(") && !owner.contains("playback::skip_previous("),
+        "ADR 0068 §Show Owns Its Transport: src/playback_owner.rs must not call the playlist skips of src/playback.rs. Move with PlaybackOwner::move_show_cue and db::show_cue_entry_after."
+    );
+    assert!(
+        commands.contains("pub struct NextShowCueEntry<"),
+        "ADR 0068: expose the typed next cue command"
+    );
+    assert!(
+        commands.contains("pub struct PreviousShowCueEntry<"),
+        "ADR 0068: expose the typed previous cue command"
+    );
+}
 
 const DEPRECATED_VISUAL_HELPER_BASELINES: &[DeprecatedVisualHelperBaseline] = &[
     DeprecatedVisualHelperBaseline {
