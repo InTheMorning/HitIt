@@ -877,6 +877,7 @@ mod tests {
             &session,
         );
         let bus = CommandBus::new();
+        // The test cannot call `finish_show_cue_load` without GPUI context. Both paths use `cue_load_rss_check_trigger`.
         let load_and_check = |result: CommandResult<bool>| -> anyhow::Result<()> {
             let loaded = result?.value().to_owned();
             if let Some(trigger) = cue_load_rss_check_trigger(loaded) {

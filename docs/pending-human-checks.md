@@ -609,7 +609,10 @@ Use a database copy with a populated playlist. Use a Linux desktop session.
 7. Open My playlists. Open the populated playlist menu, then select "Load into Show Cue".
 8. Open Show. Make sure that each cue row appears and no audio plays.
 9. Open the playlist menu again. Make sure that it says "Replace Show Cue". Select it and make sure that Show lists the playlist.
-10. Make sure that an unavailable row stays in the list and names its cause.
-11. Close HitIt. Use `rm -rf "$scratch"` to remove the database copy and scratch files.
+10. Make sure that an unavailable row stays in the list and names its cause. A track with no download reads "Not downloaded". A track with a file that is not on the disk reads "File missing".
+11. Make an empty playlist. Open its menu, then select "Replace Show Cue". Make sure that the status reads "The playlist has no tracks. The Show cue did not change."
+12. Start a playlist with Play. Open a playlist menu and make sure that "Replace Show Cue" is not available.
+13. Stop the playback. Open the playlist menu again and make sure that "Replace Show Cue" is available.
+14. Close HitIt. Use `rm -rf "$scratch"` to remove the database copy and scratch files.
 
 - Incorrect: no cue rows appear, a missing file hides its row, the menu label is incorrect, or audio starts.

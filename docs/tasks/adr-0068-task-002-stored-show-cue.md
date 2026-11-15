@@ -2,7 +2,7 @@
 
 ## Status
 
-In review - 2026-11-14. Items R0 to R7 of the Review Findings are corrected. The last inspection found items L1 to L10. Item L4 moves to task 003.
+Implemented - 2026-11-14. Items R0 to R7 of the Review Findings and items L1 to L3 and L5 to L10 of the last inspection are corrected. Item L4 moves to task 003. Mechanical checks are Green. The visual checks V1 to V4 are open in section 19 of [pending human checks](../pending-human-checks.md).
 
 ## Goal
 
@@ -77,6 +77,8 @@ The curator loads a playlist into one stored Show cue. The load starts no audio 
 
 - V1: the item menu of a playlist has "Load into Show Cue". After a Load, Show shows the cue, and no audio plays.
 - V2: with a loaded cue, the menu shows "Replace Show Cue".
+- V3: a Load of an empty playlist shows "The playlist has no tracks. The Show cue did not change."
+- V4: while a playlist plays, "Replace Show Cue" is not available. After a stop, it is available again (item L2).
 
 ## Test Commands
 
@@ -192,15 +194,63 @@ Corrected items:
 - L3: `show_cue_entries.id` uses `AUTOINCREMENT`. A Replace does not use an entry id again. The test `replace_never_gives_an_old_entry_id_again` proves it.
 - L5: a Load or a Replace that gives an error shows "The Show cue did not change" and reloads the cue menu. Before, it showed a playlist load error.
 - L9, part: `refresh_show_cue_state` had the same body as `reload_playlists`. The change removes it.
+- L6: a Library track with no file binding gets "Not downloaded". A bound file that is not on the disk gets "File missing". The tests `stored_cue_reports_not_downloaded_without_a_file_binding` and `unavailable_reasons_have_distinct_labels` prove it.
+- L7: `queue_now_playing_input` reads the session and the cue in the database lock. `queue_now_playing_vm` examines the cue files after the lock. The playlist sidebar query reads `db::show_cue_exists`. The test `show_cue_exists_tracks_load_and_clear` proves the new read.
+- L8: a Load of an empty playlist shows "The playlist has no tracks. The Show cue did not change." The test `empty_show_cue_load_reports_that_the_cue_did_not_change` proves the text.
+- L9: `db::show_cue_can_change` owns the rule that the cue changes only while playback is stopped. Load, Clear and the sidebar query use it. `finish_show_cue_load` reloads the playlists and reads no session. The two reason enums stay, because only the view model enum has the disk reason.
+- L10: the tests `failed_replace_rolls_back_cue_rows_and_entry_ids` and `cue_sequence_and_source_positions_survive_source_reorder` are new. The RSS check test keeps its closure, because `finish_show_cue_load` needs a GPUI context. The test and the method share `cue_load_rss_check_trigger`.
 
-Open items:
+Open item:
 
 - L4: `ClearShowCue` has no entry point. ADR 0068 puts the Clear item on the Show page. Operator decision of 2026-11-14: task 003 adds the Clear item and its test.
-- L6: `MissingFile` also covers a track with no file. `plan_readiness_track` in `src/application/queries/broadcast.rs` gives `NotDownloaded` and `FileMissing` as two different reasons.
-- L7: the Show projection examines each cue file while it holds the database lock. The playlist sidebar query reads the full cue for one value. ADR 0084 Decision 10 gives the rule against a file read in the lock.
-- L8: a Load of an empty playlist shows no message.
-- L9: four places tell the rule that the cue changes only while playback is stopped. `QueueUnavailableReason` copies `db::CueUnavailableReason`.
-- L10: no test proves a rollback after the first write of a Load, or the sequence after a source reorder. The RSS check test copies the glue of `finish_show_cue_load`. The test waits for the second run with `finished_after`. Before, it read the count before the second run was written.
+
+## Corrections For The Open Items - 2026-11-14
+
+This section was the scope of the correction change. A ChatGPT run made the change, and the orchestrating session examined the diff and ran the checks. Item L4 stays with task 003.
+
+Operator choice: the orchestrating session selected each correction below. The operator gave no different instruction.
+
+### C6: Two Reasons For A Track With No Playable File (L6)
+
+- In `src/db/show_cue.rs`, rename `CueUnavailableReason::MissingFile` to `NotDownloaded`. `show_cue` gives it for a Library track with no file binding. The query does no disk access.
+- In `src/view_models/queue_now_playing.rs`, add `QueueUnavailableReason::NotDownloaded` with the label "Not downloaded". `MissingFile` keeps the label "File missing".
+- In `src/app/queue_now_playing.rs`, map `NotDownloaded` to `NotDownloaded`. Give `MissingFile` only when a binding exists and the file is not on the disk.
+- Tests: `show_cue` gives `NotDownloaded` for a Library track with no binding. The projection gives `NotDownloaded` for that track and `MissingFile` for a bound file that is not on the disk. The view model gives the two labels.
+
+### C7: No File Read In The Database Lock (L7)
+
+- Divide `queue_now_playing_vm` in `src/app/queue_now_playing.rs` into two steps. Step 1 reads the session and the cue or the session tracks from the connection. Step 2 examines the cue files on the disk and builds the view model. Step 2 gets no connection.
+- In `RefreshShowPage::execute` in `src/app/show.rs`, do step 1 and `load_event_section` in the lock block. Do step 2 after the block ends.
+- Add `db::show_cue_exists(conn) -> Result<bool>` in `src/db/show_cue.rs`. It reads only `SELECT EXISTS(SELECT 1 FROM show_cue WHERE id = 1)`. `LoadPlaylistSidebar` in `src/application/queries/playlist.rs` uses it, and does not call `db::show_cue`. `load_show_cue` also uses it for its check of an existing cue.
+- Test: the existing test `stored_cue_marks_a_bound_file_absent_from_the_disk_as_missing` calls the two steps and passes. A new test proves `show_cue_exists` before a Load, after a Load and after a Clear.
+
+### C8: An Empty Playlist Gives A Message (L8)
+
+- Add `report_empty_show_cue_load` to the Library view model in `src/view_models/library.rs`, adjacent to `fail_show_cue_change`. It sets the status to "The playlist has no tracks. The Show cue did not change."
+- `finish_show_cue_load` in `src/library/app_impl.rs` calls it when `loaded` is `false`.
+- Test: a view model test proves the status text.
+
+### C9: One Owner Of The Rule That The Cue Changes Only While Playback Is Stopped (L9)
+
+- Add `db::show_cue_can_change(conn) -> Result<bool>` in `src/db/show_cue.rs`. It gives `true` when there is no session `default`, or when the session state is `stopped`. Give it a doc comment that names ADR 0068.
+- `load_show_cue` (for a Replace), `clear_show_cue` and `LoadPlaylistSidebar` use this function. Remove their own state comparisons.
+- `finish_show_cue_load` does not read the session. After a load that changes the cue, it calls `self.reload_playlists(cx)`, and the sidebar load sets the cue menu state. Keep the RSS check start and the `ShowCueLoaded` event. This also removes one database lock on the UI thread.
+- The two reason enums stay. After C6 they are different: the database enum has no disk reason, and the view model enum adds `MissingFile`. Write this in a doc comment on `QueueUnavailableReason`.
+- The existing tests of Replace and Clear in the states `playing` and `paused` must pass without a change.
+
+### C10: Missing Tests (L10)
+
+- Rollback: with a cue from playlist A, a Replace from playlist B gets an error after its first write. Make the error with a `TEMP TRIGGER` that aborts an insert into `show_cue_entries` at position 1. The cue of playlist A stays, with the same entry ids and the same sequence.
+- Source reorder: load a cue of three different tracks, then reorder the source playlist with the existing playlist reorder function. The cue keeps its sequence and its `source_position` values.
+- The test `adr_0068_successful_cue_loads_start_one_rss_check_each` keeps its closure. `finish_show_cue_load` needs a GPUI context, and the test and the method share `cue_load_rss_check_trigger`. Add a comment in the test that says so.
+
+### Checks And Report
+
+- Run each command of "Test Commands". Each command must pass.
+- Follow `/home/citizen/.agents/skills/asd-ste100/SKILL.md` for each comment and each document line.
+- Do not commit. Do not change `AGENTS.md`, the ADRs or `docs/pending-human-checks.md`.
+- Do not change this task file. In the last message, give for each of C6 to C10 the files that changed and the name of each new test.
+- Stop and report if a correction needs a change in `PlaybackOwner`, the driver, the producer, the Show transport or the CLI.
 
 ## Stop And Ask
 

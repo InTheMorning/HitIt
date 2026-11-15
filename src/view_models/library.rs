@@ -3955,6 +3955,10 @@ impl LibraryViewModel {
         self.status = format!("The Show cue did not change: {error:#}");
     }
 
+    pub(crate) fn report_empty_show_cue_load(&mut self) {
+        self.status = "The playlist has no tracks. The Show cue did not change.".to_string();
+    }
+
     #[must_use]
     pub(crate) fn playlist_by_id(&self, playlist_id: i64) -> Option<db::Playlist> {
         self.snapshot
@@ -7542,6 +7546,16 @@ mod tests {
     use crate::view_models::name_level_page::NameLevelIndexState;
     use crate::view_models::publisher_page::{MatchedByNameFacts, PublisherPageVm};
     use crate::view_models::release_download_state::ReleaseDownloadState;
+
+    #[test]
+    fn empty_show_cue_load_reports_that_the_cue_did_not_change() {
+        let mut vm = LibraryViewModel::new();
+        vm.report_empty_show_cue_load();
+        assert_eq!(
+            vm.status(),
+            "The playlist has no tracks. The Show cue did not change."
+        );
+    }
 
     /// ADR 0089: the sidebar and the page read the view model, and the
     /// toolbar title reads the layout. The start page must be the same in

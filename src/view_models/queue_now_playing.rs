@@ -79,8 +79,10 @@ pub(crate) struct QueueTrackInput {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// The database reports Library and download facts. This enum adds disk facts.
 pub(crate) enum QueueUnavailableReason {
     NotInLibrary,
+    NotDownloaded,
     MissingFile,
 }
 
@@ -88,6 +90,7 @@ impl QueueUnavailableReason {
     pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::NotInLibrary => "Not in Library",
+            Self::NotDownloaded => "Not downloaded",
             Self::MissingFile => "File missing",
         }
     }
@@ -378,6 +381,15 @@ fn queue_row_a11y_label(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unavailable_reasons_have_distinct_labels() {
+        assert_eq!(
+            QueueUnavailableReason::NotDownloaded.label(),
+            "Not downloaded"
+        );
+        assert_eq!(QueueUnavailableReason::MissingFile.label(), "File missing");
+    }
 
     fn track(id: i64, title: &str, now_playing: bool) -> QueueTrackInput {
         QueueTrackInput {

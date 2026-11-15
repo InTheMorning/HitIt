@@ -132,7 +132,7 @@ pub struct CueEntry {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CueUnavailableReason {
     NotInLibrary,
-    MissingFile,
+    NotDownloaded,
 }
 
 #[derive(Clone, Debug)]
@@ -186,7 +186,7 @@ pub fn show_cue(conn: &Connection) -> Result<Option<ShowCue>> {
                 let unavailable_reason = if !in_library {
                     Some(CueUnavailableReason::NotInLibrary)
                 } else if track.local_path.is_none() {
-                    Some(CueUnavailableReason::MissingFile)
+                    Some(CueUnavailableReason::NotDownloaded)
                 } else {
                     None
                 };
@@ -211,6 +211,28 @@ pub fn show_cue(conn: &Connection) -> Result<Option<ShowCue>> {
     }))
 }
 
+pub fn show_cue_exists(conn: &Connection) -> Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM show_cue WHERE id = 1)",
+        [],
+        |row| row.get(0),
+    )
+    .context("Check whether a Show cue exists")
+}
+
+/// Returns whether ADR 0068 allows a Show cue change in the current session.
+pub fn show_cue_can_change(conn: &Connection) -> Result<bool> {
+    let session_state: Option<String> = conn
+        .query_row(
+            "SELECT state FROM playback_sessions WHERE session_id = 'default'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .context("Read the playback state for a Show cue change")?;
+    Ok(session_state.is_none_or(|state| state == "stopped"))
+}
+
 pub fn load_show_cue(
     conn: &mut Connection,
     playlist_id: i64,
@@ -218,18 +240,7 @@ pub fn load_show_cue(
     replace: bool,
 ) -> Result<bool> {
     let tx = conn.transaction().context("Begin the Show cue load")?;
-    let session_state: Option<String> = tx
-        .query_row(
-            "SELECT state FROM playback_sessions WHERE session_id = 'default'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()?;
-    if replace
-        && session_state
-            .as_deref()
-            .is_some_and(|state| state != "stopped")
-    {
+    if replace && !show_cue_can_change(&tx)? {
         anyhow::bail!("The Show cue cannot change while playback is active");
     }
     let playlist = tx
@@ -253,13 +264,7 @@ pub fn load_show_cue(
         tx.rollback()?;
         return Ok(false);
     }
-    if !replace
-        && tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM show_cue WHERE id = 1)",
-            [],
-            |row| row.get::<_, bool>(0),
-        )?
-    {
+    if !replace && show_cue_exists(&tx)? {
         anyhow::bail!("A Show cue already exists");
     }
     tx.execute("DELETE FROM show_cue_entries", [])?;
@@ -283,9 +288,8 @@ pub fn load_show_cue(
 
 pub fn clear_show_cue(conn: &mut Connection) -> Result<()> {
     let tx = conn.transaction().context("Begin the Show cue clear")?;
-    let active: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM playback_sessions WHERE session_id = 'default' AND state IN ('playing', 'paused'))", [], |row| row.get(0))?;
     anyhow::ensure!(
-        !active,
+        show_cue_can_change(&tx)?,
         "The Show cue cannot clear while playback is active"
     );
     tx.execute("DELETE FROM show_cue_entries", [])?;
@@ -583,7 +587,77 @@ mod tests {
         let cue = show_cue(&conn)?.expect("the cue is stored");
         assert_eq!(
             cue.entries[0].unavailable_reason,
-            Some(CueUnavailableReason::MissingFile)
+            Some(CueUnavailableReason::NotDownloaded)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn show_cue_exists_tracks_load_and_clear() -> Result<()> {
+        let mut conn = setup()?;
+        let (playlist_id, _) = playlist_with_repeated_track(&conn)?;
+        assert!(!show_cue_exists(&conn)?);
+        load_show_cue(&mut conn, playlist_id, 123, false)?;
+        assert!(show_cue_exists(&conn)?);
+        clear_show_cue(&mut conn)?;
+        assert!(!show_cue_exists(&conn)?);
+        Ok(())
+    }
+
+    #[test]
+    fn failed_replace_rolls_back_cue_rows_and_entry_ids() -> Result<()> {
+        let mut conn = setup()?;
+        let (first_playlist, first_track) = playlist_with_repeated_track(&conn)?;
+        let second_playlist = db::playlist_create(&conn, "Second cue")?;
+        let feed_id: i64 = conn.query_row(
+            "SELECT feed_id FROM tracks WHERE id = ?1",
+            [first_track],
+            |row| row.get(0),
+        )?;
+        let second_track = insert_track(&conn, feed_id, "second")?;
+        db::playlist_append(&conn, second_playlist, second_track)?;
+        db::playlist_append(&conn, second_playlist, second_track)?;
+        load_show_cue(&mut conn, first_playlist, 1, false)?;
+        let before = show_cue(&conn)?.expect("first cue is stored");
+        conn.execute_batch("CREATE TEMP TRIGGER abort_second_cue_entry BEFORE INSERT ON show_cue_entries WHEN NEW.position = 1 BEGIN SELECT RAISE(ABORT, 'forced cue insert failure'); END;")?;
+
+        assert!(load_show_cue(&mut conn, second_playlist, 2, true).is_err());
+
+        let after = show_cue(&conn)?.expect("first cue remains");
+        let sequence = |cue: &ShowCue| {
+            cue.entries
+                .iter()
+                .map(|entry| (entry.id, entry.position, entry.track_id))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(after.source_playlist_id, before.source_playlist_id);
+        assert_eq!(sequence(&after), sequence(&before));
+        Ok(())
+    }
+
+    #[test]
+    fn cue_sequence_and_source_positions_survive_source_reorder() -> Result<()> {
+        let mut conn = setup()?;
+        conn.execute("INSERT INTO feeds(feed_url, feed_guid, title) VALUES ('https://cue.test/reorder', 'reorder-feed', 'Reorder')", [])?;
+        let feed_id = conn.last_insert_rowid();
+        let tracks = [
+            insert_track(&conn, feed_id, "one")?,
+            insert_track(&conn, feed_id, "two")?,
+            insert_track(&conn, feed_id, "three")?,
+        ];
+        let playlist = db::playlist_create(&conn, "Reorder")?;
+        for track in tracks {
+            db::playlist_append(&conn, playlist, track)?;
+        }
+        load_show_cue(&mut conn, playlist, 10, false)?;
+        db::playlist_reorder(&mut conn, playlist, 0, 2)?;
+        let cue = show_cue(&conn)?.expect("cue remains stored");
+        assert_eq!(
+            cue.entries
+                .iter()
+                .map(|entry| (entry.track_id, entry.source_position))
+                .collect::<Vec<_>>(),
+            [(tracks[0], 0), (tracks[1], 1), (tracks[2], 2)]
         );
         Ok(())
     }

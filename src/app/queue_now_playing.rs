@@ -26,16 +26,49 @@ pub(super) fn queue_transport_action(
     }
 }
 
-pub(super) fn queue_now_playing_vm(
+pub(super) struct QueueNowPlayingInput {
+    session: Option<db::PlaybackSessionRow>,
+    queue: QueueProjection,
+    text_filter: Option<String>,
+}
+
+pub(super) fn queue_now_playing_input(
     services: &ApplicationServices,
     conn: &rusqlite::Connection,
-    music_dir: &Path,
     text_filter: Option<String>,
-) -> QueueNowPlayingPageVm {
+) -> QueueNowPlayingInput {
     let session = db::playback_session(conn, playback::DEFAULT_SESSION_ID)
         .ok()
         .flatten()
         .filter(|session| session.state != "stopped");
+    let queue = session.as_ref().map_or_else(
+        || queue_tracks_for_stored_cue(conn),
+        |session| queue_tracks_for_session(services, conn, session),
+    );
+
+    QueueNowPlayingInput {
+        session,
+        queue,
+        text_filter,
+    }
+}
+
+pub(super) fn queue_now_playing_vm(
+    input: QueueNowPlayingInput,
+    music_dir: &Path,
+) -> QueueNowPlayingPageVm {
+    let QueueNowPlayingInput {
+        session,
+        mut queue,
+        text_filter,
+    } = input;
+    for (track, path) in queue.tracks.iter_mut().zip(queue.cue_paths) {
+        if let Some(path) = path {
+            if track.unavailable_reason.is_none() && !path.resolve(music_dir).is_file() {
+                track.unavailable_reason = Some(QueueUnavailableReason::MissingFile);
+            }
+        }
+    }
     let transport_state = session.as_ref().map_or(TransportState::Stopped, |session| {
         if session.state == "paused" {
             TransportState::Paused
@@ -43,10 +76,6 @@ pub(super) fn queue_now_playing_vm(
             TransportState::Playing
         }
     });
-    let queue = session.as_ref().map_or_else(
-        || queue_tracks_for_stored_cue(conn, music_dir),
-        |session| queue_tracks_for_session(services, conn, session),
-    );
 
     let mut vm = QueueNowPlayingPageVm::builder()
         .tracks(queue.tracks)
@@ -61,31 +90,27 @@ pub(super) fn queue_now_playing_vm(
     vm
 }
 
-fn queue_tracks_for_stored_cue(conn: &rusqlite::Connection, music_dir: &Path) -> QueueProjection {
+fn queue_tracks_for_stored_cue(conn: &rusqlite::Connection) -> QueueProjection {
     let Ok(Some(cue)) = db::show_cue(conn) else {
         return QueueProjection::default();
     };
+    let tracks = cue
+        .entries
+        .into_iter()
+        .map(|entry| {
+            let file_path = entry.track.local_path.clone();
+            let mut input = queue_track_input(entry.track, i64::MIN, Some(entry.id));
+            input.unavailable_reason = entry.unavailable_reason.map(|reason| match reason {
+                db::CueUnavailableReason::NotInLibrary => QueueUnavailableReason::NotInLibrary,
+                db::CueUnavailableReason::NotDownloaded => QueueUnavailableReason::NotDownloaded,
+            });
+            (input, file_path)
+        })
+        .collect::<Vec<_>>();
+    let (tracks, cue_paths) = tracks.into_iter().unzip();
     QueueProjection {
-        tracks: cue
-            .entries
-            .into_iter()
-            .map(|entry| {
-                let file_exists = entry
-                    .track
-                    .local_path
-                    .as_ref()
-                    .is_some_and(|path| path.resolve(music_dir).is_file());
-                let mut input = queue_track_input(entry.track, i64::MIN, Some(entry.id));
-                input.unavailable_reason = entry.unavailable_reason.map(|reason| match reason {
-                    db::CueUnavailableReason::NotInLibrary => QueueUnavailableReason::NotInLibrary,
-                    db::CueUnavailableReason::MissingFile => QueueUnavailableReason::MissingFile,
-                });
-                if input.unavailable_reason.is_none() && !file_exists {
-                    input.unavailable_reason = Some(QueueUnavailableReason::MissingFile);
-                }
-                input
-            })
-            .collect(),
+        tracks,
+        cue_paths,
         can_skip_previous: false,
         can_skip_next: false,
     }
@@ -94,6 +119,7 @@ fn queue_tracks_for_stored_cue(conn: &rusqlite::Connection, music_dir: &Path) ->
 #[derive(Default)]
 struct QueueProjection {
     tracks: Vec<QueueTrackInput>,
+    cue_paths: Vec<Option<crate::library_path::LibraryRelativePath>>,
     can_skip_previous: bool,
     can_skip_next: bool,
 }
@@ -116,6 +142,7 @@ fn queue_tracks_for_session(
         .flatten()
         .map_or_else(QueueProjection::default, |row| QueueProjection {
             tracks: vec![queue_track_input(row, session.local_track_id, None)],
+            cue_paths: Vec::new(),
             can_skip_previous: false,
             can_skip_next: false,
         })
@@ -135,6 +162,7 @@ fn playlist_queue_projection(rows: Vec<db::TrackRow>, active_track_id: i64) -> Q
             .into_iter()
             .map(|row| queue_track_input(row, active_track_id, None))
             .collect(),
+        cue_paths: Vec::new(),
         can_skip_previous,
         can_skip_next,
     }
@@ -200,14 +228,37 @@ mod tests {
         let music_dir = tempfile::tempdir()?;
         std::fs::write(music_dir.path().join("on-disk.mp3"), b"audio")?;
 
-        let projection = queue_tracks_for_stored_cue(&conn, music_dir.path());
+        let services = ApplicationServices::local_with_service_adapters()?;
+        let input = queue_now_playing_input(&services, &conn, None);
+        let projection = queue_now_playing_vm(input, music_dir.path());
 
         let reasons = projection
-            .tracks
+            .rows
             .iter()
-            .map(|track| track.unavailable_reason)
+            .map(|track| track.unavailable_label)
             .collect::<Vec<_>>();
-        assert_eq!(reasons, [None, Some(QueueUnavailableReason::MissingFile)]);
+        assert_eq!(reasons, [None, Some("File missing")]);
+        Ok(())
+    }
+
+    #[test]
+    fn stored_cue_reports_not_downloaded_without_a_file_binding() -> anyhow::Result<()> {
+        let mut conn = rusqlite::Connection::open_in_memory()?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
+        db::init_schema(&conn)?;
+        db::migrate_schema(&conn)?;
+        conn.execute("INSERT INTO feeds(feed_url, feed_guid, title) VALUES ('https://cue.test/no-file', 'no-file', 'No file')", [])?;
+        let feed_id = conn.last_insert_rowid();
+        conn.execute("INSERT INTO tracks(feed_id, item_guid, track_title, is_in_library) VALUES (?1, 'track', 'Track', 1)", [feed_id])?;
+        let track_id = conn.last_insert_rowid();
+        let playlist_id = db::playlist_create(&conn, "No file")?;
+        db::playlist_append(&conn, playlist_id, track_id)?;
+        db::load_show_cue(&mut conn, playlist_id, 1, false)?;
+
+        let services = ApplicationServices::local_with_service_adapters()?;
+        let input = queue_now_playing_input(&services, &conn, None);
+        let vm = queue_now_playing_vm(input, Path::new("/nonexistent"));
+        assert_eq!(vm.rows[0].unavailable_label, Some("Not downloaded"));
         Ok(())
     }
 }

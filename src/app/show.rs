@@ -46,7 +46,9 @@ use crate::view_models::show::{
 use crate::view_models::workspace::{FrameNavigationEntry, MusicDestination};
 use crate::{config, db};
 
-use super::queue_now_playing::{queue_now_playing_vm, queue_transport_action};
+use super::queue_now_playing::{
+    queue_now_playing_input, queue_now_playing_vm, queue_transport_action,
+};
 use super::{AppTab, TopApp, WorkspaceScreenMount};
 
 const PRODUCER_UNIT: &str = "mixxx-now-playing.service";
@@ -1454,20 +1456,17 @@ impl ApplicationCommand for RefreshShowPage {
             return Err(CommandError::Cancelled);
         }
 
-        let (queue, event_section_input) = {
+        let (queue_input, event_section_input) = {
             let conn = self
                 .conn
                 .lock()
                 .map_err(|_| CommandError::Query("database lock poisoned".to_string()))?;
-            let queue = queue_now_playing_vm(
-                &self.application_services,
-                &conn,
-                &self.music_dir,
-                self.queue_text_filter,
-            );
+            let queue =
+                queue_now_playing_input(&self.application_services, &conn, self.queue_text_filter);
             let input = load_event_section(&conn, &self.broadcast);
             (queue, Some(input))
         };
+        let queue = queue_now_playing_vm(queue_input, &self.music_dir);
         Ok(CommandOutcome::without_events(ShowPageProjection {
             queue,
             event_section_input,

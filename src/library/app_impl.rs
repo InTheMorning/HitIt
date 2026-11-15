@@ -2176,13 +2176,12 @@ impl LibraryApp {
         if let Some(trigger) =
             crate::application::commands::playlist::cue_load_rss_check_trigger(loaded)
         {
-            let replace_available = self.conn.lock().is_ok_and(|conn| {
-                crate::db::playback_session(&conn, crate::playback::DEFAULT_SESSION_ID)
-                    .is_ok_and(|session| session.is_none_or(|session| session.state == "stopped"))
-            });
-            self.vm.set_show_cue_state(true, replace_available);
+            self.reload_playlists(cx);
             self.check_playlist_rss(playlist_id, trigger, cx);
             cx.emit(crate::library::LibraryAppEvent::ShowCueLoaded);
+            cx.notify();
+        } else {
+            self.vm.report_empty_show_cue_load();
             cx.notify();
         }
     }
