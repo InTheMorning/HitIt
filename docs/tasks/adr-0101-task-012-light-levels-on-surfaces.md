@@ -71,7 +71,7 @@ Mechanical:
 - M3: a test proves that each hover fill of step 4 differs from the fill below it in each theme.
 - M4: the contrast tests give each pair of step 6 at 4.5:1 or more.
 - M5: the guard of step 8 passes.
-- M5a: a test proves that the field list height is the lower value of 320 px and the space from the field to the bottom of the window.
+- M5a: a test proves the field list height. It is the lower value of 320 px and the space below the field in the window.
 - M6: the fit tests of ADR 0097 pass.
 - M7: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` and `cargo build --bin hitit` pass.
 
