@@ -287,9 +287,10 @@ mod tests {
     use super::*;
     use crate::db::{inspect_schema, upgrades, SchemaCompatibility, CURRENT_VERSION, MIGRATIONS};
 
-    const TWO_RECIPIENTS: &str = r#"{"value":null,"attrs":{"type":"lightning"},"children":{"valueRecipient":[{"attrs":{"name":"Band","type":"node","address":"a","split":"90"}},{"attrs":{"name":"App","type":"node","address":"b","split":"10"}}]}}"#;
+    const TWO_RECIPIENTS: &str = r#"{"value":null,"attrs":{"type":"lightning"},"children":{"valueRecipient":[{"attrs":{"name":"Band","type":"lnaddress","address":"a","split":"90"}},{"attrs":{"name":"App","type":"lnaddress","address":"b","split":"10"}}]}}"#;
     const NO_RECIPIENT: &str = r#"{"value":null,"attrs":{"type":"lightning"},"children":{}}"#;
-    const BROKEN: &str = r#"{"children":{"valueRecipient":[{"attrs":{"split":"most"}}]}}"#;
+    const BROKEN: &str =
+        r#"{"children":{"valueRecipient":[{"attrs":{"type":"lnaddress","split":"most"}}]}}"#;
 
     fn version_16_with_blocks() -> Connection {
         let conn = Connection::open_in_memory().unwrap();

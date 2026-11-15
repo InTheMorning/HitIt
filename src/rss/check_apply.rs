@@ -36,8 +36,9 @@ const RSS_SOURCE: &str = "rss";
 /// The revision of the RSS reader. A change that reads a new value from an RSS
 /// document raises this value. A feed that holds a lower revision gets its
 /// next request with no validators, so HTTP `304` cannot hide the new value
-/// (ADR 0076 Decision 2).
-pub(crate) const RSS_READER_REVISION: i64 = 1;
+/// (ADR 0076 Decision 2). Revision 2 reads the first Lightning value block
+/// (ADR 0099 Decision 1).
+pub(crate) const RSS_READER_REVISION: i64 = 2;
 const NOSTR_SCHEMES: [&str; 2] = ["nostr_npub", "nostr_nprofile"];
 
 /// The result of one applied document.
@@ -1305,7 +1306,7 @@ pub(crate) mod test_support {
         let items = doc.items.iter().fold(String::new(), |mut acc, item| {
             write!(
                 acc,
-                r#"<item><title>{title}</title><guid isPermaLink="false">{guid}</guid><link>{link}</link><description>{description}</description><pubDate>{date}</pubDate><enclosure url="{url}" type="audio/mpeg" length="100"/><itunes:duration>{duration}</itunes:duration><itunes:explicit>{explicit}</itunes:explicit><itunes:author>{author}</itunes:author><itunes:image href="{image}"/><podcast:person role="guitar">{person}</podcast:person><podcast:txt purpose="npub">{npub}</podcast:txt><podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Band" type="node" address="abc" split="{split}"/></podcast:value></item>"#,
+                r#"<item><title>{title}</title><guid isPermaLink="false">{guid}</guid><link>{link}</link><description>{description}</description><pubDate>{date}</pubDate><enclosure url="{url}" type="audio/mpeg" length="100"/><itunes:duration>{duration}</itunes:duration><itunes:explicit>{explicit}</itunes:explicit><itunes:author>{author}</itunes:author><itunes:image href="{image}"/><podcast:person role="guitar">{person}</podcast:person><podcast:txt purpose="npub">{npub}</podcast:txt><podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Band" type="lnaddress" address="band@band.test" split="{split}"/></podcast:value></item>"#,
                 title = item.title,
                 guid = item.guid,
                 link = item.link,
@@ -1324,7 +1325,7 @@ pub(crate) mod test_support {
             acc
         });
         format!(
-            r#"<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>{title}</title><link>{link}</link><description>{description}</description>{language}<itunes:author>{author}</itunes:author><itunes:explicit>{explicit}</itunes:explicit><itunes:owner><itunes:name>{owner}</itunes:name><itunes:email>owner@label.test</itunes:email></itunes:owner><itunes:image href="{image}"/><podcast:guid>feed-guid-1</podcast:guid><podcast:medium>music</podcast:medium><podcast:person role="vocals" href="https://band.test/person">{person}</podcast:person><podcast:txt purpose="npub">{npub}</podcast:txt><podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Band" type="node" address="abc" split="{split}"/></podcast:value><podcast:publisher><podcast:remoteItem medium="publisher" feedGuid="{publisher_guid}" feedUrl="{publisher_url}"/></podcast:publisher>{items}</channel></rss>"#,
+            r#"<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>{title}</title><link>{link}</link><description>{description}</description>{language}<itunes:author>{author}</itunes:author><itunes:explicit>{explicit}</itunes:explicit><itunes:owner><itunes:name>{owner}</itunes:name><itunes:email>owner@label.test</itunes:email></itunes:owner><itunes:image href="{image}"/><podcast:guid>feed-guid-1</podcast:guid><podcast:medium>music</podcast:medium><podcast:person role="vocals" href="https://band.test/person">{person}</podcast:person><podcast:txt purpose="npub">{npub}</podcast:txt><podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Band" type="lnaddress" address="band@band.test" split="{split}"/></podcast:value><podcast:publisher><podcast:remoteItem medium="publisher" feedGuid="{publisher_guid}" feedUrl="{publisher_url}"/></podcast:publisher>{items}</channel></rss>"#,
             title = doc.title,
             link = doc.link,
             description = doc.description,

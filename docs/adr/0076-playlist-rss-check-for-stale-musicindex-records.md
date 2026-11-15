@@ -8,6 +8,7 @@ The operator reviewed each decision on 2026-09-24. The review changed Decisions 
 
 - Changes: [ADR 0059](0059-broadcast-control-surface.md), through Decisions 7 and 9 of this ADR.
 - Changes: [ADR 0075](0075-metadata-ownership-and-completeness.md), Decisions F, G and H.
+- Changed by: [ADR 0099](0099-the-rss-path-keeps-only-lightning-payment-routes.md)
 
 Amended 2026-09-25: the operator limited the `Retry-After` wait to 60 seconds. This tightens Decision 2. "Accepted Values" records the limit.
 "Accepted Values" records the three numeric values that the operator accepted on 2026-09-24.
@@ -149,6 +150,7 @@ The button keeps the count of the files that it did not write. A later confirmat
 Each write of a payment route to a file uses the route stored in the database.
 The route repair of ADR 0065 asks MusicIndex only when the database has no route for that track.
 It never replaces a route that the RSS check set.
+The stored route holds only Lightning routes ([ADR 0099](0099-the-rss-path-keeps-only-lightning-payment-routes.md)).
 
 A playlist track whose file route differs from the stored route is not ready for a show.
 The track stays not ready until the operator confirms "Update n file(s)".

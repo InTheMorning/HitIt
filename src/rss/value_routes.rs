@@ -1,5 +1,5 @@
 //! The canonical payment route of one raw `podcast:value` block
-//! (ADR 0076 Decision 9, packet 003).
+//! (ADR 0076 Decision 9, packet 003). ADR 0099 keeps only Lightning routes.
 //!
 //! The database keeps the raw block in `tracks.item_value_json` and
 //! `feeds.podcast_value_json`, in the JSON form of
@@ -16,10 +16,13 @@ use crate::api::PaymentRoute;
 
 /// Converts one raw `podcast:value` block to its payment route list.
 ///
-/// Each `podcast:valueRecipient` gives one route: `name`, `type`, `address`,
-/// `split`, `fee`, `customKey` and `customValue`. A block without a
-/// recipient gives an empty list. A recipient without `fee` has the
+/// Each Lightning `podcast:valueRecipient` gives one route: `name`, `type`,
+/// `address`, `split`, `fee`, `customKey` and `customValue`. A block without
+/// such a recipient gives an empty list. A recipient without `fee` has the
 /// namespace default `false`.
+///
+/// ADR 0099 Decision 2: a block that is not a Lightning block gives an empty
+/// list, and a recipient that is not a Lightning recipient gives no route.
 ///
 /// # Errors
 ///
@@ -40,7 +43,48 @@ pub(crate) fn payment_routes_from_value_block(raw: &str) -> Result<Vec<PaymentRo
         Some(Value::Array(recipients)) => recipients,
         Some(_) => return Err("valueRecipient is not an array".to_owned()),
     };
-    recipients.iter().map(recipient_route).collect()
+    let block_type = block
+        .get("attrs")
+        .and_then(|attrs| attrs.get("type"))
+        .and_then(Value::as_str);
+    if !is_lightning_block_type(block_type) {
+        return Ok(Vec::new());
+    }
+    recipients
+        .iter()
+        .filter(|recipient| is_lightning_recipient(recipient))
+        .map(recipient_route)
+        .collect()
+}
+
+/// Tells if a `podcast:value` block type is Lightning (ADR 0099 Decision 1).
+/// A block with no type is a Lightning block.
+#[must_use]
+pub(crate) fn is_lightning_block_type(block_type: Option<&str>) -> bool {
+    let block_type = block_type.map(str::trim).unwrap_or_default();
+    block_type.is_empty() || block_type.eq_ignore_ascii_case("lightning")
+}
+
+/// Tells if a recipient is a Lightning recipient (ADR 0099 Decision 2): the
+/// type is `lnaddress`, or the type is `node` and the address is a public key
+/// of 66 hexadecimal characters.
+fn is_lightning_recipient(recipient: &Value) -> bool {
+    let attr = |name: &str| {
+        recipient
+            .get("attrs")
+            .and_then(|attrs| attrs.get(name))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default()
+    };
+    let route_type = attr("type");
+    if route_type.eq_ignore_ascii_case("lnaddress") {
+        return true;
+    }
+    let address = attr("address");
+    route_type.eq_ignore_ascii_case("node")
+        && address.len() == 66
+        && address.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 /// The canonical JSON of one raw block, for a `payment_routes_json` column.
@@ -135,8 +179,8 @@ mod tests {
             "not json",
             "[]",
             r#"{"children":{"valueRecipient":{}}}"#,
-            r#"{"children":{"valueRecipient":[{"attrs":{"split":"most"}}]}}"#,
-            r#"{"children":{"valueRecipient":[{"attrs":{"split":"50","fee":"maybe"}}]}}"#,
+            r#"{"children":{"valueRecipient":[{"attrs":{"type":"lnaddress","split":"most"}}]}}"#,
+            r#"{"children":{"valueRecipient":[{"attrs":{"type":"lnaddress","split":"50","fee":"maybe"}}]}}"#,
         ] {
             assert!(
                 payment_routes_from_value_block(invalid).is_err(),
@@ -145,5 +189,82 @@ mod tests {
             assert_eq!(canonical_routes_json(Some(invalid)), None);
         }
         assert_eq!(canonical_routes_json(None), None);
+    }
+
+    const NODE: &str = "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a";
+
+    fn block(block_type: Option<&str>, recipients: &[(Option<&str>, &str)]) -> String {
+        let recipients = recipients
+            .iter()
+            .map(|(route_type, address)| {
+                let mut attrs = serde_json::json!({"address": address, "split": "50"});
+                if let Some(route_type) = route_type {
+                    attrs["type"] = serde_json::json!(route_type);
+                }
+                serde_json::json!({"attrs": attrs})
+            })
+            .collect::<Vec<_>>();
+        let mut attrs = serde_json::json!({});
+        if let Some(block_type) = block_type {
+            attrs["type"] = serde_json::json!(block_type);
+        }
+        serde_json::json!({"attrs": attrs, "children": {"valueRecipient": recipients}}).to_string()
+    }
+
+    #[test]
+    fn adr_0099_block_that_is_not_lightning_gives_no_route() {
+        let recipients = [
+            (Some("node"), NODE),
+            (Some("lnaddress"), "band@example.com"),
+        ];
+        for lightning in [None, Some("lightning"), Some(" Lightning "), Some("")] {
+            let routes = payment_routes_from_value_block(&block(lightning, &recipients)).unwrap();
+            assert_eq!(routes.len(), 2, "{lightning:?}");
+        }
+        for other in ["usdc", "bitcoin", "HBD"] {
+            let raw = block(Some(other), &recipients);
+            assert_eq!(payment_routes_from_value_block(&raw).unwrap().len(), 0);
+            assert_eq!(canonical_routes_json(Some(&raw)).as_deref(), Some("[]"));
+        }
+    }
+
+    #[test]
+    fn adr_0099_recipient_that_is_not_lightning_gives_no_route() {
+        let short = &NODE[..64];
+        let not_hex = NODE.replace('a', "g");
+        let raw = block(
+            Some("lightning"),
+            &[
+                (Some("Node"), NODE),
+                (Some("lnaddress"), "band@example.com"),
+                (
+                    Some("address"),
+                    "0x52908400098527886E0F7030069857D2E4169EE7",
+                ),
+                (Some("node"), short),
+                (Some("node"), &not_hex),
+                (Some("keysend"), NODE),
+                (None, NODE),
+            ],
+        );
+        let routes = payment_routes_from_value_block(&raw).unwrap();
+        let kept = routes
+            .iter()
+            .map(|route| (route.route_type.as_deref(), route.address.as_deref()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            kept,
+            [
+                (Some("node"), Some(NODE)),
+                (Some("lnaddress"), Some("band@example.com")),
+            ]
+        );
+    }
+
+    /// A recipient that gives no route cannot make the block invalid.
+    #[test]
+    fn adr_0099_discarded_recipient_with_an_invalid_split_does_not_fail_the_block() {
+        let raw = r#"{"attrs":{"type":"lightning"},"children":{"valueRecipient":[{"attrs":{"type":"address","address":"0xabc","split":"most"}}]}}"#;
+        assert_eq!(payment_routes_from_value_block(raw).unwrap().len(), 0);
     }
 }

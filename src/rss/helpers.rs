@@ -109,12 +109,18 @@ pub fn ext_to_json(ext: &Extension) -> JsonValue {
     })
 }
 
+/// The JSON of the first Lightning `podcast:value` block of one owner
+/// (ADR 0099 Decision 1). A block of a different type is not read.
 pub fn value_block_json(
     exts: &rss::extension::ExtensionMap,
     ns: &str,
     name: &str,
 ) -> Option<String> {
-    let ext = find_ext(exts, ns, name)?;
+    let ext = exts.get(ns)?.get(name)?.iter().find(|block| {
+        crate::rss::value_routes::is_lightning_block_type(
+            block.attrs.get("type").map(String::as_str),
+        )
+    })?;
     serde_json::to_string(&ext_to_json(ext)).ok()
 }
 

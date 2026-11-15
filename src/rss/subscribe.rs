@@ -1007,6 +1007,55 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
+    const NODE_KEY: &str = "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a";
+
+    fn value_feed(channel_blocks: &str, item_blocks: &str) -> Vec<u8> {
+        format!(
+            r#"<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>Value</title><link>https://value.test</link><description>Fixture</description>{channel_blocks}<item><guid>one</guid><title>One</title><enclosure url="https://value.test/one.mp3" type="audio/mpeg" length="1"/>{item_blocks}</item></channel></rss>"#
+        )
+        .into_bytes()
+    }
+
+    /// ADR 0099 Decision 1: the parser keeps the first Lightning block, also
+    /// when a block of a different type is before it.
+    #[test]
+    fn adr_0099_parser_keeps_the_first_lightning_value_block() -> Result<()> {
+        let usdc = r#"<podcast:value type="usdc" method="x402"><podcast:valueRecipient name="Band" type="address" address="0x52908400098527886E0F7030069857D2E4169EE7" split="100"/></podcast:value>"#;
+        let lightning = format!(
+            r#"<podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Band" type="node" address="{NODE_KEY}" split="100"/></podcast:value>"#
+        );
+        let untyped = format!(
+            r#"<podcast:value method="keysend"><podcast:valueRecipient name="Item" type="node" address="{NODE_KEY}" split="100"/></podcast:value>"#
+        );
+        let parsed = parse_feed_document(&value_feed(
+            &format!("{usdc}{lightning}"),
+            &format!("{usdc}{untyped}{lightning}"),
+        ))?;
+
+        let routes = |raw: Option<&str>| {
+            crate::rss::value_routes::payment_routes_from_value_block(raw.expect("block"))
+                .expect("routes")
+        };
+        let feed = routes(parsed.channel.podcast_value_json.as_deref());
+        assert_eq!(feed.len(), 1);
+        assert_eq!(feed[0].route_type.as_deref(), Some("node"));
+        let item = routes(parsed.items[0].item_value_json.as_deref());
+        assert_eq!(item[0].recipient_name.as_deref(), Some("Item"));
+        Ok(())
+    }
+
+    /// ADR 0099 Decision 1: a feed with only a `usdc` block has no stored
+    /// block, so it has no RSS payment route.
+    #[test]
+    fn adr_0099_parser_reads_no_block_from_a_feed_with_only_a_usdc_block() -> Result<()> {
+        let usdc = r#"<podcast:value type="usdc" method="x402"><podcast:valueRecipient name="Band" type="address" address="0x52908400098527886E0F7030069857D2E4169EE7" split="100"/></podcast:value>"#;
+        let parsed = parse_feed_document(&value_feed(usdc, usdc))?;
+
+        assert_eq!(parsed.channel.podcast_value_json, None);
+        assert_eq!(parsed.items[0].item_value_json, None);
+        Ok(())
+    }
+
     fn setup_test_db() -> Result<Connection> {
         let conn = Connection::open_in_memory()?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
