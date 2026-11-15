@@ -197,7 +197,7 @@ The code differs from the adopted rules in these points. The [check of the open 
 
 The sequence of the work:
 
-1. The token packet. It changes the tokens of each row that names the token packet, in `src/ui/tokens.rs`. It copies `tokens/tokens.json` of musicindex-assets `b8399cc` to `src/assets/tokens.json`. A test compares the values with `src/assets/tokens.json`. The three defect fixes of 2026-11-14 come before it.
+1. The token packet. It changes the tokens of each row that names the token packet, in `src/ui/tokens.rs`. HitIt commit `77420fc` copied `tokens/tokens.json` of musicindex-assets `b8399cc` to `src/assets/tokens.json`. A test compares the values with `src/assets/tokens.json`. The three defect fixes of 2026-11-14 come before it.
 2. One packet for each surface. The sequence starts with the header glow, the art radius, the payment split and the system settings. Then come the dates, the loading state, the notices, the link, the selected look and the main action.
 3. The Ready packets of ADR 0093, ADR 0069 task 002, ADR 0094 and ADR 0097 tasks 003 to 006 come after the token packet. Thus each one is built one time in the new design.
 
