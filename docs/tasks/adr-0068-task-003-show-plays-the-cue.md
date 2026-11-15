@@ -10,8 +10,8 @@ Each part compiles and passes the commit checks alone. The parts run in this seq
 
 | Part | Scope items | State |
 |---|---|---|
-| [003a](adr-0068-task-003a-remove-playlist-play.md) | 6, and 10 for the removed paths | Ready |
-| [003b](adr-0068-task-003b-session-cue-entry-and-silent-restart.md) | 5 for the session, 9, and the open point from task 002 | Ready after 003a |
+| [003a](adr-0068-task-003a-remove-playlist-play.md) | 6, and 10 for the removed paths | Implemented 2026-11-14 |
+| [003b](adr-0068-task-003b-session-cue-entry-and-silent-restart.md) | 5 for the session, 9, and the open point from task 002 | Ready |
 | [003c](adr-0068-task-003c-show-start-pause-stop-select.md) | 1 and 2, 5 for the cuelist, 7, 8 for `cmd-alt-p`, 10 | Ready after 003b |
 | [003d](adr-0068-task-003d-next-previous-and-end-of-track.md) | 3 and 4, 8 for the skip keys, 10 | Ready after 003c |
 | [003e](adr-0068-task-003e-show-clear-item.md) | 11 | Ready after 003d |

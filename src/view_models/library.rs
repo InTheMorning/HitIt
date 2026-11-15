@@ -944,8 +944,6 @@ impl SpringLoadVm {
 /// Static labels for the Library shell chrome.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct LibraryChromeDisplay {
-    pub(crate) playback_availability:
-        Result<(), crate::application::capability::ExecutionUnavailable>,
     pub(crate) search_button_id: &'static str,
     pub(crate) playlist_detail_scroll_id: &'static str,
     pub(crate) track_detail_scroll_id: &'static str,
@@ -956,17 +954,7 @@ pub(crate) struct LibraryChromeDisplay {
 }
 
 impl LibraryChromeDisplay {
-    #[must_use]
-    pub(crate) const fn with_playback_availability(
-        mut self,
-        availability: Result<(), crate::application::capability::ExecutionUnavailable>,
-    ) -> Self {
-        self.playback_availability = availability;
-        self
-    }
-
     const VALUE: Self = Self {
-        playback_availability: Ok(()),
         search_button_id: "lib-search-btn",
         playlist_detail_scroll_id: "playlist-detail-scroll",
         track_detail_scroll_id: "track-detail-scroll",
@@ -6892,53 +6880,12 @@ pub(crate) fn playlist_row_add_choices(
         .collect()
 }
 
-/// When a row cell shows (ADR 0083 Decision 6). A hidden cell keeps its
-/// width.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum RowCellVisibility {
-    /// The cell shows at all times.
-    Always,
-    /// The cell shows on a hover of the row and on the keyboard focus of
-    /// the row.
-    OnHover,
-}
-
-/// What the playlist row's play control shows (ADR 0083 Decision 10).
-///
-/// `Play` draws the Play icon alone, with its tooltip and accessibility
-/// label carrying the word. `RepairPlayback` draws a text word instead,
-/// because the control no longer offers to play: it offers to repair
-/// playback. Neither state is a character.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum PlaylistPlayAffordance {
-    Play,
-    RepairPlayback,
-}
-
-impl PlaylistPlayAffordance {
-    /// The visible word, when this affordance shows one instead of an icon.
-    #[must_use]
-    pub(crate) const fn label(self) -> Option<&'static str> {
-        match self {
-            Self::Play => None,
-            Self::RepairPlayback => Some("Repair playback"),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaylistTrackControlsDisplay {
     pub(crate) row_id: String,
     pub(crate) row_body_id: String,
     pub(crate) drag_handle_id: String,
     pub(crate) drag_handle_a11y_label: &'static str,
-    pub(crate) play_button_id: String,
-    pub(crate) play_affordance: PlaylistPlayAffordance,
-    pub(crate) play_a11y_label: &'static str,
-    pub(crate) play_enabled: bool,
-    /// When the play cell shows. "Repair playback" shows at all times,
-    /// and the Play icon shows on hover (ADR 0083 task 007, decision D4).
-    pub(crate) play_visibility: RowCellVisibility,
     /// The "⋯" menu and the right-click menu of the row (ADR 0083 task
     /// 007, decision D5). `None` in selection mode.
     pub(crate) menu: Option<TrackRowMenuVm>,
@@ -6983,30 +6930,6 @@ impl PlaylistTrackRowDisplay {
         }
         self.selection = selection;
         self
-    }
-}
-
-#[cfg(test)]
-impl PlaylistTrackRowDisplay {
-    /// Display-ready fixture for shared-shell geometry tests (ADR 0044).
-    pub(crate) fn playback_repair_fixture() -> Self {
-        let track = TrackRow {
-            id: 1,
-            track_title: Some("A long playlist track title".repeat(5)),
-            is_in_library: true,
-            artist_name: Some("Artist".into()),
-            duration_seconds: Some(30),
-            local_path: Some(crate::library_path::LibraryRelativePath::for_test("a.wav")),
-            ..Default::default()
-        };
-        PlaylistTrackRowVm::new(&track, 0, 2).display_with_playback(
-            1,
-            Err(
-                crate::application::capability::ExecutionUnavailable::configured(
-                    crate::application::capability::Dependency::Playback,
-                ),
-            ),
-        )
     }
 }
 
@@ -7124,24 +7047,6 @@ pub(crate) struct PlaylistDetailHeaderDisplay {
 }
 
 impl<'a> PlaylistTrackRowVm<'a> {
-    /// Apply the prepared player and runtime facts to the file's play action (ADR 0066).
-    #[must_use]
-    pub(crate) fn display_with_playback(
-        &self,
-        playlist_id: i64,
-        availability: Result<(), crate::application::capability::ExecutionUnavailable>,
-    ) -> PlaylistTrackRowDisplay {
-        let mut display = self.display(playlist_id);
-        if display.controls.play_enabled && availability.is_err() {
-            display.controls.play_affordance = PlaylistPlayAffordance::RepairPlayback;
-            display.controls.play_a11y_label = "Repair playback for this playlist track";
-            // ADR 0083 task 007, decision D4: "Repair playback" tells the
-            // operator that playback does not work, so it always shows.
-            display.controls.play_visibility = RowCellVisibility::Always;
-        }
-        display
-    }
-
     /// Construct a row VM from a borrowed track and its position in
     /// the surrounding playlist.
     ///
@@ -7221,15 +7126,9 @@ impl<'a> PlaylistTrackRowVm<'a> {
             .or(self.track.album_image_href.as_deref())
     }
 
-    /// `true` when the track has a local file and can be played.
-    #[must_use]
-    pub(crate) fn can_play(&self) -> bool {
-        self.track.is_in_library && self.track.local_path.is_some()
-    }
-
     #[must_use]
     pub(crate) fn is_available(&self) -> bool {
-        self.can_play()
+        self.track.is_in_library && self.track.local_path.is_some()
     }
 
     #[must_use]
@@ -7256,11 +7155,6 @@ impl<'a> PlaylistTrackRowVm<'a> {
             row_body_id: format!("playlist-row-body-{playlist_id}-{position}"),
             drag_handle_id: format!("playlist-drag-handle-{playlist_id}-{position}"),
             drag_handle_a11y_label: "Drag to reorder playlist track",
-            play_button_id: format!("playlist-play-{playlist_id}-{position}"),
-            play_affordance: PlaylistPlayAffordance::Play,
-            play_a11y_label: "Play this playlist track",
-            play_enabled: self.can_play(),
-            play_visibility: RowCellVisibility::OnHover,
             menu: self.menu(playlist_id),
             checkbox_id: format!("playlist-checkbox-{playlist_id}-{position}"),
             reorder_visible: true,
@@ -8558,40 +8452,6 @@ mod tests {
     }
 
     #[test]
-    fn playlist_track_row_vm_can_play_follows_local_path() {
-        let pl = playlist("Mix");
-        let mut t = row();
-        t.is_in_library = true;
-        t.local_path = Some(crate::library_path::LibraryRelativePath::for_test("x"));
-        let tracks = [t, row()];
-        let vm = PlaylistDetailVm::new(&pl, &tracks);
-        let rows = vm.track_rows();
-        assert!(rows[0].can_play());
-        assert!(!rows[1].can_play());
-        // Situational ADR 0066: player failure only limits Play, preserving row identity and reorder.
-        let ready = rows[0].display_with_playback(pl.id, Ok(()));
-        let unavailable = rows[0].display_with_playback(
-            pl.id,
-            Err(
-                crate::application::capability::ExecutionUnavailable::configured(
-                    crate::application::capability::Dependency::Playback,
-                ),
-            ),
-        );
-        assert!(ready.controls.play_enabled);
-        assert!(unavailable.controls.play_enabled);
-        assert_eq!(
-            unavailable.controls.play_affordance,
-            PlaylistPlayAffordance::RepairPlayback
-        );
-        let mut restored = unavailable;
-        restored.controls.play_affordance = ready.controls.play_affordance;
-        restored.controls.play_a11y_label = ready.controls.play_a11y_label;
-        restored.controls.play_visibility = ready.controls.play_visibility;
-        assert_eq!(restored, ready);
-    }
-
-    #[test]
     fn playlist_track_row_vm_move_enable_rules_at_boundaries() {
         let pl = playlist("Mix");
         let tracks = [row(), row(), row()];
@@ -8657,18 +8517,12 @@ mod tests {
             controls.drag_handle_a11y_label,
             "Drag to reorder playlist track"
         );
-        assert_eq!(controls.play_button_id, "playlist-play-7-0");
-        assert_eq!(controls.play_affordance, PlaylistPlayAffordance::Play);
-        assert_eq!(controls.play_a11y_label, "Play this playlist track");
-        assert!(controls.play_enabled);
-        assert_eq!(controls.play_visibility, RowCellVisibility::OnHover);
         assert_eq!(controls.checkbox_id, "playlist-checkbox-7-0");
         assert!(controls.reorder_visible);
         let menu = controls.menu.expect("a row in Normal has a menu");
         assert_eq!(menu.id, "playlist-actions-7-0-menu");
 
         let second = rows[1].controls_display(7);
-        assert!(!second.play_enabled);
         let actions = playlist_menu_actions(&second);
         assert!(actions.contains(&crate::view_models::release_page::TrackRowMenuAction::MoveUp));
         assert!(!actions.contains(&crate::view_models::release_page::TrackRowMenuAction::MoveDown));
@@ -8742,11 +8596,9 @@ mod tests {
         let display = row.display(pl.id);
 
         assert!(!row.is_available());
-        assert!(!row.can_play());
         assert_eq!(row.availability_label(), Some("Unavailable"));
         assert!(!display.is_available);
         assert_eq!(display.availability_label, Some("Unavailable"));
-        assert!(!display.controls.play_enabled);
     }
 
     #[test]
@@ -8761,11 +8613,9 @@ mod tests {
         let display = row.display(pl.id);
 
         assert!(!row.is_available());
-        assert!(!row.can_play());
         assert_eq!(row.availability_label(), Some("Unavailable"));
         assert!(!display.is_available);
         assert_eq!(display.availability_label, Some("Unavailable"));
-        assert!(!display.controls.play_enabled);
     }
 
     #[test]
@@ -9203,30 +9053,6 @@ mod tests {
             .map(|option| option.id)
             .collect();
         assert_eq!(ids, vec![8]);
-    }
-
-    /// R83-7-06 (decision D4): "Repair playback" shows at all times, and
-    /// the Play icon shows on hover.
-    #[test]
-    fn adr_0083_list_row_actions_r83_7_06_play_visibility() {
-        let track = downloaded_track(42, "Face Pale");
-        let vm = PlaylistTrackRowVm::new(&track, 0, 1);
-        let ready = vm.display_with_playback(7, Ok(()));
-        assert_eq!(ready.controls.play_affordance, PlaylistPlayAffordance::Play);
-        assert_eq!(ready.controls.play_visibility, RowCellVisibility::OnHover);
-        let repair = vm.display_with_playback(
-            7,
-            Err(
-                crate::application::capability::ExecutionUnavailable::configured(
-                    crate::application::capability::Dependency::Playback,
-                ),
-            ),
-        );
-        assert_eq!(
-            repair.controls.play_affordance,
-            PlaylistPlayAffordance::RepairPlayback
-        );
-        assert_eq!(repair.controls.play_visibility, RowCellVisibility::Always);
     }
 
     /// R83-7-07 (decision D12): in `Selecting`, the playlist row has no

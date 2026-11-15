@@ -23,7 +23,7 @@ A ChatGPT `ask` (`gpt-6.1-sol`, effort medium) gave the code locations at commit
 
 | Part | Worker | Result |
 |---|---|---|
-| 003a | | |
+| 003a | ChatGPT `gpt-6-luna`, effort medium, two runs | The first run stopped at the playlist shell file, and the planning model added the file to the scope. The planning model read the diff, removed the unused Library playback availability and ran the gate: 3085 tests and 410 guards passed. Clippy, the format check and the build are Green. |
 | 003b | | |
 | 003c | | |
 | 003d | | |

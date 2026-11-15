@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready after task 003a - 2026-11-14. Implementation has not started. This is part 2 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
+Ready - 2026-11-14. Implementation has not started. This is part 2 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
 
 ## Goal
 

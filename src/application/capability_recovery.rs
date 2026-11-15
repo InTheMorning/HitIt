@@ -31,7 +31,6 @@ pub(crate) enum StreamEncoderOperation {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum PlaybackOperation {
-    Playlist { playlist_id: i64, position: i64 },
     Pause,
     Resume,
     Next,
@@ -172,9 +171,7 @@ impl RecoveryAction {
                 }
             }
             Self::Playback {
-                operation,
-                track_id,
-                queue,
+                track_id, queue, ..
             } => {
                 let track_id = track_id.ok_or(RetryRejection::SubjectChanged)?;
                 if db::track_row_by_id(conn, track_id)
@@ -183,37 +180,22 @@ impl RecoveryAction {
                 {
                     return Err(RetryRejection::SubjectChanged);
                 }
-                match operation {
-                    PlaybackOperation::Playlist {
-                        playlist_id,
-                        position,
-                    } => {
-                        let selection =
-                            crate::playlist_service::select_track_at(conn, *playlist_id, *position)
-                                .map_err(|_| RetryRejection::SubjectChanged)?;
-                        if selection.track_id != track_id {
-                            return Err(RetryRejection::SubjectChanged);
-                        }
-                    }
-                    _ => {
-                        let current = db::playback_session(conn, playback::DEFAULT_SESSION_ID)
-                            .map_err(|_| RetryRejection::SubjectChanged)?;
-                        let session = current.ok_or(RetryRejection::SubjectChanged)?;
-                        if session.local_track_id != track_id || session.state == "stopped" {
-                            return Err(RetryRejection::SubjectChanged);
-                        }
-                        let current_queue = match session.playlist_id {
-                            Some(id) => db::playlist_tracks(conn, id)
-                                .map_err(|_| RetryRejection::SubjectChanged)?
-                                .into_iter()
-                                .map(|track| track.id)
-                                .collect(),
-                            None => vec![session.local_track_id],
-                        };
-                        if *queue != current_queue {
-                            return Err(RetryRejection::SubjectChanged);
-                        }
-                    }
+                let current = db::playback_session(conn, playback::DEFAULT_SESSION_ID)
+                    .map_err(|_| RetryRejection::SubjectChanged)?;
+                let session = current.ok_or(RetryRejection::SubjectChanged)?;
+                if session.local_track_id != track_id || session.state == "stopped" {
+                    return Err(RetryRejection::SubjectChanged);
+                }
+                let current_queue = match session.playlist_id {
+                    Some(id) => db::playlist_tracks(conn, id)
+                        .map_err(|_| RetryRejection::SubjectChanged)?
+                        .into_iter()
+                        .map(|track| track.id)
+                        .collect(),
+                    None => vec![session.local_track_id],
+                };
+                if *queue != current_queue {
+                    return Err(RetryRejection::SubjectChanged);
                 }
             }
             Self::Publisher { host, event_id, .. } => {
@@ -945,74 +927,6 @@ mod tests {
         assert_eq!(
             action.validate_subject(&conn, &snapshot),
             Err(RetryRejection::PublisherChanged)
-        );
-    }
-
-    #[test]
-    fn adr_0066_retry_rejects_removed_track_and_changed_playlist_position() {
-        let (_temp, path, conn) = fixture();
-        let snapshot = ConfigSnapshot::read_existing(&path).unwrap();
-        let shared = conn.clone();
-        let conn = conn.lock().unwrap();
-        conn.execute(
-            "INSERT INTO feeds (feed_url, feed_guid) VALUES ('https://feed.test', 'feed-guid')",
-            [],
-        )
-        .unwrap();
-        let feed = conn.last_insert_rowid();
-        for guid in ["first", "second"] {
-            conn.execute("INSERT INTO tracks (feed_id, item_guid, track_title, is_in_library) VALUES (?1, ?2, ?2, 1)", rusqlite::params![feed, guid]).unwrap();
-            let id = conn.last_insert_rowid();
-            db::mark_track_downloaded(
-                &conn,
-                id,
-                &crate::library_path::LibraryRelativePath::for_test(&format!("{guid}.wav")),
-                None,
-            )
-            .unwrap();
-        }
-        let playlist = db::playlist_create(&conn, "original playlist").unwrap();
-        db::playlist_append(&conn, playlist, 1).unwrap();
-        db::playlist_append(&conn, playlist, 2).unwrap();
-        let action = RecoveryAction::Playback {
-            operation: PlaybackOperation::Playlist {
-                playlist_id: playlist,
-                position: 0,
-            },
-            track_id: Some(1),
-            queue: Vec::new(),
-        };
-        assert_eq!(action.validate_subject(&conn, &snapshot), Ok(()));
-        conn.execute("DELETE FROM playlist_tracks WHERE track_id = 1", [])
-            .unwrap();
-        assert_eq!(
-            action.validate_subject(&conn, &snapshot),
-            Err(RetryRejection::SubjectChanged)
-        );
-        conn.execute("DELETE FROM tracks WHERE id = 1", []).unwrap();
-        assert_eq!(
-            action.validate_subject(&conn, &snapshot),
-            Err(RetryRejection::SubjectChanged)
-        );
-        let owner = Arc::new(Mutex::new(crate::playback_owner::PlaybackOwner::new(
-            crate::playback_driver::NullDriver::new(),
-            playback::DEFAULT_SESSION_ID,
-            "/",
-        )));
-        let context = CommandContext::next().with_retry_subject(RetrySubject { action, snapshot });
-        drop(conn);
-        // The command rechecks under its own lock, even if state changed after admission.
-        let command = crate::application::commands::playback::PlayPlaylistAt::new(
-            shared.clone(),
-            owner,
-            playlist,
-            0,
-        );
-        assert!(command.execute(&context).is_err());
-        assert!(
-            db::playback_session(&shared.lock().unwrap(), playback::DEFAULT_SESSION_ID)
-                .unwrap()
-                .is_none()
         );
     }
 

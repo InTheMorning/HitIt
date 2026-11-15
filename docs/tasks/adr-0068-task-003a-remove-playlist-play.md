@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-14. Implementation has not started. This is part 1 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
+Implemented - 2026-11-14. Mechanical checks are Green. This file has no visual criterion. This is part 1 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
 
 ## Goal
 
@@ -22,6 +22,7 @@ Each fact was read at commit `3b387f7`.
 - The command `PlayPlaylistAt` is in `src/application/commands/playback.rs:112`. Its tests start at lines 528, 555 and 584.
 - `PlaybackOperation::Playlist` is in `src/application/capability_recovery.rs:34`, with a check at line 187 and a test at line 978. Its label is in `src/view_models/startup/capabilities.rs:748`.
 - `PlaybackOwner::play_playlist_at` is in `src/playback_owner.rs:131`. The tests at lines 547 and 586 call it.
+- `render_playlist_track_controls` in `src/ui/shells/playlist.rs` always draws the play cell of a row from `PlaylistTrackControlsDisplay`. That file is the shell of the playlist page. Only `src/ui/shells/library/playlist_detail.rs` uses it, so it is not a shared composite.
 - `playback::play_playlist_at` in `src/playback.rs:70` has a second caller, the CLI in `src/cli.rs:406`. It stays.
 - `RssCheckTrigger::PlaybackStart` has one production emitter, `src/app.rs:436`. Stored rows of `rss_check_runs` can hold its token.
 - The test `adr_0076_playlist_check_playback_start_runs_without_delaying_playback` (`src/application/commands/playlist.rs:776`) uses the command and reads the handler text of `src/app.rs`.
@@ -29,7 +30,7 @@ Each fact was read at commit `3b387f7`.
 
 ## Files To Inspect
 
-- `src/library.rs`, `src/ui/shells/library/playlist_detail.rs`, `src/view_models/library.rs`
+- `src/library.rs`, `src/ui/shells/library/playlist_detail.rs`, `src/ui/shells/playlist.rs`, `src/view_models/library.rs`
 - `src/app.rs`, `src/app/playback_bar.rs`
 - `src/application/commands/playback.rs`, `src/application/commands/playlist.rs`, `src/application/capability_recovery.rs`
 - `src/view_models/startup/capabilities.rs`, `src/playback_owner.rs`
@@ -50,7 +51,7 @@ The files of "Files To Inspect".
 
 ## Scope
 
-1. Remove `LibraryAppEvent::PlayPlaylistAt`, its emitter and its handler. Remove the row control that sent it, with its view model field when no other code reads the field.
+1. Remove `LibraryAppEvent::PlayPlaylistAt`, its emitter and its handler. Remove the play cell of the playlist row in `src/ui/shells/playlist.rs`, the slot `on_play`, and the play fields of `PlaylistTrackControlsDisplay`. Remove `display_with_playback` and the playback availability of the row context when no other code reads them. The menu cell stays. Change each fit fixture and each test that names the play cell.
 2. Remove `TopApp::play_playlist_at`, the command `PlayPlaylistAt`, `PlaybackOperation::Playlist` with its retry, its check and its label, and `PlaybackOwner::play_playlist_at`.
 3. Remove the RSS check start in the removed handler. Keep the variant `RssCheckTrigger::PlaybackStart` and its token, because stored rows hold it. Give the variant a comment that says this.
 4. Remove each test that tests only a removed path. An owner test that uses `play_playlist_at` only to load a track uses `load_track` or the session simulator in its place.
@@ -93,10 +94,19 @@ cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```
 
+## Result - 2026-11-14
+
+A ChatGPT run made the change. The orchestrating session examined the diff and ran the checks.
+
+- The first run stopped, because the play cell is in `src/ui/shells/playlist.rs`. The orchestrating session examined the file and added it to the scope.
+- The orchestrating session also removed `playback_availability` of `LibraryApp` and of `LibraryChromeDisplay`. The play cell was their only reader.
+- The removed test `adr_0066_retry_rejects_removed_track_and_changed_playlist_position` tested only `PlaybackOperation::Playlist`.
+- The new guard is `adr_0068_music_does_not_start_program_playback`.
+
 ## Stop And Ask
 
 - Stop if a caller of a removed path exists that this file does not list.
-- Stop if the removal of the row control needs a change to a shared primitive or composite.
+- Stop if the removal of the row control needs a change to a file in `src/ui/primitives` or `src/ui/composites`.
 
 ## Prompt for lower-context coding model
 

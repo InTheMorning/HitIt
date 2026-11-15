@@ -322,11 +322,6 @@ impl TopApp {
                 .record(CapabilityObservation::new(dependency, failure));
         }
         self.capability_vm.observations = self.capability_observations.snapshot();
-        let playback = self.playback_availability();
-        self.library.update(cx, |library, cx| {
-            library.playback_availability = playback;
-            cx.notify();
-        });
         self.reproject_show_page_from_current_queue();
         if let Some(next) = self.capability_vm.queued.pop_front() {
             self.check_capability(next, window, cx);
@@ -403,11 +398,6 @@ impl TopApp {
             crate::view_models::startup::capabilities::dependency_title(dependency),
             check.observation
         ));
-        let playback = self.playback_availability();
-        self.library.update(cx, |library, cx| {
-            library.playback_availability = playback;
-            cx.notify();
-        });
     }
 
     pub(super) fn retain_failed_action(
@@ -523,11 +513,6 @@ impl TopApp {
         self.runtime_host = Some(host.clone());
         self.library
             .update(cx, |library, cx| library.install_runtime(host, cx));
-        let playback = self.playback_availability();
-        self.library.update(cx, |library, cx| {
-            library.playback_availability = playback;
-            cx.notify();
-        });
         self.maybe_start_broadcast_readiness_watch(cx);
         self.maybe_start_broadcast_service_watch(cx);
         self.refresh_show_page(cx);

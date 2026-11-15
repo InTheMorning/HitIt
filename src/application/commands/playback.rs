@@ -108,59 +108,6 @@ where
     }
 }
 
-/// Plays a playlist item at a zero-based position.
-pub struct PlayPlaylistAt<D> {
-    conn: SharedConnection,
-    playback_owner: SharedPlaybackOwner<D>,
-    playlist_id: i64,
-    playlist_position: i64,
-}
-
-impl<D> PlayPlaylistAt<D> {
-    /// Creates a playlist playback command.
-    #[must_use]
-    pub fn new(
-        conn: SharedConnection,
-        playback_owner: SharedPlaybackOwner<D>,
-        playlist_id: i64,
-        playlist_position: i64,
-    ) -> Self {
-        Self {
-            conn,
-            playback_owner,
-            playlist_id,
-            playlist_position,
-        }
-    }
-}
-
-impl<D> ApplicationCommand for PlayPlaylistAt<D>
-where
-    D: PlaybackDriver + 'static,
-{
-    type Output = PlaybackCommandResult;
-
-    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
-        ensure_not_cancelled(context)?;
-        let conn = self
-            .conn
-            .lock()
-            .map_err(|_| playback_error("database lock poisoned"))?;
-        context.validate_retry_subject(&conn)?;
-        let mut owner = self
-            .playback_owner
-            .lock()
-            .map_err(|_| playback_error("playback owner lock poisoned"))?;
-        let update = owner
-            .play_playlist_at(&conn, self.playlist_id, self.playlist_position)
-            .map_err(playback_error)?;
-        Ok(CommandOutcome::new(
-            PlaybackCommandResult::with_update(update.clone(), playing_message(&update)),
-            playback_changed_events(),
-        ))
-    }
-}
-
 /// Skips to the next playlist track.
 pub struct SkipPlaybackNext<D> {
     conn: SharedConnection,
@@ -525,42 +472,15 @@ mod tests {
     }
 
     #[test]
-    fn play_playlist_at_emits_playback_event() -> anyhow::Result<()> {
-        let conn = shared_conn()?;
-        let owner = shared_owner();
-        let (playlist_id, track_id) = {
-            let conn = conn.lock().expect("test database lock");
-            create_playlist_track(&conn)?
-        };
-
-        let outcome = CommandBus::new().execute(
-            PlayPlaylistAt::new(Arc::clone(&conn), Arc::clone(&owner), playlist_id, 0),
-            &CommandContext::next(),
-        )?;
-
-        assert_eq!(outcome.events(), playback_changed_events());
-        assert_eq!(
-            outcome
-                .value()
-                .update()
-                .expect("now playing")
-                .local_track_id,
-            track_id
-        );
-        assert_eq!(outcome.value().message(), "Playing Track item-guid");
-        Ok(())
-    }
-
-    #[test]
     fn pause_and_resume_playback_emit_events() -> anyhow::Result<()> {
         let conn = shared_conn()?;
         let owner = shared_owner();
-        let (playlist_id, _) = {
+        let track_id = {
             let conn = conn.lock().expect("test database lock");
-            create_playlist_track(&conn)?
+            create_playlist_track(&conn)?.1
         };
         CommandBus::new().execute(
-            PlayPlaylistAt::new(Arc::clone(&conn), Arc::clone(&owner), playlist_id, 0),
+            PlayTrack::new(Arc::clone(&conn), Arc::clone(&owner), track_id, 0),
             &CommandContext::next(),
         )?;
 
@@ -584,12 +504,12 @@ mod tests {
     fn stop_playback_emits_changed_without_update() -> anyhow::Result<()> {
         let conn = shared_conn()?;
         let owner = shared_owner();
-        let (playlist_id, _) = {
+        let track_id = {
             let conn = conn.lock().expect("test database lock");
-            create_playlist_track(&conn)?
+            create_playlist_track(&conn)?.1
         };
         CommandBus::new().execute(
-            PlayPlaylistAt::new(Arc::clone(&conn), Arc::clone(&owner), playlist_id, 0),
+            PlayTrack::new(Arc::clone(&conn), Arc::clone(&owner), track_id, 0),
             &CommandContext::next(),
         )?;
 

@@ -84,11 +84,6 @@ pub(crate) enum LibraryAppEvent {
     /// A click on the list bar above the rows of a group page (ADR 0090).
     /// The top app runs the command through its selection path.
     ListBar(ListBarCommand),
-    PlayPlaylistAt {
-        track_id: i64,
-        playlist_id: i64,
-        playlist_position: i64,
-    },
     ShowCueLoaded,
     OpenIndexFeedDetail {
         feed_guid: String,
@@ -232,8 +227,6 @@ pub struct LibraryApp {
     cache: Arc<ImageCache>,
     musicindex_endpoint: crate::config::MusicIndexEndpoint,
     music_dir: PathBuf,
-    pub(crate) playback_availability:
-        Result<(), crate::application::capability::ExecutionUnavailable>,
     /// Stateful screen view-model. Owns all pure UI state and loaded
     /// snapshots — tree, selection, expansion sets, sort orders,
     /// picker toggles, status, search query, playlists, MusicBrainz

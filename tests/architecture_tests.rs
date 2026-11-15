@@ -166,7 +166,6 @@ const SCREEN_METADATA_FEED_FORBIDDEN_PATTERNS: &[&str] = &[
 ];
 
 const SCREEN_PLAYBACK_FORBIDDEN_PATTERNS: &[&str] = &[
-    "playback_owner.play_playlist_at(",
     "playback_owner.skip_next(",
     "playback_owner.skip_previous(",
     "playback_owner.pause(",
@@ -4395,13 +4394,34 @@ fn workspace_frame_phase_4_guards_queue_frame_shell_wiring() {
 }
 
 #[test]
+fn adr_0068_music_does_not_start_program_playback() {
+    let mut files = Vec::new();
+    collect_rust_files(&manifest_path("src"), &mut files);
+    let allowed = [
+        PathBuf::from("src/playback.rs"),
+        PathBuf::from("src/cli.rs"),
+    ];
+    for file in files {
+        let relative = file.strip_prefix(manifest_path(".")).unwrap();
+        if allowed.iter().any(|path| path == relative) {
+            continue;
+        }
+        let source = read_source(&file);
+        assert!(
+            !source.contains("play_playlist_at") && !source.contains("PlayPlaylistAt"),
+            "ADR 0068 Invariant 3: {} names the playlist play path. Start program playback only with a typed Show command.",
+            relative.display()
+        );
+    }
+}
+
+#[test]
 fn workspace_frame_phase_4_guards_playback_commands_stay_out_of_toolbar() {
     let playback_source = read_source(&manifest_path("src/app/playback_bar.rs"));
     let toolbar_source = read_source(&manifest_path("src/app/toolbar.rs"));
     let mut violations = Vec::new();
 
     for required in [
-        "pub(super) fn play_playlist_at(",
         "pub(super) fn toggle_playback_paused(",
         "fn run_playback_command",
         "this.refresh_show_page(cx)",
@@ -9289,11 +9309,6 @@ fn view_models_own_display_fallbacks_for_library() {
         ),
         (
             "src/library.rs",
-            "format!(\"playlist-play-{pl_id}-{position}\")",
-            "Library playlist play control id belongs in PlaylistTrackRowVm::controls_display",
-        ),
-        (
-            "src/library.rs",
             "\"playlist-track-{track_id}-{position}\"",
             "Library playlist row id belongs in PlaylistTrackRowVm::controls_display",
         ),
@@ -9346,11 +9361,6 @@ fn view_models_own_display_fallbacks_for_library() {
             "src/library.rs",
             "SharedString::from(controls_display.remove_menu_item.id.clone())",
             "Library playlist remove fallback id should be consumed from PlaylistTrackControlsDisplay",
-        ),
-        (
-            "src/library.rs",
-            "SharedString::from(controls_display.play_button_id.clone())",
-            "Library playlist play id should be consumed from PlaylistTrackControlsDisplay",
         ),
         (
             "src/library.rs",
@@ -16350,7 +16360,7 @@ fn adr_0066_optional_dependencies_are_scoped() {
         playback
             .matches("let Some(owner) = self.available_playback_owner(&action, cx)")
             .count(),
-        4
+        3
     );
     assert!(playback.contains(".require(crate::application::capability::Dependency::Playback)"));
     assert!(playback.contains("this.maybe_start_playback_polling(cx)"));
@@ -17062,7 +17072,7 @@ fn adr_0066_repair_routes_preserve_action_subject() {
         playback
             .matches("context.validate_retry_subject(&conn)?")
             .count(),
-        7
+        6
     );
     assert!(
         show.matches("context.validate_retry_subject(&conn)?")

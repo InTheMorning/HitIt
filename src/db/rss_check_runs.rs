@@ -77,7 +77,8 @@ pub(super) fn apply(conn: &Connection) -> Result<()> {
 pub enum RssCheckTrigger {
     /// The operator selected "Check RSS" on the playlist page.
     Button,
-    /// Playback started from the playlist (phase plan trigger mapping).
+    /// No code sends this trigger (ADR 0068). Stored rows of
+    /// `rss_check_runs` hold its token, so the variant stays.
     PlaybackStart,
     /// The curator loaded or replaced the Show cue from this playlist.
     CueLoad,

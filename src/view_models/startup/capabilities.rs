@@ -745,7 +745,6 @@ fn run_label(action: &RecoveryAction) -> &'static str {
         } => "Retry original track",
         RecoveryAction::IndexSearch { .. } => "Run search again",
         RecoveryAction::Playback { operation, .. } => match operation {
-            PlaybackOperation::Playlist { .. } => "Play original track",
             PlaybackOperation::Pause => "Pause original track",
             PlaybackOperation::Resume => "Resume original track",
             PlaybackOperation::Next => "Play next track",

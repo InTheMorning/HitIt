@@ -32,10 +32,9 @@ use gpui::{
 };
 use gpui_component::input::InputState;
 
-use crate::application::capability::ExecutionUnavailable;
 use crate::db::{self, PlaylistEntryKey, TrackRow};
 use crate::library::PlaylistActorState;
-use crate::library::{LibraryApp, LibraryAppEvent, PlaylistDetail};
+use crate::library::{LibraryApp, PlaylistDetail};
 use crate::runtime::PlaylistRssCheckSnapshot;
 use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::{
@@ -88,7 +87,6 @@ struct PlaylistRowContext<'a> {
     playlist_id: i64,
     last_position: usize,
     album_thumbs: &'a BTreeMap<String, Option<Arc<Image>>>,
-    playback_availability: Result<(), ExecutionUnavailable>,
     playlist_rss_check: Option<&'a PlaylistRssCheckSnapshot>,
     menu: &'a PlaylistRowMenuContext<'a>,
 }
@@ -152,7 +150,6 @@ pub(crate) fn render_library_playlist_detail(
             detail,
             state,
             album_thumbs,
-            chrome,
             playlist_rss_check,
             &menu,
             &mut take_slot,
@@ -163,7 +160,6 @@ pub(crate) fn render_library_playlist_detail(
             playlist_id,
             last_position: detail.tracks.len().saturating_sub(1),
             album_thumbs,
-            playback_availability: chrome.playback_availability,
             playlist_rss_check,
             menu: &menu,
         };
@@ -292,15 +288,10 @@ fn remove_from_all_playlists_slot(
     }))
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "the paged path takes each value that the eager path reads"
-)]
 fn render_paged_rows(
     detail: &PlaylistDetail,
     state: &PlaylistActorState,
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
-    chrome: &LibraryChromeDisplay,
     playlist_rss_check: Option<&PlaylistRssCheckSnapshot>,
     menu: &PlaylistRowMenuContext<'_>,
     take_slot: &mut impl FnMut(usize) -> Option<DetailRowSlot>,
@@ -345,7 +336,6 @@ fn render_paged_rows(
                     playlist_id: detail.playlist.id,
                     last_position,
                     album_thumbs,
-                    playback_availability: chrome.playback_availability,
                     playlist_rss_check,
                     menu,
                 };
@@ -387,7 +377,7 @@ fn render_ready_playlist_row(
         .unwrap_or_default();
     let mut display = PlaylistTrackRowVm::new(track, position, context.last_position)
         .with_work(work)
-        .display_with_playback(playlist_id, context.playback_availability);
+        .display(playlist_id);
     if let Some(selection) = selection {
         display = display.with_selection(selection);
     }
@@ -403,15 +393,6 @@ fn render_ready_playlist_row(
         position: position_i64,
         track_id: original_track_id,
     };
-    let on_play = display.controls.play_enabled.then(|| {
-        click_slot(cx.listener(move |_this, _, _, cx| {
-            cx.emit(LibraryAppEvent::PlayPlaylistAt {
-                playlist_id,
-                playlist_position: position_i64,
-                track_id: original_track_id,
-            });
-        }))
-    });
     let slot = PlaylistTrackRowSlot {
         thumbnail: Some(render_album_thumb(thumbnail, 24.0, cx)),
         // ADR 0084 packet 025: a body click goes through the detail click
@@ -427,7 +408,6 @@ fn render_ready_playlist_row(
                 }
             },
         ))),
-        on_play,
         menu: display.controls.menu.clone().map(|menu| RowMenu {
             menu,
             playlists: Rc::clone(&context.menu.playlists),

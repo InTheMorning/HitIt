@@ -385,14 +385,6 @@ impl TopApp {
                 cx,
             );
             library.bind_session(session.clone());
-            library.playback_availability =
-                crate::application::capability::FeatureAvailability::from_resources(
-                    &musicindex_endpoint,
-                    &broadcast,
-                    playback_owner.is_some(),
-                )
-                .with_runtime(command_runner.availability())
-                .require(crate::application::capability::Dependency::Playback);
             library
         });
         let search_field_list = cx.new(|cx| {
@@ -421,23 +413,6 @@ impl TopApp {
             &library,
             window,
             move |this: &mut Self, library, event: &LibraryAppEvent, window, cx| match event {
-                LibraryAppEvent::PlayPlaylistAt {
-                    track_id,
-                    playlist_id,
-                    playlist_position,
-                } => {
-                    this.play_playlist_at(*playlist_id, *playlist_position, *track_id, cx);
-                    // ADR 0076 Decision 2 and its phase plan trigger mapping:
-                    // playback from a playlist also starts the RSS check of
-                    // that playlist. Playback does not wait for the check.
-                    library.update(cx, |library, cx| {
-                        library.check_playlist_rss(
-                            *playlist_id,
-                            crate::runtime::RssCheckTrigger::PlaybackStart,
-                            cx,
-                        );
-                    });
-                }
                 LibraryAppEvent::ShowCueLoaded => {
                     this.refresh_show_page(cx);
                 }

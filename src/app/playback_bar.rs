@@ -7,7 +7,7 @@ use gpui::Context;
 use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{PlaybackOperation, RecoveryAction, RecoveryIntent};
 use crate::application::commands::playback::{
-    PausePlayback, PlayPlaylistAt, ResumePlayback, SkipPlaybackNext, SkipPlaybackPrevious,
+    PausePlayback, ResumePlayback, SkipPlaybackNext, SkipPlaybackPrevious,
 };
 use crate::application::{ApplicationCommand, CommandContext};
 use crate::presentation::present_command;
@@ -16,33 +16,6 @@ use crate::view_models::queue_now_playing::TransportState;
 use super::TopApp;
 
 impl TopApp {
-    pub(super) fn play_playlist_at(
-        &mut self,
-        playlist_id: i64,
-        playlist_position: i64,
-        track_id: i64,
-        cx: &mut Context<Self>,
-    ) {
-        let action = RecoveryAction::Playback {
-            operation: PlaybackOperation::Playlist {
-                playlist_id,
-                position: playlist_position,
-            },
-            track_id: Some(track_id),
-            queue: Vec::new(),
-        };
-        let Some(owner) = self.available_playback_owner(&action, cx) else {
-            return;
-        };
-        let command = PlayPlaylistAt::new(
-            Arc::clone(&self.conn),
-            Arc::clone(&owner),
-            playlist_id,
-            playlist_position,
-        );
-        self.run_playback_command(command, action, None, cx);
-    }
-
     pub(super) fn skip_playback_next(&mut self, cx: &mut Context<Self>) {
         let action = self.playback_action(PlaybackOperation::Next);
         let Some(owner) = self.available_playback_owner(&action, cx) else {
@@ -100,14 +73,6 @@ impl TopApp {
             return;
         };
         match operation {
-            PlaybackOperation::Playlist {
-                playlist_id,
-                position,
-            } => self.run_retained_playback(
-                PlayPlaylistAt::new(self.conn.clone(), owner, playlist_id, position),
-                intent,
-                cx,
-            ),
             PlaybackOperation::Pause => {
                 self.run_retained_playback(
                     PausePlayback::new(self.conn.clone(), owner),

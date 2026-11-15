@@ -1162,11 +1162,6 @@ impl LibraryApp {
         let releases_tiles_scroll = gpui::ScrollHandle::new();
         let artists_tiles_scroll = gpui::ScrollHandle::new();
         let mut app = Self {
-            playback_availability: Err(
-                crate::application::capability::ExecutionUnavailable::configured(
-                    crate::application::capability::Dependency::Playback,
-                ),
-            ),
             conn,
             application_services,
             command_runner,
@@ -6597,8 +6592,7 @@ impl LibraryApp {
     /// Renders the Library release, track, artist and playlist pages, and
     /// the empty detail state (ADR 0084 Decision 1).
     fn render_library_detail_pane(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        let chrome = LibraryViewModel::chrome_display()
-            .with_playback_availability(self.playback_availability);
+        let chrome = LibraryViewModel::chrome_display();
 
         let mut urls: Vec<String> = Vec::new();
         if let LibraryDetail::Album(album) = &self.detail {
