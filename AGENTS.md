@@ -54,7 +54,7 @@ The run of 2026-10-24 implemented ADR 0084 packets 035 to 037, ADR 0087 packets 
 Its open checks stay in [pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-24.md) lists them.
 
 On 2026-11-14 the operator put the defect fixes first: [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md), [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md) and [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) come before the ADR 0068 packets.
-On 2026-11-15 the operator opened step 4 of the overhaul plan, Phase 7, the visual overhaul. [ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md) adopts the shared rules. Its token packet comes after the three defect fixes. The surface packets of ADR 0101 Decision 12 follow the token packet.
+On 2026-11-15 the operator opened step 4 of the overhaul plan, Phase 7, the visual overhaul. [ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md) adopts the shared rules. Its token packet, [task 001](docs/tasks/adr-0101-task-001-shared-tokens.md), comes after the three defect fixes. The surface packets of ADR 0101 Decision 12 are tasks 002 to 012. They follow the token packet. The [ADR 0101 phase plan](docs/plans/adr-0101-design-language-phase-plan.md) gives their sequence, the place of the Ready packets of other ADRs and the open points for the operator.
 Ready packets include
 [ADR 0064 task 002](docs/tasks/adr-0064-task-002-repair-report-surface.md) and
 [ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
