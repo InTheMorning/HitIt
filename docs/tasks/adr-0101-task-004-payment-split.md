@@ -1,6 +1,6 @@
 # ADR 0101 Task 004: The Payment Split Section
 
-Status: Blocked - 2026-11-15. This packet waits for the operator push of musicindex-lib `0fadde6`. Start when `git ls-remote https://github.com/InTheMorning/musicindex-lib` shows that commit, or when the operator says that the push is done. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Blocked - 2026-11-15. The operator decides again on the fee rule of R-VALUE-3 (musicindex-research `b17f019`, `research_notes/podcast-apps/value-split-fee-2026-11-15.md`). If the rule changes, a new musicindex record and a new crate commit replace the rev of this packet. Do not start until the orchestrator sends the result. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
 
 ## Goal
 
