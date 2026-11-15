@@ -2,7 +2,32 @@
 
 ## Status
 
-Ready after packet 002 - 2026-11-11. Implementation has not started.
+Ready - 2026-11-14. Implementation has not started. Packet 002 is implemented. This task is divided into five parts, and a coding model gets one part at a time. This file keeps the scope, the criteria and the visual gate of the full task.
+
+## Parts - 2026-11-14
+
+Each part compiles and passes the commit checks alone. The parts run in this sequence, because they change the same files.
+
+| Part | Scope items | State |
+|---|---|---|
+| [003a](adr-0068-task-003a-remove-playlist-play.md) | 6, and 10 for the removed paths | Ready |
+| [003b](adr-0068-task-003b-session-cue-entry-and-silent-restart.md) | 5 for the session, 9, and the open point from task 002 | Ready after 003a |
+| [003c](adr-0068-task-003c-show-start-pause-stop-select.md) | 1 and 2, 5 for the cuelist, 7, 8 for `cmd-alt-p`, 10 | Ready after 003b |
+| [003d](adr-0068-task-003d-next-previous-and-end-of-track.md) | 3 and 4, 8 for the skip keys, 10 | Ready after 003c |
+| [003e](adr-0068-task-003e-show-clear-item.md) | 11 | Ready after 003d |
+
+Between part 003a and part 003c, the desktop app cannot start playback. The operator does each push, so no release has this state.
+
+## Operator Choices
+
+The orchestrating session made these choices on 2026-11-14 inside ADR 0068. Each choice is open for the operator to change.
+
+- Removed cue entry: a Clear or a Replace sets `playback_sessions.cue_entry_id` to NULL in its transaction. A reader that finds an entry id that is not in `show_cue_entries` treats it as no entry, and it selects no other entry. This needs no schema change. Part 003b implements the rule and its tests.
+- Restart: startup sets a `playing` or `paused` session to `stopped` and keeps its track, its position and its observation time, as ADR 0068 "Persistence, Restart And CLI Compatibility" says. Part 003b implements it.
+- `RssCheckTrigger::PlaybackStart` stays as a variant with no emitter, because stored rows of `rss_check_runs` hold its token.
+- Select while playing or paused is not available. ADR 0068 gives a rule only for Select while stopped.
+- The Clear item opens a confirmation, as the playlist delete does. Part 003e implements it.
+- "Stop And Ask" of this file: the only desktop caller of `play_playlist_at` is the chain that this task removes. The search of 2026-11-14 at commit `3b387f7` found no different caller.
 
 ## Goal
 

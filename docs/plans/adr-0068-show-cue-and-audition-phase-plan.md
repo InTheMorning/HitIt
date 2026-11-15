@@ -36,8 +36,8 @@ Each fact below was read on 2026-11-11 at commit `ff0aca4`.
 | Packet | Scope | Depends on | State |
 |---|---|---|---|
 | [001](../tasks/adr-0068-task-001-mpv-ipc-read-error.md) | Find the cause of the mpv IPC read error, fix it and add a regression test | None | Implemented 2026-11-14 |
-| [002](../tasks/adr-0068-task-002-stored-show-cue.md) | The stored cue (migration 25), Load, Replace and Clear, the cue in Show while nothing plays, removal and tag-update checks, the RSS check trigger | None | Ready |
-| [003](../tasks/adr-0068-task-003-show-plays-the-cue.md) | The Show owner plays the cue. Music Play to Show goes. The Show keys, the restart and the Show states | 002 | Ready after 002 |
+| [002](../tasks/adr-0068-task-002-stored-show-cue.md) | The stored cue (migration 25), Load, Replace and Clear, the cue in Show while nothing plays, removal and tag-update checks, the RSS check trigger | None | Implemented 2026-11-14 |
+| [003](../tasks/adr-0068-task-003-show-plays-the-cue.md) | The Show owner plays the cue. Music Play to Show goes. The Show keys, the restart and the Show states. Five parts, 003a to 003e, in the task file | 002 | Ready |
 | [004](../tasks/adr-0068-task-004-audition-player.md) | A second driver instance, the audition owner and the audition output | 001, 003 | Ready after 001 and 003 |
 | [005](../tasks/adr-0068-task-005-cli-writer-lease.md) | The CLI cannot change the session while the desktop owns it | 003 | Ready after 003 |
 | [ADR 0089 packet 016](../tasks/adr-0089-task-016-now-playing-panel.md) | The now-playing panel with a Show part and an Audition part, and the row action Play | 003, 004 | Waits for 003 and 004 |
