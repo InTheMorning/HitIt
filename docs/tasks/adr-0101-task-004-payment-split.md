@@ -1,6 +1,6 @@
 # ADR 0101 Task 004: The Payment Split Section
 
-Status: Blocked - 2026-11-15. This packet waits for the operator push of musicindex-lib `5e35cf5`, the crate `musicindex-value` under musicindex ADRs 0075 and 0076. Start the pin when `git ls-remote https://github.com/InTheMorning/musicindex-lib` shows that commit. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Blocked - 2026-11-15. The operator pushed musicindex-lib `5e35cf5` on 2026-11-15. It holds the crate `musicindex-value` under musicindex ADRs 0075 and 0076. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
 
 ## Goal
 
@@ -60,7 +60,7 @@ Main session choice, 2026-11-15: the section heading is "Value Split". The headi
 | Stored route read | reuse | `src/db/payment_routes.rs` | `stored_route` gives the route of a track with the feed fallback. |
 | Read models | extend | `src/views.rs` | The database conversions give an empty list. Fill `payment_routes` from the stored columns. |
 | Track view model slot | extend | `src/view_models/track_detail.rs` | `value_routes` exists. Replace the text item with the split view model of step 2. |
-| Split arithmetic | reuse | `Cargo.toml` | Pin the crate `musicindex-value` at musicindex-lib `5e35cf5` (ADR 0075 R-VALUE-4). It gives `percentages` and `short_address`. |
+| Split arithmetic | reuse | `Cargo.toml` | Pin the crate `musicindex-value` at musicindex-lib `5e35cf5c39a8ff68c64267156d0a7165c43f1826` (ADR 0075 R-VALUE-4). It gives `percentages` and `short_address`. |
 | Split view model | new | `src/view_models/payment_split.rs` | Searched `src/view_models/` and `src/ui/composites/` in HitIt. No code gives the rows or the bar of a split. The view model calls `musicindex_value::percentages` for each percentage. |
 | Split section | new | `src/ui/composites/payment_split.rs` | Searched `src/ui/composites/` in HitIt. No composite draws recipient rows with a bar. |
 | Color tokens | extend | `src/ui/tokens.rs` | `SemanticColor` gives each color. Add `Share` and `ShareTrack`. |
@@ -69,7 +69,7 @@ Main session choice, 2026-11-15: the section heading is "Value Split". The headi
 
 ## Required Changes
 
-0. **The pin.** Add `musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5e35cf5" }` to `Cargo.toml`. Write the full hash of the commit, as `git ls-remote` gives it. Move `musicindex-search` to the same rev (musicindex ADR 0049 R-QUERY-4 item 1). Stop if the search tests do not pass at that rev.
+0. **The pin.** Add `musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5e35cf5c39a8ff68c64267156d0a7165c43f1826" }` to `Cargo.toml`. Move `musicindex-search` to the same rev (musicindex ADR 0049 R-QUERY-4 item 1). Stop if the search tests do not pass at that rev.
 1. **The stored routes.** The database conversions of `src/views.rs` fill `payment_routes` of a feed and a track from their stored columns. A track with no route of its own gets the route of its feed, as `stored_route` does.
 2. **The split view model.** In `src/view_models/payment_split.rs`, write a pure function from a list of `PaymentRoute` to a split view model. It parses each split text to `Option<f64>`, with a parse function of the crate if it has one. It gets each percentage from `percentages`. It gives one segment of the bar for each row, in the order of the rows. A recipient with no percentage from `percentages` gives no percentage text and no segment.
    - The view model holds no color and no renderer type.
@@ -135,10 +135,10 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 ## Later Items
 
-These places show a node key or an npub in full. This packet does not change them. A later packet applies R-ADDRESS-1 to each one.
+These places show a node key or an npub in full. This packet does not change them. Orchestrator answer, 2026-11-15:
 
-- `src/view_models/entity_detail.rs:1087`: the "Nostr" row of an entity detail gives the full npub.
-- `src/ui/shells/library/track_detail_metadata_values.rs:329`: the inspection tree of a value route gives the `address` child field in the Index context (`src/view_models/track_metadata_grid.rs:1336`). Inspection shows raw data (ADR 0101 Decision 8). The later packet decides if R-ADDRESS-1 applies there.
+- `src/view_models/entity_detail.rs:1087`: the "Nostr" row of an entity detail gives the full npub. R-ADDRESS-1 applies, because it is a row. A later packet gives it the short form, and the tooltip and Copy give the full npub.
+- `src/ui/shells/library/track_detail_metadata_values.rs:329`: the inspection tree of a value route gives the `address` child field in the Index context (`src/view_models/track_metadata_grid.rs:1336`). Decided: no change. Inspection shows raw data (ADR 0101 Decision 8). R-ADDRESS-1 item 6 needs a location where the full address is always available, and inspection is that location.
 
 ## Stop And Ask
 
