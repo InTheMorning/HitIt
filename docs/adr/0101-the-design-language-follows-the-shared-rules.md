@@ -9,6 +9,8 @@ Accepted - 2026-11-15. The operator accepted this ADR on 2026-11-15, and the orc
 
 Operator choice, 2026-11-15: HitIt adopts musicindex ADR 0045 R-ACT-7 for the main action ([Decision 5](#5-actions-have-a-hierarchy)). HitIt keeps the focus ring of 2 px with no gap ([Decision 1](#1-the-palette)). musicindex ADR 0073 R-FOCUS-2 (musicindex commit `785ae28`) gives this ring to Studio and HitIt. It replaces musicindex ADR 0068 R-SCALE-4 item 6.
 
+Operator choice, 2026-11-15, relayed by the orchestrator session: HitIt adopts musicindex ADR 0075 R-VALUE-4 and R-VALUE-5 (musicindex commit `bf58554`). R-VALUE-5 replaces R-VALUE-1 item 1. HitIt also adopts musicindex ADR 0076 R-ADDRESS-1 to R-ADDRESS-3 (musicindex commit `a08dc01`). The crate `musicindex-value` gives the split arithmetic and the short form of an address ([Decision 2](#2-color-roles-do-not-mix), [Decision 11](#11-hitit-adopts-these-shared-rules)).
+
 ## Context
 
 Step 4 of the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md#phase-7-visual-overhaul-1), Phase 7, says: "First, a HitIt ADR adopts the rules. It amends or supersedes ADR 0083 and the Phase 3 tokens." A shared rule binds HitIt only through this ADR. Step 4 waits for the operator. The three defect fixes of 2026-11-14 come first: ADR 0090 task 005, ADR 0092 task 001 and ADR 0085 task 001.
@@ -56,7 +58,7 @@ Each color has one meaning:
 - **Accent** marks the selected item and a link.
 - **Status** colors mark success, warning, danger and information. musicindex ADR 0068 R-STATUS-1 gives the values, and musicindex ADR 0069 R-TOKEN-1 gives danger and its tint. Danger also marks a destructive action. In the dark profile, the warning color is orange, as in the light profile.
 - **Entity** colors mark a stated entity kind: feed, track, playlist, artist, publisher, label and the other kinds of the website. They show as a dot, and musicindex ADR 0032 R-DOT-1 sets the dimensions of the dot and the hollow dot. `src/assets/tokens.json` gives the entity values that R-DOT-2 checks. A dot is never a filled text badge. Live red is reserved for a live item.
-- **Value** marks the shares of a payment split. musicindex ADR 0069 R-VALUE-2 gives one row for each recipient and one summary bar in the share color, `#2d7bff` dark and `#1a56c0` light.
+- **Value** marks the shares of a payment split. musicindex ADR 0069 R-VALUE-2 gives one row for each recipient and one summary bar in the share color, `#2d7bff` dark and `#1a56c0` light. musicindex ADR 0075 R-VALUE-5 gives the percentage of each share, with a fee share in the total. musicindex ADR 0076 R-ADDRESS-1 gives the short form of a node key or an npub in a row. HitIt calls the crate `musicindex-value` for both, and it has no copy of the code (R-VALUE-4, R-ADDRESS-3).
 
 An entity color appears only when the source states the kind. A payment recipient has no stated kind, so a payment split never uses entity colors. Text always carries the meaning: a name, a word or a number. Color alone never does.
 
@@ -156,7 +158,7 @@ HitIt adopts the rules in this table, at musicindex commit `3baa6f0`. musicindex
 |---|---|---|
 | 0068, the foundations | R-PROFILE-1, R-SCALE-1, R-TYPE-1, R-TYPE-2, R-SPACE-1, R-TARGET-1, R-RADIUS-1, R-STATUS-1, R-ELEVATION-1 with the light levels of R-ELEVATION-2, R-ICON-1, R-ICON-2, R-A11Y-1 | R-SCALE-2 and R-SCALE-3, the web scales. R-SCALE-4, the Studio scale |
 | 0073, the focus ring of Studio and HitIt | R-FOCUS-2, at musicindex commit `785ae28` | None |
-| 0069, the interface rules and the shell | R-WORD-1, R-VALUE-1, R-VALUE-2, R-ACT-1, R-ACT-2, R-ACT-3, R-TOKEN-1, R-SHELL-1, R-NAV-1, R-NAV-2, R-NAV-4, R-LIST-1, R-TOOLBAR-1, R-FIT-1 | R-SHELL-2, the editor outline. R-NAV-3, the touch back control |
+| 0069, the interface rules and the shell | R-WORD-1, R-VALUE-1 items 2 and 3, R-VALUE-2, R-ACT-1, R-ACT-2, R-ACT-3, R-TOKEN-1, R-SHELL-1, R-NAV-1, R-NAV-2, R-NAV-4, R-LIST-1, R-TOOLBAR-1, R-FIT-1 | R-SHELL-2, the editor outline. R-NAV-3, the touch back control |
 | 0021, the artwork | R-ART-1 to R-ART-5 | None |
 | 0022, the shared assets | Decision items 1 to 7. HitIt copies the fonts and `tokens.json` from musicindex-assets | None |
 | 0023, the words, links and messages | R-LINK-1, R-CASE-1, R-SCOPE-1, R-DATE-1, R-MSG-1, R-CONFIRM-1, R-WORD-2, R-WORD-8 (the product name), R-WORD-9, R-WORD-10 | None |
@@ -169,6 +171,8 @@ HitIt adopts the rules in this table, at musicindex commit `3baa6f0`. musicindex
 | 0051, the segmented control and the selected look | R-SEG-1, R-SELECT-1 | None |
 | 0056, the sidebar glow | R-SIDE-1, R-SIDE-2 | None |
 | 0063, the check box | R-CHECK-1 to R-CHECK-8 | None |
+| 0075, the split code and the fee of a split | R-VALUE-4, R-VALUE-5, at musicindex commit `bf58554`. R-VALUE-5 replaces R-VALUE-1 item 1 | None |
+| 0076, the short form of a long address | R-ADDRESS-1 to R-ADDRESS-3, at musicindex commit `a08dc01` | None |
 | 0071, the edge indicator | R-EDGE-3, the token copy | R-EDGE-1 and R-EDGE-2. HitIt keeps its desktop tab bar |
 
 [ADR 0098](0098-the-music-shell-pages-lists-and-search.md), [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md), [ADR 0094](0094-one-fold-header.md) and [ADR 0097](0097-the-fit-check-at-two-widths.md) adopt other shared rules. They stay the owners of those adoptions. musicindex ADRs 0022, 0028, 0032, 0042, 0056, 0064 and 0073 are not in the list of the orchestrator brief. ADR 0073 records the operator choice of the focus ring. ADR 0083 adopted 0022, 0028, 0032, 0042 and 0064, so this ADR restates those adoptions. It adopts 0056, because HitIt builds R-SIDE-1 and no HitIt ADR adopts it.
@@ -187,7 +191,7 @@ The code differs from the adopted rules in these points. The [check of the open 
 | R-ELEVATION-2, the light levels | No token gives the group level and the open entry level (`src/ui/tokens.rs:331` to `:334`) | Token packet |
 | R-ART-5, the header glow | A flat backdrop (`src/ui/composites/cover_backdrop.rs:31`) | Glow packet |
 | R-ART-4, the art radius | A fixed map from size to radius (`src/ui/composites/thumbnail.rs:88`) | Art radius packet |
-| R-VALUE-1 and R-VALUE-2 | No payment section on an item page | Payment split packet |
+| R-VALUE-1, R-VALUE-2, R-VALUE-5 and R-ADDRESS-1 | No payment section on an item page | Payment split packet |
 | R-A11Y-1 | No code reads the three system settings (`src/ui/theme_bridge.rs:85`) | System settings packet |
 | R-DATE-1, R-LOADING-1, R-NOTICE-1 | A fixed English date, a skeleton with no animation, no shared notice | One packet for each rule |
 | R-LINK-1 | No link to the musicindex.org page of an item | Link packet |

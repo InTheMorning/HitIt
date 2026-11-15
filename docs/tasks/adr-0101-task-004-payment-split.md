@@ -1,6 +1,6 @@
 # ADR 0101 Task 004: The Payment Split Section
 
-Status: Blocked - 2026-11-15. This packet waits for the operator push of musicindex-lib `be0f855`, the crate `musicindex-value` under musicindex ADR 0075. Start the pin when `git ls-remote https://github.com/InTheMorning/musicindex-lib` shows that commit. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Blocked - 2026-11-15. This packet waits for the operator push of musicindex-lib `5e35cf5`, the crate `musicindex-value` under musicindex ADRs 0075 and 0076. Start the pin when `git ls-remote https://github.com/InTheMorning/musicindex-lib` shows that commit. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
 
 ## Goal
 
@@ -24,6 +24,11 @@ A track page and a release page show the payment split of the item in one sectio
   5. A block with exactly one recipient gives it 100 %, whatever its share.
   6. Examples: 100, 100 and a fee of 10 give 47.6 %, 47.6 % and 4.8 %. A fee of 10 alone gives 100.0 %.
   7. When a block has a fee recipient, a line names the fee. The line says that the fee comes out of the payment, not on top of it.
+- musicindex ADR 0076 (musicindex `a08dc01`) R-ADDRESS-1 to R-ADDRESS-3 (orchestrator text of 2026-11-15):
+  - A row shows a node key or an npub in its short form. `musicindex_value::short_address(text: &str) -> String` gives it.
+  - A custom value, an LNURL address and an address with "@" stay in full.
+  - The hover text or the tooltip and the Copy action give the full address.
+  - R-ADDRESS-3 item 4: an app has no copy of the function.
 - musicindex ADR 0075 R-VALUE-4 puts the split code in the musicindex-lib folder `value/`, the crate `musicindex-value`.
 - [ADR 0099](../adr/0099-the-rss-path-keeps-only-lightning-payment-routes.md) keeps only Lightning routes on the RSS path. Read its Decision before the first edit.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) Decision I: RSS is the source of truth.
@@ -55,7 +60,7 @@ Main session choice, 2026-11-15: the section heading is "Value Split". The headi
 | Stored route read | reuse | `src/db/payment_routes.rs` | `stored_route` gives the route of a track with the feed fallback. |
 | Read models | extend | `src/views.rs` | The database conversions give an empty list. Fill `payment_routes` from the stored columns. |
 | Track view model slot | extend | `src/view_models/track_detail.rs` | `value_routes` exists. Replace the text item with the split view model of step 2. |
-| Split arithmetic | reuse | `Cargo.toml` | Pin the crate `musicindex-value` at musicindex-lib `be0f855e65cd12b1cc9bffd66566cc8f720ce203` (ADR 0075 R-VALUE-4). It gives `percentages`. |
+| Split arithmetic | reuse | `Cargo.toml` | Pin the crate `musicindex-value` at musicindex-lib `5e35cf5` (ADR 0075 R-VALUE-4). It gives `percentages` and `short_address`. |
 | Split view model | new | `src/view_models/payment_split.rs` | Searched `src/view_models/` and `src/ui/composites/` in HitIt. No code gives the rows or the bar of a split. The view model calls `musicindex_value::percentages` for each percentage. |
 | Split section | new | `src/ui/composites/payment_split.rs` | Searched `src/ui/composites/` in HitIt. No composite draws recipient rows with a bar. |
 | Color tokens | extend | `src/ui/tokens.rs` | `SemanticColor` gives each color. Add `Share` and `ShareTrack`. |
@@ -64,13 +69,15 @@ Main session choice, 2026-11-15: the section heading is "Value Split". The headi
 
 ## Required Changes
 
-0. **The pin.** Add `musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "be0f855e65cd12b1cc9bffd66566cc8f720ce203" }` to `Cargo.toml`. Move `musicindex-search` to the same rev (musicindex ADR 0049 R-QUERY-4 item 1). Stop if the search tests do not pass at that rev.
+0. **The pin.** Add `musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5e35cf5" }` to `Cargo.toml`. Write the full hash of the commit, as `git ls-remote` gives it. Move `musicindex-search` to the same rev (musicindex ADR 0049 R-QUERY-4 item 1). Stop if the search tests do not pass at that rev.
 1. **The stored routes.** The database conversions of `src/views.rs` fill `payment_routes` of a feed and a track from their stored columns. A track with no route of its own gets the route of its feed, as `stored_route` does.
 2. **The split view model.** In `src/view_models/payment_split.rs`, write a pure function from a list of `PaymentRoute` to a split view model. It parses each split text to `Option<f64>`, with a parse function of the crate if it has one. It gets each percentage from `percentages`. It gives one segment of the bar for each row, in the order of the rows. A recipient with no percentage from `percentages` gives no percentage text and no segment.
    - The view model holds no color and no renderer type.
-   - Each recipient gets one row with the name, the percentage text with one decimal place, the raw share text, the address and the fee flag.
+   - Each recipient gets one row with the name, the percentage text and the raw share text. The percentage text has one decimal place.
+   - The row also has the display address, the full address and the fee flag. The display address of a node key or an npub comes from `short_address`. A custom value, an LNURL address and an address with "@" stay in full.
 3. **The color tokens.** Add `Share` and `ShareTrack` to `SemanticColor`, with the values of `share` and `share-track` in each theme. A high-contrast profile uses `Share` for the bar and an opaque track. A test compares the values with `src/assets/tokens.json`.
-4. **The section.** The composite draws the heading, the bar and the rows. The address uses the monospace font of ADR 0101 Decision 3. The raw share is the tooltip of the percentage. A fee row is last, with the word "fee". A block with a fee shows the line of R-VALUE-5 item 7.
+4. **The section.** The composite draws the heading, the bar and the rows. The address uses the monospace font of ADR 0101 Decision 3. The tooltip of the address and its Copy action give the full address. The raw share is the tooltip of the percentage.
+   - A fee row is last, with the word "fee". A block with a fee shows the line of R-VALUE-5 item 7.
 5. **The pages.** The track page shows the section of its track. The release page shows the section of its feed. A page with no route shows no section. The Index pages use the routes of the API read model.
 6. **The inspection view.** The inspection view keeps its rows. Its split text uses the formatter of step 2, so that one function formats a share.
 
@@ -95,6 +102,9 @@ Mechanical:
 - M6: a test of the read model proves that a Library track with no route of its own gets the route of its feed.
 - M7: a test proves that a track page and a release page with routes give the section, and that a page with no route gives none.
 - M8: the fit tests of ADR 0097 pass.
+- M8a: a test proves that a node key row and an npub row show the text of `musicindex_value::short_address`, and that the Copy payload is the full address.
+- M8b: a test proves that an LNURL address, an address with "@" and a custom value stay in full.
+- M8c: a guard proves that no HitIt file defines a short address function (R-ADDRESS-3 item 4). Its message names musicindex ADR 0076 and the fix: call `musicindex_value::short_address`.
 - M9: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` and `cargo build --bin hitit` pass.
 
 Visual, for the operator, in Dark and Light at M, at 390 px and at 940 px:
@@ -102,6 +112,7 @@ Visual, for the operator, in Dark and Light at M, at 390 px and at 940 px:
 - V1: a track page shows "Value Split" with one row for each recipient and a bar above the rows.
 - V2: the text gives each percentage. The bar agrees with the text.
 - V3: the address is monospace and does not push the row past the page.
+- V3a: the short form of a node key has the same text at 390 px and at 940 px. The tooltip shows the full address.
 - V4: a fee row shows "fee" and is last. The fee line says that the fee comes out of the payment.
 
 ## Test Commands
@@ -121,6 +132,13 @@ Visual, for the operator, in Dark and Light at M, at 390 px and at 940 px:
 Give the files changed and the tests of M1 to M7 by name. Give the heading that the section uses.
 
 A delegate does not commit. It leaves its change in the working tree and reports it. Write each comment and the report in Simplified Technical English (`/home/citizen/.agents/skills/asd-ste100/SKILL.md`).
+
+## Later Items
+
+These places show a node key or an npub in full. This packet does not change them. A later packet applies R-ADDRESS-1 to each one.
+
+- `src/view_models/entity_detail.rs:1087`: the "Nostr" row of an entity detail gives the full npub.
+- `src/ui/shells/library/track_detail_metadata_values.rs:329`: the inspection tree of a value route gives the `address` child field in the Index context (`src/view_models/track_metadata_grid.rs:1336`). Inspection shows raw data (ADR 0101 Decision 8). The later packet decides if R-ADDRESS-1 applies there.
 
 ## Stop And Ask
 
