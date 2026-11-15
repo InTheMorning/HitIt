@@ -28,6 +28,9 @@ vision.md
 # *.wav
 # *.flac
 
+# Local previews of documents, for example rendered diagrams
+local-preview/
+
 # --- Editor / OS cruft -------------------------------------------
 
 # Vim / Neovim
