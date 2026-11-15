@@ -1,6 +1,6 @@
 # ADR 0101 Task 004: The Payment Split Section
 
-Status: Blocked - 2026-11-15. This packet waits for the operator answer on the shared split function in musicindex-lib. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Blocked - 2026-11-15. This packet waits for the musicindex-lib folder `value/` at a commit. The orchestrator sends the commit and the musicindex record hash. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
 
 ## Goal
 
@@ -41,7 +41,9 @@ The percentage rule comes from Studio (orchestrator answer of 2026-11-15). `perc
 - Each other recipient gets its part of the rest, which is 100 less the fee shares.
 - A share that is not a number gives no percentage.
 
-Two Rust apps use this function, so it moves into musicindex-lib. The orchestrator asks the operator for the record of that new lib folder. Do not copy the Studio function into HitIt. Stop if the lib function is not available.
+Operator choice, 2026-11-15 (musicindex-research `0958285`): the Studio rule is correct. Shares 100, 100 and a fee of 10 give 45 %, 45 % and 10 %. A musicindex ADR amends R-VALUE-1 item 1 to this rule. It also accepts a new musicindex-lib folder, proposed name `value/`.
+
+The Studio function and its tests move to that folder. HitIt pins the folder and calls it. Do not copy the Studio function into HitIt.
 
 Main session choice, 2026-11-15: the section heading is "Value Split". The heading of a section of musicindex.org is not known to this session. The packet reports the heading, and the operator decides at the walk.
 
@@ -117,7 +119,6 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 ## Stop And Ask
 
-- Stop if the shared split function and R-VALUE-1 item 1 give a different percentage for a fee. The orchestrator examines this difference on 2026-11-15.
 - Stop if a stored route has a recipient with no name and no address.
 - Stop if the fill of step 1 changes a result of a tag write test.
 - Stop if the contrast of `Share` on the background is below 3:1 in a theme.
