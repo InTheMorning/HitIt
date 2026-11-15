@@ -94,10 +94,11 @@ pub(crate) struct ShowActionsDisplay {
     pub(crate) resume: ShowActionDisplay,
     pub(crate) stop: ShowActionDisplay,
     pub(crate) select: ShowActionDisplay,
+    pub(crate) clear: ShowActionDisplay,
 }
 
 impl ShowActionsDisplay {
-    fn for_state(state: TransportState) -> Self {
+    fn for_state(state: TransportState, has_cue: bool) -> Self {
         let available = |condition| {
             if condition {
                 ShowActionAvailability::Available
@@ -137,6 +138,13 @@ impl ShowActionsDisplay {
                 availability: available(select),
                 label: "Select",
                 a11y_label: "Select Show cue entry",
+            },
+            clear: ShowActionDisplay {
+                availability: available(
+                    has_cue && matches!(state, TransportState::Stopped | TransportState::Failed),
+                ),
+                label: "Clear",
+                a11y_label: "Clear Show cue",
             },
         }
     }
@@ -329,6 +337,7 @@ pub(crate) struct QueueNowPlayingPageVm {
     /// Transport control display state.
     pub(crate) transport: TransportDisplay,
     pub(crate) actions: ShowActionsDisplay,
+    has_cue: bool,
     /// Empty-state label for the queue list.
     pub(crate) empty_label: &'static str,
 }
@@ -340,7 +349,7 @@ impl QueueNowPlayingPageVm {
             self.can_skip_previous,
             self.can_skip_next,
         );
-        self.actions = ShowActionsDisplay::for_state(state);
+        self.actions = ShowActionsDisplay::for_state(state, self.has_cue);
     }
 
     pub(crate) fn track_ids(&self) -> Vec<i64> {
@@ -369,6 +378,10 @@ impl QueueNowPlayingPageVm {
 
     pub(crate) fn can_stop_show(&self) -> bool {
         self.actions.stop.availability == ShowActionAvailability::Available
+    }
+
+    pub(crate) fn can_clear_show_cue(&self) -> bool {
+        self.actions.clear.availability == ShowActionAvailability::Available
     }
 
     pub(crate) fn can_skip_previous(&self) -> bool {
@@ -436,6 +449,7 @@ pub(crate) struct QueueNowPlayingPageVmBuilder {
     transport_state: TransportState,
     can_skip_previous: bool,
     can_skip_next: bool,
+    has_cue: bool,
 }
 
 impl Default for QueueNowPlayingPageVmBuilder {
@@ -445,6 +459,7 @@ impl Default for QueueNowPlayingPageVmBuilder {
             transport_state: TransportState::Empty,
             can_skip_previous: false,
             can_skip_next: false,
+            has_cue: false,
         }
     }
 }
@@ -473,6 +488,11 @@ impl QueueNowPlayingPageVmBuilder {
         self
     }
 
+    pub(crate) const fn has_cue(mut self, has_cue: bool) -> Self {
+        self.has_cue = has_cue;
+        self
+    }
+
     /// Projects the builder input into a display-ready page.
     #[must_use]
     pub(crate) fn build(self) -> QueueNowPlayingPageVm {
@@ -492,7 +512,8 @@ impl QueueNowPlayingPageVmBuilder {
                 self.can_skip_previous,
                 self.can_skip_next,
             ),
-            actions: ShowActionsDisplay::for_state(self.transport_state),
+            actions: ShowActionsDisplay::for_state(self.transport_state, self.has_cue),
+            has_cue: self.has_cue,
             empty_label: "Queue is empty",
         }
     }
@@ -606,6 +627,24 @@ mod tests {
                 select
             );
         }
+    }
+
+    #[test]
+    fn clear_action_requires_a_stored_cue_and_stopped_playback() {
+        let available = |state, has_cue| {
+            QueueNowPlayingPageVm::builder()
+                .transport_state(state)
+                .has_cue(has_cue)
+                .build()
+                .can_clear_show_cue()
+        };
+        assert!(available(TransportState::Stopped, true));
+        assert!(available(TransportState::Failed, true));
+        assert!(!available(TransportState::Empty, false));
+        assert!(!available(TransportState::Stopped, false));
+        assert!(!available(TransportState::Playing, true));
+        assert!(!available(TransportState::Paused, true));
+        assert!(!available(TransportState::Starting, true));
     }
 
     #[test]

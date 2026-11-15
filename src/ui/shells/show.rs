@@ -75,6 +75,13 @@ impl ShowSlots {
         self.panel = self.panel.on_select_cue_entry(handler);
         self
     }
+    pub(crate) fn on_clear_cue(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.panel = self.panel.on_clear_cue(handler);
+        self
+    }
     pub(crate) fn on_stop_show(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,

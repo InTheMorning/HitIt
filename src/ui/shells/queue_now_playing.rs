@@ -33,6 +33,7 @@ pub(crate) struct QueueNowPlayingSlots {
     skip_next: Option<QueueClickHandler>,
     select_entry: Option<QueueSelectHandler>,
     stop: Option<QueueClickHandler>,
+    clear: Option<QueueClickHandler>,
 }
 
 impl QueueNowPlayingSlots {
@@ -83,6 +84,14 @@ impl QueueNowPlayingSlots {
         self.stop = Some(Rc::new(handler));
         self
     }
+
+    pub(crate) fn on_clear(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.clear = Some(Rc::new(handler));
+        self
+    }
 }
 
 /// Queue cuelist shell element.
@@ -120,10 +129,37 @@ pub(crate) fn render_queue_transport(
 impl RenderOnce for QueueCuelistShell {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let QueueNowPlayingPageVm {
-            rows, empty_label, ..
+            rows,
+            empty_label,
+            actions,
+            ..
         } = self.vm;
-
-        render_queue_list(rows, empty_label, self.slots.select_entry.as_ref(), cx)
+        let clear = if actions.clear.availability
+            == crate::view_models::queue_now_playing::ShowActionAvailability::Available
+        {
+            let mut button = Button::styled("show-clear-cue", ControlStyle::Destructive)
+                .label(actions.clear.label)
+                .a11y_label(actions.clear.a11y_label);
+            if let Some(handler) = self.slots.clear {
+                button = button.on_click(move |event, window, cx| handler(event, window, cx));
+            } else {
+                button = button.disabled(true);
+            }
+            Some(button)
+        } else {
+            None
+        };
+        div()
+            .flex()
+            .flex_col()
+            .gap(Spacing::SM.scaled(cx))
+            .children(clear)
+            .child(render_queue_list(
+                rows,
+                empty_label,
+                self.slots.select_entry.as_ref(),
+                cx,
+            ))
     }
 }
 

@@ -84,6 +84,13 @@ impl ShowDetailPanelSlots {
         self.queue = self.queue.on_select_entry(handler);
         self
     }
+    pub(crate) fn on_clear_cue(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.queue = self.queue.on_clear(handler);
+        self
+    }
     pub(crate) fn on_select_event(
         mut self,
         handler: impl Fn(String, &mut Window, &mut App) + 'static,

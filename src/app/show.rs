@@ -16,6 +16,7 @@ use rusqlite::Connection;
 
 use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{RecoveryAction, RecoveryIntent};
+use crate::application::commands::playlist::ClearShowCue;
 use crate::application::{ApplicationCommand, CommandContext, CommandError, CommandOutcome};
 use crate::broadcast::control::{self, UnitRef};
 use crate::broadcast::encoder::{self, EncoderTarget};
@@ -31,6 +32,9 @@ use crate::runtime::{
     BroadcastServiceWatchSnapshot, BroadcastServiceWatchUnit,
 };
 use crate::ui::composites::{live_status_strip, LiveStatusStrip, LiveStatusStripSlots};
+use crate::ui::composites::{
+    open_confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
+};
 use crate::ui::shells::show::{render_show, ShowShell, ShowSlots};
 use crate::view_models::live_status::LiveStatusDisplay;
 use crate::view_models::queue_now_playing::QueueNowPlayingPageVm;
@@ -52,6 +56,64 @@ use super::{AppTab, TopApp, WorkspaceScreenMount};
 
 const PRODUCER_UNIT: &str = "mixxx-now-playing.service";
 
+impl TopApp {
+    fn confirm_clear_show_cue(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        if !self.show_page.queue.can_clear_show_cue() {
+            return;
+        }
+        let entity = cx.weak_entity();
+        let handlers = ConfirmationDialogHandlers::new(
+            |_, _: &mut gpui::App| {},
+            move |window, cx: &mut gpui::App| {
+                let _ = entity.update(cx, |this, cx| this.clear_show_cue(window, cx));
+            },
+        );
+        open_confirmation_dialog(
+            window,
+            cx,
+            ConfirmationDialogDisplay {
+                title: "Clear the Show cue?".into(),
+                message: "This removes the stored cue.".into(),
+                cancel_button_id: "show-clear-cancel".into(),
+                cancel_label: "Cancel".into(),
+                cancel_a11y_label: "Keep the Show cue".into(),
+                confirm_button_id: "show-clear-confirm".into(),
+                confirm_label: "Clear".into(),
+                confirm_a11y_label: "Clear the Show cue".into(),
+                destructive: true,
+                items: Vec::new(),
+            },
+            handlers,
+        );
+    }
+
+    fn clear_show_cue(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) {
+        if !self.show_page.queue.can_clear_show_cue() {
+            return;
+        }
+        // ADR 0068: the store checks the stopped state again in the Clear transaction.
+        // A Clear while playback plays or is paused changes nothing and gives the reason.
+        let command = ClearShowCue::new(Arc::clone(&self.conn));
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            |this, (), cx| {
+                this.playback_presentation_override = None;
+                this.settings_status.clear();
+                this.library
+                    .update(cx, crate::library::LibraryApp::reload_playlists);
+                this.refresh_show_page(cx);
+            },
+            |this, error, cx| {
+                this.settings_status = format!("Show cue clear error: {error:#}");
+                this.refresh_show_page(cx);
+            },
+        );
+    }
+}
+
 pub(super) fn build_show_screen(
     app: &TopApp,
     window_width: f32,
@@ -60,6 +122,7 @@ pub(super) fn build_show_screen(
     let entity = cx.entity();
     let service_entity = entity.clone();
     let stop_entity = entity.clone();
+    let clear_entity = entity.clone();
     let reset_entity = entity.clone();
     let select_card_entity = entity.clone();
     let open_panel_entity = entity.clone();
@@ -82,6 +145,9 @@ pub(super) fn build_show_screen(
                 TopApp::toggle_playback_paused,
             ))
             .on_stop_show(queue_transport_action(entity.clone(), TopApp::stop_show))
+            .on_clear_cue(move |_, window, cx| {
+                clear_entity.update(cx, |this, cx| this.confirm_clear_show_cue(window, cx));
+            })
             .on_skip_next(queue_transport_action(
                 entity.clone(),
                 TopApp::skip_playback_next,

@@ -35,6 +35,7 @@ pub(super) struct QueueNowPlayingInput {
     session: Option<db::PlaybackSessionRow>,
     queue: QueueProjection,
     text_filter: Option<String>,
+    has_cue: bool,
 }
 
 pub(super) fn queue_now_playing_input(
@@ -55,6 +56,7 @@ pub(super) fn queue_now_playing_input(
         session,
         queue,
         text_filter,
+        has_cue: db::show_cue_exists(conn).unwrap_or(false),
     }
 }
 
@@ -66,6 +68,7 @@ pub(super) fn queue_now_playing_vm(
         session,
         mut queue,
         text_filter,
+        has_cue,
     } = input;
     for (track, path) in queue.tracks.iter_mut().zip(queue.cue_paths) {
         if let Some(path) = path {
@@ -74,7 +77,6 @@ pub(super) fn queue_now_playing_vm(
             }
         }
     }
-    let has_cue = !queue.tracks.is_empty();
     let transport_state = session.as_ref().map_or_else(
         || {
             if has_cue {
@@ -96,6 +98,7 @@ pub(super) fn queue_now_playing_vm(
         .tracks(queue.tracks)
         .transport_state(transport_state)
         .skip_availability(queue.can_skip_previous, queue.can_skip_next)
+        .has_cue(has_cue)
         .build();
 
     if let Some(filter) = text_filter {
@@ -177,6 +180,29 @@ fn queue_track_input(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cleared_cue_projects_an_empty_queue_without_clear_availability() -> anyhow::Result<()> {
+        let mut conn = rusqlite::Connection::open_in_memory()?;
+        db::init_schema(&conn)?;
+        db::migrate_schema(&conn)?;
+        let playlist_id = db::playlist_create(&conn, "Empty cue")?;
+        conn.execute(
+            "INSERT INTO show_cue(id, loaded_at_us, source_playlist_id, source_playlist_name) VALUES (1, 1, ?1, 'Empty cue')",
+            [playlist_id],
+        )?;
+        let music_dir = tempfile::tempdir()?;
+
+        let before = queue_now_playing_vm(queue_now_playing_input(&conn, None), music_dir.path());
+        assert!(before.can_clear_show_cue());
+        db::clear_show_cue(&mut conn)?;
+        let after = queue_now_playing_vm(queue_now_playing_input(&conn, None), music_dir.path());
+
+        assert_eq!(after.transport.play_pause_state, TransportState::Empty);
+        assert!(!after.can_clear_show_cue());
+        assert!(after.rows.is_empty());
+        Ok(())
+    }
 
     // ADR 0068 task 002 R2: a bound cue file that is not on the disk is
     // unavailable, and a bound file that is on the disk is available.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-15. Implementation has not started. This is part 5 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
+Implemented - 2026-11-15. Mechanical checks are Green. V5 of the parent task is open. This is part 5 of 5 of [task 003](adr-0068-task-003-show-plays-the-cue.md).
 
 ## Goal
 
@@ -24,6 +24,13 @@ Each fact was read at commit `3b387f7`.
 - A successful load emits `ShowCueLoaded` (`src/library/app_impl.rs:2181`). `src/app.rs:441` handles it and refreshes Show.
 - The playlist menu shows "Load into Show Cue" or "Replace Show Cue" from `show_cue_exists` (`src/db/show_cue.rs:214`).
 - The Show refresh starts in `src/app/show.rs:321`. The Show view model is in `src/view_models/show.rs`.
+
+## Facts After Task 003d - commit of 2026-11-15
+
+- `QueueNowPlayingPageVm` in `src/view_models/queue_now_playing.rs` holds `actions: ShowActionsDisplay`, built by `ShowActionsDisplay::for_state`. The states are `Empty`, `Stopped`, `Starting`, `Playing`, `Paused` and `Failed`. Add the Clear action there, with the same `ShowActionDisplay` type, and give the handler one function that reads it, as `can_stop_show` does.
+- `TopApp::playback_presentation_override` can show `Failed` while the stored session is stopped. Clear is available in `Stopped`, and in `Failed` only when the handler finds the session stopped.
+- The Show transport is drawn in `src/ui/shells/queue_now_playing.rs`. The cuelist is drawn through `src/ui/composites/show_detail_panel.rs`, which passes `QueueNowPlayingSlots` to `render_queue_cuelist`.
+- A successful Select sets `playback_presentation_override` to `None` in `src/app/playback_bar.rs`. Do the same after a Clear.
 
 ## Files To Inspect
 
@@ -90,7 +97,19 @@ cargo build --locked --offline --quiet --bin hitit
 git diff --check
 ```
 
-## Stop And Ask
+## Result - 2026-11-15
+
+A ChatGPT run made the change. The orchestrating session examined the diff and ran each check.
+
+- The view model gives the Clear action. It is available with a cue in the stopped state and in the failed state.
+- The Clear button is above the cuelist, in the destructive style. It shows only when the action is available. It opens the confirmation of `src/ui/composites/confirmation_dialog.rs`.
+- The orchestrating session removed a database read on the render thread from the handler. `db::clear_show_cue` checks the stopped state in its transaction.
+- The orchestrating session added the command test `clear_show_cue_runs_only_while_playback_is_stopped`.
+
+Deviations from this file:
+
+- No test at the adapter layer reads the playlist menu label after a Clear. The handler calls `reload_playlists`, and the test `show_cue_exists_tracks_load_and_clear` proves the store value that the label reads. V5 examines the label.
+
 
 - Stop if no existing confirmation fits the Clear item.
 - Stop if the Clear item needs a change to the Show page layout that ADR 0063 owns.

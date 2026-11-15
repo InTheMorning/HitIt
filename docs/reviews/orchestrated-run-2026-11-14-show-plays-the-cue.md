@@ -27,8 +27,8 @@ A ChatGPT `ask` (`gpt-6.1-sol`, effort medium) gave the code locations at commit
 | 003b | ChatGPT `gpt-6-luna`, effort medium | The planning model read the diff, added one test and ran the gate: 3090 tests and 410 guards passed. Clippy, the format check and the build are Green. |
 | 003c | ChatGPT `gpt-6-luna`, effort high. The run ended with a broker refusal and no report. | The planning model read the diff, made five corrections and ran the gate: 3098 tests and 410 guards passed. Clippy, the format check and the build are Green. The task file lists the corrections and the deviations. |
 | 003d | ChatGPT `gpt-6-luna`, effort medium, then effort high. The first run stopped at the driver trait and changed no code. | The planning model read the diff, added four tests and ran the gate: 3104 tests and 411 guards passed. Clippy, the format check and the build are Green. |
-| 003e | | |
+| 003e | ChatGPT `gpt-6-luna`, effort medium | The planning model read the diff, removed a database read on the render thread, added one test and ran the gate: 3107 tests and 411 guards passed. Clippy, the format check and the build are Green. |
 
 ## Open Visual Checks
 
-V1 to V5 of the task file. The walk is at the end of the run.
+V1 to V5 of the task file are in section 20 of [pending human checks](../pending-human-checks.md). The walk is at the end of the run.

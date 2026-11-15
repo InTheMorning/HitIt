@@ -840,6 +840,66 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn clear_show_cue_runs_only_while_playback_is_stopped() -> anyhow::Result<()> {
+        let conn = setup_test_db()?;
+        let bus = CommandBus::new();
+        let playlist_id = {
+            let db = conn.lock().expect("lock test database");
+            db.execute("INSERT INTO feeds(feed_url, feed_guid, title) VALUES ('https://cue.test/clear', 'clear', 'Clear')", [])?;
+            let feed_id = db.last_insert_rowid();
+            db.execute("INSERT INTO tracks(feed_id, item_guid, track_title, is_in_library) VALUES (?1, 'track', 'Track', 1)", [feed_id])?;
+            let track_id = db.last_insert_rowid();
+            db::mark_track_downloaded(
+                &db,
+                track_id,
+                &crate::library_path::LibraryRelativePath::for_test("clear.mp3"),
+                None,
+            )?;
+            let playlist_id = db::playlist_create(&db, "Clear")?;
+            db::playlist_append(&db, playlist_id, track_id)?;
+            playlist_id
+        };
+        bus.execute(
+            LoadShowCue::new(Arc::clone(&conn), playlist_id, 1),
+            &CommandContext::next(),
+        )?;
+        let session_state = |state: &str| -> anyhow::Result<()> {
+            let db = conn.lock().expect("lock test database");
+            let track_id: i64 =
+                db.query_row("SELECT id FROM tracks LIMIT 1", [], |row| row.get(0))?;
+            crate::playback::set_track(&db, track_id, crate::playback::DEFAULT_SESSION_ID)?;
+            if state == "paused" {
+                crate::playback::update_paused(&db, true, crate::playback::DEFAULT_SESSION_ID)?;
+            }
+            Ok(())
+        };
+        let cue_exists = || db::show_cue_exists(&conn.lock().expect("lock test database"));
+
+        for state in ["playing", "paused"] {
+            session_state(state)?;
+            let error = bus
+                .execute(
+                    ClearShowCue::new(Arc::clone(&conn)),
+                    &CommandContext::next(),
+                )
+                .expect_err("Clear must not run while playback is active");
+            assert!(error.to_string().contains("playback is active"));
+            assert!(cue_exists()?);
+        }
+
+        crate::playback::stop(
+            &conn.lock().expect("lock test database"),
+            crate::playback::DEFAULT_SESSION_ID,
+        )?;
+        bus.execute(
+            ClearShowCue::new(Arc::clone(&conn)),
+            &CommandContext::next(),
+        )?;
+        assert!(!cue_exists()?);
+        Ok(())
+    }
+
     /// Two playlists. "Friday Show" holds the removed track at positions 0
     /// and 2, and "Warm Up" holds it at position 1.
     fn removed_track_fixture(conn: &SharedConnection) -> anyhow::Result<(i64, i64, i64, i64)> {
