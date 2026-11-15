@@ -65,10 +65,10 @@ The overhaul plan step 4 puts two visual defects into this phase, with no separa
 
 ## Open Points
 
-These choices are open for the operator. Each packet uses the recommendation and records it as a "Main session choice". The operator can change it at the walk.
+Open points 3 and 4 are open for the operator. On 2026-11-15 the operator approved the new crate `icu_datetime` for packet 006. Each packet uses the recommendation and records it as a "Main session choice". The operator can change it at the walk.
 
-1. **The label of the audio action.** R-ACT-7 item 4 fills the audio action of a track page, but no shared rule gives its label. Thus it is a HitIt choice under musicindex ADR 0023, and the track page has no audio action now. Recommendation: packet 011 fills no button on a track page. ADR 0068 task 004, the audition player, gives the label "Audition" and the fill.
-2. **Increase Contrast with an explicit profile.** R-A11Y-1 item 2 asks each app to honor the system setting. Recommendation: with the profile System, Increase Contrast selects the high-contrast profile of the appearance. An explicit profile that the person selected stays.
+1. **The label of the audio action.** Operator choice, 2026-11-15: the label is "Audition". Packet 011 fills no button on a track page. ADR 0068 task 004, the audition player, gives the label and the fill.
+2. **Increase Contrast with an explicit profile.** Operator choice, 2026-11-15: with the profile System, Increase Contrast selects the high-contrast profile of the appearance. An explicit profile that the person selected stays.
 3. **The report times.** R-DATE-1 gives the date of an item. The reports give a recorded time in UTC, for example `2026-11-15 22:27:35 UTC`. Recommendation: packet 006 changes only the dates of items, and the reports keep their recorded time. The report owners (ADRs 0059 and 0063) decide a change.
 4. **A Library item and the index.** R-LINK-1 item 5 shows "Not in the index yet" when the index does not hold the item. Recommendation: a Library page shows the link when it has the feed GUID. The page of musicindex.org gives its own message when it does not find the item. Packet 009 stops and asks if a stored fact gives a better answer.
 

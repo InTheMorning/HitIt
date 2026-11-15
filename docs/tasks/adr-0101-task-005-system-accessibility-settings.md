@@ -28,7 +28,7 @@ Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found th
 - `Cargo.lock` holds `ashpd` 0.13.13 and `zbus` 5.19.0, through GPUI. `Cargo.toml` does not name them. Examined.
 - This is an inference from the xdg-desktop-portal specification: the Settings portal gives the namespace `org.freedesktop.appearance` with the keys `contrast` (1 is higher contrast) and `reduced-motion` (1 is reduced motion). No portal key gives Reduce Transparency. Examine the specification and the `ashpd` 0.13 API before you use them.
 
-Main session choice, 2026-11-15: with the profile System, Increase Contrast selects the high-contrast profile of the window appearance. An explicit profile that the person selected stays. Reduce Motion and Reduce Transparency apply with each profile. The operator can change this at the walk (open point 2 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points)).
+Operator choice, 2026-11-15: with the profile System, Increase Contrast selects the high-contrast profile of the window appearance. An explicit profile that the person selected stays. Reduce Motion and Reduce Transparency apply with each profile. This is open point 2 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points).
 
 Main session choice, 2026-11-15: on Linux, Reduce Transparency stays `false` when no portal key gives it. The report says so.
 

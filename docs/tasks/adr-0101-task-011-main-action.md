@@ -35,7 +35,7 @@ Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found th
 - This is an inference: no header has a Play or an Audition action. ADR 0068 task 004, the audition player, is Ready.
 - Tests: `adr_0083_r83_42_index_track_actions` (`src/view_models/track_detail.rs:1627`) and `adr_0083_album_page_actions_follow_the_state_table` (`src/view_models/album_page.rs:218`).
 
-Main session choice, 2026-11-15: a page header has no filled button after this packet. The style of R-ACT-7 item 1 comes with its first user, the audition button of ADR 0068 task 004. Its label is open point 1 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points). Recommendation: "Audition".
+Main session choice, 2026-11-15: a page header has no filled button after this packet. The style of R-ACT-7 item 1 comes with its first user, the audition button of ADR 0068 task 004. Operator choice, 2026-11-15: its label is "Audition" (open point 1 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points)).
 
 ## Base components
 

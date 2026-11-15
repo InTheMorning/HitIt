@@ -1,6 +1,6 @@
 # ADR 0101 Task 006: Dates In The System Language
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks. The operator must approve the new crate `icu_datetime` before the first edit.
+Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks. The operator approved the new crate `icu_datetime` on 2026-11-15.
 
 ## Goal
 
@@ -32,7 +32,7 @@ Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found th
 - `Cargo.lock` has no `icu_datetime`. Examined.
 - Tests pin the English text: `fmt_date_renders_ymd` (`src/view_models/format.rs:108`) and `adr_0086_window_groups_fmt_month_day_gives_month_and_day` (`:114`).
 
-Main session choice, 2026-11-15: HitIt uses `icu_datetime` at `~2.1`, the family of `icu_collator`, with its compiled data. A date is the medium date length of the locale, for example "Nov 15, 2026" in `en-US` and "15 nov. 2026" in `fr-FR`. The day is the day in the local time zone of the system.
+Operator choice, 2026-11-15: HitIt uses `icu_datetime` at `~2.1`, the family of `icu_collator`, with its compiled data. A date is the medium date length of the locale, for example "Nov 15, 2026" in `en-US` and "15 nov. 2026" in `fr-FR`. The day is the day in the local time zone of the system.
 
 Main session choice, 2026-11-15: the report times stay. A recorded time of a report, for example `2026-11-15 22:27:35 UTC`, is not the date of an item. The report owners (ADRs 0059 and 0063) decide a change (open point 3 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points)). The live schedule of `src/view_models/live_page.rs:228` is the date of an item, so it changes.
 
