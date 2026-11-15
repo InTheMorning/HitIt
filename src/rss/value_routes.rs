@@ -74,14 +74,22 @@ fn is_lightning_recipient(recipient: &Value) -> bool {
             .get("attrs")
             .and_then(|attrs| attrs.get(name))
             .and_then(Value::as_str)
-            .map(str::trim)
-            .unwrap_or_default()
     };
-    let route_type = attr("type");
+    is_lightning_type_and_address(attr("type"), attr("address"))
+}
+
+/// Tells if a stored route is a Lightning route (ADR 0099 Decision 2).
+#[must_use]
+pub(crate) fn is_lightning_route(route: &PaymentRoute) -> bool {
+    is_lightning_type_and_address(route.route_type.as_deref(), route.address.as_deref())
+}
+
+fn is_lightning_type_and_address(route_type: Option<&str>, address: Option<&str>) -> bool {
+    let route_type = route_type.map(str::trim).unwrap_or_default();
     if route_type.eq_ignore_ascii_case("lnaddress") {
         return true;
     }
-    let address = attr("address");
+    let address = address.map(str::trim).unwrap_or_default();
     route_type.eq_ignore_ascii_case("node")
         && address.len() == 66
         && address.bytes().all(|byte| byte.is_ascii_hexdigit())

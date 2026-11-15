@@ -5,6 +5,7 @@
 Accepted - 2026-11-15. The operator selected option A on 2026-11-15. The orchestrator session relayed the decision.
 
 - Changes: [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md) Decision 9. The stored route of that decision holds only Lightning routes.
+- Revised: 2026-11-15: Decision 5 adds migration 26 for the stored rows. The section "Operator Choices" replaces the open points.
 
 ## Context
 
@@ -45,18 +46,28 @@ HitIt does not store, write or publish a route of a payment system that is not L
 
 ### 4. A changed reader reads each stored feed again
 
-`RSS_READER_REVISION` is 2. By ADR 0076 Decision 2, the next playlist RSS check of each stored feed sends no validators and reads the document with the new parser. This ADR adds no migration.
+`RSS_READER_REVISION` is 2. By ADR 0076 Decision 2, the next playlist RSS check of each stored feed sends no validators and reads the document with the new parser.
+
+### 5. Migration 26 corrects the stored routes
+
+Migration 26 makes each stored route hold only Lightning routes. It uses the converter of Decision 2 and adds no second rule.
+
+- A row with a stored block that converts gets the route of that block again.
+- Each other row loses each recipient that Decision 2 discards. A route with no recipient left becomes empty, as if the database had no route.
+
+The next RSS check does not correct these rows, because the block in the document is the same or the feed has no Lightning block. The migration changes no schema.
+
+## Operator Choices
+
+The operator selected the rule of this ADR. The orchestrator session resolved these points on 2026-11-15 as small points of that decision.
+
+- Operator choice (orchestrator session, 2026-11-15): the converter refuses a `node` address that does not have 66 hexadecimal characters. Reason: a different rule gives a payment route difference in each RSS check.
+- Operator choice (orchestrator session, 2026-11-15): one migration corrects the stored rows (Decision 5). Reason: a stored row with a different recipient breaks the rule with no later correction, and the implementing session cannot count the rows.
+- Operator choice (orchestrator session, 2026-11-15): the block type and the recipient type compare without case, and a type of only spaces is an absent type. Source: stophammer ADR 0098 says that its parser trims these values and makes them lowercase before `is_lightning_route` compares them. Thus `type="Lightning"` is a Lightning block in the two projects.
 
 ## Open Points
 
-The orchestrator session or the implementing session resolved these points with the recommended option. They are not operator choices.
-
-1. The converter refuses a `node` address that does not have 66 hexadecimal characters. Reason: a different rule gives a payment route difference in each RSS check.
-2. No migration changes stored rows. A stored row changes at the next RSS check of its feed. Two classes of stored row do not change at that check:
-   - A stored Lightning block with a recipient that Decision 2 discards. The block in the document is the same, so the check writes no route.
-   - A track route that came from MusicIndex before Stophammer release 0.21.0, when the feed has no Lightning block. No RSS route replaces it.
-3. The block type and the recipient type compare without case. A type of only spaces is an absent type.
-4. The RSS comparison of two blocks reads each recipient of the Lightning block. A change in a discarded recipient gives a difference with no change of the stored route.
+1. The RSS comparison of two blocks reads each recipient of the Lightning block. A change in a discarded recipient gives a difference with no change of the stored route. The implementing session did not change this.
 
 ## Alternatives Considered
 
@@ -78,5 +89,6 @@ Mechanical, in `cargo test`:
 - `adr_0099_parser_keeps_the_first_lightning_value_block` and `adr_0099_parser_reads_no_block_from_a_feed_with_only_a_usdc_block` in `src/rss/subscribe.rs` prove Decision 1.
 - `adr_0099_block_that_is_not_lightning_gives_no_route`, `adr_0099_recipient_that_is_not_lightning_gives_no_route` and `adr_0099_discarded_recipient_with_an_invalid_split_does_not_fail_the_block` in `src/rss/value_routes.rs` prove Decision 2.
 - The `adr_0076_reader_revision` tests in `src/runtime/playlist_rss_check.rs` prove Decision 4 for each value of the revision.
+- `adr_0099_migration_26_calculates_the_route_of_a_raw_block_again` and `adr_0099_migration_26_removes_other_recipients_from_a_route_with_no_block` in `src/db/payment_routes.rs` prove Decision 5.
 
 This ADR has no visual criterion.

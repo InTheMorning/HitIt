@@ -2931,7 +2931,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 25;
+pub(crate) const CURRENT_VERSION: i64 = 26;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -3058,6 +3058,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 25,
         name: "stored_show_cue",
         apply: show_cue::apply,
+    },
+    Migration {
+        version: 26,
+        name: "lightning_only_payment_routes",
+        apply: payment_routes::apply_lightning_only,
     },
 ];
 
@@ -5536,7 +5541,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25
+                24, 25, 26
             ],
             "cleanup migration should be recorded exactly once"
         );

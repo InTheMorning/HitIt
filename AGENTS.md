@@ -92,7 +92,7 @@ Known open defects:
 
 Stored facts that agents need:
 
-- Schema version 25 is current. The migration registry of ADR 0016 owns each schema change.
+- Schema version 26 is current. The migration registry of ADR 0016 owns each schema change.
 - `tests/fixtures/musicindex-openapi-0.19.0.json` is the stored MusicIndex contract. Since 2026-11-08 it holds the live contract of Stophammer candidate v0.19.0-rc.7 (git `398d10f`). After each Stophammer
   release, replace it in the same change as the decode changes (ADR 0075 section 6).
 - [Open Stophammer requests](docs/plans/hitit-open-requests.md) has an equal copy in the Stophammer
@@ -135,8 +135,8 @@ source-boundary problem, never a renderer problem. ADR 0075 Decision I.
 **Only Lightning payment routes.** The RSS path keeps the first `podcast:value` block whose type is
 `lightning` or absent, and only `lnaddress` and valid `node` recipients. The stored route, the file frame and the
 drop file hold no route of a different payment system.
-[ADR 0099](docs/adr/0099-the-rss-path-keeps-only-lightning-payment-routes.md), with stophammer ADR 0098. Its
-Open Points list two classes of stored row that the next RSS check does not correct.
+[ADR 0099](docs/adr/0099-the-rss-path-keeps-only-lightning-payment-routes.md), with stophammer ADR 0098.
+Migration 26 corrects the stored routes.
 
 **The broadcast chain runs when this app is closed.** This app is a control
 surface and a status display, never a required part of the chain. The built-in

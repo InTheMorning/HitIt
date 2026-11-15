@@ -188,12 +188,12 @@ mod tests {
 
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
-        assert_eq!(CURRENT_VERSION, 25);
+        assert_eq!(CURRENT_VERSION, 26);
         assert_eq!(
             inspect_schema(&conn).unwrap(),
             SchemaCompatibility::UpgradeRequired {
                 applied: 24,
-                current: 25,
+                current: 26,
             }
         );
         upgrades::verify_target(&conn, 24).unwrap();

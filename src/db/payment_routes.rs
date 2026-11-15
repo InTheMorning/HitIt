@@ -16,7 +16,7 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::api::PaymentRoute;
-use crate::rss::value_routes::canonical_routes_json;
+use crate::rss::value_routes::{canonical_routes_json, is_lightning_route};
 
 /// The read contract of `feeds` and `tracks` after migration 17: the
 /// version-16 columns, then the column that migration 17 appends.
@@ -149,6 +149,94 @@ fn fill_table(conn: &Connection, table: &str, raw_column: &str) -> Result<(usize
         }
     }
     Ok((filled, unconverted))
+}
+
+/// The result of migration 26.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct LightningOnly {
+    /// Rows whose stored route changed to the route of their raw block.
+    pub(crate) from_block: usize,
+    /// Rows with no raw block that converts whose stored route lost a recipient.
+    pub(crate) without_block: usize,
+}
+
+/// Migration 26 (ADR 0016 registry, ADR 0099 Decision 5).
+pub(super) fn apply_lightning_only(conn: &Connection) -> Result<()> {
+    let result = keep_lightning_routes(conn)?;
+    eprintln!(
+        "Migration 26 calculated the payment route of {} rows again from their RSS value blocks. It removed the recipients that are not Lightning from {} rows with no value block.",
+        result.from_block, result.without_block
+    );
+    Ok(())
+}
+
+/// Make each stored route hold only Lightning routes (ADR 0099 Decision 5).
+///
+/// A row with a raw block that converts gets the route of that block again.
+/// Each other row loses each recipient that is not a Lightning recipient,
+/// and a route with no recipient left becomes null. A stored route that
+/// does not decode stays as it is.
+pub(crate) fn keep_lightning_routes(conn: &Connection) -> Result<LightningOnly> {
+    let mut result = LightningOnly::default();
+    for (table, raw_column) in [
+        ("feeds", "podcast_value_json"),
+        ("tracks", "item_value_json"),
+    ] {
+        let rows = conn
+            .prepare(&format!(
+                "SELECT id, {raw_column}, payment_routes_json FROM {table}
+                 WHERE {raw_column} IS NOT NULL OR payment_routes_json IS NOT NULL
+                 ORDER BY id"
+            ))?
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .with_context(|| format!("read {table}.payment_routes_json"))?;
+        for (id, raw, stored) in rows {
+            let from_block = raw
+                .as_deref()
+                .and_then(|raw| canonical_routes_json(Some(raw)));
+            let has_block = from_block.is_some();
+            let routes = if has_block {
+                from_block
+            } else {
+                let Some(Ok(routes)) = stored
+                    .as_deref()
+                    .map(serde_json::from_str::<Vec<PaymentRoute>>)
+                else {
+                    continue;
+                };
+                let kept = routes
+                    .into_iter()
+                    .filter(is_lightning_route)
+                    .collect::<Vec<_>>();
+                if kept.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::to_string(&kept).context("encode the payment route")?)
+                }
+            };
+            if routes == stored {
+                continue;
+            }
+            conn.execute(
+                &format!("UPDATE {table} SET payment_routes_json = ?2 WHERE id = ?1"),
+                params![id, routes],
+            )
+            .with_context(|| format!("write {table}.payment_routes_json"))?;
+            if has_block {
+                result.from_block += 1;
+            } else {
+                result.without_block += 1;
+            }
+        }
+    }
+    Ok(result)
 }
 
 /// The stored route of one track: its own column, else the column of its
@@ -482,5 +570,123 @@ mod tests {
         assert_eq!(stored_route(&conn, 3).unwrap().unwrap().len(), 2);
         refresh_track_route(&conn, 3, Some(NO_RECIPIENT)).unwrap();
         assert_eq!(column(&conn, "tracks", 3).as_deref(), Some("[]"));
+    }
+    const NODE: &str = "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a";
+
+    fn version_25_with_feed_and_tracks() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, 25).unwrap();
+        conn.execute(
+            "INSERT INTO feeds(id, feed_url, feed_guid, title) VALUES
+                 (1, 'https://example.test/one.xml', 'f1', 'One')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO tracks(id, feed_id, item_guid, track_title) VALUES
+                 (1, 1, 'a', 'A'), (2, 1, 'b', 'B'), (3, 1, 'c', 'C')",
+            [],
+        )
+        .unwrap();
+        conn
+    }
+
+    fn types(conn: &Connection, table: &str, id: i64) -> Vec<Option<String>> {
+        serde_json::from_str::<Vec<PaymentRoute>>(&column(conn, table, id).unwrap())
+            .unwrap()
+            .into_iter()
+            .map(|route| route.route_type)
+            .collect()
+    }
+
+    /// ADR 0099 Decision 5, class 1: a stored Lightning block with a
+    /// recipient that is not a Lightning recipient gets its route again.
+    #[test]
+    fn adr_0099_migration_26_calculates_the_route_of_a_raw_block_again() {
+        let conn = version_25_with_feed_and_tracks();
+        let block = format!(
+            r#"{{"attrs":{{"type":"lightning"}},"children":{{"valueRecipient":[{{"attrs":{{"name":"Band","type":"node","address":"{NODE}","split":"90"}}}},{{"attrs":{{"name":"Short","type":"node","address":"abc","split":"10"}}}}]}}}}"#
+        );
+        let usdc = r#"{"attrs":{"type":"usdc"},"children":{"valueRecipient":[{"attrs":{"name":"Band","type":"address","address":"0xabc","split":"100"}}]}}"#;
+        let old = serde_json::to_string(&[route("Band", NODE, 90.0), route("Short", "abc", 10.0)])
+            .unwrap();
+        conn.execute(
+            "UPDATE feeds SET podcast_value_json = ?1, payment_routes_json = ?2 WHERE id = 1",
+            params![block, old],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE tracks SET item_value_json = ?1, payment_routes_json = ?2 WHERE id = 1",
+            params![usdc, old],
+        )
+        .unwrap();
+
+        crate::db::migrate_schema_to(&conn, 26).unwrap();
+
+        upgrades::verify_target(&conn, 26).unwrap();
+        let feed: Vec<PaymentRoute> =
+            serde_json::from_str(&column(&conn, "feeds", 1).unwrap()).unwrap();
+        assert_eq!(feed.len(), 1);
+        assert_eq!(feed[0].address.as_deref(), Some(NODE));
+        assert_eq!(column(&conn, "tracks", 1).as_deref(), Some("[]"));
+    }
+
+    /// ADR 0099 Decision 5, class 2: a route with no raw block loses each
+    /// recipient that is not a Lightning recipient.
+    #[test]
+    fn adr_0099_migration_26_removes_other_recipients_from_a_route_with_no_block() {
+        let conn = version_25_with_feed_and_tracks();
+        let address = PaymentRoute {
+            route_type: Some("address".into()),
+            ..route("Chain", "0xabc", 50.0)
+        };
+        let lnaddress = PaymentRoute {
+            route_type: Some("lnaddress".into()),
+            ..route("Band", "band@example.test", 50.0)
+        };
+        let set = |id: i64, routes: &[PaymentRoute]| {
+            conn.execute(
+                "UPDATE tracks SET payment_routes_json = ?2 WHERE id = ?1",
+                params![id, serde_json::to_string(routes).unwrap()],
+            )
+            .unwrap();
+        };
+        set(
+            1,
+            &[
+                address.clone(),
+                lnaddress.clone(),
+                route("Node", NODE, 50.0),
+            ],
+        );
+        set(2, std::slice::from_ref(&address));
+        let unchanged = serde_json::to_string(&[lnaddress]).unwrap();
+        set(
+            3,
+            &serde_json::from_str::<Vec<PaymentRoute>>(&unchanged).unwrap(),
+        );
+        // A raw block that does not convert gives no route, so the stored
+        // route of such a row is a MusicIndex route.
+        conn.execute(
+            "UPDATE tracks SET item_value_json = ?1 WHERE id = 2",
+            [BROKEN],
+        )
+        .unwrap();
+
+        let result = keep_lightning_routes(&conn).unwrap();
+
+        assert_eq!(
+            result,
+            LightningOnly {
+                from_block: 0,
+                without_block: 2
+            }
+        );
+        assert_eq!(
+            types(&conn, "tracks", 1),
+            [Some("lnaddress".to_owned()), Some("node".to_owned())]
+        );
+        assert_eq!(column(&conn, "tracks", 2), None);
+        assert_eq!(column(&conn, "tracks", 3), Some(unchanged));
     }
 }
