@@ -13,7 +13,7 @@
 //! owns no fallback policy — it is purely presentational.
 //!
 //! The row shows its information and its state at all times. The "⋯"
-//! button shows on hover and on keyboard focus (ADR 0083 Decision 6). A
+//! button shows on hover and on keyboard focus (ADR 0101 Decision 6). A
 //! right-click on the row opens a menu with the same items.
 //!
 //! Each trailing column has a fixed width from [`TrackRowColumn`] (operator
@@ -316,7 +316,7 @@ const fn column_selector(column: TrackRowColumn) -> &'static str {
 }
 
 /// The icon, the color role and the turning fact of a download-state icon
-/// that is not the download button (ADR 0083 Decision 6, amended
+/// that is not the download button (ADR 0101 Decision 6, amended
 /// 2026-10-22): the queued, downloading and downloaded states.
 const fn download_status_icon(state: DownloadSlotState) -> Option<(IconName, SemanticColor, bool)> {
     match state {
@@ -370,7 +370,7 @@ fn download_cell(
 }
 
 /// One status icon with its word in a tooltip and in an accessibility
-/// label (ADR 0083 Decision 6, amended 2026-10-22), so color is never the
+/// label (ADR 0101 Decision 6, amended 2026-10-22), so color is never the
 /// only signal.
 fn status_icon(
     id: String,
@@ -558,7 +558,7 @@ impl RenderOnce for TrackRow {
                     .into_any_element(),
             );
         }
-        // ADR 0083 Decision 6: the menu and the right-click menu exist
+        // ADR 0101 Decision 6: the menu and the right-click menu exist
         // only when the view model gives a menu, and the host gives the
         // handlers and the return focus.
         let menu = match (self.menu, self.menu_handlers, self.menu_return_focus) {
@@ -628,7 +628,7 @@ pub(crate) fn checkbox_state_for(check_state: RowCheckState) -> CheckboxState {
 mod tests {
     use super::*;
 
-    /// R33-01 (ADR 0083 Decision 6, amended 2026-10-22): `Queued` is
+    /// R33-01 (ADR 0101 Decision 6, amended 2026-10-22): `Queued` is
     /// gray, `Downloading` is accent and turns, `Downloaded` is the success
     /// color (operator decision of 2026-10-23). `Download` and `Empty` show no icon of their own: `Download`
     /// renders as the button, and `Empty` keeps the column bare.
@@ -966,7 +966,7 @@ mod column_tests {
             .collect()
     }
 
-    /// R83-6-10 (ADR 0083 Decision 6): each trailing column has the width
+    /// R83-6-10 (ADR 0101 Decision 6): each trailing column has the width
     /// of its `TrackRowColumn` token when it is empty, filled or hidden,
     /// and in `Selecting`. Each column starts at the same position in each
     /// case. The duration is before the menu.

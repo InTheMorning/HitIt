@@ -2,12 +2,12 @@
 
 ## Status
 
-Proposed - 2026-11-15. The orchestrator session asked for this draft on 2026-11-15. The operator has not accepted it. Until the operator accepts it, [ADR 0083](0083-design-language.md) stays current and this ADR binds nothing. When it is accepted, this ADR is the HitIt record of the shared design rules. The ADRs of Decision 11 that adopt other shared rules stay their owners.
+Accepted - 2026-11-15. The operator accepted this ADR on 2026-11-15, and the orchestrator session relayed the decision. This ADR is the HitIt record of the shared design rules. The ADRs of Decision 11 that adopt other shared rules stay their owners.
 
 - Bar: crosses repositories. musicindex owns each rule that this ADR adopts, and musicindex.org and Studio obey the same rules.
-- Supersedes: [ADR 0083](0083-design-language.md), the design language, when the operator accepts this ADR.
+- Supersedes: [ADR 0083](archive/0083-design-language.md), the design language.
 
-Two points are open for the operator: [Open Decision A](#open-decision-a-the-main-action), the main action, and [Open Decision B](#open-decision-b-the-focus-ring), the focus ring. The operator accepts this ADR after these two answers.
+Operator choice, 2026-11-15: HitIt adopts musicindex ADR 0045 R-ACT-7 for the main action ([Decision 5](#5-actions-have-a-hierarchy)). HitIt keeps the focus ring of 2 px with no gap ([Decision 1](#1-the-palette)). musicindex ADR 0073 R-FOCUS-2 (musicindex commit `785ae28`) gives this ring to Studio and HitIt. It replaces musicindex ADR 0068 R-SCALE-4 item 6.
 
 ## Context
 
@@ -46,6 +46,7 @@ The theme profiles use these values. Dark is the default. Each value is a named 
 - **Light levels.** The light levels obey musicindex ADR 0045 R-ELEVATION-2. The light page is white. This corrects ADR 0083 line 161, which gave the page `#f2f2f7` from the earlier R-ELEVATION-1.
 - **Light level values.** R-ELEVATION-2 gives three levels: the page `#ffffff`, a group or a card `#f2f2f7`, and an open entry in a group `#ffffff`. In light, a popover, a menu and a sheet have `#ffffff` with the shadow of R-ELEVATION-1. The open entry is not `#ececef`, because the status text `#1a7f37` has only 4.31:1 on it. The light raised surface is not a level. The orchestrator session read these values in musicindex at `3baa6f0` on 2026-11-15.
 - **Focus.** One focus token, `#2d7bff` dark and `#005bd3` light (musicindex ADR 0069 R-TOKEN-1). The accent is not the focus color.
+- **Focus ring.** The focus ring is 2 px with no gap, an inset border (`src/ui/layouts.rs:29`). musicindex ADR 0073 R-FOCUS-2 (musicindex commit `785ae28`) gives this ring to Studio and HitIt. The token `focus-ring.hitit` of musicindex-assets `b8399cc` gives width 2 and offset 0.
 - **High contrast.** The high-contrast profiles keep their own values and their contrast tests. The system setting selects them (Decision 11, R-A11Y-1).
 
 ### 2. Color Roles Do Not Mix
@@ -82,13 +83,14 @@ The renderer gets the header art from a view-model fact, for example a prepared 
 
 | Kind | Presentation | Example |
 |---|---|---|
-| Main action | [Open Decision A](#open-decision-a-the-main-action) | Play |
+| Main action | musicindex ADR 0045 R-ACT-7. A track page fills its audio action. A release page fills nothing until it has a main action of its own. The header button has the text color, not the accent | Play |
 | Frequent action | At most two buttons. Each has a fill and one of the four roles (musicindex ADR 0042 R-ACT-4 and R-ACT-6) | Add to Playlist |
 | Navigation | A link on the text | Artist name, publisher name |
 | Identity and provenance | Quiet icon links, always visible | Website, Nostr, RSS |
 | State | A small icon and a word, always visible | Tags differ, removed from feed, ready for a show |
 | Rare, technical or destructive action | The "⋯" menu and the right-click menu | MusicBrainz lookup, download again, remove |
 
+- A download action is a button of the role Secondary, because a download changes stored data (R-ACT-4 item 3, `ControlStyle::by_result` in `src/ui/control_styles.rs:139`). Until a track page has an audio action, it has no primary button. The download state icon of Decision 6 shows the download step.
 - Buttons and menu items use title case (musicindex ADR 0023 R-CASE-1), for example "Add to Playlist" and "Download Album". A label names a release by its kind ([ADR 0098](0098-the-music-shell-pages-lists-and-search.md) item map, ADR 0084 Decision 5).
 - A destructive item is last in its menu, after a divider. Its label ends with "…" (musicindex ADR 0026 R-ELLIPSIS-1 item 2). It has a red label on a red tint and is never filled. Its label names the result (musicindex ADR 0069 R-ACT-3).
 - A destructive item asks for a confirmation, except when the person can undo in the same view (R-ACT-3). The confirmation is a sheet with "Cancel" (musicindex ADR 0023 R-CONFIRM-1).
@@ -152,7 +154,8 @@ HitIt adopts the rules in this table, at musicindex commit `3baa6f0`. musicindex
 
 | musicindex ADR | Adopted | Not for HitIt |
 |---|---|---|
-| 0068, the foundations | R-PROFILE-1, R-SCALE-1, R-TYPE-1, R-TYPE-2, R-SPACE-1, R-TARGET-1, R-RADIUS-1, R-STATUS-1, R-ELEVATION-1 with the light levels of R-ELEVATION-2, R-ICON-1, R-ICON-2, R-A11Y-1 | R-SCALE-2 and R-SCALE-3, the web scales. R-SCALE-4, the Studio scale. If musicindex gives HitIt the focus ring of item 6 (Open Decision B, option 2), a HitIt record adopts it then |
+| 0068, the foundations | R-PROFILE-1, R-SCALE-1, R-TYPE-1, R-TYPE-2, R-SPACE-1, R-TARGET-1, R-RADIUS-1, R-STATUS-1, R-ELEVATION-1 with the light levels of R-ELEVATION-2, R-ICON-1, R-ICON-2, R-A11Y-1 | R-SCALE-2 and R-SCALE-3, the web scales. R-SCALE-4, the Studio scale |
+| 0073, the focus ring of Studio and HitIt | R-FOCUS-2, at musicindex commit `785ae28` | None |
 | 0069, the interface rules and the shell | R-WORD-1, R-VALUE-1, R-VALUE-2, R-ACT-1, R-ACT-2, R-ACT-3, R-TOKEN-1, R-SHELL-1, R-NAV-1, R-NAV-2, R-NAV-4, R-LIST-1, R-TOOLBAR-1, R-FIT-1 | R-SHELL-2, the editor outline. R-NAV-3, the touch back control |
 | 0021, the artwork | R-ART-1 to R-ART-5 | None |
 | 0022, the shared assets | Decision items 1 to 7. HitIt copies the fonts and `tokens.json` from musicindex-assets | None |
@@ -161,14 +164,14 @@ HitIt adopts the rules in this table, at musicindex commit `3baa6f0`. musicindex
 | 0032, the type dot | R-DOT-1, R-DOT-2 | None |
 | 0042, a button with a label has a fill | R-ACT-4, R-ACT-5, R-ACT-6 | None |
 | 0064, the destructive button | R-ACT-8 to R-ACT-12 | None |
-| 0026, the controls and the feedback | R-FOCUS-1 (Open Decision B), R-FIELD-1, R-SEARCH-1, R-TOOLTIP-1, R-LOADING-1, R-EMPTY-1, R-NOTICE-1, R-ELLIPSIS-1 | None |
-| 0045, the main action, the live action and the light page | R-SYSTEM-1, R-ACT-7 (Open Decision A), R-LIVE-1, R-ELEVATION-2 | R-SCALE-5, the web artist title |
+| 0026, the controls and the feedback | R-FOCUS-1, R-FIELD-1, R-SEARCH-1, R-TOOLTIP-1, R-LOADING-1, R-EMPTY-1, R-NOTICE-1, R-ELLIPSIS-1 | The ring width and gap of R-FOCUS-1. musicindex ADR 0073 R-FOCUS-2 gives the HitIt ring |
+| 0045, the main action, the live action and the light page | R-SYSTEM-1, R-ACT-7, R-LIVE-1, R-ELEVATION-2 | R-SCALE-5, the web artist title |
 | 0051, the segmented control and the selected look | R-SEG-1, R-SELECT-1 | None |
 | 0056, the sidebar glow | R-SIDE-1, R-SIDE-2 | None |
 | 0063, the check box | R-CHECK-1 to R-CHECK-8 | None |
 | 0071, the edge indicator | R-EDGE-3, the token copy | R-EDGE-1 and R-EDGE-2. HitIt keeps its desktop tab bar |
 
-[ADR 0098](0098-the-music-shell-pages-lists-and-search.md), [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md), [ADR 0094](0094-one-fold-header.md) and [ADR 0097](0097-the-fit-check-at-two-widths.md) adopt other shared rules. They stay the owners of those adoptions. musicindex ADRs 0022, 0028, 0032, 0042, 0056 and 0064 are not in the list of the orchestrator brief. ADR 0083 adopted 0022, 0028, 0032, 0042 and 0064, so this ADR restates those adoptions. It adopts 0056, because HitIt builds R-SIDE-1 and no HitIt ADR adopts it.
+[ADR 0098](0098-the-music-shell-pages-lists-and-search.md), [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md), [ADR 0094](0094-one-fold-header.md) and [ADR 0097](0097-the-fit-check-at-two-widths.md) adopt other shared rules. They stay the owners of those adoptions. musicindex ADRs 0022, 0028, 0032, 0042, 0056, 0064 and 0073 are not in the list of the orchestrator brief. ADR 0073 records the operator choice of the focus ring. ADR 0083 adopted 0022, 0028, 0032, 0042 and 0064, so this ADR restates those adoptions. It adopts 0056, because HitIt builds R-SIDE-1 and no HitIt ADR adopts it.
 
 ### 12. The Known Differences And Their Packets
 
@@ -177,7 +180,7 @@ The code differs from the adopted rules in these points. The [check of the open 
 | Rule | HitIt now | Packet |
 |---|---|---|
 | R-TOKEN-1, the focus color | `#5795ff` dark, `#3b7cde` light (`src/ui/tokens.rs:256` and `:365`) | Token packet |
-| R-FOCUS-1, the focus ring | 2 px with no gap (`src/ui/layouts.rs:29`) | Open Decision B. With option 2, no packet |
+| R-FOCUS-2, the focus ring | 2 px with no gap (`src/ui/layouts.rs:29`). The ring agrees. No test compares it with `focus-ring.hitit` | Token packet: the test only |
 | R-TYPE-1 and R-TYPE-2 | Headline 15, Title 24, Display 30 (`src/ui/tokens.rs:632` to `:641`) | Token packet |
 | R-RADIUS-1 | 4, 6, 10, 14 (`src/ui/tokens.rs:583` to `:587`) | Token packet |
 | R-SPACE-1 | No 20 and no 48 (`src/ui/tokens.rs:538`) | Token packet |
@@ -189,12 +192,12 @@ The code differs from the adopted rules in these points. The [check of the open 
 | R-DATE-1, R-LOADING-1, R-NOTICE-1 | A fixed English date, a skeleton with no animation, no shared notice | One packet for each rule |
 | R-LINK-1 | No link to the musicindex.org page of an item | Link packet |
 | R-SELECT-1 | A tint and an outline (`src/ui/control_styles.rs:129`) | Selected look packet |
-| R-ACT-7 | ADR 0083 Decision 5 is in the code | Main action packet, after Open Decision A |
+| R-ACT-7 | The next curation step of ADR 0083 Decision 5 is in the code, for example "Download release" (`src/view_models/track_detail.rs:893`) | Main action packet |
 | R-CHECK-5 | The token test waits, because `tokens.json` has no check box tokens | When musicindex-assets has the tokens |
 
 The sequence of the work:
 
-1. The token packet. It changes the tokens of each row that names the token packet, in `src/ui/tokens.rs`. A test compares these values with `src/assets/tokens.json`. The packet is written after the operator accepts this ADR.
+1. The token packet. It changes the tokens of each row that names the token packet, in `src/ui/tokens.rs`. It copies `tokens/tokens.json` of musicindex-assets `b8399cc` to `src/assets/tokens.json`. A test compares the values with `src/assets/tokens.json`. The three defect fixes of 2026-11-14 come before it.
 2. One packet for each surface. The sequence starts with the header glow, the art radius, the payment split and the system settings. Then come the dates, the loading state, the notices, the link, the selected look and the main action.
 3. The Ready packets of ADR 0093, ADR 0069 task 002, ADR 0094 and ADR 0097 tasks 003 to 006 come after the token packet. Thus each one is built one time in the new design.
 
@@ -202,43 +205,11 @@ Step 4 of the overhaul plan asks for a result for each [visual requirement moved
 
 ### 13. Changes To Other ADRs
 
-When the operator accepts this ADR, it takes the three changes of ADR 0083:
+This ADR restates the three changes of ADR 0083. Each changed ADR keeps its "Changed by" line for the archived ADR 0083, and that line names this ADR:
 
 - [ADR 0025](0025-theme-icon-style-boundary.md), Decision 2: entity kinds get their own palette and stop using status colors (Decision 2 here).
 - [ADR 0062](0062-music-content-surface.md), Decision 9: a tile is a release (Decision 9 here).
 - [ADR 0066](0066-configuration-and-startup-failure-recovery.md), Decision 7: the normal-shell notice opens from the status bar (Decision 7 here).
-
-## Open Decision A: The Main Action
-
-ADR 0083 Decision 5 fills the next curation step until a page can play a track. musicindex ADR 0045 R-ACT-7 item 4 says: "A track page fills its audio action. A release page fills nothing until it has a main action of its own." R-ACT-7 item 1 gives the header button the text color, not the accent. The two rules give a different filled button on the same page.
-
-**Option 1: keep ADR 0083 Decision 5.** A track that is not in the Library gets a primary "Download" with the kind of its release, for example "Download Album". A Library track that is not downloaded gets "Download Track". A downloaded track gets "Add to Playlist". Play replaces it when playback exists.
-
-- Good: the curator sees the next step of curation. Only the labels change to title case (R-CASE-1). The code now gives "Download release", "Download track" and "Add to playlist" (`src/view_models/track_detail.rs:893`).
-- Bad: HitIt differs from musicindex.org and Studio. R-ACT-7 is a shared rule, so this option needs an exception in a musicindex record.
-
-**Option 2: adopt R-ACT-7.** A track page fills its audio action. A release page fills nothing until it has a main action of its own. The header button has the text color. The download actions become buttons of the role that R-ACT-4 item 3 gives them. A download changes stored data, so HitIt gives it the role Secondary (`ControlStyle::by_result`, `src/ui/control_styles.rs:139`).
-
-- Good: one rule for the three apps. No musicindex record is necessary.
-- Bad: until a track page has an audio action, it has no primary button. AGENTS.md says that no page of Music starts program playback. This session did not examine if a track page has an audition action now. The download state icon of Decision 6 continues to show the download step.
-
-**Recommendation: option 2.** HitIt does not change a shared rule in a HitIt ADR. The download step stays visible through the Secondary button and the download state icon. The audio action comes with the ADR 0068 packets.
-
-## Open Decision B: The Focus Ring
-
-musicindex ADR 0026 R-FOCUS-1 gives a ring of 3 px with a gap of 2 px. musicindex ADR 0068 R-SCALE-4 item 6 gives only Studio a ring of 2 px with no gap. It restates item 6 of the archived musicindex ADR 0041: Studio copied the ring that HitIt draws. The reason was that a ring of 3 px with a gap "looked too heavy at this scale, and it did not match the field". The orchestrator session read this text on 2026-11-15. HitIt draws 2 px with no gap, as an inset border (`src/ui/layouts.rs:29`, `src/ui/primitives/button.rs:807`).
-
-**Option 1: the shared ring, 3 px with a gap of 2 px.**
-
-- Good: the same ring as musicindex.org and `tokens.json`. No musicindex record is necessary. A wider ring is easier to see. When the ring shows is a different item of Decision 5, and this option does not change it.
-- Bad: a ring outside the control needs 5 px of free space around it. A parent that clips its content, for example a scroll area or a list row, can cut the ring. Dense rows and tiles can need more padding, and the fit at 390 px can change. These points are inferences from the current inset border. The token packet must prove them.
-
-**Option 2: ask musicindex for the exception that Studio has.**
-
-- Good: the current ring stays. HitIt and Studio, the two desktop apps, have the same ring. The reason of musicindex ADR 0041 also applies to HitIt, because HitIt uses the same desktop scale (R-SCALE-1). The inset ring needs no space outside the control, so the risk of a clip and of a fit change is lower.
-- Bad: the operator must change a musicindex record, and HitIt keeps its current ring only after that record. Only the website has a different ring, so HitIt differs from musicindex.org in this point.
-
-**Recommendation: option 2.** The two desktop apps then share one ring, and the reason that musicindex accepted for Studio applies to HitIt at the same scale. The ring needs no code change and has no clip risk. The token packet changes the focus color only. The musicindex record that extends R-SCALE-4 item 6 to HitIt comes before the token packet.
 
 ## Consequences
 
@@ -253,6 +224,8 @@ musicindex ADR 0026 R-FOCUS-1 gives a ring of 3 px with a gap of 2 px. musicinde
 - **Add a fifth "Changed by" line to ADR 0083.** Rejected. The limit is three, and ADR 0083 has four.
 - **Adopt the shared rules and keep ADR 0083 current.** Rejected. Two current records would state the palette, the type and the actions, and ADR 0083 line 161 would stay incorrect.
 - **One HitIt ADR for each musicindex ADR.** Rejected. The reading path grows with each record.
+- **Keep ADR 0083 Decision 5 for the main action.** A primary "Download" button with the kind of the release, then "Add to Playlist". Rejected by the operator on 2026-11-15. HitIt would differ from musicindex.org and Studio, and R-ACT-7 is a shared rule.
+- **The shared ring of R-FOCUS-1, 3 px with a gap of 2 px.** Rejected by the operator on 2026-11-15. A ring outside the control needs free space, and a parent that clips its content can cut it. The reason of archived musicindex ADR 0041 item 6 also applies at the desktop scale of HitIt: a ring of 3 px with a gap "looked too heavy at this scale, and it did not match the field".
 
 The alternatives of ADR 0083 stay in its text. They are mockup version 1, the website sizes, a command palette, identity links in "⋯" and recipient colors by entity kind.
 
@@ -261,7 +234,8 @@ The alternatives of ADR 0083 stay in its text. They are mockup version 1, the we
 Mechanical, at the owning layer:
 
 - `tokens.rs` exposes each palette role of Decision 1 for each theme profile. The contrast tests cover each pair of each role: surfaces, entity colors, value colors, the display size and the artwork shadow.
-- A token test compares the focus color, the focus ring, the type sizes, the radii, the spacing and the light levels of `tokens.rs` with `src/assets/tokens.json`. The token packet adds it.
+- A token test compares the focus color, the type sizes, the radii, the spacing and the light levels of `tokens.rs` with `src/assets/tokens.json`. The token packet adds it.
+- A test compares `focus-ring.hitit` of `src/assets/tokens.json` with the HitIt ring (`src/ui/layouts.rs:29`). musicindex ADR 0073 asks for it, and the token packet adds it.
 - `EntityKind` resolves no status color. A guard blocks a status token in the entity palette.
 - The payment split view model exposes one row for each recipient and one summary bar.
 - The theme view model selects a profile from the three system settings of R-A11Y-1. A test gives the settings through a fake source.
@@ -276,18 +250,8 @@ Visual, for the operator:
 
 - Each section at M, in Dark and Light, agrees with musicindex.org in hierarchy, color roles and artwork. This replaces the check of ADR 0083 against the accepted mockups of 2026-10-03, because the shared rules replace those mockups.
 - The page header shows a blurred glow from the cover, with grain. The glow fades into the background before the content. It agrees with the album page of musicindex.org for the same cover.
-- The focus ring shows fully on a list row, a tile and a dialog button at 390 px and at 940 px.
+- Tab through a HitIt page. The focus ring of 2 px shows fully on a list row, a tile and a dialog button at 390 px and at 940 px.
 - The status bar reads clearly at normal and narrow widths.
-
-## When The Operator Accepts
-
-These changes go into one commit:
-
-- This status becomes Accepted, and the "Supersedes" line stays.
-- ADR 0083 moves to `docs/adr/archive/`. Its status names this ADR.
-- The "Changed by: ADR 0083" lines of ADRs 0025, 0062 and 0066 name this ADR.
-- The citations "ADR 0083 Decision N" in `src/` and `tests/` become "ADR 0101 Decision N". The numbers do not change.
-- `docs/adr/README.md`, AGENTS.md "Current Design Philosophy" and step 4 of the overhaul plan name this ADR.
 
 ## Item Map
 

@@ -138,7 +138,7 @@ pub struct TrackDetailVm<'a> {
     /// 022). Each origin gives them (ADR 0084 packet 023). `None` when the
     /// page has no feed facts.
     feed: Option<&'a TrackFeedFacts>,
-    /// The Library state that selects the page actions (ADR 0083 Decision
+    /// The Library state that selects the page actions (ADR 0101 Decision
     /// 5). `None` for a track that is not in the Library.
     library_state: Option<LibraryTrackActionState>,
     /// The Library feed id of the track's album, for the album name link.
@@ -414,7 +414,7 @@ impl<'a> TrackDetailVm<'a> {
     /// artist feed (ADR 0085 Decisions 5 and 6).
     pub const UNVERIFIED_ARTIST_NOTE: &'static str = "Unverified artist";
 
-    /// The name links under the title (ADR 0083 Decision 5: navigation is a
+    /// The name links under the title (ADR 0101 Decision 5: navigation is a
     /// link on the text). The album name links to its album page. When the
     /// release of the track has an artist feed (ADR 0085 Decision 6), one
     /// link opens its page, with the feed title as its label. A name with
@@ -587,7 +587,7 @@ impl<'a> TrackDetailVm<'a> {
             .and_then(nonempty)
     }
 
-    /// The page actions of ADR 0083 Decision 5, with the main action of the
+    /// The page actions of ADR 0101 Decision 5, with the main action of the
     /// 2026-10-07 amendment: the next curation step for the track state.
     #[must_use]
     pub fn page_actions(&self) -> TrackPageActions {
@@ -678,7 +678,7 @@ impl<'a> TrackDetailPageVm<'a> {
         self.detail.feed_identity_action_prefix()
     }
 
-    /// The page actions of ADR 0083 Decision 5 (R83-42).
+    /// The page actions of ADR 0101 Decision 5 (R83-42).
     #[must_use]
     pub fn page_actions(&self) -> TrackPageActions {
         self.detail.page_actions()
@@ -842,7 +842,7 @@ fn nonempty(value: &str) -> Option<&str> {
     (!value.is_empty()).then_some(value)
 }
 
-/// The Library state of a track that selects its page actions (ADR 0083
+/// The Library state of a track that selects its page actions (ADR 0101
 /// Decision 5).
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[expect(
@@ -863,7 +863,7 @@ pub struct LibraryTrackActionState {
 }
 
 /// One action of a track page. The renderer maps each variant to its
-/// command (ADR 0083 Decision 5).
+/// command (ADR 0101 Decision 5).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum TrackPageAction {
     /// Download the album feed of a track that is not in the Library.
@@ -947,7 +947,7 @@ impl TrackPageActionDisplay {
     }
 }
 
-/// The actions of a track page in the order of ADR 0083 Decision 5: one
+/// The actions of a track page in the order of ADR 0101 Decision 5: one
 /// filled button, at most two plain buttons, and the "⋯" menu.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackPageActions {

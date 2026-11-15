@@ -10,7 +10,7 @@ The drag can start on each page that has a drag source. While the operator holds
 
 ## Authority
 
-- [ADR 0083](../adr/0083-design-language.md) Decision 6, as amended on 2026-10-20: while a track is held over the sidebar destination "Playlists", the list column opens Playlists, and the track drops on a playlist row there. Each action is reachable with the mouse.
+- [ADR 0083](../adr/archive/0083-design-language.md) Decision 6, as amended on 2026-10-20: while a track is held over the sidebar destination "Playlists", the list column opens Playlists, and the track drops on a playlist row there. Each action is reachable with the mouse.
 - [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 2: the sidebar lists the six destinations. The Playlists destination lists its playlists in the list column.
 - [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 9: one navigation stack. A sidebar click is a navigation and starts a new path. A path can start at Playlists and go into a release page, for example "Playlists › 000 › Tiddies In My Face (Single)".
 - [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10: no step needs a drag. The action bar holds "Add n to playlist".

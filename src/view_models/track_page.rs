@@ -273,7 +273,7 @@ pub(crate) struct TrackPageActionVm {
     pub(crate) reason: Option<&'static str>,
 }
 
-/// The action row of a track page (ADR 0083 Decision 5).
+/// The action row of a track page (ADR 0101 Decision 5).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TrackPageActionRowVm {
     /// The one filled button.

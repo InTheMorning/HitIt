@@ -219,7 +219,7 @@ fn behavior_slots(
         on_cancel_rename: Some(click_slot(cx.listener(move |this, _, _, cx| {
             this.cancel_playlist_rename(cx);
         }))),
-        // ADR 0083 Decision 5: "Delete…" opens the confirmation. Only its
+        // ADR 0101 Decision 5: "Delete…" opens the confirmation. Only its
         // confirm handler deletes the playlist (ADR 0084 task 030).
         on_delete: Some(click_slot(cx.listener(move |_, _, window, cx| {
             open_playlist_delete_dialog(

@@ -1,4 +1,4 @@
-//! Shell presenter of the delete confirmation of a playlist (ADR 0083
+//! Shell presenter of the delete confirmation of a playlist (ADR 0101
 //! Decision 5, ADR 0084 task 030).
 //!
 //! The view model `view_models::library` supplies each text. "Delete…" is a
@@ -55,7 +55,7 @@ mod tests {
     use super::confirmation_display;
     use crate::view_models::library::playlist_delete_confirmation;
 
-    /// R30-05 (ADR 0083 Decision 5): the dialog is destructive, names the
+    /// R30-05 (ADR 0101 Decision 5): the dialog is destructive, names the
     /// playlist and gives "Delete" and "Cancel".
     #[test]
     fn adr_0084_music_open_defects_r30_05_dialog_is_destructive() {

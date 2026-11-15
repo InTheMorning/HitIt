@@ -1,4 +1,4 @@
-//! The actions and the name links of an album page (ADR 0083 Decision 5,
+//! The actions and the name links of an album page (ADR 0101 Decision 5,
 //! task 005).
 //!
 //! The Library album page and the Index album page use this one model
@@ -82,7 +82,7 @@ impl AlbumPageActionDisplay {
     }
 }
 
-/// The actions of an album page in the order of ADR 0083 Decision 5: one
+/// The actions of an album page in the order of ADR 0101 Decision 5: one
 /// filled button, the plain buttons, and the "⋯" menu.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AlbumPageActions {

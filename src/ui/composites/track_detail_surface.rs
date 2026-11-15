@@ -76,7 +76,7 @@ impl TrackDetailSurface {
         self
     }
 
-    /// The album and publisher name links under the title (ADR 0083
+    /// The album and publisher name links under the title (ADR 0101
     /// Decision 5).
     pub fn name_links(mut self, links: Vec<TrackSurfaceElement>) -> Self {
         self.name_links = links;

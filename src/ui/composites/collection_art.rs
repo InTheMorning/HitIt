@@ -1,5 +1,5 @@
 //! Collection art composite: the logo frame of a singles group, an artist
-//! page or a playlist (ADR 0084 Decision 12, ADR 0083 Decision 4).
+//! page or a playlist (ADR 0084 Decision 12, ADR 0101 Decision 4).
 //!
 //! The view model gives the art choice ([`CollectionArtVm`]). The app layer
 //! loads the image of that choice off the UI thread and gives this

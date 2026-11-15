@@ -50,11 +50,11 @@ Each binding change in it needs its own ADR or ADR amendment before code changes
    Done on 2026-10-03: [screen inventory](../architecture/screen-inventory/README.md).
 2. Static HTML mockups of three screens with the website tokens: the Library grid, an album page with an "Inspect" disclosure for the RSS and ID3 values, and Settings. The operator reviews them in a browser.
 3. A design-language ADR records the accepted mockups as the target.
-   Done on 2026-10-03: [ADR 0083](../adr/0083-design-language.md), Accepted.
+   Done on 2026-10-03: [ADR 0083](../adr/archive/0083-design-language.md), Accepted.
 
 ### Design Direction - 2026-10-03
 
-The operator chose this direction on 2026-10-03, from the [mockup canvas](https://claude.ai/artifact/CaY8T2NUdDosRV9uoFy9bk) (private to the operator). [ADR 0083](../adr/0083-design-language.md) records it.
+The operator chose this direction on 2026-10-03, from the [mockup canvas](https://claude.ai/artifact/CaY8T2NUdDosRV9uoFy9bk) (private to the operator). [ADR 0083](../adr/archive/0083-design-language.md) records it.
 
 - Version 2 of the mockups is the target: real covers, and each album page tinted by a blurred copy of its cover, as on `search.html`.
 - Browsing follows Apple Music: album pages with one main Play action. ADR 0084 replaced the Music home and the album grid: Music is a column browser that opens on Discover (Decisions 1 and 3).
@@ -181,8 +181,8 @@ The [run of 2026-10-23](../reviews/orchestrated-run-2026-10-23.md) implemented [
 
 4. The operator plans a new visual design, because of the use of screen space and the size and color of the interface (question 3 of the run record). The operator writes the design rules in `../musicindex`. This step starts when the operator says that those rules are stable.
    - The shell ADR does not wait for the stable rules. The operator lifted the hold on the [research request](research-ui-shell-and-search-request.md) on 2026-10-25. [ADR 0089](../adr/archive/0089-the-shell-destinations-and-list-pages.md), Accepted on 2026-11-05, records the destinations, the start page and the scopes of sections 1 to 4 of that request. It cites musicindex ADRs 0028 and 0069 and does not restate them. musicindex ADR 0069 R-SHELL-1 replaces ADR 0084 Decision 1 with a stack. This ADR comes before the new tokens, because the stack changes the layout of each surface. The [shell run](../reviews/orchestrated-run-2026-11-05-shell.md) implemented its packets 001 to 015 on 2026-11-06.
-   - First, a HitIt ADR adopts the rules. It amends or supersedes [ADR 0083](../adr/0083-design-language.md) and the Phase 3 tokens. It names the `../musicindex` document as its source. A rule binds HitIt only through this ADR.
-   - Then the new tokens in `src/ui/tokens.rs`.
+   - Open since 2026-11-15, by operator decision. [ADR 0101](../adr/0101-the-design-language-follows-the-shared-rules.md), Accepted on 2026-11-15, adopts the rules and supersedes the archived ADR 0083. A rule binds HitIt only through it. The three defect fixes of 2026-11-14 come first: ADR 0090 task 005, ADR 0092 task 001 and ADR 0085 task 001.
+   - Then the new tokens in `src/ui/tokens.rs`. ADR 0101 Decision 12 gives the token packet.
    - Then one packet for each surface.
    - The visual defects of the final walk go into this step, with no separate fix: ADR 0084 packet 026 V10 (clipped titles), the max height of the field list (ADR 0087 packet 010, operator answer of 2026-10-24).
    - The ADR replaces or keeps each open visual criterion of size and color, and each [visual requirement moved from pending checks](#visual-requirements-moved-from-pending-checks---2026-10-07). The behavior criteria stay.

@@ -37,7 +37,7 @@ pub struct ContributorRowSlot {
     pub actions: Vec<ReleaseSurfaceElement>,
 }
 
-/// The cover size of the album page header (ADR 0083 Decision 4).
+/// The cover size of the album page header (ADR 0101 Decision 4).
 pub const RELEASE_HEADER_COVER: ThumbnailSize = ThumbnailSize::XXl;
 
 #[derive(Default)]
@@ -310,7 +310,7 @@ fn render_contract_header(
             .collect(),
     })
     .image(hero_image)
-    // ADR 0083 Decision 3: this header is always the album (release) page.
+    // ADR 0101 Decision 3: this header is always the album (release) page.
     .title_size(FontSize::Display)
     .cover_size(RELEASE_HEADER_COVER)
     .name_links(name_links)

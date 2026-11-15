@@ -383,7 +383,7 @@ pub(crate) enum InspectorPanelKind {
     /// `MusicBrainz` lookup result panel.
     MusicBrainz,
     /// The Inspect Sources sheet of the track page (ADR 0089 Decision 8,
-    /// ADR 0083 Decision 8). It is closed by default.
+    /// ADR 0101 Decision 8). It is closed by default.
     Sources,
 }
 
@@ -687,7 +687,7 @@ pub(crate) struct PlaylistSidebarRowVm {
     /// The item menu of the row: Rename and Delete (ADR 0089 Decision 6).
     pub(crate) menu: TrackRowMenuVm,
     /// The delete confirmation of the playlist page. "Delete…" in the menu
-    /// opens the same one (ADR 0083 Decision 5).
+    /// opens the same one (ADR 0101 Decision 5).
     pub(crate) delete_confirmation: PlaylistDeleteConfirmation,
     /// The drag fact of the row. It is `Some` only with the sort Curator
     /// Order, not reversed, in the Rows view (ADR 0089 amendment of
@@ -804,7 +804,7 @@ pub(crate) fn playlist_row_menu_with_cue(
     menu
 }
 
-/// The drag fact of a track row (ADR 0083 Decision 6, task 008). A row
+/// The drag fact of a track row (ADR 0101 Decision 6, task 008). A row
 /// with this fact starts a drag of its tracks. The drop adds each track to
 /// a playlist, in this order.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -828,7 +828,7 @@ impl TrackDragVm {
         }
     }
 
-    /// The drag of a row in selection mode (ADR 0083 Decision 6, amended
+    /// The drag of a row in selection mode (ADR 0101 Decision 6, amended
     /// 2026-10-21). A checked row carries each checked Library track of
     /// `checked_track_ids`, in list order, and the preview shows the
     /// count. A row that is not checked, and an empty list, give `None`.
@@ -854,7 +854,7 @@ pub(crate) fn playlist_accepts_drop(source_playlist: Option<i64>, target_playlis
     source_playlist != Some(target_playlist)
 }
 
-/// Whether the sidebar row of `destination` is spring-loaded (ADR 0083
+/// Whether the sidebar row of `destination` is spring-loaded (ADR 0101
 /// Decision 6, as amended on 2026-10-20). Only "Playlists" opens while a
 /// dragged track stays over it.
 #[must_use]
@@ -1989,7 +1989,7 @@ pub(crate) struct DestinationListRowVm {
     /// [`LibraryViewModel::releases_item_with_selection`] clears it in
     /// selection mode.
     pub(crate) menu: Option<ReleaseRowMenuVm>,
-    /// The download-state icon of a release row (ADR 0083 Decision 6,
+    /// The download-state icon of a release row (ADR 0101 Decision 6,
     /// amended 2026-10-22; ADR 0084 task 033). `None` for an artist row.
     pub(crate) download_state: Option<ReleaseDownloadStateVm>,
     /// `true` when this row opens the page that Back left open over the
@@ -2495,7 +2495,7 @@ fn album_total_duration_label(album: &AlbumNode) -> Option<String> {
 }
 
 /// The release row of one Library album, with its download-state icon
-/// (ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033). `phase`
+/// (ADR 0101 Decision 6, amended 2026-10-22; ADR 0084 task 033). `phase`
 /// is the release's own download job, when one is queued or running
 /// ([`BusyItems::release_download_phase`]); it wins over the track count.
 /// `None` when the album has no release key.
@@ -2516,7 +2516,7 @@ fn library_release_row(
     Some(row)
 }
 
-/// The download state of a Library release (ADR 0083 Decision 6; ADR 0089
+/// The download state of a Library release (ADR 0101 Decision 6; ADR 0089
 /// Decision 5). A job that runs or waits wins. Else the tracks give the
 /// state, and a failed latest job gives `Failed`.
 fn library_download_state(
@@ -4036,7 +4036,7 @@ impl LibraryViewModel {
     /// The entries come in the order of the Stophammer sort key of the
     /// release name or of the display artist of a group (packet 016
     /// decision D6). A Library release row shows its download-state icon
-    /// at all times (ADR 0083 Decision 6, amended 2026-10-22; ADR 0084
+    /// at all times (ADR 0101 Decision 6, amended 2026-10-22; ADR 0084
     /// task 033, which supersedes packet 016 decision D13).
     ///
     /// In the scope "Everything", `page` adds the `MusicIndex` releases
@@ -4914,7 +4914,7 @@ impl LibraryViewModel {
                         row.menu = self.content_list_row_menu(&row);
                         row.drag = content_list_row_drag(&row);
                     } else if content_list_row_drag(&row).is_some() {
-                        // ADR 0083 Decision 6, amended 2026-10-21: a checked
+                        // ADR 0101 Decision 6, amended 2026-10-21: a checked
                         // row carries each checked track, in list order.
                         row.drag =
                             TrackDragVm::selection(selection.is_selected(&key), &checked_track_ids);
@@ -6581,7 +6581,7 @@ impl LibrarySearchLookup<'_> {
 }
 
 impl SearchLibraryLookup for LibrarySearchLookup<'_> {
-    /// The download-state icon of the release (ADR 0083 Decision 6,
+    /// The download-state icon of the release (ADR 0101 Decision 6,
     /// amended 2026-10-22; ADR 0084 task 033): the queue state while a
     /// job of its key is queued or in flight, else its track count.
     fn release(&self, key: &ReleaseKey) -> Option<SearchLibraryRelease> {
@@ -6949,7 +6949,7 @@ pub(crate) struct PlaylistDetailActionsDisplay {
     pub(crate) delete_button_id: String,
     pub(crate) delete_label: &'static str,
     pub(crate) delete_a11y_label: &'static str,
-    /// The confirmation that "Delete…" opens (ADR 0083 Decision 5, ADR 0084
+    /// The confirmation that "Delete…" opens (ADR 0101 Decision 5, ADR 0084
     /// task 030 decision D3).
     pub(crate) delete_confirmation: PlaylistDeleteConfirmation,
     /// ADR 0076 Decision 2: the "Check RSS" action with typed availability.
@@ -7008,7 +7008,7 @@ mod playlist_page_bar_tests {
     }
 }
 
-/// The texts of the delete confirmation of a playlist (ADR 0083 Decision 5,
+/// The texts of the delete confirmation of a playlist (ADR 0101 Decision 5,
 /// ADR 0084 task 030 decision D3).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaylistDeleteConfirmation {
@@ -8300,7 +8300,7 @@ mod tests {
         assert!(actions.show_cue.disabled);
     }
 
-    /// R30-05 (ADR 0083 Decision 5): "Delete…" opens a confirmation. The
+    /// R30-05 (ADR 0101 Decision 5): "Delete…" opens a confirmation. The
     /// title holds the playlist name, and the body holds the entry count.
     #[test]
     fn adr_0084_music_open_defects_r30_05_playlist_delete_confirmation() {
@@ -8883,7 +8883,7 @@ mod tests {
         TrackRowWork::Removing,
     ];
 
-    /// R83-7-01 (ADR 0083 Decision 6, task 007 decision D5): a downloaded
+    /// R83-7-01 (ADR 0101 Decision 6, task 007 decision D5): a downloaded
     /// idle track in the middle of a playlist gives each item in order.
     #[test]
     fn adr_0083_list_row_actions_r83_7_01_playlist_menu_order() {
@@ -8924,7 +8924,7 @@ mod tests {
     }
 
     /// ADR 0089 packet 010: a row that a copy of a public playlist made has
-    /// no file, so its menu keeps "Download" (ADR 0083 Decision 6), and it
+    /// no file, so its menu keeps "Download" (ADR 0101 Decision 6), and it
     /// has no "Remove from Library…".
     #[test]
     fn adr_0089_copy_to_my_playlists_copied_row_keeps_download() {
@@ -12861,7 +12861,7 @@ mod tests {
         ReleaseKey::FeedGuid(guid.to_owned())
     }
 
-    /// R33-11 (ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task
+    /// R33-11 (ADR 0101 Decision 6, amended 2026-10-22; ADR 0084 task
     /// 033): a Library release row carries its download-state icon as a
     /// typed fact, in the scope "Library" and in the scope "Everything"
     /// alike, and its secondary text names only the artist and the kind.
@@ -14327,7 +14327,7 @@ mod tests {
         assert!(selecting.iter().all(|row| row.drag.is_none()));
     }
 
-    /// R31-09 (ADR 0083 Decision 6, amended 2026-10-21): in `Selecting`, a
+    /// R31-09 (ADR 0101 Decision 6, amended 2026-10-21): in `Selecting`, a
     /// checked Tracks list row carries each checked track, in list order,
     /// with the label "2 tracks". A row that is not checked gives `None`.
     #[test]

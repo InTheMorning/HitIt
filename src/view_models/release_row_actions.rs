@@ -1,4 +1,4 @@
-//! The actions of one release row (ADR 0083 Decisions 5 and 6, ADR 0084
+//! The actions of one release row (ADR 0101 Decisions 5 and 6, ADR 0084
 //! Decision 10, task 031).
 //!
 //! A row of the Releases list, a release row of a feed page and a release
@@ -370,7 +370,7 @@ mod tests {
         }
     }
 
-    /// R31-01 (ADR 0084 Decision 10, ADR 0083 Decision 5): a Library
+    /// R31-01 (ADR 0084 Decision 10, ADR 0101 Decision 5): a Library
     /// album that is not fully downloaded, with one downloaded track and no
     /// job, gives "Download album", "Add to playlist", "Remove album…", in
     /// this order. "Remove album…" is destructive and last. A downloaded

@@ -59,7 +59,7 @@ const TRACK_MENU_NEW_PLAYLIST_A11Y_LABEL: &str = "Create a new playlist";
 const TRACK_MENU_BACK_TO_CHOICES_A11Y_LABEL: &str = "Back to playlist choices";
 const TRACK_MENU_CREATE_A11Y_LABEL: &str = "Create playlist and add track";
 /// The tooltips of the download-state slot (decision D6, amended
-/// 2026-10-22 by ADR 0083 Decision 6: the four words "Download", "Queued",
+/// 2026-10-22 by ADR 0101 Decision 6: the four words "Download", "Queued",
 /// "Downloading" and "Downloaded" name every state, so color is never the
 /// only signal).
 const DOWNLOAD_SLOT_DOWNLOAD_TOOLTIP: &str = "Download";
@@ -408,7 +408,7 @@ pub(crate) struct ReleasePageActionVm {
     pub(crate) command: Option<ReleasePageCommand>,
 }
 
-/// The action row of a release page (ADR 0083 Decision 5).
+/// The action row of a release page (ADR 0101 Decision 5).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ReleasePageActionsVm {
     /// The one filled button.
@@ -495,7 +495,7 @@ impl TrackRowMbStatusVm {
 }
 
 /// The state of the download-state slot of a track row (decision D6,
-/// amended 2026-10-22 by ADR 0083 Decision 6: a downloaded track shows the
+/// amended 2026-10-22 by ADR 0101 Decision 6: a downloaded track shows the
 /// quiet `CloudCheck` icon instead of an empty column).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DownloadSlotState {
@@ -644,7 +644,7 @@ pub(crate) const TRACK_ROW_PLAYLIST_LEVEL: TrackRowPlaylistLevelVm = TrackRowPla
     create_a11y_label: TRACK_MENU_CREATE_A11Y_LABEL,
 };
 
-/// The "⋯" menu and the right-click menu of a track row (ADR 0083
+/// The "⋯" menu and the right-click menu of a track row (ADR 0101
 /// Decision 6). Both menus show these items.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TrackRowMenuVm {
@@ -881,7 +881,7 @@ pub(crate) struct ReleaseTrackRowVm {
     /// The drag fact of the row (ADR 0083 task 008, decision D2). An Index
     /// row has no drag (decision D3). In `Selecting`, only a checked row
     /// of a Library release page has a drag: it carries each checked track
-    /// (ADR 0083 Decision 6, amended 2026-10-21).
+    /// (ADR 0101 Decision 6, amended 2026-10-21).
     pub(crate) drag: Option<TrackDragVm>,
 }
 
@@ -1171,7 +1171,7 @@ pub(crate) fn release_page_vm(input: &ReleasePageFacts) -> ReleasePageVm<'_> {
 }
 
 /// The drag of each checked row of a Library release page in `Selecting`
-/// (ADR 0083 Decision 6, amended 2026-10-21). A checked row carries each
+/// (ADR 0101 Decision 6, amended 2026-10-21). A checked row carries each
 /// checked track, in list order. A row that is not checked starts no drag.
 /// A row in `Normal` keeps its drag of one track.
 fn apply_selection_drags(rows: &mut [ReleaseTrackRowVm], tracks: &[LibraryTrackFacts]) {
@@ -1904,7 +1904,7 @@ mod tests {
         TrackRowWork::Removing,
     ];
 
-    /// R83-6-01 (ADR 0083 Decision 6): the menu gives its items in the
+    /// R83-6-01 (ADR 0101 Decision 6): the menu gives its items in the
     /// order of decision D2, for a downloaded row, a row that is not
     /// downloaded and an Index row.
     #[test]
@@ -1934,7 +1934,7 @@ mod tests {
         assert_eq!(labels, vec!["Add to playlist", "Download"]);
     }
 
-    /// R83-6-02 (ADR 0083 Decision 5): "Remove…" is last and destructive,
+    /// R83-6-02 (ADR 0101 Decision 5): "Remove…" is last and destructive,
     /// its label ends with "…", and its accessibility label names the
     /// track. It is absent while a job or a removal of the row runs.
     #[test]
@@ -2027,7 +2027,7 @@ mod tests {
         assert_eq!(index_row.inspect_sources_entry, None);
     }
 
-    /// R83-6-05 (decision D6, amended 2026-10-22 by ADR 0083 Decision 6):
+    /// R83-6-05 (decision D6, amended 2026-10-22 by ADR 0101 Decision 6):
     /// the slot state for each pair of `is_in_library` and `TrackRowWork`.
     /// Each state that is not empty has a tooltip and an accessibility
     /// label. Only `Download` can act.
@@ -2297,7 +2297,7 @@ mod tests {
         );
     }
 
-    /// R31-09 (ADR 0083 Decision 6, amended 2026-10-21): in `Selecting`, a
+    /// R31-09 (ADR 0101 Decision 6, amended 2026-10-21): in `Selecting`, a
     /// checked row carries each checked Library track, in list order, with
     /// the label "3 tracks". A row that is not checked gives `None`. One
     /// checked track gives "1 track".

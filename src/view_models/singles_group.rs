@@ -253,7 +253,7 @@ impl<'a> SinglesGroup<'a> {
     /// name" or "7 singles · Artist feed". One name can have a group at
     /// each level (ADR 0084 Decision 7), so the level tells the two rows
     /// apart. [`Self::download_state`] carries the Library state as an
-    /// icon instead of a word in this text (ADR 0083 Decision 6, amended
+    /// icon instead of a word in this text (ADR 0101 Decision 6, amended
     /// 2026-10-22; ADR 0084 task 033, which supersedes packet 026
     /// decision D9).
     #[must_use]
@@ -265,7 +265,7 @@ impl<'a> SinglesGroup<'a> {
         )
     }
 
-    /// The download-state icon of the group row (ADR 0083 Decision 6,
+    /// The download-state icon of the group row (ADR 0101 Decision 6,
     /// amended 2026-10-22; ADR 0084 task 033): the count of
     /// [`Self::in_library_count`] of [`Self::count`]. A group formed only
     /// by `MusicIndex` singles gives the quiet `NotDownloaded` icon, the
@@ -679,7 +679,7 @@ pub(crate) struct SinglesGroupRowVm {
     /// The accessibility label, for example "Haleen, 7 singles, By name".
     /// [`Self::download_state`] carries its own accessibility label.
     pub(crate) a11y_label: String,
-    /// The download-state icon of the group row (ADR 0083 Decision 6,
+    /// The download-state icon of the group row (ADR 0101 Decision 6,
     /// amended 2026-10-22; ADR 0084 task 033), from the count of its
     /// members that are in the Library of its total count. This
     /// replaces the "In Library" and "n in Library" words that
@@ -1153,7 +1153,7 @@ pub(crate) struct SinglesGroupPageVm {
     pub(crate) title: String,
     /// The same text as the group row, for example "7 singles · By
     /// name". `None` for the empty state. Each row of [`Self::rows`]
-    /// carries its own download-state icon (ADR 0083 Decision 6, amended
+    /// carries its own download-state icon (ADR 0101 Decision 6, amended
     /// 2026-10-22; ADR 0084 task 033), so this text no longer repeats an
     /// aggregate Library count.
     pub(crate) subtitle: Option<String>,
@@ -2511,7 +2511,7 @@ mod tests {
                 downloaded: 1,
                 total: 3
             },
-            "the Library count moved from the text to the icon (ADR 0083 Decision 6, amended 2026-10-22)"
+            "the Library count moved from the text to the icon (ADR 0101 Decision 6, amended 2026-10-22)"
         );
 
         let one_library = LibraryTree {

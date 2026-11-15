@@ -68,7 +68,7 @@ pub mod color {
     pub fn bg_surface_hi() -> Rgba {
         role(SemanticColor::TertiarySystemBackground)
     }
-    /// ADR 0083 Decision 1: the sidebar surface, distinct from the canvas
+    /// ADR 0101 Decision 1: the sidebar surface, distinct from the canvas
     /// and the content surfaces.
     pub fn bg_sidebar() -> Rgba {
         role(SemanticColor::SidebarBackground)

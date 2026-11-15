@@ -70,7 +70,7 @@ impl ImageSize {
 
     /// The artwork shadow role for this `ImageSize`.
     ///
-    /// ADR 0083 Decision 4: only `Xl` and `XXl` artwork draws a shadow.
+    /// ADR 0101 Decision 4: only `Xl` and `XXl` artwork draws a shadow.
     fn artwork_shadow(self) -> Option<ArtworkShadow> {
         match self {
             Self::Sm | Self::Md | Self::Lg => None,
@@ -157,7 +157,7 @@ impl RenderOnce for Image {
 mod tests {
     use super::*;
 
-    /// ADR 0083 Decision 4: only `Xl` and `XXl` artwork draws a shadow. No
+    /// ADR 0101 Decision 4: only `Xl` and `XXl` artwork draws a shadow. No
     /// other `ImageSize` draws one.
     #[test]
     fn only_xl_and_xxl_resolve_an_artwork_shadow() {

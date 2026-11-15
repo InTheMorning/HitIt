@@ -1,7 +1,7 @@
 //! Semantic icon catalog for reusable UI iconography.
 //!
 //! Screens choose [`IconName`] and size intent; this module owns the Lucide
-//! mapping and brand-color details. ADR 0083 Decision 10: every icon draws
+//! mapping and brand-color details. ADR 0101 Decision 10: every icon draws
 //! from the Lucide set of `gpui-kit-assets`, through `ComponentIconName`
 //! where the default component bundle carries it, or through the complete
 //! Lucide catalog otherwise. No icon is a text character.
@@ -91,7 +91,7 @@ pub enum IconName {
     MbDone,
     /// The `MusicBrainz` status "skipped" of a track row.
     MbSkipped,
-    /// The downloaded state of a track row and of a release row (ADR 0083
+    /// The downloaded state of a track row and of a release row (ADR 0101
     /// Decision 6, amended 2026-10-22; ADR 0084 task 033).
     CloudCheck,
 }
@@ -228,7 +228,7 @@ impl IconName {
             Self::MbPending => Some(LucideIconName::Hourglass),
             Self::MbLookingUp => Some(LucideIconName::ScanSearch),
             Self::MbDone => Some(LucideIconName::BadgeCheck),
-            // ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033:
+            // ADR 0101 Decision 6, amended 2026-10-22; ADR 0084 task 033:
             // the downloaded state of a track row and of a release row.
             Self::CloudCheck => Some(LucideIconName::CloudCheck),
             Self::Add
@@ -338,7 +338,7 @@ pub struct Icon {
     name: IconName,
     size: IconSize,
     color: Option<Rgba>,
-    /// `true` turns the icon continuously (ADR 0083 Decision 6, amended
+    /// `true` turns the icon continuously (ADR 0101 Decision 6, amended
     /// 2026-10-22; ADR 0084 task 033): the downloading state of a track
     /// row and of a release row. [`gpui::AnimationExt::with_animation`]
     /// already stops the motion when the platform asks for reduced
@@ -367,7 +367,7 @@ impl Icon {
     }
 
     /// Turns the icon continuously, for the downloading state of a track
-    /// row or of a release row (ADR 0083 Decision 6, amended 2026-10-22).
+    /// row or of a release row (ADR 0101 Decision 6, amended 2026-10-22).
     pub const fn turning(mut self, turning: bool) -> Self {
         self.turning = turning;
         self
@@ -496,7 +496,7 @@ fn nostr_icon_image() -> Arc<Image> {
     }))
 }
 
-// ADR 0083 Decision 10: the small set of Lucide icons this app draws from
+// ADR 0101 Decision 10: the small set of Lucide icons this app draws from
 // the complete `gpui-kit-assets` catalog, outside the default component
 // bundle. The macro embeds only these SVG files, not all 1,830 icons.
 gpui_kit_assets::icon_assets!(
@@ -747,7 +747,7 @@ mod tests {
         );
     }
 
-    /// ADR 0083 Decision 6, amended 2026-10-22: a turning icon still
+    /// ADR 0101 Decision 6, amended 2026-10-22: a turning icon still
     /// resolves to a Lucide icon, through the same catalog path as a
     /// still icon.
     #[test]

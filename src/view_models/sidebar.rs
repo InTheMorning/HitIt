@@ -108,7 +108,7 @@ pub(crate) struct SidebarRowVm {
     /// accessibility label give the count in text too.
     pub(crate) shows_attention_mark: bool,
     /// The row opens its destination while a dragged track stays over it
-    /// (ADR 0083 Decision 6, task 008).
+    /// (ADR 0101 Decision 6, task 008).
     pub(crate) spring_loaded: bool,
 }
 

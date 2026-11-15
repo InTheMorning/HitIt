@@ -1,4 +1,4 @@
-//! The Inspect Sources sheet (ADR 0089 Decision 8, ADR 0083 Decision 8).
+//! The Inspect Sources sheet (ADR 0089 Decision 8, ADR 0101 Decision 8).
 //!
 //! The sheet shows the source values of one track in a `Root` sheet, over
 //! the track page. The body is a view that observes its source entity, so a

@@ -3,7 +3,7 @@
 //!
 //! A row with only destructive buttons cannot obey R-ACT-8. So the row
 //! shows one button "Remove…" that opens a menu, and the menu follows ADR
-//! 0020 R-ACT-3 item 2. This is not the row menu of ADR 0083 Decision 6.
+//! 0020 R-ACT-3 item 2. This is not the row menu of ADR 0101 Decision 6.
 
 #![warn(clippy::pedantic)]
 

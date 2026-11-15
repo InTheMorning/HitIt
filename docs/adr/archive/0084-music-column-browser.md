@@ -10,7 +10,7 @@ Superseded by ADR 0098 - 2026-11-14. [ADR 0098](../0098-the-music-shell-pages-li
 - Changes: [ADR 0060](../0060-workflow-surface-structure.md), the Vocabulary and the scope control.
 - Changes: [ADR 0062](../0062-music-content-surface.md), the scope control and the source tree.
 - Changes: [ADR 0082](../0082-publisher-roles-belong-to-each-album-link.md), the sequence of the groups of Decision 2 and the publisher page (Decisions 6 and 7).
-- Changes: [ADR 0083](../0083-design-language.md), Decisions 4, 5, 6 and 9.
+- Changes: [ADR 0083](0083-design-language.md), Decisions 4, 5, 6 and 9.
 
 Amended 2026-10-19: the operator found the hidden checkboxes unclear and asked for the selection mode of Apple Photos, Files and Mail. Decision 10 now gives a "Select" button and a selection mode.
 
@@ -34,7 +34,7 @@ It amends these decisions:
 - [ADR 0060](../0060-workflow-surface-structure.md) Vocabulary: the curator sees "Release" (Decision 5).
 - [ADR 0062](../0062-music-content-surface.md): the scope control has two states, and the source tree goes. Recency order and paging stay.
 - [ADR 0082](../0082-publisher-roles-belong-to-each-album-link.md) Decision 2: each group of a publisher page divides its releases by kind (Decision 6).
-- [ADR 0083](../0083-design-language.md): Decision 9 is superseded by Decision 3 of this ADR. Decisions 4, 5 and 6 gain the additions of Decisions 12, 5 and 10.
+- [ADR 0083](0083-design-language.md): Decision 9 is superseded by Decision 3 of this ADR. Decisions 4, 5 and 6 gain the additions of Decisions 12, 5 and 10.
 
 - Changed by: [ADR 0087](0087-search-fields-and-live-results.md), 2026-10-23: in Decision 2, the toolbar search field shows a field list, reads fields in the query text and shows results while the curator types. In Decision 3, a saved search runs its fields.
 
@@ -103,7 +103,7 @@ The sidebar lists these destinations, in this order:
 
 Search stays a toolbar command ([ADR 0060](../0060-workflow-surface-structure.md)). Its results fill the list column, and a result opens in the detail column.
 
-The feed state and "Check all feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](../0083-design-language.md) Decision 7 takes them.
+The feed state and "Check all feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](0083-design-language.md) Decision 7 takes them.
 
 Saved searches are views in the Discover column (Decision 3). The operator decided this on 2026-10-08.
 
@@ -130,7 +130,7 @@ Each release, track, artist and playlist has one page, whatever its origin. The 
 | Artist | Decision 7 |
 | Playlist | Its local id |
 
-A page shows its Library state with a word, for example "In Library", "3 of 7 tracks" or "Not downloaded". Its actions follow that state ([ADR 0083](../0083-design-language.md) Decision 5).
+A page shows its Library state with a word, for example "In Library", "3 of 7 tracks" or "Not downloaded". Its actions follow that state ([ADR 0083](0083-design-language.md) Decision 5).
 
 This replaces the drill-down route for each origin of ADR 0049. A click on a Library row and a click on an Index row open the same page.
 

@@ -2,15 +2,17 @@
 
 ## Status
 
-Accepted - 2026-10-03. The operator chose the direction on 2026-10-03 from a private mockup canvas, and accepted this text on the same day. Phase 3 of the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md) implements Decisions 1 to 4.
+Superseded by ADR 0101 - 2026-11-15. [ADR 0101](../0101-the-design-language-follows-the-shared-rules.md) restates each live rule of this ADR, keeps the numbers of Decisions 1 to 10, and gives an item map. The text below is the record of 2026-10-03 and its changes.
 
-- Changed by: [ADR 0084](archive/0084-music-column-browser.md), 2026-10-08: Decision 9 is superseded by ADR 0084 Decision 3, except that a tile is a release. Decision 4 gains the logo frame for a collection (ADR 0084 Decision 12). Decision 5 names a release by its kind in labels (ADR 0084 Decision 5). Decision 6 gains the shared selection checkbox and action bar (ADR 0084 Decision 10). [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) restates ADR 0084.
+Accepted - 2026-10-03. The operator chose the direction on 2026-10-03 from a private mockup canvas, and accepted this text on the same day. Phase 3 of the [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md) implements Decisions 1 to 4.
+
+- Changed by: [ADR 0084](0084-music-column-browser.md), 2026-10-08: Decision 9 is superseded by ADR 0084 Decision 3, except that a tile is a release. Decision 4 gains the logo frame for a collection (ADR 0084 Decision 12). Decision 5 names a release by its kind in labels (ADR 0084 Decision 5). Decision 6 gains the shared selection checkbox and action bar (ADR 0084 Decision 10). [ADR 0098](../0098-the-music-shell-pages-lists-and-search.md) restates ADR 0084.
 
 Amended 2026-10-20: Decision 6 gives the drop target of a dragged track (operator decision).
 
 Amended 2026-10-21: Decision 6 lets a drag in selection mode carry each checked track (operator decision of 2026-10-21).
 
-- Revised: 2026-10-22 by operator decision: Decision 6 shows the download state of a track row and a release row as one icon. A partly downloaded release also shows a count. [ADR 0084 task 033](../tasks/adr-0084-task-033-download-state-icons.md) builds it.
+- Revised: 2026-10-22 by operator decision: Decision 6 shows the download state of a track row and a release row as one icon. A partly downloaded release also shows a count. [ADR 0084 task 033](../../tasks/adr-0084-task-033-download-state-icons.md) builds it.
 
 Amended 2026-10-07: Decision 5 names the main action until a page can play a track.
 
@@ -18,20 +20,20 @@ Amended 2026-10-07: Decision 5 names the main action until a page can play a tra
 
 - Changed by: musicindex ADRs 0021, 0022, 0023, 0026, 0068 and 0069, 2026-10-25, by operator decision. These records replace parts of Decisions 1 to 6 and 8. They also replace one item of Consequences and two verification items. Those records own the interface rules that musicindex.org, Studio and v4vmm share. [Rules that musicindex replaces](#rules-that-musicindex-replaces) names each part.
 
-- Changed by: [musicindex ADR 0064](../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 to R-ACT-12, 2026-11-12, by operator decision. These rules add to Decision 5. The orchestrator session relayed the decisions. The amendment of musicindex ADR 0064 in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. The menu sequence of Decision 5 does not change. Open items:
+- Changed by: [musicindex ADR 0064](../../../../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md) R-ACT-8 to R-ACT-12, 2026-11-12, by operator decision. These rules add to Decision 5. The orchestrator session relayed the decisions. The amendment of musicindex ADR 0064 in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. The menu sequence of Decision 5 does not change. Open items:
   - Recovery has "Retry" and "Dismiss". In one condition, "Dismiss" can discard a retained conversion file. This app does not identify "Dismiss" as destructive. The operator decides.
   - The staged edit row of Inspect Sources has no Enter binding, and the focus stays on the sheet. The row is not a confirmation, so R-ACT-9 item 1 has no clear safe button there. The operator decides.
   - In a destructive confirmation, Cancel has the first focus, but its focus ring shows only after a key press. The operator decides if the ring must show when the dialog opens.
 
-- Changes: [ADR 0025](0025-theme-icon-style-boundary.md), Decision 2: entity roles get their own palette.
-- Changes: [ADR 0062](0062-music-content-surface.md), Decision 9: a tile is a release.
-- Changes: [ADR 0066](0066-configuration-and-startup-failure-recovery.md), Decision 7: the normal-shell notice opens from the status bar.
+- Changes: [ADR 0025](../0025-theme-icon-style-boundary.md), Decision 2: entity roles get their own palette.
+- Changes: [ADR 0062](../0062-music-content-surface.md), Decision 9: a tile is a release.
+- Changes: [ADR 0066](../0066-configuration-and-startup-failure-recovery.md), Decision 7: the normal-shell notice opens from the status bar.
 
 ## Context
 
-The [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md) has three design goals. The app looks like the musicindex.org website. The Library feels like a music player. Each setting has one clear place.
+The [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md) has three design goals. The app looks like the musicindex.org website. The Library feels like a music player. Each setting has one clear place.
 
-The [screen inventory](../architecture/screen-inventory/README.md) found these facts on 2026-10-03:
+The [screen inventory](../../architecture/screen-inventory/README.md) found these facts on 2026-10-03:
 
 - The app has one blue-violet accent for tabs, buttons, links and chips.
 - `EntityKind::fill_token` in `src/ui/composites/tag_badge.rs` reuses status colors as entity colors. Track and playlist share one color, and publisher is red.
@@ -40,7 +42,7 @@ The [screen inventory](../architecture/screen-inventory/README.md) found these f
 - Album and track pages show feed URLs, GUIDs and the full compare grid at all times.
 - Track pages stack many buttons. The live status band uses about 70 pixels on Music and Settings.
 
-The website is `../musicindex/search.html`. Its dark theme is the default. Its tokens are recorded in the [design-system inventory](../architecture/screen-inventory/design-system.md).
+The website is `../musicindex/search.html`. Its dark theme is the default. Its tokens are recorded in the [design-system inventory](../../architecture/screen-inventory/design-system.md).
 
 The operator reviewed mockups on 2026-10-03 and chose version 2 at size M. The operator also decided these points:
 
@@ -110,7 +112,7 @@ A destructive item is last in its menu, after a divider, in the danger color, an
 
 In a horizontal row of buttons, musicindex ADR 0064 R-ACT-8 applies. This includes a dialog, a bar and the buttons of a list entry. The destructive button is the leftmost button, a larger space follows it, and the safe action is the rightmost button. When a row has two destructive buttons and other buttons, the two destructive buttons are at the left end. A row with only destructive buttons shows one button "Remove…" with a menu (R-ACT-10), for example the playlist row of a removed track. The action column of a maintenance page (ADR 0066) puts its destructive controls last, after a divider. When the page is narrow, the column wraps into a band, and the band puts them first (R-ACT-11). "Use Defaults…" in Settings is destructive: it has the red tint and a confirmation (R-ACT-12). A destructive confirmation obeys R-ACT-9: Cancel has the first focus, Enter does not start the destructive action, and Escape closes the dialog with no action.
 
-Until a page can play a track ([ADR 0068](0068-show-cue-and-audition-isolation.md)), the filled main action is the next curation step for the state of the item. A track that is not in the Library gets "Download album". A Library track that is not downloaded gets "Download track". A downloaded track gets "Add to playlist". Play replaces it when playback exists. The operator decided this on 2026-10-07.
+Until a page can play a track ([ADR 0068](../0068-show-cue-and-audition-isolation.md)), the filled main action is the next curation step for the state of the item. A track that is not in the Library gets "Download album". A Library track that is not downloaded gets "Download track". A downloaded track gets "Add to playlist". Play replaces it when playback exists. The operator decided this on 2026-10-07.
 
 ### 6. Rows Show Information And Hide Most Actions
 
@@ -120,13 +122,13 @@ Until a page can play a track ([ADR 0068](0068-show-cue-and-audition-isolation.m
 - The right-click menu of a row holds the same items as its "⋯" menu.
 - A track can be dragged onto a playlist in the sidebar. Since ADR 0084, the sidebar holds the "Playlists" destination. While a track is held over it, the list column opens Playlists, and the track drops on a playlist row there. The operator decided this on 2026-10-20.
 - In selection mode, a drag that starts on a checked track row carries each checked track, in list order. The drag image shows the count, for example "3 tracks". A drag that starts on a row that is not checked does nothing. The drop adds each track, and the status names the count. The operator decided this on 2026-10-21.
-- Each action is reachable with the mouse. A keyboard shortcut is optional ([ADR 0067](archive/0067-platform-shortcut-modifiers.md) stays).
+- Each action is reachable with the mouse. A keyboard shortcut is optional ([ADR 0067](0067-platform-shortcut-modifiers.md) stays).
 
 ### 7. One Status Bar
 
 The window has one status bar at the bottom, the same on every section. One shared composite owns it.
 
-- **Left:** the latest reported event, in the words of the report owner ([ADRs 0059 and 0063](0059-broadcast-control-surface.md)), with its recorded time.
+- **Left:** the latest reported event, in the words of the report owner ([ADRs 0059 and 0063](../0059-broadcast-control-surface.md)), with its recorded time.
 - **Right:** small items with a simple icon and a short word. Each item opens its detail. The items are feed state, files to update, reports with a count, and show state.
 - **The show item appears only while a show is active.** With no active show, Music and Settings show no broadcast state (Current Design Philosophy: curation shows nothing operational).
 
@@ -136,12 +138,12 @@ The status bar replaces the live status band. The reports item opens the normal-
 
 - An album or track page has one "Inspect sources" entry.
 - The inspection view shows the RSS value, the MusicIndex value and the file tag side by side, with the source element of each row and a result in words.
-- RSS is labeled the source of truth, and MusicIndex the cache ([ADR 0075](0075-metadata-ownership-and-completeness.md) Decision I).
+- RSS is labeled the source of truth, and MusicIndex the cache ([ADR 0075](../0075-metadata-ownership-and-completeness.md) Decision I).
 - The track compare grid becomes the inspection view of a track. Its content stays.
 
 ### 9. Music Has A Home, And A Tile Is A Release
 
-Superseded by [ADR 0084](archive/0084-music-column-browser.md) Decision 3 on 2026-10-08: Music opens on Discover. The tile rule below stays.
+Superseded by [ADR 0084](0084-music-column-browser.md) Decision 3 on 2026-10-08: Music opens on Discover. The tile rule below stays.
 
 - The Music section opens on a home: the newest release, the releases of the Library, the playlists, and the upkeep state.
 - The tile view shows one tile for each release, not for each track.

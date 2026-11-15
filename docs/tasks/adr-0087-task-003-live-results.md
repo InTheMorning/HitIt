@@ -33,7 +33,7 @@ the restored toolbar text start no live run.
   page change. A new open of a page shows it at the top.
 - [ADR 0040](../adr/0040-async-vm-runtime.md): screens do not call `cx.spawn`. Only
   `src/presentation/`, `src/runtime/` and `src/app/bootstrap.rs` call it.
-- [ADR 0083](../adr/0083-design-language.md) Decision 6 and
+- [ADR 0083](../adr/archive/0083-design-language.md) Decision 6 and
   [ADR 0083 task 008](adr-0083-task-008-drag-track-to-playlist.md): the `Motion` token of the
   named interface times, and the timer `present_after`.
 - [Packet 001](archive/adr-0087-task-001-query-parser.md): `SearchQuery::has_runnable_content`.

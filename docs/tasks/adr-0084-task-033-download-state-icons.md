@@ -21,7 +21,7 @@ each of these places:
 
 ## Authority
 
-- [ADR 0083](../adr/0083-design-language.md) Decision 6, amended 2026-10-22 by operator decision:
+- [ADR 0083](../adr/archive/0083-design-language.md) Decision 6, amended 2026-10-22 by operator decision:
   the download-state icon of a track row and a release row, and the rule that a row shows its
   state at all times.
 - [ADR 0083 task 006](adr-0083-task-006-row-hover-actions.md): the shared track row, its

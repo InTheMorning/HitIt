@@ -9,7 +9,7 @@ This corrects a defect of task 002: the Play icon of "Open Show" shows as a colo
 
 ## Authority
 
-- [ADR 0083](../../adr/0083-design-language.md) Decision 10.
+- [ADR 0083](../../adr/archive/0083-design-language.md) Decision 10.
 - [ADR 0025](../../adr/0025-theme-icon-style-boundary.md): the icon boundary.
 - Durable set in `AGENTS.md`: token discipline, no glyph string in a renderer.
 

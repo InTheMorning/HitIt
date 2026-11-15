@@ -7,7 +7,7 @@
 //! takes the place of the drag handle, and the row menu and the drop
 //! target are absent. The page scrolls with the held detail column handle.
 //!
-//! ADR 0083 Decision 6, task 007: a row shows its information and state
+//! ADR 0101 Decision 6, task 007: a row shows its information and state
 //! at all times. The drag handle and "⋯" show on hover and keyboard focus.
 //! Each hidden cell keeps its width. Right-click opens the same menu.
 
@@ -930,7 +930,7 @@ fn render_playlist_row_checkbox(
         .into_any_element()
 }
 
-/// Applies the hover rule of ADR 0083 Decision 6 to `cell`. An
+/// Applies the hover rule of ADR 0101 Decision 6 to `cell`. An
 /// `OnHover` cell is hidden until a hover of the row, unless the row has
 /// the keyboard focus. A hidden cell keeps its width.
 fn hover_cell(cell: Div, focused: bool) -> Div {

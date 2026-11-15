@@ -12,9 +12,9 @@ The always-visible "Remove" text button and the "+ Playlist" button leave the ro
 
 ## Authority
 
-- [ADR 0083](../adr/0083-design-language.md) Decision 5: the action hierarchy. A destructive item is last, after a divider, in the danger color. Its label ends with "…", and it asks for confirmation.
-- [ADR 0083](../adr/0083-design-language.md) Decision 6: a row shows its information and its state at all times. It shows its actions on hover and on keyboard focus. The right-click menu holds the same items as the "⋯" menu.
-- [ADR 0083](../adr/0083-design-language.md) Decision 10: one icon set. An icon alone needs a tooltip and an accessibility label.
+- [ADR 0083](../adr/archive/0083-design-language.md) Decision 5: the action hierarchy. A destructive item is last, after a divider, in the danger color. Its label ends with "…", and it asks for confirmation.
+- [ADR 0083](../adr/archive/0083-design-language.md) Decision 6: a row shows its information and its state at all times. It shows its actions on hover and on keyboard focus. The right-click menu holds the same items as the "⋯" menu.
+- [ADR 0083](../adr/archive/0083-design-language.md) Decision 10: one icon set. An icon alone needs a tooltip and an accessibility label.
 - [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 10: the selection model, the two modes, the action bar and the download queue.
 - [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 11: each track row keeps a place for audition. No control shows in it.
 - The archived [ADR 0044](../adr/archive/0044-playlist-drag-handle-reordering.md) gave the playlist row its "⋯" menu. This packet uses the same `ContextMenu` primitive.

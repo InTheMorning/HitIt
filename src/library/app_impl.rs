@@ -633,7 +633,7 @@ impl LibraryApp {
     /// Opens the publisher page of an album or a track's album feed (ADR
     /// 0077 packet 004). The top app owns the publisher page fetch and its
     /// navigation entry.
-    /// Opens the page of a name link under a Library track title (ADR 0083
+    /// Opens the page of a name link under a Library track title (ADR 0101
     /// Decision 5).
     pub(crate) fn open_track_name_link(
         &mut self,
@@ -939,7 +939,7 @@ impl LibraryApp {
                     self.open_inspect_sources(track_id, FrameNavigationEntry::Track(key), cx);
                 }
             }
-            // ADR 0083 Decision 5: "Remove from Library…" always asks for
+            // ADR 0101 Decision 5: "Remove from Library…" always asks for
             // confirmation.
             TrackRowMenuAction::Remove => {
                 self.remove_track_after_confirmation(track_id, window, cx);
@@ -3378,7 +3378,7 @@ impl LibraryApp {
     }
 
     /// "Remove album…" of an album page: a destructive menu item, so it
-    /// asks for each removal (ADR 0083 Decision 5).
+    /// asks for each removal (ADR 0101 Decision 5).
     pub(crate) fn remove_album_after_confirmation(
         &mut self,
         feed_id: i64,
@@ -3466,7 +3466,7 @@ impl LibraryApp {
     }
 
     /// "Remove track…" of the track page: the removal always asks for
-    /// confirmation (ADR 0083 Decision 5).
+    /// confirmation (ADR 0101 Decision 5).
     pub(crate) fn remove_track_after_confirmation(
         &mut self,
         track_id: i64,
@@ -5693,7 +5693,7 @@ impl LibraryApp {
             color::text_muted()
         };
         let status_text = status.text;
-        // ADR 0083 Decision 1: the sidebar surface, distinct from the
+        // ADR 0101 Decision 1: the sidebar surface, distinct from the
         // content canvas behind `trailing_pane`.
         let destinations_scroll = {
             let container = div()
@@ -7513,7 +7513,7 @@ mod tests {
         }
     }
 
-    /// R31-12 (ADR 0083 Decision 6, amended 2026-10-21): the drag of a
+    /// R31-12 (ADR 0101 Decision 6, amended 2026-10-21): the drag of a
     /// checked row in `Selecting` carries several track ids. The drop on
     /// a playlist row gives one `PlaylistDrop` with each id, in list
     /// order. `add_tracks_to_playlist` then starts one append, and the

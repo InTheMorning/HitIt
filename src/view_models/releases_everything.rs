@@ -174,7 +174,7 @@ pub(crate) fn index_release_row(
         menu: None,
         // ADR 0084 task 033, Flag: a `MusicIndex` row that the Library
         // does not hold showed no state word before this packet. "A row
-        // shows its state at all times" (ADR 0083 Decision 6), so it now
+        // shows its state at all times" (ADR 0101 Decision 6), so it now
         // shows the quiet `NotDownloaded` icon, or Queued or Downloading
         // while its own job runs (review correction of 2026-10-22). The
         // app has not read this feed's track list here, so a downloaded
@@ -947,12 +947,12 @@ pub(crate) mod tests {
         assert!(index_release_row(&no_guid, |_| None).is_none());
     }
 
-    /// R33-10 (ADR 0083 Decision 6, amended 2026-10-22, ADR 0084 task
+    /// R33-10 (ADR 0101 Decision 6, amended 2026-10-22, ADR 0084 task
     /// 033): a `MusicIndex` row of the Releases list in "Everything" that
     /// the Library does not hold shows the quiet `NotDownloaded` icon,
     /// with no count text. This replaces R16-14 and packet 016 decision
     /// D13: the state word no longer depends on the scope, because the
-    /// icon is compact enough to show at all times (ADR 0083 Decision 6).
+    /// icon is compact enough to show at all times (ADR 0101 Decision 6).
     #[test]
     fn adr_0084_scopes_r33_10_index_row_shows_the_not_downloaded_icon() {
         let feed = recorded_rows()

@@ -1,10 +1,10 @@
-//! The drag of tracks to a playlist (ADR 0083 Decision 6, task 008).
+//! The drag of tracks to a playlist (ADR 0101 Decision 6, task 008).
 //!
 //! This composite holds the two drag payloads, the one drag preview, the
 //! drag source of a track row and the drop target of a playlist row.
 //!
 //! - A `TrackRow` and a Tracks list row start a [`TrackDragPayload`]. In
-//!   selection mode, a checked row carries each checked track (ADR 0083
+//!   selection mode, a checked row carries each checked track (ADR 0101
 //!   Decision 6, amended 2026-10-21; ADR 0084 task 031).
 //! - The drag handle of a playlist entry starts a
 //!   [`PlaylistTrackDragPayload`].
@@ -192,7 +192,7 @@ pub(crate) fn playlist_drop_handler(
 }
 
 /// Makes `row` the drop target of a dragged track for the playlist
-/// `playlist_id` (ADR 0083 Decision 6, task 008).
+/// `playlist_id` (ADR 0101 Decision 6, task 008).
 ///
 /// - The row accepts a track from a track row, and an entry of another
 ///   playlist (decision D7). It does not accept an entry of its own
@@ -451,7 +451,7 @@ mod track_drag_tests {
             .center()
     }
 
-    /// R83-8-03 (ADR 0083 Decision 6, task 008): a drag from a `TrackRow`
+    /// R83-8-03 (ADR 0101 Decision 6, task 008): a drag from a `TrackRow`
     /// onto a playlist row calls the drop handler one time, with the track
     /// id and the playlist id. The drag does not open the row page.
     #[gpui::test]
@@ -564,7 +564,7 @@ mod track_drag_tests {
         assert_eq!(record.borrow().clicks, 0);
     }
 
-    /// R31-10 (ADR 0083 Decision 6, amended 2026-10-21): a drag from a
+    /// R31-10 (ADR 0101 Decision 6, amended 2026-10-21): a drag from a
     /// checked `TrackRow` in `Selecting` onto a playlist row calls the
     /// drop handler one time, with each checked track id in list order.
     #[gpui::test]
@@ -629,7 +629,7 @@ mod track_drag_tests {
         );
     }
 
-    /// R31-11 (ADR 0083 Decision 6, amended 2026-10-21): a `TrackRow` that
+    /// R31-11 (ADR 0101 Decision 6, amended 2026-10-21): a `TrackRow` that
     /// is not checked in `Selecting` starts no drag. Its drag fact is
     /// `None`.
     #[gpui::test]

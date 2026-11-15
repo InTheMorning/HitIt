@@ -119,7 +119,7 @@ fn title_bar(
     appearance: Option<Appearance>,
     cx: &mut App,
 ) -> AnyElement {
-    // ADR 0083 Decision 2: an entity color never carries text. The track
+    // ADR 0101 Decision 2: an entity color never carries text. The track
     // entity color stays as a quiet border accent. The trigger label reads
     // in the normal label color.
     let track_accent = EntityKind::Track.fill_color(cx);

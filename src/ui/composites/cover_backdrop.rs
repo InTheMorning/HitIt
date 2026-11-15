@@ -1,5 +1,5 @@
 //! Cover backdrop composite — a page header over a gradient in the main
-//! color of its cover (ADR 0083 Decision 4, task 005).
+//! color of its cover (ADR 0101 Decision 4, task 005).
 //!
 //! The gradient starts at the top of the header and fades to the page
 //! background over the `CoverBackdrop` height token. With no color, the

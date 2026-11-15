@@ -33,7 +33,7 @@ impl LibraryApp {
                     cx.notify();
                 }
             }
-            // ADR 0083 Decision 5: "Remove…" of a row always asks for
+            // ADR 0101 Decision 5: "Remove…" of a row always asks for
             // confirmation.
             ReleasePageCommand::RemoveTrack(row) => {
                 if let Some((track, _)) = self.release_page_row(row) {

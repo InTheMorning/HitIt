@@ -106,7 +106,7 @@ impl RenderOnce for SectionHeader {
             .text_color(muted);
 
         if let Some(collapsed) = self.disclosure {
-            // ADR 0083 Decision 10: a Lucide chevron, not a character. It
+            // ADR 0101 Decision 10: a Lucide chevron, not a character. It
             // turns from pointing right to pointing down when it opens.
             let icon_name = if collapsed {
                 IconName::ChevronRight

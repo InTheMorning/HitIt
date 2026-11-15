@@ -8,7 +8,7 @@
 //! for `div`; the field is retained as contract data until the framework can
 //! consume it.
 //!
-//! ADR 0083 Decision 6, task 007: a row can have one menu cell. The cell
+//! ADR 0101 Decision 6, task 007: a row can have one menu cell. The cell
 //! is the last fixed column. It holds the "⋯" button, which shows on a
 //! hover of the row and on the keyboard focus of the row. A right-click on
 //! the row opens a menu with the same items. [`RowMenu`] and
@@ -452,7 +452,7 @@ impl RowMenuRoot {
     }
 }
 
-/// The menu cell and the root part of a row menu for one render (ADR 0083
+/// The menu cell and the root part of a row menu for one render (ADR 0101
 /// Decision 6). `cell` is the fixed column of the "⋯" button. With no
 /// menu, the cell is empty and keeps its width, and the root part is
 /// empty.
@@ -624,7 +624,7 @@ mod tests {
             .expect("the menu cell bounds are recorded")
     }
 
-    /// R83-7-12 (ADR 0083 Decision 6, task 007): the menu cell of
+    /// R83-7-12 (ADR 0101 Decision 6, task 007): the menu cell of
     /// `ListRow` has its token width when it is empty, hidden or visible.
     /// The cell starts at the same position in each case.
     #[gpui::test]

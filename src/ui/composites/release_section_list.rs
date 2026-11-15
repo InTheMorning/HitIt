@@ -260,7 +260,7 @@ fn render_release_row(
             });
     }
 
-    // ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033: the
+    // ADR 0101 Decision 6, amended 2026-10-22; ADR 0084 task 033: the
     // download-state icon replaces the "In Library" mark of decision
     // D13. "Not listed by this feed" is a different fact (R3-09) and
     // keeps its own badge.

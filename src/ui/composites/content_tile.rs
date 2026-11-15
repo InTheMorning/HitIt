@@ -26,7 +26,7 @@ pub(crate) fn render_content_list_tile_artwork(
     cx: &App,
 ) -> AnyElement {
     match thumbnail {
-        // ADR 0083 Decision 4: `Size::ContentTileArtwork` shares the `Xl`
+        // ADR 0101 Decision 4: `Size::ContentTileArtwork` shares the `Xl`
         // footprint (152 px), so `ImageSize::Xl` renders the same dimension
         // and gives the content tile its artwork shadow.
         Some(image) => ImagePrimitive::new(image)

@@ -1,4 +1,4 @@
-//! The "⋯" menu and the right-click menu of a track row (ADR 0083
+//! The "⋯" menu and the right-click menu of a track row (ADR 0101
 //! Decision 6, task 006).
 //!
 //! One function, [`track_row_menu_items`], builds the items of both menus
@@ -48,7 +48,7 @@ pub(crate) enum MenuCellVisibility {
     OnHover,
 }
 
-/// The visibility of the menu cell (ADR 0083 Decision 6). The cell is
+/// The visibility of the menu cell (ADR 0101 Decision 6). The cell is
 /// always visible when the row has the keyboard focus or when its menu is
 /// open. Otherwise it shows on a hover of the row.
 #[must_use]
@@ -151,7 +151,7 @@ pub(crate) fn row_menu_state(
     state
 }
 
-/// The items of the "⋯" menu and of the right-click menu (ADR 0083
+/// The items of the "⋯" menu and of the right-click menu (ADR 0101
 /// Decision 6). Both menus use this one function.
 pub(crate) fn track_row_menu_items(
     menu: &TrackRowMenuVm,
@@ -374,7 +374,7 @@ impl RenderOnce for TrackRowMenuCell {
 mod tests {
     use super::*;
 
-    /// R83-6-12 (ADR 0083 Decision 6): the menu cell is always visible for
+    /// R83-6-12 (ADR 0101 Decision 6): the menu cell is always visible for
     /// a focused row or an open menu, and shows on hover in each other
     /// case.
     #[test]
@@ -501,7 +501,7 @@ mod create_mode_tests {
         );
     }
 
-    /// R30-01 (ADR 0083 Decision 6): "⋯", "Add to playlist" and "New
+    /// R30-01 (ADR 0101 Decision 6): "⋯", "Add to playlist" and "New
     /// Playlist" show the create mode.
     #[gpui::test]
     fn adr_0084_music_open_defects_r30_01_menu_new_playlist_shows_create_mode(
@@ -518,7 +518,7 @@ mod create_mode_tests {
         show_create_mode(cx);
     }
 
-    /// R30-03 (ADR 0083 Decision 6). In the create mode, a name and a click
+    /// R30-03 (ADR 0101 Decision 6). In the create mode, a name and a click
     /// on "Create & Add" call the create handler one time. The handler gets
     /// that name. The menu then closes.
     #[gpui::test]
@@ -544,7 +544,7 @@ mod create_mode_tests {
         assert!(cx.debug_bounds("context-menu-items").is_none());
     }
 
-    /// R30-02 (ADR 0083 Decision 6): the same steps through the
+    /// R30-02 (ADR 0101 Decision 6): the same steps through the
     /// right-click menu of the row.
     #[gpui::test]
     fn adr_0084_music_open_defects_r30_02_right_click_new_playlist_shows_create_mode(

@@ -83,7 +83,7 @@ pub enum SemanticColor {
     SystemBackground,
     SecondarySystemBackground,
     TertiarySystemBackground,
-    /// ADR 0083 Decision 1: the fourth background tier of `search.html`.
+    /// ADR 0101 Decision 1: the fourth background tier of `search.html`.
     /// Used by the sidebar surface of the app, never by a content canvas.
     SidebarBackground,
 
@@ -167,7 +167,7 @@ pub enum SemanticColor {
     Id3FrameV24Only,
     Id3FrameUnknown,
 
-    // ADR 0083 Decision 2: one color for each stated entity kind, drawn
+    // ADR 0101 Decision 2: one color for each stated entity kind, drawn
     // only as a small dot, never as text-on-fill. `EntityKind::fill_token`
     // in `ui::composites::tag_badge` is the one caller that maps a kind to
     // its token. `Release` reuses `EntityFeed` and `Recording` reuses
@@ -201,7 +201,7 @@ impl SemanticColor {
     }
 
     fn dark_palette(token: Self) -> Rgba {
-        // ADR 0083 Decision 1: the dark palette follows `search.html`.
+        // ADR 0101 Decision 1: the dark palette follows `search.html`.
         // `SystemBackground`, `SidebarBackground`, `SecondarySystemBackground`
         // (surface), `TertiarySystemBackground` (raised surface), `Label`
         // (text), `SecondaryLabel` (muted text), `Separator`, and `Accent`
@@ -263,7 +263,7 @@ impl SemanticColor {
 
             // musicindex ADR 0025 R-STATUS-1 owns the status values.
             Self::Success => hex(0x30_d158),
-            // ADR 0083 Decision 2: orange, not gold, so gold is free for the
+            // ADR 0101 Decision 2: orange, not gold, so gold is free for the
             // value palette. Started from #ff9f0a and kept the existing
             // OnWarning contrast pair.
             Self::Warning => hex(0xff_9f0a),
@@ -289,19 +289,19 @@ impl SemanticColor {
             Self::OnInfo => hex(0x0b_0d13),
 
             Self::DiffMatch => hex(0x6f_d4a3),
-            // ADR 0083 Decision 2: moved away from gold the same way as
+            // ADR 0101 Decision 2: moved away from gold the same way as
             // Warning.
             Self::DiffDifferent => hex(0xff_9b1e),
             Self::DiffMissing => hex(0xff_a07f),
 
             Self::Id3FrameV22 => hex(0xb0_6cf4),
-            // ADR 0083 Decision 2: moved away from gold the same way as
+            // ADR 0101 Decision 2: moved away from gold the same way as
             // Warning.
             Self::Id3FrameV23Only => hex(0xff_b454),
             Self::Id3FrameV24Only => hex(0x3a_c4c4),
             Self::Id3FrameUnknown => hex(0xff_8a65),
 
-            // ADR 0083 Decision 1: entity colors of `search.html`.
+            // ADR 0101 Decision 1: entity colors of `search.html`.
             Self::EntityFeed => hex(0xc4_965b),
             Self::EntityTrack => hex(0x00_8b99),
             Self::EntityPlaylist => hex(0x8e_dfad),
@@ -319,7 +319,7 @@ impl SemanticColor {
     }
 
     fn light_palette(token: Self) -> Rgba {
-        // ADR 0083 Decision 1: the light palette follows `search.html`.
+        // ADR 0101 Decision 1: the light palette follows `search.html`.
         // `TertiaryLabel`, `QuaternaryLabel`, the three fills, `AccentHover`,
         // `AccentPressed`, `Focus`, and `Info` are derived like those in
         // `dark_palette`. See the ADR 0083 task 001 packet result.
@@ -405,7 +405,7 @@ impl SemanticColor {
             Self::Id3FrameV24Only => hex(0x00_6d77),
             Self::Id3FrameUnknown => hex(0xb1_3c20),
 
-            // ADR 0083 Decision 1: entity colors of `search.html`.
+            // ADR 0101 Decision 1: entity colors of `search.html`.
             Self::EntityFeed => hex(0x8a_5e21),
             Self::EntityTrack => hex(0x00_8e9c),
             Self::EntityPlaylist => hex(0x00_6238),
@@ -622,7 +622,7 @@ pub enum FontSize {
     Title2,
     /// 24 px — page title.
     Title,
-    /// 30 px — ADR 0083 Decision 3: the title of an album, artist, or
+    /// 30 px — ADR 0101 Decision 3: the title of an album, artist, or
     /// publisher page header.
     Display,
 }
@@ -753,7 +753,7 @@ impl From<Weight> for FontWeight {
 }
 
 // -----------------------------------------------------------------------------
-// ArtworkShadow. ADR 0083 Decision 4: artwork has a shadow. A larger image
+// ArtworkShadow. ADR 0101 Decision 4: artwork has a shadow. A larger image
 // gets a larger shadow.
 // -----------------------------------------------------------------------------
 
@@ -764,7 +764,7 @@ impl From<Weight> for FontWeight {
 /// `ImageSize::XXl`, 200 px page-header artwork.
 ///
 /// No other element draws this shadow. A guard in
-/// `tests/architecture_tests.rs` checks this rule for ADR 0083 Decision 4.
+/// `tests/architecture_tests.rs` checks this rule for ADR 0101 Decision 4.
 /// The logo frame of a collection (ADR 0084 Decision 12) bakes the `XXl`
 /// values into its composed image, through [`ArtworkShadow::baked`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -883,7 +883,7 @@ impl ArtworkShape {
 }
 
 // -----------------------------------------------------------------------------
-// CoverBackdrop. ADR 0083 Decision 4: a page header draws a backdrop in the
+// CoverBackdrop. ADR 0101 Decision 4: a page header draws a backdrop in the
 // main color of its cover. ADR 0083 task 005 chooses a gradient.
 // -----------------------------------------------------------------------------
 
@@ -1216,7 +1216,7 @@ impl gpui::Global for ScaleFactor {}
 // Motion — named times of the interface.
 // -----------------------------------------------------------------------------
 
-/// The named times of the interface (ADR 0083 Decision 6).
+/// The named times of the interface (ADR 0101 Decision 6).
 ///
 /// The code that waits for a time reads it from this token. It holds no
 /// time literal of its own.
@@ -1332,7 +1332,7 @@ const fn hex(rgb: u32) -> Rgba {
     }
 }
 
-/// Decode `0xRRGGBB` with an explicit alpha. ADR 0083 Decision 1 states
+/// Decode `0xRRGGBB` with an explicit alpha. ADR 0101 Decision 1 states
 /// `Separator` as a translucent overlay. In dark it is `white at 10%`. In
 /// light it is `#3c3c43 at 16%`. This reads correctly over any surface
 /// behind it.
@@ -1407,7 +1407,7 @@ mod tests {
     #[test]
     fn dark_label_contrast_is_high() {
         // Sanity check: label-on-systemBackground must clear WCAG AA normal
-        // text (4.5:1). ADR 0083 Decision 1 moved both tokens off their old
+        // text (4.5:1). ADR 0101 Decision 1 moved both tokens off their old
         // hex values, so this checks the ratio directly rather than
         // hardcoding a near-white / near-black channel threshold.
         let label = SemanticColor::Label.resolve(Appearance::Dark);
@@ -1417,7 +1417,7 @@ mod tests {
 
     #[test]
     fn light_label_contrast_is_high() {
-        // See `dark_label_contrast_is_high`: ADR 0083 Decision 1 made Light
+        // See `dark_label_contrast_is_high`: ADR 0101 Decision 1 made Light
         // Label `#1d1d1f`, not pure black, so this checks the ratio directly.
         let label = SemanticColor::Label.resolve(Appearance::Light);
         let bg = SemanticColor::SystemBackground.resolve(Appearance::Light);
@@ -1593,7 +1593,7 @@ mod tests {
     // ADR 0083 task 001: palette and color roles.
     // -------------------------------------------------------------------
 
-    /// R83-01: the Dark and Light values of each ADR 0083 Decision 1 role,
+    /// R83-01: the Dark and Light values of each ADR 0101 Decision 1 role,
     /// through `SemanticColor::resolve`.
     #[test]
     fn adr_0083_decision_1_roles_resolve_to_the_website_values() {
@@ -1618,12 +1618,12 @@ mod tests {
             assert_eq!(
                 token.resolve(Appearance::Dark),
                 hex(dark_rgb),
-                "{token:?} dark value drifted from ADR 0083 Decision 1"
+                "{token:?} dark value drifted from ADR 0101 Decision 1"
             );
             assert_eq!(
                 token.resolve(Appearance::Light),
                 hex(light_rgb),
-                "{token:?} light value drifted from ADR 0083 Decision 1"
+                "{token:?} light value drifted from ADR 0101 Decision 1"
             );
         }
 
@@ -1641,7 +1641,7 @@ mod tests {
     }
 
     /// R83-05: the dark `Warning` and `WarningLabel` moved off gold.
-    /// ADR 0083 Decision 2 frees `#ffd666` for the value palette.
+    /// ADR 0101 Decision 2 frees `#ffd666` for the value palette.
     #[test]
     fn adr_0083_dark_warning_is_not_gold() {
         let former_gold = hex(0xff_d666);
@@ -1662,7 +1662,7 @@ mod tests {
         );
     }
 
-    /// ADR 0083 Decision 2: `DiffDifferent` and `Id3FrameV23Only` moved away
+    /// ADR 0101 Decision 2: `DiffDifferent` and `Id3FrameV23Only` moved away
     /// from gold in dark the same way as `Warning`.
     #[test]
     fn adr_0083_dark_diff_and_frame_chip_move_away_from_gold() {
@@ -1778,7 +1778,7 @@ mod tests {
         );
     }
 
-    /// ADR 0083 Decision 4: the artwork shadow is a translucent black. No
+    /// ADR 0101 Decision 4: the artwork shadow is a translucent black. No
     /// call site picks a raw literal color.
     #[gpui::test]
     fn adr_0083_artwork_shadow_is_translucent_black(cx: &mut gpui::TestAppContext) {

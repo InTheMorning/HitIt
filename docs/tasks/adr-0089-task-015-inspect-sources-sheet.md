@@ -10,7 +10,7 @@ Depends on: [packet 003](adr-0089-task-003-one-sidebar.md).
 
 ## Files To Inspect
 
-`src/ui/shells/library/track_detail.rs:65-80`, `src/ui/composites/track_detail_surface.rs`, `src/ui/composites/disclosure_group.rs`, `src/library.rs:142` and `:329`, `src/library/app_impl.rs:2853` and `:3710`, `src/library/release_page.rs:45-49`, `src/ui/shells/window_layers.rs`, `src/ui/composites/confirmation_dialog.rs`, and `docs/adr/0083-design-language.md` (Decision 8).
+`src/ui/shells/library/track_detail.rs:65-80`, `src/ui/composites/track_detail_surface.rs`, `src/ui/composites/disclosure_group.rs`, `src/library.rs:142` and `:329`, `src/library/app_impl.rs:2853` and `:3710`, `src/library/release_page.rs:45-49`, `src/ui/shells/window_layers.rs`, `src/ui/composites/confirmation_dialog.rs`, and `docs/adr/archive/0083-design-language.md` (Decision 8).
 
 ## Design
 
@@ -58,7 +58,7 @@ Read:
 - docs/tasks/adr-0089-task-015-inspect-sources-sheet.md
 - docs/plans/adr-0089-shell-phase-plan.md (section Rules For Each Packet)
 - docs/adr/archive/0089-the-shell-destinations-and-list-pages.md (Decision 8)
-- docs/adr/0083-design-language.md (Decision 8)
+- docs/adr/archive/0083-design-language.md (Decision 8)
 - the files that the task lists
 
 Goal:

@@ -46,7 +46,7 @@ pub struct TrackMetadataExpandableCellDisplay {
     pub cell_key: String,
     pub cell_id: String,
     pub header_id: String,
-    /// ADR 0083 Decision 10: a typed disclosure state, not a character.
+    /// ADR 0101 Decision 10: a typed disclosure state, not a character.
     pub expanded: bool,
 }
 
@@ -55,7 +55,7 @@ pub struct TrackMetadataValueRouteItemDisplay {
     pub item_key: String,
     pub item_id: String,
     pub header_id: Option<String>,
-    /// ADR 0083 Decision 10: a typed disclosure state, not a character.
+    /// ADR 0101 Decision 10: a typed disclosure state, not a character.
     pub expanded: bool,
 }
 

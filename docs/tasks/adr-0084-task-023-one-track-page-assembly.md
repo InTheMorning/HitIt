@@ -12,7 +12,7 @@ This packet also corrects one defect. The Index track page shows no feed identit
 ## Authority
 
 - [ADR 0084](../adr/archive/0084-music-column-browser.md) Decision 4: one page for each item. The origin selects the data source of the page, not its route or its layout.
-- [ADR 0083](../adr/0083-design-language.md) Decision 5: the action hierarchy. Decision 8: one "Inspect sources" entry on a track page.
+- [ADR 0083](../adr/archive/0083-design-language.md) Decision 5: the action hierarchy. Decision 8: one "Inspect sources" entry on a track page.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) Decision B and packets 022 and 050: the feed identity section and the "Feed publication date" row.
 - The durable set in [AGENTS.md](../../AGENTS.md): renderer portability. View models carry no renderer type, and screens stay thin.
 - The [phase plan](../plans/adr-0084-music-column-browser-phase-plan.md), row 023. The design of packet 021 found the second assembly path on 2026-10-20.

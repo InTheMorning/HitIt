@@ -9,7 +9,7 @@ The actions follow the action hierarchy of ADR 0083. The compare grid, Compare I
 
 ## Authority
 
-- [ADR 0083](../../adr/0083-design-language.md) Decisions 5, 6, 8 and 10, with the 2026-10-07 amendment of Decision 5.
+- [ADR 0083](../../adr/archive/0083-design-language.md) Decisions 5, 6, 8 and 10, with the 2026-10-07 amendment of Decision 5.
 - [ADR 0037](../../adr/0037-same-entity-surface-parity.md) Pass 2: one track page grammar for local and Index origins.
 - [ADR 0075](../../adr/0075-metadata-ownership-and-completeness.md) Decision I: RSS is the provenance, MusicIndex is a cache.
 - The track page rules in the [overhaul plan](../../plans/design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07), section "Phase 4: Track Page".

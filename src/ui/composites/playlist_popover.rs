@@ -148,7 +148,7 @@ impl AddToPlaylistPopover {
 
     /// Give the trigger a named control style, for example
     /// [`ControlStyle::Primary`] when "Add to playlist" is the main action
-    /// of a page (ADR 0083 Decision 5). Without a style the trigger is a
+    /// of a page (ADR 0101 Decision 5). Without a style the trigger is a
     /// small tinted button.
     pub const fn trigger_style(mut self, style: ControlStyle) -> Self {
         self.trigger_style = Some(style);
@@ -496,7 +496,7 @@ mod tests {
         });
     }
 
-    /// R30-04 (ADR 0083 Decision 6): the popover of the release page
+    /// R30-04 (ADR 0101 Decision 6): the popover of the release page
     /// header shows its create mode after a click on "New Playlist".
     #[gpui::test]
     fn adr_0084_music_open_defects_r30_04_header_popover_shows_create_mode(

@@ -14,8 +14,8 @@ Governance model: ADR 0061.
 [ADR 0096](docs/adr/0096-the-app-name-is-hitit.md), Accepted on 2026-11-11, renames the app HitIt with the machine name `hitit`. The GitHub repository is `InTheMorning/HitIt` and the directory is `~/build/HitIt`.
 
 The [overhaul plan](docs/plans/design-and-cleanup-overhaul-plan.md) is the current priority. It orders the
-design and cleanup work in six phases. Phases 1 and 2 are complete. Phase 2 ended with
-[ADR 0083](docs/adr/0083-design-language.md), the design language.
+design and cleanup work in six phases. Phases 1 and 2 are complete. The design language is
+[ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md), Accepted on 2026-11-15. It supersedes the archived ADR 0083.
 
 Phase 3, the tokens, is complete. Phase 4, the Library, is in progress. Its first two packets, one track page
 and one album page for the Library and the Index, are complete. Phase 4A, flow and information architecture, decided the
@@ -54,6 +54,7 @@ The run of 2026-10-24 implemented ADR 0084 packets 035 to 037, ADR 0087 packets 
 Its open checks stay in [pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-24.md) lists them.
 
 On 2026-11-14 the operator put the defect fixes first: [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md), [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md) and [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) come before the ADR 0068 packets.
+On 2026-11-15 the operator opened step 4 of the overhaul plan, Phase 7, the visual overhaul. [ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md) adopts the shared rules. Its token packet comes after the three defect fixes. The surface packets of ADR 0101 Decision 12 follow the token packet.
 Ready packets include
 [ADR 0064 task 002](docs/tasks/adr-0064-task-002-repair-report-surface.md) and
 [ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
@@ -69,7 +70,7 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [musicindex ADR 0054](../musicindex/docs/adr/0054-the-sort-menu-names-both-directions.md), Accepted on 2026-11-08, replaces the reverse icon of musicindex ADR 0043 R-LIST-7. It is implemented on 2026-11-08: each sort menu lists the usual and the reversed entry of each sort that can reverse, a list with one fixed sequence has a text toggle "Reverse", and the "Add to playlist" menus follow the Curator Order. [ADR 0092](docs/adr/0092-the-keys-of-a-list-row.md), the keys of a list row, is implemented on 2026-11-08. It uses musicindex ADR 0061 R-LISTKEY-1. Artists is one Tab stop in its Rows view and its Tiles view ([ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md)). Public playlists, Live and Search are not one Tab stop yet, and a subsequent task gives them the list focus. musicindex ADR 0056, the accent glow at the top of the sidebar, is implemented on 2026-11-08. The shared releases section of a feed page uses the heading, the note and the row text of musicindex ADR 0023 R-WORD-10. An Index row of Artists All and a feed row of the search Artists tab count the releases of each kind from `release_track_counts`, for example "14 albums · 38 singles" (musicindex ADR 0023 R-WORD-9). A row with no valid map gives the total. Their visual checks are open in section 12 of [pending human checks](docs/pending-human-checks.md).
 
-[musicindex ADR 0064](../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md), Accepted on 2026-11-12, is implemented here on 2026-11-12. In each horizontal row of buttons, list entries included, the destructive button is leftmost, a larger space follows it, and the safe action is rightmost. A destructive confirmation gives the first focus to Cancel, and Enter and Escape close it with no action. The amendment in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. A playlist row of a removed track shows one "Remove…" menu button. A maintenance column puts its destructive controls last, and its narrow band puts them first. "Use Defaults…" in Settings is red and asks for confirmation. The [ADR 0083](docs/adr/0083-design-language.md) and [ADR 0093](docs/adr/0093-settings-has-a-tab-row-and-one-save-bar.md) amendments of 2026-11-12 record this and their open items. The visual checks are open in section 13 of [pending human checks](docs/pending-human-checks.md).
+[musicindex ADR 0064](../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md), Accepted on 2026-11-12, is implemented here on 2026-11-12. In each horizontal row of buttons, list entries included, the destructive button is leftmost, a larger space follows it, and the safe action is rightmost. A destructive confirmation gives the first focus to Cancel, and Enter and Escape close it with no action. The amendment in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. A playlist row of a removed track shows one "Remove…" menu button. A maintenance column puts its destructive controls last, and its narrow band puts them first. "Use Defaults…" in Settings is red and asks for confirmation. [ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md) Decision 5 and the [ADR 0093](docs/adr/0093-settings-has-a-tab-row-and-one-save-bar.md) amendment of 2026-11-12 record this and their open items. The visual checks are open in section 13 of [pending human checks](docs/pending-human-checks.md).
 
 [ADR 0098](docs/adr/0098-the-music-shell-pages-lists-and-search.md), Accepted on 2026-11-14, restates the live rules of ADRs 0084, 0085, 0086, 0087, 0089 and 0090. It makes no new decision. Those six ADRs are in `docs/adr/archive/`. The item map of ADR 0098 gives the new place of each item that code, tests and documents cite.
 
@@ -124,9 +125,9 @@ page, whatever its origin. The Library is a state that each page and list shows,
 R-WORD-3 and R-WORD-4, and ADR 0098 Decision 11 applies them here. A feed that albums name through a confirmed link is an artist, confirmed or unverified.
 Each artist list shows the stated artists, then the inferred artists, then the names with no feed (musicindex ADR 0057 R-ARTIST-1, ADR 0098 Decision 11.8).
 
-**Shared interface rules come from musicindex.** musicindex ADRs 0021, 0022, 0023, 0026, 0028, 0068 and 0069 own the interface rules that
-musicindex.org, Studio and HitIt share. They replace parts of ADR 0083, and ADR 0083 names each part. A change to a
-shared rule needs a record in `../musicindex`.
+**Shared interface rules come from musicindex.** The musicindex ADRs of ADR 0101 Decision 11 own the interface rules that
+musicindex.org, Studio and HitIt share. ADR 0101 adopts them and gives the HitIt design language. A change to a
+shared rule needs a superseding record in `../musicindex`.
 
 **Provenance first.** Provenance is the element in the RSS document that
 asserted a value: the channel, the item, or a person. MusicIndex is a cache of

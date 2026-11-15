@@ -154,7 +154,7 @@ pub(crate) fn render_release_page(
     render_release_detail_shell(&vm.page, slots)
 }
 
-/// The action row of a release page (ADR 0083 Decision 5): one filled
+/// The action row of a release page (ADR 0101 Decision 5): one filled
 /// button, the plain buttons and the "⋯" menu.
 fn render_release_page_actions(
     actions: &ReleasePageActionsVm,
@@ -399,7 +399,7 @@ pub(crate) fn render_release_page_track_row(
         })
         .menu(vm.menu.clone(), playlist_choices(playlists))
         .drag(vm.drag.clone());
-    // ADR 0083 Decision 6: the "⋯" menu and the right-click menu send each
+    // ADR 0101 Decision 6: the "⋯" menu and the right-click menu send each
     // item through the one dispatch function.
     if let Some(focus) = menu_focus {
         let action = Rc::clone(dispatch);

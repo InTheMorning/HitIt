@@ -1288,7 +1288,7 @@ mod tests {
         .expect("a key")
     }
 
-    /// R83-6-06 (ADR 0083 Decision 6, task 006): the activity gives the
+    /// R83-6-06 (ADR 0101 Decision 6, task 006): the activity gives the
     /// phase of each Index track job by its release key and its track
     /// GUID. A track with no job has no phase.
     #[test]

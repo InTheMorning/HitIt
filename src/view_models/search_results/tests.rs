@@ -284,7 +284,7 @@ fn adr_0084_search_list_r10_02_one_release_row_for_each_item() {
     assert_eq!(
         rows[1].download_state.as_ref().map(|state| state.state),
         Some(ReleaseDownloadState::NotDownloaded),
-        "a Music Index row the Library does not hold still shows its state (ADR 0083 Decision 6)"
+        "a Music Index row the Library does not hold still shows its state (ADR 0101 Decision 6)"
     );
     assert_eq!(
         rows[1].badge, None,

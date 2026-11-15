@@ -3189,7 +3189,7 @@ fn adr_0084_index_singles_one_singles_request_for_each_page_open() {
     assert!(violations.is_empty(), "{}", violations.join("\n"));
 }
 
-/// ADR 0083 Decision 6 and task 006 (operator walk of 2026-10-22): a track
+/// ADR 0101 Decision 6 and task 006 (operator walk of 2026-10-22): a track
 /// row shows the same hover fill as the rows of the two Music list columns.
 /// The body of a `TrackRow` owns the click, so the row asks `ListRow` for
 /// the hover fill with `child_click()`, and `ListRow` draws it.
@@ -20432,12 +20432,12 @@ pub struct UnmappedSampleType {
     assert!(violation.contains("tests/architecture_tests.rs"));
 }
 
-/// ADR 0083 Decision 2: an entity kind must not resolve to a status, accent,
+/// ADR 0101 Decision 2: an entity kind must not resolve to a status, accent,
 /// or diff token. The fix names the ADR and the replacement.
-const ADR_0083_ENTITY_COLOR_FIX: &str = "ADR 0083 Decision 2: an entity kind must not resolve to a status, accent, or diff token. Use the entity token of the kind.";
+const ADR_0083_ENTITY_COLOR_FIX: &str = "ADR 0101 Decision 2: an entity kind must not resolve to a status, accent, or diff token. Use the entity token of the kind.";
 
 /// Tokens `EntityKind::fill_token` must never resolve. Each one is a status,
-/// accent, or diff role that ADR 0083 Decision 2 reserves for its own
+/// accent, or diff role that ADR 0101 Decision 2 reserves for its own
 /// meaning.
 const ADR_0083_FORBIDDEN_ENTITY_FILL_TOKENS: &[&str] = &[
     "SemanticColor::Success",
@@ -20478,7 +20478,7 @@ fn entity_fill_token_status_color_violations(source: &str) -> Vec<(usize, String
     violations
 }
 
-/// ADR 0083 Decision 2 situational guard: `EntityKind::fill_token` in
+/// ADR 0101 Decision 2 situational guard: `EntityKind::fill_token` in
 /// `tag_badge.rs` must resolve only entity-palette tokens. This is the live
 /// guard. `adr_0083_entity_color_guard_fails_for_a_status_token_sample`
 /// (R83-04) proves the detection logic with a sample source.
@@ -20501,7 +20501,7 @@ fn adr_0083_entity_kind_resolves_only_entity_tokens() {
 
 /// R83-04: `adr_0083_entity_kind_resolves_only_entity_tokens` must fail on a
 /// sample source where `fill_token` returns `SemanticColor::Warning`, and
-/// its fix message must name ADR 0083.
+/// its fix message must name ADR 0101.
 #[test]
 fn adr_0083_entity_color_guard_fails_for_a_status_token_sample() {
     let sample = r#"
@@ -20529,8 +20529,8 @@ impl EntityKind {
     assert!(violations[0].1.contains("SemanticColor::Warning"));
 
     assert!(
-        ADR_0083_ENTITY_COLOR_FIX.contains("ADR 0083"),
-        "the fix message must name ADR 0083"
+        ADR_0083_ENTITY_COLOR_FIX.contains("ADR 0101"),
+        "the fix message must name ADR 0101"
     );
 
     let clean_sample = sample.replace("SemanticColor::Warning", "SemanticColor::EntityFeed");
@@ -20544,10 +20544,10 @@ impl EntityKind {
 // ADR 0083 task 002: font and artwork tokens.
 // -----------------------------------------------------------------------------
 
-/// ADR 0083 Decision 4: only `src/ui/tokens.rs` builds a shadow. The fix
+/// ADR 0101 Decision 4: only `src/ui/tokens.rs` builds a shadow. The fix
 /// names the ADR and the replacement.
 const ADR_0083_SHADOW_FIX: &str =
-    "ADR 0083 Decision 4: a shadow is built only in src/ui/tokens.rs. Use the ArtworkShadow token.";
+    "ADR 0101 Decision 4: a shadow is built only in src/ui/tokens.rs. Use the ArtworkShadow token.";
 
 /// Lines where code builds a `BoxShadow` directly. Takes a file-relative
 /// path and its source text. A sample source can then prove the detection
@@ -20568,7 +20568,7 @@ fn shadow_construction_violations(relative_path: &str, source: &str) -> Vec<(usi
     violations
 }
 
-/// ADR 0083 Decision 4 situational guard: no file in `src/ui` other than
+/// ADR 0101 Decision 4 situational guard: no file in `src/ui` other than
 /// `tokens.rs` builds a shadow. `adr_0083_shadow_guard_fails_for_a_shell_sample`
 /// (R83-16) proves the detection logic with a sample source.
 #[test]
@@ -20591,7 +20591,7 @@ fn adr_0083_only_tokens_builds_a_shadow() {
 
 /// R83-16: `adr_0083_only_tokens_builds_a_shadow` must fail on a sample
 /// source in `src/ui/shells/` that builds a shadow. Its fix message must
-/// name ADR 0083.
+/// name ADR 0101.
 #[test]
 fn adr_0083_shadow_guard_fails_for_a_shell_sample() {
     let sample_path = "src/ui/shells/sample.rs";
@@ -20609,8 +20609,8 @@ fn render_bad_shadow(cx: &App) -> Div {
     assert!(violations[0].1.contains("BoxShadow::new"));
 
     assert!(
-        ADR_0083_SHADOW_FIX.contains("ADR 0083"),
-        "the fix message must name ADR 0083"
+        ADR_0083_SHADOW_FIX.contains("ADR 0101"),
+        "the fix message must name ADR 0101"
     );
 
     let clean_sample =
@@ -20626,7 +20626,7 @@ fn render_bad_shadow(cx: &App) -> Div {
     );
 }
 
-/// R83-15: ADR 0083 Decision 4 deletes the emoji placeholder. No file in
+/// R83-15: ADR 0101 Decision 4 deletes the emoji placeholder. No file in
 /// `src/` defines an `emoji` function.
 #[test]
 fn adr_0083_no_emoji_fallback_function_remains() {
@@ -20643,7 +20643,7 @@ fn adr_0083_no_emoji_fallback_function_remains() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 4: the emoji placeholder is deleted. Found:\n{}",
+        "ADR 0101 Decision 4: the emoji placeholder is deleted. Found:\n{}",
         violations.join("\n")
     );
 }
@@ -20659,12 +20659,12 @@ fn adr_0083_icon_name_has_no_text_glyph_fallback() {
     let icon_source = read_source(&manifest_path("src/ui/icons.rs"));
     assert!(
         !icon_source.contains("fn glyph"),
-        "ADR 0083 Decision 10: `IconName` must not expose a text-glyph \
+        "ADR 0101 Decision 10: `IconName` must not expose a text-glyph \
          fallback. Draw every icon through `component_icon` or `extra_icon`."
     );
 }
 
-/// ADR 0083 Decision 10: the exact icon characters the task packet's
+/// ADR 0101 Decision 10: the exact icon characters the task packet's
 /// "Recorded Facts" section named as the Figtree color-emoji regression.
 /// A literal character or its `\u{...}` escape means a renderer drew an
 /// icon as a character instead of an `IconName`.
@@ -20683,7 +20683,7 @@ const ADR_0083_ICON_CHARACTERS: &[(char, &str)] = &[
     ('\u{2713}', "\\u{2713}"), // Check / status success
 ];
 
-const ADR_0083_ICON_FIX: &str = "ADR 0083 Decision 10: a renderer must not \
+const ADR_0083_ICON_FIX: &str = "ADR 0101 Decision 10: a renderer must not \
 hold an icon character. Use an `IconName`, drawn as a Lucide icon.";
 
 /// Lines in `source` holding one of [`ADR_0083_ICON_CHARACTERS`]. Takes a
@@ -20708,7 +20708,7 @@ fn adr_0083_icon_character_violations(relative_path: &str, source: &str) -> Vec<
     violations
 }
 
-/// ADR 0083 Decision 10 situational guard: no non-test file in `src/ui` or
+/// ADR 0101 Decision 10 situational guard: no non-test file in `src/ui` or
 /// `src/view_models` holds one of the "Recorded Facts" icon characters.
 /// `adr_0083_icon_guard_fails_for_a_sample_play_character` (R83-24) proves
 /// the detection logic with a sample source.
@@ -20725,7 +20725,7 @@ fn adr_0083_icon_characters_stay_out_of_ui_and_view_model_source() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0083 icon-character violations:\n{}",
+        "ADR 0101 icon-character violations:\n{}",
         violations.join("\n")
     );
 }
@@ -20748,7 +20748,7 @@ fn adr_0083_icon_string_field_violations(relative_path: &str, source: &str) -> V
             });
             if names_field {
                 violations.push(format!(
-                    "{relative_path}:{line_number}: ADR 0083 Decision 10: `{field}` carries an \
+                    "{relative_path}:{line_number}: ADR 0101 Decision 10: `{field}` carries an \
 icon as a string. Carry a typed state such as `expanded: bool`, and draw \
 `DisclosureIndicator` or an `Icon`. Found: `{line}`"
                 ));
@@ -20758,7 +20758,7 @@ icon as a string. Carry a typed state such as `expanded: bool`, and draw \
     violations
 }
 
-/// ADR 0083 Decision 10 situational guard: no file in `src` declares or
+/// ADR 0101 Decision 10 situational guard: no file in `src` declares or
 /// reads a field that carries an icon as a string.
 #[test]
 fn adr_0083_no_view_model_field_carries_an_icon_string() {
@@ -20770,7 +20770,7 @@ fn adr_0083_no_view_model_field_carries_an_icon_string() {
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 icon-string field violations:\n{}",
+        "ADR 0101 icon-string field violations:\n{}",
         violations.join("\n")
     );
 }
@@ -20780,7 +20780,7 @@ fn adr_0083_icon_string_field_guard_fails_for_a_disclosure_glyph_sample() {
     let sample = "    pub disclosure_glyph: &'static str,\n";
     let violations = adr_0083_icon_string_field_violations("src/view_models/sample.rs", sample);
     assert_eq!(violations.len(), 1);
-    assert!(violations[0].contains("ADR 0083"));
+    assert!(violations[0].contains("ADR 0101"));
     for clean in [
         "    pub expanded: bool,\n",
         "    let display_label = label;\n",
@@ -20793,7 +20793,7 @@ fn adr_0083_icon_string_field_guard_fails_for_a_disclosure_glyph_sample() {
 }
 
 /// R83-24: the guard must fail for a sample source in `src/view_models/`
-/// holding `"\u{25B6}"`, and its message must name ADR 0083.
+/// holding `"\u{25B6}"`, and its message must name ADR 0101.
 #[test]
 fn adr_0083_icon_guard_fails_for_a_sample_play_character() {
     let sample_path = "src/view_models/sample.rs";
@@ -20807,8 +20807,8 @@ fn adr_0083_icon_guard_fails_for_a_sample_play_character() {
     );
     assert!(violations[0].starts_with(sample_path));
     assert!(
-        violations[0].contains("ADR 0083"),
-        "the guard message must name ADR 0083: {}",
+        violations[0].contains("ADR 0101"),
+        "the guard message must name ADR 0101: {}",
         violations[0]
     );
 
@@ -20877,7 +20877,7 @@ second track page layout in a shell.";
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 track page parity violations:\n{}",
+        "ADR 0101 track page parity violations:\n{}",
         violations.join("\n")
     );
 }
@@ -20947,7 +20947,7 @@ album page layout.";
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 album page parity violations:\n{}",
+        "ADR 0101 album page parity violations:\n{}",
         violations.join("\n")
     );
 }
@@ -21203,11 +21203,11 @@ dispatch function. Keep `LibraryApp`, `TopApp` and `db::` in the host entities."
     );
 }
 
-/// R83-56 (ADR 0083 Decision 10, task 005): a view model label holds no
+/// R83-56 (ADR 0101 Decision 10, task 005): a view model label holds no
 /// disclosure arrow character. A renderer draws a named icon instead.
 #[test]
 fn adr_0083_no_view_model_label_carries_a_disclosure_arrow() {
-    const FIX: &str = "ADR 0083 Decision 10: give the label words only, and let the renderer \
+    const FIX: &str = "ADR 0101 Decision 10: give the label words only, and let the renderer \
 draw a named icon for the disclosure state.";
     let mut violations = Vec::new();
     for path in rust_files_under("src/view_models") {
@@ -21223,12 +21223,12 @@ draw a named icon for the disclosure state.";
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 disclosure arrow violations:\n{}",
+        "ADR 0101 disclosure arrow violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// R83-55 (ADR 0083 Decision 4, task 005): the cover backdrop takes its
+/// R83-55 (ADR 0101 Decision 4, task 005): the cover backdrop takes its
 /// height and its gradient from the `CoverBackdrop` token.
 #[test]
 fn adr_0083_cover_backdrop_uses_its_tokens() {
@@ -21256,7 +21256,7 @@ fn adr_0083_cover_backdrop_uses_its_tokens() {
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 cover backdrop token violations:\n{}",
+        "ADR 0101 cover backdrop token violations:\n{}",
         violations.join("\n")
     );
 }
@@ -21840,8 +21840,8 @@ singles groups update in place."
     );
 }
 
-/// R83-6-13 (ADR 0083 Decision 6, task 006). Situational: delete this
-/// guard when ADR 0083 is superseded. The "⋯" menu and the right-click
+/// R83-6-13 (ADR 0101 Decision 6, task 006). Situational: delete this
+/// guard when ADR 0101 is superseded. The "⋯" menu and the right-click
 /// menu of a track row get their items from one function, and the row
 /// attaches the right-click menu only when the view model gives a menu.
 #[test]
@@ -21890,13 +21890,13 @@ fn adr_0083_row_actions_r83_6_13_one_item_builder_and_a_gated_right_click() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6: the right-click menu holds the same items as the \"⋯\" menu, and selection mode removes both. Fix:\n{}",
+        "ADR 0101 Decision 6: the right-click menu holds the same items as the \"⋯\" menu, and selection mode removes both. Fix:\n{}",
         violations.join("\n")
     );
 }
 
-/// R83-6-14 (ADR 0083 Decision 6, task 006). Situational: delete this
-/// guard when ADR 0083 is superseded. The release page track row shows no
+/// R83-6-14 (ADR 0101 Decision 6, task 006). Situational: delete this
+/// guard when ADR 0101 is superseded. The release page track row shows no
 /// always-visible "Remove" button and no "+ Playlist" popover. The old
 /// primary action of the row is gone.
 #[test]
@@ -21933,13 +21933,13 @@ fn adr_0083_row_actions_r83_6_14_track_row_has_no_always_visible_actions() {
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6: a row shows its actions on hover and on keyboard focus, not at all times. Fix:\n{}",
+        "ADR 0101 Decision 6: a row shows its actions on hover and on keyboard focus, not at all times. Fix:\n{}",
         violations.join("\n")
     );
 }
 
-/// R83-7-10 (ADR 0083 Decision 6, task 007). Situational: delete this
-/// guard when ADR 0083 is superseded. The "Remove" item of a Tracks or Needs
+/// R83-7-10 (ADR 0101 Decision 6, task 007). Situational: delete this
+/// guard when ADR 0101 is superseded. The "Remove" item of a Tracks or Needs
 /// attention row menu reaches `remove_track_after_confirmation`. The fix
 /// buttons reach `run_content_list_row_action` with their typed actions.
 #[test]
@@ -22003,8 +22003,8 @@ fn adr_0083_list_row_actions_r83_7_10_menu_and_fix_commands() {
     );
 }
 
-/// R83-7-13 (ADR 0083 Decision 6, task 007). Situational: delete this
-/// guard when ADR 0083 is superseded. A content list row makes one button
+/// R83-7-13 (ADR 0101 Decision 6, task 007). Situational: delete this
+/// guard when ADR 0101 is superseded. A content list row makes one button
 /// only, the fix. The playlist row and the content list row build their
 /// menu through `track_row_menu.rs`, and the right-click handler attaches
 /// only when the view model gives a menu.
@@ -22101,13 +22101,13 @@ fn adr_0083_list_row_actions_r83_7_13_rows_use_the_shared_menu() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6: the right-click menu holds the same items as the \"⋯\" menu, and a row shows its actions on hover and on keyboard focus. Fix:\n{}",
+        "ADR 0101 Decision 6: the right-click menu holds the same items as the \"⋯\" menu, and a row shows its actions on hover and on keyboard focus. Fix:\n{}",
         violations.join("\n")
     );
 }
 
-/// R83-8-07 (ADR 0083 Decision 6, task 008). Situational: delete this
-/// guard when ADR 0083 is superseded. A drop on a playlist row adds the
+/// R83-8-07 (ADR 0101 Decision 6, task 008). Situational: delete this
+/// guard when ADR 0101 is superseded. A drop on a playlist row adds the
 /// track through the add path of the "Add to playlist" menu item, and
 /// through no other path.
 #[test]
@@ -22162,22 +22162,22 @@ for each payload."
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6 (task 008, decision D6): a drop and the \"Add to playlist\" menu item \
+        "ADR 0101 Decision 6 (task 008, decision D6): a drop and the \"Add to playlist\" menu item \
 use the same add path. Keep the drop handlers in `playlist_drop_target` and give each drop to \
 `LibraryApp::add_tracks_to_playlist`. Fix:\n{}",
         violations.join("\n")
     );
 }
 
-/// R31-06 (ADR 0083 Decision 6, ADR 0084 task 031). Situational: delete
-/// this guard when ADR 0083 is superseded. The release rows of the
+/// R31-06 (ADR 0101 Decision 6, ADR 0084 task 031). Situational: delete
+/// this guard when ADR 0101 is superseded. The release rows of the
 /// Releases list, the feed page and the name page build their menu through
 /// `release_row_menu` and the `ListRow` menu cell, which uses
 /// `row_menu_parts`. Only `release_row_actions.rs` builds release row menu
 /// items.
 #[test]
 fn adr_0084_release_row_actions_r31_06_one_release_row_menu() {
-    const FIX: &str = "ADR 0083 Decision 6 (ADR 0084 task 031): one function gives the actions of each release row. Give the row `ListRow::menu_cell(release_row_menu(row.menu.as_ref(), context))`, and build the items only in `release_row_menu` of src/view_models/release_row_actions.rs. Fix:";
+    const FIX: &str = "ADR 0101 Decision 6 (ADR 0084 task 031): one function gives the actions of each release row. Give the row `ListRow::menu_cell(release_row_menu(row.menu.as_ref(), context))`, and build the items only in `release_row_menu` of src/view_models/release_row_actions.rs. Fix:";
     let lists_file = "src/ui/shells/library/destination_lists.rs";
     let sections_file = "src/ui/composites/release_section_list.rs";
     let lists = code_only(production_source(&read_source(&manifest_path(lists_file))));
@@ -22255,8 +22255,8 @@ fn adr_0084_release_row_actions_r31_06_one_release_row_menu() {
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
 }
 
-/// R31-07 (ADR 0083 Decision 6, ADR 0084 task 031 decision D2).
-/// Situational: delete this guard when ADR 0083 is superseded. A singles
+/// R31-07 (ADR 0101 Decision 6, ADR 0084 task 031 decision D2).
+/// Situational: delete this guard when ADR 0101 is superseded. A singles
 /// group row and an Artists row get no menu cell. A Playlists row gets its
 /// own playlist menu, not the release row menu (ADR 0089 Decision 6, which
 /// supersedes the Playlists part of task 031 D2).
@@ -22306,8 +22306,8 @@ fn adr_0084_release_row_actions_r31_07_rows_with_no_menu() {
     );
 }
 
-/// R83-8-08 (ADR 0083 Decision 6, task 008). Situational: delete this
-/// guard when ADR 0083 is superseded. Both track drags show the one
+/// R83-8-08 (ADR 0101 Decision 6, task 008). Situational: delete this
+/// guard when ADR 0101 is superseded. Both track drags show the one
 /// preview of `track_drag.rs`.
 #[test]
 fn adr_0083_track_drag_r83_8_08_one_drag_preview() {
@@ -22337,14 +22337,14 @@ fn adr_0083_track_drag_r83_8_08_one_drag_preview() {
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6 (task 008, decision D9): one preview composite shows the dragged \
+        "ADR 0101 Decision 6 (task 008, decision D9): one preview composite shows the dragged \
 track. Build each drag preview with `TrackDragPreview::build`. Fix:\n{}",
         violations.join("\n")
     );
 }
 
-/// R83-8-09 (ADR 0083 Decision 6, task 008). Situational: delete this
-/// guard when ADR 0083 is superseded. The reorder drop target of a
+/// R83-8-09 (ADR 0101 Decision 6, task 008). Situational: delete this
+/// guard when ADR 0101 is superseded. The reorder drop target of a
 /// playlist page row accepts only a playlist entry, never a track row
 /// drag (decision D13).
 #[test]
@@ -22373,14 +22373,14 @@ fn adr_0083_track_drag_r83_8_09_reorder_drop_accepts_only_playlist_entries() {
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6 (task 008, decision D13): the reorder drag does not change. Its drop \
+        "ADR 0101 Decision 6 (task 008, decision D13): the reorder drag does not change. Its drop \
 target accepts only `PlaylistTrackDragPayload`. Fix:\n{}",
         violations.join("\n")
     );
 }
 
-/// R83-8-13 (ADR 0083 Decision 6, task 008). Situational: delete this
-/// guard when ADR 0083 is superseded. The spring-load delay is the named
+/// R83-8-13 (ADR 0101 Decision 6, task 008). Situational: delete this
+/// guard when ADR 0101 is superseded. The spring-load delay is the named
 /// token `Motion::SpringLoadDelay`, so the operator can change it in one
 /// place.
 #[test]
@@ -22420,14 +22420,14 @@ fn adr_0083_track_drag_r83_8_13_spring_load_delay_is_a_token() {
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6 (task 008, decision D1): read the spring-load delay only from \
+        "ADR 0101 Decision 6 (task 008, decision D1): read the spring-load delay only from \
 `Motion::SpringLoadDelay` in `src/ui/tokens.rs`. Fix:\n{}",
         violations.join("\n")
     );
 }
 
-/// R83-8-15 (ADR 0083 Decision 6, task 008). Situational: delete this
-/// guard when ADR 0083 is superseded. The sidebar row "Playlists" accepts
+/// R83-8-15 (ADR 0101 Decision 6, task 008). Situational: delete this
+/// guard when ADR 0101 is superseded. The sidebar row "Playlists" accepts
 /// no drop. Its drag-move handlers only give the pointer to the
 /// spring-load methods of `LibraryApp`, which owns the timer.
 #[test]
@@ -22456,7 +22456,7 @@ fn adr_0083_track_drag_r83_8_15_sidebar_only_reports_the_pointer() {
     }
     assert!(
         violations.is_empty(),
-        "ADR 0083 Decision 6 (task 008, decision D1): a drop on the sidebar row \"Playlists\" does \
+        "ADR 0101 Decision 6 (task 008, decision D1): a drop on the sidebar row \"Playlists\" does \
 nothing, and `LibraryApp` owns the spring-load timer. Give the pointer to \
 `LibraryApp::spring_load_pointer` and attach no drop handler. Fix:\n{}",
         violations.join("\n")
@@ -22604,13 +22604,13 @@ fn playlist_delete_violations(slots: &str) -> Vec<String> {
     violations
 }
 
-/// Situational, ADR 0083 Decision 5 (packet 030 R30-06): "Delete…" of a
+/// Situational, ADR 0101 Decision 5 (packet 030 R30-06): "Delete…" of a
 /// playlist opens the confirmation, and only its confirm handler deletes
 /// the playlist. The walk of 2026-10-21 found a delete with no
-/// confirmation. Delete this guard when ADR 0083 Decision 5 is superseded.
+/// confirmation. Delete this guard when ADR 0101 Decision 5 is superseded.
 #[test]
 fn adr_0084_music_open_defects_r30_06_playlist_delete_opens_the_confirmation() {
-    const FIX: &str = "ADR 0083 §5 Destructive Actions Are Last And Ask: a playlist delete must ask for a confirmation.\nOpen `open_playlist_delete_dialog` from the \"Delete…\" slot, and call `LibraryApp::delete_playlist` only in its confirm handler.";
+    const FIX: &str = "ADR 0101 §5 Destructive Actions Are Last And Ask: a playlist delete must ask for a confirmation.\nOpen `open_playlist_delete_dialog` from the \"Delete…\" slot, and call `LibraryApp::delete_playlist` only in its confirm handler.";
     let slots = read_source(&manifest_path("src/ui/shells/library/playlist_detail.rs"));
     let mut violations = playlist_delete_violations(&slots);
     for path in rust_files_under("src") {
@@ -22910,7 +22910,7 @@ fn adr_0084_singles_group_rows_r32_17_one_match_function_for_singles_groups() {
     );
 }
 
-/// R33-xx (ADR 0083 Decision 6, amended 2026-10-22, ADR 0084 task 033).
+/// R33-xx (ADR 0101 Decision 6, amended 2026-10-22, ADR 0084 task 033).
 /// Situational: delete this guard when that decision is superseded. Each
 /// renderer that shows the download state of a release row — the
 /// Releases list, a singles group row, a group disclosure row, the feed
@@ -22920,7 +22920,7 @@ fn adr_0084_singles_group_rows_r32_17_one_match_function_for_singles_groups() {
 /// or color for the same state.
 #[test]
 fn adr_0084_task_033_release_rows_use_the_shared_download_state_composite() {
-    const FIX: &str = "ADR 0083 §6 Rows Show Information And Hide Most Actions, amended 2026-10-22: a release row must show its download state through the one shared composite.\nCall `render_release_download_state(` in this file.";
+    const FIX: &str = "ADR 0101 §6 Rows Show Information And Hide Most Actions, amended 2026-10-22: a release row must show its download state through the one shared composite.\nCall `render_release_download_state(` in this file.";
     let renderers = [
         "src/ui/shells/library/destination_lists.rs",
         "src/ui/composites/release_section_list.rs",
@@ -22939,7 +22939,7 @@ fn adr_0084_task_033_release_rows_use_the_shared_download_state_composite() {
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
 }
 
-/// R33-xx (ADR 0083 Decision 6, amended 2026-10-22, ADR 0084 task 033).
+/// R33-xx (ADR 0101 Decision 6, amended 2026-10-22, ADR 0084 task 033).
 /// Situational: delete this guard when that decision is superseded. The
 /// Releases list and the feed/name page renderer must not rebuild the
 /// retired "In Library" release-row mark that the shared icon replaced.
@@ -22948,7 +22948,7 @@ fn adr_0084_task_033_release_rows_use_the_shared_download_state_composite() {
 /// not scan that file.
 #[test]
 fn adr_0084_task_033_release_row_renderers_drop_the_retired_mark() {
-    const FIX: &str = "ADR 0083 §6 Rows Show Information And Hide Most Actions, amended 2026-10-22: a release row shows its download state as an icon, never as the retired \"In Library\" text mark.\nRemove the literal mark and call `render_release_download_state(` instead.";
+    const FIX: &str = "ADR 0101 §6 Rows Show Information And Hide Most Actions, amended 2026-10-22: a release row shows its download state as an icon, never as the retired \"In Library\" text mark.\nRemove the literal mark and call `render_release_download_state(` instead.";
     let renderers = [
         "src/ui/shells/library/destination_lists.rs",
         "src/ui/composites/release_section_list.rs",
@@ -22966,14 +22966,14 @@ fn adr_0084_task_033_release_row_renderers_drop_the_retired_mark() {
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
 }
 
-/// R33-xx (ADR 0083 Decision 6, amended 2026-10-22, ADR 0084 task 033).
+/// R33-xx (ADR 0101 Decision 6, amended 2026-10-22, ADR 0084 task 033).
 /// Situational: delete this guard when that decision is superseded. The
 /// text-word types this packet retires, `ReleaseStateWord` and
 /// `add_state_word`, must not reappear: every release row reads its
 /// download state through `ReleaseDownloadStateVm` instead.
 #[test]
 fn adr_0084_task_033_retired_state_word_types_stay_gone() {
-    const FIX: &str = "ADR 0083 §6 Rows Show Information And Hide Most Actions, amended 2026-10-22: a release row's download state is a `ReleaseDownloadStateVm`, not the retired `ReleaseStateWord` or `add_state_word`.\nBuild the state with `ReleaseDownloadStateVm` instead.";
+    const FIX: &str = "ADR 0101 §6 Rows Show Information And Hide Most Actions, amended 2026-10-22: a release row's download state is a `ReleaseDownloadStateVm`, not the retired `ReleaseStateWord` or `add_state_word`.\nBuild the state with `ReleaseDownloadStateVm` instead.";
     let mut violations = Vec::new();
     for path in rust_files_under("src") {
         let file = rel_path(&path);

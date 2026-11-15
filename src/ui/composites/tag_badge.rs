@@ -2,7 +2,7 @@
 //! kind word in a label color, identifying what kind of record (artist,
 //! feed, track, …) a card represents.
 //!
-//! ADR 0083 Decision 2: an entity color shows only as a dot. No text is
+//! ADR 0101 Decision 2: an entity color shows only as a dot. No text is
 //! drawn on an entity color. Light/dark palettes are handled by choosing
 //! token colors per [`Appearance`]. We never hand-pick hex. The dot shape
 //! and the shared entity values are musicindex ADR 0032 (R-DOT-1, R-DOT-2).
@@ -103,7 +103,7 @@ impl EntityKind {
 
     /// Entity-palette token for this kind's identity dot.
     ///
-    /// ADR 0083 Decision 2: an entity color marks a stated kind and never
+    /// ADR 0101 Decision 2: an entity color marks a stated kind and never
     /// reuses a status, accent, or diff token. `Release` takes the feed
     /// color and `Recording` takes the track color, because `search.html`
     /// groups them in the same parent color. `Generic` states no kind, so
@@ -198,7 +198,7 @@ impl From<TrackMetadataComparisonRole> for ProvenanceRole {
 /// Visual role for general status messages.
 ///
 /// Color and icon resolve together so status does not rely on color alone.
-/// ADR 0083 Decision 10: the icon is an `IconName`, drawn as a Lucide icon.
+/// ADR 0101 Decision 10: the icon is an `IconName`, drawn as a Lucide icon.
 /// A status mark keeps its word beside the icon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusRole {
@@ -273,7 +273,7 @@ impl TagBadge {
 
 impl RenderOnce for TagBadge {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        // ADR 0083 Decision 2: the entity color shows only as a dot. The
+        // ADR 0101 Decision 2: the entity color shows only as a dot. The
         // kind word always renders in a label color, never on the entity
         // fill, so color is never the only carrier of the kind.
         let dot_color = resolve_color(cx, self.kind.fill_token(), self.appearance);
@@ -385,7 +385,7 @@ mod tests {
             );
         }
 
-        // ADR 0083 Decision 1: Release takes Feed's color, and Recording
+        // ADR 0101 Decision 1: Release takes Feed's color, and Recording
         // takes Track's color.
         assert_eq!(
             EntityKind::Release.fill_token(),
@@ -402,7 +402,7 @@ mod tests {
     }
 
     /// R83-03 / R83-04: an entity kind never resolves to a status, accent,
-    /// or diff token. ADR 0083 Decision 2.
+    /// or diff token. ADR 0101 Decision 2.
     #[test]
     fn entity_kind_fill_tokens_never_resolve_a_status_accent_or_diff_token() {
         let forbidden = [

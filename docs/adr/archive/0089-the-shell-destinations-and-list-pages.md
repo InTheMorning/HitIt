@@ -52,7 +52,7 @@ The sidebar is one list with no group labels. The toolbar has no section tabs.
 A line follows these destinations. Below the line are Show, Inbox and Settings.
 
 - Show stays a screen mount (ADR 0060). Settings keeps its pages.
-- The feed state and "Check All Feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](../0083-design-language.md) Decision 7 takes them.
+- The feed state and "Check All Feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](0083-design-language.md) Decision 7 takes them.
 - "Copy to My Playlists…" is in the item menu of a public playlist.
 
 In a narrow window, the tab bar of R-SHELL-1 item 7 has Search, Releases, Show, Inbox and More. More opens a menu with each other destination.

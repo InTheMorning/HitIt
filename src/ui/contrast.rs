@@ -309,7 +309,7 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         level: ContrastLevel::LargeOrGraphic,
         note: "focus ring on canvas",
     },
-    // ADR 0083 Decision 1: label text on the new sidebar surface.
+    // ADR 0101 Decision 1: label text on the new sidebar surface.
     ContrastPair {
         fg: SemanticColor::Label,
         bg: SemanticColor::SidebarBackground,
@@ -328,7 +328,7 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         level: ContrastLevel::NormalText,
         note: "tertiary text on sidebar surface",
     },
-    // ADR 0083 Decision 2: each entity color as a small dot against every
+    // ADR 0101 Decision 2: each entity color as a small dot against every
     // background tier, including the sidebar surface.
     ContrastPair {
         fg: SemanticColor::EntityFeed,

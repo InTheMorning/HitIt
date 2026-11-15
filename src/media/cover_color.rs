@@ -1,4 +1,4 @@
-//! The main color of a cover image (ADR 0083 Decision 4, task 005).
+//! The main color of a cover image (ADR 0101 Decision 4, task 005).
 //!
 //! The album page header draws a backdrop in this color. The value is a
 //! plain sRGB triple with no renderer type, so a view model can carry it.

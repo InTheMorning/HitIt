@@ -101,7 +101,7 @@ pub(crate) fn render_library_destination_rows(
     render_destination_virtual_list(list_state, item_count, "artists", render_item, cx)
 }
 
-/// The menu cell of a destination row (ADR 0083 Decision 6).
+/// The menu cell of a destination row (ADR 0101 Decision 6).
 #[expect(
     clippy::large_enum_variant,
     reason = "a menu cell is built once for each rendered row, so one box for each row adds an allocation for nothing"
@@ -300,7 +300,7 @@ fn render_singles_group_row(
                     ParentElement::child,
                 ),
         )
-        // ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033:
+        // ADR 0101 Decision 6, amended 2026-10-22; ADR 0084 task 033:
         // the group row's own download-state icon, from the count of
         // its members that are in the Library.
         // ADR 0089 Decision 6: a group row has no time, and its library icon
@@ -438,7 +438,7 @@ pub(crate) fn render_destination_list_row(
         // and it has no library state.
         .time_column(row.duration_label.clone().map(SharedString::from))
         .library_column(row.download_state.map(|state| {
-            // ADR 0083 Decision 6, amended 2026-10-22; ADR 0084 task 033.
+            // ADR 0101 Decision 6, amended 2026-10-22; ADR 0084 task 033.
             render_release_download_state(&state, download_state_id, cx)
         }))
         .into_any_element()

@@ -9,7 +9,7 @@ Give artwork a shadow token, and replace the emoji placeholder with a type monog
 
 ## Authority
 
-- [ADR 0083](../../adr/0083-design-language.md) Decisions 3 and 4.
+- [ADR 0083](../../adr/archive/0083-design-language.md) Decisions 3 and 4.
 - [ADR 0025](../../adr/0025-theme-icon-style-boundary.md): the theme boundary.
 - The type ramp guards of the archived ADRs 0034 and 0039 stay in force.
 - Durable set in `AGENTS.md`: token discipline.

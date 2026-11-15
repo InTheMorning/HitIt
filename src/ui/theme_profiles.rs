@@ -139,7 +139,7 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
         SemanticColor::Id3FrameV24Only => hex(0x6f_e8e8),
         SemanticColor::Id3FrameUnknown => hex(0xff_a07f),
 
-        // ADR 0083 Decision 1: brighter, more saturated entity colors so
+        // ADR 0101 Decision 1: brighter, more saturated entity colors so
         // each dot clears the contrast matrix against every high-contrast
         // dark background.
         SemanticColor::EntityFeed => hex(0xe0_a868),
@@ -223,7 +223,7 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
         SemanticColor::Id3FrameV24Only => hex(0x00_4d54),
         SemanticColor::Id3FrameUnknown => hex(0x7a_2916),
 
-        // ADR 0083 Decision 1: darker, more saturated entity colors so each
+        // ADR 0101 Decision 1: darker, more saturated entity colors so each
         // dot clears the contrast matrix against every high-contrast light
         // background.
         SemanticColor::EntityFeed => hex(0x6b_4717),

@@ -10,7 +10,7 @@ Make the dark warning color orange, so that gold is free for the value palette.
 
 ## Authority
 
-- [ADR 0083](../../adr/0083-design-language.md) Decisions 1 and 2.
+- [ADR 0083](../../adr/archive/0083-design-language.md) Decisions 1 and 2.
 - [ADR 0025](../../adr/0025-theme-icon-style-boundary.md), as amended by ADR 0083: the theme and badge boundary.
 - Durable set in `AGENTS.md`: token discipline, never rely on color alone.
 

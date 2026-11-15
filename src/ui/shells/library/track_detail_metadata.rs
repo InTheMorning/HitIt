@@ -36,7 +36,7 @@ use crate::view_models::track_metadata_grid::TrackMetadataGridVm;
 use crate::views::TrackRef;
 
 /// The body of the Inspect Sources sheet of the open Library track (ADR 0089
-/// Decision 8, ADR 0083 Decision 8). The sheet calls it at each render, so a
+/// Decision 8, ADR 0101 Decision 8). The sheet calls it at each render, so a
 /// change of the track state shows in the open sheet. Opened, it holds
 /// Compare ID3, the `MusicBrainz` panel, waiting ID3 edits and the compare
 /// grid.
@@ -60,7 +60,7 @@ pub(crate) fn render_library_inspect_sources_sheet_body(
 /// The accessibility label of the source controls of the Inspect Sources sheet.
 const INSPECT_SOURCES_A11Y_LABEL: &str = "Source values of this track";
 
-/// The content of the Inspect Sources sheet (ADR 0083 Decision 8).
+/// The content of the Inspect Sources sheet (ADR 0101 Decision 8).
 fn render_inspect_sources_body(
     frame: &InspectorFrame,
     track_context: &TrackContext,

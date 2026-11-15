@@ -236,7 +236,7 @@ pub(crate) struct PublisherPageAlbumVm {
     /// unresolved link.
     pub(crate) not_listed: bool,
     pub(crate) in_library: bool,
-    /// The download-state icon of this row (ADR 0083 Decision 6, amended
+    /// The download-state icon of this row (ADR 0101 Decision 6, amended
     /// 2026-10-22; ADR 0084 task 033), built from [`Self::in_library`].
     /// This page holds no per-track download count and no live queue
     /// fact for a release named by another feed, so the icon is always

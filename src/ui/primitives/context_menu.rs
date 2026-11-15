@@ -499,7 +499,7 @@ impl ContextMenu {
     }
 
     /// The hover help of the trigger, for a trigger with an icon and no
-    /// text (ADR 0083 Decision 10).
+    /// text (ADR 0101 Decision 10).
     pub fn trigger_tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
         self.trigger_tooltip = Some(tooltip.into());
         self
@@ -666,7 +666,7 @@ fn build_menu_content(
     let mut previous_destructive = true;
     for (index, item) in items.into_iter().enumerate() {
         let display = item.display;
-        // ADR 0083 Decision 5: a divider separates a destructive item from
+        // ADR 0101 Decision 5: a divider separates a destructive item from
         // the items before it.
         if display.destructive && !previous_destructive {
             content = content.child(Divider::horizontal());

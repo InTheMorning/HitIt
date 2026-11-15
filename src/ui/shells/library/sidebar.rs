@@ -86,7 +86,7 @@ pub(crate) fn render_sidebar_row(
             cx.emit(LibraryAppEvent::SidebarRowSelected(destination));
         }));
 
-    // ADR 0083 Decision 6, task 008 decision D1: a spring-loaded row opens
+    // ADR 0101 Decision 6, task 008 decision D1: a spring-loaded row opens
     // its destination while a dragged track stays over it. The row accepts
     // no drop.
     if let (true, Some(music)) = (spring_loaded, music_destination) {

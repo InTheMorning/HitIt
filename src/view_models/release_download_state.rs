@@ -1,4 +1,4 @@
-//! The download-state icon of a release row (ADR 0083 Decision 6, amended
+//! The download-state icon of a release row (ADR 0101 Decision 6, amended
 //! 2026-10-22; ADR 0084 task 033).
 //!
 //! The Releases list, a singles group row, a group disclosure row, the
@@ -13,7 +13,7 @@
 
 use crate::view_models::release_page::DownloadSlotState;
 
-/// The download state of a release row (ADR 0083 Decision 6, amended
+/// The download state of a release row (ADR 0101 Decision 6, amended
 /// 2026-10-22).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ReleaseDownloadState {
@@ -137,7 +137,7 @@ impl ReleaseDownloadStateVm {
 
     /// The binary state of a release row with no per-track count and no
     /// live queue fact, for example the feed page and the name page
-    /// (ADR 0083 Decision 6, amended 2026-10-22, Flag: these pages hold
+    /// (ADR 0101 Decision 6, amended 2026-10-22, Flag: these pages hold
     /// only a release-level `in_library` fact, so they show
     /// [`ReleaseDownloadState::Downloaded`] or
     /// [`ReleaseDownloadState::NotDownloaded`], never a partial count nor
@@ -152,7 +152,7 @@ impl ReleaseDownloadStateVm {
     }
 
     /// The state of a tile from the download slot of its row, so a tile
-    /// on a group page shows the same fact as its row (ADR 0083 Decision
+    /// on a group page shows the same fact as its row (ADR 0101 Decision
     /// 6, musicindex ADR 0053 R-LIST-9). A removal gives no icon, as the
     /// row slot is empty.
     #[must_use]

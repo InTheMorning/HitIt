@@ -100,7 +100,7 @@ pub(crate) fn render_track_page(
     music_column_tracked_scrollbar(container, &scroll_handle, None)
 }
 
-/// The action row of a track page (ADR 0083 Decision 5): one filled
+/// The action row of a track page (ADR 0101 Decision 5): one filled
 /// button, the plain buttons and the "⋯" menu. The status message shows
 /// below the row when a message exists.
 fn render_track_page_actions(

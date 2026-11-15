@@ -78,7 +78,7 @@ impl DetailHeader {
 
     /// Sets the title's `FontSize`. The default is `FontSize::Title2`.
     ///
-    /// ADR 0083 Decision 3: the album, artist, and publisher page headers
+    /// ADR 0101 Decision 3: the album, artist, and publisher page headers
     /// pass `FontSize::Display`. Other headers, such as the playlist page,
     /// keep the default.
     pub fn title_size(mut self, title_size: FontSize) -> Self {
@@ -88,7 +88,7 @@ impl DetailHeader {
 
     /// Sets the cover size. The default is `ThumbnailSize::Lg`.
     ///
-    /// ADR 0083 Decision 4: the album page header passes
+    /// ADR 0101 Decision 4: the album page header passes
     /// `ThumbnailSize::XXl`.
     pub fn cover_size(mut self, cover_size: ThumbnailSize) -> Self {
         self.cover_size = cover_size;
@@ -252,7 +252,7 @@ mod tests {
         assert_eq!(header.display.data_rows.len(), 1);
     }
 
-    /// ADR 0083 Decision 3: the title `FontSize` defaults to `Title2`. A
+    /// ADR 0101 Decision 3: the title `FontSize` defaults to `Title2`. A
     /// caller can set it to `Display` for the album, artist, and
     /// publisher pages.
     #[test]

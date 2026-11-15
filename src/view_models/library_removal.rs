@@ -24,7 +24,7 @@ pub(crate) struct LibraryRemovalConfirmationDisplay {
 pub(crate) enum RemovalConfirmation {
     /// Ask only when a playlist refers to the removed tracks.
     WhenReferenced,
-    /// Ask for each removal. A destructive menu item uses this (ADR 0083
+    /// Ask for each removal. A destructive menu item uses this (ADR 0101
     /// Decision 5).
     Always,
 }
@@ -468,7 +468,7 @@ mod tests {
         assert_eq!(display.remove_a11y_label, "Remove track from library");
     }
 
-    /// ADR 0083 Decision 5: a destructive menu item asks for confirmation
+    /// ADR 0101 Decision 5: a destructive menu item asks for confirmation
     /// also when no playlist refers to the track.
     #[test]
     fn always_confirmation_defers_an_unreferenced_track_removal() {

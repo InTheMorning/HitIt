@@ -1386,7 +1386,7 @@ impl TopApp {
     }
 
     /// Opens the Library release page of `feed_id` in the content frame.
-    /// The album name link of a track page uses it (ADR 0083 Decision 5).
+    /// The album name link of a track page uses it (ADR 0101 Decision 5).
     pub(super) fn open_library_album_page(&mut self, feed_id: i64, cx: &mut Context<Self>) {
         let Some(content_frame_id) = self.content_list_frame_id() else {
             self.settings_status = "ContentList frame not found".to_string();

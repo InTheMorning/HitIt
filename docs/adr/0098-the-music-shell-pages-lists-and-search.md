@@ -46,7 +46,7 @@ The sidebar is one list with no group labels. The toolbar has no section tabs.
 A line follows these destinations. Below the line are Show, Inbox and Settings.
 
 - Show stays a screen mount (ADR 0060). Settings keeps its pages.
-- The feed state and "Check All Feeds" stay at the bottom of the sidebar until the status bar of [ADR 0083](0083-design-language.md) Decision 7 takes them.
+- The feed state and "Check All Feeds" stay at the bottom of the sidebar until the status bar of [ADR 0101](0101-the-design-language-follows-the-shared-rules.md) Decision 7 takes them.
 - "Copy to My Playlists…" is in the item menu of a public playlist.
 - Discover, Tracks and Needs attention are not destinations. Releases with the sort Newest takes the "New releases" view of Discover. The Search page takes the saved searches. A track stays reachable from a release page, a playlist and the Tracks tab of the results. The Inbox takes the tracks of Needs attention (Decision 2).
 
@@ -137,7 +137,7 @@ Each release, track, artist and playlist has one page, whatever its origin. The 
 | Artist | Decision 10 |
 | Playlist | Its local id |
 
-A page shows its Library state with a word, for example "In Library", "3 of 7 tracks" or "Not downloaded". Its actions follow that state ([ADR 0083](0083-design-language.md) Decision 5).
+A page shows its Library state with a word, for example "In Library", "3 of 7 tracks" or "Not downloaded". Its actions follow that state ([ADR 0101](0101-the-design-language-follows-the-shared-rules.md) Decision 5).
 
 A click on a Library row and a click on an Index row open the same page. A list is a page, and an item opens over it. The words "list column" and "detail column" in an earlier record mean the list page and the item page.
 
@@ -433,7 +433,7 @@ ADR 0068 decides the audio route of Play. Its [revision of 2026-11-11](0068-show
 
 ### 19. Inspect Sources Is A Sheet
 
-"Inspect Sources" opens as a sheet (R-SHELL-1 item 6). ADR 0083 Decision 8 keeps its content. The app has no general inspector.
+"Inspect Sources" opens as a sheet (R-SHELL-1 item 6). ADR 0101 Decision 8 keeps its content. The app has no general inspector.
 
 ### 20. Shared Rules That Stay
 

@@ -108,7 +108,7 @@ fn render_header(vm: &NameLevelPageVm, header_art: CollectionArtImage) -> AnyEle
         CollectionKind::Artist,
         ThumbnailSize::XXl,
     ))
-    // ADR 0083 Decision 3: an artist page title uses Display.
+    // ADR 0101 Decision 3: an artist page title uses Display.
     .title_size(FontSize::Display)
     .into_any_element()
 }

@@ -27,7 +27,7 @@ The [run record](../reviews/orchestrated-run-2026-10-24.md) records the failure.
   generation.
 - ADR 0087 invariant "A result of an older run never replaces the result of a newer run".
 - [ADR 0066](../adr/0066-configuration-and-startup-failure-recovery.md) "Offer A Fix And Return To The
-  Intended Action" and invariant 9. ADR 0066 owns the retained actions. [ADR 0083](../adr/0083-design-language.md)
+  Intended Action" and invariant 9. ADR 0066 owns the retained actions. [ADR 0083](../adr/archive/0083-design-language.md)
   Decision 7 amends only the place of the notice.
 - [Packet 003](adr-0087-task-003-live-results.md) decision D14 and its check V3: "With MusicIndex not
   reachable, one error shows, for the last text only."

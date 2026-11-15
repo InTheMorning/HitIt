@@ -1,4 +1,4 @@
-//! The shared download-state icon of a release row (ADR 0083 Decision 6,
+//! The shared download-state icon of a release row (ADR 0101 Decision 6,
 //! amended 2026-10-22; ADR 0084 task 033).
 //!
 //! The Releases list, a singles group row, a group disclosure row, the
@@ -18,7 +18,7 @@ use crate::ui::primitives::{Label, Tooltip};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::release_download_state::{ReleaseDownloadState, ReleaseDownloadStateVm};
 
-/// The icon and the color role of a release download state (ADR 0083
+/// The icon and the color role of a release download state (ADR 0101
 /// Decision 6, amended 2026-10-22; ADR 0089 Decision 6). `Partial` reads the
 /// same quiet icon as `NotDownloaded`: its count text, not a different icon,
 /// tells the two apart. Only `Downloading` turns. The icon is muted, except
@@ -75,7 +75,7 @@ pub(crate) fn render_release_download_state(
 mod tests {
     use super::*;
 
-    /// ADR 0083 Decision 6, amended 2026-10-22: `Downloading` is the one
+    /// ADR 0101 Decision 6, amended 2026-10-22: `Downloading` is the one
     /// state that turns, and it is the one state in the accent color.
     /// `NotDownloaded` and `Partial` read the same icon.
     #[test]

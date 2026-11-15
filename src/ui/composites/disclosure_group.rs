@@ -76,7 +76,7 @@ pub struct DisclosureGroup {
 
 /// Fixed-width disclosure chevron used beside tree and sidebar labels.
 ///
-/// ADR 0083 Decision 10: draws a Lucide chevron icon, not a character. The
+/// ADR 0101 Decision 10: draws a Lucide chevron icon, not a character. The
 /// icon turns from pointing right to pointing down when the row expands.
 #[derive(IntoElement)]
 #[must_use]
@@ -101,7 +101,7 @@ pub struct DisclosureTextPanel {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DisclosureIndicatorDisplay {
-    /// ADR 0083 Decision 10: a typed disclosure state, not a character.
+    /// ADR 0101 Decision 10: a typed disclosure state, not a character.
     pub expanded: bool,
 }
 

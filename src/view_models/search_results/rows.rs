@@ -30,7 +30,7 @@ use super::{
 pub(crate) struct SearchLibraryRelease {
     /// The facts of the selection model of packet 018.
     pub(crate) facts: LibraryReleaseFacts,
-    /// The download-state icon of the release (ADR 0083 Decision 6,
+    /// The download-state icon of the release (ADR 0101 Decision 6,
     /// amended 2026-10-22; ADR 0084 task 033).
     pub(crate) download_state: ReleaseDownloadStateVm,
     /// The kind of the Library release (ADR 0084 Decision 5).
@@ -193,10 +193,10 @@ pub(crate) struct SearchResultRowVm {
     pub(crate) a11y_label: String,
     /// The state word of a Library track. An Index item shows no word
     /// (the operator decision of 2026-10-16). `None` for a release row,
-    /// which shows [`Self::download_state`] instead (ADR 0083 Decision
+    /// which shows [`Self::download_state`] instead (ADR 0101 Decision
     /// 6, amended 2026-10-22; ADR 0084 task 033), and for an artist row.
     pub(crate) state_word: Option<String>,
-    /// The download-state icon of a release row (ADR 0083 Decision 6,
+    /// The download-state icon of a release row (ADR 0101 Decision 6,
     /// amended 2026-10-22; ADR 0084 task 033). `None` for a track row and
     /// for an artist row.
     pub(crate) download_state: Option<ReleaseDownloadStateVm>,

@@ -63,7 +63,7 @@ pub(crate) fn render_track_feed_identity_section(
     ))
 }
 
-/// Renders the name links under the track title (ADR 0083 Decision 5).
+/// Renders the name links under the track title (ADR 0101 Decision 5).
 /// `on_open` runs the navigation of the origin: a Library page and an Index
 /// page open different pages for the same target kind.
 #[must_use]

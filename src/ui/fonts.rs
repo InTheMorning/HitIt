@@ -1,4 +1,4 @@
-//! Figtree font embedding — ADR 0083 Decision 3.
+//! Figtree font embedding — ADR 0101 Decision 3.
 //!
 //! This module holds the four static Figtree weights as bytes. It loads
 //! them into the GPUI text system at startup. This happens before the

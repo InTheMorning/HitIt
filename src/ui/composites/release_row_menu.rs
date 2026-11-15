@@ -1,4 +1,4 @@
-//! The row menu of a release row (ADR 0083 Decision 6, ADR 0084 task 031).
+//! The row menu of a release row (ADR 0101 Decision 6, ADR 0084 task 031).
 //!
 //! The Releases list, the feed page and the name page give their release
 //! rows the "⋯" menu and the right-click menu through this one function.
