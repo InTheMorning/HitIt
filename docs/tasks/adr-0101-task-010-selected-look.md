@@ -39,7 +39,7 @@ Main session choice, 2026-11-15: a high-contrast profile gives the four colors f
 | Component | Status | Location | Reason |
 |---|---|---|---|
 | Color tokens | extend | `src/ui/tokens.rs` | `SemanticColor` gives each color. Add `SelectedTop`, `SelectedBottom`, `SelectedEdge` and `SelectedHighlight`. |
-| Selected look | new | `src/ui/primitives/selected_look.rs` | Searched `src/ui/primitives/`, `src/ui/composites/` and `src/ui/style.rs` in HitIt. Each caller draws its own tint and outline. One function must give the look to each caller. |
+| Selected look | new | `src/ui/primitives/selected_look.rs` | Searched `src/ui/primitives/`, `src/ui/composites/` and `src/ui/style.rs` in HitIt. Each caller draws its own tint and outline. One function must give the look to each caller. musicindex-lib keeps no GPUI renderer (orchestrator answer of 2026-11-15). |
 | Control styles | extend | `src/ui/control_styles.rs` | `SelectedTab` gives the selected segment and tab. Change it to the look. |
 | List row | extend | `src/ui/composites/list_row.rs` | It draws a selected row. Use the look. |
 | Sidebar | extend | `src/ui/shells/library/sidebar.rs` | It draws a selected item. Use the look. |

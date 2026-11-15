@@ -1,6 +1,6 @@
 # ADR 0101 Task 004: The Payment Split Section
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Blocked - 2026-11-15. This packet waits for the operator answer on the shared split function in musicindex-lib. It also starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
 
 ## Goal
 
@@ -35,7 +35,13 @@ Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found th
 - `src/assets/tokens.json:26` and `:49` give `share` and `share-track`. No `SemanticColor` gives them.
 - This is an inference: no code colors a recipient by `EntityKind`.
 
-Main session choice, 2026-11-15: a fee is not in the total. The percentage of a recipient that is not a fee is its split divided by the total of the splits that are not a fee. A fee row shows its own split as a percentage, with the word "fee". This follows the podcast value specification, in which a fee comes off the top. It is an inference, and the operator can change it.
+The percentage rule comes from Studio (orchestrator answer of 2026-11-15). `percentages` in musicindex-studio `crates/core/src/feed.rs` lines 517 to 548, at Studio `44d1895`, gives it:
+
+- A fee keeps its share as its percentage.
+- Each other recipient gets its part of the rest, which is 100 less the fee shares.
+- A share that is not a number gives no percentage.
+
+Two Rust apps use this function, so it moves into musicindex-lib. The orchestrator asks the operator for the record of that new lib folder. Do not copy the Studio function into HitIt. Stop if the lib function is not available.
 
 Main session choice, 2026-11-15: the section heading is "Value Split". The heading of a section of musicindex.org is not known to this session. The packet reports the heading, and the operator decides at the walk.
 
@@ -46,7 +52,7 @@ Main session choice, 2026-11-15: the section heading is "Value Split". The headi
 | Stored route read | reuse | `src/db/payment_routes.rs` | `stored_route` gives the route of a track with the feed fallback. |
 | Read models | extend | `src/views.rs` | The database conversions give an empty list. Fill `payment_routes` from the stored columns. |
 | Track view model slot | extend | `src/view_models/track_detail.rs` | `value_routes` exists. Replace the text item with the split view model of step 2. |
-| Split view model | new | `src/view_models/payment_split.rs` | Searched `src/view_models/` and `src/ui/composites/` in HitIt. No code computes a percentage of a total or a bar. The orchestrator answers for `~/build/musicindex-lib`. |
+| Split view model | new | `src/view_models/payment_split.rs` | Searched `src/view_models/` and `src/ui/composites/` in HitIt. No code computes a percentage of a total or a bar. Searched musicindex-lib 953e464: no split function. The view model calls the shared split function of musicindex-lib for each percentage. |
 | Split section | new | `src/ui/composites/payment_split.rs` | Searched `src/ui/composites/` in HitIt. No composite draws recipient rows with a bar. |
 | Color tokens | extend | `src/ui/tokens.rs` | `SemanticColor` gives each color. Add `Share` and `ShareTrack`. |
 | Track page surface | extend | `src/ui/composites/track_detail_surface.rs` | The track page draws its sections there. |
@@ -75,7 +81,7 @@ Main session choice, 2026-11-15: the section heading is "Value Split". The headi
 Mechanical:
 
 - M1: a test of the split view model gives 66.7 % and 33.3 % for splits 2 and 1, and gives the raw shares.
-- M2: a test gives a fee apart, not in the total, with the word "fee".
+- M2: a test gives a fee row with its share as its percentage and the word "fee". Each other row gets its part of the rest.
 - M3: a test proves that a total of 0, or a route with no split, gives no percentage and no segment.
 - M4: a test proves that the segments have the order and the widths of the rows.
 - M5: a test proves that `Share` and `ShareTrack` equal `share` and `share-track` of `src/assets/tokens.json` in each theme.
@@ -111,6 +117,7 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 ## Stop And Ask
 
+- Stop if the shared split function and R-VALUE-1 item 1 give a different percentage for a fee. The orchestrator examines this difference on 2026-11-15.
 - Stop if a stored route has a recipient with no name and no address.
 - Stop if the fill of step 1 changes a result of a tag write test.
 - Stop if the contrast of `Share` on the background is below 3:1 in a theme.

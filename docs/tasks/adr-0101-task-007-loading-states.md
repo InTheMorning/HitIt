@@ -39,7 +39,7 @@ Main session choice, 2026-11-15: the sheen is a band of two-stop gradients that 
 | Skeleton | extend | `src/ui/primitives/skeleton.rs` | It draws each placeholder block. Add the sheen there, and replace the module comment. |
 | Turning icon | extend | `src/ui/icons.rs` | `maybe_turning` is the one spinner. Make it read `allows_motion`. |
 | Button | extend | `src/ui/primitives/button.rs` | A button with a busy state shows the spinner and the busy label. Find if it has a busy state, and extend it. |
-| Progress bar | new | `src/ui/primitives/progress_bar.rs` | Searched `src/ui/primitives/` and `src/ui/composites/` in HitIt. The download status item gives text only. The orchestrator answers for `~/build/musicindex-lib`. |
+| Progress bar | new | `src/ui/primitives/progress_bar.rs` | Searched `src/ui/primitives/` and `src/ui/composites/` in HitIt. The download status item gives text only. musicindex-lib keeps no GPUI renderer (orchestrator answer of 2026-11-15). |
 | Download status | extend | `src/ui/composites/download_status_item.rs` | It shows the download count. Add the bar there. |
 
 ## Required Changes

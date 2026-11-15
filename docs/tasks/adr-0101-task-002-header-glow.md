@@ -57,7 +57,7 @@ GPUI 0.3.1 has no blur, no blend mode and two stops in a gradient. Thus:
 | Backdrop tokens | extend | `src/ui/tokens.rs` | `CoverBackdrop` holds the backdrop values. Add the glow, veil and grain values there. |
 | Cover bytes | reuse | `src/media/image_cache.rs` | `read_or_download` and `fetch_blocking` give the bytes and keep the GIF frames. |
 | Cover decode | reuse | `src/media/cover_color.rs` | It shows the decode with the `image` crate and the color of a cover. |
-| Glow image preparation | new | `src/media/header_glow.rs` | Searched `src/media/`, `src/ui/composites/` and `src/ui/primitives/image.rs` in HitIt. No code blurs an image or adds grain. The orchestrator answers for `~/build/musicindex-lib`. |
+| Glow image preparation | new | `src/media/header_glow.rs` | Searched `src/media/`, `src/ui/composites/` and `src/ui/primitives/image.rs` in HitIt. No code blurs an image or adds grain. Searched musicindex-lib 953e464 (search/, fit/) and Studio 44d1895 through the orchestrator on 2026-11-15: no glow code. |
 | Environment flags | extend | `src/ui/tokens.rs` | `Environment` holds `reduce_motion`. Add `reduce_transparency` there, with the value `false`. Task 005 sets it from the system. |
 
 ## Required Changes
