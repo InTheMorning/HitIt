@@ -53,12 +53,12 @@ Main session choice, 2026-11-15: `SecondarySystemBackground` and `TertiarySystem
 4. **The hover.** A hover fill differs from the fill below it in each theme. Report each hover fill that you changed.
 5. **The theme bridge.** Each `gpui-component` field of `src/ui/theme_bridge.rs` gets the level of its use. Report each field.
 6. **The contrast.** Each text pair on a new level has 4.5:1. Task 001 gives the pairs of the two tokens. Add the pairs of each other text color that this packet puts on a level.
-7. **The guard.** A guard proves that no file outside `src/ui/tokens.rs`, `src/ui/style.rs` and `src/ui/theme_bridge.rs` names `SecondarySystemBackground` or `TertiarySystemBackground`. Its message names ADR 0101 Decision 1 and the fix.
+7. **The field list height.** Operator choice, 2026-11-15: the field list (`src/ui/composites/search_field_list.rs:114`) is at most 320 px high. When the window is lower, the list stops at the bottom of the window and scrolls inside. This closes the max height item of ADR 0087 packet 010.
+8. **The guard.** A guard proves that no file outside `src/ui/tokens.rs`, `src/ui/style.rs` and `src/ui/theme_bridge.rs` names `SecondarySystemBackground` or `TertiarySystemBackground`. Its message names ADR 0101 Decision 1 and the fix.
 
 ## Do Not Change
 
 - No change of a level value or the dark levels.
-- No change of the field list max height. The operator decides it (the [phase plan](../plans/adr-0101-design-language-phase-plan.md#visual-defects-that-move-into-this-phase)).
 - No change of the high-contrast colors, other than the mapping of the two new tokens.
 - No `git commit`, `git add` or `git stash`.
 
@@ -70,7 +70,8 @@ Mechanical:
 - M2: a test proves that the floating shadow equals `shadow.floating` in each theme.
 - M3: a test proves that each hover fill of step 4 differs from the fill below it in each theme.
 - M4: the contrast tests give each pair of step 6 at 4.5:1 or more.
-- M5: the guard of step 7 passes.
+- M5: the guard of step 8 passes.
+- M5a: a test proves that the field list height is the lower value of 320 px and the space from the field to the bottom of the window.
 - M6: the fit tests of ADR 0097 pass.
 - M7: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` and `cargo build --bin hitit` pass.
 
@@ -81,6 +82,7 @@ Visual, for the operator, in Dark and Light at M:
 - V3: a popover, a menu and a sheet have one soft shadow in each theme.
 - V4: a hover on a list row shows in Light and in Dark.
 - V5: the Dark theme looks as before.
+- V6: in a window of 500 px height, the field list stops at the bottom of the window and scrolls.
 
 ## Test Commands
 

@@ -61,16 +61,16 @@ ADR 0101 Decision 12 item 3 puts these packets after the token packet. This plan
 The overhaul plan step 4 puts two visual defects into this phase, with no separate fix:
 
 - ADR 0084 packet 026 V10, the clipped titles. Packet 001 V2 carries the walk. ADR 0097 task 003 adds the fit test of the page headers. The ChatGPT search found that `DetailHeader` (`src/ui/composites/detail_header.rs:139`) and `TrackHeader` (`src/ui/composites/track_header.rs:80`) draw the title as plain text beside the art. This is an inference: a long title with no space can go past its width.
-- The max height of the field list (ADR 0087 packet 010). The list has `max_h(Size::ColumnRegular)`, 320 px (`src/ui/composites/search_field_list.rs:114`). Packet 012 changes the field list surface, and the operator decides the max height. Recommendation: keep 320 px, and give the list the height of the window less the field when the window is lower. Packet 012 does not change it before the operator answers.
+- The max height of the field list (ADR 0087 packet 010). The list has `max_h(Size::ColumnRegular)`, 320 px (`src/ui/composites/search_field_list.rs:114`). Operator choice, 2026-11-15: the list is at most 320 px high, and it stops at the bottom of a lower window. Packet 012 makes this change.
 
 ## Open Points
 
-Open points 3 and 4 are open for the operator. On 2026-11-15 the operator approved the new crate `icu_datetime` for packet 006. Each packet uses the recommendation and records it as a "Main session choice". The operator can change it at the walk.
+The operator answered each open point on 2026-11-15. The operator also approved the new crate `icu_datetime` for packet 006.
 
 1. **The label of the audio action.** Operator choice, 2026-11-15: the label is "Audition". Packet 011 fills no button on a track page. ADR 0068 task 004, the audition player, gives the label and the fill.
 2. **Increase Contrast with an explicit profile.** Operator choice, 2026-11-15: with the profile System, Increase Contrast selects the high-contrast profile of the appearance. An explicit profile that the person selected stays.
-3. **The report times.** R-DATE-1 gives the date of an item. The reports give a recorded time in UTC, for example `2026-11-15 22:27:35 UTC`. Recommendation: packet 006 changes only the dates of items, and the reports keep their recorded time. The report owners (ADRs 0059 and 0063) decide a change.
-4. **A Library item and the index.** R-LINK-1 item 5 shows "Not in the index yet" when the index does not hold the item. Recommendation: a Library page shows the link when it has the feed GUID. The page of musicindex.org gives its own message when it does not find the item. Packet 009 stops and asks if a stored fact gives a better answer.
+3. **The report times.** Operator choice, 2026-11-15: packet 006 changes only the dates of items. The reports keep their recorded time, for example `2026-11-15 22:27:35 UTC`.
+4. **A Library item and the index.** Operator choice, 2026-11-15: a Library page shows the link when it has the feed GUID. The page of musicindex.org gives its own message when it does not find the item.
 
 ## Risks
 

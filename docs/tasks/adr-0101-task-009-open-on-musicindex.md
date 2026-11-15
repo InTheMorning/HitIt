@@ -31,7 +31,7 @@ Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found th
 
 Main session choice, 2026-11-15: an artist page that is a feed page (`publisher.rs`) uses the feed address. A name level page uses the name address with its `ArtistNameKey`. The packet confirms that `ArtistNameKey` gives the KEY of musicindex.org, and stops if it does not.
 
-Main session choice, 2026-11-15: a Library page shows the link when it has the feed GUID. HitIt makes no request to know if the index holds the item. An Index page always shows the link. The operator can change this at the walk (open point 4 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points)). A Library page with no feed GUID shows "Not in the index yet".
+Operator choice, 2026-11-15: a Library page shows the link when it has the feed GUID. HitIt makes no request to know if the index holds the item. An Index page always shows the link. (open point 4 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points)). A Library page with no feed GUID shows "Not in the index yet".
 
 ## Base components
 

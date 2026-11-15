@@ -34,7 +34,7 @@ Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found th
 
 Operator choice, 2026-11-15: HitIt uses `icu_datetime` at `~2.1`, the family of `icu_collator`, with its compiled data. A date is the medium date length of the locale, for example "Nov 15, 2026" in `en-US` and "15 nov. 2026" in `fr-FR`. The day is the day in the local time zone of the system.
 
-Main session choice, 2026-11-15: the report times stay. A recorded time of a report, for example `2026-11-15 22:27:35 UTC`, is not the date of an item. The report owners (ADRs 0059 and 0063) decide a change (open point 3 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points)). The live schedule of `src/view_models/live_page.rs:228` is the date of an item, so it changes.
+Operator choice, 2026-11-15: the report times stay. A recorded time of a report, for example `2026-11-15 22:27:35 UTC`, is not the date of an item. (open point 3 of the [phase plan](../plans/adr-0101-design-language-phase-plan.md#open-points)). The live schedule of `src/view_models/live_page.rs:228` is the date of an item, so it changes.
 
 ## Base components
 
