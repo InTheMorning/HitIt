@@ -30,7 +30,7 @@ ADR 0101 Decision 12 gives the sequence. The packet numbers follow it.
 | [001](../tasks/adr-0101-task-001-shared-tokens.md) | The base tokens: focus color, type sizes, radii, spacing, light levels, the ring test | R-TOKEN-1, R-TYPE-1, R-TYPE-2, R-RADIUS-1, R-SPACE-1, R-ELEVATION-2, R-FOCUS-2 | Waits for the three defect fixes of 2026-11-14 |
 | [002](../tasks/adr-0101-task-002-header-glow.md) | The page header glow with grain and a veil. An animated cover moves in the glow | R-ART-5, R-ART-6 | Waits for 001 |
 | [003](../tasks/adr-0101-task-003-art-radius.md) | The art radius of 6 % of the edge. A larger image has a larger shadow | R-ART-4 | Waits for 001 |
-| [004](../tasks/adr-0101-task-004-payment-split.md) | The payment split section of a track page and a release page | R-VALUE-1, R-VALUE-2 | Blocked: the operator decides again on the fee rule of R-VALUE-3. Then waits for 001 |
+| [004](../tasks/adr-0101-task-004-payment-split.md) | The payment split section of a track page and a release page | R-VALUE-1, R-VALUE-2, R-VALUE-5 | Blocked: the operator push of musicindex-lib `be0f855`. Then waits for 001 |
 | [005](../tasks/adr-0101-task-005-system-accessibility-settings.md) | The app reads Reduce Motion, Increase Contrast and Reduce Transparency from the system | R-A11Y-1 | Waits for 001 |
 | [006](../tasks/adr-0101-task-006-dates-in-the-system-language.md) | Dates in the language of the system. Durations and total times | R-DATE-1 | Waits for 001 |
 | [007](../tasks/adr-0101-task-007-loading-states.md) | The skeleton sheen, the spinner with a busy label, the progress bar with a count | R-LOADING-1 | Waits for 005 |
