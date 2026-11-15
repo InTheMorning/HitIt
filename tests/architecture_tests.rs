@@ -24963,3 +24963,37 @@ over src/assets/tokens.json. Do not edit the copy: a change goes into \
 musicindex-assets first, under a musicindex decision record."
     );
 }
+
+/// Durable guard, project-baseline skill, section "A Binding Rule Lives In A
+/// Decision Record": the ADR link check of the shared skill folder passes for
+/// this repository, with each of its checks. Studio wrote five ADRs after the
+/// rule of 2026-11-14 for new ADRs, and no guard ran. When the script is not
+/// on this machine, the guard prints that it did not run.
+#[test]
+fn shared_adr_link_check_passes() {
+    let script = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default()
+        .join(".agents/skills/project-baseline/scripts/check_adr_links.py");
+    if !script.is_file() {
+        println!(
+            "shared_adr_link_check_passes did not run: {} is not on this machine",
+            script.display()
+        );
+        return;
+    }
+    let output = std::process::Command::new("python3")
+        .arg(&script)
+        .arg(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("start python3 for check_adr_links.py");
+    assert!(
+        output.status.success(),
+        "project-baseline skill, section \"A Binding Rule Lives In A Decision Record\": \
+the ADR link check must pass. Correct each line below in docs/adr/ or AGENTS.md, \
+then run `python3 {} .` again.\n{}{}",
+        script.display(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
