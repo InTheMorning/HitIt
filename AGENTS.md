@@ -320,6 +320,8 @@ cargo clippy --all-targets -- -D warnings # Strict clippy, every target
 The agent runs build, test, clippy and format check locally before a commit.
 The guard `shared_adr_link_check_passes` runs the ADR link check of the
 project-baseline skill, section "A Binding Rule Lives In A Decision Record".
+It gives `--bar-from 0100` to the check, so each current ADR from ADR 0100 has
+one `- Bar:` line.
 The check is in the shared skill folder, so the guard does not run in CI.
 `.github/workflows/ci.yml` runs the "Zero warnings" checks and `cargo test` on
 each push and each pull request. It does not replace the local checks. A

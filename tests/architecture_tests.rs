@@ -24984,6 +24984,7 @@ fn shared_adr_link_check_passes() {
     }
     let output = std::process::Command::new("python3")
         .arg(&script)
+        .args(["--bar-from", "0100"])
         .arg(env!("CARGO_MANIFEST_DIR"))
         .output()
         .expect("start python3 for check_adr_links.py");
@@ -24991,7 +24992,7 @@ fn shared_adr_link_check_passes() {
         output.status.success(),
         "project-baseline skill, section \"A Binding Rule Lives In A Decision Record\": \
 the ADR link check must pass. Correct each line below in docs/adr/ or AGENTS.md, \
-then run `python3 {} .` again.\n{}{}",
+then run `python3 {} --bar-from 0100 .` again.\n{}{}",
         script.display(),
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
