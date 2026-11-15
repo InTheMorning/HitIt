@@ -442,6 +442,20 @@ pub(crate) fn prepare_local_paths(
 ) -> Result<bool, CoreCheckOutcome> {
     let result = crate::db::repair_local_file_paths(connection, music_dir);
     if result.as_ref().is_ok_and(|repair| repair.skipped.is_none()) {
+        // ADR 0100 Decision 7: the step runs only after a complete path repair.
+        // A failure goes to the log, and the start continues.
+        match crate::config::audio_cache_dir() {
+            Ok(audio_cache_dir) => {
+                if let Err(error) =
+                    crate::audio_cache::repair_start_step(connection, music_dir, &audio_cache_dir)
+                {
+                    eprintln!("ADR 0100 start repair could not move every audio file: {error:#}");
+                }
+            }
+            Err(error) => eprintln!(
+                "ADR 0100 start repair could not determine the audio cache folder: {error:#}"
+            ),
+        }
         return Ok(false);
     }
     if let Err(issue) = storage::check_music(music_dir, false, false) {

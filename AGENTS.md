@@ -79,6 +79,8 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md), Accepted on 2026-11-07, moves the search parser, the Index plan and the kind rule to the `musicindex-search` crate. The crate is pinned at `4761148`. It gives the placeholder of each text field and `quote_field_value` for a runnable example (musicindex ADR 0058). It gives the rows of the field list (`field_list_rows`), the note of a text that sends no Index request (`search_note`) and the note of a tab that gets no request (`scope_note`), from musicindex ADR 0052 R-QUERY-7 and R-QUERY-8. HitIt adds only its sentence about its Library rows. The crate builds the `kind:` requests, the text of `q` and the sort parameters. HitIt builds no `kind:` mapping and no sort parameter of its own. musicindex ADR 0062 owns the `host:` field. The crate sends `host` and `not_host`, and HitIt filters its Library rows with `host_keeps_row` and the host of the feed URL. It passes the crate's sort parameters for a sort that the person selected, when the node lists `sort`.
 
+[ADR 0100](docs/adr/0100-a-removal-moves-the-audio-file-to-the-audio-cache.md), Accepted on 2026-11-15, moves the audio file of a removed track from the music folder to the audio cache, `~/.cache/hitit/audio`. The music folder holds only Library tracks. The table `cached_files` holds the cache files, and a `local_files` row is a file below `music_dir`. [ADR 0100 task 001](docs/tasks/adr-0100-task-001-removal-moves-the-file-to-the-audio-cache.md) implements it on 2026-11-15, and its visual checks are open in section 21 of [pending human checks](docs/pending-human-checks.md).
+
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for
@@ -92,7 +94,7 @@ Known open defects:
 
 Stored facts that agents need:
 
-- Schema version 26 is current. The migration registry of ADR 0016 owns each schema change.
+- Schema version 27 is current. The migration registry of ADR 0016 owns each schema change.
 - `tests/fixtures/musicindex-openapi-0.19.0.json` is the stored MusicIndex contract. Since 2026-11-08 it holds the live contract of Stophammer candidate v0.19.0-rc.7 (git `398d10f`). After each Stophammer
   release, replace it in the same change as the decode changes (ADR 0075 section 6).
 - [Open Stophammer requests](docs/plans/hitit-open-requests.md) has an equal copy in the Stophammer

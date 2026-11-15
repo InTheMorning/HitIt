@@ -261,7 +261,7 @@ fn render_session_tools(
 fn render_cached_files(app: &TopApp, cx: &mut Context<TopApp>) -> Vec<AnyElement> {
     let mut content = vec![settings_heading(app.cached_files.title(), cx)];
     let execution = app.command_runner.availability();
-    for row in app.cached_files.rows(&app.music_dir, execution) {
+    for row in app.cached_files.rows(&app.audio_cache_dir, execution) {
         content.push(match row {
             CachedFileRow::Artist(name) => settings_message(name, cx),
             CachedFileRow::Track { title, delete } => {

@@ -1,6 +1,7 @@
 pub mod api;
 pub mod app;
 pub mod application;
+pub mod audio_cache;
 pub mod audio_format;
 pub mod audio_tags;
 pub mod broadcast;

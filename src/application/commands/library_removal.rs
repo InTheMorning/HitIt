@@ -1,5 +1,6 @@
 //! Application commands for canonical local-library removal.
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
@@ -43,13 +44,25 @@ impl RemoveFromLibraryResult {
 #[derive(Clone, Debug)]
 pub struct RemoveFromLibrary {
     conn: SharedConnection,
+    music_dir: PathBuf,
+    audio_cache_dir: PathBuf,
     target: LibraryRemovalTarget,
 }
 
 impl RemoveFromLibrary {
     #[must_use]
-    pub const fn new(conn: SharedConnection, target: LibraryRemovalTarget) -> Self {
-        Self { conn, target }
+    pub fn new(
+        conn: SharedConnection,
+        music_dir: PathBuf,
+        audio_cache_dir: PathBuf,
+        target: LibraryRemovalTarget,
+    ) -> Self {
+        Self {
+            conn,
+            music_dir,
+            audio_cache_dir,
+            target,
+        }
     }
 }
 
@@ -61,8 +74,9 @@ impl ApplicationCommand for RemoveFromLibrary {
             .conn
             .lock()
             .map_err(|_| CommandError::Other("database lock poisoned".into()))?;
-        let execution = execute_library_removal(&conn, self.target)
-            .map_err(|error| CommandError::Other(format!("{error:#}")))?;
+        let execution =
+            execute_library_removal(&conn, &self.music_dir, &self.audio_cache_dir, self.target)
+                .map_err(|error| CommandError::Other(format!("{error:#}")))?;
         Ok(CommandOutcome::new(
             RemoveFromLibraryResult::new(execution.message(), execution.target()),
             removal_events(&execution),
@@ -127,9 +141,13 @@ mod tests {
             create_library_track(&db, feed_id)?
         };
 
-        let outcome =
-            RemoveFromLibrary::new(Arc::clone(&conn), LibraryRemovalTarget::Track(track_id))
-                .execute(&CommandContext::next())?;
+        let outcome = RemoveFromLibrary::new(
+            Arc::clone(&conn),
+            tempfile::tempdir()?.path().to_path_buf(),
+            tempfile::tempdir()?.path().to_path_buf(),
+            LibraryRemovalTarget::Track(track_id),
+        )
+        .execute(&CommandContext::next())?;
 
         let db = conn.lock().expect("lock db");
         let track = db::track_row_by_id(&db, track_id)?.expect("track");
@@ -157,9 +175,13 @@ mod tests {
             (feed_id, track_id)
         };
 
-        let outcome =
-            RemoveFromLibrary::new(Arc::clone(&conn), LibraryRemovalTarget::Feed(feed_id))
-                .execute(&CommandContext::next())?;
+        let outcome = RemoveFromLibrary::new(
+            Arc::clone(&conn),
+            tempfile::tempdir()?.path().to_path_buf(),
+            tempfile::tempdir()?.path().to_path_buf(),
+            LibraryRemovalTarget::Feed(feed_id),
+        )
+        .execute(&CommandContext::next())?;
 
         let db = conn.lock().expect("lock db");
         let track = db::track_row_by_id(&db, track_id)?.expect("track");

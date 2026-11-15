@@ -45,12 +45,14 @@ pub(crate) struct Materialization {
     row: TrackRow,
     context: TrackContext,
     music_dir: PathBuf,
+    audio_cache_dir: PathBuf,
     enclosure: Option<SelectedEnclosure>,
     prepared: Option<PreparedTrack>,
     binding: Option<RetainedArtifact>,
     failure: Option<FailureClass>,
     pub(super) return_tag_compare: bool,
     pub(super) reconcile_feed: Option<String>,
+    cache_restore: Option<(crate::audio_cache::PreparedMove, i64, PathBuf)>,
 }
 
 impl std::fmt::Debug for Materialization {
@@ -62,18 +64,25 @@ impl std::fmt::Debug for Materialization {
 }
 
 impl Materialization {
-    pub(super) fn new(row: TrackRow, context: TrackContext, music_dir: PathBuf) -> Self {
+    pub(super) fn new(
+        row: TrackRow,
+        context: TrackContext,
+        music_dir: PathBuf,
+        audio_cache_dir: PathBuf,
+    ) -> Self {
         let enclosure = select_audio_enclosure(&context.track);
         Self {
             row,
             context,
             music_dir,
+            audio_cache_dir,
             enclosure,
             prepared: None,
             binding: None,
             failure: None,
             return_tag_compare: false,
             reconcile_feed: None,
+            cache_restore: None,
         }
     }
 
@@ -140,6 +149,11 @@ impl Materialization {
             download.cleanup()?;
         }
         self.prepared = None;
+        // ADR 0100 Decision 5: a restore that did not reach its commit puts
+        // nothing below `music_dir`.
+        if let Some((moved, _, _)) = self.cache_restore.take() {
+            crate::audio_cache::undo_put(&[moved]);
+        }
         Ok(())
     }
 
@@ -209,11 +223,13 @@ impl Materialization {
             download.retry_conversion(cfg)?;
         } else {
             *class = FailureClass::Download;
-            let existing = self
-                .row
-                .local_path
-                .as_ref()
-                .map(|path| path.resolve(&cfg.music_dir));
+            let restored = self.restore_cached_file(conn, cfg)?;
+            let existing = restored.or_else(|| {
+                self.row
+                    .local_path
+                    .as_ref()
+                    .map(|path| path.resolve(&cfg.music_dir))
+            });
             self.prepared = Some(super::prepare_track_for_subscription_internal(
                 cfg,
                 &self.context.track,
@@ -242,6 +258,15 @@ impl Materialization {
         let warning = prepared.format_warning();
         if conversion == ConversionOutcome::WavRetained {
             *class = FILE;
+            if self.cache_restore.is_some() {
+                // The file is a WAV from the audio cache and has no row in
+                // `local_files`. `cleanup` moves nothing: it removes the copy
+                // below `music_dir`, and the cache file stays.
+                self.binding = None;
+                self.cleanup()?;
+                *class = FailureClass::Conversion;
+                anyhow::bail!("conversion failed; the WAV file stays in the audio cache");
+            }
             if let Some(binding) = &self.binding {
                 binding.validate()?;
                 let path = binding.path().to_path_buf();
@@ -312,10 +337,16 @@ impl Materialization {
             if let Some(feed_url) = &self.reconcile_feed {
                 db::reconcile_feed_subscription_by_url(&transaction, feed_url)?;
             }
+            if let Some((_, cached_id, _)) = &self.cache_restore {
+                transaction.execute("DELETE FROM cached_files WHERE id = ?1", [cached_id])?;
+            }
             transaction.commit()?;
             Ok(())
         })();
         if let Err(error) = save {
+            if let Some((moved, _, _)) = self.cache_restore.take() {
+                crate::audio_cache::undo_put(&[moved]);
+            }
             *class = FILE;
             if let PreparedTrack::Downloaded(download) = prepared {
                 download.undo_promotion(&working_path)?;
@@ -327,6 +358,13 @@ impl Materialization {
         self.row.local_path = Some(relative_path);
         self.row.is_in_library = true;
         drop(db);
+        if let Some((moved, _, cache_root)) = self.cache_restore.take() {
+            // The commit is complete. A cache file that stays is an orphan
+            // that the subsequent removal replaces.
+            if let Err(error) = crate::audio_cache::remove_sources(&[moved], &cache_root) {
+                eprintln!("ADR 0100: could not remove a restored cache file: {error:#}");
+            }
+        }
         self.binding = if conversion == ConversionOutcome::WavRetained {
             Some(RetainedArtifact::capture(&cfg.music_dir, &path)?)
         } else {
@@ -338,6 +376,41 @@ impl Materialization {
             Some(warning.map_or_else(|| message.clone(), |warning| format!("{warning}; {message}")))
         });
         self.outcome(path, &stored, conversion, warning, applied_edits)
+    }
+
+    fn restore_cached_file(
+        &mut self,
+        conn: &Arc<Mutex<Connection>>,
+        cfg: &DownloadConfig,
+    ) -> Result<Option<PathBuf>> {
+        if let Some((moved, _, _)) = &self.cache_restore {
+            // A retry uses the file that the first run put below `music_dir`.
+            return Ok(Some(moved.destination().to_path_buf()));
+        }
+        let cached_rows = {
+            let db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
+            db::cached_audio_files_for_track(&db, self.row.id)?
+        };
+        for row in cached_rows {
+            let source = row.path.resolve(&self.audio_cache_dir);
+            if !source.is_file() {
+                let db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
+                db::delete_cached_audio_file(&db, &row.path)?;
+                continue;
+            }
+            let moves = crate::audio_cache::put_files(
+                &self.audio_cache_dir,
+                &cfg.music_dir,
+                std::slice::from_ref(&row.path),
+                crate::audio_cache::ExistingDestination::Fail,
+            )?;
+            let Some(moved) = moves.into_iter().next() else {
+                continue;
+            };
+            self.cache_restore = Some((moved, row.id, self.audio_cache_dir.clone()));
+            return Ok(Some(row.path.resolve(&cfg.music_dir)));
+        }
+        Ok(None)
     }
 
     /// The tag comparison reads the stored context, so that it compares the
@@ -414,8 +487,129 @@ mod tests {
         fs::write(temp.path().join("original.wav"), b"RIFF\x24\0\0\0WAVEfmt ").unwrap();
         let row = db::track_row_by_id(&conn, 1).unwrap().unwrap();
         let context = TrackContext::new(super::super::track_row_to_api_track(&row), None);
-        let operation = Materialization::new(row, context, cfg.music_dir.clone());
+        let operation = Materialization::new(
+            row,
+            context,
+            cfg.music_dir.clone(),
+            temp.path().join("audio"),
+        );
         (temp, cfg, Arc::new(Mutex::new(conn)), operation)
+    }
+
+    #[test]
+    fn adr_0100_cached_download_restores_file_without_network() -> Result<()> {
+        let (temp, mut cfg, conn, mut operation) = fixture();
+        let relative = LibraryRelativePath::from_stored("original.wav")?;
+        let cache_root = temp.path().join("audio");
+        let cache_file = relative.resolve(&cache_root);
+        fs::create_dir_all(cache_file.parent().unwrap())?;
+        let audio = include_bytes!("../../docs/runbooks/fixtures/conversion.flac");
+        fs::write(&cache_file, audio)?;
+        fs::remove_file(temp.path().join("original.wav"))?;
+        {
+            let db = conn.lock().unwrap();
+            db.execute("UPDATE tracks SET is_in_library = 0, enclosure_type = 'audio/flac', enclosure_url = 'http://127.0.0.1:9/no-request.flac' WHERE id = 1", [])?;
+            db.execute("DELETE FROM local_files WHERE track_id = 1", [])?;
+            db.execute(
+                "INSERT INTO cached_files (path, track_id) VALUES ('original.wav', 1)",
+                [],
+            )?;
+        }
+        operation.row.local_path = None;
+        operation.row.is_in_library = false;
+        operation.row.enclosure_url = Some("http://127.0.0.1:9/no-request.flac".into());
+        operation.context.track.enclosure_url = Some("http://127.0.0.1:9/no-request.flac".into());
+        operation.enclosure =
+            crate::track_compare::select_audio_enclosure(&operation.context.track);
+        cfg.music_dir = temp.path().to_path_buf();
+
+        let outcome = operation.run(&conn, &cfg, false, false)?;
+
+        assert_eq!(fs::read(temp.path().join("original.wav"))?, audio);
+        assert!(
+            !cache_file.exists(),
+            "ADR 0100 removes the cache source after commit"
+        );
+        let db = conn.lock().unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT count(*) FROM local_files WHERE track_id = 1",
+                [],
+                |row| row.get::<_, i64>(0)
+            )?,
+            1
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT count(*) FROM cached_files WHERE track_id = 1",
+                [],
+                |row| row.get::<_, i64>(0)
+            )?,
+            0
+        );
+        assert!(outcome.marked_downloaded);
+        Ok(())
+    }
+
+    #[test]
+    fn adr_0100_missing_cache_file_deletes_row_and_uses_network() -> Result<()> {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::thread;
+
+        let (temp, cfg, conn, mut operation) = fixture();
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let url = format!("http://{}/audio.flac", listener.local_addr()?);
+        let audio = include_bytes!("../../docs/runbooks/fixtures/conversion.flac").to_vec();
+        let response_audio = audio.clone();
+        let worker = thread::spawn(move || -> std::io::Result<()> {
+            let (mut stream, _) = listener.accept()?;
+            let mut request = [0; 2048];
+            assert!(
+                stream.read(&mut request)? > 0,
+                "ADR 0100 network path receives a request"
+            );
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                response_audio.len()
+            )?;
+            stream.write_all(&response_audio)
+        });
+        {
+            let db = conn.lock().unwrap();
+            db.execute("UPDATE tracks SET is_in_library = 0, enclosure_type = 'audio/flac', enclosure_url = ?1 WHERE id = 1", [&url])?;
+            db.execute("DELETE FROM local_files WHERE track_id = 1", [])?;
+            db.execute(
+                "INSERT INTO cached_files (path, track_id) VALUES ('original.wav', 1)",
+                [],
+            )?;
+        }
+        operation.row.local_path = None;
+        operation.row.is_in_library = false;
+        operation.row.enclosure_url = Some(url.clone());
+        operation.context.track.enclosure_url = Some(url);
+        operation.enclosure =
+            crate::track_compare::select_audio_enclosure(&operation.context.track);
+        fs::remove_file(temp.path().join("original.wav"))?;
+
+        let outcome = operation.run(&conn, &cfg, false, false)?;
+        worker.join().unwrap()?;
+
+        assert!(
+            outcome.marked_downloaded,
+            "ADR 0100 downloads after it finds a lost cache file"
+        );
+        let db = conn.lock().unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT count(*) FROM cached_files WHERE track_id = 1",
+                [],
+                |row| row.get::<_, i64>(0)
+            )?,
+            0
+        );
+        Ok(())
     }
 
     fn converter(directory: &Path) -> PathBuf {
@@ -458,7 +652,12 @@ mod tests {
         crate::rss::enrich_track_from_feed_rss(&mut context, &url).unwrap();
         worker.join().unwrap();
         let observation = Arc::clone(context.rss_observation.as_ref().unwrap());
-        let mut operation = Materialization::new(operation.row, context, operation.music_dir);
+        let mut operation = Materialization::new(
+            operation.row,
+            context,
+            operation.music_dir,
+            operation.audio_cache_dir,
+        );
         let first = operation.run(&conn, &cfg, false, false).unwrap();
         assert_eq!(first.conversion, ConversionOutcome::WavRetained);
         cfg.flac_path = Ok(Some(converter(temp.path())));
@@ -648,7 +847,12 @@ mod tests {
         api_track.payment_routes = Some(vec![route("MusicIndex")]);
         let context = TrackContext::new(api_track, None);
 
-        let mut operation = Materialization::new(row, context, cfg.music_dir.clone());
+        let mut operation = Materialization::new(
+            row,
+            context,
+            cfg.music_dir.clone(),
+            temp.path().join("audio"),
+        );
         let outcome = operation.run(&conn, &cfg, false, false).unwrap();
 
         let tags = crate::audio_tags::read_audio_tags(&outcome.path).unwrap();
@@ -727,7 +931,12 @@ mod tests {
             db::track_row_by_id(&db, 2).unwrap().unwrap()
         };
         let context = TrackContext::new(super::super::track_row_to_api_track(&row), None);
-        let mut operation = Materialization::new(row, context, cfg.music_dir.clone());
+        let mut operation = Materialization::new(
+            row,
+            context,
+            cfg.music_dir.clone(),
+            temp.path().join("audio"),
+        );
 
         let outcome = operation.run(&conn, &cfg, false, false).unwrap();
 

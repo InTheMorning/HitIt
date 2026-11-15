@@ -764,6 +764,17 @@ pub fn config_path() -> Result<PathBuf> {
     Ok(proj.config_dir().join("config.toml"))
 }
 
+/// Return the app audio-cache folder (ADR 0100).
+pub fn audio_cache_dir() -> Result<PathBuf> {
+    let proj = ProjectDirs::from("xyz", "HeyCitizen", APP_ID)
+        .ok_or_else(|| anyhow!("could not determine user cache directory"))?;
+    Ok(audio_cache_path(proj.cache_dir()))
+}
+
+fn audio_cache_path(cache_dir: &Path) -> PathBuf {
+    cache_dir.join("audio")
+}
+
 /// Read one snapshot, creating defaults only for a genuinely absent entry.
 ///
 /// # Errors
@@ -1203,6 +1214,13 @@ mod tests {
     use crate::view_models::workspace::{
         WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,
     };
+
+    #[test]
+    fn adr_0100_audio_cache_folder_uses_given_cache_root() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        assert_eq!(audio_cache_path(temp.path()), temp.path().join("audio"));
+        Ok(())
+    }
 
     #[test]
     fn default_music_dir_uses_v4vmusic_in_home() {

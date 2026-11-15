@@ -3544,7 +3544,20 @@ impl LibraryApp {
             self.vm.begin_feed_removal(feed_id);
             cx.notify();
         }
-        let command = RemoveFromLibrary::new(Arc::clone(&self.conn), target);
+        let audio_cache_dir = match crate::config::audio_cache_dir() {
+            Ok(path) => path,
+            Err(error) => {
+                self.vm.set_error_status(format!("{error:#}"));
+                cx.notify();
+                return;
+            }
+        };
+        let command = RemoveFromLibrary::new(
+            Arc::clone(&self.conn),
+            self.music_dir.clone(),
+            audio_cache_dir,
+            target,
+        );
         present_command(
             &self.command_runner,
             command,

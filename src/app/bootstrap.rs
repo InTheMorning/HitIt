@@ -136,6 +136,7 @@ pub(super) struct NormalStartup {
     playback_owner: Option<Arc<Mutex<PlaybackOwner<ConfiguredPlaybackDriver>>>>,
     runtime_host: Option<Arc<RuntimeHost>>,
     image_cache: Arc<ImageCache>,
+    audio_cache_dir: std::path::PathBuf,
     capability_observations: CapabilityObservations,
     notices: Vec<StartupIssue>,
 }
@@ -150,6 +151,14 @@ pub(super) fn prepare_normal(core: PreparedCore) -> Result<NormalStartup, CoreCh
         notices,
     } = core;
     let cfg = snapshot;
+    let audio_cache_dir = config::audio_cache_dir().map_err(|error| {
+        CoreCheckOutcome::blocked(StartupIssue::new(
+            StartupStage::ConfigField,
+            None,
+            format!("App could not determine the audio cache folder: {error:#}"),
+            "Check the user cache directory, then relaunch the app.",
+        ))
+    })?;
     let capability_observations = CapabilityObservations::default();
     let music_dir = cfg
         .music_dir
@@ -223,6 +232,7 @@ pub(super) fn prepare_normal(core: PreparedCore) -> Result<NormalStartup, CoreCh
         playback_owner,
         runtime_host,
         image_cache,
+        audio_cache_dir,
         capability_observations,
         notices,
     })
@@ -244,6 +254,7 @@ pub(super) fn mount_normal<T: 'static>(
         playback_owner,
         runtime_host,
         image_cache,
+        audio_cache_dir,
         capability_observations,
         notices,
     } = prepared;
@@ -261,6 +272,7 @@ pub(super) fn mount_normal<T: 'static>(
             cfg_path,
             musicindex_endpoint,
             cfg.music_dir.expect("core admission verified music path"),
+            audio_cache_dir,
             cfg.flac_path,
             broadcast,
             cfg.workspace_layout.unwrap_or_default(),

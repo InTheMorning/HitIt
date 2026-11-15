@@ -110,35 +110,17 @@ pub fn delete_local_file(conn: &Connection, local_file_path: &LibraryRelativePat
 
 pub fn delete_cached_file(
     conn: &Connection,
-    music_dir: &Path,
+    audio_cache_dir: &Path,
     local_file_path: &Path,
 ) -> Result<()> {
-    let relative_path = LibraryRelativePath::from_absolute(music_dir, local_file_path)?;
+    let relative_path = LibraryRelativePath::from_absolute(audio_cache_dir, local_file_path)?;
     if let Err(error) = std::fs::remove_file(local_file_path) {
         if error.kind() != std::io::ErrorKind::NotFound {
             return Err(error.into());
         }
     }
-    cleanup_empty_parents(music_dir, local_file_path);
-    delete_local_file(conn, &relative_path)
-}
-
-fn cleanup_empty_parents(music_dir: &Path, path: &Path) {
-    let mut dir = path.parent();
-    while let Some(current) = dir {
-        if music_dir == current {
-            break;
-        }
-        if std::fs::read_dir(current)
-            .map(|mut entries| entries.next().is_none())
-            .unwrap_or(false)
-        {
-            let _ = std::fs::remove_dir(current);
-            dir = current.parent();
-        } else {
-            break;
-        }
-    }
+    crate::audio_cache::cleanup_empty_parents(audio_cache_dir, local_file_path);
+    db::delete_cached_audio_file(conn, &relative_path)
 }
 
 pub(crate) fn subscribe_then_append_with(
@@ -287,6 +269,11 @@ mod tests {
         )?;
         let relative_path = LibraryRelativePath::for_test("tmp/track.mp3");
         mark_track_downloaded(&conn, track_id, &relative_path, None)?;
+        conn.execute(
+            "INSERT INTO cached_files (path, track_id) VALUES (?1, ?2)",
+            rusqlite::params![relative_path.as_stored(), track_id],
+        )?;
+        conn.execute("DELETE FROM local_files WHERE track_id = ?1", [track_id])?;
         set_track_in_library(&conn, track_id, false)?;
 
         let rows = cached_tracks(&conn)?;

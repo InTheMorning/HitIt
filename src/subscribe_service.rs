@@ -343,6 +343,7 @@ fn subscribe_library_track_internal(
         track,
         track_context,
         cfg.music_dir.clone(),
+        crate::config::audio_cache_dir()?,
     ));
     retained
         .as_mut()
@@ -424,8 +425,12 @@ fn subscribe_track_from_search_internal(
     // A MusicIndex feed read gives its tracks no enclosure. The RSS row that
     // this request just stored has it, the same as for a release download.
     fill_missing_download_source_from_local_row(&mut refreshed_context.track, &row);
-    let mut operation =
-        materialization::Materialization::new(row, refreshed_context, cfg.music_dir.clone());
+    let mut operation = materialization::Materialization::new(
+        row,
+        refreshed_context,
+        cfg.music_dir.clone(),
+        crate::config::audio_cache_dir()?,
+    );
     operation.return_tag_compare = return_tag_compare;
     operation.reconcile_feed = (!mark_feed_subscribed).then(|| feed_url.clone());
     *retained = Some(operation);

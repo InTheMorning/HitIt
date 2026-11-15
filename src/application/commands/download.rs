@@ -501,17 +501,17 @@ impl ApplicationCommand for RemoveTrackFromLibraryByMatch {
 #[derive(Clone, Debug)]
 pub struct RemoveCachedFiles {
     conn: SharedConnection,
-    music_dir: PathBuf,
+    audio_cache_dir: PathBuf,
     paths: Vec<String>,
 }
 
 impl RemoveCachedFiles {
     /// Creates a cached-file removal command.
     #[must_use]
-    pub fn new(conn: SharedConnection, music_dir: PathBuf, paths: Vec<String>) -> Self {
+    pub fn new(conn: SharedConnection, audio_cache_dir: PathBuf, paths: Vec<String>) -> Self {
         Self {
             conn,
-            music_dir,
+            audio_cache_dir,
             paths,
         }
     }
@@ -527,7 +527,7 @@ impl ApplicationCommand for RemoveCachedFiles {
             if context.cancellation().is_cancelled() {
                 return Err(CommandError::Cancelled);
             }
-            library_service::delete_cached_file(&conn, &self.music_dir, Path::new(&path))
+            library_service::delete_cached_file(&conn, &self.audio_cache_dir, Path::new(&path))
                 .map_err(|error| download_command_error(&error))?;
             removed_count += 1;
         }
@@ -710,9 +710,10 @@ mod tests {
     }
 
     #[test]
-    fn remove_cached_files_deletes_files_and_clears_cached_rows() -> anyhow::Result<()> {
+    fn adr_0100_remove_cached_files_deletes_cache_file_and_row() -> anyhow::Result<()> {
         let conn = setup_test_db()?;
         let temp = tempfile::tempdir()?;
+        let music = tempfile::tempdir()?;
         let path = temp.path().join("artist").join("album").join("track.mp3");
         std::fs::create_dir_all(path.parent().expect("path has parent"))?;
         std::fs::write(&path, b"audio")?;
@@ -724,6 +725,11 @@ mod tests {
                 create_library_track(&db, feed_id, "item-guid", "https://cdn.test/audio.mp3")?;
             let relative_path = LibraryRelativePath::from_absolute(temp.path(), &path)?;
             library_service::mark_track_downloaded(&db, track_id, &relative_path, None)?;
+            db.execute(
+                "INSERT INTO cached_files (path, track_id) VALUES (?1, ?2)",
+                rusqlite::params![relative_path.as_stored(), track_id],
+            )?;
+            db.execute("DELETE FROM local_files WHERE track_id = ?1", [track_id])?;
             library_service::set_track_in_library(&db, track_id, false)?;
             track_id
         };
@@ -741,6 +747,10 @@ mod tests {
         assert_eq!(outcome.value().message(), "Deleted 1 cached file");
         assert_eq!(outcome.events(), track_removed_events(false));
         assert!(!path.exists());
+        assert!(
+            std::fs::read_dir(music.path())?.next().is_none(),
+            "ADR 0100 Delete changes no music_dir file"
+        );
         let db = conn.lock().expect("lock test db");
         assert!(library_service::cached_tracks(&db)?.is_empty());
         let track = db::track_row_by_id(&db, track_id)?.expect("track exists");

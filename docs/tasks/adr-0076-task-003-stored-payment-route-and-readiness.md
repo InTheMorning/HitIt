@@ -364,7 +364,7 @@ It needs two downloaded library tracks whose files carry a payment route tag.
 The fixture changes no audio file. It changes the stored route of track `T1`, so the route in its file is old. It sets the "removed from feed" mark on tracks `T2` and `T3`.
 It also adds two fixture playlists. Track `T3` is two times in the first playlist and one time in the second playlist.
 
-**"Remove from library" deletes the audio file.** This check opens its confirmation and then cancels it. Do not confirm it.
+**"Remove from library" moves the audio file to the audio cache (ADR 0100).** This check opens its confirmation and then cancels it. Do not confirm it.
 
 1. Close HitIt. Find the configured database path:
 

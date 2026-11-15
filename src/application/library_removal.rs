@@ -8,8 +8,9 @@
 
 use anyhow::{Context, Result};
 use rusqlite::Connection;
+use std::path::Path;
 
-use crate::{db, library_service};
+use crate::{audio_cache, db, library_service};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LibraryRemovalIntent {
@@ -211,26 +212,63 @@ pub fn removal_referring_playlist_names(
 /// Returns an error when the library target cannot be mutated.
 pub fn execute_library_removal(
     conn: &Connection,
+    music_dir: &Path,
+    audio_cache_dir: &Path,
     target: LibraryRemovalTarget,
 ) -> Result<LibraryRemovalExecution> {
     match target {
-        LibraryRemovalTarget::Track(track_id) => execute_track_removal(conn, track_id),
-        LibraryRemovalTarget::Feed(feed_id) => execute_feed_removal(conn, feed_id),
+        LibraryRemovalTarget::Track(track_id) => {
+            execute_track_removal(conn, music_dir, audio_cache_dir, track_id)
+        }
+        LibraryRemovalTarget::Feed(feed_id) => {
+            execute_feed_removal(conn, music_dir, audio_cache_dir, feed_id)
+        }
     }
 }
 
-fn execute_track_removal(conn: &Connection, track_id: i64) -> Result<LibraryRemovalExecution> {
+fn execute_track_removal(
+    conn: &Connection,
+    music_dir: &Path,
+    audio_cache_dir: &Path,
+    track_id: i64,
+) -> Result<LibraryRemovalExecution> {
     let feed_url = match library_service::track_row_by_id(conn, track_id)? {
         Some(track) => db::feed_url_by_id(conn, track.feed_id)?,
         None => None,
     };
-    library_service::set_track_in_library(conn, track_id, false)?;
-    let feed_changed = if let Some(feed_url) = feed_url.as_deref() {
-        db::reconcile_feed_subscription_by_url(conn, feed_url)?;
-        true
-    } else {
-        false
+    let rows = db::local_audio_files_for_track(conn, track_id)?;
+    let paths = rows.iter().map(|row| row.path.clone()).collect::<Vec<_>>();
+    let moves = audio_cache::put_files(
+        music_dir,
+        audio_cache_dir,
+        &paths,
+        audio_cache::ExistingDestination::Replace,
+    )?;
+    let result = (|| -> Result<bool> {
+        let transaction = conn.unchecked_transaction()?;
+        transaction.execute(
+            "UPDATE tracks SET is_in_library = 0 WHERE id = ?1",
+            [track_id],
+        )?;
+        db::move_local_file_rows_to_cache(&transaction, &rows, |row| {
+            moves.iter().any(|moved| moved.relative_path() == &row.path)
+        })?;
+        if let Some(feed_url) = feed_url.as_deref() {
+            db::reconcile_feed_subscription_by_url(&transaction, feed_url)?;
+        }
+        transaction.commit()?;
+        Ok(feed_url.is_some())
+    })();
+    let feed_changed = match result {
+        Ok(changed) => changed,
+        Err(error) => {
+            audio_cache::undo_put(&moves);
+            return Err(error);
+        }
     };
+    if let Err(error) = audio_cache::remove_sources(&moves, music_dir) {
+        eprintln!("ADR 0100: could not remove a moved Library file: {error:#}");
+    }
     Ok(LibraryRemovalExecution::new(
         LibraryRemovalTarget::Track(track_id),
         "Removed track",
@@ -238,9 +276,50 @@ fn execute_track_removal(conn: &Connection, track_id: i64) -> Result<LibraryRemo
     ))
 }
 
-fn execute_feed_removal(conn: &Connection, feed_id: i64) -> Result<LibraryRemovalExecution> {
-    db::set_feed_subscribed(conn, feed_id, false)?;
-    db::unsubscribe_feed_tracks(conn, feed_id)?;
+fn execute_feed_removal(
+    conn: &Connection,
+    music_dir: &Path,
+    audio_cache_dir: &Path,
+    feed_id: i64,
+) -> Result<LibraryRemovalExecution> {
+    let track_ids = {
+        let mut statement = conn.prepare("SELECT id FROM tracks WHERE feed_id = ?1 ORDER BY id")?;
+        let rows = statement
+            .query_map([feed_id], |row| row.get::<_, i64>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        rows
+    };
+    let rows = track_ids
+        .iter()
+        .map(|id| db::local_audio_files_for_track(conn, *id))
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    let paths = rows.iter().map(|row| row.path.clone()).collect::<Vec<_>>();
+    let moves = audio_cache::put_files(
+        music_dir,
+        audio_cache_dir,
+        &paths,
+        audio_cache::ExistingDestination::Replace,
+    )?;
+    let result = (|| -> Result<()> {
+        let transaction = conn.unchecked_transaction()?;
+        db::set_feed_subscribed(&transaction, feed_id, false)?;
+        db::unsubscribe_feed_tracks(&transaction, feed_id)?;
+        db::move_local_file_rows_to_cache(&transaction, &rows, |row| {
+            moves.iter().any(|moved| moved.relative_path() == &row.path)
+        })?;
+        transaction.commit()?;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        audio_cache::undo_put(&moves);
+        return Err(error);
+    }
+    if let Err(error) = audio_cache::remove_sources(&moves, music_dir) {
+        eprintln!("ADR 0100: could not remove a moved Library file: {error:#}");
+    }
     Ok(LibraryRemovalExecution::new(
         LibraryRemovalTarget::Feed(feed_id),
         "Removed feed",
@@ -251,6 +330,7 @@ fn execute_feed_removal(conn: &Connection, feed_id: i64) -> Result<LibraryRemova
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::library_path::LibraryRelativePath;
 
     fn setup_test_db() -> Result<Connection> {
         let conn = Connection::open_in_memory()?;
@@ -313,6 +393,167 @@ mod tests {
             }
         );
         assert!(plan.requires_confirmation());
+        Ok(())
+    }
+
+    #[test]
+    fn adr_0100_track_removal_moves_file_and_updates_file_rows() -> Result<()> {
+        let conn = setup_test_db()?;
+        let music = tempfile::tempdir()?;
+        let cache = tempfile::tempdir()?;
+        let feed_id = create_feed(&conn, "https://example.test/adr-0100-track.xml")?;
+        let track_id = create_track(&conn, feed_id, "track", "https://example.test/track.mp3")?;
+        library_service::set_track_in_library(&conn, track_id, true)?;
+        let relative = LibraryRelativePath::from_stored("artists/a/release/track.mp3")?;
+        let source = relative.resolve(music.path());
+        std::fs::create_dir_all(source.parent().unwrap())?;
+        std::fs::write(&source, b"ADR 0100 audio")?;
+        db::mark_track_downloaded(&conn, track_id, &relative, Some(14))?;
+
+        execute_library_removal(
+            &conn,
+            music.path(),
+            cache.path(),
+            LibraryRemovalTarget::Track(track_id),
+        )?;
+
+        let destination = relative.resolve(cache.path());
+        assert!(!source.exists(), "ADR 0100 removes the file from music_dir");
+        assert_eq!(std::fs::read(destination)?, b"ADR 0100 audio");
+        let local_count: i64 = conn.query_row(
+            "SELECT count(*) FROM local_files WHERE track_id = ?1",
+            [track_id],
+            |row| row.get(0),
+        )?;
+        let cached_count: i64 = conn.query_row(
+            "SELECT count(*) FROM cached_files WHERE track_id = ?1",
+            [track_id],
+            |row| row.get(0),
+        )?;
+        assert_eq!(local_count, 0, "ADR 0100 leaves no local_files row");
+        assert_eq!(cached_count, 1, "ADR 0100 adds one cached_files row");
+        Ok(())
+    }
+
+    #[test]
+    fn adr_0100_feed_removal_moves_each_file_and_cleans_empty_folders() -> Result<()> {
+        let conn = setup_test_db()?;
+        let music = tempfile::tempdir()?;
+        let cache = tempfile::tempdir()?;
+        let feed_id = create_feed(&conn, "https://example.test/adr-0100-release.xml")?;
+        let paths = ["artists/a/release/one.mp3", "artists/a/release/two.mp3"];
+        for (index, value) in paths.iter().enumerate() {
+            let track_id = create_track(
+                &conn,
+                feed_id,
+                &format!("track-{index}"),
+                &format!("https://example.test/{index}.mp3"),
+            )?;
+            library_service::set_track_in_library(&conn, track_id, true)?;
+            let relative = LibraryRelativePath::from_stored(*value)?;
+            let source = relative.resolve(music.path());
+            std::fs::create_dir_all(source.parent().unwrap())?;
+            std::fs::write(&source, [u8::try_from(index)?])?;
+            db::mark_track_downloaded(&conn, track_id, &relative, Some(1))?;
+        }
+
+        execute_library_removal(
+            &conn,
+            music.path(),
+            cache.path(),
+            LibraryRemovalTarget::Feed(feed_id),
+        )?;
+
+        for value in paths {
+            let relative = LibraryRelativePath::from_stored(value)?;
+            assert!(
+                !relative.resolve(music.path()).exists(),
+                "ADR 0100 removes each source"
+            );
+            assert!(
+                relative.resolve(cache.path()).is_file(),
+                "ADR 0100 caches each file"
+            );
+        }
+        assert!(
+            !music.path().join("artists").exists(),
+            "ADR 0100 removes empty parents"
+        );
+        let cached_count: i64 =
+            conn.query_row("SELECT count(*) FROM cached_files", [], |row| row.get(0))?;
+        assert_eq!(cached_count, 2, "ADR 0100 caches both release tracks");
+        Ok(())
+    }
+
+    #[test]
+    fn adr_0100_failed_put_keeps_rows_and_source_file() -> Result<()> {
+        let conn = setup_test_db()?;
+        let music = tempfile::tempdir()?;
+        let blocker = tempfile::NamedTempFile::new()?;
+        let feed_id = create_feed(&conn, "https://example.test/adr-0100-failure.xml")?;
+        let track_id = create_track(&conn, feed_id, "track", "https://example.test/track.mp3")?;
+        library_service::set_track_in_library(&conn, track_id, true)?;
+        let relative = LibraryRelativePath::from_stored("track.mp3")?;
+        let source = relative.resolve(music.path());
+        std::fs::write(&source, b"audio")?;
+        db::mark_track_downloaded(&conn, track_id, &relative, Some(5))?;
+
+        let error = execute_library_removal(
+            &conn,
+            music.path(),
+            blocker.path(),
+            LibraryRemovalTarget::Track(track_id),
+        )
+        .expect_err("ADR 0100 rejects a cache path that is a file");
+
+        assert!(error.to_string().contains("create audio-cache folder"));
+        assert!(
+            source.is_file(),
+            "ADR 0100 keeps the source after step 1 fails"
+        );
+        assert!(db::track_row_by_id(&conn, track_id)?.unwrap().is_in_library);
+        let local_count: i64 =
+            conn.query_row("SELECT count(*) FROM local_files", [], |row| row.get(0))?;
+        let cached_count: i64 =
+            conn.query_row("SELECT count(*) FROM cached_files", [], |row| row.get(0))?;
+        assert_eq!(
+            local_count, 1,
+            "ADR 0100 keeps local_files after step 1 fails"
+        );
+        assert_eq!(
+            cached_count, 0,
+            "ADR 0100 adds no cached_files row after failure"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn adr_0100_missing_source_deletes_local_row_without_cache_row() -> Result<()> {
+        let conn = setup_test_db()?;
+        let music = tempfile::tempdir()?;
+        let cache = tempfile::tempdir()?;
+        let feed_id = create_feed(&conn, "https://example.test/adr-0100-missing.xml")?;
+        let track_id = create_track(&conn, feed_id, "track", "https://example.test/track.mp3")?;
+        library_service::set_track_in_library(&conn, track_id, true)?;
+        let relative = LibraryRelativePath::from_stored("missing.mp3")?;
+        db::mark_track_downloaded(&conn, track_id, &relative, None)?;
+
+        execute_library_removal(
+            &conn,
+            music.path(),
+            cache.path(),
+            LibraryRemovalTarget::Track(track_id),
+        )?;
+
+        let local_count: i64 =
+            conn.query_row("SELECT count(*) FROM local_files", [], |row| row.get(0))?;
+        let cached_count: i64 =
+            conn.query_row("SELECT count(*) FROM cached_files", [], |row| row.get(0))?;
+        assert_eq!(local_count, 0, "ADR 0100 deletes a missing local_files row");
+        assert_eq!(
+            cached_count, 0,
+            "ADR 0100 adds no cache row for a missing file"
+        );
         Ok(())
     }
 

@@ -3887,21 +3887,27 @@ mod tests {
         let track_id = create_track(&conn, feed_id)?;
         let relative_path = crate::library_path::LibraryRelativePath::for_test("tmp/track.mp3");
         library_service::mark_track_downloaded(&conn, track_id, &relative_path, None)?;
-        library_service::set_track_in_library(&conn, track_id, false)?;
 
+        // ADR 0100 Decision 3: a `local_files` row is a Library file.
         let conn = Arc::new(Mutex::new(conn));
         let (result, _) = LoadCachedTracksTree::new(Arc::clone(&conn))
             .execute(&CommandContext::next())?
             .into_parts();
-        assert_eq!(result.count, 1);
-        assert_eq!(result.tree.artists[0].albums[0].tracks[0].id, track_id);
+        assert_eq!(result.count, 0);
+        assert!(result.tree.artists.is_empty());
 
-        library_service::set_track_in_library(&conn.lock().unwrap(), track_id, true)?;
+        // A `cached_files` row is a file in the audio cache.
+        {
+            let db = conn.lock().unwrap();
+            let rows = db::local_audio_files_for_track(&db, track_id)?;
+            db::move_local_file_rows_to_cache(&db, &rows, |_| true)?;
+            library_service::set_track_in_library(&db, track_id, false)?;
+        }
         let (result, _) = LoadCachedTracksTree::new(conn)
             .execute(&CommandContext::next())?
             .into_parts();
-        assert_eq!(result.count, 0);
-        assert!(result.tree.artists.is_empty());
+        assert_eq!(result.count, 1);
+        assert_eq!(result.tree.artists[0].albums[0].tracks[0].id, track_id);
 
         Ok(())
     }

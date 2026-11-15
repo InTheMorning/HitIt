@@ -205,6 +205,7 @@ pub struct TopApp {
     show_commands: ShowCommandState,
     broadcast: config::BroadcastCapabilities,
     music_dir: PathBuf,
+    audio_cache_dir: PathBuf,
     musicindex_endpoint: config::MusicIndexEndpoint,
     content_pane_width: gpui::Pixels,
     is_content_pane_resizing: bool,
@@ -323,6 +324,7 @@ impl TopApp {
         cfg_path: PathBuf,
         musicindex_endpoint: config::MusicIndexEndpoint,
         music_dir: PathBuf,
+        audio_cache_dir: PathBuf,
         flac_path: config::ConfigField<Option<PathBuf>>,
         broadcast: config::BroadcastCapabilities,
         workspace_layout_config: Option<WorkspaceLayoutConfig>,
@@ -536,6 +538,7 @@ impl TopApp {
             show_commands: ShowCommandState::default(),
             broadcast,
             music_dir,
+            audio_cache_dir,
             musicindex_endpoint,
             content_pane_width: Self::initial_content_pane_width(workspace_layout_prefs),
             is_content_pane_resizing: false,
@@ -1510,7 +1513,7 @@ impl TopApp {
             .filter_map(|t| {
                 t.local_path
                     .as_ref()
-                    .map(|path| path.resolve(&self.music_dir).display().to_string())
+                    .map(|path| path.resolve(&self.audio_cache_dir).display().to_string())
             })
             .collect();
         self.delete_cached_files(paths, cx);
@@ -1520,7 +1523,8 @@ impl TopApp {
         if paths.is_empty() {
             return;
         }
-        let command = RemoveCachedFiles::new(Arc::clone(&self.conn), self.music_dir.clone(), paths);
+        let command =
+            RemoveCachedFiles::new(Arc::clone(&self.conn), self.audio_cache_dir.clone(), paths);
         present_command(
             &self.command_runner,
             command,

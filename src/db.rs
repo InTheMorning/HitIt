@@ -871,12 +871,11 @@ pub fn cached_tracks(conn: &Connection) -> Result<Vec<TrackRow>> {
             "SELECT t.id, t.feed_id, f.feed_guid, t.item_guid, t.track_title, t.artist_name, t.album_title,
                     t.album_artist_name, t.track_number, t.disc_number, t.duration_seconds,
                     t.enclosure_url, t.enclosure_type, t.track_image_href,
-                    t.is_in_library, f.title, f.album_image_href, lf.path, t.pub_date,
+                    t.is_in_library, f.title, f.album_image_href, cf.path, t.pub_date,
                     t.itunes_explicit, t.extra_json
              FROM tracks t
              JOIN feeds f ON f.id = t.feed_id
-             JOIN local_files lf ON lf.track_id = t.id
-             WHERE t.is_in_library = 0
+             JOIN cached_files cf ON cf.track_id = t.id
              ORDER BY f.title COLLATE NOCASE, t.track_number, t.track_title COLLATE NOCASE",
         )
         .context("prepare cached_tracks")?;
@@ -1101,6 +1100,120 @@ pub fn delete_local_file(conn: &Connection, local_file_path: &LibraryRelativePat
         [local_file_path.as_stored()],
     )
     .context("delete_local_file")?;
+    Ok(())
+}
+
+/// One stored audio-file row for an ADR 0100 move.
+#[derive(Clone, Debug)]
+pub struct LocalAudioFileRow {
+    pub id: i64,
+    pub track_id: Option<i64>,
+    pub path: LibraryRelativePath,
+    pub added_at: String,
+    pub file_size_bytes: Option<i64>,
+    pub audio_duration_sec: Option<i64>,
+    pub checksum: Option<String>,
+    pub extra_json: String,
+}
+
+const AUDIO_FILE_COLUMNS: &str =
+    "id, track_id, path, added_at, file_size_bytes, audio_duration_sec, checksum, extra_json";
+
+fn audio_file_rows(
+    conn: &Connection,
+    sql: &str,
+    params: impl rusqlite::Params,
+) -> Result<Vec<LocalAudioFileRow>> {
+    let mut statement = conn.prepare(sql)?;
+    let rows = statement.query_map(params, |row| {
+        let stored_path: String = row.get(2)?;
+        let path = LibraryRelativePath::from_stored(stored_path).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                2,
+                rusqlite::types::Type::Text,
+                Box::new(std::io::Error::other(error.to_string())),
+            )
+        })?;
+        Ok(LocalAudioFileRow {
+            id: row.get(0)?,
+            track_id: row.get(1)?,
+            path,
+            added_at: row.get(3)?,
+            file_size_bytes: row.get(4)?,
+            audio_duration_sec: row.get(5)?,
+            checksum: row.get(6)?,
+            extra_json: row.get(7)?,
+        })
+    })?;
+    rows.collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(Into::into)
+}
+
+pub fn local_audio_files_for_track(
+    conn: &Connection,
+    track_id: i64,
+) -> Result<Vec<LocalAudioFileRow>> {
+    audio_file_rows(
+        conn,
+        &format!("SELECT {AUDIO_FILE_COLUMNS} FROM local_files WHERE track_id = ?1 ORDER BY id"),
+        [track_id],
+    )
+}
+
+pub fn cached_audio_files(conn: &Connection) -> Result<Vec<LocalAudioFileRow>> {
+    audio_file_rows(
+        conn,
+        &format!("SELECT {AUDIO_FILE_COLUMNS} FROM cached_files ORDER BY id"),
+        [],
+    )
+}
+
+pub fn cached_audio_files_for_track(
+    conn: &Connection,
+    track_id: i64,
+) -> Result<Vec<LocalAudioFileRow>> {
+    audio_file_rows(
+        conn,
+        &format!("SELECT {AUDIO_FILE_COLUMNS} FROM cached_files WHERE track_id = ?1 ORDER BY id"),
+        [track_id],
+    )
+}
+
+/// Delete each `local_files` row and add a `cached_files` row for each file
+/// that `is_cached` accepts (ADR 0100 Decision 4, step 2). The caller owns
+/// the transaction. A row that is already at the path is replaced.
+pub fn move_local_file_rows_to_cache(
+    conn: &Connection,
+    rows: &[LocalAudioFileRow],
+    is_cached: impl Fn(&LocalAudioFileRow) -> bool,
+) -> Result<()> {
+    for row in rows {
+        conn.execute("DELETE FROM local_files WHERE id = ?1", [row.id])?;
+        if is_cached(row) {
+            conn.execute(
+                "INSERT OR REPLACE INTO cached_files
+                     (path, track_id, added_at, file_size_bytes, audio_duration_sec, checksum, extra_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                rusqlite::params![
+                    row.path.as_stored(),
+                    row.track_id,
+                    row.added_at,
+                    row.file_size_bytes,
+                    row.audio_duration_sec,
+                    row.checksum,
+                    row.extra_json
+                ],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+pub fn delete_cached_audio_file(conn: &Connection, path: &LibraryRelativePath) -> Result<()> {
+    conn.execute(
+        "DELETE FROM cached_files WHERE path = ?1",
+        [path.as_stored()],
+    )?;
     Ok(())
 }
 
@@ -2908,6 +3021,7 @@ pub use show_cue::{
     show_cue_entry_after, show_cue_entry_before, show_cue_exists, CueEntry, CueUnavailableReason,
     ShowCue,
 };
+pub(crate) mod cached_files;
 pub mod provider_observations;
 mod provider_snapshot_schema;
 pub(crate) mod publisher_feed_image;
@@ -2931,7 +3045,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 26;
+pub(crate) const CURRENT_VERSION: i64 = 27;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -3063,6 +3177,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 26,
         name: "lightning_only_payment_routes",
         apply: payment_routes::apply_lightning_only,
+    },
+    Migration {
+        version: 27,
+        name: "cached_files",
+        apply: cached_files::apply,
     },
 ];
 
@@ -3258,6 +3377,11 @@ pub(crate) fn schema_contract(
         })
         .chain(if version >= 25 {
             show_cue::COLUMNS
+        } else {
+            &[]
+        })
+        .chain(if version >= 27 {
+            cached_files::COLUMNS
         } else {
             &[]
         })
@@ -5541,7 +5665,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26
+                24, 25, 26, 27
             ],
             "cleanup migration should be recorded exactly once"
         );
@@ -6560,6 +6684,31 @@ mod tests {
                 "current schema contract names {table}"
             );
         }
+        assert_eq!(inspect_schema(&conn)?, SchemaCompatibility::Current);
+        upgrades::verify_target(&conn, CURRENT_VERSION)?;
+        Ok(())
+    }
+
+    #[test]
+    fn adr_0100_migration_27_adds_only_cached_files_and_passes_schema_checks() -> Result<()> {
+        let conn = Connection::open_in_memory()?;
+        init_schema(&conn)?;
+        migrate_schema_to(&conn, 26)?;
+        let before = conn
+            .prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        migrate_schema_to(&conn, 27)?;
+
+        let after = conn
+            .prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut expected = before;
+        expected.push("cached_files".to_owned());
+        expected.sort();
+        assert_eq!(after, expected, "ADR 0100 migration 27 adds one table");
         assert_eq!(inspect_schema(&conn)?, SchemaCompatibility::Current);
         upgrades::verify_target(&conn, CURRENT_VERSION)?;
         Ok(())

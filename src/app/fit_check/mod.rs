@@ -80,6 +80,7 @@ fn top_app(window: &mut Window, cx: &mut Context<TopApp>) -> TopApp {
         dir.join("config.toml"),
         "http://127.0.0.1:9".into(),
         PathBuf::from(&dir).join("music"),
+        PathBuf::from(&dir).join("audio"),
         Ok(None),
         broadcast,
         None,

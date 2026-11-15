@@ -35,6 +35,10 @@ Stores the file system link between a downloaded path and a track row, plus size
 
 That separation lets the app keep feed history and track metadata even when a local file has been deleted.
 
+### `cached_files`
+
+Stores each audio file that the curator removed from the Library. Its path is relative to the app audio cache, and its columns match `local_files` (ADR 0100).
+
 ### `schema_migrations`
 
 Records applied schema migrations by monotonically increasing version. Fresh
