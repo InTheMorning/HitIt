@@ -643,20 +643,3 @@ Use the scratch setup of section 19, steps 1 to 6. Use a playlist with three or 
 - Also examine: the empty cuelist reads "Queue is empty".
 
 The agent check of 2026-11-15 ran these steps on an Xvfb display with a null audio output. It read the stored session after each step. It cannot hear audio, so each audio statement stays open for a person.
-
-## 21. ADR 0100 Task 001 A Removal Moves The File To The Audio Cache - 2026-11-15
-
-[ADR 0100 task 001](tasks/adr-0100-task-001-removal-moves-the-file-to-the-audio-cache.md) owns these checks. Migration 27 adds the table `cached_files`. Do "Before A Migration" of the Operator Run Sheet first, with 27 as the version.
-
-1. Before the first start of the new build, count the audio files below the music folder with `find ~/V4Vmusic/artists -type f | wc -l`. Use your music folder if it is different.
-2. Start HitIt. Run the count again. Make sure that the count is smaller when you removed downloaded tracks before this build (V4).
-3. Run `find ~/.cache/hitit/audio -type f | wc -l`. Make sure that the two counts of step 2 and this step add up to the count of step 1 (V4).
-4. Open the page of a downloaded track that you can download again. Select "Remove track…" and confirm.
-5. Make sure that the file of the track is not below the music folder, and that it is below `~/.cache/hitit/audio` at the same relative path (V1).
-6. Open Settings, then "Cached files". Make sure that the list shows the removed track (V2).
-7. Download the track again from its page. Make sure that the download completes immediately and that the file is below the music folder again (V3).
-8. Remove the track again. In Settings, "Cached files", select Delete on its row. Make sure that the file is not below `~/.cache/hitit/audio` (V2).
-9. Download the track again to put it back into the Library.
-
-- Incorrect: a file of a removed track below the music folder, a removed track that plays from a playlist, or a removal that reports no error and keeps the file.
-- Also examine: a playlist entry of a removed track reads "Not downloaded".

@@ -1,6 +1,6 @@
 # ADR 0100 Task 001: A Removal Moves The File To The Audio Cache
 
-Status: Implemented - 2026-11-15. M1 to M13 pass. The visual criteria V1 to V4 are open in [pending human checks](../pending-human-checks.md).
+Status: Complete - 2026-11-15. M1 to M13 pass. The operator passed the visual criteria V1 to V4 on 2026-11-15 with the build of commit `0c84f85`: the first start moved 6 files of earlier removals, and 215 and 6 files added up to the 221 files before the start. The operator did not examine the text "Not downloaded" of a playlist entry of a removed track.
 
 Known limits, found in the review of the diff:
 
