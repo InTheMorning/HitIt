@@ -37,7 +37,7 @@ use crate::ui::composites::track_row_menu::{
 };
 use crate::ui::composites::{
     CollectionArt, CollectionArtImage, DetailGrid, DetailHeader, DetailHeaderDisplay, DetailRow,
-    DetailTextRow, EntityKind, StatusRole, ThumbnailSize,
+    DetailTextRow, EntityKind, PageTitleKind, StatusRole, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::{Icon, IconName, IconSize};
@@ -196,7 +196,8 @@ pub(crate) fn render_playlist_detail_shell(
         title: SharedString::from(header_display.title),
         subtitle: None,
         data_rows: Vec::new(),
-    });
+    })
+    .title_size(PageTitleKind::Playlist.size());
     if let Some(image) = header_art {
         header = header.art(CollectionArt::new(
             image,

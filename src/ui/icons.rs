@@ -12,16 +12,14 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use gpui::{
-    div, ease_in_out, img, percentage, prelude::*, Animation, AnimationExt, AnyElement, App,
-    AssetSource, ClickEvent, Image, ImageFormat, IntoElement, ObjectFit, ParentElement, Pixels,
-    RenderOnce, Rgba, SharedString, StatefulInteractiveElement, Styled, Transformation, Window,
+    ease_in_out, img, percentage, prelude::*, Animation, AnimationExt, AnyElement, App,
+    AssetSource, Image, ImageFormat, IntoElement, ObjectFit, Pixels, RenderOnce, Rgba,
+    SharedString, Styled, Transformation, Window,
 };
 use gpui_component::{Icon as ComponentIcon, IconName as ComponentIconName};
 use gpui_kit_assets::IconName as LucideIconName;
 
 use crate::ui::layouts as layout;
-use crate::ui::primitives::Tooltip;
-use crate::ui::style::radius;
 use crate::ui::tokens::{FontSize, ScaleFactor};
 
 /// Semantic icon names understood by the design system.
@@ -426,42 +424,6 @@ impl RenderOnce for Icon {
             .object_fit(ObjectFit::Contain)
             .into_any_element()
     }
-}
-
-/// Render a clickable RSS icon link using catalog-owned icon assets.
-#[must_use]
-pub fn render_rss_icon_link(id_seed: &str, url: Option<String>) -> AnyElement {
-    let id = SharedString::from(match url.as_deref() {
-        Some(u) => format!("rss-link:{id_seed}:{u}"),
-        None => format!("rss-link:{id_seed}:missing"),
-    });
-    let tooltip = url.as_ref().map_or_else(
-        || "No RSS feed URL".to_string(),
-        |u| format!("Open RSS feed: {u}"),
-    );
-    let has_url = url.is_some();
-    let click_url = url;
-    let tooltip = Tooltip::new(tooltip);
-
-    div()
-        .id(id)
-        .min_w(layout::MIN_HIT_TARGET)
-        .min_h(layout::MIN_HIT_TARGET)
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(radius::SM)
-        .overflow_hidden()
-        .tooltip(move |window: &mut Window, cx| tooltip.build(window, cx))
-        .when(has_url, gpui::Styled::cursor_pointer)
-        .when(!has_url, |el| el.opacity(0.45))
-        .child(Icon::new(IconName::Rss).size(IconSize::Action))
-        .on_click(move |_: &ClickEvent, _window, _cx| {
-            if let Some(u) = &click_url {
-                let _ = open::that(u);
-            }
-        })
-        .into_any_element()
 }
 
 fn rss_icon_image() -> Arc<Image> {

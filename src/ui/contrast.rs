@@ -642,6 +642,79 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         level: ContrastLevel::LargeOrGraphic,
         note: "sponsor entity dot on sidebar surface",
     },
+    // musicindex ADR 0045 R-ELEVATION-2: text on the group and open entry levels.
+    ContrastPair {
+        fg: SemanticColor::Label,
+        bg: SemanticColor::GroupBackground,
+        level: ContrastLevel::NormalText,
+        note: "primary text on group level",
+    },
+    ContrastPair {
+        fg: SemanticColor::SecondaryLabel,
+        bg: SemanticColor::GroupBackground,
+        level: ContrastLevel::NormalText,
+        note: "secondary text on group level",
+    },
+    ContrastPair {
+        fg: SemanticColor::SuccessLabel,
+        bg: SemanticColor::GroupBackground,
+        level: ContrastLevel::NormalText,
+        note: "success text on group level",
+    },
+    ContrastPair {
+        fg: SemanticColor::WarningLabel,
+        bg: SemanticColor::GroupBackground,
+        level: ContrastLevel::NormalText,
+        note: "warning text on group level",
+    },
+    ContrastPair {
+        fg: SemanticColor::DangerLabel,
+        bg: SemanticColor::GroupBackground,
+        level: ContrastLevel::NormalText,
+        note: "danger text on group level",
+    },
+    ContrastPair {
+        fg: SemanticColor::InfoLabel,
+        bg: SemanticColor::GroupBackground,
+        level: ContrastLevel::NormalText,
+        note: "info text on group level",
+    },
+    ContrastPair {
+        fg: SemanticColor::Label,
+        bg: SemanticColor::OpenEntryBackground,
+        level: ContrastLevel::NormalText,
+        note: "primary text on open entry level",
+    },
+    ContrastPair {
+        fg: SemanticColor::SecondaryLabel,
+        bg: SemanticColor::OpenEntryBackground,
+        level: ContrastLevel::NormalText,
+        note: "secondary text on open entry level",
+    },
+    ContrastPair {
+        fg: SemanticColor::SuccessLabel,
+        bg: SemanticColor::OpenEntryBackground,
+        level: ContrastLevel::NormalText,
+        note: "success text on open entry level",
+    },
+    ContrastPair {
+        fg: SemanticColor::WarningLabel,
+        bg: SemanticColor::OpenEntryBackground,
+        level: ContrastLevel::NormalText,
+        note: "warning text on open entry level",
+    },
+    ContrastPair {
+        fg: SemanticColor::DangerLabel,
+        bg: SemanticColor::OpenEntryBackground,
+        level: ContrastLevel::NormalText,
+        note: "danger text on open entry level",
+    },
+    ContrastPair {
+        fg: SemanticColor::InfoLabel,
+        bg: SemanticColor::OpenEntryBackground,
+        level: ContrastLevel::NormalText,
+        note: "info text on open entry level",
+    },
 ];
 
 // -----------------------------------------------------------------------------

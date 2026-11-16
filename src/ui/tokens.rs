@@ -83,6 +83,12 @@ pub enum SemanticColor {
     SystemBackground,
     SecondarySystemBackground,
     TertiarySystemBackground,
+    /// The fill of a group or a card (musicindex ADR 0045 R-ELEVATION-2,
+    /// `level` in the shared copy at `src/assets/tokens.json`).
+    GroupBackground,
+    /// The fill of an open entry (musicindex ADR 0045 R-ELEVATION-2,
+    /// `level` in the shared copy at `src/assets/tokens.json`).
+    OpenEntryBackground,
     /// ADR 0101 Decision 1: the fourth background tier of `search.html`.
     /// Used by the sidebar surface of the app, never by a content canvas.
     SidebarBackground,
@@ -223,6 +229,9 @@ impl SemanticColor {
             Self::SidebarBackground => hex(0x14_1417),
             Self::SecondarySystemBackground => hex(0x1c_1c1f),
             Self::TertiarySystemBackground => hex(0x26_262a),
+            // musicindex ADR 0045 R-ELEVATION-2: the group and open entry levels.
+            Self::GroupBackground => hex(0x1c_1c1f),
+            Self::OpenEntryBackground => hex(0x26_262a),
 
             Self::Label => hex(0xf5_f5f7),
             Self::SecondaryLabel => hex(0xa1_a1a6),
@@ -251,9 +260,8 @@ impl SemanticColor {
             Self::AccentHover => hex(0x57_95ff),
             Self::AccentPressed => hex(0x24_62cc),
             Self::OnAccent => hex(0x0b_0d13),
-            // Derived: reuses AccentHover so the focus ring stays clearly
-            // visible against the canvas.
-            Self::Focus => hex(0x57_95ff),
+            // musicindex ADR 0069 R-TOKEN-1: `color.dark.focus` of the shared copy.
+            Self::Focus => hex(0x2d_7bff),
             Self::AccentTint => hex_alpha(0x2d_7bff, 0.18),
             Self::SidebarGlowTop => hex_alpha(0x2d_7bff, 0.09),
             Self::AccentOutline => hex_alpha(0x2d_7bff, 0.34),
@@ -332,6 +340,9 @@ impl SemanticColor {
             Self::SidebarBackground => hex(0xf5_f5f7),
             Self::SecondarySystemBackground => hex(0xff_ffff),
             Self::TertiarySystemBackground => hex(0xec_ecef),
+            // musicindex ADR 0045 R-ELEVATION-2: the group and open entry levels.
+            Self::GroupBackground => hex(0xf2_f2f7),
+            Self::OpenEntryBackground => hex(0xff_ffff),
 
             Self::Label => hex(0x1d_1d1f),
             Self::SecondaryLabel => hex(0x5c_5c62),
@@ -360,9 +371,8 @@ impl SemanticColor {
             Self::AccentHover => hex(0x3b_7cde),
             Self::AccentPressed => hex(0x08_49ab),
             Self::OnAccent => hex(0xff_ffff),
-            // Derived: reuses AccentHover so the focus ring stays clearly
-            // visible against the canvas.
-            Self::Focus => hex(0x3b_7cde),
+            // musicindex ADR 0069 R-TOKEN-1: `color.light.focus` of the shared copy.
+            Self::Focus => hex(0x00_5bd3),
             Self::AccentTint => hex_alpha(0x0a_5bd6, 0.12),
             Self::SidebarGlowTop => hex_alpha(0x0a_5bd6, 0.09),
             Self::AccentOutline => hex_alpha(0x0a_5bd6, 0.40),
@@ -525,10 +535,14 @@ pub enum Spacing {
     MD,
     /// 16 px.
     LG,
+    /// 20 px. Between `LG` and `XL`.
+    LGPlus,
     /// 24 px.
     XL,
     /// 32 px.
     XXL,
+    /// 48 px.
+    XXXL,
 }
 
 impl Spacing {
@@ -542,8 +556,10 @@ impl Spacing {
             Self::SM => px(8.0),
             Self::MD => px(12.0),
             Self::LG => px(16.0),
+            Self::LGPlus => px(20.0),
             Self::XL => px(24.0),
             Self::XXL => px(32.0),
+            Self::XXXL => px(48.0),
         }
     }
 
@@ -564,14 +580,16 @@ impl Spacing {
 /// Corner radius scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Radius {
-    /// 4 px — chips, badges.
+    /// 6 px — chips, badges (`shape.radius.chip`).
     SM,
-    /// 6 px — inputs.
+    /// 10 px — fields and rows (`shape.radius.field`, `shape.radius.row`).
     MD,
-    /// 10 px — popovers, sheets.
+    /// 12 px — popovers (`shape.radius.popover`).
     LG,
-    /// 14 px — large overlays.
+    /// 20 px — cards (`shape.radius.card`).
     XL,
+    /// 24 px — sheets (`shape.radius.sheet`).
+    Sheet,
     /// Pill shape (999 px) — each button (musicindex ADR 0020 R-ACT-2).
     Full,
 }
@@ -580,10 +598,11 @@ impl Radius {
     #[must_use]
     pub const fn px(self) -> Pixels {
         match self {
-            Self::SM => px(4.0),
-            Self::MD => px(6.0),
-            Self::LG => px(10.0),
-            Self::XL => px(14.0),
+            Self::SM => px(6.0),
+            Self::MD => px(10.0),
+            Self::LG => px(12.0),
+            Self::XL => px(20.0),
+            Self::Sheet => px(24.0),
             Self::Full => px(999.0),
         }
     }
@@ -618,12 +637,13 @@ pub enum FontSize {
     Headline,
     /// 17 px — large title row.
     Title3,
-    /// 20 px — section title.
+    /// 22 px — section title (`type.desktop.title-1`).
     Title2,
-    /// 24 px — page title.
+    /// 26 px — page title of an album, track or playlist
+    /// (`type.desktop.large-title`, musicindex ADR 0068 R-TYPE-2).
     Title,
-    /// 30 px — ADR 0101 Decision 3: the title of an album, artist, or
-    /// publisher page header.
+    /// 42 px — page title of an artist or label
+    /// (`type.page-title.artist-label.display`, musicindex ADR 0068 R-TYPE-2).
     Display,
 }
 
@@ -636,9 +656,9 @@ impl FontSize {
             Self::Body => px(13.0),
             Self::Headline => px(15.0),
             Self::Title3 => px(17.0),
-            Self::Title2 => px(20.0),
-            Self::Title => px(24.0),
-            Self::Display => px(30.0),
+            Self::Title2 => px(22.0),
+            Self::Title => px(26.0),
+            Self::Display => px(42.0),
         }
     }
 
@@ -1432,8 +1452,10 @@ mod tests {
             Spacing::SM,
             Spacing::MD,
             Spacing::LG,
+            Spacing::LGPlus,
             Spacing::XL,
             Spacing::XXL,
+            Spacing::XXXL,
         ];
         for w in sizes.windows(2) {
             assert!(w[0].px() < w[1].px());
@@ -1445,7 +1467,8 @@ mod tests {
         assert!(Radius::SM.px() < Radius::MD.px());
         assert!(Radius::MD.px() < Radius::LG.px());
         assert!(Radius::LG.px() < Radius::XL.px());
-        assert!(Radius::XL.px() < Radius::Full.px());
+        assert!(Radius::XL.px() < Radius::Sheet.px());
+        assert!(Radius::Sheet.px() < Radius::Full.px());
     }
 
     #[test]
@@ -1529,6 +1552,192 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn shared_tokens() -> serde_json::Value {
+        serde_json::from_str(include_str!("../assets/tokens.json")).expect("valid JSON")
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a color channel is 0 to 1, so the result is 0 to 255"
+    )]
+    fn rgb_of(color: Rgba) -> String {
+        let channel = |value: f32| (value * 255.0).round() as u32;
+        format!(
+            "#{:02x}{:02x}{:02x}",
+            channel(color.r),
+            channel(color.g),
+            channel(color.b)
+        )
+    }
+
+    fn px_value(value: Pixels) -> f64 {
+        f64::from(f32::from(value))
+    }
+
+    /// musicindex ADR 0069 R-TOKEN-1: the focus color of each theme equals the shared copy
+    /// in `src/assets/tokens.json`. Fix: copy `color.dark.focus` and `color.light.focus`.
+    #[test]
+    fn focus_color_matches_the_shared_tokens() {
+        let shared = shared_tokens();
+        for (appearance, key) in [(Appearance::Dark, "dark"), (Appearance::Light, "light")] {
+            assert_eq!(
+                Some(rgb_of(SemanticColor::Focus.resolve(appearance)).as_str()),
+                shared["color"][key]["focus"].as_str(),
+                "musicindex ADR 0069 R-TOKEN-1: Focus in {key} must equal color.{key}.focus. \
+                 Fix: copy the value from src/assets/tokens.json."
+            );
+        }
+    }
+
+    /// musicindex ADR 0068 R-TYPE-1 and R-TYPE-2: each `FontSize` role is a desktop size of the
+    /// shared copy. Title is the large title and Display is the artist and label page title.
+    /// Fix: use a size of `type.desktop` or `type.page-title.artist-label.display`.
+    #[test]
+    fn font_sizes_match_the_shared_tokens() {
+        let shared = shared_tokens();
+        let mut allowed: Vec<f64> = shared["type"]["desktop"]
+            .as_object()
+            .expect("type.desktop")
+            .values()
+            .map(|entry| entry[0].as_f64().expect("size"))
+            .collect();
+        let display = shared["type"]["page-title"]["artist-label"]["display"][0]
+            .as_f64()
+            .expect("display size");
+        allowed.push(display);
+        for role in [
+            FontSize::Micro,
+            FontSize::Caption,
+            FontSize::Body,
+            FontSize::Headline,
+            FontSize::Title3,
+            FontSize::Title2,
+            FontSize::Title,
+            FontSize::Display,
+        ] {
+            let size = px_value(role.px());
+            assert!(
+                allowed.contains(&size),
+                "musicindex ADR 0068 R-TYPE-1: {role:?} is {size} px, not a size of type.desktop. \
+                 Fix: use a size from src/assets/tokens.json."
+            );
+        }
+        assert!(
+            (px_value(FontSize::Title.px())
+                - shared["type"]["desktop"]["large-title"][0]
+                    .as_f64()
+                    .expect("large title"))
+            .abs()
+                < f64::EPSILON,
+            "musicindex ADR 0068 R-TYPE-2: Title must equal type.desktop.large-title."
+        );
+        assert!(
+            (px_value(FontSize::Display.px()) - display).abs() < f64::EPSILON,
+            "musicindex ADR 0068 R-TYPE-2: Display must equal type.page-title.artist-label.display."
+        );
+    }
+
+    /// musicindex ADR 0068 R-RADIUS-1: the radii equal `shape.radius` of the shared copy.
+    /// Fix: copy the value from `src/assets/tokens.json`.
+    #[test]
+    fn radii_match_the_shared_tokens() {
+        let shared = shared_tokens();
+        for (role, name) in [
+            (Radius::SM, "chip"),
+            (Radius::MD, "field"),
+            (Radius::LG, "popover"),
+            (Radius::XL, "card"),
+            (Radius::Sheet, "sheet"),
+        ] {
+            assert!(
+                (px_value(role.px()) - shared["shape"]["radius"][name].as_f64().expect(name)).abs()
+                    < f64::EPSILON,
+                "musicindex ADR 0068 R-RADIUS-1: {role:?} must equal shape.radius.{name}."
+            );
+        }
+    }
+
+    /// musicindex ADR 0068 R-SPACE-1: the spacing roles equal the `space` list of the shared
+    /// copy, in order. Fix: copy the list from `src/assets/tokens.json`.
+    #[test]
+    fn spacing_matches_the_shared_tokens() {
+        let shared = shared_tokens();
+        let expected: Vec<f64> = shared["space"]
+            .as_array()
+            .expect("space")
+            .iter()
+            .map(|value| value.as_f64().expect("number"))
+            .collect();
+        let actual: Vec<f64> = [
+            Spacing::XXS,
+            Spacing::XS,
+            Spacing::SM,
+            Spacing::MD,
+            Spacing::LG,
+            Spacing::LGPlus,
+            Spacing::XL,
+            Spacing::XXL,
+            Spacing::XXXL,
+        ]
+        .into_iter()
+        .map(|role| px_value(role.px()))
+        .collect();
+        assert_eq!(
+            actual, expected,
+            "musicindex ADR 0068 R-SPACE-1: Spacing must equal the space list, in order."
+        );
+    }
+
+    /// musicindex ADR 0045 R-ELEVATION-2: the page, group and open entry levels equal `level`
+    /// of the shared copy, in order. Fix: copy the values from `src/assets/tokens.json`.
+    #[test]
+    fn levels_match_the_shared_tokens() {
+        let shared = shared_tokens();
+        for (appearance, key) in [(Appearance::Dark, "dark"), (Appearance::Light, "light")] {
+            let actual: Vec<String> = [
+                SemanticColor::SystemBackground,
+                SemanticColor::GroupBackground,
+                SemanticColor::OpenEntryBackground,
+            ]
+            .into_iter()
+            .map(|token| rgb_of(token.resolve(appearance)))
+            .collect();
+            let expected: Vec<String> = shared["level"][key]
+                .as_array()
+                .expect("level list")
+                .iter()
+                .map(|value| value.as_str().expect("string").to_owned())
+                .collect();
+            assert_eq!(
+                actual, expected,
+                "musicindex ADR 0045 R-ELEVATION-2: the {key} levels must equal level.{key}."
+            );
+        }
+    }
+
+    /// musicindex ADR 0073 R-FOCUS-2: `HitIt` draws the focus ring as an inset border, so its
+    /// width equals `focus-ring.hitit.width` and its offset is 0. Fix: keep
+    /// `CONTROL_FOCUS_RING_WIDTH` equal to that width and draw the ring inset.
+    #[test]
+    fn focus_ring_matches_the_shared_tokens() {
+        let shared = shared_tokens();
+        assert!(
+            (px_value(crate::ui::layouts::CONTROL_FOCUS_RING_WIDTH)
+                - shared["focus-ring"]["hitit"]["width"]
+                    .as_f64()
+                    .expect("width"))
+            .abs()
+                < f64::EPSILON,
+            "musicindex ADR 0073 R-FOCUS-2: CONTROL_FOCUS_RING_WIDTH must equal focus-ring.hitit.width."
+        );
+        assert_eq!(
+            shared["focus-ring"]["hitit"]["offset"].as_f64(),
+            Some(0.0),
+            "musicindex ADR 0073 R-FOCUS-2: HitIt draws the ring inset, so focus-ring.hitit.offset is 0."
+        );
     }
 
     /// musicindex ADR 0056 R-SIDE-1: the glow color of each theme and the glow
@@ -1679,33 +1888,6 @@ mod tests {
     // -------------------------------------------------------------------
     // ADR 0083 task 002: font and artwork tokens.
     // -------------------------------------------------------------------
-
-    /// R83-12: `FontSize::Display` is 30 px at `Medium`. Its scaled values
-    /// grow from `XSmall` to `XLarge`. This test proves each fact on its
-    /// own. `adr_0039_medium_type_returns_each_role_base_exactly` and
-    /// `adr_0039_type_grows_monotonically_per_role_across_steps` prove the
-    /// same two facts again, as part of the full type ramp (R83-13).
-    #[test]
-    fn adr_0083_display_is_30_at_medium_and_grows_with_scale() {
-        assert_eq!(FontSize::Display.scaled_px(ScaleFactor::Medium), px(30.0));
-
-        let resolved: Vec<Pixels> = [
-            ScaleFactor::XSmall,
-            ScaleFactor::Small,
-            ScaleFactor::Medium,
-            ScaleFactor::Large,
-            ScaleFactor::XLarge,
-        ]
-        .into_iter()
-        .map(|scale| FontSize::Display.scaled_px(scale))
-        .collect();
-        for pair in resolved.windows(2) {
-            assert!(
-                pair[0] < pair[1],
-                "Display did not grow monotonically across steps: {resolved:?}"
-            );
-        }
-    }
 
     /// R83-14: larger artwork gets a larger shadow.
     /// ADR 0083 task 005: the header text keeps its contrast on the cover
@@ -1930,6 +2112,9 @@ mod tests {
     /// ADR 0083 task 002 adds `Display`'s 5 outcomes, for 40 in total.
     /// The comparison tolerance is 0.001 px.
     /// Expected values come from the table, independently of the resolver's formula.
+    /// ADR 0101 Decision 3 changes the base of `Title2` (22), `Title` (26)
+    /// and `Display` (42). Their rows are the new base times the same
+    /// ratified factors.
     /// This test replaces task 001's assertion that every outcome matches uniform scaling.
     /// `adr_0039_non_medium_type_outcomes_differ_from_uniform_except_title_downward`
     /// retains the comparison with uniform scaling for the original seven roles.
@@ -1944,9 +2129,9 @@ mod tests {
             (FontSize::Body, [11.57, 12.237_333, 13.00, 14.7472, 16.64]),
             (FontSize::Headline, [13.20, 14.04, 15.00, 16.728, 18.60]),
             (FontSize::Title3, [14.79, 15.821_333, 17.00, 18.632, 20.40]),
-            (FontSize::Title2, [17.20, 18.506_667, 20.00, 21.536, 23.20]),
-            (FontSize::Title, [20.40, 22.08, 24.00, 25.3824, 26.88]),
-            (FontSize::Display, [25.20, 27.44, 30.00, 31.152, 32.40]),
+            (FontSize::Title2, [18.92, 20.357_334, 22.00, 23.6896, 25.52]),
+            (FontSize::Title, [22.10, 23.92, 26.00, 27.4976, 29.12]),
+            (FontSize::Display, [35.28, 38.416, 42.00, 43.6128, 45.36]),
         ];
 
         let mut checked = 0;
@@ -2093,8 +2278,8 @@ mod tests {
     }
 
     /// M2: medium returns each role's exact base size (11, 12, 13, 15, 17,
-    /// 20, 24, 30), unchanged by the domain split. ADR 0083 task 002 adds 30
-    /// (`Display`).
+    /// 22, 26, 42), unchanged by the domain split. ADR 0101 Decision 3
+    /// gives the bases of `Title2`, `Title` and `Display`.
     #[test]
     fn adr_0039_medium_type_returns_each_role_base_exactly() {
         let expected = [
@@ -2103,9 +2288,9 @@ mod tests {
             (FontSize::Body, 13.0),
             (FontSize::Headline, 15.0),
             (FontSize::Title3, 17.0),
-            (FontSize::Title2, 20.0),
-            (FontSize::Title, 24.0),
-            (FontSize::Display, 30.0),
+            (FontSize::Title2, 22.0),
+            (FontSize::Title, 26.0),
+            (FontSize::Display, 42.0),
         ];
         for (role, base) in expected {
             assert_eq!(role.scaled_px(ScaleFactor::Medium), px(base));

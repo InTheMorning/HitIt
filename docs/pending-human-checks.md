@@ -709,3 +709,15 @@ The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the releas
 - Incorrect: the ring is out of view after Tab, or the pinned list bar covers a part of the ring.
 
 The agent walk of 2026-11-16 ran steps 3 to 6 on an Xvfb display with the release binary. V1, V2 and V3 passed there.
+
+## 25. ADR 0101 Task 001 The Shared Tokens - 2026-11-16
+
+[ADR 0101 task 001](tasks/adr-0101-task-001-shared-tokens.md) gives the procedure. Do each step in Dark and Light at M, at the usual width and at a narrow width.
+
+- V1: Tab through a page. The focus ring is 2 px with no space between the ring and the control, and has the new focus color. It shows fully on a list row, a tile and a dialog button at 390 px and at 940 px.
+- V2: an album, a track and a playlist page title is 26 px bold. An artist and a label page name is 42 px bold. No title is clipped. The title of the track inspector is also 26 px bold.
+- V3: chips, fields, rows, popovers and cards show the new radii.
+- V4: the text of each list and page keeps its position, with no clipped text and no overlap.
+- V5: Settings at XL in a narrow window. The title and the two menus are on one line, with a small space between them.
+- Incorrect: a ring is cut or has a space in it, a title has an incorrect dimension or is clipped, or text overlaps.
+

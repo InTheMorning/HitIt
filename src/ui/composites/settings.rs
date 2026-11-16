@@ -78,7 +78,10 @@ pub(crate) fn settings_frame(
                 .flex_wrap()
                 .items_center()
                 .flex_shrink_0()
-                .gap(Spacing::SM.scaled(cx))
+                // ADR 0101 task 001: with the title of 22 px, the gap of XS
+                // keeps the title and the two menus on one line at XL in a
+                // page of 438 px (ADR 0074 short window test).
+                .gap(Spacing::XS.scaled(cx))
                 .px(Spacing::MD.scaled(cx))
                 .pt(Spacing::MD.scaled(cx))
                 .child(

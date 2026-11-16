@@ -208,7 +208,10 @@ impl FitProbe {
         let horizontal_cut = shows_vertically
             && (crosses(left, right, mask_left) || crosses(left, right, mask_right));
         let window_height = f32::from(self.viewport.height);
-        let vertical_cut = crosses(top, bottom, 0.) || crosses(top, bottom, window_height);
+        // An element that its scroll area hides is not on the screen, so
+        // the window edge cannot cut it.
+        let vertical_cut =
+            shows_vertically && (crosses(top, bottom, 0.) || crosses(top, bottom, window_height));
         if horizontal_cut || vertical_cut {
             return Some(format!(
                 "musicindex ADR 0065 R-FIT-3: at {width} px an edge cuts \"{}\": it spans x = {left} to {right} and \
@@ -398,6 +401,8 @@ mod tests {
         NoWrapLabel,
         ButtonsOverlap,
         ButtonsApart,
+        ButtonAcrossWindowBottom,
+        HiddenButtonAcrossWindowBottom,
     }
 
     struct FitCase(Case);
@@ -449,14 +454,25 @@ mod tests {
                             ),
                     )
                 }
-                Case::ButtonAcrossEdge | Case::ButtonOutside | Case::ButtonInside => {
+                Case::ButtonAcrossEdge
+                | Case::ButtonOutside
+                | Case::ButtonInside
+                | Case::ButtonAcrossWindowBottom
+                | Case::HiddenButtonAcrossWindowBottom => {
                     let offset = match self.0 {
                         Case::ButtonAcrossEdge => px(150.),
                         Case::ButtonOutside => px(260.),
                         _ => px(10.),
                     };
-                    root.child(div().w(px(200.)).h(px(80.)).overflow_hidden().child(
-                        div().absolute().left(offset).top(px(10.)).child(
+                    // The window is 300 px high. A top of 285 px puts the
+                    // button across the window bottom.
+                    let (area_height, top) = match self.0 {
+                        Case::ButtonAcrossWindowBottom => (px(300.), px(285.)),
+                        Case::HiddenButtonAcrossWindowBottom => (px(80.), px(285.)),
+                        _ => (px(80.), px(10.)),
+                    };
+                    root.child(div().w(px(200.)).h(area_height).overflow_hidden().child(
+                        div().absolute().left(offset).top(top).child(
                             Button::new("fit-case-button", ButtonVariant::Neutral).label("Save"),
                         ),
                     ))
@@ -515,6 +531,22 @@ mod tests {
         );
         let inside = faults_of(Case::ButtonInside);
         assert!(inside.is_empty(), "{inside:#?}");
+    }
+
+    /// ADR 0084 task 041 walk, 2026-11-16: a row that its scroll area hides
+    /// crossed the window bottom, and the probe gave a cut. The window edge
+    /// cuts only an element that its area shows.
+    #[test]
+    fn adr_0097_the_window_edge_cuts_only_a_shown_element() {
+        let shown = faults_of(Case::ButtonAcrossWindowBottom);
+        assert!(
+            shown
+                .iter()
+                .any(|fault| fault.contains("an edge cuts \"Save\"")),
+            "{shown:#?}"
+        );
+        let hidden = faults_of(Case::HiddenButtonAcrossWindowBottom);
+        assert!(hidden.is_empty(), "{hidden:#?}");
     }
 
     #[test]

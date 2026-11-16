@@ -141,13 +141,6 @@ pub mod spacing {
     pub const XXL: Pixels = px(32.0);
 }
 
-pub mod radius {
-    use super::{px, Pixels};
-    pub const SM: Pixels = px(4.0);
-    pub const MD: Pixels = px(6.0);
-    pub const LG: Pixels = px(10.0);
-}
-
 pub mod typography {
     use super::{px, FontWeight, Pixels, Styled};
 

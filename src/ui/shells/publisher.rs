@@ -28,10 +28,10 @@ use crate::ui::composites::release_section_list::{
 };
 use crate::ui::composites::{
     CollectionArt, CollectionArtImage, DetailHeader, DetailHeaderDataRow, DetailHeaderDisplay,
-    EntityKind, ListRow, ListRowA11yLabel, ThumbnailSize,
+    EntityKind, ListRow, ListRowA11yLabel, PageTitleKind, ThumbnailSize,
 };
 use crate::ui::primitives::{Label, LabelVariant, SectionHeader};
-use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Spacing};
+use crate::ui::tokens::{color, Radius, SemanticColor, Spacing};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::publisher_page::{
     CoCreditedFeedVm, HeaderRole, OtherAlbumsStatus, PublisherPageContext,
@@ -142,8 +142,9 @@ fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyEle
         CollectionKind::Artist,
         ThumbnailSize::XXl,
     ))
-    // ADR 0101 Decision 3: the feed page title uses Display.
-    .title_size(FontSize::Display)
+    // musicindex ADR 0068 R-TYPE-2: the feed page is the page of a label or
+    // another publisher, so it uses the label title size.
+    .title_size(PageTitleKind::Label.size())
     .into_any_element()
 }
 

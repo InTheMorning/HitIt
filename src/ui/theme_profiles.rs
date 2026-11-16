@@ -85,6 +85,8 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
         SemanticColor::SidebarBackground => hex(0x05_0505),
         SemanticColor::SecondarySystemBackground => hex(0x08_0808),
         SemanticColor::TertiarySystemBackground => hex(0x16_1616),
+        SemanticColor::GroupBackground => hex(0x0d_0d0d),
+        SemanticColor::OpenEntryBackground => hex(0x16_1616),
 
         SemanticColor::Label => hex(0xff_ffff),
         SemanticColor::SecondaryLabel => hex(0xf2_f2f2),
@@ -169,6 +171,8 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
         SemanticColor::SidebarBackground => hex(0xfb_fbfb),
         SemanticColor::SecondarySystemBackground => hex(0xf7_f7f7),
         SemanticColor::TertiarySystemBackground => hex(0xee_eeee),
+        SemanticColor::GroupBackground => hex(0xf7_f7f7),
+        SemanticColor::OpenEntryBackground => hex(0xff_ffff),
 
         SemanticColor::Label => hex(0x00_0000),
         SemanticColor::SecondaryLabel => hex(0x1c_1c1e),

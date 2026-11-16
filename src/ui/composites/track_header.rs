@@ -17,6 +17,7 @@ use gpui::{
 use crate::ui::tokens::{resolve_color, Appearance, FontSize, SemanticColor, Spacing};
 use crate::view_models::track::TrackHeaderVm;
 
+use super::detail_header::PageTitleKind;
 use super::{EntityKind, TagBadge, TagBadgeDisplay, Thumbnail, ThumbnailSize};
 
 #[derive(IntoElement)]
@@ -79,8 +80,8 @@ impl RenderOnce for TrackHeader {
             )
             .child(
                 div()
-                    .text_size(FontSize::Title2.scaled(cx))
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(PageTitleKind::Track.size().scaled(cx))
+                    .font_weight(FontWeight::BOLD)
                     .text_color(title_color)
                     .child(SharedString::from(self.vm.title)),
             )

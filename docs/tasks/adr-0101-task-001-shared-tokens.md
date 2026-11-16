@@ -1,6 +1,6 @@
 # ADR 0101 Task 001: The Shared Tokens
 
-Status: Waits - 2026-11-15. This packet starts after the three defect fixes of 2026-11-14: [ADR 0090 task 005](adr-0090-task-005-each-music-column-shows-the-focus.md), [ADR 0092 task 001](adr-0092-task-001-artists-list-focus.md) and [ADR 0085 task 001](adr-0085-task-001-type-label-of-known-roles.md). It starts when the operator passes their visual checks, or when the orchestrator session says to start.
+Status: Implemented - operator visual checks open, 2026-11-16. The orchestrator session said to start, with the approval of the operator of 2026-11-16. The visual checks of the three defect fixes of 2026-11-14 stay open in sections 15 to 17 of `docs/pending-human-checks.md`. This packet did not wait for them.
 
 ## Goal
 
@@ -122,3 +122,53 @@ A delegate does not commit. It leaves its change in the working tree and reports
 - Stop if a scale test of ADR 0039 fails after the new type sizes.
 - Stop if a page kind of step 3 is not clear from its shell.
 - Stop if a fit test of ADR 0097 fails, and report the view and the width.
+
+## Implementation Report - 2026-11-16
+
+A delegate made the first change. It stopped at two conditions of "Stop And Ask": a test of ADR 0039 and a fit test of ADR 0097 gave errors. The primary agent examined each test and completed the packet.
+
+Files changed: `src/ui/tokens.rs`, `src/ui/theme_profiles.rs`, `src/ui/contrast.rs`, `src/ui/composites/detail_header.rs`, `src/ui/composites/mod.rs`, `src/ui/composites/track_header.rs`, `src/ui/composites/settings.rs`, `src/ui/composites/track_detail_surface.rs`, `src/ui/icons.rs`, `src/ui/style.rs`, `src/ui/primitives/fit_probe.rs`, `src/ui/shells/entity.rs`, `src/ui/shells/name_level_page.rs`, `src/ui/shells/playlist.rs`, `src/ui/shells/publisher.rs` and `tests/architecture_tests.rs`.
+
+Tests:
+
+- M2: `focus_color_matches_the_shared_tokens`
+- M3: `font_sizes_match_the_shared_tokens`
+- M4: `radii_match_the_shared_tokens`
+- M5: `spacing_matches_the_shared_tokens`
+- M6: `levels_match_the_shared_tokens`
+- M7: `focus_ring_matches_the_shared_tokens`
+- M8: `dark_palette_meets_wcag`, `light_palette_meets_wcag` and the two tests of the high contrast profiles. Each one includes the 12 new pairs and needs 4.5:1. The delegate did not record the ratio of each pair.
+- M9: `page_title_size_follows_the_page_kind` in `src/ui/composites/detail_header.rs`
+
+Page titles of step 3. `PageTitleKind` in `src/ui/composites/detail_header.rs` gives the dimension of the title for each type of page:
+
+| Caller | Page type | Title before | Title after |
+| --- | --- | --- | --- |
+| `render_contract_header`, `src/ui/shells/entity.rs` | album (release) | Display (30) | Title (26) |
+| `TrackHeader`, `src/ui/composites/track_header.rs` | track page and track inspector | Title2 (20) | Title (26) |
+| `src/ui/shells/playlist.rs` | playlist | Title2 (20) | Title (26) |
+| `src/ui/shells/name_level_page.rs` | artist | Display (30) | Display (42) |
+| `src/ui/shells/publisher.rs` | feed page with a role badge | Display (30) | Display (42), `PageTitleKind::Label` |
+
+Each page title is bold.
+
+Step 4: no sheet sets `Radius::LG`. The confirmation dialog uses the component theme value `radius_lg`. The component theme also gives that value to alerts, tabs, accordions and notifications, so this packet does not change it. The Inspect Sources sheet does not use it. Thus no sheet changed.
+
+Main session choices, 2026-11-16:
+
+- The ADR 0039 rule is the multiplier of each role at each UI scale step (`reservation_endpoints`, `src/ui/layouts.rs`). The multipliers do not change. The table of `adr_0039_type_outcomes_match_ratified_values` and the bases of `adr_0039_medium_type_returns_each_role_base_exactly` use the new bases of Title2, Title and Display with the same multipliers.
+- `adr_0083_display_is_30_at_medium_and_grows_with_scale` asserted a rule of the archived ADR 0083. ADR 0101 Decision 3 replaces that rule, so the test is deleted. M3 and `adr_0039_type_grows_monotonically_per_role_across_steps` prove its two facts.
+- The fit probe gave a cut for a row that its scroll area hid, because the row crossed the bottom of the window (My playlists, 390 px). The probe gives a vertical cut only for an element that its area shows. The test `adr_0097_the_window_edge_cuts_only_a_shown_element` proves this.
+- With the Settings title at 22 px, the header of Settings did not stay on one line at XL in a page of 438 px. Then the ADR 0074 test `adr_0074_short_windows_reserve_space_for_task_content` gave an error. The space between the items of the header is `Spacing::XS`. ADR 0093 task 001 replaces this header. The operator examines this item in V5.
+- `src/ui/style.rs` had a second radius scale with the earlier values. It is deleted, and its three callers use `Radius`.
+- `render_rss_icon_link` in `src/ui/icons.rs` had no caller. It is deleted, with its entry in `interactive_surfaces_route_through_minimum_hit_target_token`.
+
+Open points for a surface packet:
+
+- The component theme values `radius` (6) and `radius_lg` (8) are not the shared radii.
+- The high contrast profiles give their own values for the two new levels: dark `#0d0d0d` and `#161616`, light `#f7f7f7` and `#ffffff`.
+
+Visual, added to the list above:
+
+- V5: Settings at XL in a narrow window. The title and the two menus are on one line, with a small space between them.
+

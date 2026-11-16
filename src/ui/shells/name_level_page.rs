@@ -22,11 +22,11 @@ use crate::ui::composites::release_section_list::{
 };
 use crate::ui::composites::{
     CollectionArt, CollectionArtImage, DetailHeader, DetailHeaderDataRow, DetailHeaderDisplay,
-    EntityKind, ThumbnailSize,
+    EntityKind, PageTitleKind, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button, Label, LabelVariant};
-use crate::ui::tokens::{FontSize, SemanticColor, Spacing};
+use crate::ui::tokens::{SemanticColor, Spacing};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::name_level_page::{MatchedFeedNoticeVm, NameLevelPageVm};
 
@@ -108,8 +108,8 @@ fn render_header(vm: &NameLevelPageVm, header_art: CollectionArtImage) -> AnyEle
         CollectionKind::Artist,
         ThumbnailSize::XXl,
     ))
-    // ADR 0101 Decision 3: an artist page title uses Display.
-    .title_size(FontSize::Display)
+    // musicindex ADR 0068 R-TYPE-2: an artist page title uses Display.
+    .title_size(PageTitleKind::Artist.size())
     .into_any_element()
 }
 

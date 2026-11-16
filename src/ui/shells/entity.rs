@@ -18,8 +18,9 @@ use crate::ui::composites::music_column_scroll::{windowed_track_rows, ScrollReve
 use crate::ui::composites::{
     identity_action_button, CoverBackdrop, DetailGrid, DetailHeader, DetailHeaderDataRow,
     DetailHeaderDisplay, DetailRow, DetailTextRow, EntityKind, IdentityActionButtonDisplay,
-    IdentityActionKind, ListRow, ListRowA11yLabel, ReleaseActionGroupDisplay, ReleaseDetailSurface,
-    ReleaseSurfaceElement, ReleaseTrackSectionDisplay, Thumbnail, ThumbnailSize,
+    IdentityActionKind, ListRow, ListRowA11yLabel, PageTitleKind, ReleaseActionGroupDisplay,
+    ReleaseDetailSurface, ReleaseSurfaceElement, ReleaseTrackSectionDisplay, Thumbnail,
+    ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button, Label, LabelVariant};
@@ -326,8 +327,8 @@ fn render_contract_header(
             .collect(),
     })
     .image(hero_image)
-    // ADR 0101 Decision 3: this header is always the album (release) page.
-    .title_size(FontSize::Display)
+    // musicindex ADR 0068 R-TYPE-2: this header is always the album (release) page.
+    .title_size(PageTitleKind::Album.size())
     .cover_size(RELEASE_HEADER_COVER)
     .name_links(name_links)
     .into_any_element()
@@ -482,7 +483,7 @@ fn render_text_panel(display: ReleaseTextPanelDisplay) -> AnyElement {
     div()
         .border_1()
         .border_color(color::border_subtle())
-        .rounded(crate::ui::style::radius::MD)
+        .rounded(crate::ui::tokens::Radius::MD.px())
         .p(spacing::SM)
         .child(
             div()

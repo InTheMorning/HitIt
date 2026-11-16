@@ -19,6 +19,30 @@ use crate::ui::tokens::{resolve_color, Appearance, FontSize, SemanticColor, Spac
 use super::tag_badge::{EntityKind, TagBadge, TagBadgeDisplay};
 use super::thumbnail::{Thumbnail, ThumbnailSize};
 
+/// The page kinds that have a header title. musicindex ADR 0068 R-TYPE-2 gives
+/// the desktop title size of each kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageTitleKind {
+    Album,
+    Track,
+    Playlist,
+    Artist,
+    Label,
+}
+
+impl PageTitleKind {
+    /// The title size of the page kind. An album, track or playlist page uses
+    /// Large Title (26). An artist or label page uses Display (42). Each
+    /// title is bold.
+    #[must_use]
+    pub const fn size(self) -> FontSize {
+        match self {
+            Self::Album | Self::Track | Self::Playlist => FontSize::Title,
+            Self::Artist | Self::Label => FontSize::Display,
+        }
+    }
+}
+
 #[derive(IntoElement)]
 #[must_use]
 pub struct DetailHeader {
@@ -59,7 +83,7 @@ impl DetailHeader {
             display,
             image: None,
             appearance: None,
-            title_size: FontSize::Title2,
+            title_size: FontSize::Title,
             cover_size: ThumbnailSize::Lg,
             name_links: Vec::new(),
             art: None,
@@ -76,11 +100,12 @@ impl DetailHeader {
         self
     }
 
-    /// Sets the title's `FontSize`. The default is `FontSize::Title2`.
+    /// Sets the title's `FontSize`. The default is `FontSize::Title`.
     ///
-    /// ADR 0101 Decision 3: the album, artist, and publisher page headers
-    /// pass `FontSize::Display`. Other headers, such as the playlist page,
-    /// keep the default.
+    /// ADR 0101 Decision 3 and musicindex ADR 0068 R-TYPE-2: a caller passes
+    /// [`PageTitleKind::size`] for its page kind. An artist or label page
+    /// uses `FontSize::Display`. An album, track or playlist page uses
+    /// `FontSize::Title`.
     pub fn title_size(mut self, title_size: FontSize) -> Self {
         self.title_size = title_size;
         self
@@ -138,7 +163,7 @@ impl RenderOnce for DetailHeader {
             .child(
                 div()
                     .text_size(self.title_size.scaled(cx))
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .font_weight(FontWeight::BOLD)
                     .text_color(title_color)
                     .child(self.display.title),
             );
@@ -252,11 +277,37 @@ mod tests {
         assert_eq!(header.display.data_rows.len(), 1);
     }
 
-    /// ADR 0101 Decision 3: the title `FontSize` defaults to `Title2`. A
-    /// caller can set it to `Display` for the album, artist, and
-    /// publisher pages.
+    /// musicindex ADR 0068 R-TYPE-2: an album, a track and a playlist page
+    /// title is 26 px. An artist and a label page title is 42 px. Fix: use
+    /// `PageTitleKind::size` in the page shell.
     #[test]
-    fn title_size_defaults_to_title2_and_is_settable() {
+    fn page_title_size_follows_the_page_kind() {
+        let shared: serde_json::Value =
+            serde_json::from_str(include_str!("../../assets/tokens.json")).expect("valid JSON");
+        let display = shared["type"]["page-title"]["artist-label"]["display"][0]
+            .as_f64()
+            .expect("display size");
+        let large_title = shared["type"]["desktop"]["large-title"][0]
+            .as_f64()
+            .expect("large title size");
+        for kind in [
+            PageTitleKind::Album,
+            PageTitleKind::Track,
+            PageTitleKind::Playlist,
+        ] {
+            assert_eq!(kind.size(), FontSize::Title, "{kind:?}");
+            assert!((f64::from(f32::from(kind.size().px())) - large_title).abs() < f64::EPSILON);
+        }
+        for kind in [PageTitleKind::Artist, PageTitleKind::Label] {
+            assert_eq!(kind.size(), FontSize::Display, "{kind:?}");
+            assert!((f64::from(f32::from(kind.size().px())) - display).abs() < f64::EPSILON);
+        }
+    }
+
+    /// ADR 0101 Decision 3: the title `FontSize` defaults to `Title`. A
+    /// caller sets it to the size of its page kind.
+    #[test]
+    fn title_size_defaults_to_title_and_is_settable() {
         let header = DetailHeader::new(DetailHeaderDisplay {
             kind: EntityKind::Artist,
             hollow: false,
@@ -265,7 +316,7 @@ mod tests {
             subtitle: None,
             data_rows: Vec::new(),
         });
-        assert_eq!(header.title_size, FontSize::Title2);
+        assert_eq!(header.title_size, FontSize::Title);
 
         let header = header.title_size(FontSize::Display);
         assert_eq!(header.title_size, FontSize::Display);

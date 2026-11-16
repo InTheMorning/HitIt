@@ -6012,7 +6012,6 @@ fn interactive_surfaces_route_through_minimum_hit_target_token() {
         ),
         ("src/ui/composites/list_row.rs", "Size::MinHitTarget"),
         ("src/ui/composites/track_row.rs", "layouts::MIN_HIT_TARGET"),
-        ("src/ui/icons.rs", "layout::MIN_HIT_TARGET"),
         ("src/ui/primitives/button.rs", "Size::MinHitTarget"),
     ] {
         let source = read_source(&manifest_path(file));

@@ -81,7 +81,7 @@ pub use confirmation_dialog::{
 };
 pub use cover_backdrop::CoverBackdrop;
 pub use detail_grid::{DetailElementRow, DetailGrid, DetailRow, DetailTextRow};
-pub use detail_header::{DetailHeader, DetailHeaderDataRow, DetailHeaderDisplay};
+pub use detail_header::{DetailHeader, DetailHeaderDataRow, DetailHeaderDisplay, PageTitleKind};
 pub use disclosure_group::{
     disclosure_column, DisclosureGroup, DisclosureGroupDisplay, DisclosureIndicator,
     DisclosureIndicatorDisplay, DisclosureSupplementDisplay, DisclosureSupplementLabel,

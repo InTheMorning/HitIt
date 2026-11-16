@@ -14,8 +14,7 @@ use gpui::{
 };
 
 use crate::ui::primitives::MultilineText;
-use crate::ui::style::radius;
-use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
+use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Spacing};
 use crate::view_models::track::TrackHeaderVm;
 use crate::view_models::track_detail::{
     TrackCreditVm, TrackDetailLoadState, TrackDetailSection, TrackDetailVm, CREDITS_LABEL,
@@ -272,7 +271,7 @@ fn render_labeled_box(label: String, body: AnyElement, cx: &mut App) -> AnyEleme
     div()
         .border_1()
         .border_color(color(cx, SemanticColor::Separator))
-        .rounded(radius::MD)
+        .rounded(Radius::MD.scaled(cx))
         .p(Spacing::SM.scaled(cx))
         .child(
             div()
