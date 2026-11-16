@@ -4692,6 +4692,41 @@ impl LibraryApp {
         }
     }
 
+    /// Shows the row that has the keyboard cursor, when the list takes the
+    /// focus (ADR 0098 Invariants, walk of 2026-11-15). A row that keeps the
+    /// cursor from an earlier visit can be out of view after a scroll.
+    fn reveal_focused_row(&mut self) {
+        match self.vm.active_destination() {
+            MusicDestination::Releases => {
+                let Some(focused) = self.releases_selection.focused().cloned() else {
+                    return;
+                };
+                let rows = self.releases_rows();
+                if let Some(index) = rows
+                    .selection_rows()
+                    .iter()
+                    .position(|row| row.id == focused)
+                {
+                    self.releases_list_state
+                        .scroll_to_reveal_item(index + rows.leading());
+                }
+            }
+            MusicDestination::Playlists => {
+                if self.playlists_selection.focused().is_some() {
+                    self.playlists_reveal.request();
+                }
+            }
+            MusicDestination::Artists => {
+                let Some(focused) = self.artists_selection.focused().cloned() else {
+                    return;
+                };
+                let items = ArtistsListItemVm::of_sections(self.artists_sections());
+                self.reveal_artists_row(&focused, &items);
+            }
+            _ => {}
+        }
+    }
+
     /// The sections of the Artists list in the scope that it shows now.
     pub(crate) fn artists_sections(&self) -> Vec<ArtistSection> {
         let scope = self.vm.list_scope(ListPageKey::Artists);
@@ -5829,9 +5864,13 @@ impl LibraryApp {
         // the first draw after a Tab.
         self.letter_cursor_shows =
             self.letter_bar_focus.is_focused(window) && crate::ui::focus_ring::focus_ring_shows(cx);
+        let row_focus_showed = self.list_row_focus_shows;
         self.list_row_focus_shows = self.list_column_focus.is_focused(window)
             && crate::ui::focus_ring::focus_ring_shows(cx);
         self.mark_row_for_keyboard_entry();
+        if self.list_row_focus_shows && !row_focus_showed {
+            self.reveal_focused_row();
+        }
         let mut artists_row_count = 0;
         let mut action_bar: Option<AnyElement> = None;
         let page_head: Option<AnyElement>;
@@ -6396,6 +6435,7 @@ impl LibraryApp {
         IndexListActions {
             retry: Self::retry_release_names,
             load_more: Some(Self::load_more_release_names),
+            in_list_tab_stop: true,
         }
     }
 
@@ -7766,6 +7806,92 @@ mod tests {
             "musicindex ADR 0026 R-FOCUS-1: one place shows a ring. A row shows \
              it only while the list handle itself has the focus. Read \
              `list_column_focus.is_focused`, not `contains_focused`."
+        );
+    }
+
+    /// ADR 0098 Invariants, walk of 2026-11-15 (pending human checks section
+    /// 17 V2): a row kept the cursor from an earlier visit, and Tab into the
+    /// list did not scroll to it. The list shows the cursor row when it takes
+    /// the focus. My playlists uses the same entry path as Artists.
+    #[gpui::test]
+    fn adr_0098_list_entry_scrolls_to_the_cursor_row(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+        });
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+            crate::db::init_schema(&conn).expect("the schema");
+            crate::db::migrate_schema(&conn).expect("the migrations");
+            let dir = std::env::temp_dir().join("hitit-list-entry-test");
+            let services = crate::application::ApplicationServices::local_with_service_adapters()
+                .expect("the local services");
+            let library = cx.new(|cx| {
+                let mut library = LibraryApp::new(
+                    std::sync::Arc::new(std::sync::Mutex::new(conn)),
+                    crate::media::ImageCache::new(dir.join("cache")),
+                    "http://127.0.0.1:9".into(),
+                    dir,
+                    std::sync::Arc::new(services),
+                    None,
+                    window,
+                    cx,
+                );
+                library.vm.replace_playlists(
+                    (1..=40)
+                        .map(|id| db::Playlist {
+                            id,
+                            name: format!("Playlist {id}"),
+                            description: None,
+                            track_count: 0,
+                            created_at: 0,
+                            updated_at: 0,
+                            position: id,
+                        })
+                        .collect(),
+                );
+                library
+                    .vm
+                    .set_active_destination(MusicDestination::Playlists);
+                library
+            });
+            ListColumnRoot { library }
+        });
+        let library = cx.update(|_, cx| root.read(cx).library.clone());
+        let draw = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+        };
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        let (list, other, scroll) = cx.update(|_, cx| {
+            let library = library.read(cx);
+            (
+                library.list_column_focus.clone(),
+                library.letter_bar_focus.clone(),
+                library.playlists_scroll.clone(),
+            )
+        });
+        cx.update(|window, cx| window.focus(&other, cx));
+        cx.simulate_keystrokes("shift");
+        cx.update(|_, cx| {
+            library.update(cx, |library, _| library.playlists_selection.focus_row(40));
+        });
+        draw(cx);
+        assert!(
+            scroll.max_offset().y > gpui::px(0.),
+            "the list must be long enough to scroll"
+        );
+        assert_eq!(scroll.offset().y, gpui::px(0.));
+
+        cx.update(|window, cx| window.focus(&list, cx));
+        draw(cx);
+        assert!(
+            scroll.offset().y < gpui::px(0.),
+            "ADR 0098 Invariants: when the list takes the focus, it shows the \
+             row that has the cursor. Call `reveal_focused_row` when \
+             `list_row_focus_shows` becomes true."
         );
     }
 }

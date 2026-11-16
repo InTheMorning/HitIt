@@ -100,6 +100,14 @@ Operator choice line: V1 had a fault in the walk of 2026-11-15. With the focus o
 
 The change applies to each list with row focus: Releases, the Inbox, My playlists and Artists. The test `r_focus_1_a_page_header_control_hides_the_row_ring` fails without the change and passes with it. The operator found no fault in Tab, Up, Down and Enter. V1 is open again for the ring.
 
+Operator choice line: V2 had two faults in the walk of 2026-11-15. Tab went to each "Show more" before the tiles. When the focus then went into the tiles, the grid did not scroll to the tile with the cursor.
+
+- The cause of the Tab sequence: the list column has Tab index 1, and each `Button` had index 0. GPUI sorts the Tab stops by index, then by the sequence of the paint. `Button::tab_index` sets the index. A status row button in a list that is one Tab stop (Releases and Artists) uses index 1, so Tab reaches it after the list. The test `adr_0092_a_button_in_the_list_follows_the_list` proves the sequence.
+- The cause of the scroll: the list showed a row on entry only when no row had the cursor. When the list takes the focus, `reveal_focused_row` shows the cursor row of Releases, My playlists and Artists. The test `adr_0098_list_entry_scrolls_to_the_cursor_row` fails without the change.
+- The operator asked that the arrow keys move to the tile in that direction. ADR 0092 uses musicindex ADR 0061 R-LISTKEY-1, so this task sends the question to the orchestrator. This task does not change the arrow keys.
+
+V2 is open again.
+
 ## Report
 
 Give the files changed and the tests added. Tell if the loss of the focus after "Show more" had the cause in Recorded Facts.

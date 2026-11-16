@@ -121,6 +121,7 @@ pub struct Button {
     narrow_hit_target: bool,
     out_of_tab_sequence: bool,
     keep_in_tab_sequence: bool,
+    tab_index: isize,
     compact_inset: bool,
     on_click: Option<ClickHandler>,
     on_activate: Option<ActivateHandler>,
@@ -152,6 +153,7 @@ impl Button {
             narrow_hit_target: false,
             out_of_tab_sequence: false,
             keep_in_tab_sequence: false,
+            tab_index: 0,
             compact_inset: false,
             on_click: None,
             on_activate: None,
@@ -212,6 +214,15 @@ impl Button {
     /// tab stop (ADR 0090 Decision 5).
     pub const fn out_of_tab_sequence(mut self) -> Self {
         self.out_of_tab_sequence = true;
+        self
+    }
+
+    /// Sets the Tab index of the button. GPUI sorts the Tab stops by index,
+    /// then by paint order. A button inside a list that is one Tab stop with
+    /// index 1 uses index 1, so Tab reaches it after the list (ADR 0092
+    /// Decision 1).
+    pub const fn tab_index(mut self, index: isize) -> Self {
+        self.tab_index = index;
         self
     }
 
@@ -672,6 +683,7 @@ impl RenderOnce for Button {
         let label_treatment = self.label_treatment;
         let tooltip = self.effective_tooltip();
         let in_tab_sequence = self.in_tab_sequence();
+        let tab_index = self.tab_index;
         let leading_icon = self.leading_icon;
         let icon_only = self.is_icon_only();
 
@@ -738,8 +750,8 @@ impl RenderOnce for Button {
             // Menu triggers delegate activation to their popover, but keep
             // the shared focus chrome and tab stop (ADR 0074).
             if in_tab_sequence {
-                hit_target = keyboard_button_focus(hit_target, appearance, focus, cx)
-                    .tab_index(0)
+                hit_target = keyboard_button_focus(hit_target, appearance, focus, tab_index, cx)
+                    .tab_index(tab_index)
                     .rounded(radius);
             }
             if let Some(handler) = on_activate.or(on_key_activate) {
@@ -793,6 +805,7 @@ fn keyboard_button_focus(
     target: gpui::Stateful<gpui::Div>,
     appearance: Option<Appearance>,
     focus_handle: Option<gpui::FocusHandle>,
+    tab_index: isize,
     cx: &App,
 ) -> gpui::Stateful<gpui::Div> {
     let focus_ring_width = layout::scaled_dimension(layout::CONTROL_FOCUS_RING_WIDTH, cx);
@@ -809,7 +822,7 @@ fn keyboard_button_focus(
         .focus(move |style| style.border_color(focus_color))
         .when_some(focus_handle, |button, handle| {
             // GPUI skips its automatic tab-stop setup for supplied handles.
-            button.track_focus(&handle.tab_index(0).tab_stop(true))
+            button.track_focus(&handle.tab_index(tab_index).tab_stop(true))
         })
 }
 
@@ -1083,6 +1096,69 @@ mod tests {
                 gpui::MouseClickEvent::default()
             )));
         }
+    }
+
+    struct ListTabRoot {
+        header: gpui::FocusHandle,
+        list: gpui::FocusHandle,
+        inner: gpui::FocusHandle,
+    }
+
+    impl gpui::Render for ListTabRoot {
+        fn render(
+            &mut self,
+            _: &mut gpui::Window,
+            _: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            div()
+                .size_full()
+                .track_focus(&self.list.clone().tab_index(1).tab_stop(true))
+                .child(
+                    Button::plain("header")
+                        .label("A to Z")
+                        .track_focus(&self.header)
+                        .on_click(|_, _, _| {}),
+                )
+                .child(
+                    Button::plain("show-more")
+                        .label("Show more")
+                        .track_focus(&self.inner)
+                        .tab_index(1)
+                        .on_click(|_, _, _| {}),
+                )
+        }
+    }
+
+    /// ADR 0092 Decision 1, walk of 2026-11-15 (pending human checks section
+    /// 17 V2): Tab reached each "Show more" of Artists before the list. The
+    /// list column has Tab index 1. A button inside the list with index 1
+    /// follows the list, and a header button with index 0 comes first.
+    #[gpui::test]
+    fn adr_0092_a_button_in_the_list_follows_the_list(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_component::init);
+        let (root, cx) = cx.add_window_view(|_, cx| ListTabRoot {
+            header: cx.focus_handle(),
+            list: cx.focus_handle(),
+            inner: cx.focus_handle(),
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        let (header, list, inner) = cx.update(|_, cx| {
+            let root = root.read(cx);
+            (root.header.clone(), root.list.clone(), root.inner.clone())
+        });
+        cx.update(|window, cx| window.focus(&header, cx));
+        cx.update(gpui::Window::focus_next);
+        assert!(
+            cx.update(|window, _| list.is_focused(window)),
+            "Tab goes from the header button to the list"
+        );
+        cx.update(gpui::Window::focus_next);
+        assert!(
+            cx.update(|window, _| inner.is_focused(window)),
+            "ADR 0092 Decision 1: a button inside a list with Tab index 1 \
+             follows the list. Give it `Button::tab_index(1)`."
+        );
     }
 
     struct IconRoot;

@@ -519,6 +519,7 @@ impl LibraryApp {
                 ArtistGroup::Inferred => Self::show_more_artist_inferred,
                 ArtistGroup::Names => Self::show_more_artist_names,
             }),
+            in_list_tab_stop: true,
         }
     }
 

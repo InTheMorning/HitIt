@@ -559,6 +559,7 @@ impl LibraryApp {
         IndexListActions {
             retry: Self::retry_public_playlists,
             load_more: Some(Self::load_more_public_playlists),
+            in_list_tab_stop: false,
         }
     }
 

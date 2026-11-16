@@ -27,6 +27,9 @@ pub(crate) type IndexListAction = fn(&mut LibraryApp, &mut Context<LibraryApp>);
 pub(crate) struct IndexListActions {
     pub(crate) retry: IndexListAction,
     pub(crate) load_more: Option<IndexListAction>,
+    /// `true` when the row is in a list that is one Tab stop (ADR 0092
+    /// Decision 1). Its buttons then follow the list in the Tab sequence.
+    pub(crate) in_list_tab_stop: bool,
 }
 
 /// Renders one status row.
@@ -68,7 +71,12 @@ pub(crate) fn render_index_list_status_row(
                     .size(FontSize::Micro)
                     .color(SemanticColor::TertiaryLabel),
             )
-            .child(action_button(retry, actions.retry, cx))
+            .child(action_button(
+                retry,
+                actions.retry,
+                actions.in_list_tab_stop,
+                cx,
+            ))
             .into_any_element(),
         // A page with no "Load more" row sends no `LoadMore` status, so
         // `actions.load_more` is always `Some` here. `None` renders no row,
@@ -76,7 +84,12 @@ pub(crate) fn render_index_list_status_row(
         IndexListStatusRowVm::LoadMore(load_more) => match actions.load_more {
             Some(action) => div()
                 .pt(spacing::SM)
-                .child(action_button(load_more, action, cx))
+                .child(action_button(
+                    load_more,
+                    action,
+                    actions.in_list_tab_stop,
+                    cx,
+                ))
                 .into_any_element(),
             None => div().into_any_element(),
         },
@@ -86,10 +99,16 @@ pub(crate) fn render_index_list_status_row(
 fn action_button(
     display: IndexListActionDisplay,
     action: IndexListAction,
+    in_list_tab_stop: bool,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
+    // The list column of a list with row focus has Tab index 1, so the
+    // header controls come first. A button inside that list uses the same
+    // index, so Tab reaches it after the list, in screen order.
+    let tab_index = isize::from(in_list_tab_stop);
     UiButton::styled(SharedString::from(display.id), ControlStyle::Neutral)
         .label(display.label)
+        .tab_index(tab_index)
         .a11y_label(display.a11y_label)
         .disabled(!display.available)
         .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {

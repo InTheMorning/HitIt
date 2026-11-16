@@ -16463,8 +16463,8 @@ fn adr_0069_keyboard_buttons_show_focus_without_layout_shift() {
     );
     let keyboard = enabled.rsplit_once("if in_tab_sequence {").unwrap().1;
     for required in [
-        "keyboard_button_focus(hit_target, appearance, focus, cx)",
-        ".tab_index(0)",
+        "keyboard_button_focus(hit_target, appearance, focus, tab_index, cx)",
+        ".tab_index(tab_index)",
         ".rounded(radius)",
         "on_keyboard_activate(hit_target, handler)",
     ] {
@@ -16944,7 +16944,9 @@ fn adr_0066_editor_escape_focuses_close_without_closing() {
         "if in_tab_sequence {",
         "if let Some(icon) = leading_icon",
     );
-    assert!(keyboard.contains("keyboard_button_focus(hit_target, appearance, focus, cx)"));
+    assert!(
+        keyboard.contains("keyboard_button_focus(hit_target, appearance, focus, tab_index, cx)")
+    );
     let focus = source_between(
         &button,
         "fn keyboard_button_focus(",
@@ -16952,7 +16954,7 @@ fn adr_0066_editor_escape_focuses_close_without_closing() {
     );
     assert!(focus.contains(".when_some(focus_handle"));
     assert!(
-        focus.contains("button.track_focus(&handle.tab_index(0).tab_stop(true))"),
+        focus.contains("button.track_focus(&handle.tab_index(tab_index).tab_stop(true))"),
         "ADR 0066: supplied disclosure focus must remain a keyboard tab stop"
     );
 }

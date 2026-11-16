@@ -232,6 +232,7 @@ fn render_index_part(
                 retry: LibraryApp::retry_singles_group_feed,
                 // The page shows no "Load more" row (decision D11).
                 load_more: None,
+                in_list_tab_stop: false,
             },
             cx,
         ));

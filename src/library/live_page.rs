@@ -159,6 +159,7 @@ impl LibraryApp {
         IndexListActions {
             retry: Self::retry_live,
             load_more: Some(Self::load_more_live),
+            in_list_tab_stop: false,
         }
     }
 }
