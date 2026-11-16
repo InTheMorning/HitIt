@@ -6124,9 +6124,9 @@ fn animation_paths_route_through_reduce_motion_environment() {
         }
     }
 
-    if !theme_source.contains("reduce_motion: false") {
+    if !theme_source.contains("reduce_motion: accessibility.reduce_motion") {
         violations.push(
-            "src/ui/theme_bridge.rs: environment bootstrap must initialize Reduce Motion policy"
+            "ADR 0101 Decision 11: src/ui/theme_bridge.rs must set Reduce Motion in the environment from the system accessibility settings. Read it from AccessibilitySettings."
                 .to_string(),
         );
     }

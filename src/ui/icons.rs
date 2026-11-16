@@ -20,7 +20,7 @@ use gpui_component::{Icon as ComponentIcon, IconName as ComponentIconName};
 use gpui_kit_assets::IconName as LucideIconName;
 
 use crate::ui::layouts as layout;
-use crate::ui::tokens::{FontSize, ScaleFactor};
+use crate::ui::tokens::{Environment, FontSize, ScaleFactor};
 
 /// Semantic icon names understood by the design system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -338,9 +338,8 @@ pub struct Icon {
     color: Option<Rgba>,
     /// `true` turns the icon continuously (ADR 0101 Decision 6, amended
     /// 2026-10-22; ADR 0084 task 033): the downloading state of a track
-    /// row and of a release row. [`gpui::AnimationExt::with_animation`]
-    /// already stops the motion when the platform asks for reduced
-    /// motion, so this flag adds no such check of its own.
+    /// row and of a release row. Reduce Motion stops the turn
+    /// ([`icon_turns`]). The icon then shows its static state.
     turning: bool,
 }
 
@@ -376,6 +375,13 @@ impl Icon {
 /// [`gpui_component::spinner::Spinner`].
 const ICON_TURN_DURATION: Duration = Duration::from_millis(800);
 
+/// Returns whether a turning icon turns. Reduce Motion stops the turn, and the
+/// word of the state stays (ADR 0101 Decision 11, musicindex ADR 0068
+/// R-A11Y-1 item 1).
+const fn icon_turns(turning: bool, environment: Environment) -> bool {
+    turning && environment.allows_motion()
+}
+
 /// Wraps a resolved catalog icon in the turning animation when `turning`
 /// is set, else returns it as it is.
 fn maybe_turning(icon: ComponentIcon, turning: bool) -> AnyElement {
@@ -395,7 +401,7 @@ fn maybe_turning(icon: ComponentIcon, turning: bool) -> AnyElement {
 impl RenderOnce for Icon {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let size = self.size.scaled(cx);
-        let turning = self.turning;
+        let turning = icon_turns(self.turning, Environment::current(cx));
         if let Some(component_icon) = self.name.component_icon() {
             let mut icon = ComponentIcon::new(component_icon).size(size);
             if let Some(color) = self.color {
@@ -717,6 +723,21 @@ mod tests {
         let icon = Icon::new(IconName::InProgress).turning(true);
         assert!(icon.name.component_icon().is_some());
         assert!(icon.turning);
+    }
+
+    /// ADR 0101 Decision 11: Reduce Motion stops the turn. The tooltip and
+    /// the accessibility label hold the word, and `turning` does not change
+    /// them.
+    #[test]
+    fn reduce_motion_stops_a_turning_icon() {
+        let moving = Environment::default();
+        let reduced = Environment {
+            reduce_motion: true,
+            ..Environment::default()
+        };
+        assert!(icon_turns(true, moving));
+        assert!(!icon_turns(true, reduced));
+        assert!(!icon_turns(false, moving));
     }
 
     /// Confirms the asset source `bootstrap.rs` registers at app start

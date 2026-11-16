@@ -433,14 +433,47 @@ impl SemanticColor {
     }
 }
 
+impl SemanticColor {
+    /// The token that Increase Contrast uses in place of `self`. A separator
+    /// becomes opaque, and secondary text uses the primary text color
+    /// (musicindex ADR 0068 R-A11Y-1 item 2).
+    #[must_use]
+    pub const fn for_contrast(self, increase_contrast: bool) -> Self {
+        if !increase_contrast {
+            return self;
+        }
+        match self {
+            Self::Separator => Self::OpaqueSeparator,
+            Self::SecondaryLabel => Self::Label,
+            other => other,
+        }
+    }
+}
+
+/// Lay `top` over `background` and give an opaque color. Reduce Transparency
+/// uses this for each translucent fill (musicindex ADR 0068 R-A11Y-1 item 3).
+#[must_use]
+pub fn flatten_over(top: Rgba, background: Rgba) -> Rgba {
+    let keep = top.a;
+    let rest = 1.0 - keep;
+    Rgba {
+        r: top.r * keep + background.r * rest,
+        g: top.g * keep + background.g * rest,
+        b: top.b * keep + background.b * rest,
+        a: 1.0,
+    }
+}
+
 /// Resolve a semantic color against the current appearance.
 #[must_use]
 pub fn color(cx: &App, token: SemanticColor) -> Rgba {
     let env = Environment::current(cx);
-    crate::ui::theme_profiles::resolve_profile_color_for_appearance(
+    crate::ui::theme_profiles::resolve_accessible_color(
         env.profile,
         env.appearance,
         token,
+        env.increase_contrast,
+        env.reduce_transparency,
     )
 }
 
@@ -448,7 +481,21 @@ pub fn color(cx: &App, token: SemanticColor) -> Rgba {
 /// light/dark appearance override when one is provided.
 #[must_use]
 pub fn resolve_color(cx: &App, token: SemanticColor, appearance: Option<Appearance>) -> Rgba {
-    appearance.map_or_else(|| color(cx, token), |appearance| token.resolve(appearance))
+    let Some(appearance) = appearance else {
+        return color(cx, token);
+    };
+    let env = Environment::current(cx);
+    let profile = match appearance {
+        Appearance::Dark => ThemeProfile::Dark,
+        Appearance::Light => ThemeProfile::Light,
+    };
+    crate::ui::theme_profiles::resolve_accessible_color(
+        profile,
+        appearance,
+        token,
+        env.increase_contrast,
+        env.reduce_transparency,
+    )
 }
 
 // -----------------------------------------------------------------------------
@@ -1333,9 +1380,15 @@ pub struct Environment {
     pub profile: ThemeProfile,
     pub appearance: Appearance,
     pub scale: ScaleFactor,
-    /// Mirrors the platform Reduce Motion preference when the runtime exposes
-    /// it. Keep all animation decisions routed through [`Self::allows_motion`].
+    /// Mirrors the system Reduce Motion setting. Keep all animation decisions
+    /// routed through [`Self::allows_motion`].
     pub reduce_motion: bool,
+    /// Mirrors the system Increase Contrast setting (ADR 0101 Decision 1 and
+    /// Decision 11, musicindex ADR 0068 R-A11Y-1).
+    pub increase_contrast: bool,
+    /// Mirrors the system Reduce Transparency setting. A translucent fill
+    /// becomes an opaque fill.
+    pub reduce_transparency: bool,
 }
 
 impl Environment {
@@ -1531,6 +1584,45 @@ mod tests {
         };
 
         assert!(!env.allows_motion());
+    }
+
+    #[test]
+    fn increase_contrast_swaps_separator_and_secondary_label_only() {
+        assert_eq!(
+            SemanticColor::Separator.for_contrast(true),
+            SemanticColor::OpaqueSeparator
+        );
+        assert_eq!(
+            SemanticColor::SecondaryLabel.for_contrast(true),
+            SemanticColor::Label
+        );
+        assert_eq!(
+            SemanticColor::Separator.for_contrast(false),
+            SemanticColor::Separator
+        );
+        assert_eq!(
+            SemanticColor::Accent.for_contrast(true),
+            SemanticColor::Accent
+        );
+    }
+
+    #[test]
+    fn flatten_over_gives_an_opaque_blend() {
+        let white_half = Rgba {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 0.5,
+        };
+        let black = Rgba {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        };
+        let flat = flatten_over(white_half, black);
+        assert!((flat.a - 1.0).abs() < f32::EPSILON);
+        assert!((flat.r - 0.5).abs() < 1e-6);
     }
 
     #[test]

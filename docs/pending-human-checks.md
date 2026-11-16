@@ -738,3 +738,14 @@ Task: [ADR 0101 task 003](tasks/adr-0101-task-003-art-radius.md). Do the check i
 - Incorrect: an image has square corners, a small image has a large curve, or a row image has a shadow.
 
 Agent walk, 2026-11-16, Dark only. V1 passes after a correction in the task. V2 is open, because the shadow does not show clearly on the dark background.
+
+## 27. ADR 0101 Task 005 The System Accessibility Settings - 2026-11-16
+
+Task: [ADR 0101 task 005](tasks/adr-0101-task-005-system-accessibility-settings.md). Each step needs a change of a desktop setting while HitIt runs.
+
+- V1: set the HitIt profile to System. Turn on high contrast in the desktop settings. HitIt changes to its high-contrast profile with no restart.
+- V2: turn on reduced animation in the desktop settings. Start a download. The download icon does not turn, and its word stays.
+- V3: set the HitIt profile to Dark, with high contrast on in the desktop settings. The separators and the control outlines are clear.
+- Incorrect: HitIt needs a restart, an icon continues to turn, or a separator is not clear.
+
+Agent check, 2026-11-16: the mechanical tests pass. The Xvfb display has no desktop settings, so the agent did not walk V1 to V3.

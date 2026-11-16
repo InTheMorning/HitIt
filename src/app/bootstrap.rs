@@ -67,6 +67,7 @@ pub fn run_app() -> bool {
             crate::ui::tokens::ScaleFactor::Medium,
             cx,
         );
+        watch_accessibility_settings(cx);
         let window = cx.open_window(
             main_window_options(Bounds::centered(
                 None,
@@ -312,6 +313,42 @@ pub(super) fn cache_worker_for_config(
     let _ = path;
     crate::media::image_cache::spawn_cache_worker
 }
+
+/// ADR 0101 Decision 11: read the system accessibility settings, and install
+/// the theme again when a setting changes while the app runs. The portal read
+/// waits on the zbus runtime, not on the UI thread.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+fn watch_accessibility_settings(cx: &mut gpui::App) {
+    use crate::ui::system_settings::{read_or_default, AccessibilitySource, PortalSource};
+    use crate::ui::theme_bridge::apply_accessibility_settings;
+
+    // Presentation lifecycle: the watch lives as long as the app and has no
+    // domain work, as `nudge_window` below.
+    cx.spawn(async move |cx: &mut gpui::AsyncApp| {
+        let mut source = match PortalSource::connect().await {
+            Ok(source) => source,
+            Err(error) => {
+                eprintln!(
+                    "The system accessibility settings are not available. HitIt uses no preference. {error:#}"
+                );
+                return;
+            }
+        };
+        loop {
+            let settings = read_or_default(&source).await;
+            cx.update(|cx| apply_accessibility_settings(settings, cx));
+            if let Err(error) = source.changed().await {
+                eprintln!("HitIt stops the watch of the system accessibility settings. {error:#}");
+                return;
+            }
+        }
+    })
+    .detach();
+}
+
+/// Other systems give no setting source yet. Each setting stays `false`.
+#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+fn watch_accessibility_settings(_cx: &mut gpui::App) {}
 
 fn nudge_window(window_handle: gpui::AnyWindowHandle, cx: &mut gpui::App) {
     cx.defer(move |cx| {

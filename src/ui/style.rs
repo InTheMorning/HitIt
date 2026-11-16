@@ -13,18 +13,27 @@
 
 #![warn(clippy::pedantic)]
 
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use gpui::{px, FontWeight, Pixels, Rgba, Styled};
 
 use crate::theme_profile::ThemeProfile;
-use crate::ui::theme_profiles::resolve_profile_color;
-use crate::ui::tokens::SemanticColor;
+use crate::ui::theme_profiles::resolve_accessible_color;
+use crate::ui::tokens::{Appearance, SemanticColor};
 
 static CURRENT_PROFILE: AtomicU8 = AtomicU8::new(profile_to_raw(ThemeProfile::Dark));
 
-pub(crate) fn install_profile(profile: ThemeProfile) {
+static INCREASE_CONTRAST: AtomicBool = AtomicBool::new(false);
+static REDUCE_TRANSPARENCY: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn install_profile(
+    profile: ThemeProfile,
+    increase_contrast: bool,
+    reduce_transparency: bool,
+) {
     CURRENT_PROFILE.store(profile_to_raw(profile), Ordering::Relaxed);
+    INCREASE_CONTRAST.store(increase_contrast, Ordering::Relaxed);
+    REDUCE_TRANSPARENCY.store(reduce_transparency, Ordering::Relaxed);
 }
 
 const fn profile_to_raw(profile: ThemeProfile) -> u8 {
@@ -48,7 +57,14 @@ fn current_profile() -> ThemeProfile {
 }
 
 fn role(token: SemanticColor) -> Rgba {
-    resolve_profile_color(current_profile(), token)
+    // The installed profile is concrete, so the appearance has no effect.
+    resolve_accessible_color(
+        current_profile(),
+        Appearance::Dark,
+        token,
+        INCREASE_CONTRAST.load(Ordering::Relaxed),
+        REDUCE_TRANSPARENCY.load(Ordering::Relaxed),
+    )
 }
 
 pub mod color {

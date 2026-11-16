@@ -28,7 +28,8 @@ use crate::ui::focus_ring::{focus_ring_shows, focused_control_probe};
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::layouts as layout;
 use crate::ui::tokens::{
-    resolve_color, Appearance, FontSize, Radius, ScaleFactor, SemanticColor, Size, Spacing,
+    flatten_over, resolve_color, Appearance, Environment, FontSize, Radius, ScaleFactor,
+    SemanticColor, Size, Spacing,
 };
 
 use super::tooltip::Tooltip;
@@ -424,8 +425,18 @@ impl Button {
             && self.label.as_ref().is_none_or(|label| label.is_empty())
     }
 
-    fn border_width(&self) -> gpui::Pixels {
-        if self.border.is_some() {
+    /// The border token. Increase Contrast gives each control a 1 px outline
+    /// (musicindex ADR 0068 R-A11Y-1 item 2).
+    fn border_token(&self, cx: &App) -> Option<SemanticColor> {
+        self.border.or_else(|| {
+            Environment::current(cx)
+                .increase_contrast
+                .then_some(SemanticColor::OpaqueSeparator)
+        })
+    }
+
+    fn border_width(&self, cx: &App) -> gpui::Pixels {
+        if self.border_token(cx).is_some() {
             px(1.0)
         } else {
             px(0.0)
@@ -438,7 +449,7 @@ impl Button {
         if self.is_icon_only() {
             visual.w(self.height(cx)).flex_none()
         } else {
-            visual.px(self.px_inset().scaled(cx) - self.border_width())
+            visual.px(self.px_inset().scaled(cx) - self.border_width(cx))
         }
     }
 
@@ -493,7 +504,7 @@ impl Button {
     /// ever fires, bring the measured mismatch back to ADR 0039; never
     /// shrink the font or grow chrome here to silence it.
     fn debug_assert_label_reservation_fits(&self, font_role: FontSize, cx: &App) {
-        let border_width = self.border_width();
+        let border_width = self.border_width(cx);
         debug_assert!(
             self.description.is_some()
                 || layout::button_label_reservation(font_role, ScaleFactor::current(cx))
@@ -551,7 +562,7 @@ impl Button {
     }
 
     fn resolved_colors(&self, cx: &App, appearance: Option<Appearance>) -> (Rgba, Rgba, Rgba) {
-        let (mut bg, mut fg, hover_bg) = match self.effective_variant() {
+        let (mut bg, mut fg, mut hover_bg) = match self.effective_variant() {
             ButtonVariant::Filled => (
                 resolve_color(cx, SemanticColor::Accent, appearance),
                 resolve_color(cx, SemanticColor::OnAccent, appearance),
@@ -604,6 +615,12 @@ impl Button {
         // R-LIST-1 item 3: the current view icon has a tint.
         if self.selected {
             bg = resolve_color(cx, SemanticColor::AccentTint, appearance);
+        }
+        // Reduce Transparency: the hover fill that the variant tunes by alpha
+        // becomes opaque. A transparent fill of no color stays as it is.
+        if Environment::current(cx).reduce_transparency && hover_bg.a < 1.0 {
+            let page = resolve_color(cx, SemanticColor::SystemBackground, appearance);
+            hover_bg = flatten_over(hover_bg, page);
         }
         (bg, fg, hover_bg)
     }
@@ -670,6 +687,7 @@ impl RenderOnce for Button {
         self.debug_assert_label_reservation_fits(font_role, cx);
 
         let (bg, fg, hover_bg) = self.resolved_colors(cx, appearance);
+        let border = self.border_token(cx);
         let icon_color = self.icon_color(fg, cx, appearance);
 
         let label = self.label.clone().unwrap_or_default();
@@ -704,7 +722,7 @@ impl RenderOnce for Button {
             ButtonContentAlignment::Leading => visual.justify_start(),
         };
 
-        if let Some(border) = self.border {
+        if let Some(border) = border {
             visual = visual
                 .border_1()
                 .border_color(resolve_color(cx, border, appearance));
@@ -960,6 +978,42 @@ fn keyboard_activation_key(event: &KeyDownEvent) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ADR 0101 Decision 11, Increase Contrast: each control has a 1 px
+    /// outline. Without the setting a plain button has none.
+    #[gpui::test]
+    fn increase_contrast_gives_each_button_a_one_pixel_outline(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let button = Button::styled("outline", ControlStyle::Primary).label("Open");
+            assert_eq!(button.border_token(cx), None);
+            assert_eq!(button.border_width(cx), px(0.0));
+            Environment {
+                increase_contrast: true,
+                ..Environment::default()
+            }
+            .install(cx);
+            assert_eq!(
+                button.border_token(cx),
+                Some(SemanticColor::OpaqueSeparator)
+            );
+            assert_eq!(button.border_width(cx), px(1.0));
+        });
+    }
+
+    /// Reduce Transparency: the hover fill of a plain button is opaque.
+    #[gpui::test]
+    fn reduce_transparency_gives_a_button_an_opaque_hover_fill(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let button = Button::plain("hover").label("Open");
+            assert!(button.resolved_colors(cx, None).2.a < 1.0);
+            Environment {
+                reduce_transparency: true,
+                ..Environment::default()
+            }
+            .install(cx);
+            assert!((button.resolved_colors(cx, None).2.a - 1.0).abs() < f32::EPSILON);
+        });
+    }
 
     /// musicindex ADR 0020 R-ACT-2: each role gives a pill, a menu item keeps
     /// the radius of a row, and an icon alone is a circle.

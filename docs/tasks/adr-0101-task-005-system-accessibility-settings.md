@@ -1,6 +1,6 @@
 # ADR 0101 Task 005: The System Accessibility Settings
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks. If [task 002](adr-0101-task-002-header-glow.md) is not complete, this packet adds the field `reduce_transparency`.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -98,3 +98,36 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 - Stop if `ashpd` 0.13 cannot read the Settings portal without a second async runtime.
 - Stop if the portal gives no key for contrast or reduced motion.
+
+## Implementation Report - 2026-11-16
+
+Status: the mechanical criteria M1 to M7 pass. The visual criteria V1 to V3 are open. They need the operator.
+
+Files changed: `Cargo.toml`, `Cargo.lock`, `src/ui/system_settings.rs` (new), `src/ui/mod.rs`, `src/ui/tokens.rs`, `src/ui/theme_profiles.rs`, `src/ui/theme_bridge.rs`, `src/ui/style.rs`, `src/ui/icons.rs`, `src/ui/primitives/button.rs`, `src/app/bootstrap.rs`, `tests/architecture_tests.rs`.
+
+Portal keys: `contrast` (1 is higher contrast) and `reduced-motion` (1 is reduced motion) of the namespace `org.freedesktop.appearance`. Source: `ashpd` 0.13.13, `src/desktop/settings.rs` (`CONTRAST_KEY`, `REDUCED_MOTION_KEY`, `Settings::contrast`, `Settings::reduced_motion`, `receive_setting_changed_with_args`). No key for Reduce Transparency exists in that API. On Linux, Reduce Transparency stays `false`.
+
+Dependency: a direct `ashpd` entry at `=0.13.13` with `default-features = false` and the features `async-io` and `settings`. These are the features that GPUI uses. No second async runtime is added. `Cargo.lock` gains only the line `ashpd` in the `hitit` package.
+
+Tests:
+
+- M1: `ui::system_settings::tests::m1_each_setting_reaches_the_environment` and `ui::theme_bridge::migration_tests::m1_each_setting_reaches_the_environment`.
+- M2: `ui::theme_profiles::tests::increase_contrast_selects_the_high_contrast_profile_of_each_appearance`, `increase_contrast_keeps_an_explicit_profile` and `ui::theme_bridge::migration_tests::increase_contrast_with_system_installs_a_high_contrast_profile`.
+- M3: `ui::theme_profiles::tests::increase_contrast_gives_opaque_separator_and_primary_secondary_text`, `ui::theme_bridge::migration_tests::m3_increase_contrast_changes_the_theme_of_an_explicit_profile` and `ui::primitives::button::tests::increase_contrast_gives_each_button_a_one_pixel_outline`.
+- M4: `ui::icons::tests::reduce_motion_stops_a_turning_icon`. The word of the state is in the tooltip and the accessibility label. The turn flag does not change them.
+- M5: `ui::theme_profiles::tests::reduce_transparency_gives_an_opaque_fill_for_each_translucent_token` and `ui::primitives::button::tests::reduce_transparency_gives_a_button_an_opaque_hover_fill`.
+- M6: `ui::system_settings::tests::m6_a_failed_read_gives_false_for_each_setting`.
+
+Animations found: the turning icon (`src/ui/icons.rs`, `maybe_turning`, stopped by `icon_turns`). The animated thumbnail already uses `allows_motion` (`src/library/app_impl.rs`). No live pulse or skeleton sheen exists in the code. The skeleton has no shimmer by design.
+
+Translucent fills found, all as tokens in `src/ui/tokens.rs`: `Separator`, `AccentTint`, `SidebarGlowTop`, `AccentOutline`, `DangerTint`, `ButtonFill`, `ButtonFillHover`. Reduce Transparency lays each over `SystemBackground` (`resolve_accessible_color`). The hover fill of a plain button is also made opaque. Not changed: the modal scrim (`theme_bridge.rs`, `scrim`), the cover backdrop gradient (`src/ui/tokens.rs`, `CoverBackdrop`) and the disabled opacity of a control. They are not bars.
+
+Notes: the guard `animation_paths_route_through_reduce_motion_environment` required the text `reduce_motion: false`. It now requires the read from the settings. The settings are read after the first window opens, so the first frame can show the old values.
+
+## Primary Agent Check - 2026-11-16
+
+- The primary agent read the diff and ran the gate: fmt, clippy, 3173 lib tests, 412 architecture tests and the debug build pass.
+- `Cargo.lock` adds no package. GPUI already builds `ashpd` 0.13.13.
+- The guard `animation_paths_route_through_reduce_motion_environment` now requires `reduce_motion: accessibility.reduce_motion`. The guard keeps its function: the environment sets Reduce Motion. The primary agent accepts this change.
+- On the Xvfb display with no session bus, the app writes one log line ("The system accessibility settings are not available") and runs with no preference.
+- V1 to V3 need a change of a desktop setting. The agent cannot do them on the Xvfb display.

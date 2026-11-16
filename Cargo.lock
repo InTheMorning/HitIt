@@ -3142,6 +3142,7 @@ name = "hitit"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ashpd",
  "base64",
  "chrono",
  "directories",

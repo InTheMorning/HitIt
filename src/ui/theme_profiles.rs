@@ -9,7 +9,7 @@
 use gpui::Rgba;
 
 use crate::theme_profile::ThemeProfile;
-use crate::ui::tokens::{Appearance, SemanticColor};
+use crate::ui::tokens::{flatten_over, Appearance, SemanticColor};
 
 /// Resolve a semantic color through a named visual profile.
 #[must_use]
@@ -17,27 +17,46 @@ pub fn resolve_profile_color(profile: ThemeProfile, token: SemanticColor) -> Rgb
     resolve_concrete_profile_color(profile, token)
 }
 
-/// Resolve a semantic color through a named visual profile, using
-/// `system_appearance` when the profile follows the platform.
+/// Resolve a semantic color through a profile with the system accessibility
+/// settings (ADR 0101 Decision 1 and Decision 11).
+///
+/// Increase Contrast selects the high-contrast profile for `System`, and it
+/// swaps the token through [`SemanticColor::for_contrast`]. Reduce
+/// Transparency lays the color over the page background to give an opaque
+/// color.
 #[must_use]
-pub fn resolve_profile_color_for_appearance(
+pub fn resolve_accessible_color(
     profile: ThemeProfile,
     system_appearance: Appearance,
     token: SemanticColor,
+    increase_contrast: bool,
+    reduce_transparency: bool,
 ) -> Rgba {
-    resolve_concrete_profile_color(effective_profile(profile, system_appearance), token)
+    let concrete = effective_profile(profile, system_appearance, increase_contrast);
+    let color = resolve_concrete_profile_color(concrete, token.for_contrast(increase_contrast));
+    if reduce_transparency && color.a < 1.0 {
+        let background = resolve_concrete_profile_color(concrete, SemanticColor::SystemBackground);
+        flatten_over(color, background)
+    } else {
+        color
+    }
 }
 
-/// Resolve `System` to the concrete light/dark profile currently in effect.
+/// Resolve `System` to the concrete profile currently in effect. With
+/// Increase Contrast, `System` gives the high-contrast profile of the
+/// appearance. An explicit profile stays (operator choice, 2026-11-15).
 #[must_use]
 pub const fn effective_profile(
     profile: ThemeProfile,
     system_appearance: Appearance,
+    increase_contrast: bool,
 ) -> ThemeProfile {
     match profile {
-        ThemeProfile::System => match system_appearance {
-            Appearance::Light => ThemeProfile::Light,
-            Appearance::Dark => ThemeProfile::Dark,
+        ThemeProfile::System => match (system_appearance, increase_contrast) {
+            (Appearance::Light, false) => ThemeProfile::Light,
+            (Appearance::Dark, false) => ThemeProfile::Dark,
+            (Appearance::Light, true) => ThemeProfile::HighContrastLight,
+            (Appearance::Dark, true) => ThemeProfile::HighContrastDark,
         },
         ThemeProfile::Dark
         | ThemeProfile::Light
@@ -52,7 +71,7 @@ pub const fn appearance_for_profile(
     profile: ThemeProfile,
     system_appearance: Appearance,
 ) -> Appearance {
-    appearance_for_concrete_profile(effective_profile(profile, system_appearance))
+    appearance_for_concrete_profile(effective_profile(profile, system_appearance, false))
 }
 
 /// Resolve a concrete profile to its base light/dark appearance.
@@ -291,11 +310,11 @@ mod tests {
     #[test]
     fn system_profile_follows_supplied_appearance() {
         assert_eq!(
-            effective_profile(ThemeProfile::System, Appearance::Light),
+            effective_profile(ThemeProfile::System, Appearance::Light, false),
             ThemeProfile::Light
         );
         assert_eq!(
-            effective_profile(ThemeProfile::System, Appearance::Dark),
+            effective_profile(ThemeProfile::System, Appearance::Dark, false),
             ThemeProfile::Dark
         );
         assert_eq!(
@@ -307,7 +326,7 @@ mod tests {
     #[test]
     fn explicit_profiles_ignore_system_appearance() {
         assert_eq!(
-            effective_profile(ThemeProfile::HighContrastDark, Appearance::Light),
+            effective_profile(ThemeProfile::HighContrastDark, Appearance::Light, false),
             ThemeProfile::HighContrastDark
         );
         assert_eq!(
@@ -319,20 +338,98 @@ mod tests {
     #[test]
     fn system_color_resolution_uses_supplied_appearance() {
         assert_eq!(
-            resolve_profile_color_for_appearance(
+            resolve_accessible_color(
                 ThemeProfile::System,
                 Appearance::Light,
                 SemanticColor::SystemBackground,
+                false,
+                false,
             ),
             SemanticColor::SystemBackground.resolve(Appearance::Light)
         );
         assert_eq!(
-            resolve_profile_color_for_appearance(
+            resolve_accessible_color(
                 ThemeProfile::System,
                 Appearance::Dark,
                 SemanticColor::SystemBackground,
+                false,
+                false,
             ),
             SemanticColor::SystemBackground.resolve(Appearance::Dark)
         );
+    }
+
+    #[test]
+    fn increase_contrast_selects_the_high_contrast_profile_of_each_appearance() {
+        assert_eq!(
+            effective_profile(ThemeProfile::System, Appearance::Dark, true),
+            ThemeProfile::HighContrastDark
+        );
+        assert_eq!(
+            effective_profile(ThemeProfile::System, Appearance::Light, true),
+            ThemeProfile::HighContrastLight
+        );
+    }
+
+    #[test]
+    fn increase_contrast_keeps_an_explicit_profile() {
+        for appearance in [Appearance::Dark, Appearance::Light] {
+            for profile in [ThemeProfile::Dark, ThemeProfile::Light] {
+                assert_eq!(effective_profile(profile, appearance, true), profile);
+            }
+        }
+    }
+
+    #[test]
+    fn increase_contrast_gives_opaque_separator_and_primary_secondary_text() {
+        for profile in [ThemeProfile::Dark, ThemeProfile::Light] {
+            let separator = resolve_accessible_color(
+                profile,
+                Appearance::Dark,
+                SemanticColor::Separator,
+                true,
+                false,
+            );
+            assert!((separator.a - 1.0).abs() < f32::EPSILON, "{profile:?}");
+            assert_eq!(
+                resolve_accessible_color(
+                    profile,
+                    Appearance::Dark,
+                    SemanticColor::SecondaryLabel,
+                    true,
+                    false,
+                ),
+                resolve_accessible_color(
+                    profile,
+                    Appearance::Dark,
+                    SemanticColor::Label,
+                    true,
+                    false,
+                ),
+                "{profile:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn reduce_transparency_gives_an_opaque_fill_for_each_translucent_token() {
+        let translucent = [
+            SemanticColor::Separator,
+            SemanticColor::AccentTint,
+            SemanticColor::SidebarGlowTop,
+            SemanticColor::AccentOutline,
+            SemanticColor::DangerTint,
+            SemanticColor::ButtonFill,
+            SemanticColor::ButtonFillHover,
+        ];
+        for profile in [ThemeProfile::Dark, ThemeProfile::Light] {
+            for token in translucent {
+                let plain =
+                    resolve_accessible_color(profile, Appearance::Dark, token, false, false);
+                assert!(plain.a < 1.0, "{token:?} is translucent in {profile:?}");
+                let flat = resolve_accessible_color(profile, Appearance::Dark, token, false, true);
+                assert!((flat.a - 1.0).abs() < f32::EPSILON, "{token:?} {profile:?}");
+            }
+        }
     }
 }

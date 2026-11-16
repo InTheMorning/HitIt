@@ -11,6 +11,7 @@ pub mod primitives;
 pub mod shells;
 pub mod sizable_bridge;
 pub mod style;
+pub mod system_settings;
 pub mod theme_bridge;
 pub mod theme_profiles;
 pub mod tokens;
