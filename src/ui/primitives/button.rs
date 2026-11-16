@@ -615,8 +615,7 @@ impl Button {
                 )
             }
             ButtonVariant::Plain => {
-                let mut hover =
-                    resolve_color(cx, SemanticColor::SecondarySystemBackground, appearance);
+                let mut hover = resolve_color(cx, SemanticColor::GroupBackground, appearance);
                 hover.a = 0.6;
                 let foreground = if self.is_menu_item() {
                     SemanticColor::Label

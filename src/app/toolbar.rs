@@ -63,7 +63,7 @@ pub(super) fn render_toolbar(
 ) -> gpui::AnyElement {
     let display = AppToolbarVm::new().display();
     let navigation = app.toolbar_navigation(mount, cx);
-    let bg_surface = color(cx, SemanticColor::SecondarySystemBackground);
+    let bg_group = color(cx, SemanticColor::GroupBackground);
     let border_subtle = color(cx, SemanticColor::Separator);
     let spacing_xs = Spacing::XS.scaled(cx);
     let spacing_md = Spacing::MD.scaled(cx);
@@ -74,7 +74,7 @@ pub(super) fn render_toolbar(
         .id(display.id)
         .h(tab_bar_height)
         .flex_shrink_0()
-        .bg(bg_surface)
+        .bg(bg_group)
         .border_b_1()
         .border_color(border_subtle)
         .px(spacing_md)

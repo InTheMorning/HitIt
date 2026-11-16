@@ -239,7 +239,7 @@ impl RenderOnce for SelectionActionBar {
             .py(Spacing::SM.scaled(cx))
             .border_t_1()
             .border_color(color(cx, SemanticColor::Separator))
-            .bg(color(cx, SemanticColor::SecondarySystemBackground))
+            .bg(color(cx, SemanticColor::GroupBackground))
             .children(children)
     }
 }
@@ -415,7 +415,7 @@ pub(crate) fn render_list_bar(
         bar = bar.child(right);
     }
     if selecting {
-        bar = bar.bg(color(cx, SemanticColor::SecondarySystemBackground));
+        bar = bar.bg(color(cx, SemanticColor::GroupBackground));
     }
     bar.into_any_element()
 }

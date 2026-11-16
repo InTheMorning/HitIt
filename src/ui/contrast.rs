@@ -105,7 +105,7 @@ pub struct ContrastPair {
 pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     // musicindex ADR 0063 R-CHECK-1 item 3: the border of a clear check
     // box on each surface where a clear box can be. A row or a tile is on
-    // the canvas, and its hover fill is the raised surface. A selected row
+    // the canvas, and its hover fill is the group level. A selected row
     // or tile has a checked box, which has the accent border.
     ContrastPair {
         fg: SemanticColor::CheckboxBorder,
@@ -115,7 +115,7 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::CheckboxBorder,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
         note: "clear check box border on a hovered row",
     },
@@ -126,6 +126,12 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         bg: SemanticColor::SystemBackground,
         level: ContrastLevel::LargeOrGraphic,
         note: "keyboard focus ring of a list row on canvas",
+    },
+    ContrastPair {
+        fg: SemanticColor::Focus,
+        bg: SemanticColor::SystemBackground,
+        level: ContrastLevel::LargeOrGraphic,
+        note: "focus ring on canvas",
     },
     ContrastPair {
         fg: SemanticColor::Focus,
@@ -142,15 +148,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::Label,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::NormalText,
-        note: "primary body text on raised surface (popovers, sheets)",
+        note: "primary body text on group level",
     },
     ContrastPair {
         fg: SemanticColor::Label,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::NormalText,
-        note: "primary body text on highest surface tier",
+        note: "primary body text on hover fill",
     },
     // Secondary labels — still must hit 4.5:1 for body text.
     ContrastPair {
@@ -161,9 +167,9 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::SecondaryLabel,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::NormalText,
-        note: "secondary body text on raised surface",
+        note: "secondary body text on group level",
     },
     // A list row uses the tertiary label for its text, so it needs 4.5:1. The
     // quaternary label is for a UI hint only.
@@ -175,9 +181,9 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::TertiaryLabel,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::NormalText,
-        note: "tertiary text on raised surface",
+        note: "tertiary text on group level",
     },
     // Accent text on canvas (links, active labels).
     ContrastPair {
@@ -188,9 +194,9 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::Accent,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "accent link / button text on raised surface",
+        note: "accent link / button text on group level",
     },
     // Filled-button text on accent fill. Button labels per Apple HIG are
     // always at large-text scale (>=17pt regular or >=14pt bold), which
@@ -255,27 +261,27 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     // Same on raised surface (popovers, sheets).
     ContrastPair {
         fg: SemanticColor::SuccessLabel,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::NormalText,
-        note: "inline success text on raised surface",
+        note: "inline success text on group level",
     },
     ContrastPair {
         fg: SemanticColor::WarningLabel,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::NormalText,
-        note: "inline warning text on raised surface",
+        note: "inline warning text on group level",
     },
     ContrastPair {
         fg: SemanticColor::DangerLabel,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::NormalText,
-        note: "inline danger text on raised surface",
+        note: "inline danger text on group level",
     },
     ContrastPair {
         fg: SemanticColor::InfoLabel,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::NormalText,
-        note: "inline info text on raised surface",
+        note: "inline info text on group level",
     },
     // Diff colors on canvas — used as glyphs & short tags, treat as graphic.
     ContrastPair {
@@ -302,12 +308,6 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         bg: SemanticColor::SystemBackground,
         level: ContrastLevel::LargeOrGraphic,
         note: "opaque separator hairline",
-    },
-    ContrastPair {
-        fg: SemanticColor::Focus,
-        bg: SemanticColor::SystemBackground,
-        level: ContrastLevel::LargeOrGraphic,
-        note: "focus ring on canvas",
     },
     // ADR 0101 Decision 1: label text on the new sidebar surface.
     ContrastPair {
@@ -338,15 +338,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityFeed,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "feed entity dot on surface",
+        note: "feed entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityFeed,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "feed entity dot on raised surface",
+        note: "feed entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityFeed,
@@ -362,15 +362,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityTrack,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "track entity dot on surface",
+        note: "track entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityTrack,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "track entity dot on raised surface",
+        note: "track entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityTrack,
@@ -386,15 +386,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityPlaylist,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "playlist entity dot on surface",
+        note: "playlist entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityPlaylist,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "playlist entity dot on raised surface",
+        note: "playlist entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityPlaylist,
@@ -410,15 +410,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityArtist,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "artist entity dot on surface",
+        note: "artist entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityArtist,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "artist entity dot on raised surface",
+        note: "artist entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityArtist,
@@ -434,15 +434,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityLive,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "live entity dot on surface",
+        note: "live entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityLive,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "live entity dot on raised surface",
+        note: "live entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityLive,
@@ -458,15 +458,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityHost,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "host entity dot on surface",
+        note: "host entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityHost,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "host entity dot on raised surface",
+        note: "host entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityHost,
@@ -482,15 +482,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityAuthor,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "author entity dot on surface",
+        note: "author entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityAuthor,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "author entity dot on raised surface",
+        note: "author entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityAuthor,
@@ -506,15 +506,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityLabel,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "label entity dot on surface",
+        note: "label entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityLabel,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "label entity dot on raised surface",
+        note: "label entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityLabel,
@@ -530,15 +530,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityPublisher,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "publisher entity dot on surface", // ADR 0033 R-WORD-4: not interface text
+        note: "publisher entity dot on group level", // ADR 0033 R-WORD-4: not interface text
     },
     ContrastPair {
         fg: SemanticColor::EntityPublisher,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "publisher entity dot on raised surface", // ADR 0033 R-WORD-4: not interface text
+        note: "publisher entity dot on hover fill", // ADR 0033 R-WORD-4: not interface text
     },
     ContrastPair {
         fg: SemanticColor::EntityPublisher,
@@ -554,15 +554,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityProducer,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "producer entity dot on surface",
+        note: "producer entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityProducer,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "producer entity dot on raised surface",
+        note: "producer entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityProducer,
@@ -578,15 +578,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityNetwork,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "network entity dot on surface",
+        note: "network entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityNetwork,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "network entity dot on raised surface",
+        note: "network entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityNetwork,
@@ -602,15 +602,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntityHosting,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "hosting entity dot on surface",
+        note: "hosting entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntityHosting,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "hosting entity dot on raised surface",
+        note: "hosting entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntityHosting,
@@ -626,15 +626,15 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
     },
     ContrastPair {
         fg: SemanticColor::EntitySponsor,
-        bg: SemanticColor::SecondarySystemBackground,
+        bg: SemanticColor::GroupBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "sponsor entity dot on surface",
+        note: "sponsor entity dot on group level",
     },
     ContrastPair {
         fg: SemanticColor::EntitySponsor,
-        bg: SemanticColor::TertiarySystemBackground,
+        bg: SemanticColor::HoverBackground,
         level: ContrastLevel::LargeOrGraphic,
-        note: "sponsor entity dot on raised surface",
+        note: "sponsor entity dot on hover fill",
     },
     ContrastPair {
         fg: SemanticColor::EntitySponsor,
@@ -643,42 +643,6 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         note: "sponsor entity dot on sidebar surface",
     },
     // musicindex ADR 0045 R-ELEVATION-2: text on the group and open entry levels.
-    ContrastPair {
-        fg: SemanticColor::Label,
-        bg: SemanticColor::GroupBackground,
-        level: ContrastLevel::NormalText,
-        note: "primary text on group level",
-    },
-    ContrastPair {
-        fg: SemanticColor::SecondaryLabel,
-        bg: SemanticColor::GroupBackground,
-        level: ContrastLevel::NormalText,
-        note: "secondary text on group level",
-    },
-    ContrastPair {
-        fg: SemanticColor::SuccessLabel,
-        bg: SemanticColor::GroupBackground,
-        level: ContrastLevel::NormalText,
-        note: "success text on group level",
-    },
-    ContrastPair {
-        fg: SemanticColor::WarningLabel,
-        bg: SemanticColor::GroupBackground,
-        level: ContrastLevel::NormalText,
-        note: "warning text on group level",
-    },
-    ContrastPair {
-        fg: SemanticColor::DangerLabel,
-        bg: SemanticColor::GroupBackground,
-        level: ContrastLevel::NormalText,
-        note: "danger text on group level",
-    },
-    ContrastPair {
-        fg: SemanticColor::InfoLabel,
-        bg: SemanticColor::GroupBackground,
-        level: ContrastLevel::NormalText,
-        note: "info text on group level",
-    },
     ContrastPair {
         fg: SemanticColor::Label,
         bg: SemanticColor::OpenEntryBackground,
@@ -714,6 +678,68 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         bg: SemanticColor::OpenEntryBackground,
         level: ContrastLevel::NormalText,
         note: "info text on open entry level",
+    },
+    // ADR 0101 Decision 1 and task 012: text on the floating fill, the hover fill and
+    // the open entry level.
+    ContrastPair {
+        fg: SemanticColor::Label,
+        bg: SemanticColor::FloatingBackground,
+        level: ContrastLevel::NormalText,
+        note: "primary text on floating fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::SecondaryLabel,
+        bg: SemanticColor::FloatingBackground,
+        level: ContrastLevel::NormalText,
+        note: "secondary text on floating fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::TertiaryLabel,
+        bg: SemanticColor::FloatingBackground,
+        level: ContrastLevel::NormalText,
+        note: "tertiary text on floating fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::Accent,
+        bg: SemanticColor::FloatingBackground,
+        level: ContrastLevel::LargeOrGraphic,
+        note: "accent text on floating fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::SecondaryLabel,
+        bg: SemanticColor::HoverBackground,
+        level: ContrastLevel::NormalText,
+        note: "secondary text on hover fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::TertiaryLabel,
+        bg: SemanticColor::HoverBackground,
+        level: ContrastLevel::NormalText,
+        note: "tertiary text on hover fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::Accent,
+        bg: SemanticColor::HoverBackground,
+        level: ContrastLevel::LargeOrGraphic,
+        note: "accent text on hover fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::WarningLabel,
+        bg: SemanticColor::FloatingBackground,
+        level: ContrastLevel::NormalText,
+        note: "warning text on floating fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::DangerLabel,
+        bg: SemanticColor::FloatingBackground,
+        level: ContrastLevel::NormalText,
+        note: "danger text on floating fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::TertiaryLabel,
+        bg: SemanticColor::OpenEntryBackground,
+        level: ContrastLevel::NormalText,
+        note: "tertiary text on open entry level",
     },
 ];
 
@@ -829,8 +855,10 @@ mod tests {
         ];
         let surfaces = [
             SemanticColor::SystemBackground,
-            SemanticColor::SecondarySystemBackground,
-            SemanticColor::TertiarySystemBackground,
+            SemanticColor::GroupBackground,
+            SemanticColor::OpenEntryBackground,
+            SemanticColor::FloatingBackground,
+            SemanticColor::HoverBackground,
         ];
         let mut failures = Vec::new();
         let required = ContrastLevel::LargeOrGraphic.min_ratio();

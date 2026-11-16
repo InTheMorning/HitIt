@@ -263,7 +263,7 @@ impl RenderOnce for ShowDetailPanel {
             .min_h_0()
             .border_l_1()
             .border_color(color(cx, SemanticColor::Separator))
-            .bg(color(cx, SemanticColor::SecondarySystemBackground))
+            .bg(color(cx, SemanticColor::GroupBackground))
             .child(render_panel_header(panel_mode, panel_chrome, &slots, cx))
             .child(render_panel_body(panel_mode, queue, sections, &slots, cx))
             .into_any_element()
@@ -286,7 +286,7 @@ fn render_closed_panel(
         .items_center()
         .border_l_1()
         .border_color(color(cx, SemanticColor::Separator))
-        .bg(color(cx, SemanticColor::SecondarySystemBackground))
+        .bg(color(cx, SemanticColor::GroupBackground))
         .pt(Spacing::XS.scaled(cx))
         .child(panel_icon_button(
             open_panel,

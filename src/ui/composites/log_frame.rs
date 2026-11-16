@@ -196,7 +196,7 @@ impl Render for LogFrameState {
             .border(layouts::LOG_FRAME_BORDER)
             .border_color(color(cx, SemanticColor::Separator))
             .rounded(Radius::SM.scaled(cx))
-            .bg(color(cx, SemanticColor::SecondarySystemBackground))
+            .bg(color(cx, SemanticColor::GroupBackground))
             .text_color(color(cx, SemanticColor::Label))
             .child(
                 div()

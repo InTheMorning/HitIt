@@ -807,3 +807,18 @@ Task: [ADR 0101 task 010](tasks/adr-0101-task-010-selected-look.md).
 - Incorrect: two selected items have a different look, a label is blue, or the look hides a part of the ring.
 
 Agent walk, 2026-11-16: V1 and V2 pass in Light and Dark. V3 passes for the sidebar in Dark. The high-contrast profiles and V3 on a list row are open.
+
+## 33. ADR 0101 Task 012 The Levels On The Surfaces - 2026-11-16
+
+Task: [ADR 0101 task 012](tasks/adr-0101-task-012-light-levels-on-surfaces.md).
+
+- V1: in Light, the page is white. The toolbar, the cards of Show and the Cuelist panel are light gray. Tell if the gray toolbar is correct.
+- V2: in Light, open My playlists with one playlist or more. An open playlist entry is white in its gray group.
+- V3: open the sort menu of Releases and click in the search field. Each layer has one soft shadow, in Light and in Dark.
+- V4: move the pointer over a row of Releases. The hover fill shows in Light and in Dark.
+- V5: the Dark theme looks as before.
+- V6: make the window 300 px high and click in the search field. The field list stops at the window bottom and scrolls.
+- Incorrect: a group is white in Light, or a layer has no shadow or two shadows.
+- Incorrect: a hover does not show on a list row, or the field list goes below the window.
+
+Agent walk, 2026-11-16: V1, V3, V4, V5 and V6 pass. V2 is open, because the test data has no playlist.

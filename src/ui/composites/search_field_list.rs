@@ -7,6 +7,12 @@
 //! and label comes from the view model. No text calls `truncate()` (ADR
 //! 0063). Long text wraps.
 //!
+//! The row list is at most 320 px high (`Size::ColumnRegular`). When the
+//! window is lower, the list stops at the bottom of the window and scrolls
+//! inside (ADR 0087 packet 010, operator choice of 2026-11-15). The list reads
+//! the position of the field from the previous frame, and asks for one new
+//! frame when that position changes.
+//!
 //! Each row carries `flex_shrink_0()`, so it keeps the height of its two
 //! lines. The row list has a maximum height and scrolls, with a scroll bar
 //! (ADR 0087 Decision 3, ADR 0076 Decision 8). A row that shrank would paint
@@ -25,7 +31,7 @@ use gpui_component::scroll::ScrollableElement;
 
 use crate::ui::primitives::selected_look::selected_look;
 use crate::ui::primitives::status_badge::render_row_badge;
-use crate::ui::primitives::surface::{Surface, SurfaceElevation};
+use crate::ui::primitives::surface::{Surface, SurfaceElevation, SURFACE_BORDER_WIDTH};
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size, Spacing, Weight};
 use crate::view_models::search_field_list::{
     FieldExampleKind, FieldListNoticeKind, FieldListNoticeVm, FieldListRowVm, FieldListVm,
@@ -47,16 +53,35 @@ pub(crate) struct SearchFieldList {
     on_row: Option<RowHandler>,
     on_example: Option<ExampleHandler>,
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    field_bottom: Rc<Cell<Option<Pixels>>>,
+}
+
+/// The height of the row list: the lower value of `cap` and the space below
+/// the field. `reserved` is the height of the space that the list uses
+/// besides its rows: the gap, the margin, the padding and the borders. The
+/// height is never negative. Without a position of the field, the height is
+/// `cap`.
+pub(crate) fn row_list_max_height(
+    cap: Pixels,
+    window_height: Pixels,
+    field_bottom: Option<Pixels>,
+    reserved: Pixels,
+) -> Pixels {
+    field_bottom.map_or(cap, |bottom| {
+        cap.min((window_height - bottom - reserved).max(Pixels::ZERO))
+    })
 }
 
 impl SearchFieldList {
     /// Makes the list for the view model. `scroll` scrolls the rows. The
     /// list writes its drawn area to `bounds`, so the view can tell a click
-    /// in the list from a click outside it.
+    /// in the list from a click outside it. The list writes the bottom edge
+    /// of the field to `field_bottom`, so the next frame can limit the height.
     pub(crate) fn new(
         vm: FieldListVm,
         scroll: ScrollHandle,
         bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+        field_bottom: Rc<Cell<Option<Pixels>>>,
     ) -> Self {
         Self {
             vm,
@@ -64,6 +89,7 @@ impl SearchFieldList {
             on_row: None,
             on_example: None,
             bounds,
+            field_bottom,
         }
     }
 
@@ -88,14 +114,23 @@ impl SearchFieldList {
 }
 
 impl RenderOnce for SearchFieldList {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let Self {
             vm,
             scroll,
             on_row,
             on_example,
             bounds,
+            field_bottom,
         } = self;
+        let reserved =
+            Spacing::XS.scaled(cx) * 3.0 + Spacing::SM.scaled(cx) + SURFACE_BORDER_WIDTH * 2.0;
+        let max_height = row_list_max_height(
+            Size::ColumnRegular.scaled(cx),
+            window.viewport_size().height,
+            field_bottom.get(),
+            reserved,
+        );
         let notices: Vec<AnyElement> = vm
             .notices
             .into_iter()
@@ -112,7 +147,7 @@ impl RenderOnce for SearchFieldList {
             .debug_selector(|| FieldListVm::LIST_ID.to_owned())
             .flex()
             .flex_col()
-            .max_h(Size::ColumnRegular.scaled(cx))
+            .max_h(max_height)
             .overflow_y_scroll()
             .track_scroll(&scroll)
             .children(rows);
@@ -138,7 +173,7 @@ impl RenderOnce for SearchFieldList {
                     .size_full(),
             )
             .child(
-                Surface::new(SurfaceElevation::Raised)
+                Surface::new(SurfaceElevation::Floating)
                     .padding(Spacing::XS)
                     .child(
                         div()
@@ -154,6 +189,21 @@ impl RenderOnce for SearchFieldList {
             .left_0()
             .bottom_0()
             .size_0()
+            .child(
+                canvas(
+                    move |area, window, _| {
+                        let bottom = Some(area.origin.y);
+                        if field_bottom.replace(bottom) != bottom {
+                            window.refresh();
+                        }
+                    },
+                    |_, (), _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             .child(deferred(
                 anchored()
                     .snap_to_window_with_margin(Spacing::SM.scaled(cx))
@@ -197,7 +247,7 @@ fn render_row(
     let border_color = if row.selected {
         SemanticColor::Focus
     } else {
-        SemanticColor::SecondarySystemBackground
+        SemanticColor::FloatingBackground
     };
     let title_line = div()
         .flex()
@@ -326,15 +376,30 @@ mod tests {
     /// Shows one field list, so that a test can draw it again.
     struct FieldListTest {
         vm: FieldListVm,
+        field_bottom: Rc<Cell<Option<Pixels>>>,
+    }
+
+    impl FieldListTest {
+        fn new(vm: FieldListVm) -> Self {
+            Self {
+                vm,
+                field_bottom: Rc::default(),
+            }
+        }
     }
 
     impl Render for FieldListTest {
         fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-            div().size_full().child(SearchFieldList::new(
-                self.vm.clone(),
-                ScrollHandle::new(),
-                Rc::default(),
-            ))
+            // The wrapper stands for the search field: 40 px high, so the list
+            // starts 40 px below the top of the window.
+            div()
+                .size_full()
+                .child(div().relative().h(px(40.0)).child(SearchFieldList::new(
+                    self.vm.clone(),
+                    ScrollHandle::new(),
+                    Rc::default(),
+                    self.field_bottom.clone(),
+                )))
         }
     }
 
@@ -407,7 +472,7 @@ mod tests {
             selected: None,
             a11y_label: String::new(),
         };
-        let (view, cx) = cx.add_window_view(|_, _| FieldListTest { vm: one_row });
+        let (view, cx) = cx.add_window_view(|_, _| FieldListTest::new(one_row));
         draw(cx);
         let one_height = row_bounds(cx, &artist.element_id).size.height;
 
@@ -447,7 +512,7 @@ mod tests {
             selected: None,
             a11y_label: String::new(),
         };
-        let (view, cx) = cx.add_window_view(|_, _| FieldListTest { vm: one_row });
+        let (view, cx) = cx.add_window_view(|_, _| FieldListTest::new(one_row));
         draw(cx);
         let one_height = row_bounds(cx, &rows[0].element_id).size.height;
 
@@ -472,5 +537,68 @@ mod tests {
             );
         }
         assert_rows_do_not_overlap(cx, &rows);
+    }
+
+    /// M5a (ADR 0101 task 012, operator choice of 2026-11-15): the row list is
+    /// the lower value of the cap and the space below the field.
+    #[test]
+    fn field_list_height_is_the_lower_of_the_cap_and_the_space_below() {
+        let cap = px(320.0);
+        let reserved = px(30.0);
+        let height = |window: f32, bottom: Option<f32>| {
+            row_list_max_height(cap, px(window), bottom.map(px), reserved)
+        };
+        assert_eq!(
+            height(900.0, Some(40.0)),
+            cap,
+            "a tall window keeps the cap"
+        );
+        assert_eq!(
+            height(500.0, Some(100.0)),
+            px(370.0).min(cap),
+            "the space below is above the cap"
+        );
+        assert_eq!(
+            height(300.0, Some(100.0)),
+            px(170.0),
+            "a low window limits the list"
+        );
+        assert_eq!(height(100.0, Some(100.0)), Pixels::ZERO, "no space gives 0");
+        assert_eq!(height(50.0, Some(100.0)), Pixels::ZERO, "never negative");
+        assert_eq!(height(300.0, None), cap, "no field position gives the cap");
+    }
+
+    /// M5a: in a low window, the drawn row list stops above the bottom of the
+    /// window. In a tall window, it has the cap.
+    #[gpui::test]
+    fn field_list_height_follows_the_window(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let (_view, cx) = cx.add_window_view(|_, _| FieldListTest::new(open_list("")));
+        cx.simulate_resize(gpui::size(px(800.0), px(900.0)));
+        draw(cx);
+        draw(cx);
+        let tall = cx
+            .debug_bounds(FieldListVm::LIST_ID)
+            .expect("the row list renders")
+            .size
+            .height;
+        let cap = cx.update(|_, cx| Size::ColumnRegular.scaled(cx));
+        assert_eq!(tall, cap, "a tall window gives the cap");
+
+        cx.simulate_resize(gpui::size(px(800.0), px(200.0)));
+        draw(cx);
+        draw(cx);
+        let bounds = cx
+            .debug_bounds(FieldListVm::LIST_ID)
+            .expect("the row list renders");
+        assert!(
+            bounds.bottom() <= px(200.0),
+            "ADR 0101 task 012: the row list ends at {:?}, below the window bottom of 200 px. Limit the row list with `row_list_max_height` in src/ui/composites/search_field_list.rs.",
+            bounds.bottom()
+        );
+        assert!(
+            bounds.size.height < cap,
+            "a low window gives less than the cap"
+        );
     }
 }

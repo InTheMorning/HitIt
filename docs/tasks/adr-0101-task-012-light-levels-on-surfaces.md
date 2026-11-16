@@ -1,6 +1,6 @@
 # ADR 0101 Task 012: The Levels On The Surfaces
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks. Task 001 adds the tokens `GroupBackground` and `OpenEntryBackground`.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -107,3 +107,118 @@ A delegate does not commit. It leaves its change in the working tree and reports
 - Stop if a surface has no clear use: a group, an open entry or a floating layer.
 - Stop if a contrast pair of step 6 is below 4.5:1.
 - Stop if a `gpui-component` field needs a level for two uses.
+
+## Implementation Report - 2026-11-16
+
+Status: The change is in the working tree. There is no commit. The visual checks V1 to V6 are open.
+
+### Files changed
+
+`src/ui/tokens.rs`, `src/ui/theme_profiles.rs`, `src/ui/style.rs`, `src/ui/theme_bridge.rs`, `src/ui/contrast.rs`, `src/ui/primitives/surface.rs`, `src/ui/primitives/popover.rs`, `src/ui/primitives/button.rs`, `src/ui/composites/search_field_list.rs`, `src/app/search_field_list.rs`, `src/app/toolbar.rs`, `src/ui/composites/` (`download_status_item`, `list_row`, `live_status_strip`, `log_frame`, `maintenance_page`, `selectable_tile`, `selection_action_bar`, `show_card`, `show_detail_panel`, `show_log_pane`, `startup_report`, `track_drag`), `src/ui/shells/playlist.rs`, `src/ui/shells/library/sidebar.rs`, `tests/architecture_tests.rs`.
+
+### Tests
+
+- M1: `ui::primitives::surface::tests::each_elevation_gives_its_level_in_each_theme`.
+- M2: `ui::tokens::tests::floating_shadow_matches_the_shared_tokens`.
+- M3: `ui::tokens::tests::each_hover_fill_differs_from_the_fill_below_it_in_each_theme`. It covers four profiles.
+- M4: `ui::contrast::tests::dark_palette_meets_wcag`, `light_palette_meets_wcag`, `high_contrast_dark_profile_meets_wcag`, `high_contrast_light_profile_meets_wcag` and `pressable_button_token_pairs_meet_wcag`.
+- M5: `adr_0101_surfaces_do_not_name_the_old_surface_tokens` and `adr_0101_level_guard_fails_for_a_shell_sample` in `tests/architecture_tests.rs`.
+- M5a: `ui::composites::search_field_list::tests::field_list_height_is_the_lower_of_the_cap_and_the_space_below` and `field_list_height_follows_the_window`.
+- M6: `app::fit_check::` passes (3 tests).
+
+### Tokens
+
+- New: `FloatingBackground` (Dark `#26262a`, Light `#ffffff`, high contrast as `OpenEntryBackground`).
+- New: `HoverBackground` (Dark `#26262a`, Light `#f2f2f7`, high contrast keeps the values of `TertiarySystemBackground`).
+- New: `FloatingShadow` in `src/ui/tokens.rs`. It has offset 16, blur 48 and alpha 0.5 Dark and 0.18 Light.
+- Deleted: `SecondarySystemBackground` and `TertiarySystemBackground`, with their palette entries.
+- Deleted: `bg_surface` and `bg_surface_hi` in `src/ui/style.rs`. New there: `bg_group`, `bg_open_entry`, `bg_floating` and `bg_hover`.
+
+### Callers (step 3)
+
+| Caller | Use | Level |
+|---|---|---|
+| `Surface` Sunken and Raised | group, card | group |
+| `Surface` Floating (context menu, popover body) | floating layer | floating fill and floating shadow |
+| Popover arrow | floating layer | floating fill |
+| Field list (`search_field_list.rs`) | dropdown over content | Floating elevation, so floating fill and shadow |
+| Field list row border | blends with the list fill | floating fill |
+| `show_card.rs` | card | group |
+| `startup_report.rs` (2 places), `maintenance_page.rs`, `show_detail_panel.rs` (2), `show_log_pane.rs`, `log_frame.rs` | report, panel | group |
+| `toolbar.rs`, `download_status_item.rs`, `live_status_strip.rs`, `selection_action_bar.rs` (2) | bar | group |
+| `playlist.rs` unavailable row | open entry | open entry |
+| `track_drag.rs` drag preview | floating layer | floating fill |
+
+### Hover fills (step 4)
+
+| Caller | Before | After | Below it |
+|---|---|---|---|
+| `list_row.rs`, `selectable_tile.rs` | Secondary | group | page |
+| `button.rs` plain button, alpha 0.6 | Secondary | group | page, floating, open entry |
+| `show_card.rs` card | Tertiary | open entry | group |
+| `playlist.rs` available row | Tertiary alias | hover | page |
+| `playlist.rs` unavailable row (new) | Tertiary alias | group | open entry |
+| `playlist.rs` drag handle | Tertiary alias | group | page, open entry |
+| `sidebar.rs` row | Tertiary alias | hover | sidebar |
+
+### Theme bridge fields (step 5)
+
+- floating: `popover`.
+- group: `muted`, `input`, `list_even`, `list_head`, `table_even`, `table_head`, `tab_bar_segmented`, `accordion`, `group_box`, `description_list_label`, `scrollbar`.
+- open entry: `tab_active`.
+- hover: `secondary_hover`, `sidebar_accent`, `list_hover`, `table_hover`, `skeleton`.
+- sidebar (`SidebarBackground`): `sidebar`.
+- Unchanged: `background`, `title_bar`, `tab`, `tab_bar`, `list` and `table` use the page level.
+
+### Contrast (step 6)
+
+Each pair of the two deleted tokens moved to a new token. Added pairs: floating fill with Label, SecondaryLabel, TertiaryLabel, Accent, WarningLabel and DangerLabel. Hover fill with SecondaryLabel, TertiaryLabel and Accent. Open entry with TertiaryLabel. All pass. TertiaryLabel on the Light hover fill is 4.54:1.
+
+### Field list height (step 7)
+
+`row_list_max_height` returns the lower value of 320 px and the space below the field. The list writes the bottom edge of the field to a cell. It asks for one new frame when that value changes. `SearchFieldList::new` has a new argument, `field_bottom`.
+
+### Choices that the task file does not give
+
+- Two new tokens, `FloatingBackground` and `HoverBackground`. The two deleted tokens had no name for these uses.
+- Light `HoverBackground` is `#f2f2f7`. The value of `TertiarySystemBackground` was `#ececef`. TertiaryLabel on `#ececef` is 4.30:1, below 4.5:1. Thus the Light hover is the same as the group fill. In Light, a hover on a row in a group does not show.
+- A bar surface (toolbar, status strip, selection bar, download item) has the group level. In Light, the toolbar changes from white to gray. The task file names no level for a bar.
+- The field list is a floating layer, not a group. It uses Floating, so it has the shadow.
+- The unavailable playlist row has the open entry fill and the group fill as its hover.
+- The two tokens are deleted. Thus the guard of step 8 only stops a new use of these names.
+- The sidebar bridge field uses `SidebarBackground`. Sidebar hover in Light (`#f2f2f7` on `#f5f5f7`) differs only slightly.
+- The field list height does not count the height of the notices. A list with a notice can extend below the window edge by the height of the notice. The anchor then moves the list up.
+- A new constant, `SURFACE_BORDER_WIDTH`, in `src/ui/primitives/surface.rs`, because the composite literal guard forbids a `px(...)` literal.
+- The test wrapper of the field list in `src/app/search_field_list.rs` and `src/ui/composites/search_field_list.rs` is 36 px and 40 px high. Before, the wrapper filled the window, and the list started at the bottom edge of the window.
+- The duplicate pair `Focus` on `SystemBackground` is unchanged.
+
+### Checks
+
+- `cargo fmt -- --check`: pass.
+- `cargo clippy --all-targets -- -D warnings`: pass.
+- `cargo test`: 3233 passed in the library, 416 passed in `architecture_tests`, 0 defective.
+- `cargo build --bin hitit`: pass.
+- Visual checks V1 to V6: open. The primary agent does the walk.
+
+## Primary Agent Check - 2026-11-16
+
+The primary agent read the diff and ran the four checks of M7. All pass: 3233 library tests and 416 architecture tests.
+
+The primary agent accepts the choices of the delegate, with these notes:
+
+- The toolbar and the other bars have the group level. In Light, the toolbar is gray (`#f2f2f7`) on the white page. Section 33 of `docs/pending-human-checks.md` asks the operator to examine it.
+- In Light, the hover fill is the group fill. A hover on a row on the page shows. A hover on a row in a group does not show, and a hover on a sidebar row is almost the same as the sidebar. A darker fill puts TertiaryLabel below 4.5:1. This stays open.
+- The primary agent corrected the comment of `bg_hover` in `src/ui/style.rs`. The comment before the correction said that the fill differs from the group.
+
+## Walk Result - 2026-11-16
+
+The agent walked on an Xvfb display with the debug binary at M. The test data has no playlist.
+
+- V1: Pass in Light. The page is `#ffffff`. The toolbar, the Show cards and the Cuelist panel are `#f2f2f7`.
+- V2: Open. The test data has no playlist.
+- V3: Pass for the sort menu in Light and Dark, and for the field list in Light. Each one has the floating fill and one soft shadow. The test did not open a sheet.
+- V4: Pass on the Releases list. A hovered row is `#f2f2f7` in Light and `#1c1c1f` in Dark.
+- V5: Pass. In Dark, the page is `#0b0b0d`, the toolbar and the cards are `#1c1c1f`, and the menu is `#26262a`. These are the values before the change.
+- V6: Pass in Light. In a window of 300 px height, the field list stops at the window bottom and scrolls to the last row. In a window of 500 px height, the 320 px limit applies.
+
+The operator confirmation stays open.

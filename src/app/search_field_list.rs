@@ -76,6 +76,8 @@ pub(crate) struct SearchFieldListView {
     /// The drawn area of the list. The list draws over the other content,
     /// outside the field wrapper, so a click test of the wrapper cannot see it.
     list_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// The bottom edge of the field, for the height of the list.
+    field_bottom: Rc<Cell<Option<Pixels>>>,
     last_text: SharedString,
     last_selection: Range<usize>,
     /// The text at the last Enter that ran the search, until the next
@@ -146,6 +148,7 @@ impl SearchFieldListView {
             gate: LiveRunGate::default(),
             scroll: ScrollHandle::new(),
             list_bounds: Rc::new(Cell::new(None)),
+            field_bottom: Rc::new(Cell::new(None)),
             last_text,
             last_selection,
             submitted_text: None,
@@ -356,21 +359,26 @@ impl Render for SearchFieldListView {
             return Empty.into_any_element();
         };
         let view = cx.entity().downgrade();
-        SearchFieldList::new(vm, self.scroll.clone(), self.list_bounds.clone())
-            .on_row({
-                let view = view.clone();
-                move |index, window, cx| {
-                    // The view is gone only when the window closes.
-                    let _ = view.update(cx, |view, cx| view.click_row(index, window, cx));
-                }
-            })
-            .on_example(move |index, example, window, cx| {
+        SearchFieldList::new(
+            vm,
+            self.scroll.clone(),
+            self.list_bounds.clone(),
+            self.field_bottom.clone(),
+        )
+        .on_row({
+            let view = view.clone();
+            move |index, window, cx| {
                 // The view is gone only when the window closes.
-                let _ = view.update(cx, |view, cx| {
-                    view.click_example(index, example, window, cx);
-                });
-            })
-            .into_any_element()
+                let _ = view.update(cx, |view, cx| view.click_row(index, window, cx));
+            }
+        })
+        .on_example(move |index, example, window, cx| {
+            // The view is gone only when the window closes.
+            let _ = view.update(cx, |view, cx| {
+                view.click_example(index, example, window, cx);
+            });
+        })
+        .into_any_element()
     }
 }
 
@@ -495,9 +503,14 @@ mod tests {
 
     impl Render for FieldRoot {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-            install_field_list_keys(div().id("field-wrapper").relative(), &self.list)
-                .child(Input::new(&self.input))
-                .child(self.list.clone())
+            // The wrapper is as high as the search field, so the list starts under
+            // the field and not at the bottom of the window.
+            install_field_list_keys(
+                div().id("field-wrapper").relative().h(gpui::px(36.0)),
+                &self.list,
+            )
+            .child(Input::new(&self.input))
+            .child(self.list.clone())
         }
     }
 

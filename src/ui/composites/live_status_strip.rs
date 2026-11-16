@@ -88,7 +88,7 @@ impl RenderOnce for LiveStatusStrip {
             .py(Spacing::XS.scaled(cx))
             .border_b_1()
             .border_color(color(cx, SemanticColor::Separator))
-            .bg(color(cx, SemanticColor::SecondarySystemBackground))
+            .bg(color(cx, SemanticColor::GroupBackground))
             .child(render_status_summary(
                 heading_label,
                 summary_label,

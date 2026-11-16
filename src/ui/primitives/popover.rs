@@ -211,8 +211,7 @@ impl RenderOnce for Popover {
         let alignment = self.alignment;
         let surface_padding = self.surface_padding;
         let content_builder = self.content;
-        let arrow_color =
-            resolve_color(cx, SemanticColor::TertiarySystemBackground, self.appearance);
+        let arrow_color = resolve_color(cx, SemanticColor::FloatingBackground, self.appearance);
 
         let mut popover = ComponentPopover::new(self.id)
             .anchor(placement.corner(alignment))

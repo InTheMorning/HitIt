@@ -86,7 +86,7 @@ pub(crate) fn render_sidebar_row(
         // scrolls only to a row that gives its bounds. Without the probe, the
         // feed area hid the focused Inbox row.
         .when(focused, |el| el.child(focused_control_probe()))
-        .when(!selected, |el| el.hover(|el| el.bg(color::bg_surface_hi())))
+        .when(!selected, |el| el.hover(|el| el.bg(color::bg_hover())))
         .on_click(cx.listener(move |_this, _: &ClickEvent, _window, cx| {
             cx.emit(LibraryAppEvent::SidebarRowSelected(destination));
         }));

@@ -768,13 +768,14 @@ fn render_playlist_track_row(
         .py(row_pad_y)
         .rounded(row_radius)
         .when(!display.is_available, |el| {
-            el.bg(color::bg_surface_hi())
+            el.bg(color::bg_open_entry())
                 .border_1()
                 .border_color(color::border_strong())
         })
         .map(|el| {
             apply_playlist_row_selection(
                 el,
+                display.is_available,
                 selection.is_marked(),
                 selection.focused,
                 row_radius,
@@ -892,6 +893,7 @@ fn render_playlist_leading_slot(
 /// `selected_look` (musicindex ADR 0051 R-SELECT-1).
 fn apply_playlist_row_selection<E: StatefulInteractiveElement + Styled + ParentElement>(
     el: E,
+    available: bool,
     selected: bool,
     focused: bool,
     radius: gpui::Pixels,
@@ -901,7 +903,14 @@ fn apply_playlist_row_selection<E: StatefulInteractiveElement + Styled + ParentE
     let el = if selected {
         selected_look(el, radius, None, cx)
     } else {
-        el.hover(|el| el.bg(color::bg_surface_hi()))
+        // An unavailable row has the open entry fill. Its hover fill is the
+        // group level, which differs from that fill in each theme.
+        let hover = if available {
+            color::bg_hover()
+        } else {
+            color::bg_group()
+        };
+        el.hover(|el| el.bg(hover))
     };
     match row_outline(selected, focused, false) {
         RowOutline::None | RowOutline::Marked | RowOutline::Selected => el,
@@ -972,7 +981,7 @@ fn render_playlist_drag_handle(
         .rounded(Radius::SM.scaled(cx))
         .text_color(color::text_muted())
         .cursor_move()
-        .hover(|el| el.bg(color::bg_surface_hi()))
+        .hover(|el| el.bg(color::bg_group()))
         .tooltip({
             let label = SharedString::from(controls.drag_handle_a11y_label);
             move |window, cx| crate::ui::primitives::Tooltip::new(label.clone()).build(window, cx)

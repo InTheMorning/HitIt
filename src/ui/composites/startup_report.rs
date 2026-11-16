@@ -44,7 +44,7 @@ pub(crate) fn capability_report(
         .flex_shrink_0()
         .p(Spacing::MD.scaled(cx))
         .gap(Spacing::SM.scaled(cx))
-        .bg(color(cx, SemanticColor::SecondarySystemBackground))
+        .bg(color(cx, SemanticColor::GroupBackground))
         .text_color(color(cx, SemanticColor::Label))
         .text_size(FontSize::Body.scaled(cx));
     for display in rows {
@@ -143,7 +143,7 @@ fn capability_notice(
         .flex()
         .flex_col()
         .flex_shrink_0()
-        .bg(color(cx, SemanticColor::SecondarySystemBackground))
+        .bg(color(cx, SemanticColor::GroupBackground))
         .child(
             div()
                 .min_w_0()

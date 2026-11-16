@@ -78,11 +78,22 @@ pub mod color {
     pub fn bg_canvas() -> Rgba {
         role(SemanticColor::SystemBackground)
     }
-    pub fn bg_surface() -> Rgba {
-        role(SemanticColor::SecondarySystemBackground)
+    /// ADR 0101 Decision 1: the fill of a group or a card.
+    pub fn bg_group() -> Rgba {
+        role(SemanticColor::GroupBackground)
     }
-    pub fn bg_surface_hi() -> Rgba {
-        role(SemanticColor::TertiarySystemBackground)
+    /// ADR 0101 Decision 1: the fill of an open entry in a group.
+    pub fn bg_open_entry() -> Rgba {
+        role(SemanticColor::OpenEntryBackground)
+    }
+    /// ADR 0101 Decision 1: the fill of a layer above the content.
+    pub fn bg_floating() -> Rgba {
+        role(SemanticColor::FloatingBackground)
+    }
+    /// The fill of a hovered sidebar or playlist row. It differs from the
+    /// page in each theme. In Light it is the group fill.
+    pub fn bg_hover() -> Rgba {
+        role(SemanticColor::HoverBackground)
     }
     /// ADR 0101 Decision 1: the sidebar surface, distinct from the canvas
     /// and the content surfaces.

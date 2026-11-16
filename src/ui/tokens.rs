@@ -82,14 +82,19 @@ impl From<WindowAppearance> for Appearance {
 pub enum SemanticColor {
     // Backgrounds — used for the window canvas and broad surfaces.
     SystemBackground,
-    SecondarySystemBackground,
-    TertiarySystemBackground,
     /// The fill of a group or a card (musicindex ADR 0045 R-ELEVATION-2,
     /// `level` in the shared copy at `src/assets/tokens.json`).
     GroupBackground,
     /// The fill of an open entry (musicindex ADR 0045 R-ELEVATION-2,
     /// `level` in the shared copy at `src/assets/tokens.json`).
     OpenEntryBackground,
+    /// ADR 0101 Decision 1: the fill of a popover, a menu and a sheet. It is
+    /// `color.light.surface` in Light and the dark raised surface in Dark
+    /// (musicindex ADR 0045 R-ELEVATION-2).
+    FloatingBackground,
+    /// The fill of a hovered row, tile or plain button. It differs from the
+    /// page level and from the group level in each theme. It is not a level.
+    HoverBackground,
     /// ADR 0101 Decision 1: the fourth background tier of `search.html`.
     /// Used by the sidebar surface of the app, never by a content canvas.
     SidebarBackground,
@@ -216,8 +221,8 @@ impl SemanticColor {
 
     fn dark_palette(token: Self) -> Rgba {
         // ADR 0101 Decision 1: the dark palette follows `search.html`.
-        // `SystemBackground`, `SidebarBackground`, `SecondarySystemBackground`
-        // (surface), `TertiarySystemBackground` (raised surface), `Label`
+        // `SystemBackground`, `SidebarBackground`, `GroupBackground`
+        // (surface), `OpenEntryBackground` (raised surface), `Label`
         // (text), `SecondaryLabel` (muted text), `Separator`, and `Accent`
         // are the website's own values. `TertiaryLabel`, `QuaternaryLabel`,
         // the three fills, `AccentHover`, `AccentPressed`, `Focus`, and
@@ -228,18 +233,18 @@ impl SemanticColor {
         // and `Id3FrameV23Only` move off gold too.
         //
         // Several semantic tokens intentionally resolve to the same hex.
-        // For example, `SecondaryFill` and `TertiarySystemBackground` share
+        // For example, `SecondaryFill` and `OpenEntryBackground` share
         // the raised-surface value. Keep the match exhaustive so the
         // symmetry with `light_palette` stays obvious.
         #[expect(clippy::match_same_arms, reason = "different semantics, shared value")]
         match token {
             Self::SystemBackground => hex(0x0b_0b0d),
             Self::SidebarBackground => hex(0x14_1417),
-            Self::SecondarySystemBackground => hex(0x1c_1c1f),
-            Self::TertiarySystemBackground => hex(0x26_262a),
             // musicindex ADR 0045 R-ELEVATION-2: the group and open entry levels.
             Self::GroupBackground => hex(0x1c_1c1f),
             Self::OpenEntryBackground => hex(0x26_262a),
+            Self::FloatingBackground => hex(0x26_262a),
+            Self::HoverBackground => hex(0x26_262a),
 
             Self::Label => hex(0xf5_f5f7),
             Self::SecondaryLabel => hex(0xa1_a1a6),
@@ -349,11 +354,11 @@ impl SemanticColor {
         match token {
             Self::SystemBackground => hex(0xff_ffff),
             Self::SidebarBackground => hex(0xf5_f5f7),
-            Self::SecondarySystemBackground => hex(0xff_ffff),
-            Self::TertiarySystemBackground => hex(0xec_ecef),
             // musicindex ADR 0045 R-ELEVATION-2: the group and open entry levels.
             Self::GroupBackground => hex(0xf2_f2f7),
             Self::OpenEntryBackground => hex(0xff_ffff),
+            Self::FloatingBackground => hex(0xff_ffff),
+            Self::HoverBackground => hex(0xf2_f2f7),
 
             Self::Label => hex(0x1d_1d1f),
             Self::SecondaryLabel => hex(0x5c_5c62),
@@ -968,6 +973,61 @@ impl ArtworkShadow {
                 * density,
             alpha: self.alpha(),
         }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// FloatingShadow. musicindex ADR 0068 R-ELEVATION-1 item 2: a popover, a menu
+// and a sheet have one shadow.
+// -----------------------------------------------------------------------------
+
+/// The shadow of a floating layer: a popover, a menu and a sheet.
+///
+/// The values equal `shadow.floating` in the shared copy at
+/// `src/assets/tokens.json`, and a test checks them. `Surface` draws it for
+/// the floating elevation.
+pub struct FloatingShadow;
+
+impl FloatingShadow {
+    /// Vertical offset at the `Medium` scale step, in pixels.
+    pub const OFFSET_Y: f32 = 16.0;
+    /// Blur radius at the `Medium` scale step, in pixels.
+    pub const BLUR: f32 = 48.0;
+    /// Shadow opacity in Dark.
+    pub const DARK_ALPHA: f32 = 0.5;
+    /// Shadow opacity in Light.
+    pub const LIGHT_ALPHA: f32 = 0.18;
+
+    /// The shadow opacity of an appearance, black at this alpha value.
+    #[must_use]
+    pub const fn alpha(appearance: Appearance) -> f32 {
+        match appearance {
+            Appearance::Dark => Self::DARK_ALPHA,
+            Appearance::Light => Self::LIGHT_ALPHA,
+        }
+    }
+
+    /// Returns the box shadow at the current UI scale.
+    ///
+    /// ADR 0039: shadow geometry is CHROME, so it resolves through
+    /// [`scale_chrome_px`]. `appearance` is the override of the caller. With
+    /// `None`, the shadow follows the current appearance.
+    #[must_use]
+    pub fn shadow(cx: &App, appearance: Option<Appearance>) -> Vec<BoxShadow> {
+        let env = Environment::current(cx);
+        let appearance = appearance.unwrap_or(env.appearance);
+        vec![BoxShadow {
+            color: Hsla::from(Rgba {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: Self::alpha(appearance),
+            }),
+            offset: point(px(0.0), scale_chrome_px(Self::OFFSET_Y, env.scale)),
+            blur_radius: scale_chrome_px(Self::BLUR, env.scale),
+            spread_radius: px(0.0),
+            inset: false,
+        }]
     }
 }
 
@@ -2090,6 +2150,77 @@ mod tests {
         }
     }
 
+    /// musicindex ADR 0068 R-ELEVATION-1 item 2: the floating shadow equals
+    /// `shadow.floating` of the shared copy in each theme. Fix: copy the values from
+    /// `src/assets/tokens.json`.
+    #[gpui::test]
+    fn floating_shadow_matches_the_shared_tokens(cx: &mut gpui::TestAppContext) {
+        let shared = shared_tokens();
+        let floating = &shared["shadow"]["floating"];
+        let number = |key: &str| floating[key].as_f64().expect("number");
+        assert!((f64::from(FloatingShadow::OFFSET_Y) - number("offset-y")).abs() < 1e-6);
+        assert!((f64::from(FloatingShadow::BLUR) - number("blur")).abs() < 1e-6);
+        for (appearance, key) in [
+            (Appearance::Dark, "dark-alpha"),
+            (Appearance::Light, "light-alpha"),
+        ] {
+            assert!(
+                (f64::from(FloatingShadow::alpha(appearance)) - number(key)).abs() < 1e-6,
+                "musicindex ADR 0068 R-ELEVATION-1: the {key} must equal shadow.floating.{key}."
+            );
+            cx.update(|cx| {
+                let layers = FloatingShadow::shadow(cx, Some(appearance));
+                assert_eq!(layers.len(), 1, "a floating layer has exactly one shadow");
+                assert!(!layers[0].inset, "the floating shadow is not inset");
+                assert!(
+                    (f64::from(layers[0].color.a) - number(key)).abs() < 1e-6,
+                    "the shadow color alpha must equal shadow.floating.{key}."
+                );
+            });
+        }
+    }
+
+    /// ADR 0101 Decision 1, task 012 step 4: each hover fill differs from the
+    /// fill below it in each theme. Each row of the table names the hover fill,
+    /// the callers and the fills below. Fix: change the hover token of the
+    /// caller, and add the new pair to this table.
+    #[test]
+    fn each_hover_fill_differs_from_the_fill_below_it_in_each_theme() {
+        use SemanticColor::{
+            FloatingBackground, GroupBackground, HoverBackground, OpenEntryBackground,
+            SidebarBackground, SystemBackground,
+        };
+        let cases: [(SemanticColor, &str, &[SemanticColor]); 3] = [
+            (
+                GroupBackground,
+                "list row, tile, plain button, drag handle, unavailable playlist row",
+                &[SystemBackground, FloatingBackground, OpenEntryBackground],
+            ),
+            (
+                HoverBackground,
+                "available playlist row and sidebar row",
+                &[SystemBackground, SidebarBackground],
+            ),
+            (OpenEntryBackground, "show card", &[GroupBackground]),
+        ];
+        for profile in [
+            ThemeProfile::Dark,
+            ThemeProfile::Light,
+            ThemeProfile::HighContrastDark,
+            ThemeProfile::HighContrastLight,
+        ] {
+            for (hover, callers, below) in cases {
+                for fill in below {
+                    assert_ne!(
+                        crate::ui::theme_profiles::resolve_profile_color(profile, hover),
+                        crate::ui::theme_profiles::resolve_profile_color(profile, *fill),
+                        "ADR 0101 Decision 1: the hover fill {hover:?} of {callers} equals {fill:?} in {profile:?}. Give the hover another token."
+                    );
+                }
+            }
+        }
+    }
+
     /// musicindex ADR 0073 R-FOCUS-2: `HitIt` draws the focus ring as an inset border, so its
     /// width equals `focus-ring.hitit.width` and its offset is 0. Fix: keep
     /// `CONTROL_FOCUS_RING_WIDTH` equal to that width and draw the ring inset.
@@ -2191,16 +2322,8 @@ mod tests {
         let cases: [(SemanticColor, u32, u32); 7] = [
             (SemanticColor::SystemBackground, 0x0b_0b0d, 0xff_ffff),
             (SemanticColor::SidebarBackground, 0x14_1417, 0xf5_f5f7),
-            (
-                SemanticColor::SecondarySystemBackground,
-                0x1c_1c1f,
-                0xff_ffff,
-            ),
-            (
-                SemanticColor::TertiarySystemBackground,
-                0x26_262a,
-                0xec_ecef,
-            ),
+            (SemanticColor::GroupBackground, 0x1c_1c1f, 0xf2_f2f7),
+            (SemanticColor::HoverBackground, 0x26_262a, 0xf2_f2f7),
             (SemanticColor::Label, 0xf5_f5f7, 0x1d_1d1f),
             (SemanticColor::SecondaryLabel, 0xa1_a1a6, 0x5c_5c62),
             (SemanticColor::Accent, 0x2d_7bff, 0x0a_5bd6),

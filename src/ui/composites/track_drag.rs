@@ -116,7 +116,7 @@ impl Render for TrackDragPreview {
             .rounded(Radius::MD.scaled(cx))
             .border_1()
             .border_color(color::accent())
-            .bg(color::bg_surface())
+            .bg(color::bg_floating())
             .px(Spacing::MD.scaled(cx))
             .py(Spacing::SM.scaled(cx))
             .text_size(FontSize::Micro.scaled(cx))

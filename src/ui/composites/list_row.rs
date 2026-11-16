@@ -303,7 +303,7 @@ impl RenderOnce for ListRow {
         let on_click = self.on_click.clone();
         let accent = color(cx, SemanticColor::Accent);
         let focus = color(cx, SemanticColor::Focus);
-        let hover_bg = color(cx, SemanticColor::SecondarySystemBackground);
+        let hover_bg = color(cx, SemanticColor::GroupBackground);
         let has_click_action = on_click.is_some();
         // A hover fill would replace the gradient of the selected look.
         let hover_fill =

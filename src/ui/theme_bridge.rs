@@ -138,15 +138,30 @@ fn install_theme_for_appearance(
         accessibility,
         SemanticColor::SystemBackground,
     ));
-    let bg2 = hsla(resolve(
+    let group = hsla(resolve(
         concrete_profile,
         accessibility,
-        SemanticColor::SecondarySystemBackground,
+        SemanticColor::GroupBackground,
     ));
-    let bg3 = hsla(resolve(
+    let open_entry = hsla(resolve(
         concrete_profile,
         accessibility,
-        SemanticColor::TertiarySystemBackground,
+        SemanticColor::OpenEntryBackground,
+    ));
+    let floating = hsla(resolve(
+        concrete_profile,
+        accessibility,
+        SemanticColor::FloatingBackground,
+    ));
+    let hover = hsla(resolve(
+        concrete_profile,
+        accessibility,
+        SemanticColor::HoverBackground,
+    ));
+    let sidebar = hsla(resolve(
+        concrete_profile,
+        accessibility,
+        SemanticColor::SidebarBackground,
     ));
 
     // Labels.
@@ -235,7 +250,7 @@ fn install_theme_for_appearance(
     theme.foreground = label;
 
     // Popover surfaces — the bug that started this overhaul.
-    theme.popover = bg2;
+    theme.popover = floating;
     theme.popover_foreground = label;
 
     // Primary buttons (filled).
@@ -246,16 +261,16 @@ fn install_theme_for_appearance(
 
     // Secondary buttons (tinted / ghost surface).
     theme.secondary = fill;
-    theme.secondary_hover = bg3;
+    theme.secondary_hover = hover;
     theme.secondary_active = opaque_sep;
     theme.secondary_foreground = label;
 
     // Muted text & surfaces.
-    theme.muted = bg2;
+    theme.muted = group;
     theme.muted_foreground = label2;
 
     // Inputs.
-    theme.input = bg2;
+    theme.input = group;
     theme.border = separator;
     theme.ring = focus;
     theme.caret = label;
@@ -286,30 +301,30 @@ fn install_theme_for_appearance(
     theme.info_active = info;
     theme.info_foreground = on_accent;
 
-    // Sidebar — give it a slightly raised surface so it reads as a panel.
-    theme.sidebar = bg2;
+    // Sidebar — the sidebar tier of ADR 0101 Decision 1.
+    theme.sidebar = sidebar;
     theme.sidebar_foreground = label;
     theme.sidebar_border = separator;
-    theme.sidebar_accent = bg3;
+    theme.sidebar_accent = hover;
     theme.sidebar_accent_foreground = label;
     theme.sidebar_primary = accent;
     theme.sidebar_primary_foreground = on_accent;
 
     // Lists.
     theme.colors.list = bg;
-    theme.list_hover = bg2;
+    theme.list_hover = hover;
     theme.list_active = selected;
     theme.list_active_border = accent;
-    theme.list_even = bg2;
-    theme.list_head = bg3;
+    theme.list_even = group;
+    theme.list_head = group;
 
     // Tables.
     theme.table = bg;
-    theme.table_hover = bg2;
+    theme.table_hover = hover;
     theme.table_active = selected;
     theme.table_active_border = accent;
-    theme.table_even = bg2;
-    theme.table_head = bg3;
+    theme.table_even = group;
+    theme.table_head = group;
     theme.table_head_foreground = label2;
     theme.table_row_border = separator;
 
@@ -320,20 +335,20 @@ fn install_theme_for_appearance(
 
     // Tabs.
     theme.tab = bg;
-    theme.tab_active = bg2;
+    theme.tab_active = open_entry;
     theme.tab_active_foreground = label;
     theme.tab_bar = bg;
-    theme.tab_bar_segmented = bg2;
+    theme.tab_bar_segmented = group;
 
     // Misc surfaces that would otherwise show light defaults.
-    theme.accordion = bg2;
-    theme.group_box = bg2;
+    theme.accordion = group;
+    theme.group_box = group;
     theme.group_box_foreground = label;
-    theme.description_list_label = bg2;
+    theme.description_list_label = group;
     theme.description_list_label_foreground = label2;
     theme.drop_target = selected;
-    theme.skeleton = bg3;
-    theme.scrollbar = bg2;
+    theme.skeleton = hover;
+    theme.scrollbar = group;
     theme.scrollbar_thumb = opaque_sep;
     theme.scrollbar_thumb_hover = label2;
 

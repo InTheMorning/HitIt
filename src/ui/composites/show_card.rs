@@ -83,12 +83,12 @@ impl RenderOnce for ShowCard {
         let background = if selected {
             SemanticColor::SelectedContent
         } else {
-            SemanticColor::SecondarySystemBackground
+            SemanticColor::GroupBackground
         };
         let hover_background = if selected {
             SemanticColor::SelectedContent
         } else {
-            SemanticColor::TertiarySystemBackground
+            SemanticColor::OpenEntryBackground
         };
         let tooltip_label = SharedString::from(self.display.a11y_label.clone());
 

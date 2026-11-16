@@ -7,23 +7,30 @@
 
 #![warn(clippy::pedantic)]
 
-use gpui::{div, prelude::*, AnyElement, App, Div, IntoElement, RenderOnce, Window};
+use gpui::{div, prelude::*, px, AnyElement, App, Div, IntoElement, Pixels, RenderOnce, Window};
 
-use crate::ui::tokens::{resolve_color, Appearance, Radius, SemanticColor, Spacing};
+use crate::ui::tokens::{
+    resolve_color, Appearance, FloatingShadow, Radius, SemanticColor, Spacing,
+};
+
+/// The width of the border of a [`Surface`]. A caller that fits a surface in
+/// a given height counts two borders.
+pub const SURFACE_BORDER_WIDTH: Pixels = px(1.0);
 
 /// HIG-aligned elevation tiers. Each tier maps to a different background +
 /// border combination so nested surfaces remain visually distinguishable
 /// without relying on shadow alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SurfaceElevation {
-    /// Sits flat on the canvas — `secondarySystemBackground` with a hairline
+    /// Sits flat on the canvas — the group level with a hairline
     /// separator. Used for inline cards.
     Sunken,
-    /// Default raised panel — `secondarySystemBackground` with a stronger
-    /// border and rounded corners. Used for popovers and floating menus.
+    /// Raised panel — the group level with a stronger border and rounded
+    /// corners. Used for a group or a card.
     Raised,
-    /// Highest elevation — `tertiarySystemBackground`. Used for nested
-    /// surfaces that must read above a [`Self::Raised`] parent.
+    /// A layer above the content — the floating fill and the floating
+    /// shadow (ADR 0101 Decision 1 and Decision 4). Used for a popover, a
+    /// menu and a sheet.
     Floating,
 }
 
@@ -76,12 +83,7 @@ impl ParentElement for Surface {
 
 impl RenderOnce for Surface {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let bg = match self.elevation {
-            SurfaceElevation::Sunken | SurfaceElevation::Raised => {
-                SemanticColor::SecondarySystemBackground
-            }
-            SurfaceElevation::Floating => SemanticColor::TertiarySystemBackground,
-        };
+        let bg = self.elevation.fill();
         let border = match self.elevation {
             SurfaceElevation::Sunken => SemanticColor::Separator,
             SurfaceElevation::Raised | SurfaceElevation::Floating => SemanticColor::OpaqueSeparator,
@@ -89,12 +91,67 @@ impl RenderOnce for Surface {
 
         let mut el: Div = div()
             .bg(resolve_color(cx, bg, self.appearance))
-            .border_1()
+            .border(SURFACE_BORDER_WIDTH)
             .border_color(resolve_color(cx, border, self.appearance))
             .rounded(self.radius.scaled(cx))
             .p(self.padding.scaled(cx));
 
+        if self.elevation == SurfaceElevation::Floating {
+            el = el.shadow(FloatingShadow::shadow(cx, self.appearance));
+        }
+
         el.extend(self.children);
         el
+    }
+}
+
+impl SurfaceElevation {
+    /// The fill token of this elevation (ADR 0101 Decision 1).
+    #[must_use]
+    pub const fn fill(self) -> SemanticColor {
+        match self {
+            Self::Sunken | Self::Raised => SemanticColor::GroupBackground,
+            Self::Floating => SemanticColor::FloatingBackground,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::tokens::Appearance;
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a color channel is between 0 and 255 after rounding"
+    )]
+    fn rgb(token: SemanticColor, appearance: Appearance) -> u32 {
+        let color = token.resolve(appearance);
+        let channel = |value: f32| (value * 255.0).round() as u32;
+        (channel(color.r) << 16) | (channel(color.g) << 8) | channel(color.b)
+    }
+
+    /// ADR 0101 Decision 1: each elevation gives its level in each theme.
+    /// Fix: map the elevation in `SurfaceElevation::fill`.
+    #[test]
+    fn each_elevation_gives_its_level_in_each_theme() {
+        let cases = [
+            (SurfaceElevation::Sunken, 0x1c_1c1f, 0xf2_f2f7),
+            (SurfaceElevation::Raised, 0x1c_1c1f, 0xf2_f2f7),
+            (SurfaceElevation::Floating, 0x26_262a, 0xff_ffff),
+        ];
+        for (elevation, dark, light) in cases {
+            assert_eq!(
+                rgb(elevation.fill(), Appearance::Dark),
+                dark,
+                "{elevation:?}"
+            );
+            assert_eq!(
+                rgb(elevation.fill(), Appearance::Light),
+                light,
+                "{elevation:?}"
+            );
+        }
     }
 }

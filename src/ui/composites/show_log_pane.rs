@@ -162,7 +162,7 @@ fn render_log_output(
         .flex_1()
         .min_h_0()
         .min_w_0()
-        .bg(color(cx, SemanticColor::SecondarySystemBackground))
+        .bg(color(cx, SemanticColor::GroupBackground))
         .child(
             div()
                 .flex()

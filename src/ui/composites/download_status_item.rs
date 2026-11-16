@@ -83,7 +83,7 @@ impl RenderOnce for DownloadStatusItem {
             .py(Spacing::XS.scaled(cx))
             .border_b_1()
             .border_color(color(cx, SemanticColor::Separator))
-            .bg(color(cx, SemanticColor::SecondarySystemBackground))
+            .bg(color(cx, SemanticColor::GroupBackground))
             .child(
                 div()
                     .flex_shrink_0()

@@ -109,7 +109,7 @@ impl ParentElement for SelectableTile {
 impl RenderOnce for SelectableTile {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let radius = Radius::MD.scaled(cx);
-        let hover_bg = color(cx, SemanticColor::SecondarySystemBackground);
+        let hover_bg = color(cx, SemanticColor::GroupBackground);
         let outline = match row_outline(self.selected, self.focused, self.marked) {
             RowOutline::None => None,
             RowOutline::Selected | RowOutline::Marked => Some(

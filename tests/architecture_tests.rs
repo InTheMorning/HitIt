@@ -20655,6 +20655,66 @@ fn render_bad_shadow(cx: &App) -> Div {
     );
 }
 
+/// ADR 0101 Decision 1: the fix message of the level guard.
+const ADR_0101_LEVEL_FIX: &str = "ADR 0101 Decision 1: a surface uses the level of its use. \
+Use GroupBackground for a group or a card, OpenEntryBackground for an open entry, and \
+FloatingBackground for a popover, a menu or a sheet. Do not name \
+SecondarySystemBackground or TertiarySystemBackground outside src/ui/tokens.rs, \
+src/ui/style.rs and src/ui/theme_bridge.rs.";
+
+/// The files that can name the two old surface tokens.
+const ADR_0101_LEVEL_OWNERS: &[&str] = &[
+    "src/ui/tokens.rs",
+    "src/ui/style.rs",
+    "src/ui/theme_bridge.rs",
+];
+
+/// Lines that name `SecondarySystemBackground` or `TertiarySystemBackground`
+/// outside the owner files. A sample source proves the detection.
+fn old_surface_token_violations(relative_path: &str, source: &str) -> Vec<(usize, String)> {
+    if ADR_0101_LEVEL_OWNERS.contains(&relative_path) {
+        return Vec::new();
+    }
+    code_lines(source)
+        .filter(|(_, line)| {
+            line.contains("SecondarySystemBackground") || line.contains("TertiarySystemBackground")
+        })
+        .collect()
+}
+
+/// ADR 0101 Decision 1, task 012 step 8: no file outside the owner files names
+/// the two old surface tokens.
+#[test]
+fn adr_0101_surfaces_do_not_name_the_old_surface_tokens() {
+    let mut violations = Vec::new();
+    for path in rust_files_under("src") {
+        let file = rel_path(&path);
+        let source = read_source(&path);
+        for (line_number, line) in old_surface_token_violations(&file, &source) {
+            violations.push(format!("{file}:{line_number}: `{line}`"));
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "{ADR_0101_LEVEL_FIX}\n{}",
+        violations.join("\n")
+    );
+}
+
+/// The level guard fails on a sample that names an old token, and passes in an owner file.
+#[test]
+fn adr_0101_level_guard_fails_for_a_shell_sample() {
+    let sample = "let bg = color(cx, SemanticColor::SecondarySystemBackground);";
+    assert_eq!(
+        old_surface_token_violations("src/ui/shells/sample.rs", sample).len(),
+        1
+    );
+    assert!(old_surface_token_violations("src/ui/style.rs", sample).is_empty());
+    assert!(ADR_0101_LEVEL_FIX.contains("ADR 0101 Decision 1"));
+    let clean = "let bg = color(cx, SemanticColor::GroupBackground);";
+    assert!(old_surface_token_violations("src/ui/shells/sample.rs", clean).is_empty());
+}
+
 /// R83-15: ADR 0101 Decision 4 deletes the emoji placeholder. No file in
 /// `src/` defines an `emoji` function.
 #[test]

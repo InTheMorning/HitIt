@@ -303,7 +303,7 @@ impl MaintenancePage {
             .min_h_0()
             .flex_shrink_0()
             .overflow_y_scrollbar()
-            .bg(color(cx, SemanticColor::SecondarySystemBackground));
+            .bg(color(cx, SemanticColor::GroupBackground));
         let mut action_content = page_scroll_content(cx)
             .p(Spacing::SM.scaled(cx))
             .gap(Spacing::XS.scaled(cx));
