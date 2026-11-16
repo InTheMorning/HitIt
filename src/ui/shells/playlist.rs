@@ -42,6 +42,7 @@ use crate::ui::composites::{
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
+use crate::ui::primitives::selected_look::selected_look;
 use crate::ui::primitives::{Button as UiButton, Checkbox};
 use crate::ui::sizable_bridge::SizableScaled;
 use crate::ui::style::{color, spacing};
@@ -771,8 +772,15 @@ fn render_playlist_track_row(
                 .border_1()
                 .border_color(color::border_strong())
         })
-        .hover(|el| el.bg(color::bg_surface_hi()))
-        .map(|el| apply_playlist_row_selection(el, selection.is_marked(), selection.focused, cx))
+        .map(|el| {
+            apply_playlist_row_selection(
+                el,
+                selection.is_marked(),
+                selection.focused,
+                row_radius,
+                cx,
+            )
+        })
         .child(render_playlist_row_identity(
             leading,
             render_playlist_track_body(display, thumbnail, on_select, cx),
@@ -878,20 +886,25 @@ fn render_playlist_leading_slot(
     }
 }
 
-/// The selected fill and the outlines of a playlist row (ADR 0084 Decision
-/// 10, packet 025). They come from `row_outline` of `list_row.rs`, the same
-/// as each other selectable row.
-fn apply_playlist_row_selection<E: Styled>(el: E, selected: bool, focused: bool, cx: &App) -> E {
+/// The selected look and the focus outline of a playlist row (ADR 0084
+/// Decision 10, packet 025). The outline comes from `row_outline` of
+/// `list_row.rs`, the same as each other selectable row. The look comes from
+/// `selected_look` (musicindex ADR 0051 R-SELECT-1).
+fn apply_playlist_row_selection<E: StatefulInteractiveElement + Styled + ParentElement>(
+    el: E,
+    selected: bool,
+    focused: bool,
+    radius: gpui::Pixels,
+    cx: &App,
+) -> E {
+    // A hover fill would replace the gradient of the selected look.
     let el = if selected {
-        el.bg(token_color(cx, SemanticColor::SelectedContent))
+        selected_look(el, radius, None, cx)
     } else {
-        el
+        el.hover(|el| el.bg(color::bg_surface_hi()))
     };
     match row_outline(selected, focused, false) {
-        RowOutline::None | RowOutline::Marked => el,
-        RowOutline::Selected => el
-            .border_1()
-            .border_color(token_color(cx, SemanticColor::Accent)),
+        RowOutline::None | RowOutline::Marked | RowOutline::Selected => el,
         RowOutline::Focus => el
             .border_2()
             .border_color(token_color(cx, SemanticColor::Focus)),

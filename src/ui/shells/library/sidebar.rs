@@ -19,6 +19,7 @@ use crate::ui::composites::track_drag::{PlaylistTrackDragPayload, TrackDragPaylo
 use crate::ui::focus_ring::{focus_ring_shows, focused_control_probe};
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::layouts as layout;
+use crate::ui::primitives::selected_look::selected_look;
 use crate::ui::primitives::Label;
 use crate::ui::style::{color, spacing};
 use crate::ui::tokens::{resolve_color, Radius, SemanticColor};
@@ -75,11 +76,10 @@ pub(crate) fn render_sidebar_row(
         .border_color(gpui::transparent_black())
         .cursor_pointer()
         .rounded(Radius::LG.scaled(cx))
-        // musicindex ADR 0020 R-ACT-1 item 3: navigation has a tint and an
-        // outline, and no fill.
+        // musicindex ADR 0051 R-SELECT-1: a selected item has the selected
+        // look. The border stays free for the focus ring.
         .when(selected, |el| {
-            el.bg(resolve_color(cx, SemanticColor::AccentTint, None))
-                .border_color(resolve_color(cx, SemanticColor::AccentOutline, None))
+            selected_look(el, Radius::LG.scaled(cx), None, cx)
         })
         .when(focused, |el| el.border_color(focus_color))
         // ADR 0098 Invariants, walk of 2026-11-15: the destinations list
@@ -113,11 +113,7 @@ pub(crate) fn render_sidebar_row(
     el.child(render_row_icon(icon, selected, shows_attention_mark, cx))
         .child(
             Label::new(row.label)
-                .color(if selected {
-                    crate::ui::tokens::SemanticColor::Accent
-                } else {
-                    crate::ui::tokens::SemanticColor::Label
-                })
+                .color(crate::ui::tokens::SemanticColor::Label)
                 .weight(if selected {
                     FontWeight::SEMIBOLD
                 } else {

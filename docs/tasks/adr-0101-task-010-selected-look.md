@@ -1,6 +1,6 @@
 # ADR 0101 Task 010: The Selected Look
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks. [ADR 0093 task 001](adr-0093-task-001-settings-tab-row-and-rows.md) comes after this packet.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -102,3 +102,69 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 - Stop if the inner highlight needs a third gradient stop.
 - Stop if a caller uses the selected look for a state that is not a selection.
+
+## Implementation Report - 2026-11-16
+
+A delegate made the change. The primary agent wrote this report from the report of the delegate and from the diff.
+
+Files changed:
+
+- `src/ui/primitives/selected_look.rs` (new) and `src/ui/primitives/mod.rs`: the function `selected_look`.
+- `src/ui/tokens.rs`: `SelectedTop`, `SelectedBottom`, `SelectedEdge` and `SelectedHighlight` for Dark and Light. The token `AccentOutline` is deleted, because no code reads it.
+- `src/ui/theme_profiles.rs`: the four colors of each high-contrast profile.
+- `src/ui/control_styles.rs` and `src/ui/primitives/button.rs`: the variant `ButtonVariant::Selected`.
+- `src/ui/composites/list_row.rs`, `src/ui/shells/library/sidebar.rs`, `src/ui/shells/playlist.rs` and `src/ui/composites/search_field_list.rs`: the callers.
+- `tests/architecture_tests.rs`: the guard.
+
+The method:
+
+- The two-stop fill is the only fill of the element.
+- The edge and the highlight are two absolute layers in the border box. The border stays free for the focus ring, so no element moves.
+- The highlight stops at most 12 px from each side, so it does not touch a curved corner.
+- A selected element has no hover fill, because a hover fill replaces the two-stop fill.
+
+Tests:
+
+- M1: `ui::tokens::tests::button_tints_match_the_shared_tokens` compares the four tokens of Dark and Light.
+- M2: `ui::primitives::selected_look::tests::selected_look_gives_the_gradient_the_edge_and_the_highlight`, `highlight_inset_stops_at_the_corner_limit` and `high_contrast_profiles_give_equal_stops_and_an_opaque_edge`.
+- M3: `ui::control_styles::tests::selected_tab_has_the_selected_look_and_the_text_color`. The test `selected_tab_has_a_tint_and_an_outline` is deleted.
+- M4: `ui::composites::list_row::tests::selected_and_focused_row_shows_the_focus_ring_over_the_look`.
+- M5: `adr_0101_selected_look_guard_no_selected_state_uses_the_accent_tint_or_outline`. It does not examine `button.rs` (icon button, R-SELECT-1 item 5) and `selected_look.rs`.
+- M6: the fit tests pass.
+
+Callers of step 4:
+
+- `SelectedTab`, through `ButtonVariant::Selected`: `segmented_control.rs`, `tab_bar.rs`, `letter_bar.rs`, `list_page_head.rs`, `settings.rs` and `maintenance_page.rs`. No file of these callers changed.
+- `ListRow`: the look, with no accent border. The focus border stays.
+- The sidebar: the look. The label has the text color, and the icon has the accent color.
+- The playlist row: the look, with no accent border.
+- The field list row: the look. The `SelectedContent` fill is removed.
+
+Items with no change:
+
+- `selectable_tile.rs` and `show_card.rs`: a tile is not an item of R-SELECT-1.
+- The icon button with `selected(true)` in `button.rs` keeps `AccentTint` (R-SELECT-1 item 5).
+
+## Primary Agent Check - 2026-11-16
+
+The primary agent read the diff and ran the gate: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (3228 library tests, 414 architecture tests) and `cargo build --bin hitit`. All pass.
+
+Primary agent choices:
+
+- A checked row of the selection mode shows the look and keeps its check box. Many callers of `ListRow` give `selection.is_marked()` to `.selected(...)`. The walk shows one look for the sidebar, the segment and the checked row. A second flag for a checked row is not necessary for R-SELECT-1.
+- The high-contrast colors of the delegate stay. Dark: the two stops are the accent at 0.22, the edge is `#66d9ff`, and the highlight is white at 0.14. Light: the two stops are `#0040dd` at 0.14, the edge is `#0040dd`, and the highlight is white at 0.70. `tokens.json` gives no high-contrast values.
+
+Open:
+
+- The border of a selected row of the field list keeps the focus color. It shows the row that Enter selects while the focus stays in the search field.
+- `contrast.rs` does not compare the label with the two stops. It compares the check box with `SelectedContent`.
+
+## Walk Result - 2026-11-16
+
+The agent walked on an Xvfb display with the debug binary, in Light and Dark at M. The two high-contrast profiles were not walked.
+
+- V1: Pass. The selected sidebar item "Releases", the segment "All" and a checked row of the Releases list have the same look in Light and in Dark.
+- V2: Pass. The labels have the text color. The sidebar icon has the accent color.
+- V3: Pass for the sidebar in Dark. Tab to "Releases" shows the full ring over the look. A selected and focused list row was not walked.
+
+The operator confirmation stays open.

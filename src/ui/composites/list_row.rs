@@ -29,6 +29,7 @@ use crate::ui::composites::track_row_menu::{
     row_menu_state, track_row_menu_items, track_row_pointer_menu, TrackRowMenuCell,
     TrackRowMenuHandlers, TrackRowMenuState, TRACK_ROW_GROUP,
 };
+use crate::ui::primitives::selected_look::selected_look;
 use crate::ui::primitives::{HStack, Label, PointerContextMenu};
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size, Spacing, TrackRowColumn};
 use crate::view_models::library::TrackDragVm;
@@ -300,12 +301,13 @@ impl RenderOnce for ListRow {
         let focused = self.focused;
         let marked = self.marked;
         let on_click = self.on_click.clone();
-        let selected_bg = color(cx, SemanticColor::SelectedContent);
         let accent = color(cx, SemanticColor::Accent);
         let focus = color(cx, SemanticColor::Focus);
         let hover_bg = color(cx, SemanticColor::SecondarySystemBackground);
         let has_click_action = on_click.is_some();
-        let hover_fill = matches!(self.click_owner, RowClickOwner::Child) && !has_click_action;
+        // A hover fill would replace the gradient of the selected look.
+        let hover_fill =
+            matches!(self.click_owner, RowClickOwner::Child) && !has_click_action && !selected;
 
         // ADR 0084 Decision 10 Amendment, 2026-10-19: the checkbox shows
         // only in selection mode. The caller gives one only then, so it
@@ -345,11 +347,13 @@ impl RenderOnce for ListRow {
             // The border always takes its space, so an outline moves no row.
             .border_2()
             .border_color(gpui::transparent_black())
-            .when(selected, |el| el.bg(selected_bg))
-            .map(|el| match row_outline(selected, focused, marked) {
-                RowOutline::None => el,
-                RowOutline::Selected | RowOutline::Marked => el.border_color(accent),
-                RowOutline::Focus => el.border_color(focus),
+            // musicindex ADR 0051 R-SELECT-1: a selected row has the selected
+            // look. The border stays free for the focus ring.
+            .when(selected, |el| selected_look(el, radius, None, cx))
+            .map(|el| match row_border(selected, focused, marked) {
+                Some(RowBorder::Accent) => el.border_color(accent),
+                Some(RowBorder::Focus) => el.border_color(focus),
+                None => el,
             })
             .child(
                 stack.children(
@@ -390,7 +394,7 @@ impl RenderOnce for ListRow {
         if let Some(handler) = on_click {
             row = row
                 .cursor_pointer()
-                .hover(move |el| el.bg(hover_bg))
+                .when(!selected, |el| el.hover(move |el| el.bg(hover_bg)))
                 .on_click(move |event, window, cx| {
                     handler(event, window, cx);
                 });
@@ -558,6 +562,25 @@ pub(crate) const fn row_outline(selected: bool, focused: bool, marked: bool) -> 
     }
 }
 
+/// The border color of a list row.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RowBorder {
+    /// The mark of the row that Back left open.
+    Accent,
+    Focus,
+}
+
+/// The border of a list row. The focus ring wins, and it shows over the
+/// selected look. A selected row has no border color, because the look draws
+/// its edge inside the border (musicindex ADR 0051 R-SELECT-1).
+const fn row_border(selected: bool, focused: bool, marked: bool) -> Option<RowBorder> {
+    match row_outline(selected, focused, marked) {
+        RowOutline::Focus => Some(RowBorder::Focus),
+        RowOutline::Marked => Some(RowBorder::Accent),
+        RowOutline::None | RowOutline::Selected => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -657,6 +680,17 @@ mod tests {
                 "{case:?}: the cell must start at the same position, moved by {shift:?}"
             );
         }
+    }
+
+    /// musicindex ADR 0051 R-SELECT-1 and ADR 0073 R-FOCUS-2: a selected and
+    /// focused row has the focus ring as its border, over the selected look.
+    /// A selected row has no accent border. Fix: `row_border`.
+    #[test]
+    fn selected_and_focused_row_shows_the_focus_ring_over_the_look() {
+        assert_eq!(row_border(true, true, false), Some(RowBorder::Focus));
+        assert_eq!(row_border(true, false, false), None);
+        assert_eq!(row_border(false, false, true), Some(RowBorder::Accent));
+        assert_eq!(row_border(true, false, true), None);
     }
 
     #[test]

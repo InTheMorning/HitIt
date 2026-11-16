@@ -34,6 +34,7 @@ pub mod popover;
 pub(crate) mod primary_selection;
 pub mod progress_bar;
 pub mod section_header;
+pub(crate) mod selected_look;
 pub mod skeleton;
 pub mod stack;
 pub mod surface;

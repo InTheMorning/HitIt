@@ -796,3 +796,14 @@ Agent walk, 2026-11-16: V1 passes in Dark and Light. The agent did not compare i
 - Incorrect: a link opens an incorrect item, button sequence changes, the tooltip does not show immediately, or a page without a GUID shows a button.
 
 Agent walk, 2026-11-16: V1 passes in Light. The button shows on the artist page and the track page. V2 and V3 are open, because the test display has no browser.
+
+## 32. ADR 0101 Task 010 The Selected Look - 2026-11-16
+
+Task: [ADR 0101 task 010](tasks/adr-0101-task-010-selected-look.md).
+
+- V1: do this step in Dark, Light and the two high-contrast profiles. Look at the selected sidebar item, the selected segment "All" and a checked row in the selection mode of Releases. The three items have the same look: a soft blue fill that is lighter at the top, and a thin edge.
+- V2: the label of each selected item has the text color, not blue. Only the icon is blue.
+- V3: push Tab until the ring is on the selected sidebar item. The full ring shows over the look. Do this again on a selected list row.
+- Incorrect: two selected items have a different look, a label is blue, or the look hides a part of the ring.
+
+Agent walk, 2026-11-16: V1 and V2 pass in Light and Dark. V3 passes for the sidebar in Dark. The high-contrast profiles and V3 on a list row are open.

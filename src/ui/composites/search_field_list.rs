@@ -23,6 +23,7 @@ use gpui::{
 };
 use gpui_component::scroll::ScrollableElement;
 
+use crate::ui::primitives::selected_look::selected_look;
 use crate::ui::primitives::status_badge::render_row_badge;
 use crate::ui::primitives::surface::{Surface, SurfaceElevation};
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size, Spacing, Weight};
@@ -178,7 +179,7 @@ fn render_notice(notice: FieldListNoticeVm, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-/// Draws one row. The selected row has a fill and a border. An unavailable
+/// Draws one row. The selected row has the selected look and the focus border. An unavailable
 /// row draws its label in a tertiary color, and its note gives the reason.
 fn render_row(
     index: usize,
@@ -269,7 +270,7 @@ fn render_row(
         .border_1()
         .border_color(color(cx, border_color))
         .when(row.selected, |el| {
-            el.bg(color(cx, SemanticColor::SelectedContent))
+            selected_look(el, Radius::MD.scaled(cx), None, cx)
         })
         .when(available, gpui::Styled::cursor_pointer)
         .on_mouse_down(MouseButton::Left, move |_, window, cx| {

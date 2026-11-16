@@ -25099,3 +25099,37 @@ Add a formatter there when none fits. Violations:\n{}",
         violations.join("\n")
     );
 }
+
+/// Situational: owner: musicindex ADR 0051 R-SELECT-1, applied to HitIt by
+/// ADR 0101 Decisions 2 and 12. Only `selected_look` shows that a sidebar
+/// item, a list row, a segment or a tab is selected. The button primitive is
+/// exempt for the tint of the current view icon (R-SELECT-1 item 5). Delete
+/// this guard when ADR 0101 Decision 2 no longer gives the rule.
+#[test]
+fn adr_0101_selected_look_guard_no_selected_state_uses_the_accent_tint_or_outline() {
+    let mut violations = Vec::new();
+    for path in rust_files_under("src") {
+        let rel = rel_path(&path);
+        if rel == "src/ui/primitives/button.rs" || rel == "src/ui/primitives/selected_look.rs" {
+            continue;
+        }
+        let source = read_source(&path);
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            let near_selected = lines[index.saturating_sub(2)..=index]
+                .iter()
+                .any(|near| near.contains("selected"));
+            let tint = line.contains("AccentTint") && near_selected;
+            if tint || line.contains("AccentOutline") {
+                violations.push(format!("{rel}:{}", index + 1));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "musicindex ADR 0051 R-SELECT-1 (HitIt ADR 0101 Decision 2): a selected state must \
+not use AccentTint or AccentOutline. Call `selected_look` of \
+src/ui/primitives/selected_look.rs for a selected item. Violations:\n{}",
+        violations.join("\n")
+    );
+}

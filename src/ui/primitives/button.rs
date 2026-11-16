@@ -33,6 +33,7 @@ use crate::ui::tokens::{
     SemanticColor, Size, Spacing,
 };
 
+use super::selected_look::selected_look;
 use super::tooltip::Tooltip;
 
 /// HIG button styles.
@@ -45,6 +46,9 @@ use super::tooltip::Tooltip;
 ///   it draws as Neutral (musicindex ADR 0042 R-ACT-6).
 /// * **Neutral** — a command that changes no stored data. The text color on the
 ///   neutral fill (musicindex ADR 0042 R-ACT-5).
+/// * **Selected** — a selected tab, segment or letter. The selected look of
+///   musicindex ADR 0051 R-SELECT-1 with the text color. Only an icon is
+///   accent.
 /// * **Destructive** — dangerous action. A red label on the danger tint, never
 ///   a fill (musicindex ADR 0020 R-ACT-3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +57,7 @@ pub enum ButtonVariant {
     Tinted,
     Plain,
     Neutral,
+    Selected,
     Destructive,
 }
 
@@ -568,7 +573,9 @@ impl Button {
     /// icon has the color of its label. A foreground of the caller, such as the
     /// red of a destructive item, stays on its icon too.
     fn icon_color(&self, label_color: Rgba, cx: &App, appearance: Option<Appearance>) -> Rgba {
-        if self.is_menu_item() && self.foreground.is_none() {
+        if (self.is_menu_item() || matches!(self.variant, ButtonVariant::Selected))
+            && self.foreground.is_none()
+        {
             resolve_color(cx, SemanticColor::Accent, appearance)
         } else {
             label_color
@@ -626,6 +633,12 @@ impl Button {
                 resolve_color(cx, SemanticColor::ButtonFill, appearance),
                 resolve_color(cx, SemanticColor::Label, appearance),
                 resolve_color(cx, SemanticColor::ButtonFillHover, appearance),
+            ),
+            // The look draws the fill. A hover keeps the look.
+            ButtonVariant::Selected => (
+                gpui::transparent_black().into(),
+                resolve_color(cx, SemanticColor::Label, appearance),
+                gpui::transparent_black().into(),
             ),
             ButtonVariant::Destructive => {
                 let tint = resolve_color(cx, SemanticColor::DangerTint, appearance);
@@ -742,6 +755,7 @@ impl RenderOnce for Button {
         let turning = self.busy;
         let icon_only = self.is_icon_only();
 
+        let selected_look_shown = matches!(self.effective_variant(), ButtonVariant::Selected);
         let mut visual = self
             .visual_base(radius, cx)
             .bg(bg)
@@ -749,6 +763,10 @@ impl RenderOnce for Button {
             .text_size(font);
 
         visual = self.with_width(visual, cx);
+        // The look comes before the ring, so the ring shows over it.
+        if selected_look_shown {
+            visual = selected_look(visual, radius, appearance, cx);
+        }
         visual = shown_button_marks(visual, &self.id, ring, (radius, appearance), cx);
 
         visual = match content_alignment {
@@ -789,7 +807,10 @@ impl RenderOnce for Button {
         if disabled {
             hit_target = hit_target.opacity(0.4).cursor_default();
         } else {
-            visual = visual.hover(move |s| s.bg(hover_bg));
+            // A hover fill would replace the gradient of the selected look.
+            if !selected_look_shown {
+                visual = visual.hover(move |s| s.bg(hover_bg));
+            }
             if on_click.is_some() || on_activate.is_some() {
                 hit_target = hit_target.on_mouse_down(MouseButton::Left, move |_, _, _| {});
             }

@@ -131,7 +131,10 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
         // No sidebar glow under Increase Contrast (musicindex ADR 0056
         // R-SIDE-1 item 4).
         SemanticColor::SidebarGlowTop => tint(0x66_d9ff, 0.0),
-        SemanticColor::AccentOutline => tint(0x66_d9ff, 0.34),
+        // ADR 0101 Decision 2, task 010: two equal stops and an opaque edge.
+        SemanticColor::SelectedTop | SemanticColor::SelectedBottom => tint(0x66_d9ff, 0.22),
+        SemanticColor::SelectedEdge => hex(0x66_d9ff),
+        SemanticColor::SelectedHighlight => tint(0xff_ffff, 0.14),
         SemanticColor::DangerTint => tint(0xff_6b6b, 0.16),
         SemanticColor::ButtonFill => tint(0x76_7680, 0.24),
         SemanticColor::ButtonFillHover => tint(0xff_ffff, 0.12),
@@ -217,7 +220,10 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
         // R-SIDE-1 item 4).
         SemanticColor::SidebarGlowTop => tint(0x00_40dd, 0.0),
         SemanticColor::AccentTint => tint(0x00_40dd, 0.12),
-        SemanticColor::AccentOutline => tint(0x00_40dd, 0.40),
+        // ADR 0101 Decision 2, task 010: two equal stops and an opaque edge.
+        SemanticColor::SelectedTop | SemanticColor::SelectedBottom => tint(0x00_40dd, 0.14),
+        SemanticColor::SelectedEdge => hex(0x00_40dd),
+        SemanticColor::SelectedHighlight => tint(0xff_ffff, 0.70),
         SemanticColor::DangerTint => tint(0xb0_0020, 0.10),
         SemanticColor::ButtonFill => tint(0x78_7880, 0.14),
         SemanticColor::ButtonFillHover => tint(0x78_7880, 0.18),
@@ -417,7 +423,9 @@ mod tests {
             SemanticColor::Separator,
             SemanticColor::AccentTint,
             SemanticColor::SidebarGlowTop,
-            SemanticColor::AccentOutline,
+            SemanticColor::SelectedTop,
+            SemanticColor::SelectedBottom,
+            SemanticColor::SelectedHighlight,
             SemanticColor::DangerTint,
             SemanticColor::ButtonFill,
             SemanticColor::ButtonFillHover,

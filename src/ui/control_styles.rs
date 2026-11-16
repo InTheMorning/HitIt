@@ -33,8 +33,8 @@ pub enum ControlStyle {
     DestructiveRowAction,
     DestructiveMenuItem,
     MetadataAction,
-    /// A selected tab, segment or letter. It has a tint and an outline, and
-    /// no fill (musicindex ADR 0020 R-ACT-1 item 3).
+    /// A selected tab, segment or letter. It has the selected look (musicindex
+    /// ADR 0051 R-SELECT-1), the text color and the semibold weight.
     SelectedTab,
 }
 
@@ -127,11 +127,11 @@ impl ControlStyle {
                 border: None,
             },
             Self::SelectedTab => ControlStyleSpec {
-                variant: ButtonVariant::Tinted,
+                variant: ButtonVariant::Selected,
                 size: ButtonSize::Md,
                 font_size: FontSize::Body,
                 foreground: None,
-                border: Some(SemanticColor::AccentOutline),
+                border: None,
             },
         }
     }
@@ -226,13 +226,16 @@ mod tests {
         assert!(spec.foreground.is_none());
     }
 
-    /// musicindex ADR 0020 R-ACT-1 item 3: a selected tab has a tint and an
-    /// outline, and no fill.
+    /// musicindex ADR 0051 R-SELECT-1 items 1 to 4: a selected tab has the
+    /// selected look. It is not a filled button, and it keeps the text color.
+    /// Fix: give `SelectedTab` the variant `Selected` and no foreground.
     #[test]
-    fn selected_tab_has_a_tint_and_an_outline() {
+    fn selected_tab_has_the_selected_look_and_the_text_color() {
         let spec = ControlStyle::SelectedTab.spec();
 
-        assert_eq!(spec.variant, ButtonVariant::Tinted);
-        assert_eq!(spec.border, Some(SemanticColor::AccentOutline));
+        assert_eq!(spec.variant, ButtonVariant::Selected);
+        assert_ne!(spec.variant, ButtonVariant::Filled);
+        assert!(spec.foreground.is_none());
+        assert!(spec.border.is_none());
     }
 }

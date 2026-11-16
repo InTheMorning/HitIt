@@ -128,12 +128,19 @@ pub enum SemanticColor {
     AccentPressed,
     OnAccent,
     Focus,
-    /// The fill of an Action button and of a selected tab (`accent-tint` in
-    /// the shared copy at `src/assets/tokens.json`).
+    /// The fill of an Action button (`accent-tint` in the shared copy at
+    /// `src/assets/tokens.json`).
     AccentTint,
-    /// The outline of a selected tab or sidebar item (musicindex ADR 0020
-    /// R-ACT-1 item 3). The value is the Studio token `--gloss-edge`.
-    AccentOutline,
+    /// The top stop of the selected look (musicindex ADR 0051 R-SELECT-1
+    /// item 1). The value is `selected-top` of the shared copy.
+    SelectedTop,
+    /// The bottom stop of the selected look (`selected-bottom`).
+    SelectedBottom,
+    /// The 1 px inner edge of the selected look (`selected-edge`).
+    SelectedEdge,
+    /// The 1 px inner highlight at the top of the selected look
+    /// (`selected-highlight`).
+    SelectedHighlight,
     /// The fill of a destructive button (musicindex ADR 0020 R-TOKEN-1).
     DangerTint,
     /// The fill of a Neutral button (musicindex ADR 0042 R-ACT-5).
@@ -265,7 +272,10 @@ impl SemanticColor {
             Self::Focus => hex(0x2d_7bff),
             Self::AccentTint => hex_alpha(0x2d_7bff, 0.18),
             Self::SidebarGlowTop => hex_alpha(0x2d_7bff, 0.09),
-            Self::AccentOutline => hex_alpha(0x2d_7bff, 0.34),
+            Self::SelectedTop => hex_alpha(0x2d_7bff, 0.24),
+            Self::SelectedBottom => hex_alpha(0x2d_7bff, 0.12),
+            Self::SelectedEdge => hex_alpha(0x2d_7bff, 0.34),
+            Self::SelectedHighlight => hex_alpha(0xff_ffff, 0.14),
             Self::DangerTint => hex_alpha(0xff_6961, 0.16),
             Self::ButtonFill => hex_alpha(0x76_7680, 0.24),
             Self::ButtonFillHover => hex_alpha(0xff_ffff, 0.12),
@@ -376,7 +386,10 @@ impl SemanticColor {
             Self::Focus => hex(0x00_5bd3),
             Self::AccentTint => hex_alpha(0x0a_5bd6, 0.12),
             Self::SidebarGlowTop => hex_alpha(0x0a_5bd6, 0.09),
-            Self::AccentOutline => hex_alpha(0x0a_5bd6, 0.40),
+            Self::SelectedTop => hex_alpha(0x0a_5bd6, 0.20),
+            Self::SelectedBottom => hex_alpha(0x0a_5bd6, 0.10),
+            Self::SelectedEdge => hex_alpha(0x0a_5bd6, 0.40),
+            Self::SelectedHighlight => hex_alpha(0xff_ffff, 0.70),
             Self::DangerTint => hex_alpha(0xc4_1e3a, 0.10),
             Self::ButtonFill => hex_alpha(0x78_7880, 0.14),
             Self::ButtonFillHover => hex_alpha(0x78_7880, 0.18),
@@ -1848,6 +1861,10 @@ mod tests {
                 (SemanticColor::DangerTint, "danger-tint"),
                 (SemanticColor::ButtonFill, "button-fill"),
                 (SemanticColor::ButtonFillHover, "button-fill-hover"),
+                (SemanticColor::SelectedTop, "selected-top"),
+                (SemanticColor::SelectedBottom, "selected-bottom"),
+                (SemanticColor::SelectedEdge, "selected-edge"),
+                (SemanticColor::SelectedHighlight, "selected-highlight"),
             ] {
                 let color = token.resolve(appearance);
                 let channel = |value: f32| (value * 255.0).round();
