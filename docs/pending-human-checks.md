@@ -721,3 +721,10 @@ The agent walk of 2026-11-16 ran steps 3 to 6 on an Xvfb display with the releas
 - V5: Settings at XL in a narrow window. The title and the two menus are on one line, with a small space between them.
 - Incorrect: a ring is cut or has a space in it, a title has an incorrect dimension or is clipped, or text overlaps.
 
+Agent walk, 2026-11-16, Dark only. The task file gives the details.
+
+- V2, V4 and V5 pass.
+- V3 passes for the HitIt radii. A gpui-component field keeps a corner of approximately 4 px. This is an open point of the task.
+- V1 fails: a space shows between the ring and a button. [ADR 0101 task 014](tasks/adr-0101-task-014-the-button-ring-has-no-gap.md) corrects it.
+- The operator walk waits for task 014.
+

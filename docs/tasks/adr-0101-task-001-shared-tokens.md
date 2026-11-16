@@ -172,3 +172,21 @@ Visual, added to the list above:
 
 - V5: Settings at XL in a narrow window. The title and the two menus are on one line, with a small space between them.
 
+
+## Walk Result - 2026-11-16
+
+The agent walked V1 to V5 on an Xvfb display with the debug binary, in Dark. Light was not walked.
+
+- V1: Fail.
+  - The ring has the new focus color.
+  - On "Download album" of an Index release page, a dark space of approximately 4 px is between the ring and the button.
+  - The ring is a border of the hit target (`keyboard_button_focus`, `src/ui/primitives/button.rs`). The hit target is 44 px high or more, and the shown button is smaller.
+  - Commit `72f37cf` changed only the color of this ring, so the space was there before this packet.
+  - [ADR 0101 task 014](adr-0101-task-014-the-button-ring-has-no-gap.md) corrects it.
+- V2: Pass.
+  - "GLOBAL FEDPILLED INDUSTRIAL COMPLEX" is 26 px bold on one line.
+  - The publisher page of "Fedpill Records" gives its name at 42 px bold on two lines, with no clipping.
+  - The line height is approximately 1.6 (68 px between the two lines). The page title uses the line height of GPUI. The shared tokens give no line height.
+- V3: Pass for the HitIt radii: the menu of Settings is a popover of 12 px. The path field of Settings, Diagnostics is a gpui-component input with a corner of approximately 4 px. This is the open point of the component theme radius above.
+- V4: Pass. The release page, the publisher page, Settings and Releases at XL show no clipped text and no overlap.
+- V5: Pass. Settings, Diagnostics at XL in a window of 440 px: the title and the two menus are on one line, with a small space between them.
