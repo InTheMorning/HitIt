@@ -314,6 +314,19 @@ pub(crate) enum DetailPageRows {
 }
 
 impl DetailPageRows {
+    /// The rendered index of a selectable track row.
+    #[must_use]
+    pub(crate) fn track_row_index(&self, key: &DetailRowKey) -> Option<usize> {
+        let Self::Tracks(rows) = self else {
+            return None;
+        };
+        rows.iter().position(|row| {
+            row.key
+                .as_ref()
+                .is_some_and(|row_key| DetailRowKey::Track(row_key.clone()) == *key)
+        })
+    }
+
     /// The list kind of these rows.
     #[must_use]
     pub(crate) const fn kind(&self) -> DetailListKind {

@@ -18,6 +18,7 @@ use gpui::{
 };
 
 use crate::media::cover_color::CoverColor;
+use crate::ui::composites::music_column_scroll::ScrollReveal;
 use crate::ui::composites::{
     identity_action_button, ActionRow, ActionRowDisplay, AddToPlaylistDisplay,
     AddToPlaylistPopover, DisclosureTextPanel, DisclosureTextPanelDisplay,
@@ -50,14 +51,13 @@ pub(crate) type ReleasePageDispatch = Rc<dyn Fn(ReleasePageCommand, &mut Window,
 
 /// The values of a release page that the host resolves before the render:
 /// the images, the scroll probes and the scroll handle.
-#[derive(Default)]
 pub(crate) struct ReleasePageImages<'a> {
     pub(crate) hero_image: Option<Arc<Image>>,
     pub(crate) cover_color: Option<CoverColor>,
-    /// The thumbnail of each row, in row order.
+    /// The thumbnail of each row, resolved only for the windowed rows.
     pub(crate) row_thumbnails: Vec<Option<Arc<Image>>>,
-    /// The scroll probe of each row, in row order (ADR 0084 packet 018).
-    pub(crate) row_probes: Vec<Option<AnyElement>>,
+    /// The indexed reveal state of the detail column.
+    pub(crate) row_reveal: ScrollReveal,
     /// The contributor thumbnails by image URL. `None` when the page shows
     /// no contributors panel.
     pub(crate) contributor_thumbnails: Option<&'a BTreeMap<String, Option<Arc<Image>>>>,
@@ -86,7 +86,7 @@ pub(crate) fn render_release_page(
         hero_image,
         cover_color,
         row_thumbnails,
-        row_probes,
+        row_reveal,
         contributor_thumbnails,
         scroll_handle,
         row_menu_focus,
@@ -105,25 +105,27 @@ pub(crate) fn render_release_page(
     };
     let name_links = render_album_name_links(vm.name_links.clone(), open_name_link.clone(), cx);
     let named_feed_rows = render_named_feed_rows(vm.named_feed_rows.clone(), open_name_link, cx);
-    let mut thumbnails = row_thumbnails.into_iter();
-    let mut probes = row_probes.into_iter();
-    let track_rows = vm
-        .rows
-        .iter()
-        .enumerate()
-        .map(|(index, row)| {
-            ReleaseSurfaceElement::from_element(render_release_page_track_row(
+    let track_rows = crate::ui::shells::entity::ReleaseTrackRows {
+        count: vm.rows.len(),
+        row_space: crate::ui::tokens::Spacing::XXS.scaled(cx),
+        initial_row_height: crate::ui::tokens::Size::MinHitTarget.scaled(cx),
+        reveal: row_reveal.clone(),
+        make_row: Box::new(|index| {
+            let row = &vm.rows[index];
+            let thumbnail = row_thumbnails.get(index).cloned().flatten();
+            let probe = row.selection.focused.then(|| row_reveal.probe_row(index));
+            render_release_page_track_row(
                 row,
                 index,
-                thumbnails.next().flatten(),
-                probes.next().flatten(),
+                thumbnail,
+                probe,
                 &vm.playlists,
                 row_menu_focus.as_ref(),
                 dispatch,
                 cx,
-            ))
-        })
-        .collect();
+            )
+        }),
+    };
     let mut slots = ReleaseDetailBehaviorSlots {
         hero_image,
         cover_color,
@@ -133,7 +135,7 @@ pub(crate) fn render_release_page(
             render_release_page_actions(&vm.actions, &vm.playlists, dispatch),
         )],
         identity_actions: render_feed_identity_actions(&vm.page),
-        track_rows: Some(track_rows),
+        track_rows: (track_rows.count > 0).then_some(track_rows),
         list_bar: list_bar.map(ReleaseSurfaceElement::from_element),
         pinned_list_bar,
         scroll_handle,

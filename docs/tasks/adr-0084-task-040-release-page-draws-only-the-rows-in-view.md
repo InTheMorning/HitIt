@@ -1,6 +1,6 @@
 # ADR 0084 Task 040: The Release Page Shows Only The Rows In View
 
-Status: Ready - 2026-11-16.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -103,6 +103,31 @@ Visual, listed apart:
 Give the files changed, the tests added, the measured row height and the margin. Give the result for the playlist, singles group and artist pages.
 
 A delegate does not commit. It leaves its change in the working tree and reports it. Write the report in Simplified Technical English (`/home/citizen/.agents/skills/asd-ste100/SKILL.md`).
+
+## Implementation Report - 2026-11-16
+
+The windowed section is `windowed_track_rows` in `src/ui/composites/music_column_scroll.rs`. `windowed_track_range` gives the rows in view and a margin of 10 rows on each side. The two hosts use the same range for the row thumbnails. A key that moves the cursor calls `ScrollReveal::request_row` with the row index.
+
+The primary agent corrected one defect in the delegate change. `windowed_track_range` used the position of the viewport in the window, not in the content. The test `adr_0084_task_040_window_does_not_move_with_the_viewport_position` fails with the first formula.
+
+The playlist page, the singles group page and the artist page do not change. They continue to make all their rows.
+
+## Walk Result - 2026-11-16
+
+The agent walked V1 to V4 on an Xvfb display with the release binary, on the Index release "GLOBAL FEDPILLED INDUSTRIAL COMPLEX" (491 tracks). Section 23 of `docs/pending-human-checks.md` gives the steps.
+
+- V1: Pass.
+  - Time from the render start to the next frame, for 40 wheel steps: 32 to 48 ms, median 48 ms
+  - The same time before this task: approximately 304 ms
+  - Length of the scrollbar thumb at the top, in the middle and at the end: 39 px
+- V2: End put the ring on the last row and the column showed it. Pass. Home put the cursor on the first row, but the pinned list bar covers that row. This is defect E below. Fail.
+- V3: Back from a track page gave the same rows at the same position. Pass.
+- V4: the pinned list bar showed in the middle of the list and did not show at the top. Pass.
+
+The walk found two defects that this task did not cause. The code of each one is the same as before this task.
+
+- D: Tab into the track list puts the cursor on the first row, but the column does not scroll to show it. `sync_detail_keyboard_focus` (`src/library/detail_selection.rs`) asks for no reveal.
+- E: the row reveal uses the full viewport. It does not subtract the pinned list bar, so a row at the top of the viewport stays below the bar. This is an inference from the code of `ScrollReveal::probe`. The agent did not operate the binary from before this task.
 
 ## Stop And Ask
 

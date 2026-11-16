@@ -542,12 +542,15 @@ impl LibraryApp {
         self.clear_pending_detail_scroll();
         match rows.filter(|rows| rows.has_selectable_rows()) {
             Some(rows) => {
-                if self
+                if let Some(key) = self
                     .detail_selection
                     .move_focus(step, &rows.selection_rows())
-                    .is_some()
                 {
-                    self.detail_scroll_reveal().request();
+                    if let Some(index) = rows.track_row_index(&key) {
+                        self.detail_scroll_reveal().request_row(index);
+                    } else {
+                        self.detail_scroll_reveal().request();
+                    }
                 }
             }
             None => key_scroll(

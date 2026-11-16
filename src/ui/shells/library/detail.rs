@@ -13,6 +13,7 @@ use crate::library::PlaylistActorState;
 use crate::library::{LibraryApp, LibraryDetail};
 use crate::media::cover_color::CoverColor;
 use crate::ui::composites::music_column_scroll::ListBarPin;
+use crate::ui::composites::music_column_scroll::ScrollReveal;
 use crate::ui::composites::CollectionArtImage;
 use crate::ui::shells::library::feed_detail::render_library_feed_detail;
 use crate::ui::shells::library::playlist_detail::{
@@ -58,6 +59,7 @@ pub(crate) fn render_library_detail(
     list_bar: Option<ListBarVm>,
     list_bar_pin: &ListBarPin,
     row_slots: Vec<DetailRowSlot>,
+    row_reveal: &ScrollReveal,
     scroll: &ScrollHandle,
     detail_focus: &FocusHandle,
     cx: &mut Context<LibraryApp>,
@@ -79,6 +81,7 @@ pub(crate) fn render_library_detail(
             list_bar_pin,
             playlists,
             row_slots,
+            row_reveal,
             scroll,
             detail_focus,
             cx,

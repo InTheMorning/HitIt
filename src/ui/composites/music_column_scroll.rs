@@ -289,6 +289,9 @@ pub(crate) fn music_column_list_scrollbar(list: List, state: &ListState) -> AnyE
 pub(crate) struct ScrollReveal {
     scroll: ScrollHandle,
     pending: Rc<Cell<bool>>,
+    pending_row: Rc<Cell<Option<usize>>>,
+    section_top: Rc<Cell<Option<f32>>>,
+    row_height: Rc<Cell<Option<f32>>>,
 }
 
 impl ScrollReveal {
@@ -298,12 +301,20 @@ impl ScrollReveal {
         Self {
             scroll,
             pending: Rc::new(Cell::new(false)),
+            pending_row: Rc::new(Cell::new(None)),
+            section_top: Rc::new(Cell::new(None)),
+            row_height: Rc::new(Cell::new(None)),
         }
     }
 
     /// Asks the next layout to show the row that carries the probe.
     pub(crate) fn request(&self) {
         self.pending.set(true);
+    }
+
+    /// Requests that row `index` of a windowed section comes into view.
+    pub(crate) fn request_row(&self, index: usize) {
+        self.pending_row.set(Some(index));
     }
 
     /// An empty layer over the focused row. It paints nothing. The row
@@ -337,6 +348,190 @@ impl ScrollReveal {
         .size_full()
         .into_any_element()
     }
+
+    /// An empty layer over row `index` that completes a windowed row reveal.
+    #[must_use]
+    pub(crate) fn probe_row(&self, index: usize) -> AnyElement {
+        let scroll = self.scroll.clone();
+        let pending_row = Rc::clone(&self.pending_row);
+        canvas(
+            move |bounds, window, _cx| {
+                if pending_row.get() != Some(index) {
+                    return;
+                }
+                pending_row.set(None);
+                let viewport = scroll.bounds();
+                let offset = scroll.offset();
+                if let Some(offset_y) = reveal_offset_y(
+                    (f32::from(viewport.top()), f32::from(viewport.bottom())),
+                    (f32::from(bounds.top()), f32::from(bounds.bottom())),
+                    f32::from(offset.y),
+                    f32::from(scroll.max_offset().y),
+                ) {
+                    scroll.set_offset(point(offset.x, Pixels::from(offset_y)));
+                    window.on_next_frame(|window, _cx| window.refresh());
+                }
+            },
+            |_bounds, (), _window, _cx| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+        .into_any_element()
+    }
+}
+
+/// Builds only the rows near the visible part of a release track section.
+pub(crate) fn windowed_track_rows<F>(
+    scroll: &ScrollHandle,
+    reveal: &ScrollReveal,
+    count: usize,
+    row_space: Pixels,
+    initial_row_height: Pixels,
+    mut make_row: F,
+) -> AnyElement
+where
+    F: FnMut(usize) -> AnyElement,
+{
+    let row_height = reveal
+        .row_height
+        .get()
+        .unwrap_or_else(|| f32::from(initial_row_height));
+    let row_space_value = f32::from(row_space);
+    let pitch = row_height + row_space_value;
+    let scroll = scroll.clone();
+    let reveal = reveal.clone();
+    let start_end = windowed_track_range(&scroll, &reveal, count, row_space);
+    let (start, end) = (start_end.start, start_end.end);
+
+    let first_height = Rc::clone(&reveal.row_height);
+    let section_top = Rc::clone(&reveal.section_top);
+    let pending_row = Rc::clone(&reveal.pending_row);
+    let scroll_probe = scroll.clone();
+    let probe_layer = canvas(
+        move |bounds, window, _cx| {
+            let viewport = scroll_probe.bounds();
+            let offset = scroll_probe.offset();
+            let top = f32::from(bounds.top() - viewport.top() - offset.y);
+            section_top.set(Some(top));
+            if let Some(index) = pending_row.get() {
+                if index >= count || (index >= start && index < end) {
+                    return;
+                }
+                let measured = first_height.get().unwrap_or(row_height);
+                #[expect(
+                    clippy::cast_precision_loss,
+                    reason = "Pixel layout precision is sufficient for release row offsets."
+                )]
+                let row_index = u32::try_from(index).expect("release rows fit in u32") as f32;
+                let row_top = f32::from(viewport.top())
+                    + top
+                    + f32::from(offset.y)
+                    + row_index * (measured + row_space_value);
+                if let Some(next) = reveal_offset_y(
+                    (f32::from(viewport.top()), f32::from(viewport.bottom())),
+                    (row_top, row_top + measured),
+                    f32::from(offset.y),
+                    f32::from(scroll_probe.max_offset().y),
+                ) {
+                    scroll_probe.set_offset(point(offset.x, Pixels::from(next)));
+                    window.on_next_frame(|window, _cx| window.refresh());
+                }
+            }
+        },
+        |_bounds, (), _window, _cx| {},
+    )
+    .absolute()
+    .size_full();
+
+    let rows = (start..end).map(|index| {
+        let row = make_row(index);
+        let row_height = Rc::clone(&reveal.row_height);
+        let measurement = canvas(
+            move |bounds, window, _cx| {
+                let height = f32::from(bounds.size.height);
+                if row_height.get() != Some(height) {
+                    row_height.set(Some(height));
+                    window.on_next_frame(|window, _cx| window.refresh());
+                }
+            },
+            |_bounds, (), _window, _cx| {},
+        )
+        .absolute()
+        .size_full();
+        let row = div().relative().child(row).child(measurement);
+        if index + 1 < count {
+            row.mb(row_space).into_any_element()
+        } else {
+            row.into_any_element()
+        }
+    });
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "Pixel layout precision is sufficient for release row offsets."
+    )]
+    let top_rows = u32::try_from(start).expect("release rows fit in u32") as f32;
+    let top_height = Pixels::from(top_rows * pitch);
+    let bottom_height = if end < count {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "Pixel layout precision is sufficient for release row offsets."
+        )]
+        let hidden_rows = u32::try_from(count - end).expect("release rows fit in u32") as f32;
+        Pixels::from((hidden_rows * pitch - row_space_value).max(0.0))
+    } else {
+        Pixels::from(0.)
+    };
+    div()
+        .relative()
+        .flex()
+        .flex_col()
+        .child(div().h(top_height))
+        .children(rows)
+        .child(div().h(bottom_height))
+        .child(probe_layer)
+        .into_any_element()
+}
+
+/// Gives the row indices for the viewport and its ten-row margins.
+///
+/// The row pitch comes from the measured row height. Before the first
+/// measurement, the range is the first 40 rows. Thus the host that resolves
+/// the row thumbnails and the section that shows the rows use the same range.
+pub(crate) fn windowed_track_range(
+    scroll: &ScrollHandle,
+    reveal: &ScrollReveal,
+    count: usize,
+    row_space: Pixels,
+) -> std::ops::Range<usize> {
+    const ROW_MARGIN: usize = 10;
+    const INITIAL_ROWS: usize = 40;
+    let Some(row_height) = reveal.row_height.get() else {
+        return 0..count.min(INITIAL_ROWS);
+    };
+    let pitch = (row_height + f32::from(row_space)).max(1.0);
+    let viewport = scroll.bounds();
+    let section_top = reveal.section_top.get().unwrap_or(0.0);
+    // The top of the section relative to the top of the viewport.
+    let current_top = section_top + f32::from(scroll.offset().y);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The nonnegative viewport row index is bounded by the row count."
+    )]
+    let visible_start = ((0.0 - current_top) / pitch).floor().max(0.0) as usize;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The nonnegative viewport row index is bounded by the row count."
+    )]
+    let visible_end = ((f32::from(viewport.size.height) - current_top) / pitch)
+        .ceil()
+        .max(0.0) as usize;
+    let start = visible_start.saturating_sub(ROW_MARGIN).min(count);
+    let end = visible_end.saturating_add(ROW_MARGIN).min(count).max(start);
+    start..end
 }
 
 /// The scroll offset that shows a full row, or `None` when the row is
@@ -530,6 +725,280 @@ mod tests {
 
     fn row_ids(count: usize) -> Vec<String> {
         (1..=count).map(|row| format!("r37-row-{row}")).collect()
+    }
+
+    struct WindowedRowsTest {
+        reveal: ScrollReveal,
+        scroll: ScrollHandle,
+        rendered: Rc<Cell<usize>>,
+        /// The space above the scroll container in the window.
+        top_gap: Pixels,
+    }
+
+    impl gpui::Render for WindowedRowsTest {
+        fn render(
+            &mut self,
+            _window: &mut gpui::Window,
+            _cx: &mut gpui::Context<Self>,
+        ) -> impl IntoElement {
+            self.rendered.set(0);
+            let rendered = Rc::clone(&self.rendered);
+            let reveal = self.reveal.clone();
+            let rows = windowed_track_rows(
+                &self.scroll,
+                &self.reveal,
+                491,
+                px(2.),
+                px(40.),
+                move |index| {
+                    rendered.set(rendered.get() + 1);
+                    let selector = format!("windowed-row-{index}");
+                    div()
+                        .h(px(40.))
+                        .debug_selector(move || selector.clone())
+                        .child(reveal.probe_row(index))
+                        .into_any_element()
+                },
+            );
+            div()
+                .w(px(400.))
+                .h(px(600.) + self.top_gap)
+                .flex()
+                .flex_col()
+                .child(div().flex_none().h(self.top_gap))
+                .child(music_column_tracked_scrollbar(
+                    div().id("windowed-rows").child(rows),
+                    &self.scroll,
+                    None,
+                ))
+        }
+    }
+
+    fn draw_windowed_rows(cx: &mut gpui::VisualTestContext) {
+        for _ in 0..3 {
+            cx.update(|window, cx| {
+                let _ = window.draw(cx);
+            });
+        }
+        cx.run_until_parked();
+    }
+
+    gpui::actions!(windowed_rows_tab_test, [NextFocus, PreviousFocus]);
+
+    struct WindowedRowsTabTest {
+        reveal: ScrollReveal,
+        scroll: ScrollHandle,
+        root_focus: gpui::FocusHandle,
+        reverse_focus: gpui::FocusHandle,
+        row_focus: Vec<gpui::FocusHandle>,
+    }
+
+    impl gpui::Render for WindowedRowsTabTest {
+        fn render(
+            &mut self,
+            _window: &mut gpui::Window,
+            _cx: &mut gpui::Context<Self>,
+        ) -> impl IntoElement {
+            let reveal = self.reveal.clone();
+            let row_focus = &self.row_focus;
+            let rows = windowed_track_rows(
+                &self.scroll,
+                &self.reveal,
+                self.row_focus.len(),
+                px(2.),
+                px(40.),
+                |index| {
+                    div()
+                        .h(px(40.))
+                        .debug_selector(move || format!("focus-row-{index}"))
+                        .child(
+                            crate::ui::primitives::button::Button::plain(format!("row-{index}"))
+                                .label(format!("Row {index}"))
+                                .track_focus(&row_focus[index])
+                                .on_click(|_, _, _| {}),
+                        )
+                        .child(reveal.probe_row(index))
+                        .into_any_element()
+                },
+            );
+            let reverse = crate::ui::primitives::button::Button::plain("reverse")
+                .label("Reverse")
+                .track_focus(&self.reverse_focus)
+                .on_click(|_, _, _| {});
+            div()
+                .key_context("WindowedRowsTabTest")
+                .track_focus(&self.root_focus)
+                .on_action(|_: &NextFocus, window, cx| window.focus_next(cx))
+                .on_action(|_: &PreviousFocus, window, cx| window.focus_prev(cx))
+                .w(px(400.))
+                .h(px(600.))
+                .flex()
+                .flex_col()
+                .child(music_column_tracked_scrollbar(
+                    div().id("windowed-focus-list").child(reverse).child(rows),
+                    &self.scroll,
+                    None,
+                ))
+        }
+    }
+
+    #[gpui::test]
+    fn adr_0084_task_040_tab_moves_between_reverse_and_the_windowed_track_list(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(gpui_component::init);
+        cx.update(|cx| {
+            cx.bind_keys([
+                gpui::KeyBinding::new("tab", NextFocus, Some("WindowedRowsTabTest")),
+                gpui::KeyBinding::new("shift-tab", PreviousFocus, Some("WindowedRowsTabTest")),
+            ]);
+        });
+        let scroll = ScrollHandle::new();
+        let scroll_handle = scroll.clone();
+        let scroll_for_view = scroll.clone();
+        let (view, cx) = cx.add_window_view(|_, cx| WindowedRowsTabTest {
+            reveal: ScrollReveal::new(scroll_handle),
+            scroll: scroll_for_view,
+            root_focus: cx.focus_handle(),
+            reverse_focus: cx.focus_handle(),
+            row_focus: (0..491).map(|_| cx.focus_handle()).collect(),
+        });
+        draw_windowed_rows(cx);
+        scroll.set_offset(point(px(0.), px(-16_000.)));
+        draw_windowed_rows(cx);
+        let reverse_focus = view.update(cx, |test, _| test.reverse_focus.clone());
+        let row_focus = view.update(cx, |test, _| test.row_focus.clone());
+        cx.update(|window, cx| window.focus(&reverse_focus, cx));
+        cx.simulate_keystrokes("tab");
+        draw_windowed_rows(cx);
+        assert!(
+            cx.update(|window, _| row_focus.iter().any(|focus| focus.is_focused(window))),
+            "Tab from Reverse reaches a rendered track row"
+        );
+        cx.simulate_keystrokes("shift-tab");
+        draw_windowed_rows(cx);
+        assert!(
+            cx.update(|window, _| reverse_focus.is_focused(window)),
+            "Shift+Tab from a track row reaches Reverse"
+        );
+    }
+
+    #[gpui::test]
+    fn adr_0084_task_040_windowed_rows_keep_full_height_and_render_the_view(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(gpui_component::init);
+        let scroll = ScrollHandle::new();
+        let scroll_handle = scroll.clone();
+        let (view, cx) = cx.add_window_view(|_, _| WindowedRowsTest {
+            reveal: ScrollReveal::new(scroll_handle),
+            scroll: scroll.clone(),
+            rendered: Rc::new(Cell::new(0)),
+            top_gap: px(0.),
+        });
+        draw_windowed_rows(cx);
+
+        let rendered_at_top = view.update(cx, |test, _| test.rendered.get());
+        assert!(rendered_at_top <= 40, "the first paint caps rows at 40");
+        assert!(rendered_at_top < 491, "the first paint skips most rows");
+        assert!(
+            cx.debug_bounds("windowed-row-0").is_some(),
+            "the first row is in the initial window"
+        );
+        assert!(
+            cx.debug_bounds("windowed-row-490").is_none(),
+            "the last row is outside the initial window"
+        );
+        let full_height_offset = scroll.max_offset().y;
+        assert!(
+            (f32::from(full_height_offset) - (491. * 42. - 2. - 600.)).abs() < 1.,
+            "the scroll range counts all 491 rows: {full_height_offset:?}"
+        );
+
+        scroll.set_offset(point(px(0.), px(-16_000.)));
+        draw_windowed_rows(cx);
+        let rendered_at_middle = view.update(cx, |test, _| test.rendered.get());
+        assert!(
+            rendered_at_middle < 50,
+            "the middle window has a row margin"
+        );
+        assert!(
+            cx.debug_bounds("windowed-row-0").is_none(),
+            "the first row leaves the middle window"
+        );
+        assert!(
+            cx.debug_bounds("windowed-row-400").is_some(),
+            "row 400 is in the middle window"
+        );
+        assert_eq!(scroll.max_offset().y, full_height_offset);
+    }
+
+    /// The window of rows uses the position of the viewport in the
+    /// content, not its position in the window.
+    #[gpui::test]
+    fn adr_0084_task_040_window_does_not_move_with_the_viewport_position(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let scroll = ScrollHandle::new();
+        let scroll_handle = scroll.clone();
+        let (_view, cx) = cx.add_window_view(|_, _| WindowedRowsTest {
+            reveal: ScrollReveal::new(scroll_handle),
+            scroll: scroll.clone(),
+            rendered: Rc::new(Cell::new(0)),
+            top_gap: px(300.),
+        });
+        draw_windowed_rows(cx);
+        assert!(
+            (f32::from(scroll.bounds().top()) - 300.).abs() < 1.,
+            "the viewport starts 300 px down: {:?}",
+            scroll.bounds()
+        );
+        scroll.set_offset(point(px(0.), px(-16_000.)));
+        draw_windowed_rows(cx);
+        // Rows 380 to 395 are in view. The margin adds 10 rows on each side.
+        assert!(
+            cx.debug_bounds("windowed-row-371").is_some(),
+            "the top margin keeps row 371"
+        );
+        assert!(
+            cx.debug_bounds("windowed-row-380").is_some(),
+            "row 380 is at the viewport top"
+        );
+        assert!(
+            cx.debug_bounds("windowed-row-412").is_none(),
+            "the bottom margin stops before row 412"
+        );
+    }
+
+    #[gpui::test]
+    fn adr_0084_task_040_reveal_scrolls_to_a_row_outside_the_window(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let scroll = ScrollHandle::new();
+        let scroll_handle = scroll.clone();
+        let (view, cx) = cx.add_window_view(|_, _| WindowedRowsTest {
+            reveal: ScrollReveal::new(scroll_handle),
+            scroll: scroll.clone(),
+            rendered: Rc::new(Cell::new(0)),
+            top_gap: px(0.),
+        });
+        draw_windowed_rows(cx);
+        view.update(cx, |test, cx| {
+            test.reveal.request_row(400);
+            cx.notify();
+        });
+        draw_windowed_rows(cx);
+
+        let row = cx
+            .debug_bounds("windowed-row-400")
+            .expect("the requested row renders");
+        let viewport = scroll.bounds();
+        assert!(
+            row.top() >= viewport.top(),
+            "row 400 is below the viewport top"
+        );
+        assert!(
+            row.bottom() <= viewport.bottom(),
+            "row 400 is above the viewport bottom"
+        );
     }
 
     /// R37-07 (ADR 0084 task 037, decision D1): a virtual list of 1,000

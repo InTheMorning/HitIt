@@ -6847,6 +6847,7 @@ impl LibraryApp {
             list_bar,
             &self.list_bar_pin,
             row_slots,
+            self.detail_scroll_reveal(),
             &scroll,
             &self.detail_column_focus,
             cx,

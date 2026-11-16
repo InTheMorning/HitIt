@@ -678,3 +678,19 @@ The agent walk of 2026-11-16 ran steps 3 to 5 on an Xvfb display with the releas
 - Incorrect: no row has the ring after keyboard entry, or the list does not scroll to the marked row.
 
 The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the release binary. On Releases, entry scrolled to "The Dark Plains - 00001" and showed the ring. On Artists, entry showed "2140" in the Rows view and "888childish" in the Tiles view. All three passed there.
+
+## 23. ADR 0084 Task 040 The Release Page Shows Only The Rows In View - 2026-11-16
+
+[ADR 0084 task 040](tasks/adr-0084-task-040-release-page-draws-only-the-rows-in-view.md) gives the procedure.
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`.
+3. Search for "Global Fedpilled Industrial Complex". Open the release "GLOBAL FEDPILLED INDUSTRIAL COMPLEX".
+4. Scroll from the top to the end with the mouse wheel. Make sure that the scroll has no lag and that the scrollbar thumb keeps its length (V1).
+5. Push Tab until "Reverse" has the focus. Push Tab again. Push End. Make sure that the last row has the ring and is in view (V2).
+6. Scroll to the middle. Open a track, then push Back. Make sure that the release page shows the same rows at the same position (V3).
+7. Scroll down until the list bar goes out of view. Make sure that the pinned list bar shows. Scroll to the top and make sure that it does not show (V4).
+
+- Incorrect: the scroll lags, the thumb changes its length, End does not show the last row, Back does not keep the position, or the pinned bar stays at the top.
+
+The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the release binary. V1, V3 and V4 passed there, and End in V2 passed. Home in V2 did not show the first row, because of defect E in the task file.

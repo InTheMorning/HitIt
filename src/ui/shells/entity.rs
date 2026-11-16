@@ -10,10 +10,11 @@ use std::sync::Arc;
 
 use gpui::{
     div, AnyElement, App, ClipboardItem, Image, InteractiveElement, IntoElement, ParentElement,
-    ScrollHandle, SharedString, Styled, Window,
+    Pixels, ScrollHandle, SharedString, Styled, Window,
 };
 
 use crate::media::cover_color::CoverColor;
+use crate::ui::composites::music_column_scroll::{windowed_track_rows, ScrollReveal};
 use crate::ui::composites::{
     identity_action_button, CoverBackdrop, DetailGrid, DetailHeader, DetailHeaderDataRow,
     DetailHeaderDisplay, DetailRow, DetailTextRow, EntityKind, IdentityActionButtonDisplay,
@@ -37,11 +38,19 @@ pub struct ContributorRowSlot {
     pub actions: Vec<ReleaseSurfaceElement>,
 }
 
+pub(crate) struct ReleaseTrackRows<'a> {
+    pub count: usize,
+    pub row_space: Pixels,
+    pub initial_row_height: Pixels,
+    pub reveal: ScrollReveal,
+    pub make_row: Box<dyn FnMut(usize) -> AnyElement + 'a>,
+}
+
 /// The cover size of the album page header (ADR 0101 Decision 4).
 pub const RELEASE_HEADER_COVER: ThumbnailSize = ThumbnailSize::XXl;
 
 #[derive(Default)]
-pub struct ReleaseDetailBehaviorSlots {
+pub(crate) struct ReleaseDetailBehaviorSlots<'a> {
     pub hero_image: Option<Arc<Image>>,
     /// The main color of the cover. The screen resolves it like the cover.
     pub cover_color: Option<CoverColor>,
@@ -54,7 +63,7 @@ pub struct ReleaseDetailBehaviorSlots {
     pub identity_actions: Vec<ReleaseSurfaceElement>,
     pub action_overlays: Vec<ReleaseSurfaceElement>,
     pub description_panel: Option<ReleaseSurfaceElement>,
-    pub track_rows: Option<Vec<ReleaseSurfaceElement>>,
+    pub track_rows: Option<ReleaseTrackRows<'a>>,
     /// The list bar above the track section (ADR 0090 Decision 1).
     pub list_bar: Option<ReleaseSurfaceElement>,
     /// The pinned copy of the list bar (ADR 0090 Decision 5).
@@ -66,9 +75,9 @@ pub struct ReleaseDetailBehaviorSlots {
 }
 
 #[must_use]
-pub fn render_release_detail_shell(
+pub(crate) fn render_release_detail_shell(
     page: &ReleaseDetailPageVm<'_>,
-    slots: ReleaseDetailBehaviorSlots,
+    slots: ReleaseDetailBehaviorSlots<'_>,
 ) -> AnyElement {
     let mut surface = ReleaseDetailSurface::new(page.detail_scroll_key.clone())
         .scrollable(true)
@@ -123,12 +132,19 @@ pub fn render_release_detail_shell(
     }
     surface = surface.pinned_list_bar(slots.pinned_list_bar);
 
-    let rows = slots.track_rows.unwrap_or_default();
-    if !rows.is_empty() {
+    if let Some(mut rows) = slots.track_rows {
+        let section_rows = windowed_track_rows(
+            &slots.scroll_handle,
+            &rows.reveal,
+            rows.count,
+            rows.row_space,
+            rows.initial_row_height,
+            |index| (rows.make_row)(index),
+        );
         surface = surface.track_section(ReleaseTrackSectionDisplay {
             title: page.tracks.title().into(),
             summary: page.tracks.summary().into(),
-            rows,
+            rows: section_rows,
         });
     }
 

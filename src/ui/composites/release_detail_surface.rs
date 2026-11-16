@@ -44,7 +44,7 @@ pub struct ReleaseDetailSurface {
 pub struct ReleaseTrackSectionDisplay {
     pub title: SharedString,
     pub summary: SharedString,
-    pub rows: Vec<ReleaseSurfaceElement>,
+    pub rows: AnyElement,
 }
 
 pub struct ReleaseActionGroupDisplay {
@@ -226,12 +226,6 @@ fn track_section(section: ReleaseTrackSectionDisplay, cx: &App) -> AnyElement {
                         .child(section.summary),
                 ),
         )
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .gap(Spacing::XXS.scaled(cx))
-                .children(section.rows),
-        )
+        .child(section.rows)
         .into_any_element()
 }

@@ -16,7 +16,7 @@ use gpui::{AnyElement, Context, FocusHandle, Image, ScrollHandle, Window};
 use crate::db;
 use crate::library::{playlist_options, LibraryApp, LibraryAppEvent};
 use crate::media::cover_color::CoverColor;
-use crate::ui::composites::music_column_scroll::ListBarPin;
+use crate::ui::composites::music_column_scroll::{windowed_track_range, ListBarPin, ScrollReveal};
 use crate::ui::composites::{list_bar_playlists, render_list_bar_copies, ListBarHandler};
 use crate::ui::shells::library::detail::DetailRowSlot;
 use crate::ui::shells::release_page::{
@@ -43,14 +43,12 @@ pub(crate) fn render_library_feed_detail(
     list_bar_pin: &ListBarPin,
     playlists: &[db::Playlist],
     row_slots: Vec<DetailRowSlot>,
+    row_reveal: &ScrollReveal,
     scroll: &ScrollHandle,
     detail_focus: &FocusHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
-    let (selections, row_probes): (Vec<_>, Vec<_>) = row_slots
-        .into_iter()
-        .map(|slot| (slot.selection, slot.probe))
-        .unzip();
+    let selections = row_slots.into_iter().map(|slot| slot.selection).collect();
     let facts = ReleasePageFacts::from_library_album(album, mb_status, library_vm)
         .with_row_selections(selections);
     let vm = release_page_vm(&facts);
@@ -60,15 +58,22 @@ pub(crate) fn render_library_feed_detail(
         url.and_then(|url| album_thumbs.get(url))
             .and_then(Clone::clone)
     };
+    let hero_image = thumbnail(album.image_href.as_deref());
+    let visible_rows = windowed_track_range(
+        scroll,
+        row_reveal,
+        vm.rows.len(),
+        crate::ui::tokens::Spacing::XXS.scaled(cx),
+    );
+    let mut row_thumbnails = vec![None; vm.rows.len()];
+    for index in visible_rows {
+        row_thumbnails[index] = thumbnail(vm.rows[index].thumbnail_url.as_deref());
+    }
     let images = ReleasePageImages {
-        hero_image: thumbnail(album.image_href.as_deref()),
+        hero_image,
         cover_color,
-        row_thumbnails: vm
-            .rows
-            .iter()
-            .map(|row| thumbnail(row.thumbnail_url.as_deref()))
-            .collect(),
-        row_probes,
+        row_thumbnails,
+        row_reveal: row_reveal.clone(),
         contributor_thumbnails: Some(album_thumbs),
         scroll_handle: scroll.clone(),
         row_menu_focus: Some(detail_focus.clone()),

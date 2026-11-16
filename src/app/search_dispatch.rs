@@ -24,6 +24,7 @@ use crate::library::{
 use crate::library_service;
 use crate::media::cover_color::CoverColor;
 use crate::presentation::present_command;
+use crate::ui::composites::music_column_scroll::windowed_track_range;
 use crate::ui::composites::{list_bar_playlists, render_list_bar_copies};
 use crate::ui::shells::release_page::{
     click_modifiers, render_release_page, ReleasePageDispatch, ReleasePageImages,
@@ -1428,7 +1429,7 @@ impl TopApp {
         // facts, from the same row key.
         let detail_rows =
             DetailPageRows::Tracks(index_release_track_rows(feed_guid.as_deref(), &feed.tracks));
-        let (facts, row_probes, scroll_handle, detail_focus, list_bar, list_bar_pin, bar_playlists) = {
+        let (facts, row_reveal, scroll_handle, detail_focus, list_bar, list_bar_pin, bar_playlists) = {
             let library = self.library.read(cx);
             let selections = library.detail_selection().row_selections(&detail_rows);
             // ADR 0090 Decision 1: the Index release page has its list bar
@@ -1443,10 +1444,7 @@ impl TopApp {
                 )
             });
             let bar_playlists = list_bar_playlists(playlist_options(library.playlists()));
-            let row_probes = selections
-                .iter()
-                .map(|selection| library.detail_row_probe(selection))
-                .collect::<Vec<_>>();
+            let row_reveal = library.detail_scroll_reveal().clone();
             // ADR 0084 Decision 6: a release whose key is in a singles
             // group links to that group. Packet 026 decision D14: the group
             // holds the MusicIndex singles of its feed, so an Index single
@@ -1460,7 +1458,7 @@ impl TopApp {
                 .with_index_track_work(library.busy_items());
             (
                 facts,
-                row_probes,
+                row_reveal,
                 library.detail_scroll_handle(),
                 library.detail_column_focus().clone(),
                 list_bar,
@@ -1469,15 +1467,6 @@ impl TopApp {
             )
         };
         let vm = release_page_vm(&facts);
-        let row_thumbnails = vm
-            .rows
-            .iter()
-            .map(|row| {
-                row.thumbnail_url
-                    .as_deref()
-                    .and_then(|url| self.index_remote_detail_hero_image(url, cx))
-            })
-            .collect();
         let handler = top_list_bar_handler(cx);
         let (list_bar, pinned_list_bar) = render_list_bar_copies(
             list_bar,
@@ -1488,13 +1477,27 @@ impl TopApp {
             &cx.entity(),
             cx,
         );
+        let visible_rows = windowed_track_range(
+            &scroll_handle,
+            &row_reveal,
+            vm.rows.len(),
+            crate::ui::tokens::Spacing::XXS.scaled(cx),
+        );
+        let mut row_thumbnails = vec![None; vm.rows.len()];
+        for index in visible_rows {
+            row_thumbnails[index] = vm.rows[index]
+                .thumbnail_url
+                .as_deref()
+                .and_then(|url| self.index_remote_detail_hero_image(url, cx));
+        }
+        let cover_color = index_feed_artwork_url(feed)
+            .map(str::to_owned)
+            .and_then(|url| self.index_cover_color(&url, cx));
         let images = ReleasePageImages {
             hero_image: self.index_feed_hero_image(feed, cx),
-            cover_color: index_feed_artwork_url(feed)
-                .map(str::to_owned)
-                .and_then(|url| self.index_cover_color(&url, cx)),
+            cover_color,
             row_thumbnails,
-            row_probes,
+            row_reveal,
             contributor_thumbnails: None,
             scroll_handle,
             row_menu_focus: Some(detail_focus),
