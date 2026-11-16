@@ -16,7 +16,7 @@ use gpui::{
 use crate::library::{LibraryApp, LibraryAppEvent};
 use crate::ui::composites::tab_bar::sidebar_icon_name as icon_name;
 use crate::ui::composites::track_drag::{PlaylistTrackDragPayload, TrackDragPayload};
-use crate::ui::focus_ring::focus_ring_shows;
+use crate::ui::focus_ring::{focus_ring_shows, focused_control_probe};
 use crate::ui::icons::{Icon, IconName, IconSize};
 use crate::ui::layouts as layout;
 use crate::ui::primitives::Label;
@@ -59,6 +59,7 @@ pub(crate) fn render_sidebar_row(
     let mut el = div()
         .id(SharedString::from(row.element_id))
         .track_focus(focus)
+        .relative()
         .flex()
         .items_center()
         .w_full()
@@ -81,6 +82,10 @@ pub(crate) fn render_sidebar_row(
                 .border_color(resolve_color(cx, SemanticColor::AccentOutline, None))
         })
         .when(focused, |el| el.border_color(focus_color))
+        // ADR 0098 Invariants, walk of 2026-11-15: the destinations list
+        // scrolls only to a row that gives its bounds. Without the probe, the
+        // feed area hid the focused Inbox row.
+        .when(focused, |el| el.child(focused_control_probe()))
         .when(!selected, |el| el.hover(|el| el.bg(color::bg_surface_hi())))
         .on_click(cx.listener(move |_this, _: &ClickEvent, _window, cx| {
             cx.emit(LibraryAppEvent::SidebarRowSelected(destination));

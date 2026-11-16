@@ -7580,4 +7580,96 @@ mod tests {
         vm.finish_playlist_append(intent, PlaylistAppendOutcome::new(3, 0, 0));
         assert_eq!(vm.status(), "Added 3 of 3 to Focus");
     }
+
+    /// The sidebar column of a short window, for the reveal test below.
+    struct SidebarRevealRoot {
+        library: gpui::Entity<LibraryApp>,
+    }
+
+    impl gpui::Render for SidebarRevealRoot {
+        fn render(
+            &mut self,
+            window: &mut gpui::Window,
+            cx: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            use gpui::{div, prelude::*};
+            let column = self
+                .library
+                .update(cx, |library, cx| library.render_sidebar_column(window, cx));
+            div()
+                .w(gpui::px(240.))
+                .h(gpui::px(260.))
+                .flex()
+                .flex_col()
+                .child(column)
+        }
+    }
+
+    /// ADR 0098 Invariants, walk of 2026-11-15 (pending human checks section
+    /// 15 V1): in a short window, Tab put the focus on Inbox, and the feed
+    /// area hid the row. The destinations list must scroll to show the
+    /// focused row.
+    #[gpui::test]
+    fn adr_0098_tab_scrolls_the_focused_sidebar_row_into_view(cx: &mut gpui::TestAppContext) {
+        use crate::view_models::sidebar::SidebarDestination;
+
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+        });
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+            crate::db::init_schema(&conn).expect("the schema");
+            crate::db::migrate_schema(&conn).expect("the migrations");
+            let dir = std::env::temp_dir().join("hitit-sidebar-reveal-test");
+            let services = crate::application::ApplicationServices::local_with_service_adapters()
+                .expect("the local services");
+            let library = cx.new(|cx| {
+                LibraryApp::new(
+                    std::sync::Arc::new(std::sync::Mutex::new(conn)),
+                    crate::media::ImageCache::new(dir.join("cache")),
+                    "http://127.0.0.1:9".into(),
+                    dir,
+                    std::sync::Arc::new(services),
+                    None,
+                    window,
+                    cx,
+                )
+            });
+            SidebarRevealRoot { library }
+        });
+        let library = cx.update(|_, cx| root.read(cx).library.clone());
+        let draw = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+        };
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        let (scroll, inbox) = cx.update(|_, cx| {
+            let library = library.read(cx);
+            (
+                library.destinations_scroll.clone(),
+                library
+                    .sidebar_row_focus(SidebarDestination::Inbox)
+                    .expect("the Inbox row has a focus handle")
+                    .clone(),
+            )
+        });
+        assert!(
+            scroll.max_offset().y > gpui::px(0.),
+            "the window must be short enough that the list scrolls"
+        );
+        assert_eq!(scroll.offset().y, gpui::px(0.));
+
+        cx.update(|window, cx| window.focus(&inbox, cx));
+        // A key press shows the focus ring and arms the reveal, as Tab does.
+        cx.simulate_keystrokes("shift");
+        draw(cx);
+        assert!(
+            scroll.offset().y < gpui::px(0.),
+            "ADR 0098 Invariants: the focused Inbox row must scroll into view. \
+             Give each focusable sidebar row a `focused_control_probe`."
+        );
+    }
 }

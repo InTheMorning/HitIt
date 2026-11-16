@@ -86,6 +86,10 @@ Visual, listed apart, for the operator to walk:
 - The search notice pages hold `search_notice_scroll` and `saved_search_notice_scroll` on `TopApp`. The notices of one search page share one handle. A notice is short, so a stale offset is improbable. No reset on a change of notice exists.
 - `ReleaseDetailSurface` takes a `&ScrollHandle`, not an `Option`. Its only scrollable caller, `src/ui/shells/entity.rs`, gives the held handle.
 
+## Walk Correction - 2026-11-15
+
+Operator choice line: V1 did not pass in the walk of 2026-11-15. In a window 460 px high, Tab put the focus on Inbox, and the feed area hid the lower half of the row. The cause: a sidebar row did not add `focused_control_probe`, so the destinations list got no bounds to show. The row adds the probe when it shows the focus ring (`src/ui/shells/library/sidebar.rs`). The test `adr_0098_tab_scrolls_the_focused_sidebar_row_into_view` in `src/library/app_impl.rs` fails without the probe and passes with it. V1 is open again for the operator.
+
 ## Report
 
 Give the files changed, the new held handles and the tests changed. Tell if `release_detail_surface` still takes an `Option`.

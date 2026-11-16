@@ -564,6 +564,7 @@ target/debug/hitit &
 [ADR 0090 task 005](tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) gives the procedure. Make the window 600 px high, and use Tab only.
 
 - V1: Tab through the destinations list. Each focused entry is in view with its focus ring.
+  - Walk of 2026-11-15: V1 did not pass. The feed area hid the focused Inbox row. The correction of 2026-11-15 is in the task file. Do V1 again with the new build.
 - V2: on an Index detail pane, Tab to a button below the visible part. The pane scrolls to show it.
 - V3: on a search notice page, Tab to the last button. The page scrolls to show it.
 - V4: in Settings, Tab to a control below the visible part. The page scrolls to show it. The padding and the scrollbar of Settings look as before.
