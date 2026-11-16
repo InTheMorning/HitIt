@@ -728,3 +728,13 @@ Agent walk, 2026-11-16, Dark only. The task file gives the details.
 - V1 fails: a space shows between the ring and a button. [ADR 0101 task 014](tasks/adr-0101-task-014-the-button-ring-has-no-gap.md) corrects it.
 - Task 014 is implemented. Its agent walk passed in Dark and Light: the ring of "Download album" is outside the fill with a gap, and the ring touches "⋯" and "Website".
 
+
+## 26. ADR 0101 Task 003 The Art Radius And The Art Shadow - 2026-11-16
+
+Task: [ADR 0101 task 003](tasks/adr-0101-task-003-art-radius.md). Do the check in Dark and in Light at M.
+
+- V1: on Releases, compare a row image, a tile and the page header image of a release. Each corner has a curve in proportion to the image. A tile corner does not have the curve of a button.
+- V2: in Light, the page header image has a larger shadow than a tile. A row image has no shadow.
+- Incorrect: an image has square corners, a small image has a large curve, or a row image has a shadow.
+
+Agent walk, 2026-11-16, Dark only. V1 passes after a correction in the task. V2 is open, because the shadow does not show clearly on the dark background.
