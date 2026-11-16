@@ -609,8 +609,9 @@ impl<'a> TrackDetailVm<'a> {
             .and_then(nonempty)
     }
 
-    /// The page actions of ADR 0101 Decision 5, with the main action of the
-    /// 2026-10-07 amendment: the next curation step for the track state.
+    /// The page actions of ADR 0101 Decision 5. No state gives a filled
+    /// action. A track page fills only its audio action, and it has none
+    /// yet. Download comes before "Add to Playlist".
     #[must_use]
     pub fn page_actions(&self) -> TrackPageActions {
         let copy_feed_url = self
@@ -623,24 +624,24 @@ impl<'a> TrackDetailVm<'a> {
             let copy_feed_url = (has_album || copy_feed_url.is_some())
                 .then(|| TrackPageActionDisplay::new(TrackPageAction::CopyFeedUrl, true));
             return TrackPageActions {
-                filled: TrackPageActionDisplay::new(
+                filled: None,
+                plain: vec![TrackPageActionDisplay::new(
                     TrackPageAction::DownloadAlbum,
                     has_album && !self.index_download_busy,
-                ),
-                plain: Vec::new(),
+                )],
                 menu: copy_feed_url.into_iter().collect(),
             };
         };
         if !state.downloaded {
             return TrackPageActions {
-                filled: TrackPageActionDisplay::new(
-                    TrackPageAction::DownloadTrack,
-                    !state.subscription_busy,
-                ),
-                plain: vec![TrackPageActionDisplay::new(
-                    TrackPageAction::AddToPlaylist,
-                    true,
-                )],
+                filled: None,
+                plain: vec![
+                    TrackPageActionDisplay::new(
+                        TrackPageAction::DownloadTrack,
+                        !state.subscription_busy,
+                    ),
+                    TrackPageActionDisplay::new(TrackPageAction::AddToPlaylist, true),
+                ],
                 menu: copy_feed_url.into_iter().collect(),
             };
         }
@@ -656,8 +657,11 @@ impl<'a> TrackDetailVm<'a> {
             ));
         }
         TrackPageActions {
-            filled: TrackPageActionDisplay::new(TrackPageAction::AddToPlaylist, true),
-            plain: Vec::new(),
+            filled: None,
+            plain: vec![TrackPageActionDisplay::new(
+                TrackPageAction::AddToPlaylist,
+                true,
+            )],
             menu,
         }
     }
@@ -910,20 +914,20 @@ impl TrackPageAction {
     /// `release_kind` names the release that "Download …" downloads (ADR
     /// 0084 Decision 5), when the page knows it. A Library track page
     /// knows its release in the Library tree. An Index track page knows
-    /// no kind, and gives `None`, so the label says "Download release".
+    /// no kind, and gives `None`, so the label says "Download Release".
     #[must_use]
     pub(crate) fn label(self, release_kind: Option<ReleaseKind>) -> String {
         match self {
             Self::DownloadAlbum => match release_kind {
-                Some(kind) => format!("Download {}", kind.noun()),
-                None => "Download release".to_string(),
+                Some(kind) => format!("Download {}", kind.label()),
+                None => "Download Release".to_string(),
             },
-            Self::DownloadTrack => "Download track".to_string(),
-            Self::AddToPlaylist => "Add to playlist".to_string(),
-            Self::CopyFeedUrl => "Copy feed URL".to_string(),
-            Self::MusicBrainzLookup => "MusicBrainz lookup".to_string(),
+            Self::DownloadTrack => "Download Track".to_string(),
+            Self::AddToPlaylist => "Add to Playlist".to_string(),
+            Self::CopyFeedUrl => "Copy Feed URL".to_string(),
+            Self::MusicBrainzLookup => "MusicBrainz Lookup".to_string(),
             Self::InspectSources => "Inspect Sources".to_string(),
-            Self::RemoveTrack => "Remove track…".to_string(),
+            Self::RemoveTrack => "Remove Track…".to_string(),
         }
     }
 
@@ -950,6 +954,16 @@ impl TrackPageAction {
     pub const fn is_destructive(self) -> bool {
         matches!(self, Self::RemoveTrack)
     }
+
+    /// The command changes stored data. The button role follows this fact
+    /// (musicindex ADR 0042 R-ACT-4 item 3, `ControlStyle::by_result`).
+    #[must_use]
+    pub const fn changes_stored_data(self) -> bool {
+        matches!(
+            self,
+            Self::DownloadAlbum | Self::DownloadTrack | Self::AddToPlaylist | Self::RemoveTrack
+        )
+    }
 }
 
 /// A display-ready track page action with its typed availability.
@@ -969,13 +983,15 @@ impl TrackPageActionDisplay {
     }
 }
 
-/// The actions of a track page in the order of ADR 0101 Decision 5: one
-/// filled button, at most two plain buttons, and the "⋯" menu.
+/// The actions of a track page in the order of ADR 0101 Decision 5: the
+/// filled button when the page has an audio action, at most two plain
+/// buttons, and the "⋯" menu.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackPageActions {
-    /// The one filled button.
-    pub filled: TrackPageActionDisplay,
-    /// The plain buttons.
+    /// The filled button. It is `None` until a track page has an audio
+    /// action.
+    pub filled: Option<TrackPageActionDisplay>,
+    /// The plain buttons. Download is first.
     pub plain: Vec<TrackPageActionDisplay>,
     /// The "⋯" menu items. A destructive item is last.
     pub menu: Vec<TrackPageActionDisplay>,
@@ -1686,16 +1702,24 @@ mod tests {
         menu.iter().map(|item| item.action).collect()
     }
 
-    /// R83-42: a track that is not in the Library gets "Download album".
-    /// It gets "Copy feed URL" when it names its album feed: `MusicIndex`
-    /// gives the feed URL of that feed.
+    /// ADR 0101 Decision 5 (M1): a track that is not in the Library gets the
+    /// plain button "Download Release" and no filled action. It gets "Copy
+    /// Feed URL" when it names its album feed: `MusicIndex` gives the feed
+    /// URL of that feed.
     #[test]
-    fn adr_0083_r83_42_index_track_actions() {
+    fn adr_0101_decision_5_index_track_actions_give_no_filled_action() {
         let mut with_album = track();
         with_album.feed_guid = Some("feed-guid".into());
         let actions =
             TrackDetailVm::new(&with_album, TrackDetailSurfaceContext::Discover).page_actions();
-        assert!(actions.filled.available);
+        assert_eq!(actions.filled, None);
+        assert_eq!(
+            actions.plain,
+            vec![TrackPageActionDisplay::new(
+                TrackPageAction::DownloadAlbum,
+                true
+            )]
+        );
         assert_eq!(
             actions_of(&actions.menu),
             vec![TrackPageAction::CopyFeedUrl]
@@ -1704,12 +1728,13 @@ mod tests {
         let track = track();
         let without_feed = TrackDetailVm::new(&track, TrackDetailSurfaceContext::Discover);
         let actions = without_feed.page_actions();
-        assert_eq!(actions.filled.action, TrackPageAction::DownloadAlbum);
+        assert_eq!(actions.filled, None);
+        assert_eq!(actions.plain[0].action, TrackPageAction::DownloadAlbum);
         assert!(
-            !actions.filled.available,
+            !actions.plain[0].available,
             "a track with no album feed GUID cannot download its album"
         );
-        assert!(actions.plain.is_empty());
+        assert_eq!(actions.plain.len(), 1);
         assert!(actions.menu.is_empty());
 
         let feed = feed_with_url();
@@ -1722,10 +1747,11 @@ mod tests {
         );
     }
 
-    /// R83-42: a Library track with no local file gets "Download track" and
-    /// "Add to playlist". A busy download makes "Download track" unavailable.
+    /// ADR 0101 Decision 5 (M1): a Library track with no local file gets
+    /// "Download Track" first, then "Add to Playlist", and no filled action.
+    /// A busy download makes "Download Track" unavailable.
     #[test]
-    fn adr_0083_r83_42_library_track_not_downloaded_actions() {
+    fn adr_0101_decision_5_library_track_not_downloaded_actions() {
         let track = track();
         let feed = feed_with_url();
         let busy = LibraryTrackActionState {
@@ -1737,22 +1763,26 @@ mod tests {
             .with_feed_identity(Some(&feed))
             .with_library_state(busy)
             .page_actions();
-        assert_eq!(actions.filled.action, TrackPageAction::DownloadTrack);
-        assert!(!actions.filled.available);
+        assert_eq!(actions.filled, None);
         assert_eq!(
             actions_of(&actions.plain),
-            vec![TrackPageAction::AddToPlaylist]
+            vec![
+                TrackPageAction::DownloadTrack,
+                TrackPageAction::AddToPlaylist
+            ]
         );
+        assert!(!actions.plain[0].available);
         assert_eq!(
             actions_of(&actions.menu),
             vec![TrackPageAction::CopyFeedUrl]
         );
     }
 
-    /// R83-42 and R83-43: a downloaded track gets "Add to playlist" as the
-    /// filled action. "Remove track…" is the last menu item and destructive.
+    /// ADR 0101 Decision 5 (M1): a downloaded track gets "Add to Playlist" as
+    /// the one plain button and no filled action. "Remove Track…" is the last
+    /// menu item and destructive.
     #[test]
-    fn adr_0083_r83_42_r83_43_downloaded_track_actions() {
+    fn adr_0101_decision_5_downloaded_track_actions() {
         let track = track();
         let feed = feed_with_url();
         let state = LibraryTrackActionState {
@@ -1766,8 +1796,11 @@ mod tests {
             .with_feed_identity(Some(&feed))
             .with_library_state(state)
             .page_actions();
-        assert_eq!(actions.filled.action, TrackPageAction::AddToPlaylist);
-        assert!(actions.plain.is_empty());
+        assert_eq!(actions.filled, None);
+        assert_eq!(
+            actions_of(&actions.plain),
+            vec![TrackPageAction::AddToPlaylist]
+        );
         assert_eq!(
             actions_of(&actions.menu),
             vec![
@@ -1783,6 +1816,52 @@ mod tests {
         let last = actions.menu.last().expect("menu has items");
         assert!(last.action.is_destructive());
         assert!(last.action.label(None).ends_with('…'));
+    }
+
+    /// ADR 0101 Decision 5 (M3, M4): the download and the add to a playlist
+    /// change stored data, so they have the role Secondary. Each header shows
+    /// at most two buttons, and Download is before "Add to Playlist".
+    #[test]
+    fn adr_0101_decision_5_track_buttons_are_secondary_and_at_most_two() {
+        assert!(TrackPageAction::DownloadTrack.changes_stored_data());
+        assert!(TrackPageAction::DownloadAlbum.changes_stored_data());
+        assert!(TrackPageAction::AddToPlaylist.changes_stored_data());
+        assert!(!TrackPageAction::CopyFeedUrl.changes_stored_data());
+        assert!(!TrackPageAction::MusicBrainzLookup.changes_stored_data());
+        let track = track();
+        let mut states = vec![None];
+        for downloaded in [false, true] {
+            for busy in [false, true] {
+                states.push(Some(LibraryTrackActionState {
+                    downloaded,
+                    subscription_busy: busy,
+                    musicbrainz_available: true,
+                    release_download_active: busy,
+                }));
+            }
+        }
+        for state in states {
+            let mut vm = TrackDetailVm::new(&track, TrackDetailSurfaceContext::Library);
+            if let Some(state) = state {
+                vm = vm.with_library_state(state);
+            }
+            let actions = vm.page_actions();
+            assert!(actions.plain.len() <= 2, "{state:?}");
+            assert!(actions.plain.iter().all(
+                |button| button.action.changes_stored_data() && !button.action.is_destructive()
+            ));
+            let order = actions_of(&actions.plain);
+            if let (Some(download), Some(add)) = (
+                order
+                    .iter()
+                    .position(|a| *a == TrackPageAction::DownloadTrack),
+                order
+                    .iter()
+                    .position(|a| *a == TrackPageAction::AddToPlaylist),
+            ) {
+                assert!(download < add, "{state:?}");
+            }
+        }
     }
 
     /// Orchestrator correction of 2026-10-20 (C3): while a download job of
@@ -1803,7 +1882,10 @@ mod tests {
             .with_feed_identity(Some(&feed))
             .with_library_state(state)
             .page_actions();
-        assert_eq!(actions.filled.action, TrackPageAction::AddToPlaylist);
+        assert_eq!(
+            actions_of(&actions.plain),
+            vec![TrackPageAction::AddToPlaylist]
+        );
         assert_eq!(
             actions_of(&actions.menu),
             vec![
@@ -1815,16 +1897,38 @@ mod tests {
 
     /// R7-06 (ADR 0084 Decision 5): the download label of a track page
     /// names the release kind when the page knows it, and says "Download
-    /// release" when it does not.
+    /// Release" when it does not. ADR 0101 Decision 5 (M5): each label of a
+    /// track page header and menu is in title case.
     #[test]
     fn adr_0084_release_kind_r7_06_track_download_label_names_the_known_kind() {
         assert_eq!(
             TrackPageAction::DownloadAlbum.label(None),
-            "Download release"
+            "Download Release"
         );
         assert_eq!(
             TrackPageAction::DownloadAlbum.label(Some(ReleaseKind::Single)),
-            "Download single"
+            "Download Single"
+        );
+        let labels: Vec<_> = [
+            TrackPageAction::DownloadTrack,
+            TrackPageAction::AddToPlaylist,
+            TrackPageAction::CopyFeedUrl,
+            TrackPageAction::MusicBrainzLookup,
+            TrackPageAction::InspectSources,
+            TrackPageAction::RemoveTrack,
+        ]
+        .map(|action| action.label(None))
+        .into();
+        assert_eq!(
+            labels,
+            [
+                "Download Track",
+                "Add to Playlist",
+                "Copy Feed URL",
+                "MusicBrainz Lookup",
+                "Inspect Sources",
+                "Remove Track…"
+            ]
         );
         assert_eq!(
             TrackPageAction::DownloadAlbum.a11y_label(None),

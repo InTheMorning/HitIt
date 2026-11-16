@@ -822,3 +822,14 @@ Task: [ADR 0101 task 012](tasks/adr-0101-task-012-light-levels-on-surfaces.md).
 - Incorrect: a hover does not show on a list row, or the field list goes below the window.
 
 Agent walk, 2026-11-16: V1, V3, V4, V5 and V6 pass. V2 is open, because the test data has no playlist.
+
+## 34. ADR 0101 Task 011 The Main Action - 2026-11-16
+
+Task: [ADR 0101 task 011](tasks/adr-0101-task-011-main-action.md).
+
+- V1: open an Index release page. "Download Album" is a Secondary button with a light tint, not a blue fill.
+- V2: open a downloaded track. "Add to Playlist" is a Secondary button. Open the "⋯" menu. "MusicBrainz Lookup" is in the menu.
+- V3: compare the header of a release page and a track page with the same page on musicindex.org. The two pages give the same weight to each button.
+- Incorrect: a header button has a blue fill, or a button label does not use title case, for example "Add to playlist".
+
+Agent walk, 2026-11-16: V1 and V2 pass in Light. V3 is open, because the test display has no browser.

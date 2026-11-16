@@ -338,14 +338,14 @@ pub(crate) fn removed_from_feed_row(
                 position,
             },
             id: format!("playlist-removed-remove-{playlist_id}-{position}"),
-            label: "Remove from playlist",
+            label: "Remove from Playlist",
             a11y_label: format!("Remove {title} from this playlist"),
             availability: PlaylistRemovedTrackActionAvailability::Available,
         },
         remove_from_all_playlists: PlaylistRemovedTrackActionDisplay {
             kind: PlaylistRemovedTrackActionKind::RemoveFromAllPlaylists { track_id },
             id: format!("playlist-removed-remove-all-{playlist_id}-{position}"),
-            label: "Remove from all playlists…",
+            label: "Remove from All Playlists…",
             a11y_label: format!("Remove {title} from all playlists"),
             availability: PlaylistRemovedTrackActionAvailability::Available,
         },
@@ -1022,7 +1022,7 @@ mod tests {
                 position: 4
             }
         );
-        assert_eq!(row.remove_from_playlist.label, "Remove from playlist");
+        assert_eq!(row.remove_from_playlist.label, "Remove from Playlist");
         assert_eq!(
             row.remove_from_playlist.a11y_label,
             "Remove Gone Song from this playlist"
@@ -1034,7 +1034,7 @@ mod tests {
         );
         assert_eq!(
             row.remove_from_all_playlists.label,
-            "Remove from all playlists…"
+            "Remove from All Playlists…"
         );
         assert_eq!(
             row.remove_from_all_playlists.a11y_label,
@@ -1075,7 +1075,7 @@ mod tests {
                 },
                 PlaylistRemovedTrackActionKind::RemoveFromAllPlaylists { track_id: 11 },
             ],
-            "musicindex ADR 0064 R-ACT-10: the menu lists \"Remove from playlist\", then \"Remove from all playlists…\"."
+            "musicindex ADR 0064 R-ACT-10: the menu lists \"Remove from Playlist\", then \"Remove from All Playlists…\"."
         );
         assert_ne!(row.menu_id, row.remove_from_playlist.id);
         assert!(row.menu_a11y_label.contains("Gone Song"));

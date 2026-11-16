@@ -41,15 +41,15 @@ const LIBRARY_ACTION_ID_PREFIX: &str = "album-page";
 /// The action id prefix of an Index release page.
 const INDEX_ACTION_ID_PREFIX: &str = "index-album-page";
 /// The menu item labels of a track row (ADR 0083 task 006, decision D2).
-const TRACK_MENU_ADD_TO_PLAYLIST_LABEL: &str = "Add to playlist";
+const TRACK_MENU_ADD_TO_PLAYLIST_LABEL: &str = "Add to Playlist";
 const TRACK_MENU_DOWNLOAD_LABEL: &str = "Download";
 const TRACK_MENU_INSPECT_SOURCES_LABEL: &str = "Inspect Sources";
 const TRACK_MENU_REMOVE_LABEL: &str = "Remove\u{2026}";
 /// The menu item labels of a playlist row and of an Inbox row
 /// (ADR 0083 task 007, decisions D5 to D7).
-const TRACK_MENU_MOVE_UP_LABEL: &str = "Move up";
-const TRACK_MENU_MOVE_DOWN_LABEL: &str = "Move down";
-const TRACK_MENU_REMOVE_FROM_PLAYLIST_LABEL: &str = "Remove from playlist";
+const TRACK_MENU_MOVE_UP_LABEL: &str = "Move Up";
+const TRACK_MENU_MOVE_DOWN_LABEL: &str = "Move Down";
+const TRACK_MENU_REMOVE_FROM_PLAYLIST_LABEL: &str = "Remove from Playlist";
 const TRACK_MENU_REMOVE_FROM_LIBRARY_LABEL: &str = "Remove from Library\u{2026}";
 /// The tooltip of the "⋯" button of a track row.
 const TRACK_MENU_TRIGGER_TOOLTIP: &str = "More actions";
@@ -412,9 +412,10 @@ pub(crate) struct ReleasePageActionVm {
 /// The action row of a release page (ADR 0101 Decision 5).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ReleasePageActionsVm {
-    /// The one filled button.
-    pub(crate) filled: ReleasePageActionVm,
-    /// The plain buttons.
+    /// The filled button. It is `None` until a release page has a main
+    /// action of its own.
+    pub(crate) filled: Option<ReleasePageActionVm>,
+    /// The plain buttons. Download is first.
     pub(crate) plain: Vec<ReleasePageActionVm>,
     /// The items of the "⋯" menu. A destructive item is last.
     pub(crate) menu: Vec<ReleasePageActionVm>,
@@ -1231,7 +1232,9 @@ fn release_page_actions(input: &ReleasePageFacts) -> ReleasePageActionsVm {
         }
     };
     ReleasePageActionsVm {
-        filled: action_vm(album_actions.filled, "action"),
+        filled: album_actions
+            .filled
+            .map(|display| action_vm(display, "action")),
         plain: album_actions
             .plain
             .iter()
@@ -1449,14 +1452,10 @@ mod tests {
         assert_eq!(rows(&library_vm), rows(&index_vm));
         assert_eq!(library_vm.rows.len(), 2);
 
-        assert!(library_vm
-            .actions
-            .filled
+        assert!(library_vm.actions.plain[0]
             .id
             .starts_with("album-page-action:"));
-        assert!(index_vm
-            .actions
-            .filled
+        assert!(index_vm.actions.plain[0]
             .id
             .starts_with("index-album-page-action:"));
         assert_eq!(library_vm.actions.menu_id, "album-page-menu-7");
@@ -1602,9 +1601,9 @@ mod tests {
         let without_guid = &vm.rows[0];
         assert_eq!(without_guid.row_id, "entity-track:0");
         assert_eq!(without_guid.download.id, "index-track-download:0");
-        assert!(!vm.actions.filled.id.is_empty());
+        assert_eq!(vm.actions.filled, None);
         assert_eq!(
-            vm.actions.filled.id,
+            vm.actions.plain[0].id,
             "index-album-page-action:DownloadAlbum"
         );
     }
@@ -1955,7 +1954,7 @@ mod tests {
         assert_eq!(menu.trigger_tooltip, "More actions");
         assert_eq!(menu.trigger_a11y_label, "More actions for Song");
         let labels: Vec<_> = menu.items.iter().map(|item| item.label.as_str()).collect();
-        assert_eq!(labels, vec!["Add to playlist", "Download"]);
+        assert_eq!(labels, vec!["Add to Playlist", "Download"]);
     }
 
     /// R83-6-02 (ADR 0101 Decision 5): "Remove…" is last and destructive,

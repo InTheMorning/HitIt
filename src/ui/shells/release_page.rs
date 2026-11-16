@@ -157,22 +157,31 @@ pub(crate) fn render_release_page(
     render_release_detail_shell(&vm.page, slots)
 }
 
-/// The action row of a release page (ADR 0101 Decision 5): one filled
-/// button, the plain buttons and the "⋯" menu.
+/// The action row of a release page (ADR 0101 Decision 5): the filled
+/// button when the page has one, the plain buttons and the "⋯" menu. Each
+/// plain button has the role of its result.
 fn render_release_page_actions(
     actions: &ReleasePageActionsVm,
     playlists: &[PlaylistOptionDisplayVm],
     dispatch: &ReleasePageDispatch,
 ) -> AnyElement {
-    let mut controls = vec![render_release_page_button(
-        &actions.filled,
-        actions.playlist_popover_id.as_deref(),
-        playlists,
-        dispatch,
-    )];
+    let mut controls: Vec<AnyElement> = actions
+        .filled
+        .iter()
+        .map(|action| {
+            render_release_page_button(
+                action,
+                ControlStyle::Primary,
+                actions.playlist_popover_id.as_deref(),
+                playlists,
+                dispatch,
+            )
+        })
+        .collect();
     controls.extend(actions.plain.iter().map(|action| {
         render_release_page_button(
             action,
+            ControlStyle::by_result(action.action.changes_stored_data()),
             actions.playlist_popover_id.as_deref(),
             playlists,
             dispatch,
@@ -196,6 +205,7 @@ fn render_release_page_actions(
 /// playlist popover.
 fn render_release_page_button(
     action: &ReleasePageActionVm,
+    style: ControlStyle,
     playlist_popover_id: Option<&str>,
     playlists: &[PlaylistOptionDisplayVm],
     dispatch: &ReleasePageDispatch,
@@ -213,7 +223,7 @@ fn render_release_page_button(
             back_a11y_label: SharedString::from("Back to playlist choices"),
             create_a11y_label: SharedString::from("Create playlist and add album"),
         })
-        .trigger_style(ControlStyle::Primary)
+        .trigger_style(style)
         .disabled(!action.available)
         .on_select(move |playlist_id: &i64, window, cx| {
             select(
@@ -231,7 +241,7 @@ fn render_release_page_button(
         })
         .into_any_element();
     }
-    let button = UiButton::styled(SharedString::from(action.id.clone()), ControlStyle::Primary)
+    let button = UiButton::styled(SharedString::from(action.id.clone()), style)
         .label(action.label.clone())
         .a11y_label(action.a11y_label.clone())
         .disabled(!action.available);

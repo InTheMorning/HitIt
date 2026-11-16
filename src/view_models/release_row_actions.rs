@@ -392,7 +392,7 @@ mod tests {
             .collect();
         assert_eq!(
             labels,
-            ["Download album", "Add to playlist", "Remove album\u{2026}"]
+            ["Download Album", "Add to Playlist", "Remove Album\u{2026}"]
         );
         assert_eq!(partly.target.feed_id, Some(7));
         let last = partly.menu.items.last().expect("an item");
@@ -414,7 +414,7 @@ mod tests {
             .iter()
             .map(|item| item.label.as_str())
             .collect();
-        assert_eq!(labels, ["Add to playlist", "Remove album\u{2026}"]);
+        assert_eq!(labels, ["Add to Playlist", "Remove Album\u{2026}"]);
         assert_eq!(full.menu.id, "row-menu");
         assert_eq!(full.menu.items[0].id, "row-menu:AddToPlaylist");
         assert_eq!(full.menu.trigger_a11y_label, "More actions for Face Pale");
@@ -530,9 +530,9 @@ mod tests {
     fn adr_0084_release_row_actions_r31_04_index_release() {
         let index = ReleaseRowState::Index { job_active: false };
         for (kind, label) in [
-            (ReleaseKind::Album, "Download album"),
+            (ReleaseKind::Album, "Download Album"),
             (ReleaseKind::Ep, "Download EP"),
-            (ReleaseKind::resolve(None, 1), "Download single"),
+            (ReleaseKind::resolve(None, 1), "Download Single"),
         ] {
             let menu = menu(index, kind, false).expect("an Index release has a menu");
             assert_eq!(menu.menu.items[0].label, label);
@@ -545,7 +545,7 @@ mod tests {
             false,
         )
         .expect("a menu");
-        assert_eq!(single.menu.items[1].label, "Remove single\u{2026}");
+        assert_eq!(single.menu.items[1].label, "Remove Single\u{2026}");
         assert_eq!(single.target.index_feed_guid(), None);
     }
 

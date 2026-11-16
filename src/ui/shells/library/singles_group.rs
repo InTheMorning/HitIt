@@ -248,8 +248,9 @@ fn render_index_part(
     elements
 }
 
-/// The one main action of a group page: "Download n singles" or "Add to
-/// playlist". "Add to playlist" opens the shared playlist popover. `id` is
+/// The one main action of a group page: "Download n Singles" or "Add to
+/// Playlist". It has the role Secondary, because it changes stored data
+/// (ADR 0101 Decision 5). "Add to Playlist" opens the shared playlist popover. `id` is
 /// the element id of the action. The window group page uses its own id
 /// (ADR 0086 packet 004).
 pub(super) fn render_main_action(
@@ -269,7 +270,7 @@ pub(super) fn render_main_action(
         row_a11y_label: _,
     } = action;
     match action {
-        SinglesGroupAction::DownloadSingles(plan) => UiButton::styled(id, ControlStyle::Primary)
+        SinglesGroupAction::DownloadSingles(plan) => UiButton::styled(id, ControlStyle::Secondary)
             .label(label)
             .a11y_label(a11y_label)
             .disabled(!available)
@@ -288,7 +289,7 @@ pub(super) fn render_main_action(
                 back_a11y_label: SharedString::from(back_a11y_label),
                 create_a11y_label: SharedString::from(create_a11y_label),
             })
-            .trigger_style(ControlStyle::Primary)
+            .trigger_style(ControlStyle::Secondary)
             .disabled(!available)
             .on_select(cx.listener(move |this, playlist_id: &i64, _window, cx| {
                 this.add_albums_to_playlist(&feed_ids, *playlist_id, cx);

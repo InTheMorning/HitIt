@@ -31,15 +31,16 @@ pub enum AlbumPageAction {
 impl AlbumPageAction {
     /// The visible label. A label that opens a confirmation ends with "…".
     /// `kind` names the release (ADR 0084 Decision 5) for "Download …" and
-    /// "Remove …", for example "Download single".
+    /// "Remove …", for example "Download Single". The kind is in title
+    /// case (musicindex ADR 0023 R-CASE-1).
     #[must_use]
     pub(crate) fn label(self, kind: ReleaseKind) -> String {
         match self {
-            Self::DownloadAlbum => format!("Download {}", kind.noun()),
-            Self::AddToPlaylist => "Add to playlist".to_string(),
-            Self::CopyFeedUrl => "Copy feed URL".to_string(),
-            Self::MusicBrainzLookup => "MusicBrainz lookup".to_string(),
-            Self::RemoveAlbum => format!("Remove {}…", kind.noun()),
+            Self::DownloadAlbum => format!("Download {}", kind.label()),
+            Self::AddToPlaylist => "Add to Playlist".to_string(),
+            Self::CopyFeedUrl => "Copy Feed URL".to_string(),
+            Self::MusicBrainzLookup => "MusicBrainz Lookup".to_string(),
+            Self::RemoveAlbum => format!("Remove {}…", kind.label()),
         }
     }
 
@@ -63,6 +64,16 @@ impl AlbumPageAction {
     pub const fn is_destructive(self) -> bool {
         matches!(self, Self::RemoveAlbum)
     }
+
+    /// The command changes stored data. The button role follows this fact
+    /// (musicindex ADR 0042 R-ACT-4 item 3, `ControlStyle::by_result`).
+    #[must_use]
+    pub const fn changes_stored_data(self) -> bool {
+        matches!(
+            self,
+            Self::DownloadAlbum | Self::AddToPlaylist | Self::RemoveAlbum
+        )
+    }
 }
 
 /// A display-ready album page action with its typed availability.
@@ -82,13 +93,15 @@ impl AlbumPageActionDisplay {
     }
 }
 
-/// The actions of an album page in the order of ADR 0101 Decision 5: one
-/// filled button, the plain buttons, and the "⋯" menu.
+/// The actions of an album page in the order of ADR 0101 Decision 5: the
+/// filled button when the page has a main action, the plain buttons, and the
+/// "⋯" menu.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AlbumPageActions {
-    /// The one filled button.
-    pub filled: AlbumPageActionDisplay,
-    /// The plain buttons.
+    /// The filled button. It is `None` until a release page has a main
+    /// action of its own (musicindex ADR 0045 R-ACT-7 item 4).
+    pub filled: Option<AlbumPageActionDisplay>,
+    /// The plain buttons. Download is first.
     pub plain: Vec<AlbumPageActionDisplay>,
     /// The "⋯" menu items. A destructive item is last.
     pub menu: Vec<AlbumPageActionDisplay>,
@@ -124,8 +137,11 @@ pub fn album_page_actions(origin: AlbumPageOrigin, feed_url: Option<&str>) -> Al
     } = origin
     else {
         return AlbumPageActions {
-            filled: AlbumPageActionDisplay::new(AlbumPageAction::DownloadAlbum, true),
-            plain: Vec::new(),
+            filled: None,
+            plain: vec![AlbumPageActionDisplay::new(
+                AlbumPageAction::DownloadAlbum,
+                true,
+            )],
             menu,
         };
     };
@@ -133,7 +149,7 @@ pub fn album_page_actions(origin: AlbumPageOrigin, feed_url: Option<&str>) -> Al
         AlbumPageAction::MusicBrainzLookup,
         musicbrainz_available,
     ));
-    let filled = match membership {
+    let button = match membership {
         ReleaseMembershipState::RemoteOnly => {
             AlbumPageActionDisplay::new(AlbumPageAction::DownloadAlbum, true)
         }
@@ -161,8 +177,8 @@ pub fn album_page_actions(origin: AlbumPageOrigin, feed_url: Option<&str>) -> Al
         | ReleaseMembershipState::Downloading => {}
     }
     AlbumPageActions {
-        filled,
-        plain: Vec::new(),
+        filled: None,
+        plain: vec![button],
         menu,
     }
 }
@@ -212,20 +228,30 @@ mod tests {
 
     const FEED_URL: Option<&str> = Some("https://feeds.example.test/album.xml");
 
-    /// R83-51: each album state gives one filled action, no plain action,
-    /// and the "⋯" items of the task 005 table.
+    /// ADR 0101 Decision 5 (M2): no album state gives a filled action. The
+    /// plain buttons and the "⋯" items follow the state table of task 005.
     #[test]
-    fn adr_0083_album_page_actions_follow_the_state_table() {
+    fn adr_0101_decision_5_album_page_actions_give_no_filled_action() {
         let index = album_page_actions(AlbumPageOrigin::Index, FEED_URL);
-        assert_eq!(index.filled.action, AlbumPageAction::DownloadAlbum);
-        assert!(index.filled.available);
-        assert!(index.plain.is_empty());
+        assert_eq!(index.filled, None);
+        assert_eq!(
+            index.plain,
+            vec![AlbumPageActionDisplay::new(
+                AlbumPageAction::DownloadAlbum,
+                true
+            )]
+        );
         assert_eq!(actions_of(&index.menu), vec![AlbumPageAction::CopyFeedUrl]);
 
         let remote = album_page_actions(library(ReleaseMembershipState::RemoteOnly), FEED_URL);
-        assert_eq!(remote.filled.action, AlbumPageAction::DownloadAlbum);
-        assert!(remote.filled.available);
-        assert!(remote.plain.is_empty());
+        assert_eq!(remote.filled, None);
+        assert_eq!(
+            remote.plain,
+            vec![AlbumPageActionDisplay::new(
+                AlbumPageAction::DownloadAlbum,
+                true
+            )]
+        );
         assert_eq!(
             actions_of(&remote.menu),
             vec![
@@ -235,9 +261,14 @@ mod tests {
         );
 
         let in_library = album_page_actions(library(ReleaseMembershipState::InLibrary), FEED_URL);
-        assert_eq!(in_library.filled.action, AlbumPageAction::AddToPlaylist);
-        assert!(in_library.filled.available);
-        assert!(in_library.plain.is_empty());
+        assert_eq!(in_library.filled, None);
+        assert_eq!(
+            in_library.plain,
+            vec![AlbumPageActionDisplay::new(
+                AlbumPageAction::AddToPlaylist,
+                true
+            )]
+        );
         assert_eq!(
             actions_of(&in_library.menu),
             vec![
@@ -248,18 +279,43 @@ mod tests {
         );
     }
 
-    /// R83-51: a busy download or removal makes the filled action and
+    /// ADR 0101 Decision 5 (M3, M4): the download and the add to a playlist
+    /// change stored data, so they have the role Secondary. A header shows at
+    /// most two buttons.
+    #[test]
+    fn adr_0101_decision_5_album_page_buttons_are_secondary_and_at_most_two() {
+        assert!(AlbumPageAction::DownloadAlbum.changes_stored_data());
+        assert!(AlbumPageAction::AddToPlaylist.changes_stored_data());
+        assert!(!AlbumPageAction::CopyFeedUrl.changes_stored_data());
+        for membership in [
+            ReleaseMembershipState::RemoteOnly,
+            ReleaseMembershipState::Queued,
+            ReleaseMembershipState::Downloading,
+            ReleaseMembershipState::InLibrary,
+            ReleaseMembershipState::Removing,
+        ] {
+            let actions = album_page_actions(library(membership), FEED_URL);
+            assert!(actions.plain.len() <= 2, "{membership:?}");
+            assert!(actions.plain.iter().all(|button| {
+                button.action.changes_stored_data() && !button.action.is_destructive()
+            }));
+        }
+        let index = album_page_actions(AlbumPageOrigin::Index, FEED_URL);
+        assert!(index.plain.len() <= 2);
+    }
+
+    /// R83-51: a busy download or removal makes the button and
     /// "Remove album…" unavailable. The lookup keeps its own availability.
     #[test]
-    fn adr_0083_album_page_busy_states_disable_the_filled_action_and_removal() {
+    fn adr_0083_album_page_busy_states_disable_the_button_and_removal() {
         let downloading =
             album_page_actions(library(ReleaseMembershipState::Downloading), FEED_URL);
-        assert_eq!(downloading.filled.action, AlbumPageAction::DownloadAlbum);
-        assert!(!downloading.filled.available);
+        assert_eq!(downloading.plain[0].action, AlbumPageAction::DownloadAlbum);
+        assert!(!downloading.plain[0].available);
 
         let removing = album_page_actions(library(ReleaseMembershipState::Removing), FEED_URL);
-        assert_eq!(removing.filled.action, AlbumPageAction::AddToPlaylist);
-        assert!(!removing.filled.available);
+        assert_eq!(removing.plain[0].action, AlbumPageAction::AddToPlaylist);
+        assert!(!removing.plain[0].available);
         let remove = removing.menu.last().expect("removal stays in the menu");
         assert_eq!(remove.action, AlbumPageAction::RemoveAlbum);
         assert!(!remove.available);
@@ -302,17 +358,17 @@ mod tests {
                 .count(),
             1
         );
-        assert!(!actions.filled.action.is_destructive());
+        assert_eq!(actions.filled, None);
     }
 
     /// R7-05 (ADR 0084 Decision 5): the download and the removal label
     /// name the release kind, and the accessibility label names the same
-    /// kind.
+    /// kind. ADR 0101 Decision 5 (M5): each label is in title case.
     #[test]
     fn adr_0084_release_kind_r7_05_download_and_remove_name_the_kind() {
         assert_eq!(
             AlbumPageAction::DownloadAlbum.label(ReleaseKind::Single),
-            "Download single"
+            "Download Single"
         );
         assert_eq!(
             AlbumPageAction::DownloadAlbum.label(ReleaseKind::Ep),
@@ -320,7 +376,7 @@ mod tests {
         );
         assert_eq!(
             AlbumPageAction::DownloadAlbum.label(ReleaseKind::Album),
-            "Download album"
+            "Download Album"
         );
         assert_eq!(
             AlbumPageAction::DownloadAlbum.a11y_label(ReleaseKind::Single),
@@ -328,11 +384,23 @@ mod tests {
         );
         assert_eq!(
             AlbumPageAction::RemoveAlbum.label(ReleaseKind::Single),
-            "Remove single…"
+            "Remove Single…"
         );
         assert_eq!(
             AlbumPageAction::RemoveAlbum.a11y_label(ReleaseKind::Single),
             "Remove this single from the Library"
+        );
+        assert_eq!(
+            AlbumPageAction::AddToPlaylist.label(ReleaseKind::Album),
+            "Add to Playlist"
+        );
+        assert_eq!(
+            AlbumPageAction::CopyFeedUrl.label(ReleaseKind::Album),
+            "Copy Feed URL"
+        );
+        assert_eq!(
+            AlbumPageAction::MusicBrainzLookup.label(ReleaseKind::Album),
+            "MusicBrainz Lookup"
         );
     }
 }

@@ -954,7 +954,7 @@ pub(crate) enum SinglesGroupAction {
 pub(crate) struct SinglesGroupActionVm {
     /// The command.
     pub(crate) action: SinglesGroupAction,
-    /// The visible label, for example "Download 2 singles".
+    /// The visible label, for example "Download 2 Singles".
     pub(crate) label: String,
     /// The accessibility label.
     pub(crate) a11y_label: String,
@@ -1455,9 +1455,9 @@ fn main_action(group: &SinglesGroup<'_>, busy: bool) -> SinglesGroupActionVm {
 /// Decision 6 and the window group page of ADR 0086 Decision 4. This
 /// function is the one owner of the label text of the two pages.
 ///
-/// - With `missing_count` above 0, the action is "Download n singles", with
+/// - With `missing_count` above 0, the action is "Download n Singles", with
 ///   the plan `missing`.
-/// - Else the action is "Add to playlist", with `library_feed_ids`.
+/// - Else the action is "Add to Playlist", with `library_feed_ids`.
 ///
 /// `count` is the number of singles of the page. While `busy` is true, the
 /// action is not available.
@@ -1470,7 +1470,7 @@ pub(crate) fn singles_main_action(
     busy: bool,
 ) -> SinglesGroupActionVm {
     let (action, label, a11y_label) = if missing_count > 0 {
-        let noun = format!("single{}", plural(missing_count));
+        let title_noun = format!("Single{}", plural(missing_count));
         let a11y_label = if missing_count == 1 {
             "Download the 1 single that is not in the Library".to_owned()
         } else {
@@ -1478,13 +1478,13 @@ pub(crate) fn singles_main_action(
         };
         (
             SinglesGroupAction::DownloadSingles(missing),
-            format!("Download {missing_count} {noun}"),
+            format!("Download {missing_count} {title_noun}"),
             a11y_label,
         )
     } else {
         (
             SinglesGroupAction::AddToPlaylist(library_feed_ids),
-            "Add to playlist".to_owned(),
+            "Add to Playlist".to_owned(),
             format!("Add the {count} singles to a playlist"),
         )
     };
@@ -1964,7 +1964,7 @@ mod tests {
     }
 
     /// R15-07: one or two singles not in the Library give "Download 1
-    /// single" or "Download 2 singles". None gives "Add to playlist". Each
+    /// single" or "Download 2 Singles". None gives "Add to playlist". Each
     /// action is available and has its accessibility label.
     #[test]
     fn adr_0084_singles_group_r15_07_page_main_action_follows_the_library_state() {
@@ -1977,7 +1977,7 @@ mod tests {
             &BusyItems::default(),
         );
         let action = page.main_action.expect("a group has a main action");
-        assert_eq!(action.label, "Download 1 single");
+        assert_eq!(action.label, "Download 1 Single");
         assert_eq!(
             action.a11y_label,
             "Download the 1 single that is not in the Library"
@@ -1998,7 +1998,7 @@ mod tests {
             &BusyItems::default(),
         );
         let action = page.main_action.expect("a group has a main action");
-        assert_eq!(action.label, "Download 2 singles");
+        assert_eq!(action.label, "Download 2 Singles");
         assert_eq!(
             action.a11y_label,
             "Download the 2 singles that are not in the Library"
@@ -2022,7 +2022,7 @@ mod tests {
         assert_eq!(page.title, "Singles by Haleen");
         assert_eq!(page.subtitle.as_deref(), Some("7 singles · By name"));
         let action = page.main_action.expect("a group has a main action");
-        assert_eq!(action.label, "Add to playlist");
+        assert_eq!(action.label, "Add to Playlist");
         assert_eq!(action.a11y_label, "Add the 7 singles to a playlist");
         assert!(action.available);
         assert_eq!(
@@ -3108,7 +3108,7 @@ mod tests {
             &BusyItems::default(),
         );
         let action = page.main_action.expect("a group has a main action");
-        assert_eq!(action.label, "Download 52 singles");
+        assert_eq!(action.label, "Download 52 Singles");
         assert_eq!(
             action.a11y_label,
             "Download the 52 singles that are not in the Library"
@@ -3130,7 +3130,7 @@ mod tests {
         let page =
             SinglesGroupPageVm::from_tree(&tree, &store, &haleen_key(), &BusyItems::default());
         let action = page.main_action.expect("a group has a main action");
-        assert_eq!(action.label, "Download 53 singles");
+        assert_eq!(action.label, "Download 53 Singles");
         let SinglesGroupAction::DownloadSingles(plan) = action.action else {
             panic!("the download action");
         };

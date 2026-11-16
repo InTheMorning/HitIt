@@ -737,7 +737,7 @@ pub(crate) fn playlist_row_menu_with_moves(
                 item(
                     TrackRowMenuAction::MoveUp,
                     "move-up",
-                    "Move up",
+                    "Move Up",
                     format!("Move the playlist \"{name}\" up in the list"),
                     false,
                 )
@@ -746,7 +746,7 @@ pub(crate) fn playlist_row_menu_with_moves(
                 item(
                     TrackRowMenuAction::MoveDown,
                     "move-down",
-                    "Move down",
+                    "Move Down",
                     format!("Move the playlist \"{name}\" down in the list"),
                     false,
                 )
@@ -8923,11 +8923,11 @@ mod tests {
         assert_eq!(
             labels,
             vec![
-                "Add to playlist",
+                "Add to Playlist",
                 "Inspect Sources",
-                "Move up",
-                "Move down",
-                "Remove from playlist",
+                "Move Up",
+                "Move Down",
+                "Remove from Playlist",
                 "Remove from Library\u{2026}",
             ]
         );
@@ -10436,7 +10436,7 @@ mod tests {
             };
             let labels = item_labels(row.menu.as_ref());
             assert!(
-                labels.contains(&"Add to playlist".to_owned()),
+                labels.contains(&"Add to Playlist".to_owned()),
                 "{}: {labels:?}",
                 row.label
             );
@@ -10466,7 +10466,7 @@ mod tests {
             .expect("the album row");
         assert_eq!(
             item_labels(saw.menu.as_ref()),
-            ["Add to playlist", "Remove album\u{2026}"]
+            ["Add to Playlist", "Remove Album\u{2026}"]
         );
 
         let selecting = entries(SelectionMode::Selecting);
@@ -15831,7 +15831,7 @@ mod adr_0086_newest_tests {
             library_single("b", 2, oct(15), true),
         ]));
         let action = main_action(&vm, &page);
-        assert_eq!(action.label, "Download 1 single");
+        assert_eq!(action.label, "Download 1 Single");
         let SinglesGroupAction::DownloadSingles(plan) = action.action else {
             panic!("the download action");
         };
@@ -15851,7 +15851,7 @@ mod adr_0086_newest_tests {
             library_single("b", 2, oct(15), false),
         ]));
         let action = main_action(&vm, &page);
-        assert_eq!(action.label, "Download 3 singles");
+        assert_eq!(action.label, "Download 3 Singles");
         assert!(action.available);
         let SinglesGroupAction::DownloadSingles(plan) = action.action else {
             panic!("the download action");
@@ -15871,7 +15871,7 @@ mod adr_0086_newest_tests {
             library_single("c", 3, oct(8), true),
         ]));
         let action = main_action(&vm, &page);
-        assert_eq!(action.label, "Add to playlist");
+        assert_eq!(action.label, "Add to Playlist");
         assert_eq!(
             action.action,
             SinglesGroupAction::AddToPlaylist(vec![1, 2, 3])
@@ -16123,7 +16123,7 @@ mod adr_0086_newest_tests {
     fn adr_0086_window_group_page_r23_tree_changes_the_page_in_place() {
         let (mut vm, page) = view_model(r01_rows(), false);
         let key = first_key(&newest_rows(&vm, &page));
-        assert_eq!(main_action(&vm, &page).label, "Download 3 singles");
+        assert_eq!(main_action(&vm, &page).label, "Download 3 Singles");
         vm.replace_tree(jsmovie_tree(vec![library_single("c", 3, oct(8), true)]));
         let page_vm = vm.window_group_page(&key);
         assert!(matches!(
@@ -16132,7 +16132,7 @@ mod adr_0086_newest_tests {
         ));
         assert_eq!(
             page_vm.main_action.map(|action| action.label).as_deref(),
-            Some("Download 2 singles")
+            Some("Download 2 Singles")
         );
     }
 

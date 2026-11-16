@@ -277,9 +277,10 @@ pub(crate) struct TrackPageActionVm {
 /// The action row of a track page (ADR 0101 Decision 5).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TrackPageActionRowVm {
-    /// The one filled button.
-    pub(crate) filled: TrackPageActionVm,
-    /// The plain buttons.
+    /// The filled button. It is `None` until a track page has an audio
+    /// action.
+    pub(crate) filled: Option<TrackPageActionVm>,
+    /// The plain buttons. Download is first.
     pub(crate) plain: Vec<TrackPageActionVm>,
     /// The items of the "⋯" menu. A destructive item is last.
     pub(crate) menu: Vec<TrackPageActionVm>,
@@ -420,7 +421,7 @@ fn track_page_action_row(
             let message = LibraryTrackActionVm::new(state.subscription_message.as_deref())
                 .subscription_message_display();
             TrackPageActionRowVm {
-                filled: action_vm(actions.filled, "action"),
+                filled: actions.filled.map(|display| action_vm(display, "action")),
                 plain: actions
                     .plain
                     .iter()
@@ -462,7 +463,7 @@ fn track_page_action_row(
                 None => Vec::new(),
             };
             TrackPageActionRowVm {
-                filled: action_vm(actions.filled, "action"),
+                filled: actions.filled.map(|display| action_vm(display, "action")),
                 plain: actions
                     .plain
                     .iter()
@@ -739,8 +740,8 @@ mod tests {
         );
         assert_eq!(with_vm.description, without_vm.description);
         assert_eq!(
-            with_vm.actions.filled.action,
-            without_vm.actions.filled.action
+            with_vm.actions.plain[0].action,
+            without_vm.actions.plain[0].action
         );
     }
 
@@ -855,11 +856,8 @@ mod tests {
                     .map(|action| (action.action, action.available, action.id.clone()))
                     .collect::<Vec<_>>()
             };
-            assert_eq!(
-                actual(std::slice::from_ref(&row.filled)),
-                ids(std::slice::from_ref(&expected.filled), "action"),
-                "filled action of {action_state:?}"
-            );
+            assert_eq!(row.filled, None, "filled action of {action_state:?}");
+            assert_eq!(expected.filled, None);
             assert_eq!(actual(&row.plain), ids(&expected.plain, "action"));
             // ADR 0089 Decision 8: the page adds "Inspect Sources" to the menu.
             let shared_menu: Vec<_> = row
@@ -890,19 +888,20 @@ mod tests {
         }
     }
 
-    /// R23-08: the Index action row gives the filled "Download album", no
-    /// plain action, no message and the ids of the Index track page. With
-    /// no feed GUID, the filled action is unavailable and the menu is
+    /// R23-08: the Index action row gives the plain "Download Release", no
+    /// filled action, no message and the ids of the Index track page. With
+    /// no feed GUID, the button is unavailable and the menu is
     /// empty.
     #[test]
     fn adr_0084_track_page_r23_08_index_action_row_keeps_its_ids() {
         let facts = index_facts(None);
         let row = track_page_vm(&facts).actions;
-        assert_eq!(row.filled.action, TrackPageAction::DownloadAlbum);
-        assert!(row.filled.available);
-        assert_eq!(row.filled.id, "index-track-page-action:DownloadAlbum");
-        assert_eq!(row.filled.label, "Download release");
-        assert!(row.plain.is_empty());
+        assert_eq!(row.plain[0].action, TrackPageAction::DownloadAlbum);
+        assert!(row.plain[0].available);
+        assert_eq!(row.plain[0].id, "index-track-page-action:DownloadAlbum");
+        assert_eq!(row.plain[0].label, "Download Release");
+        assert_eq!(row.plain.len(), 1);
+        assert_eq!(row.filled, None);
         assert!(row.message.is_none());
         assert!(row.playlist_popover_id.is_none());
         assert_eq!(row.menu_id, "index-track-page-menu-feed-guid");
@@ -922,8 +921,8 @@ mod tests {
         let facts =
             TrackPageFacts::from_index_track(TrackView::from_api(no_guid), Some(&feed_view));
         let row = track_page_vm(&facts).actions;
-        assert_eq!(row.filled.action, TrackPageAction::DownloadAlbum);
-        assert!(!row.filled.available);
+        assert_eq!(row.plain[0].action, TrackPageAction::DownloadAlbum);
+        assert!(!row.plain[0].available);
         assert!(row.menu.is_empty());
     }
 
@@ -996,8 +995,8 @@ mod tests {
 
         let key = FeedKey::Guid("index-feed".to_owned());
         let idle = index_page_row(DownloadActivity::default());
-        assert_eq!(idle.filled.action, TrackPageAction::DownloadAlbum);
-        assert!(idle.filled.available);
+        assert_eq!(idle.plain[0].action, TrackPageAction::DownloadAlbum);
+        assert!(idle.plain[0].available);
         assert_eq!(message_text(&idle), None);
 
         let queued = index_page_row(DownloadActivity {
@@ -1005,8 +1004,8 @@ mod tests {
             release_keys: BTreeSet::from([key.clone()]),
             ..DownloadActivity::default()
         });
-        assert_eq!(queued.filled.action, TrackPageAction::DownloadAlbum);
-        assert!(!queued.filled.available);
+        assert_eq!(queued.plain[0].action, TrackPageAction::DownloadAlbum);
+        assert!(!queued.plain[0].available);
         assert_eq!(message_text(&queued).as_deref(), Some("Queued"));
 
         let running = index_page_row(DownloadActivity {
@@ -1016,7 +1015,7 @@ mod tests {
             in_flight_release_keys: BTreeSet::from([key]),
             ..DownloadActivity::default()
         });
-        assert!(!running.filled.available);
+        assert!(!running.plain[0].available);
         assert_eq!(message_text(&running).as_deref(), Some("Downloading..."));
     }
 
@@ -1034,7 +1033,7 @@ mod tests {
             index_tracks: BTreeSet::from([(key.clone(), "guid-b".to_owned())]),
             ..DownloadActivity::default()
         });
-        assert!(other.filled.available);
+        assert!(other.plain[0].available);
         assert_eq!(message_text(&other), None);
 
         let own = index_page_row(DownloadActivity {
@@ -1042,7 +1041,7 @@ mod tests {
             index_tracks: BTreeSet::from([(key.clone(), "guid-a".to_owned())]),
             ..DownloadActivity::default()
         });
-        assert!(!own.filled.available);
+        assert!(!own.plain[0].available);
         assert_eq!(message_text(&own).as_deref(), Some("Queued"));
 
         let release = index_page_row(DownloadActivity {
@@ -1050,7 +1049,7 @@ mod tests {
             release_keys: BTreeSet::from([key]),
             ..DownloadActivity::default()
         });
-        assert!(!release.filled.available);
+        assert!(!release.plain[0].available);
     }
 
     /// M4 (ADR 0101 Decision 4, task 002): a track page takes its glow from

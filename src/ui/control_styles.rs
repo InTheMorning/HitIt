@@ -238,4 +238,28 @@ mod tests {
         assert!(spec.foreground.is_none());
         assert!(spec.border.is_none());
     }
+
+    /// ADR 0101 Decision 5 (M3): a download and an add to a playlist change
+    /// stored data, so each header button has the role Secondary. A copy
+    /// command has the role Neutral.
+    /// Fix: give the action `changes_stored_data` the value that matches its result.
+    #[test]
+    fn adr_0101_decision_5_header_download_and_playlist_buttons_are_secondary() {
+        use crate::view_models::album_page::AlbumPageAction;
+        use crate::view_models::track_detail::TrackPageAction;
+
+        for changes in [
+            TrackPageAction::DownloadAlbum.changes_stored_data(),
+            TrackPageAction::DownloadTrack.changes_stored_data(),
+            TrackPageAction::AddToPlaylist.changes_stored_data(),
+            AlbumPageAction::DownloadAlbum.changes_stored_data(),
+            AlbumPageAction::AddToPlaylist.changes_stored_data(),
+        ] {
+            assert_eq!(ControlStyle::by_result(changes), ControlStyle::Secondary);
+        }
+        assert_eq!(
+            ControlStyle::by_result(TrackPageAction::CopyFeedUrl.changes_stored_data()),
+            ControlStyle::Neutral
+        );
+    }
 }

@@ -1,6 +1,6 @@
 # ADR 0101 Task 011: The Main Action
 
-Status: Waits - 2026-11-15. This packet starts after [task 002](adr-0101-task-002-header-glow.md), because R-ACT-7 applies to a page header with a glow.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -104,3 +104,71 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 - Stop if a header has three actions that change stored data and none can go into the "…" menu.
 - Stop if a label is the text of a stored value or a test fixture of a different packet.
+
+## Implementation Report - 2026-11-16
+
+The delegate did not commit. The change is in the working tree.
+
+### Files changed
+
+- `src/view_models/track_detail.rs`: `TrackPageActions::filled` is `Option` and is `None` in each state. The download and the add to a playlist are plain buttons, with Download first. New `TrackPageAction::changes_stored_data`. The labels use title case.
+- `src/view_models/album_page.rs`: the same change for `AlbumPageActions`. New `AlbumPageAction::changes_stored_data`. The kind in a label comes from `ReleaseKind::label`.
+- `src/view_models/track_page.rs` and `src/view_models/release_page.rs`: `filled` is `Option` in the two action row models. The row labels of the track menu use title case.
+- `src/ui/shells/track_page.rs` and `src/ui/shells/release_page.rs`: each plain button has the role `ControlStyle::by_result`. A filled button, when one exists, has the role Primary.
+- `src/ui/control_styles.rs`: test for the roles.
+- `src/view_models/singles_group.rs`, `src/ui/shells/library/singles_group.rs`: see the choices below.
+- `src/view_models/library.rs`, `src/view_models/playlist_rss_check.rs`, `src/view_models/release_row_actions.rs`: labels in title case, and the tests that assert them.
+- `tests/architecture_tests.rs`: the guard of the playlist row menu labels follows the new labels. The guard of ADR 0084 R7-07 also forbids the literals "Download Album" and "Remove Album…".
+- `docs/tasks/adr-0068-task-004-audition-player.md`: required change 10 and criterion M9 (step 5).
+
+### Tests of M1 to M5
+
+- M1: `adr_0101_decision_5_index_track_actions_give_no_filled_action`, `adr_0101_decision_5_library_track_not_downloaded_actions`, `adr_0101_decision_5_downloaded_track_actions` (`track_detail.rs`).
+- M2: `adr_0101_decision_5_album_page_actions_give_no_filled_action` (`album_page.rs`). It covers an Index release and Library releases.
+- M3: `adr_0101_decision_5_header_download_and_playlist_buttons_are_secondary` (`control_styles.rs`).
+- M4: `adr_0101_decision_5_track_buttons_are_secondary_and_at_most_two` and `adr_0101_decision_5_album_page_buttons_are_secondary_and_at_most_two`.
+- M5: `adr_0084_release_kind_r7_06_track_download_label_names_the_known_kind` (track) and `adr_0084_release_kind_r7_05_download_and_remove_name_the_kind` (release).
+
+### Labels, before and after
+
+- "Download release" to "Download Release".
+- "Download track" to "Download Track".
+- "Download single/EP/album" to "Download Single/EP/Album".
+- "Add to playlist" to "Add to Playlist".
+- "Copy feed URL" to "Copy Feed URL".
+- "MusicBrainz lookup" to "MusicBrainz Lookup".
+- "Remove track…" to "Remove Track…".
+- "Remove single/album…" to "Remove Single/Album…".
+- Row menu: "Add to playlist" to "Add to Playlist".
+- "Move up/down" to "Move Up/Down".
+- "Remove from playlist" to "Remove from Playlist".
+- "Remove from all playlists…" to "Remove from All Playlists…".
+- Singles group header: "Download n singles" to "Download n Singles".
+- "Add to playlist" to "Add to Playlist".
+
+### Choices that the packet does not give
+
+- Order and roles: a Library track that is not downloaded shows "Download Track", then "Add to Playlist". An Index release or track shows only its download button. A downloaded item shows "Add to Playlist".
+- `filled` stays as an `Option` that is always `None`, as step 1 says. The shells draw a `Some` value with Primary. No state gives one.
+- Singles group page and window group page: their header had a Primary button. This packet does not name them. The delegate changed the role to Secondary and the labels to title case, to agree with the goal. The main session can reverse this.
+- Not changed: the selection action bar labels, the playlist popover test fixture and the tooltip test text.
+
+### Check results
+
+`cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (3236 library tests, 416 architecture tests, `app::fit_check::` 3 tests) and `cargo build --bin hitit` pass. The visual criteria V1 to V3 are open.
+
+## Primary Agent Check - 2026-11-16
+
+The primary agent read the diff and ran the four checks of M8. All pass: 3236 library tests and 416 architecture tests.
+
+The primary agent accepts the decision of the delegate on the singles group pages. Their header button is Secondary after this change, because the goal says that no page header fills a button.
+
+## Walk Result - 2026-11-16
+
+The agent walked on an Xvfb display with the debug binary in Light at M.
+
+- V1: Pass. The Index release "Fox Trot Tunes Volume 2" shows "Download Album" as a Secondary button, with no blue fill. Its "⋯" menu shows "Copy Feed URL".
+- V2: Pass. The downloaded track "Let Us Waltz As We Say Goodbye" shows "Add to Playlist" as a Secondary button. Its "⋯" menu shows "Copy Feed URL", "Inspect Sources", "MusicBrainz Lookup" and "Remove Track…". The Library release "Waltz Tunes Volume 2" also shows "Add to Playlist" as a Secondary button.
+- V3: Open. The test display has no browser for musicindex.org.
+
+The operator confirmation stays open.

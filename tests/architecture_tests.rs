@@ -9634,9 +9634,9 @@ fn playlist_reorder_display_contract_uses_drag_handle_and_menu_fallbacks() {
 
     let release_page_source = read_source(&manifest_path("src/view_models/release_page.rs"));
     for required in [
-        "const TRACK_MENU_MOVE_UP_LABEL: &str = \"Move up\";",
-        "const TRACK_MENU_MOVE_DOWN_LABEL: &str = \"Move down\";",
-        "const TRACK_MENU_REMOVE_FROM_PLAYLIST_LABEL: &str = \"Remove from playlist\";",
+        "const TRACK_MENU_MOVE_UP_LABEL: &str = \"Move Up\";",
+        "const TRACK_MENU_MOVE_DOWN_LABEL: &str = \"Move Down\";",
+        "const TRACK_MENU_REMOVE_FROM_PLAYLIST_LABEL: &str = \"Remove from Playlist\";",
         "destructive: action == TrackRowMenuAction::Remove,",
     ] {
         assert!(
@@ -21834,7 +21834,12 @@ fn adr_0084_release_kind_r7_07_no_hardcoded_download_or_remove_album_literal() {
         // fixed. Neither counts as the renderer literal this guard forbids.
         let code = code_only(&source);
         let checked = production_source(&code);
-        for forbidden in ["\"Download album\"", "\"Remove album\u{2026}\""] {
+        for forbidden in [
+            "\"Download album\"",
+            "\"Download Album\"",
+            "\"Remove album\u{2026}\"",
+            "\"Remove Album\u{2026}\"",
+        ] {
             if checked.contains(forbidden) {
                 violations.push(format!(
                     "{}: ADR 0084 Decision 5 forbids the literal {forbidden} in production \

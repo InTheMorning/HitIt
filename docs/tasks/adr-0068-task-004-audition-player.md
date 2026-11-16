@@ -42,6 +42,7 @@ A second driver instance plays an audition on a monitor output. The audition own
 7. A failure of one player leaves the other usable. A missing mpv binary can affect the two players, and each report names its player. A configured mpv failure never becomes the Null driver.
 8. The two owners take part in the app shutdown and in `SessionDrain`. The audition does not resume after a restart or a recovery.
 9. The view model gives the audition state, its labels and the availability of each command. This packet adds no control on a page. ADR 0089 packet 016 adds them.
+10. The view model also gives the header style of the audition action (ADR 0101 Decision 5, musicindex ADR 0045 R-ACT-7 item 1). In a page header with a glow, the audition action is a Filled button with the fill `color.text` and the label `color.background`. No other header button is Filled. Its label is "Audition".
 
 ## Do Not Touch
 
@@ -55,6 +56,7 @@ A second driver instance plays an audition on a monitor output. The audition own
 - M5 of ADR 0068: two instances have different children and sockets and independent replies. A timeout, a shutdown or an output failure of one cannot control or block the other.
 - M6 of ADR 0068: an old configuration file reads with no change. An invalid audition output affects only the audition. No missing output falls back to a default, and no failure becomes the Null driver. A simulation with the Null driver has a label.
 - M8 of ADR 0068, audition part: the two owners drain and release their resources. The audition does not resume.
+- M9 of ADR 0101 Decision 5: a test proves that the view model gives the audition action the fill `color.text` and the label `color.background` in a header with a glow. The test also proves that no other header action is Filled.
 - The commit checks of AGENTS.md pass.
 
 ## Visual Criteria

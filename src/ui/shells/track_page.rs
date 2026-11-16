@@ -105,25 +105,24 @@ pub(crate) fn render_track_page(
     music_column_tracked_scrollbar(container, &scroll_handle, None)
 }
 
-/// The action row of a track page (ADR 0101 Decision 5): one filled
-/// button, the plain buttons and the "⋯" menu. The status message shows
-/// below the row when a message exists.
+/// The action row of a track page (ADR 0101 Decision 5): the filled button
+/// when the page has one, the plain buttons and the "⋯" menu. Each plain
+/// button has the role of its result. The status message shows below the
+/// row when a message exists.
 fn render_track_page_actions(
     actions: &TrackPageActionRowVm,
     inspect_sources: bool,
     dispatch: &TrackPageDispatch,
 ) -> AnyElement {
-    let mut controls = vec![render_track_page_button(
-        &actions.filled,
-        ControlStyle::Primary,
-        actions,
-        dispatch,
-    )];
-    controls.extend(
-        actions.plain.iter().map(|action| {
-            render_track_page_button(action, ControlStyle::Neutral, actions, dispatch)
-        }),
-    );
+    let mut controls: Vec<AnyElement> = actions
+        .filled
+        .iter()
+        .map(|action| render_track_page_button(action, ControlStyle::Primary, actions, dispatch))
+        .collect();
+    controls.extend(actions.plain.iter().map(|action| {
+        let style = ControlStyle::by_result(action.action.changes_stored_data());
+        render_track_page_button(action, style, actions, dispatch)
+    }));
     if !actions.menu.is_empty() {
         controls.push(render_track_page_menu(actions, inspect_sources, dispatch));
     }
