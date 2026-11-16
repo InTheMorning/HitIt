@@ -15,14 +15,15 @@ use gpui::{
     Styled, Window,
 };
 
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::release_section_list::{
     render_release_list_status, render_release_section, ReleaseSectionRows,
 };
 use crate::ui::composites::{
-    CollectionArt, CollectionArtImage, DetailHeader, DetailHeaderDataRow, DetailHeaderDisplay,
-    EntityKind, PageTitleKind, ThumbnailSize,
+    CollectionArt, CollectionArtImage, CoverBackdrop, DetailHeader, DetailHeaderDataRow,
+    DetailHeaderDisplay, EntityKind, PageTitleKind, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button, Label, LabelVariant};
@@ -34,7 +35,9 @@ use crate::view_models::name_level_page::{MatchedFeedNoticeVm, NameLevelPageVm};
 ///
 /// `album_thumbs` holds each cover that the app layer already resolved,
 /// keyed by its URL. `header_art` is the loaded logo mosaic of the page
-/// (ADR 0084 Decision 12). `rows` gives the release rows with their
+/// (ADR 0084 Decision 12). `header_glow` is the prepared glow behind the
+/// header, or `None` while it is not ready (ADR 0101 Decision 4, task
+/// 002). `rows` gives the release rows with their
 /// selection facts and their clicks. `on_open_feed` opens the feed page of
 /// the notice of decision D16. The screen fetches no image of its own and
 /// builds no navigation of its own.
@@ -43,6 +46,7 @@ pub(crate) fn render_name_level_page(
     vm: &NameLevelPageVm,
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
     header_art: CollectionArtImage,
+    header_glow: Option<Arc<GlowImage>>,
     mut rows: ReleaseSectionRows,
     on_open_feed: impl Fn(&str, &mut Window, &mut App) + 'static,
     cx: &App,
@@ -53,7 +57,7 @@ pub(crate) fn render_name_level_page(
     let pinned_list_bar = rows.pinned_list_bar.take();
     let mut body = page_scroll_content(cx)
         .gap(Spacing::LG.scaled(cx))
-        .child(render_header(vm, header_art));
+        .child(render_header(vm, header_art, header_glow));
     if let Some(notice) = vm.matched_feed_notice() {
         body = body.child(render_matched_feed_notice(notice, on_open_feed, cx));
     }
@@ -85,7 +89,11 @@ pub(crate) fn render_name_level_page(
     music_column_tracked_scrollbar(container, &rows.scroll, pinned_list_bar)
 }
 
-fn render_header(vm: &NameLevelPageVm, header_art: CollectionArtImage) -> AnyElement {
+fn render_header(
+    vm: &NameLevelPageVm,
+    header_art: CollectionArtImage,
+    header_glow: Option<Arc<GlowImage>>,
+) -> AnyElement {
     let data_rows = vm
         .header_facts()
         .into_iter()
@@ -95,7 +103,7 @@ fn render_header(vm: &NameLevelPageVm, header_art: CollectionArtImage) -> AnyEle
             max_lines: 3,
         })
         .collect();
-    DetailHeader::new(DetailHeaderDisplay {
+    let header = DetailHeader::new(DetailHeaderDisplay {
         kind: EntityKind::Artist,
         hollow: false,
         label: None,
@@ -110,7 +118,8 @@ fn render_header(vm: &NameLevelPageVm, header_art: CollectionArtImage) -> AnyEle
     ))
     // musicindex ADR 0068 R-TYPE-2: an artist page title uses Display.
     .title_size(PageTitleKind::Artist.size())
-    .into_any_element()
+    .into_any_element();
+    CoverBackdrop::new(header_glow, header).into_any_element()
 }
 
 /// The notice of a name that now matches exactly one artist feed, with

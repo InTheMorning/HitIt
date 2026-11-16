@@ -33,7 +33,7 @@ use crate::application::queries::broadcast::{
     BroadcastReadinessLoad, BroadcastReadinessReport, LoadBroadcastReadiness,
 };
 use crate::application::queries::feed::FetchRecentFeedsPage;
-use crate::application::queries::images::{FetchCoverColor, FetchThumbnail};
+use crate::application::queries::images::FetchThumbnail;
 use crate::application::queries::library::{
     AlbumHydrationTrigger, AlbumIdentityHydration, CompareLibraryTrack, FetchLibraryTrackContext,
     HydrateAlbumIdentity, LibraryTrackCompare, LibraryTracksTree, LoadLibraryTracksTree,
@@ -50,6 +50,7 @@ use crate::metadata::{
 };
 use crate::presentation::collection_art::{collection_art_image, CollectionArtLoads};
 use crate::presentation::delayed_presenter::present_after;
+use crate::presentation::header_glow::header_glow;
 use crate::presentation::{bridge_watch, present_command};
 use crate::runtime::musicbrainz_feed_saga::{MusicBrainzFeedSagaState, StartFeedLookup};
 use crate::subscribe_service::{self, SubscribeFeedRequest, SubscribeTrackRequest};
@@ -143,7 +144,7 @@ use crate::view_models::recent_feeds::{
     RecentFeedsLoadIntent, RecentFeedsPageStep, RecentFeedsPageVm,
 };
 use crate::view_models::release_kind::ReleaseKind;
-use crate::view_models::release_page::TrackRowMenuAction;
+use crate::view_models::release_page::{library_album_header_glow, TrackRowMenuAction};
 use crate::view_models::release_row_actions::{
     ReleaseRowCommand, ReleaseRowMenuVm, ReleaseRowTarget,
 };
@@ -159,6 +160,7 @@ use crate::view_models::singles_group::{
     SinglesGroupKey, SinglesGroupPageEntryVm, SinglesGroupPageVm,
 };
 use crate::view_models::track_detail::TrackNameLinkTarget;
+use crate::view_models::track_page::library_track_header_glow;
 use crate::view_models::window_groups::WindowGroupKey;
 use crate::view_models::workspace::{
     FrameHeaderActionDisplay, FrameNavigationEntry, MusicDestination, NavigationPathStart,
@@ -1173,7 +1175,6 @@ impl LibraryApp {
             vm,
             detail: LibraryDetail::None,
             thumbnails: BTreeMap::new(),
-            cover_colors: BTreeMap::new(),
             collection_art: CollectionArtLoads::default(),
             new_playlist_input,
             rename_playlist_input,
@@ -2551,46 +2552,6 @@ impl LibraryApp {
                 this.reload_playlists(cx);
             },
         );
-    }
-
-    /// The main color of the cover at `url` for a page header backdrop
-    /// (ADR 0083 task 005). The first call starts a background fetch and
-    /// gives `None`. The view updates when the color arrives.
-    fn cover_color_for_url(
-        &mut self,
-        url: Option<&str>,
-        cx: &mut Context<Self>,
-    ) -> Option<crate::media::cover_color::CoverColor> {
-        let url = url?.trim();
-        if url.is_empty() {
-            return None;
-        }
-        if let Some(color) = self.cache.peek_cover_color(url) {
-            return Some(color);
-        }
-        self.command_runner.availability().ok()?;
-        match self.cover_colors.get(url) {
-            Some(super::CoverColorState::Loaded(color)) => return *color,
-            Some(super::CoverColorState::Loading) => return None,
-            None => {}
-        }
-        let key = url.to_string();
-        self.cover_colors
-            .insert(key.clone(), super::CoverColorState::Loading);
-        let command = FetchCoverColor::new(Arc::clone(&self.cache), key.clone());
-        present_command(
-            &self.command_runner,
-            command,
-            CommandContext::next(),
-            cx,
-            move |this, color, cx| {
-                this.cover_colors
-                    .insert(key, super::CoverColorState::Loaded(color));
-                cx.notify();
-            },
-            |_, _, _| {},
-        );
-        None
     }
 
     fn thumbnail_for_url(
@@ -6796,13 +6757,14 @@ impl LibraryApp {
         }
 
         let track_named_feeds = self.mounted_track_named_feeds();
-        let album_cover_color = match &self.detail {
-            LibraryDetail::Album(album) => {
-                let url = album.image_href.clone();
-                self.cover_color_for_url(url.as_deref(), cx)
-            }
+        // ADR 0101 Decision 4, task 002: an album page and a track page
+        // show a glow from their cover.
+        let header_glow_vm = match &self.detail {
+            LibraryDetail::Album(album) => Some(library_album_header_glow(album)),
+            LibraryDetail::Track(frame) => Some(library_track_header_glow(&frame.track)),
             _ => None,
         };
+        let header_glow = header_glow_vm.and_then(|vm| header_glow(self, &vm, cx));
         // ADR 0084 packet 018: each row of a release page and of a singles
         // group page carries the detail selection facts.
         let row_slots = self.library_detail_row_slots();
@@ -6845,7 +6807,7 @@ impl LibraryApp {
             self.playlist_actor.as_ref(),
             self.playlist_rss_snapshot.as_ref(),
             &track_named_feeds,
-            album_cover_color,
+            header_glow,
             header_art,
             list_bar,
             &self.list_bar_pin,

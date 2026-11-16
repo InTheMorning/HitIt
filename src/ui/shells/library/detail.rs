@@ -11,7 +11,7 @@ use gpui_component::input::InputState;
 use crate::db;
 use crate::library::PlaylistActorState;
 use crate::library::{LibraryApp, LibraryDetail};
-use crate::media::cover_color::CoverColor;
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::ListBarPin;
 use crate::ui::composites::music_column_scroll::ScrollReveal;
 use crate::ui::composites::CollectionArtImage;
@@ -54,7 +54,7 @@ pub(crate) fn render_library_detail(
     playlist_actor: Option<&PlaylistActorState>,
     playlist_rss_check: Option<&crate::runtime::PlaylistRssCheckSnapshot>,
     track_named_feeds: &[NamedFeed],
-    album_cover_color: Option<CoverColor>,
+    header_glow: Option<Arc<GlowImage>>,
     header_art: Option<CollectionArtImage>,
     list_bar: Option<ListBarVm>,
     list_bar_pin: &ListBarPin,
@@ -76,7 +76,7 @@ pub(crate) fn render_library_detail(
             mb_status,
             library_vm,
             album_thumbs,
-            album_cover_color,
+            header_glow,
             list_bar,
             list_bar_pin,
             playlists,
@@ -97,6 +97,7 @@ pub(crate) fn render_library_detail(
                 chrome,
                 track_named_feeds,
                 release_download_active,
+                header_glow,
                 scroll,
                 cx,
             )

@@ -40,6 +40,8 @@ enum LoadResult {
 /// The load states of the collection art of one window entity.
 #[derive(Default)]
 pub(crate) struct CollectionArtLoads {
+    /// The glows of page headers (ADR 0101 Decision 4, task 002).
+    pub(crate) header_glows: crate::presentation::header_glow::HeaderGlowLoads,
     squares: HashMap<String, ArtLoad>,
     mosaics: HashMap<LogoMosaicKey, ArtLoad>,
 }

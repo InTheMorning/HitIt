@@ -1,4 +1,5 @@
 pub mod cover_color;
+pub mod header_glow;
 pub mod image_cache;
 pub mod image_type;
 pub mod logo_frame;

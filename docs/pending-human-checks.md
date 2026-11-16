@@ -771,3 +771,17 @@ Task: [ADR 0101 task 007](tasks/adr-0101-task-007-loading-states.md).
 - Incorrect: you cannot see the track of the bar, or the band moves with reduced animation on.
 
 Agent walk, 2026-11-16: V1 and V3 could not be walked with the test data. V2 of the packet ("Adding…") is not possible, because the add has no busy condition.
+
+## 30. ADR 0101 Task 002 The Page Header Glow - 2026-11-16
+
+Task: [ADR 0101 task 002](tasks/adr-0101-task-002-header-glow.md).
+
+- V1: in Dark and in Light, open an album page. A soft glow from the cover, with small grain, fills the top of the page. It fades into the background before the track list. Compare it with the same album on musicindex.org.
+- V2: open a track page, an artist page and a label page. Each one shows the same glow.
+- V3: open a page with an animated cover. The glow moves with the cover.
+- V4: open an item with no image. The glow has the color of the item type.
+- V5: open a page with a white cover and a page with a black cover. The header text is easy to read on each.
+- V6: open a page. The page shows immediately, and the glow comes in after it.
+- Incorrect: the glow has a hard edge, the text is hard to read, or the page waits for the glow.
+
+Agent walk, 2026-11-16: V1 passes in Dark and Light. The agent did not compare it with musicindex.org. V2 passes for the artist page and the track page. V5 passes for the walked pages. V3, V4 and V6 are open.

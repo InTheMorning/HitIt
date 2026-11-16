@@ -21,14 +21,15 @@ use gpui::{
     Window,
 };
 
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::release_section_list::{
     render_release_section, title_display_text, ReleaseSectionRows,
 };
 use crate::ui::composites::{
-    CollectionArt, CollectionArtImage, DetailHeader, DetailHeaderDataRow, DetailHeaderDisplay,
-    EntityKind, ListRow, ListRowA11yLabel, PageTitleKind, ThumbnailSize,
+    CollectionArt, CollectionArtImage, CoverBackdrop, DetailHeader, DetailHeaderDataRow,
+    DetailHeaderDisplay, EntityKind, ListRow, ListRowA11yLabel, PageTitleKind, ThumbnailSize,
 };
 use crate::ui::primitives::{Label, LabelVariant, SectionHeader};
 use crate::ui::tokens::{color, Radius, SemanticColor, Spacing};
@@ -48,7 +49,9 @@ type OpenPublisherCallback = Rc<dyn Fn(&str, &mut Window, &mut App)>;
 /// resolved, keyed by its `image_url` (ADR 0077 packet 004, orchestrator
 /// fix 5). `header_art` is the loaded header art of the page: the feed's
 /// own channel image or the logo mosaic of its albums (ADR 0084 Decision
-/// 12). The screen fetches no image of its own.
+/// 12). `header_glow` is the prepared glow behind the header, or `None`
+/// while it is not ready (ADR 0101 Decision 4, task 002). The screen
+/// fetches no image of its own.
 ///
 /// `on_open_publisher` opens the feed page of a shared releases
 /// entry's feed GUID (ADR 0082 Decision 5). `rows` gives the release rows
@@ -56,11 +59,16 @@ type OpenPublisherCallback = Rc<dyn Fn(&str, &mut Window, &mut App)>;
 /// 0084 packet 018). The app layer supplies each callback; the screen
 /// builds no navigation of its own.
 #[must_use]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the page renderer takes each already-resolved value of its host"
+)]
 pub(crate) fn render_publisher_page(
     vm: &PublisherPageVm,
     context: PublisherPageContext,
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
     header_art: CollectionArtImage,
+    header_glow: Option<Arc<GlowImage>>,
     on_open_publisher: impl Fn(&str, &mut Window, &mut App) + 'static,
     mut rows: ReleaseSectionRows,
     cx: &App,
@@ -81,7 +89,7 @@ pub(crate) fn render_publisher_page(
         .child(
             page_scroll_content(cx)
                 .gap(Spacing::LG.scaled(cx))
-                .child(render_header(vm, header_art))
+                .child(render_header(vm, header_art, header_glow))
                 .child(render_sections(
                     vm,
                     context,
@@ -118,7 +126,11 @@ const fn entity_kind_for_header_role(role: HeaderRole) -> EntityKind {
     }
 }
 
-fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyElement {
+fn render_header(
+    vm: &PublisherPageVm,
+    header_art: CollectionArtImage,
+    header_glow: Option<Arc<GlowImage>>,
+) -> AnyElement {
     let badge = vm.header_badge();
     let data_rows = vm
         .header_facts()
@@ -129,7 +141,7 @@ fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyEle
             max_lines: 3,
         })
         .collect();
-    DetailHeader::new(DetailHeaderDisplay {
+    let header = DetailHeader::new(DetailHeaderDisplay {
         kind: entity_kind_for_header_role(badge.role),
         hollow: !badge.confirmed,
         label: Some(badge.word.clone().into()),
@@ -145,7 +157,8 @@ fn render_header(vm: &PublisherPageVm, header_art: CollectionArtImage) -> AnyEle
     // musicindex ADR 0068 R-TYPE-2: the feed page is the page of a label or
     // another publisher, so it uses the label title size.
     .title_size(PageTitleKind::Label.size())
-    .into_any_element()
+    .into_any_element();
+    CoverBackdrop::new(header_glow, header).into_any_element()
 }
 
 fn render_sections(

@@ -9,7 +9,7 @@ use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{RecoveryAction, RecoveryIntent};
 use crate::application::commands::download::SubscribeThenAppendToPlaylist;
 use crate::application::commands::playlist::CreatePlaylist;
-use crate::application::queries::images::{FetchCoverColor, FetchThumbnail};
+use crate::application::queries::images::FetchThumbnail;
 use crate::application::queries::search::{
     FetchIndexFeedDetail, FetchIndexSearchResults, FetchIndexTrackDetail,
     DEFAULT_LOCAL_LIBRARY_SEARCH_LIMIT,
@@ -22,7 +22,7 @@ use crate::library::{
     playlist_options, DownloadJob, DownloadOutcome, LibraryApp,
 };
 use crate::library_service;
-use crate::media::cover_color::CoverColor;
+use crate::presentation::header_glow::header_glow;
 use crate::presentation::present_command;
 use crate::ui::composites::music_column_scroll::windowed_track_range;
 use crate::ui::composites::{list_bar_playlists, render_list_bar_copies};
@@ -43,8 +43,8 @@ use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::live_run::RunGeneration;
 use crate::view_models::publisher_page::PublisherPageContext;
 use crate::view_models::release_page::{
-    index_feed_artwork_url, index_feed_guid, release_page_vm, ReleasePageCommand, ReleasePageFacts,
-    ReleaseTrackRowVm,
+    index_feed_artwork_url, index_feed_guid, release_header_glow, release_page_vm,
+    ReleasePageCommand, ReleasePageFacts, ReleaseTrackRowVm,
 };
 use crate::view_models::search_results::{
     IndexDetailDisplay, IndexDetailKind, IndexOrder, IndexSearchPlan, LibrarySearchRows,
@@ -72,13 +72,6 @@ use super::{AppTab, TopApp};
 pub(super) enum RemoteDetailThumbnailState {
     Loading,
     Loaded(Option<Arc<Image>>),
-}
-
-/// The main color of one Index cover (ADR 0083 task 005).
-#[derive(Clone, Copy)]
-pub(super) enum RemoteCoverColorState {
-    Loading,
-    Loaded(Option<CoverColor>),
 }
 
 /// Loading lifecycle of the mounted Index feed detail page, reached from an
@@ -1490,12 +1483,10 @@ impl TopApp {
                 .as_deref()
                 .and_then(|url| self.index_remote_detail_hero_image(url, cx));
         }
-        let cover_color = index_feed_artwork_url(feed)
-            .map(str::to_owned)
-            .and_then(|url| self.index_cover_color(&url, cx));
+        let header_glow = header_glow(self, &release_header_glow(feed), cx);
         let images = ReleasePageImages {
             hero_image: self.index_feed_hero_image(feed, cx),
-            cover_color,
+            header_glow,
             row_thumbnails,
             row_reveal,
             contributor_thumbnails: None,
@@ -1628,6 +1619,7 @@ impl TopApp {
         let vm = track_page_vm(&facts);
         let images = TrackPageImages {
             hero_image: self.index_track_hero_image(track, cx),
+            header_glow: header_glow(self, &vm.header_glow, cx),
             scroll_handle: self.library.read(cx).detail_scroll_handle(),
         };
         let entity = cx.entity();
@@ -1826,37 +1818,6 @@ impl TopApp {
                 );
             }
         }
-    }
-
-    /// The main color of an Index cover for the album page backdrop (ADR
-    /// 0083 task 005). The first call starts a background fetch.
-    fn index_cover_color(&mut self, url: &str, cx: &mut Context<Self>) -> Option<CoverColor> {
-        if let Some(color) = self.image_cache.peek_cover_color(url) {
-            return Some(color);
-        }
-        self.command_runner.availability().ok()?;
-        match self.remote_cover_colors.get(url) {
-            Some(RemoteCoverColorState::Loaded(color)) => return *color,
-            Some(RemoteCoverColorState::Loading) => return None,
-            None => {}
-        }
-        let url = url.to_string();
-        self.remote_cover_colors
-            .insert(url.clone(), RemoteCoverColorState::Loading);
-        let command = FetchCoverColor::new(Arc::clone(&self.image_cache), url.clone());
-        present_command(
-            &self.command_runner,
-            command,
-            CommandContext::next(),
-            cx,
-            move |this, color, cx| {
-                this.remote_cover_colors
-                    .insert(url, RemoteCoverColorState::Loaded(color));
-                cx.notify();
-            },
-            |_, _, _| {},
-        );
-        None
     }
 
     /// "Download" of an Index release: queues an Index release job (ADR

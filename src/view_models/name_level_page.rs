@@ -14,6 +14,7 @@ use std::collections::BTreeSet;
 
 use crate::view_models::artist_identity::{name_label, ArtistNameKey};
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
+use crate::view_models::header_glow::{GlowEntity, HeaderGlowVm};
 use crate::view_models::list_page::ListView;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::name_order;
@@ -504,6 +505,19 @@ impl NameLevelPageVm {
         CollectionArtVm::resolve(None, covers, CollectionKind::Artist)
     }
 
+    /// The glow behind the header (ADR 0101 Decision 4, musicindex ADR 0021
+    /// R-ART-5): the first eight covers of the rows. The name level gives no
+    /// image of its own. With no cover, the glow has the artist color. The
+    /// rows change while the page loads, so the glow has the scope of the
+    /// page key, and the page keeps its last glow while a new one prepares.
+    #[must_use]
+    pub(crate) fn header_glow(&self) -> HeaderGlowVm {
+        let rows = self.rows();
+        let covers = rows.iter().filter_map(|row| row.row.image_url.as_deref());
+        HeaderGlowVm::resolve(GlowEntity::Artist, None, covers)
+            .with_scope(format!("artist-name:{}", self.facts.key.key))
+    }
+
     /// Each distinct cover URL of the rows, for the app layer to resolve.
     #[must_use]
     pub(crate) fn album_image_urls(&self) -> Vec<String> {
@@ -867,5 +881,42 @@ mod tests {
             NameLevelIndexState::combine(std::iter::empty()),
             NameLevelIndexState::NotRequested
         );
+    }
+
+    /// M4 (ADR 0101 Decision 4, task 002): an artist page takes its glow
+    /// from the covers of its rows. With no cover, the glow has the artist
+    /// color.
+    #[test]
+    fn adr_0101_header_glow_m4_artist_page_uses_its_covers() {
+        let vm = NameLevelPageVm::new(facts(
+            vec![library_release(
+                "lib-album",
+                "Album",
+                ReleaseKind::Album,
+                None,
+            )],
+            NameLevelIndexState::Loaded {
+                releases: Vec::new(),
+                more_available: false,
+            },
+        ));
+        let glow = vm.header_glow();
+        assert_eq!(glow.entity, GlowEntity::Artist);
+        assert_eq!(glow.urls, vec!["https://example.test/lib-album.jpg"]);
+        assert!(
+            glow.scope.is_some(),
+            "the page keeps its last glow while its covers change"
+        );
+
+        let empty = NameLevelPageVm::new(facts(
+            Vec::new(),
+            NameLevelIndexState::Loaded {
+                releases: vec![index_release("no-cover", "No cover", None, None)],
+                more_available: false,
+            },
+        ));
+        let glow = empty.header_glow();
+        assert_eq!(glow.entity, GlowEntity::Artist);
+        assert!(glow.urls.is_empty(), "no cover gives the entity color");
     }
 }

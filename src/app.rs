@@ -85,7 +85,7 @@ mod toolbar;
 
 pub use bootstrap::run_app;
 
-use search_dispatch::{RemoteCoverColorState, RemoteDetailThumbnailState};
+use search_dispatch::RemoteDetailThumbnailState;
 use search_field_list::{FieldValueRequest, SearchFieldListView};
 use search_selection::{sort_handler, SearchPageSlot, SearchRowClick};
 use settings::render_settings;
@@ -234,7 +234,6 @@ pub struct TopApp {
     conn: Arc<Mutex<Connection>>,
     image_cache: Arc<ImageCache>,
     remote_detail_thumbnails: BTreeMap<String, RemoteDetailThumbnailState>,
-    remote_cover_colors: BTreeMap<String, RemoteCoverColorState>,
     /// The load state of each collection art (ADR 0084 Decision 12).
     collection_art: CollectionArtLoads,
     cached_files: CachedFilesVm,
@@ -566,7 +565,6 @@ impl TopApp {
             conn,
             image_cache,
             remote_detail_thumbnails: BTreeMap::new(),
-            remote_cover_colors: BTreeMap::new(),
             collection_art: CollectionArtLoads::default(),
             cached_files: CachedFilesVm::default(),
             application_services,

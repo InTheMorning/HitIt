@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::application::command_bus::{ApplicationCommand, CommandOutcome, CommandResult};
 use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
-use crate::media::cover_color::CoverColor;
+use crate::media::header_glow::{GlowImage, GlowRequest};
 use crate::media::logo_frame::{BakedShadow, LogoMosaicKey};
 use crate::media::{CachedImage, ImageCache};
 
@@ -103,43 +103,42 @@ impl ApplicationCommand for FetchLogoMosaic {
     }
 }
 
-/// Fetches the main color of one cover for a page header backdrop (ADR
-/// 0083 task 005).
+/// Prepares the glow of one page header (ADR 0101 Decision 4, task 002).
+///
+/// The image cache reads the candidate covers, blurs them and adds the
+/// grain off the UI thread. The UI thread only peeks at the result.
 #[derive(Clone)]
-pub(crate) struct FetchCoverColor {
+pub(crate) struct FetchHeaderGlow {
     cache: Arc<ImageCache>,
-    url: String,
+    request: GlowRequest,
 }
 
-impl FetchCoverColor {
-    /// Creates a cover color query command.
+impl FetchHeaderGlow {
+    /// Creates a header glow query command.
     #[must_use]
-    pub(crate) fn new(cache: Arc<ImageCache>, url: impl Into<String>) -> Self {
-        Self {
-            cache,
-            url: url.into(),
-        }
+    pub(crate) fn new(cache: Arc<ImageCache>, request: GlowRequest) -> Self {
+        Self { cache, request }
     }
 }
 
-impl fmt::Debug for FetchCoverColor {
+impl fmt::Debug for FetchHeaderGlow {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("FetchCoverColor")
-            .field("url", &self.url)
+            .debug_struct("FetchHeaderGlow")
+            .field("urls", &self.request.urls)
             .finish_non_exhaustive()
     }
 }
 
-impl ApplicationCommand for FetchCoverColor {
-    type Output = Option<CoverColor>;
+impl ApplicationCommand for FetchHeaderGlow {
+    type Output = Arc<GlowImage>;
 
     fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
         if context.cancellation().is_cancelled() {
             return Err(CommandError::Cancelled);
         }
         Ok(CommandOutcome::without_events(
-            self.cache.fetch_cover_color_blocking(&self.url),
+            self.cache.prepare_header_glow_blocking(&self.request),
         ))
     }
 }
@@ -147,6 +146,7 @@ impl ApplicationCommand for FetchCoverColor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::media::header_glow::GlowStyle;
     use std::io::{Read, Write};
     use std::net::TcpListener;
 
@@ -199,25 +199,85 @@ mod tests {
         );
     }
 
+    /// A literal style, because the application layer does not import `ui`.
+    fn glow_request(urls: Vec<String>, fallback_urls: Vec<String>) -> GlowRequest {
+        GlowRequest {
+            urls,
+            fallback_urls,
+            entity: [0x87, 0x5c, 0xcf],
+            style: GlowStyle {
+                background: [0x0b, 0x0b, 0x0d],
+                label: [0xf5, 0xf5, 0xf7],
+                secondary_label: [0xa1, 0xa1, 0xa6],
+                veil_top: 0.25,
+                grain_opacity: 0.22,
+                max_opacity: 0.85,
+                blur: 90.0,
+                saturation: 1.7,
+                entity_tint: 0.45,
+                muted_tint: 0.40,
+                muted_art: 0.35,
+                min_colorfulness: 18.0,
+                profile: 1,
+                increase_contrast: false,
+            },
+        }
+    }
+
+    /// Task 002 correction 6: a candidate that does not read gives an
+    /// incomplete glow, and the cache does not keep it. When the own image
+    /// does not read, the glow uses the fallback candidates.
     #[test]
-    fn fetch_cover_color_computes_and_keeps_the_color() {
+    fn fetch_header_glow_does_not_keep_a_glow_with_a_failed_read() {
         let temp = tempfile::tempdir().expect("tempdir");
         let cache = ImageCache::with_capacity(temp.path().join("thumbnails"), 2, 512, 1024 * 1024);
-        let url = serve_image_once("image/png", TEST_IMAGE_BYTES);
+        let fallback = serve_image_once("image/png", TEST_IMAGE_BYTES);
+        let request = glow_request(
+            vec!["http://127.0.0.1:1/own.png".to_owned()],
+            vec![fallback],
+        );
 
         let outcome = CommandBus::new()
             .execute(
-                FetchCoverColor::new(Arc::clone(&cache), url.clone()),
+                FetchHeaderGlow::new(Arc::clone(&cache), request.clone()),
                 &CommandContext::next(),
             )
-            .expect("cover color fetch succeeds");
+            .expect("header glow fetch succeeds");
 
-        assert!(outcome.value().is_some(), "the cover should have a color");
-        assert_eq!(
-            cache.peek_cover_color(&url),
-            *outcome.value(),
-            "the cache should keep the color beside the image"
+        assert!(!outcome.value().is_complete(), "a read failed");
+        assert!(
+            outcome.value().color().is_some(),
+            "the glow comes from the fallback cover"
         );
+        assert!(
+            cache.peek_header_glow(&request.key()).is_none(),
+            "the cache keeps no glow with a failed read"
+        );
+    }
+
+    #[test]
+    fn fetch_header_glow_prepares_and_keeps_the_glow() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let cache = ImageCache::with_capacity(temp.path().join("thumbnails"), 2, 512, 1024 * 1024);
+        let url = serve_image_once("image/png", TEST_IMAGE_BYTES);
+        let request = glow_request(vec![url], Vec::new());
+
+        let outcome = CommandBus::new()
+            .execute(
+                FetchHeaderGlow::new(Arc::clone(&cache), request.clone()),
+                &CommandContext::next(),
+            )
+            .expect("header glow fetch succeeds");
+
+        let kept = cache
+            .peek_header_glow(&request.key())
+            .expect("the cache keeps the glow");
+        assert!(
+            Arc::ptr_eq(&kept, outcome.value()),
+            "the cache should keep the prepared glow"
+        );
+        assert!(kept.color().is_some(), "a decoded cover gives a color");
+        assert!(kept.is_complete());
     }
 
     #[test]

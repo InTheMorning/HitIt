@@ -13,7 +13,7 @@ use gpui::{
     Pixels, ScrollHandle, SharedString, Styled, Window,
 };
 
-use crate::media::cover_color::CoverColor;
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::{windowed_track_rows, ScrollReveal};
 use crate::ui::composites::{
     identity_action_button, CoverBackdrop, DetailGrid, DetailHeader, DetailHeaderDataRow,
@@ -53,8 +53,9 @@ pub const RELEASE_HEADER_COVER: ThumbnailSize = ThumbnailSize::XXl;
 #[derive(Default)]
 pub(crate) struct ReleaseDetailBehaviorSlots<'a> {
     pub hero_image: Option<Arc<Image>>,
-    /// The main color of the cover. The screen resolves it like the cover.
-    pub cover_color: Option<CoverColor>,
+    /// The prepared glow of the cover. The host prepares it off the UI
+    /// thread, and gives `None` until it is ready.
+    pub header_glow: Option<Arc<GlowImage>>,
     /// The name links under the album title.
     pub name_links: Vec<AnyElement>,
     /// The named feed rows of ADR 0085 Decisions 5 and 6, each other than
@@ -85,7 +86,7 @@ pub(crate) fn render_release_detail_shell(
         .scroll_handle(&slots.scroll_handle)
         .header(ReleaseSurfaceElement::from_element(
             CoverBackdrop::new(
-                slots.cover_color,
+                slots.header_glow,
                 render_contract_header(&page.hero, slots.hero_image, slots.name_links),
             )
             .into_any_element(),
@@ -578,7 +579,7 @@ mod tests {
         let slots = ReleaseDetailBehaviorSlots::default();
 
         assert!(slots.hero_image.is_none());
-        assert!(slots.cover_color.is_none());
+        assert!(slots.header_glow.is_none());
         assert!(slots.name_links.is_empty());
         assert!(slots.primary_actions.is_empty());
         assert!(slots.identity_actions.is_empty());

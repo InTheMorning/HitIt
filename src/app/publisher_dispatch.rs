@@ -26,6 +26,7 @@ use crate::application::queries::search::FetchNameLevelReleases;
 use crate::application::{ApplicationCommand, CommandContext};
 use crate::library::playlist_options;
 use crate::presentation::collection_art::collection_art_image;
+use crate::presentation::header_glow::header_glow;
 use crate::presentation::present_command;
 use crate::ui::composites::release_section_list::{
     ClickReleaseCallback, ReleaseSectionRows, SectionCommandCallback, ToggleReleaseCallback,
@@ -413,6 +414,7 @@ impl TopApp {
                 // square, else the logo mosaic of its album images.
                 let header_art =
                     collection_art_image(self, &vm.collection_art(), ThumbnailSize::XXl, cx);
+                let header_glow = header_glow(self, &vm.header_glow(), cx);
                 // ADR 0082 Decision 5: a "Shares releases with" entry opens
                 // the Index shape of its own feed page. The data behind
                 // every entry comes from the one Index request
@@ -435,6 +437,7 @@ impl TopApp {
                     context,
                     &album_thumbs,
                     header_art,
+                    header_glow,
                     on_open_publisher,
                     rows,
                     cx,

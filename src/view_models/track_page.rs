@@ -15,6 +15,7 @@ use crate::metadata::{
 };
 use crate::view_models::detail_selection::index_track_guid;
 use crate::view_models::download_progress::FeedKey;
+use crate::view_models::header_glow::{GlowEntity, HeaderGlowVm};
 use crate::view_models::library::{
     description_line_count, BusyItems, DescriptionDisclosureDisplay, DescriptionState,
     LibraryTrackActionVm, LibraryViewModel, TrackRowWork,
@@ -318,6 +319,10 @@ pub(crate) struct TrackPageVm<'a> {
     pub(crate) inspect_sources: bool,
     /// The element id of the page container.
     pub(crate) container_id: &'static str,
+    /// The glow behind the header (ADR 0101 Decision 4, musicindex ADR 0021
+    /// R-ART-5). The image of the track is the one candidate, and the album
+    /// cover comes next when the track has none.
+    pub(crate) header_glow: HeaderGlowVm,
 }
 
 /// Builds the track page of `facts`.
@@ -370,7 +375,30 @@ pub(crate) fn track_page_vm(facts: &TrackPageFacts) -> TrackPageVm<'_> {
         description,
         inspect_sources,
         container_id,
+        header_glow: HeaderGlowVm::resolve(
+            GlowEntity::Track,
+            facts.track.display_artwork_url(),
+            [
+                facts.track.track_image_url.as_deref(),
+                facts.track.feed_image_url.as_deref(),
+                facts.track.image_url.as_deref(),
+            ]
+            .into_iter()
+            .flatten(),
+        ),
     }
+}
+
+/// The glow behind the header of a Library track page: the image of the
+/// track, or else the cover of its album. The cover of the album is also
+/// the fallback of an image that does not read.
+#[must_use]
+pub(crate) fn library_track_header_glow(track: &crate::db::TrackRow) -> HeaderGlowVm {
+    let own = track
+        .track_image_href
+        .as_deref()
+        .or(track.album_image_href.as_deref());
+    HeaderGlowVm::resolve(GlowEntity::Track, own, track.album_image_href.as_deref())
 }
 
 /// The action row of a track page. Each element id stays the id of its
@@ -1023,5 +1051,77 @@ mod tests {
             ..DownloadActivity::default()
         });
         assert!(!release.filled.available);
+    }
+
+    /// M4 (ADR 0101 Decision 4, task 002): a track page takes its glow from
+    /// the image of the track, or else the album cover. With no image, the
+    /// glow has the track color.
+    #[test]
+    fn adr_0101_header_glow_m4_track_page_glow() {
+        let track = TrackView {
+            image_url: Some("https://example.test/track.jpg".into()),
+            ..TrackView::from_api(recorded_track())
+        };
+        let facts = TrackPageFacts::from_index_track(track, None);
+        let glow = track_page_vm(&facts).header_glow;
+        assert_eq!(glow.entity, GlowEntity::Track);
+        assert_eq!(glow.urls, vec!["https://example.test/track.jpg"]);
+
+        let bare = TrackView {
+            image_url: None,
+            ..TrackView::from_api(recorded_track())
+        };
+        let facts = TrackPageFacts::from_index_track(bare, None);
+        let glow = track_page_vm(&facts).header_glow;
+        assert!(glow.urls.is_empty(), "no image gives the entity color");
+    }
+
+    /// M4 (task 002 correction 8): a track with no image of its own takes
+    /// the album cover. With an image of its own, the album cover is the
+    /// fallback.
+    #[test]
+    fn adr_0101_header_glow_m4_track_page_uses_the_album_cover() {
+        let album_only = TrackView {
+            track_image_url: None,
+            feed_image_url: Some("https://example.test/album.jpg".into()),
+            image_url: None,
+            ..TrackView::from_api(recorded_track())
+        };
+        let glow = track_page_vm(&TrackPageFacts::from_index_track(album_only, None)).header_glow;
+        assert_eq!(glow.urls, vec!["https://example.test/album.jpg"]);
+        assert!(glow.fallback_urls.is_empty());
+
+        let both = TrackView {
+            track_image_url: Some("https://example.test/track.jpg".into()),
+            feed_image_url: Some("https://example.test/album.jpg".into()),
+            image_url: None,
+            ..TrackView::from_api(recorded_track())
+        };
+        let glow = track_page_vm(&TrackPageFacts::from_index_track(both, None)).header_glow;
+        assert_eq!(glow.urls, vec!["https://example.test/track.jpg"]);
+        assert_eq!(glow.fallback_urls, vec!["https://example.test/album.jpg"]);
+    }
+
+    /// M4 (task 002 correction 8): the glow of a Library track page comes
+    /// from the stored track image, or else the stored album cover.
+    #[test]
+    fn adr_0101_header_glow_m4_library_track_glow() {
+        let mut row = crate::db::TrackRow {
+            track_image_href: Some(" https://example.test/track.jpg ".into()),
+            album_image_href: Some("https://example.test/album.jpg".into()),
+            ..crate::db::TrackRow::default()
+        };
+        let glow = library_track_header_glow(&row);
+        assert_eq!(glow.entity, GlowEntity::Track);
+        assert_eq!(glow.urls, vec!["https://example.test/track.jpg"]);
+        assert_eq!(glow.fallback_urls, vec!["https://example.test/album.jpg"]);
+
+        row.track_image_href = None;
+        let glow = library_track_header_glow(&row);
+        assert_eq!(glow.urls, vec!["https://example.test/album.jpg"]);
+        assert!(glow.fallback_urls.is_empty());
+
+        row.album_image_href = None;
+        assert!(library_track_header_glow(&row).urls.is_empty());
     }
 }

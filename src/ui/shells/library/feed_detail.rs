@@ -15,7 +15,7 @@ use gpui::{AnyElement, Context, FocusHandle, Image, ScrollHandle, Window};
 
 use crate::db;
 use crate::library::{playlist_options, LibraryApp, LibraryAppEvent};
-use crate::media::cover_color::CoverColor;
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::{windowed_track_range, ListBarPin, ScrollReveal};
 use crate::ui::composites::{list_bar_playlists, render_list_bar_copies, ListBarHandler};
 use crate::ui::shells::library::detail::DetailRowSlot;
@@ -38,7 +38,7 @@ pub(crate) fn render_library_feed_detail(
     mb_status: &BTreeMap<i64, MbTrackStatus>,
     library_vm: &LibraryViewModel,
     album_thumbs: &BTreeMap<String, Option<Arc<Image>>>,
-    cover_color: Option<CoverColor>,
+    header_glow: Option<Arc<GlowImage>>,
     list_bar: Option<ListBarVm>,
     list_bar_pin: &ListBarPin,
     playlists: &[db::Playlist],
@@ -71,7 +71,7 @@ pub(crate) fn render_library_feed_detail(
     }
     let images = ReleasePageImages {
         hero_image,
-        cover_color,
+        header_glow,
         row_thumbnails,
         row_reveal: row_reveal.clone(),
         contributor_thumbnails: Some(album_thumbs),

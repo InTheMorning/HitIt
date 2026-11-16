@@ -8,24 +8,31 @@
 #![warn(clippy::pedantic)]
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gpui::{AnyElement, Context, ScrollHandle};
 
 use crate::db;
 use crate::feed_service::track_row_to_track_context;
 use crate::library::{InspectorFrame, LibraryApp};
+use crate::media::header_glow::GlowImage;
 use crate::ui::shells::track_page::{render_track_page, TrackPageDispatch, TrackPageImages};
 use crate::view_models::library::LibraryChromeDisplay;
 use crate::view_models::named_feeds::NamedFeed;
 use crate::view_models::track_detail::LibraryTrackActionState;
 use crate::view_models::track_page::{track_page_vm, LibraryTrackPageState, TrackPageFacts};
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the Library host passes its page facts one by one"
+)]
 pub(crate) fn render_library_track_detail(
     frame: &InspectorFrame,
     playlists: &[db::Playlist],
     chrome: &LibraryChromeDisplay,
     named_feeds: &[NamedFeed],
     release_download_active: bool,
+    header_glow: Option<Arc<GlowImage>>,
     scroll: &ScrollHandle,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -64,6 +71,7 @@ pub(crate) fn render_library_track_detail(
         &vm,
         TrackPageImages {
             hero_image: frame.image.clone(),
+            header_glow,
             scroll_handle: scroll.clone(),
         },
         &dispatch,

@@ -28,6 +28,7 @@ use gpui::{
 use gpui_component::ActiveTheme;
 
 use crate::media::cover_color::CoverColor;
+use crate::media::header_glow::GlowStyle;
 use crate::media::logo_frame::{BakedShadow, LOGO_FRAME_ASPECT};
 use crate::theme_profile::ThemeProfile;
 use crate::ui::contrast::{delinearize, linearize};
@@ -992,39 +993,230 @@ impl ArtworkShape {
 }
 
 // -----------------------------------------------------------------------------
-// CoverBackdrop. ADR 0101 Decision 4: a page header draws a backdrop in the
-// main color of its cover. ADR 0083 task 005 chooses a gradient.
+// CoverBackdrop. ADR 0101 Decision 4: a page header draws a glow from its
+// cover (musicindex ADR 0021 R-ART-5). Each value is copied from the
+// musicindex.org page header, `search.html` at `785ae28`. The calculated
+// opacity follows musicindex `84ad724` (limit the glow).
 // -----------------------------------------------------------------------------
 
-/// The backdrop of a page header with a cover.
+/// The backdrop of a page header with a cover: a blurred glow from the
+/// cover, film grain and a veil.
 ///
-/// The backdrop keeps the hue of the cover. Its luminance is a token for
-/// each appearance, so the header text keeps its contrast on every cover.
-/// The gradient starts at `STRENGTH` opacity at the top and fades to the
-/// page background over `HEIGHT_BASE`.
+/// The app prepares the glow image in `media::header_glow`, because GPUI
+/// has no blur, no blend mode and no tiled image. This token holds each
+/// value of the glow, the veil and the box. A second set of values gives
+/// the opaque fill for Reduce Transparency.
 pub struct CoverBackdrop;
 
 impl CoverBackdrop {
-    /// The height of the gradient at the `Medium` scale step, in pixels.
-    pub const HEIGHT_BASE: f32 = 320.0;
-    /// The opacity of the backdrop at the top of the header.
-    pub const STRENGTH: f32 = 0.9;
-    /// The highest luminance of the backdrop in Dark appearance. A brighter
-    /// cover is darkened to this luminance.
+    /// The height of the glow box at the `Medium` scale step, in pixels.
+    /// The box starts at the top of the page. The header height does not
+    /// change it.
+    pub const BOX_HEIGHT_BASE: f32 = 560.0;
+    /// The height of the glow box in a narrow window, in pixels.
+    pub const BOX_HEIGHT_NARROW_BASE: f32 = 460.0;
+    /// The window width at or below which the box is narrow, in pixels.
+    pub const NARROW_WIDTH_BASE: f32 = 1100.0;
+    /// How far the art extends above the box, in pixels.
+    pub const EXTEND_TOP_BASE: f32 = 200.0;
+    /// How far the art extends at each side of the box, in pixels.
+    pub const EXTEND_SIDE_BASE: f32 = 80.0;
+    /// How far the art extends below the box, in pixels.
+    pub const EXTEND_BOTTOM_BASE: f32 = 40.0;
+    /// The blur of the art, in pixels at the width of the website art.
+    pub const BLUR: f32 = 90.0;
+    /// The saturation of the art.
+    pub const SATURATION: f32 = 1.7;
+    /// The highest opacity of the art. The page limits it further, so the
+    /// header text keeps 4.5:1 (R-ART-5 item 2).
+    pub const MAX_OPACITY: f32 = 0.85;
+    /// The opacity of the entity color of an item with no image.
+    pub const ENTITY_TINT: f32 = 0.45;
+    /// The opacity of the entity color below a black and white cover.
+    pub const MUTED_TINT: f32 = 0.40;
+    /// The opacity of a black and white cover, with the luminosity blend.
+    pub const MUTED_ART: f32 = 0.35;
+    /// The lowest colorfulness of a cover that keeps its colors (Hasler
+    /// and Suesstrunk, on a sample of 24 by 24 pixels).
+    pub const MIN_COLORFULNESS: f32 = 18.0;
+    /// The opacity of the veil at the top of the box in Dark appearance.
+    pub const VEIL_TOP_DARK: f32 = 0.25;
+    /// The opacity of the veil at the top of the box in Light appearance.
+    pub const VEIL_TOP_LIGHT: f32 = 0.55;
+    /// The opacity of the veil at `VEIL_MID_AT` in Dark appearance.
+    pub const VEIL_MID_DARK: f32 = 0.60;
+    /// The opacity of the veil at `VEIL_MID_AT` in Light appearance.
+    pub const VEIL_MID_LIGHT: f32 = 0.80;
+    /// The part of the box height where the two gradients of the veil meet.
+    pub const VEIL_MID_AT: f32 = 0.55;
+    /// The opacity of the grain in Dark appearance.
+    pub const GRAIN_DARK: f32 = 0.22;
+    /// The opacity of the grain in Light appearance.
+    pub const GRAIN_LIGHT: f32 = 0.28;
+    /// The side of the grain tile, in pixels. The page shows the tile at
+    /// this size, in a pattern. It equals `media::header_glow::GRAIN_TILE_SIDE`.
+    pub const GRAIN_TILE_SIDE: f32 = 240.0;
+    /// The highest luminance of the opaque fill in Dark appearance. A
+    /// brighter cover is darkened to this luminance.
     const DARK_MAX_LUMINANCE: f32 = 0.02;
-    /// The lowest luminance of the backdrop in Light appearance. A darker
-    /// cover is lightened to this luminance.
+    /// The lowest luminance of the opaque fill in Light appearance. A
+    /// darker cover is lightened to this luminance.
     const LIGHT_MIN_LUMINANCE: f32 = 0.87;
 
-    /// The height of the gradient at the current UI scale.
+    /// The height of the glow box for a window of `window_width`, at the
+    /// current UI scale.
     ///
     /// ADR 0039: backdrop geometry is CHROME.
     #[must_use]
-    pub fn height(cx: &App) -> Pixels {
-        scale_chrome_px(Self::HEIGHT_BASE, ScaleFactor::current(cx))
+    pub fn box_height(window_width: Pixels, cx: &App) -> Pixels {
+        let scale = ScaleFactor::current(cx);
+        if window_width <= scale_chrome_px(Self::NARROW_WIDTH_BASE, scale) {
+            scale_chrome_px(Self::BOX_HEIGHT_NARROW_BASE, scale)
+        } else {
+            scale_chrome_px(Self::BOX_HEIGHT_BASE, scale)
+        }
     }
 
-    /// The opaque backdrop color of `cover` in `appearance`.
+    /// How far the glow box reaches above and to the left of the header, so
+    /// that the box starts at the edge of the scroll area. A page pads its
+    /// scroll area with `Spacing::LG`.
+    #[must_use]
+    pub fn page_inset_start(cx: &App) -> Pixels {
+        Spacing::LG.scaled(cx)
+    }
+
+    /// How far the glow box reaches to the right of the header, so that the
+    /// box ends at the edge of the scroll area. It is the padding of the
+    /// scroll area and the space of the overlay scrollbar of the page column.
+    #[must_use]
+    pub fn page_inset_end(cx: &App) -> Pixels {
+        Spacing::LG.scaled(cx)
+            + crate::ui::layouts::OVERLAY_SCROLLBAR_WIDTH
+            + Spacing::SM.scaled(cx)
+    }
+
+    /// The side of the grain tile as the page draws it.
+    #[must_use]
+    pub fn grain_tile_side() -> Pixels {
+        px(Self::GRAIN_TILE_SIDE)
+    }
+
+    /// The columns and rows of grain tiles that cover `width` by `height`.
+    #[must_use]
+    pub fn grain_cells(width: Pixels, height: Pixels) -> (usize, usize) {
+        let side = Self::GRAIN_TILE_SIDE;
+        let count = |extent: Pixels| {
+            let cells = (f32::from(extent) / side).ceil().max(1.0);
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "the value is a small positive whole number"
+            )]
+            let cells = cells as usize;
+            cells
+        };
+        (count(width), count(height))
+    }
+
+    /// How far the art extends above the box, at the current UI scale.
+    #[must_use]
+    pub fn extend_top(cx: &App) -> Pixels {
+        scale_chrome_px(Self::EXTEND_TOP_BASE, ScaleFactor::current(cx))
+    }
+
+    /// How far the art extends at each side of the box.
+    #[must_use]
+    pub fn extend_side(cx: &App) -> Pixels {
+        scale_chrome_px(Self::EXTEND_SIDE_BASE, ScaleFactor::current(cx))
+    }
+
+    /// How far the art extends below the box.
+    #[must_use]
+    pub fn extend_bottom(cx: &App) -> Pixels {
+        scale_chrome_px(Self::EXTEND_BOTTOM_BASE, ScaleFactor::current(cx))
+    }
+
+    /// The values of the glow preparation in `env`. They carry the colors
+    /// of the live theme (the profile, the appearance and Increase
+    /// Contrast), because the flatten color and the contrast target read
+    /// them. The profile and Increase Contrast are in the cache key.
+    #[must_use]
+    pub fn glow_style(env: Environment) -> GlowStyle {
+        let bytes = |token: SemanticColor| {
+            let color = crate::ui::theme_profiles::resolve_accessible_color(
+                env.profile,
+                env.appearance,
+                token,
+                env.increase_contrast,
+                env.reduce_transparency,
+            );
+            [color.r, color.g, color.b].map(|channel| {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "the value is rounded and clamped to the range of a byte"
+                )]
+                let byte = (channel * 255.0).round().clamp(0.0, 255.0) as u8;
+                byte
+            })
+        };
+        let (veil_top, grain_opacity) = match env.appearance {
+            Appearance::Dark => (Self::VEIL_TOP_DARK, Self::GRAIN_DARK),
+            Appearance::Light => (Self::VEIL_TOP_LIGHT, Self::GRAIN_LIGHT),
+        };
+        let profile = match env.profile {
+            ThemeProfile::System => 0,
+            ThemeProfile::Dark => 1,
+            ThemeProfile::Light => 2,
+            ThemeProfile::HighContrastDark => 3,
+            ThemeProfile::HighContrastLight => 4,
+        };
+        GlowStyle {
+            background: bytes(SemanticColor::SystemBackground),
+            label: bytes(SemanticColor::Label),
+            secondary_label: bytes(SemanticColor::SecondaryLabel),
+            veil_top,
+            grain_opacity,
+            max_opacity: Self::MAX_OPACITY,
+            blur: Self::BLUR,
+            saturation: Self::SATURATION,
+            entity_tint: Self::ENTITY_TINT,
+            muted_tint: Self::MUTED_TINT,
+            muted_art: Self::MUTED_ART,
+            min_colorfulness: Self::MIN_COLORFULNESS,
+            profile,
+            increase_contrast: env.increase_contrast,
+        }
+    }
+
+    /// The glow values for the environment that `cx` installs.
+    #[must_use]
+    pub fn glow_style_current(cx: &App) -> GlowStyle {
+        Self::glow_style(Environment::current(cx))
+    }
+
+    /// The two gradients of the veil, from the top of the box to the
+    /// bottom: the page background at the top opacity to the middle
+    /// opacity over the first part of the box, then to full opacity over
+    /// the rest.
+    #[must_use]
+    pub fn veil(cx: &App) -> (Background, Background) {
+        let appearance = Environment::current(cx).appearance;
+        let (top, mid) = match appearance {
+            Appearance::Dark => (Self::VEIL_TOP_DARK, Self::VEIL_MID_DARK),
+            Appearance::Light => (Self::VEIL_TOP_LIGHT, Self::VEIL_MID_LIGHT),
+        };
+        let background = Hsla::from(color(cx, SemanticColor::SystemBackground));
+        let stop = |opacity: f32, at: f32| linear_color_stop(background.opacity(opacity), at);
+        (
+            linear_gradient(180.0, stop(top, 0.0), stop(mid, 1.0)),
+            linear_gradient(180.0, stop(mid, 0.0), stop(1.0, 1.0)),
+        )
+    }
+
+    /// The opaque backdrop color of `cover` in `appearance`. Reduce
+    /// Transparency draws it in place of the glow. The luminance limit
+    /// keeps the header text at its contrast on every cover.
     #[must_use]
     pub fn tone(cover: CoverColor, appearance: Appearance) -> Rgba {
         let channel = |value: u8| linearize(f32::from(value) / 255.0);
@@ -1051,18 +1243,6 @@ impl CoverBackdrop {
             b: delinearize(toned[2]),
             a: 1.0,
         }
-    }
-
-    /// The gradient of `cover` for the current appearance: the toned color
-    /// at `STRENGTH` at the top, transparent at the bottom.
-    #[must_use]
-    pub fn background(cover: CoverColor, cx: &App) -> Background {
-        let toned = Hsla::from(Self::tone(cover, Environment::current(cx).appearance));
-        linear_gradient(
-            180.0,
-            linear_color_stop(toned.opacity(Self::STRENGTH), 0.0),
-            linear_color_stop(toned.opacity(0.0), 1.0),
-        )
     }
 }
 
@@ -2106,6 +2286,169 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    /// The glow style with the colors of the real theme, for the glow tests.
+    fn real_glow_style(appearance: Appearance) -> GlowStyle {
+        let profile = match appearance {
+            Appearance::Dark => ThemeProfile::Dark,
+            Appearance::Light => ThemeProfile::Light,
+        };
+        CoverBackdrop::glow_style(Environment {
+            profile,
+            appearance,
+            ..Environment::default()
+        })
+    }
+
+    /// Task 002 correction 3: the page shows the grain tile at the size of
+    /// the tile that the media layer makes, and the pattern covers the area.
+    #[test]
+    fn adr_0101_header_glow_grain_pattern_covers_its_area() {
+        assert!(
+            (CoverBackdrop::GRAIN_TILE_SIDE
+                - f32::from(
+                    u16::try_from(crate::media::header_glow::GRAIN_TILE_SIDE).expect("small")
+                ))
+            .abs()
+                < f32::EPSILON,
+            "ADR 0101 Decision 4: the token and media::header_glow::GRAIN_TILE_SIDE must agree."
+        );
+        assert_eq!(CoverBackdrop::grain_cells(px(240.0), px(240.0)), (1, 1));
+        assert_eq!(CoverBackdrop::grain_cells(px(241.0), px(480.0)), (2, 2));
+        assert_eq!(CoverBackdrop::grain_cells(px(0.0), px(0.0)), (1, 1));
+        let (columns, rows) = CoverBackdrop::grain_cells(px(1000.0), px(800.0));
+        assert_eq!((columns, rows), (5, 4));
+    }
+
+    /// Task 002 correction 7: the glow style follows the live theme. The
+    /// profile and Increase Contrast change the colors and the cache key.
+    #[test]
+    fn adr_0101_header_glow_style_follows_the_live_theme() {
+        let base = Environment {
+            profile: ThemeProfile::Dark,
+            appearance: Appearance::Dark,
+            ..Environment::default()
+        };
+        let plain = CoverBackdrop::glow_style(base);
+        let contrast = CoverBackdrop::glow_style(Environment {
+            increase_contrast: true,
+            ..base
+        });
+        let high = CoverBackdrop::glow_style(Environment {
+            profile: ThemeProfile::HighContrastDark,
+            ..base
+        });
+        assert!(contrast.increase_contrast);
+        assert_ne!(plain.fingerprint(), contrast.fingerprint());
+        assert_ne!(plain.fingerprint(), high.fingerprint());
+        assert_ne!(
+            plain.fingerprint(),
+            real_glow_style(Appearance::Light).fingerprint()
+        );
+        let colors = |style: &GlowStyle| [style.background, style.label, style.secondary_label];
+        let resolved = |token: SemanticColor| {
+            let color = crate::ui::theme_profiles::resolve_accessible_color(
+                base.profile,
+                base.appearance,
+                token,
+                true,
+                false,
+            );
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            [color.r, color.g, color.b].map(|channel| (channel * 255.0).round() as u8)
+        };
+        assert_eq!(
+            colors(&contrast),
+            [
+                resolved(SemanticColor::SystemBackground),
+                resolved(SemanticColor::Label),
+                resolved(SemanticColor::SecondaryLabel),
+            ],
+            "Increase Contrast gives the contrast colors of the theme"
+        );
+    }
+
+    /// M5 (ADR 0101 Decision 4, task 002, musicindex ADR 0021 R-ART-5 item
+    /// 2): at the opacity that the glow calculates, `Label` and
+    /// `SecondaryLabel` keep 4.5:1 at the top of the veil. The test uses a
+    /// white glow and a black glow in each theme, with the colors of the
+    /// real theme.
+    #[test]
+    fn adr_0101_header_glow_m5_text_keeps_contrast_in_each_theme() {
+        use crate::media::header_glow::{opacity_for_color, text_contrast_at_top_of_veil};
+
+        for (appearance, name) in [(Appearance::Dark, "Dark"), (Appearance::Light, "Light")] {
+            let style = real_glow_style(appearance);
+            for (glow, glow_name) in [([255.0_f32; 3], "white"), ([0.0_f32; 3], "black")] {
+                let opacity = opacity_for_color(glow, &style);
+                let contrast = text_contrast_at_top_of_veil(glow, opacity, &style);
+                println!(
+                    "M5 {name} {glow_name} glow: opacity {opacity:.3}, contrast {contrast:.2}"
+                );
+                assert!(
+                    contrast >= 4.5,
+                    "ADR 0101 Decision 4 R-ART-5 item 2: the {glow_name} glow in {name} has contrast {contrast} at opacity {opacity}. Fix the opacity calculation in media::header_glow."
+                );
+            }
+        }
+    }
+
+    /// The opacities that the website calculates for its test covers
+    /// (musicindex `84ad724`): Dark, white 0.49 (muted blend), yellow 0.27,
+    /// black 0.85. Light, black 0.73 (muted blend), white 0.85. The test
+    /// prints this module's values. A value must stay within 0.03 of the
+    /// website value, or the difference needs a recorded cause.
+    #[test]
+    fn adr_0101_header_glow_opacity_agrees_with_the_website() {
+        use crate::media::header_glow::{
+            glow_opacity, muted_glow_layer, opacity_for_color, SMALL_SIDE,
+        };
+        use image::{Rgba, RgbaImage};
+
+        let solid = |value: u8| {
+            RgbaImage::from_pixel(SMALL_SIDE, SMALL_SIDE, Rgba([value, value, value, 255]))
+        };
+        let entity = |token: SemanticColor, appearance: Appearance| {
+            let color = token.resolve(appearance);
+            // A theme channel lies in 0..=1, so the rounded value fits in a byte.
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            [color.r, color.g, color.b].map(|channel| (channel * 255.0).round() as u8)
+        };
+        let dark = real_glow_style(Appearance::Dark);
+        let light = real_glow_style(Appearance::Light);
+        let muted = |value: u8, style: &GlowStyle, appearance: Appearance| {
+            let tint = entity(SemanticColor::EntityFeed, appearance);
+            glow_opacity(&muted_glow_layer(&solid(value), tint, style), style)
+        };
+        let results = [
+            (
+                "Dark muted white",
+                muted(255, &dark, Appearance::Dark),
+                0.49,
+            ),
+            (
+                "Dark yellow",
+                opacity_for_color([255.0, 255.0, 0.0], &dark),
+                0.27,
+            ),
+            ("Dark black", opacity_for_color([0.0; 3], &dark), 0.85),
+            (
+                "Light muted black",
+                muted(0, &light, Appearance::Light),
+                0.73,
+            ),
+            ("Light white", opacity_for_color([255.0; 3], &light), 0.85),
+        ];
+        for (name, value, website) in results {
+            println!("opacity {name}: {value:.3} (website {website:.2})");
+        }
+        for (name, value, website) in results {
+            assert!(
+                (value - website).abs() <= 0.03,
+                "{name}: opacity {value} differs from the website value {website} by more than 0.03"
+            );
         }
     }
 

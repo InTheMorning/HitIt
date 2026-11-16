@@ -13,6 +13,7 @@ use gpui::{
     Styled, Window,
 };
 
+use crate::media::header_glow::GlowImage;
 use crate::ui::primitives::MultilineText;
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Spacing};
 use crate::view_models::track::TrackHeaderVm;
@@ -28,6 +29,7 @@ pub struct TrackDetailSurface {
     title: String,
     artist: String,
     image: Option<Arc<Image>>,
+    header_glow: Option<Arc<GlowImage>>,
     load_state: TrackDetailLoadState,
     summary_rows: Vec<crate::view_models::track_detail::TrackDetailSummaryRow>,
     description_label: String,
@@ -49,6 +51,7 @@ impl TrackDetailSurface {
             title: vm.display_title(),
             artist: vm.display_artist(),
             image: None,
+            header_glow: None,
             load_state: TrackDetailLoadState::Loaded,
             summary_rows: vm.summary_rows(),
             description_label: vm.labels().description_label().to_string(),
@@ -67,6 +70,12 @@ impl TrackDetailSurface {
 
     pub fn image(mut self, image: Option<Arc<Image>>) -> Self {
         self.image = image;
+        self
+    }
+
+    /// The prepared glow behind the header (ADR 0101 Decision 4, task 002).
+    pub fn header_glow(mut self, glow: Option<Arc<GlowImage>>) -> Self {
+        self.header_glow = glow;
         self
     }
 
@@ -154,7 +163,8 @@ fn render_loaded_surface(surface: TrackDetailSurface, cx: &mut App) -> AnyElemen
             title: surface.title,
             artist: surface.artist,
         })
-        .image(surface.image),
+        .image(surface.image)
+        .glow(surface.header_glow),
     );
 
     if !surface.name_links.is_empty() {

@@ -1,16 +1,13 @@
-//! The main color of a cover image (ADR 0101 Decision 4, task 005).
+//! The main color of the pixels of a cover (ADR 0101 Decision 4, task 002).
 //!
-//! The album page header draws a backdrop in this color. The value is a
-//! plain sRGB triple with no renderer type, so a view model can carry it.
+//! The header glow keeps this color for the opaque fill that Reduce
+//! Transparency draws in place of the glow. The value is a plain sRGB
+//! triple with no renderer type, so a view model can carry it.
 
 #![warn(clippy::pedantic)]
 
 use image::RgbaImage;
 
-/// The side of the square that the cover is reduced to before the count.
-/// A small sample keeps the computation fast and makes it stable against
-/// noise in the image.
-const SAMPLE_SIDE: u32 = 32;
 /// The bits of each channel that select a histogram bucket.
 const BUCKET_BITS: u32 = 3;
 /// A pixel with less alpha than this does not count.
@@ -22,15 +19,6 @@ pub struct CoverColor {
     pub red: u8,
     pub green: u8,
     pub blue: u8,
-}
-
-/// The main color of encoded image bytes. `None` when the bytes do not
-/// decode or the image has no opaque pixel.
-#[must_use]
-pub fn cover_color(bytes: &[u8]) -> Option<CoverColor> {
-    let image = image::load_from_memory(bytes).ok()?;
-    let sample = image.thumbnail_exact(SAMPLE_SIDE, SAMPLE_SIDE).into_rgba8();
-    main_color(&sample)
 }
 
 /// The main color of decoded pixels: the mean of the most frequent color
@@ -86,19 +74,9 @@ fn bucket_index(red: u8, green: u8, blue: u8) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use image::{Rgba, RgbaImage};
 
     use super::*;
-
-    fn encoded_png(image: &RgbaImage) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        image
-            .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
-            .expect("encode test image");
-        bytes
-    }
 
     /// R83-54: a known image gives one stable value.
     #[test]
@@ -109,8 +87,7 @@ mod tests {
                 image.put_pixel(x, y, Rgba([10, 10, 250, 255]));
             }
         }
-        let bytes = encoded_png(&image);
-        let first = cover_color(&bytes);
+        let first = main_color(&image);
         assert_eq!(
             first,
             Some(CoverColor {
@@ -120,11 +97,11 @@ mod tests {
             }),
             "the color that covers most of the image is the main color"
         );
-        assert_eq!(cover_color(&bytes), first, "the value must be stable");
+        assert_eq!(main_color(&image), first, "the value must be stable");
     }
 
     /// R83-54: an image with no pixels, or with no opaque pixel, gives no
-    /// color. Bytes that do not decode give no color.
+    /// color.
     #[test]
     fn adr_0083_cover_color_of_an_empty_image_is_none() {
         assert_eq!(main_color(&RgbaImage::new(0, 0)), None);
@@ -132,7 +109,5 @@ mod tests {
             main_color(&RgbaImage::from_pixel(4, 4, Rgba([255, 0, 0, 0]))),
             None
         );
-        assert_eq!(cover_color(b"not an image"), None);
-        assert_eq!(cover_color(&[]), None);
     }
 }

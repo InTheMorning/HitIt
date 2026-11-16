@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use gpui::{div, prelude::*, AnyElement, App, Image, ScrollHandle, SharedString, Window};
 
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::{
@@ -44,6 +45,8 @@ pub(crate) type TrackPageDispatch = Rc<dyn Fn(TrackPageCommand, &mut Window, &mu
 pub(crate) struct TrackPageImages {
     /// The cover of the track.
     pub(crate) hero_image: Option<Arc<Image>>,
+    /// The prepared glow of the cover (ADR 0101 Decision 4, task 002).
+    pub(crate) header_glow: Option<Arc<GlowImage>>,
     /// The held scroll handle of the Music detail column (ADR 0084
     /// packet 018).
     pub(crate) scroll_handle: ScrollHandle,
@@ -58,6 +61,7 @@ pub(crate) fn render_track_page(
 ) -> AnyElement {
     let TrackPageImages {
         hero_image,
+        header_glow,
         scroll_handle,
     } = images;
     let open_name_link = Rc::clone(dispatch);
@@ -70,6 +74,7 @@ pub(crate) fn render_track_page(
     );
     let mut slots = TrackDetailBehaviorSlots {
         hero_image,
+        header_glow,
         name_links,
         primary_actions: vec![TrackSurfaceElement::from_element(
             render_track_page_actions(&vm.actions, vm.inspect_sources, dispatch),

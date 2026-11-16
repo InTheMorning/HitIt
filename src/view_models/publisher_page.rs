@@ -19,6 +19,7 @@
 use crate::api::{AlbumNamesAs, PublisherLinkResolution, RoleAgreement};
 use crate::view_models::artist_identity::ArtistNameKey;
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
+use crate::view_models::header_glow::{GlowEntity, HeaderGlowVm};
 use crate::view_models::list_page::ListView;
 use crate::view_models::list_selection::RowSelectionVm;
 use crate::view_models::name_level_page::{
@@ -706,6 +707,28 @@ impl PublisherPageVm {
             self.album_image_urls(),
             CollectionKind::Artist,
         )
+    }
+
+    /// The glow behind the header (ADR 0101 Decision 4, musicindex ADR 0021
+    /// R-ART-5). The channel image of the feed is the one candidate. With no
+    /// channel image, or when it does not read, the candidates are the first
+    /// eight album images in the sequence of `album_image_urls`, which is
+    /// the sequence of the mosaic. A feed with the role label has the label
+    /// color. Each other feed has the artist color. The albums arrive while
+    /// the page loads, so the glow has the scope of the feed, and the page
+    /// keeps its last glow while a new one prepares.
+    #[must_use]
+    pub(crate) fn header_glow(&self) -> HeaderGlowVm {
+        let entity = match self.header_badge().role {
+            HeaderRole::Label => GlowEntity::Label,
+            _ => GlowEntity::Artist,
+        };
+        HeaderGlowVm::resolve(
+            entity,
+            self.facts.feed_image_url.as_deref(),
+            self.album_image_urls(),
+        )
+        .with_scope(format!("feed:{}", self.facts.publisher_feed_guid))
     }
 
     /// The confirmation level of this feed (ADR 0085 Decision 2). It reads
@@ -2470,5 +2493,67 @@ mod tests {
             ),
             "an absent confirmed and unconfirmed count must add no artist fact"
         );
+    }
+
+    /// M4 (ADR 0101 Decision 4, task 002): a feed page takes its own image
+    /// first, and else the album covers. A label feed has the label color.
+    /// Each other feed has the artist color.
+    #[test]
+    fn adr_0101_header_glow_m4_feed_page_glow() {
+        let mut with_cover = owned_album();
+        with_cover.image_url = Some("https://example.test/album.jpg".into());
+
+        let own = PublisherPageVm::new(PublisherPageFacts {
+            feed_image_url: Some("https://example.test/feed.jpg".into()),
+            ..facts(vec![with_cover.clone()])
+        })
+        .header_glow();
+        assert_eq!(own.urls, vec!["https://example.test/feed.jpg"]);
+
+        let covers = PublisherPageVm::new(facts(vec![with_cover])).header_glow();
+        assert_eq!(covers.urls, vec!["https://example.test/album.jpg"]);
+        assert_eq!(covers.entity, GlowEntity::Artist);
+
+        let none = PublisherPageVm::new(facts(vec![owned_album()])).header_glow();
+        assert!(none.urls.is_empty(), "no image gives the entity color");
+
+        // Task 002 corrections 5, 6 and 10: the covers come in the sequence
+        // of the mosaic, which is the sorted sequence of `album_image_urls`.
+        // The own image has them as its fallback, and the page has a scope.
+        let album = |url: &str| {
+            let mut album = owned_album();
+            album.image_url = Some(url.to_owned());
+            album
+        };
+        let vm = PublisherPageVm::new(facts(vec![
+            album("https://example.test/b.jpg"),
+            album("https://example.test/a.jpg"),
+        ]));
+        let glow = vm.header_glow();
+        assert_eq!(glow.urls, vm.album_image_urls());
+        assert_eq!(
+            glow.urls,
+            vec!["https://example.test/a.jpg", "https://example.test/b.jpg"]
+        );
+        assert!(glow.scope.is_some());
+        let with_own = PublisherPageVm::new(PublisherPageFacts {
+            feed_image_url: Some("https://example.test/feed.jpg".into()),
+            ..facts(vec![
+                album("https://example.test/b.jpg"),
+                album("https://example.test/a.jpg"),
+            ])
+        })
+        .header_glow();
+        assert_eq!(with_own.fallback_urls, glow.urls);
+
+        let agreed_label = album_with_guid(
+            "a3",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("label"),
+        );
+        let vm = PublisherPageVm::new(facts(vec![agreed_label]));
+        assert_eq!(vm.header_badge().role, HeaderRole::Label);
+        assert_eq!(vm.header_glow().entity, GlowEntity::Label);
     }
 }

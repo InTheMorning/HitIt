@@ -17,7 +17,7 @@ use gpui::{
     Modifiers, ScrollHandle, SharedString, Window,
 };
 
-use crate::media::cover_color::CoverColor;
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::ScrollReveal;
 use crate::ui::composites::{
     identity_action_button, ActionRow, ActionRowDisplay, AddToPlaylistDisplay,
@@ -53,7 +53,8 @@ pub(crate) type ReleasePageDispatch = Rc<dyn Fn(ReleasePageCommand, &mut Window,
 /// the images, the scroll probes and the scroll handle.
 pub(crate) struct ReleasePageImages<'a> {
     pub(crate) hero_image: Option<Arc<Image>>,
-    pub(crate) cover_color: Option<CoverColor>,
+    /// The prepared glow of the cover (ADR 0101 Decision 4, task 002).
+    pub(crate) header_glow: Option<Arc<GlowImage>>,
     /// The thumbnail of each row, resolved only for the windowed rows.
     pub(crate) row_thumbnails: Vec<Option<Arc<Image>>>,
     /// The indexed reveal state of the detail column.
@@ -84,7 +85,7 @@ pub(crate) fn render_release_page(
 ) -> AnyElement {
     let ReleasePageImages {
         hero_image,
-        cover_color,
+        header_glow,
         row_thumbnails,
         row_reveal,
         contributor_thumbnails,
@@ -128,7 +129,7 @@ pub(crate) fn render_release_page(
     };
     let mut slots = ReleaseDetailBehaviorSlots {
         hero_image,
-        cover_color,
+        header_glow,
         name_links,
         named_feed_rows,
         primary_actions: vec![ReleaseSurfaceElement::from_element(

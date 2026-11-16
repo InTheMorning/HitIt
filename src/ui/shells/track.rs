@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use gpui::{div, prelude::*, App, ClipboardItem, Image, SharedString, Window};
 
+use crate::media::header_glow::GlowImage;
 use crate::ui::composites::{
     identity_action_button, render_feed_identity_panel, IdentityActionButtonDisplay,
     IdentityActionKind, TrackDetailSurface, TrackSurfaceElement,
@@ -28,6 +29,8 @@ use crate::view_models::track_detail::{TrackDetailPageVm, TrackNameLinkTarget, T
 #[derive(Default)]
 pub(crate) struct TrackDetailBehaviorSlots {
     pub hero_image: Option<Arc<Image>>,
+    /// The prepared glow of the cover (ADR 0101 Decision 4, task 002).
+    pub header_glow: Option<Arc<GlowImage>>,
     pub name_links: Vec<TrackSurfaceElement>,
     pub primary_actions: Vec<TrackSurfaceElement>,
     pub external_links: Vec<TrackSurfaceElement>,
@@ -157,7 +160,9 @@ pub(crate) fn build_track_detail_surface(
     page: &TrackDetailPageVm<'_>,
     slots: TrackDetailBehaviorSlots,
 ) -> TrackDetailSurface {
-    let mut surface = TrackDetailSurface::new(page.detail()).image(slots.hero_image);
+    let mut surface = TrackDetailSurface::new(page.detail())
+        .image(slots.hero_image)
+        .header_glow(slots.header_glow);
 
     if !slots.name_links.is_empty() {
         surface = surface.name_links(slots.name_links);

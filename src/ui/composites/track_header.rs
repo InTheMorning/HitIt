@@ -14,17 +14,19 @@ use gpui::{
     Styled, Window,
 };
 
+use crate::media::header_glow::GlowImage;
 use crate::ui::tokens::{resolve_color, Appearance, FontSize, SemanticColor, Spacing};
 use crate::view_models::track::TrackHeaderVm;
 
 use super::detail_header::PageTitleKind;
-use super::{EntityKind, TagBadge, TagBadgeDisplay, Thumbnail, ThumbnailSize};
+use super::{CoverBackdrop, EntityKind, TagBadge, TagBadgeDisplay, Thumbnail, ThumbnailSize};
 
 #[derive(IntoElement)]
 #[must_use]
 pub struct TrackHeader {
     vm: TrackHeaderVm,
     image: Option<Arc<Image>>,
+    glow: Option<Arc<GlowImage>>,
     supplementary_row: Option<AnyElement>,
     appearance: Option<Appearance>,
 }
@@ -34,6 +36,7 @@ impl TrackHeader {
         Self {
             vm,
             image: None,
+            glow: None,
             supplementary_row: None,
             appearance: None,
         }
@@ -41,6 +44,12 @@ impl TrackHeader {
 
     pub fn image(mut self, image: Option<Arc<Image>>) -> Self {
         self.image = image;
+        self
+    }
+
+    /// The prepared glow behind the header (ADR 0101 Decision 4, task 002).
+    pub fn glow(mut self, glow: Option<Arc<GlowImage>>) -> Self {
+        self.glow = glow;
         self
     }
 
@@ -98,12 +107,14 @@ impl RenderOnce for TrackHeader {
             text_block = text_block.child(row);
         }
 
-        div()
+        let header = div()
             .flex()
             .flex_row()
             .items_start()
             .gap(Spacing::LG.scaled(cx))
             .child(Thumbnail::new(EntityKind::Track, ThumbnailSize::Lg).image(self.image))
             .child(text_block)
+            .into_any_element();
+        CoverBackdrop::new(self.glow, header)
     }
 }

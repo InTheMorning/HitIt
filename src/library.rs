@@ -199,13 +199,6 @@ enum ThumbnailState {
     Loaded(Option<Arc<Image>>),
 }
 
-/// The main color of one cover (ADR 0083 task 005).
-#[derive(Clone, Copy)]
-enum CoverColorState {
-    Loading,
-    Loaded(Option<crate::media::cover_color::CoverColor>),
-}
-
 impl CollectionArtHost for LibraryApp {
     fn collection_art_parts(&mut self) -> CollectionArtParts<'_> {
         CollectionArtParts {
@@ -237,7 +230,6 @@ pub struct LibraryApp {
     vm: LibraryViewModel,
     detail: LibraryDetail,
     thumbnails: BTreeMap<(String, bool), ThumbnailState>,
-    cover_colors: BTreeMap<String, CoverColorState>,
     /// The load state of each collection art (ADR 0084 Decision 12).
     collection_art: CollectionArtLoads,
     new_playlist_input: Entity<InputState>,

@@ -16,6 +16,7 @@ use gpui::{AnyElement, App, Context, Image, Window};
 use crate::application::queries::search::FetchNameLevelReleases;
 use crate::application::CommandContext;
 use crate::presentation::collection_art::collection_art_image;
+use crate::presentation::header_glow::header_glow;
 use crate::presentation::present_command;
 use crate::ui::composites::ThumbnailSize;
 use crate::ui::shells::name_level_page::render_name_level_page;
@@ -166,6 +167,7 @@ impl TopApp {
         // ADR 0084 Decision 12: the name level gives no image. Its art is
         // the logo mosaic, or the entity color.
         let header_art = collection_art_image(self, &vm.collection_art(), ThumbnailSize::XXl, cx);
+        let header_glow = header_glow(self, &vm.header_glow(), cx);
         let sections = self.ordered_release_sections(vm.sections(), cx);
         let rows = self.release_section_rows(sections, cx);
         let entity = cx.entity();
@@ -175,7 +177,15 @@ impl TopApp {
                 this.open_publisher_page(feed_guid, PublisherPageContext::Library, cx);
             });
         };
-        render_name_level_page(&vm, &album_thumbs, header_art, rows, on_open_feed, cx)
+        render_name_level_page(
+            &vm,
+            &album_thumbs,
+            header_art,
+            header_glow,
+            rows,
+            on_open_feed,
+            cx,
+        )
     }
 }
 

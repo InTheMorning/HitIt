@@ -21,6 +21,7 @@ use crate::view_models::entity_detail::{
     EntityActionKind, EntitySurfaceContext, NamedFeedRowVm, ReleaseDetailPageVm, ReleaseDetailVm,
     ReleaseMembershipState,
 };
+use crate::view_models::header_glow::{GlowEntity, HeaderGlowVm};
 use crate::view_models::library::{
     description_line_count, display_description_text, AlbumNode, BusyItems,
     DescriptionDisclosureDisplay, DescriptionState, LibraryAlbumDetailVm, LibraryTrackRowVm,
@@ -1296,6 +1297,29 @@ pub(crate) fn index_feed_artwork_url(feed: &FeedView) -> Option<&str> {
     })
 }
 
+/// The glow behind the header of an album page (ADR 0101 Decision 4,
+/// musicindex ADR 0021 R-ART-5): the artwork of the feed. With no artwork,
+/// the glow has the release color.
+#[must_use]
+pub(crate) fn release_header_glow(feed: &FeedView) -> HeaderGlowVm {
+    HeaderGlowVm::resolve(
+        GlowEntity::Release,
+        index_feed_artwork_url(feed),
+        std::iter::empty::<&str>(),
+    )
+}
+
+/// The glow behind the header of a Library album page: the stored image of
+/// the album. With no image, the glow has the release color.
+#[must_use]
+pub(crate) fn library_album_header_glow(album: &AlbumNode) -> HeaderGlowVm {
+    HeaderGlowVm::resolve(
+        GlowEntity::Release,
+        album.image_href.as_deref(),
+        std::iter::empty::<&str>(),
+    )
+}
+
 /// The artwork URL of an Index track row: the track image (ADR 0075
 /// Decision C, packet 048), or else the feed artwork.
 #[must_use]
@@ -2387,5 +2411,39 @@ mod tests {
         };
         assert_eq!(numbers(8), ["8", "7", "6", "5", "4", "3", "2", "1"]);
         assert_eq!(numbers(7), ["1", "2", "3", "4", "5", "6", "7"]);
+    }
+
+    /// M4 (ADR 0101 Decision 4, task 002): an album page takes its glow
+    /// from the artwork of the feed. With no artwork, the glow has the
+    /// release color.
+    #[test]
+    fn adr_0101_header_glow_m4_album_page_glow() {
+        let feed = FeedView {
+            image_url: Some("https://example.test/feed.jpg".to_string()),
+            ..FeedView::default()
+        };
+        let glow = release_header_glow(&feed);
+        assert_eq!(glow.entity, GlowEntity::Release);
+        assert_eq!(glow.urls, vec!["https://example.test/feed.jpg"]);
+
+        let bare = release_header_glow(&FeedView::default());
+        assert_eq!(bare.entity, GlowEntity::Release);
+        assert!(bare.urls.is_empty(), "no artwork gives the entity color");
+    }
+
+    /// M4 (task 002 correction 8): a Library album page takes its glow from
+    /// the stored image of the album. With no image, the glow has the
+    /// release color.
+    #[test]
+    fn adr_0101_header_glow_m4_library_album_glow() {
+        let mut album = AlbumNode {
+            image_href: Some(" https://example.test/album.jpg ".to_string()),
+            ..recorded_album()
+        };
+        let glow = library_album_header_glow(&album);
+        assert_eq!(glow.entity, GlowEntity::Release);
+        assert_eq!(glow.urls, vec!["https://example.test/album.jpg"]);
+        album.image_href = None;
+        assert!(library_album_header_glow(&album).urls.is_empty());
     }
 }

@@ -6,6 +6,7 @@
 pub(crate) mod collection_art;
 pub(crate) mod configuration_editor;
 pub(crate) mod delayed_presenter;
+pub(crate) mod header_glow;
 pub mod maintenance_executor;
 pub(crate) mod startup_presenter;
 

@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use crate::application::capability::{
     CapabilityFailure, CapabilityObservation, CapabilityObservations, Dependency,
 };
-use crate::media::cover_color::{cover_color, CoverColor};
+use crate::media::header_glow::{prepare_from_encoded, GlowImage, GlowKey, GlowRequest};
 use crate::media::image_type;
 use crate::media::logo_frame::{self, BakedShadow, LogoMosaicKey};
 use crate::remote_media;
@@ -37,6 +37,10 @@ const DEFAULT_MAX_DIM: u32 = 512;
 const DEFAULT_MAX_DISK_BYTES: u64 = 500 * 1024 * 1024;
 /// The composed logo mosaics that memory keeps (ADR 0084 Decision 12).
 const LOGO_MOSAIC_CAPACITY: usize = 256;
+/// The prepared header glows that memory keeps. One glow holds frames of
+/// 96 by 96 pixels, so the count stays low. The loads of the app keep the
+/// same number.
+pub const HEADER_GLOW_CAPACITY: usize = 16;
 
 /// Shared image cache. Clone the `Arc` cheaply across entities.
 pub struct ImageCache {
@@ -45,9 +49,9 @@ pub struct ImageCache {
     /// Static first-frame cache for animated formats (GIFs). Keyed by URL.
     /// For non-animated images, `fetch_static_blocking` falls through to `hot`.
     static_hot: Mutex<LruCache<String, Arc<Image>>>,
-    /// The main color of each cover that a page header asked for (ADR 0083
-    /// task 005). `None` records a cover that has no color.
-    cover_colors: Mutex<LruCache<String, Option<CoverColor>>>,
+    /// The prepared glow of each page header that asked for one (ADR 0101
+    /// Decision 4, task 002). They live in memory only.
+    header_glows: Mutex<LruCache<GlowKey, Arc<GlowImage>>>,
     /// The composed logo mosaics of collections (ADR 0084 Decision 12).
     /// They live in memory only.
     logo_mosaics: Mutex<LruCache<LogoMosaicKey, Arc<Image>>>,
@@ -136,7 +140,9 @@ impl ImageCache {
             cache_dir: cache_dir.clone(),
             hot: Mutex::new(LruCache::new(capacity)),
             static_hot: Mutex::new(LruCache::new(capacity)),
-            cover_colors: Mutex::new(LruCache::new(capacity)),
+            header_glows: Mutex::new(LruCache::new(
+                NonZeroUsize::new(HEADER_GLOW_CAPACITY).unwrap_or(capacity),
+            )),
             logo_mosaics: Mutex::new(LruCache::new(
                 NonZeroUsize::new(LOGO_MOSAIC_CAPACITY).unwrap_or(capacity),
             )),
@@ -240,27 +246,59 @@ impl ImageCache {
         self.peek(url)
     }
 
-    /// Fast path — the main color of a cover that a fetch already computed.
-    /// UI-thread safe.
-    pub fn peek_cover_color(&self, url: &str) -> Option<CoverColor> {
-        let mut colors = self.cover_colors.lock().ok()?;
-        colors.get(url).copied().flatten()
+    /// Fast path: the glow that a fetch already prepared. UI-thread safe.
+    pub fn peek_header_glow(&self, key: &GlowKey) -> Option<Arc<GlowImage>> {
+        let mut glows = self.header_glows.lock().ok()?;
+        glows.get(key).cloned()
     }
 
-    /// Blocking fetch of the main color of a cover: memory, then the cached
-    /// downscaled bytes, then the network. Call from a background executor.
-    pub fn fetch_cover_color_blocking(&self, url: &str) -> Option<CoverColor> {
-        if let Ok(mut colors) = self.cover_colors.lock() {
-            if let Some(color) = colors.get(url) {
-                return *color;
+    /// Reads the candidates of `urls`. The second value is false when a
+    /// read failed.
+    fn read_candidates(&self, urls: &[String]) -> (Vec<Vec<u8>>, bool) {
+        let mut complete = true;
+        let mut images = Vec::new();
+        for url in urls {
+            match self.read_or_download(url) {
+                Ok(Some((bytes, _))) => images.push(bytes),
+                Ok(None) | Err(_) => complete = false,
             }
         }
-        let (bytes, _) = self.read_or_download(url).ok().flatten()?;
-        let color = cover_color(&bytes);
-        if let Ok(mut colors) = self.cover_colors.lock() {
-            colors.put(url.to_string(), color);
+        (images, complete)
+    }
+
+    /// Blocking preparation of the glow of `request`: memory, then each
+    /// candidate from the cached bytes or the network, then the pixels.
+    /// A candidate that does not read is dropped. When no own image reads,
+    /// the fallback candidates are read. With no candidate left, the glow
+    /// has the entity color. The cache keeps the glow only when each
+    /// candidate read, so the next visit of the page tries again. Call from
+    /// a background executor.
+    pub fn prepare_header_glow_blocking(&self, request: &GlowRequest) -> Arc<GlowImage> {
+        let key = request.key();
+        if let Some(glow) = self.peek_header_glow(&key) {
+            return glow;
         }
-        color
+        let (mut images, mut complete) = self.read_candidates(&key.urls);
+        if images.is_empty() && !key.fallback_urls.is_empty() {
+            let (fallback, fallback_complete) = self.read_candidates(&key.fallback_urls);
+            images = fallback;
+            complete = complete && fallback_complete;
+        }
+        let mut glow = GlowImage::new(&prepare_from_encoded(
+            &images,
+            request.entity,
+            &request.style,
+        ));
+        if !complete {
+            glow = glow.incomplete();
+        }
+        let glow = Arc::new(glow);
+        if complete {
+            if let Ok(mut glows) = self.header_glows.lock() {
+                glows.put(key, Arc::clone(&glow));
+            }
+        }
+        glow
     }
 
     /// Blocking fetch: memory → disk → network. Returns the animated variant

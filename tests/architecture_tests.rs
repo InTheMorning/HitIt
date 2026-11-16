@@ -21238,18 +21238,28 @@ draw a named icon for the disclosure state.";
     );
 }
 
-/// R83-55 (ADR 0101 Decision 4, task 005): the cover backdrop takes its
-/// height and its gradient from the `CoverBackdrop` token.
+/// R83-55 (ADR 0101 Decision 4, task 002): the cover backdrop takes its box
+/// size, its inset, its grain pattern, its veil and its Reduce Transparency
+/// fill from the `CoverBackdrop` token. `glow_style` takes each value of the
+/// glow preparation from the same token and the live theme colors.
 #[test]
 fn adr_0083_cover_backdrop_uses_its_tokens() {
-    const FIX: &str = "ADR 0083 task 005: size and color the backdrop through \
+    const FIX: &str = "ADR 0101 Decision 4: size and color the glow box through \
 `ui::tokens::CoverBackdrop`. Do not write a raw pixel or color literal in the composite.";
     let source = read_source(&manifest_path("src/ui/composites/cover_backdrop.rs"));
     let body = code_only(production_source(&source));
     let mut violations = Vec::new();
     for required in [
-        "CoverBackdropToken::height(cx)",
-        "CoverBackdropToken::background(",
+        "CoverBackdropToken::box_height(",
+        "CoverBackdropToken::veil(",
+        "CoverBackdropToken::extend_top(",
+        "CoverBackdropToken::extend_side(",
+        "CoverBackdropToken::extend_bottom(",
+        "CoverBackdropToken::page_inset_start(",
+        "CoverBackdropToken::page_inset_end(",
+        "CoverBackdropToken::grain_cells(",
+        "CoverBackdropToken::grain_tile_side(",
+        "CoverBackdropToken::tone(",
     ] {
         if !body.contains(required) {
             violations.push(format!(
@@ -21263,6 +21273,38 @@ fn adr_0083_cover_backdrop_uses_its_tokens() {
                 "src/ui/composites/cover_backdrop.rs: raw literal `{forbidden}`.\n  {FIX}"
             ));
         }
+    }
+    let tokens = read_source(&manifest_path("src/ui/tokens.rs"));
+    let tokens = production_source(&tokens);
+    let start = tokens.find("pub fn glow_style(");
+    let end = tokens.find("pub fn glow_style_current(");
+    match (start, end) {
+        (Some(start), Some(end)) if start < end => {
+            let style = code_only(&tokens[start..end]);
+            for required in [
+                "resolve_accessible_color(",
+                "Self::MAX_OPACITY",
+                "Self::BLUR",
+                "Self::SATURATION",
+                "Self::ENTITY_TINT",
+                "Self::MUTED_TINT",
+                "Self::MUTED_ART",
+                "Self::MIN_COLORFULNESS",
+                "Self::VEIL_TOP_DARK",
+                "Self::VEIL_TOP_LIGHT",
+                "Self::GRAIN_DARK",
+                "Self::GRAIN_LIGHT",
+            ] {
+                if !style.contains(required) {
+                    violations.push(format!(
+                        "src/ui/tokens.rs: `glow_style` does not read `{required}`.\n  {FIX}"
+                    ));
+                }
+            }
+        }
+        _ => violations.push(format!(
+            "src/ui/tokens.rs: `CoverBackdrop::glow_style` and `glow_style_current` not found in this order.\n  {FIX}"
+        )),
     }
     assert!(
         violations.is_empty(),
