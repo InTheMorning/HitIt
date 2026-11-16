@@ -94,6 +94,12 @@ Visual, listed apart, for the operator to walk:
 - Open: the window focus moves also after a mouse press. If the user moves the focus while a page loads, the late rows bring the focus back to the list. A change of destination or a call of `send_artist_group_requests` clears the press.
 - Open: the cursor identifies a row by its `element_id`. No test proves that this id is unique across the three groups.
 
+## Walk Correction - 2026-11-15
+
+Operator choice line: V1 had a fault in the walk of 2026-11-15. With the focus on the sort menu "A to Z", the marked row also showed a ring. The cause: the list handle holds the full column, also the page header, and the row ring showed when the handle contained the focus. The row ring shows only when the list handle itself has the focus (`src/library/app_impl.rs`).
+
+The change applies to each list with row focus: Releases, the Inbox, My playlists and Artists. The test `r_focus_1_a_page_header_control_hides_the_row_ring` fails without the change and passes with it. The operator found no fault in Tab, Up, Down and Enter. V1 is open again for the ring.
+
 ## Report
 
 Give the files changed and the tests added. Tell if the loss of the focus after "Show more" had the cause in Recorded Facts.

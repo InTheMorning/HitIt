@@ -586,6 +586,7 @@ target/debug/hitit &
 [ADR 0092 task 001](tasks/adr-0092-task-001-artists-list-focus.md) gives the procedure. Open Artists in the scope All.
 
 - V1: in the Rows view, Tab reaches the list in one stop. Up and Down move the focus ring across the three groups. Enter opens the artist.
+  - Walk of 2026-11-15: the keys had no fault. The ring had a fault: with the focus on the sort menu, the marked row also showed a ring. The correction of 2026-11-15 is in the task file. Do V1 again with the new build.
 - V2: the same in the Tiles view. The focused tile shows the focus outline and is in view.
 - V3: press "Show more" with the keyboard. The focus goes to the first new row of that group, not to the sidebar.
 - Wrong: Tab skips the list, the focus ring does not show, or the focus goes to the sidebar.

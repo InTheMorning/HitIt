@@ -5823,13 +5823,13 @@ impl LibraryApp {
         // current root destination. ADR 0084 Decision 3: Discover shows
         // its views, not the content list.
         // R-FOCUS-1: a row shows the focus only while its list has the keyboard
-        // focus, so one place at a time shows a ring.
+        // focus, so one place at a time shows a ring. The column also holds the
+        // page header, so a header control in the column does not count.
         // `is_focused` does not read the tree of the last frame, so it is true in
         // the first draw after a Tab.
         self.letter_cursor_shows =
             self.letter_bar_focus.is_focused(window) && crate::ui::focus_ring::focus_ring_shows(cx);
-        self.list_row_focus_shows = (self.list_column_focus.is_focused(window)
-            || self.list_column_focus.contains_focused(window, cx))
+        self.list_row_focus_shows = self.list_column_focus.is_focused(window)
             && crate::ui::focus_ring::focus_ring_shows(cx);
         self.mark_row_for_keyboard_entry();
         let mut artists_row_count = 0;
@@ -7670,6 +7670,102 @@ mod tests {
             scroll.offset().y < gpui::px(0.),
             "ADR 0098 Invariants: the focused Inbox row must scroll into view. \
              Give each focusable sidebar row a `focused_control_probe`."
+        );
+    }
+
+    /// The list column of the Artists destination, for the ring test below.
+    struct ListColumnRoot {
+        library: gpui::Entity<LibraryApp>,
+    }
+
+    impl gpui::Render for ListColumnRoot {
+        fn render(
+            &mut self,
+            window: &mut gpui::Window,
+            cx: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            use gpui::{div, prelude::*};
+            let column = self
+                .library
+                .update(cx, |library, cx| library.render_list_column(window, cx));
+            div()
+                .w(gpui::px(900.))
+                .h(gpui::px(600.))
+                .flex()
+                .flex_col()
+                .child(column)
+        }
+    }
+
+    /// musicindex ADR 0026 R-FOCUS-1, walk of 2026-11-15 (pending human
+    /// checks section 17 V1): with the focus on the sort menu of Artists, the
+    /// marked row also showed a ring. A control of the page header is in the
+    /// list column, but the rows show no ring while it has the focus.
+    #[gpui::test]
+    fn r_focus_1_a_page_header_control_hides_the_row_ring(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+        });
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+            crate::db::init_schema(&conn).expect("the schema");
+            crate::db::migrate_schema(&conn).expect("the migrations");
+            let dir = std::env::temp_dir().join("hitit-list-ring-test");
+            let services = crate::application::ApplicationServices::local_with_service_adapters()
+                .expect("the local services");
+            let library = cx.new(|cx| {
+                let mut library = LibraryApp::new(
+                    std::sync::Arc::new(std::sync::Mutex::new(conn)),
+                    crate::media::ImageCache::new(dir.join("cache")),
+                    "http://127.0.0.1:9".into(),
+                    dir,
+                    std::sync::Arc::new(services),
+                    None,
+                    window,
+                    cx,
+                );
+                library.vm.set_active_destination(MusicDestination::Artists);
+                library
+            });
+            ListColumnRoot { library }
+        });
+        let library = cx.update(|_, cx| root.read(cx).library.clone());
+        let draw = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+        };
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        let list = cx.update(|_, cx| library.read(cx).list_column_focus.clone());
+
+        cx.update(|window, cx| window.focus(&list, cx));
+        cx.simulate_keystrokes("shift");
+        draw(cx);
+        assert!(
+            cx.update(|_, cx| library.read(cx).list_row_focus_shows),
+            "the list itself has the focus, so its row shows the ring"
+        );
+
+        let mut header_control = false;
+        for _ in 0..8 {
+            cx.update(gpui::Window::focus_next);
+            draw(cx);
+            header_control = cx
+                .update(|window, cx| !list.is_focused(window) && list.contains_focused(window, cx));
+            if header_control {
+                break;
+            }
+        }
+        assert!(
+            header_control,
+            "Tab must reach a control of the page header inside the list column"
+        );
+        assert!(
+            !cx.update(|_, cx| library.read(cx).list_row_focus_shows),
+            "musicindex ADR 0026 R-FOCUS-1: one place shows a ring. A row shows \
+             it only while the list handle itself has the focus. Read \
+             `list_column_focus.is_focused`, not `contains_focused`."
         );
     }
 }
