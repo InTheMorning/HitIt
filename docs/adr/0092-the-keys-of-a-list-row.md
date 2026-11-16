@@ -5,6 +5,7 @@
 Accepted - 2026-11-08. The orchestrator session made this decision on 2026-11-08 to apply the keyboard reach invariant of [ADR 0090](archive/0090-one-list-bar-above-the-rows.md). The orchestrator session relayed it to this session, and on that date no person checked the keys. Implemented on 2026-11-08 for My playlists, Releases and the Inbox.
 
 - Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
+- Changed by: [ADR 0102](0102-the-arrow-keys-move-in-a-grid-of-tiles.md), 2026-11-15. In a Tiles view, the arrow keys follow musicindex ADR 0078 R-GRIDKEY-1.
 
 Artists has the list focus in its Rows view and its Tiles view. Public playlists, Live and Search have no list focus. Each has the keys when it has a list focus.
 

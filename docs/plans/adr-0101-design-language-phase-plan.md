@@ -27,7 +27,7 @@ ADR 0101 Decision 12 gives the sequence. The packet numbers follow it.
 
 | Packet | Content | Shared rule | State |
 |---|---|---|---|
-| [001](../tasks/adr-0101-task-001-shared-tokens.md) | The base tokens: focus color, type sizes, radii, spacing, light levels, the ring test | R-TOKEN-1, R-TYPE-1, R-TYPE-2, R-RADIUS-1, R-SPACE-1, R-ELEVATION-2, R-FOCUS-2 | Waits for the three defect fixes of 2026-11-14 |
+| [001](../tasks/adr-0101-task-001-shared-tokens.md) | The base tokens: focus color, type sizes, radii, spacing, light levels, the ring test | R-TOKEN-1, R-TYPE-1, R-TYPE-2, R-RADIUS-1, R-SPACE-1, R-ELEVATION-2, R-FOCUS-2 | Waits for the three defect fixes of 2026-11-14 and for [ADR 0102 task 001](../tasks/adr-0102-task-001-tiles-arrow-keys.md) |
 | [002](../tasks/adr-0101-task-002-header-glow.md) | The page header glow with grain and a veil. An animated cover moves in the glow | R-ART-5, R-ART-6 | Waits for 001 |
 | [003](../tasks/adr-0101-task-003-art-radius.md) | The art radius of 6 % of the edge. A larger image has a larger shadow | R-ART-4 | Waits for 001 |
 | [004](../tasks/adr-0101-task-004-payment-split.md) | The payment split section of a track page and a release page | R-VALUE-1, R-VALUE-2, R-VALUE-5, R-ADDRESS-1 | Waits for 001 |

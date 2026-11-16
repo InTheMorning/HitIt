@@ -104,7 +104,7 @@ Operator choice line: V2 had two faults in the walk of 2026-11-15. Tab went to e
 
 - The cause of the Tab sequence: the list column has Tab index 1, and each `Button` had index 0. GPUI sorts the Tab stops by index, then by the sequence of the paint. `Button::tab_index` sets the index. A status row button in a list that is one Tab stop (Releases and Artists) uses index 1, so Tab reaches it after the list. The test `adr_0092_a_button_in_the_list_follows_the_list` proves the sequence.
 - The cause of the scroll: the list showed a row on entry only when no row had the cursor. When the list takes the focus, `reveal_focused_row` shows the cursor row of Releases, My playlists and Artists. The test `adr_0098_list_entry_scrolls_to_the_cursor_row` fails without the change.
-- The operator asked that the arrow keys move to the tile in that direction. ADR 0092 uses musicindex ADR 0061 R-LISTKEY-1, so this task sends the question to the orchestrator. This task does not change the arrow keys.
+- The operator asked that the arrow keys move to the tile in that direction. [ADR 0102](../adr/0102-the-arrow-keys-move-in-a-grid-of-tiles.md) owns the arrow keys of a Tiles view, and [ADR 0102 task 001](adr-0102-task-001-tiles-arrow-keys.md) does the change. This task does not change the arrow keys.
 
 V2 is open again.
 
