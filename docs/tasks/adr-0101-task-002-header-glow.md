@@ -1,6 +1,6 @@
 # ADR 0101 Task 002: The Page Header Glow
 
-Status: Stopped - 2026-11-16, at Stop And Ask item 3 (M5). The orchestrator session gets the questions of "Stop Report - 2026-11-16". No code changed.
+Status: Ready - 2026-11-16. The orchestrator answered the two questions of the stop report. The packet starts after task 007.
 
 ## Goal
 
@@ -159,3 +159,36 @@ A black glow in Dark and a white glow in Light give 4.5:1 or more at each height
 - The track page header (`TrackHeader`) has no backdrop and no cover color path.
 - The `Environment` struct literals in `src/ui/theme_bridge.rs` and in a test of `src/ui/tokens.rs` need the new field.
 - A grain in a prepared image of 96 px is approximately 10 times larger on the screen. A prepared image of 240 px, the grain tile, is better.
+
+## Answers - 2026-11-16
+
+The orchestrator session sent these answers.
+
+Operator choice line, 2026-11-16, question 1 (the veil): "Limit the glow".
+
+- Keep the blur, the saturation, the grain, the veil and the extents of "The Values".
+- In `header_glow`, limit the luminance of the prepared glow for each theme: a maximum in Dark and a minimum in Light. Use the method of `CoverBackdrop::tone` (`DARK_MAX_LUMINANCE` and `LIGHT_MIN_LUMINANCE` in `src/ui/tokens.rs`). Keep the hue.
+- Calculate each limit so that M5 passes for Label and SecondaryLabel at the top of the veil (0 %). Use a white glow and a black glow in each theme.
+- Put each limit in `CoverBackdrop` with a comment that names ADR 0101 Decision 4 and R-ART-5 item 2.
+- The report gives the limits and the M5 ratios.
+- Website fact (`search.html` at musicindex `804589b`): the website has no layer below the text, and it has the same contrast fault. A subsequent task corrects the website. This packet does not wait for it.
+
+Answer to question 2 (the image of an artist page and a label page). This is not an operator question. R-ART-3 item 2 and ADR 0067 item 20 give the answer, and "The Values" copy the website. Do as `search.html` does (`heroHtml` line 3289, `tuneHeroGlow` line 3260):
+
+- The candidates are the own image when it exists (`CollectionArtVm::ProvidedImage`). When there is no own image, the candidates are the first 8 covers of the mosaic.
+- Measure the colorfulness of each candidate with the Hasler and Suesstrunk metric on a sample of 24 x 24 px, as `imageColorfulness` does. Keep each candidate with a score of 18 or more. The glow uses the one or two highest, adjacent in two equal columns.
+- When all candidates are black and white, use the muted blend of "The Values": the entity color at 40 %, and the art at 0.35 with luminosity.
+- When there is no image, use the entity color at opacity 0.45 (`.hero-glow-tint`) below the art opacity of 0.85.
+
+The glow box (website fact):
+
+- The glow box is 560 px high, and 460 px at a window width of 1100 px or less. The box starts at the top of the page. Its height does not change with the header height.
+- The veil fractions are fractions of that box, not of `CoverBackdrop::HEIGHT_BASE` (320).
+- Use the 560 px box, or tell in the report why the header height is better.
+
+The track page:
+
+- The track page has no backdrop. Add one to `TrackHeader`, as R-ART-5 item 1 requires.
+- Its image is the track image. When the track has no image, it is the album cover (R-ART-3 item 1).
+
+When the packet is complete or stops again, send a report to the orchestrator session.
