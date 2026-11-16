@@ -693,4 +693,19 @@ The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the releas
 
 - Incorrect: the scroll lags, the thumb changes its length, End does not show the last row, Back does not keep the position, or the pinned bar stays at the top.
 
-The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the release binary. V1, V3 and V4 passed there, and End in V2 passed. Home in V2 did not show the first row, because of defect E in the task file.
+The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the release binary. V1, V3 and V4 passed there, and End in V2 passed. Home in V2 did not show the first row, because of defect E in the task file. [ADR 0084 task 041](tasks/adr-0084-task-041-the-row-reveal-clears-the-pinned-bar.md) corrects defect E. The agent walk of task 041 passed Home in V2.
+
+## 24. ADR 0084 Task 041 The Row Reveal Clears The Pinned Bar - 2026-11-16
+
+[ADR 0084 task 041](tasks/adr-0084-task-041-the-row-reveal-clears-the-pinned-bar.md) gives the procedure.
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`.
+3. Search for "Global Fedpilled Industrial Complex". Open the release "GLOBAL FEDPILLED INDUSTRIAL COMPLEX".
+4. Push Tab until "Reverse" has the focus. Push Tab again. Make sure that row 1 has the ring and that the full ring is in view (V1).
+5. Push End, then Home. Make sure that row 1 has the ring and that the full ring is below the pinned list bar (V2).
+6. Push Down 14 times. Then push Up until row 1 has the ring. Make sure that each row with the ring is fully below the pinned list bar (V3).
+
+- Incorrect: the ring is out of view after Tab, or the pinned list bar covers a part of the ring.
+
+The agent walk of 2026-11-16 ran steps 3 to 6 on an Xvfb display with the release binary. V1, V2 and V3 passed there.

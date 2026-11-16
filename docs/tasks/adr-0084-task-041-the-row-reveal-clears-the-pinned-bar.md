@@ -1,6 +1,6 @@
 # ADR 0084 Task 041: The Row Reveal Clears The Pinned Bar And Runs At Entry
 
-Status: Ready - 2026-11-16.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -91,3 +91,27 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 - Stop if the Index release page (`src/app/search_dispatch.rs`) uses a pin that is not the `list_bar_pin` of `LibraryApp`.
 - Stop if the reveal needs a change to `list_bar_is_pinned`.
+
+## Implementation Report
+
+- `ListBarPin` records the bar height at each paint. `pinned_inset` gives the height only when `list_bar_is_pinned` gives `true`.
+- `ScrollReveal::below_pin` holds a clone of the pin. `LibraryApp` makes `detail_scroll_reveal` from a clone of the one `list_bar_pin`, so the two share the same cells.
+- `probe` and `probe_row` call one function, `reveal_row`. It adds the inset of the current offset to the viewport top. It calculates again when the new offset needs a larger inset.
+- `enter_with_keyboard` returns `Option<DetailRowKey>`. `sync_detail_keyboard_focus` calls `request_row` or `request` for that key.
+- Mechanical tests added in `music_column_scroll.rs` and `view_models/detail_selection.rs`. The visual checks V1 to V3 are open.
+
+The primary agent made two corrections after the delegate change:
+
+- `probe` and `probe_row` add the margin `Spacing::SM` around the row area, the margin of `focus_reveal_layer`. Without it, the viewport edge cut the line of the ring.
+- The pinned copy of the list bar covers the bar height and its top padding. `ListBarPin::pinned_probe` records the height of the pinned copy at each paint. `pinned_inset` uses that height, and the in-flow bar height before the first paint of the pinned copy. Without it, the pinned copy covered the top line of the ring.
+
+## Walk Result - 2026-11-16
+
+The agent walked V1 to V3 on an Xvfb display with the release binary, on the Index release "GLOBAL FEDPILLED INDUSTRIAL COMPLEX" (491 tracks). Section 24 of `docs/pending-human-checks.md` gives the steps.
+
+- V1: Tab from "Reverse" put the ring on row 1, and the column scrolled to show the full ring. Pass.
+- V2: End, then Home, put the ring on row 1, fully below the pinned list bar. Pass.
+- V3: from row 15, Up until row 1. Row 6, row 2 and row 1 kept the full ring below the pinned list bar. Pass.
+
+The operator confirmation stays open.
+

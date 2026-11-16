@@ -123,6 +123,11 @@ pub(crate) struct ListBarPin {
     /// The top of the bar at zero scroll offset, in pixels from the top of
     /// the viewport. `None` before the first paint of the bar.
     rest_top: Rc<Cell<Option<f32>>>,
+    /// The height of the bar. `None` before the first paint of the bar.
+    height: Rc<Cell<Option<f32>>>,
+    /// The height that the pinned copy covers, with its top padding.
+    /// `None` before the first paint of the pinned copy.
+    pinned_height: Rc<Cell<Option<f32>>>,
     /// `true` when the last render drew the pinned copy.
     shown: Rc<Cell<bool>>,
 }
@@ -142,8 +147,42 @@ impl ListBarPin {
         pinned
     }
 
+    /// The height that the pinned bar covers at the top of the viewport at
+    /// `offset_y`: the bar height when the bar is pinned at that offset, and
+    /// 0 in all other conditions.
+    #[must_use]
+    pub(crate) fn pinned_inset(&self, offset_y: f32, max_offset_y: f32) -> f32 {
+        if list_bar_is_pinned(offset_y, max_offset_y, self.rest_top.get()) {
+            self.pinned_height
+                .get()
+                .or_else(|| self.height.get())
+                .unwrap_or(0.0)
+        } else {
+            0.0
+        }
+    }
+
+    /// An empty layer over the pinned copy. It paints nothing. At each
+    /// paint it records the height that the copy covers, for
+    /// [`Self::pinned_inset`].
+    #[must_use]
+    pub(crate) fn pinned_probe(&self) -> AnyElement {
+        let pinned_height = Rc::clone(&self.pinned_height);
+        canvas(
+            move |bounds, _window, _cx| {
+                pinned_height.set(Some(f32::from(bounds.size.height)));
+            },
+            |_bounds, (), _window, _cx| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+        .into_any_element()
+    }
+
     /// An empty layer over the in-flow bar. It paints nothing. At each
-    /// paint it records the bar position. When the pinned state differs
+    /// paint it records the bar position and the bar height. When the pinned state differs
     /// from the state of the last render, it asks `entity` for one redraw.
     #[must_use]
     pub(crate) fn probe<T: 'static>(
@@ -153,6 +192,7 @@ impl ListBarPin {
     ) -> AnyElement {
         let scroll = scroll.clone();
         let rest_top = Rc::clone(&self.rest_top);
+        let height = Rc::clone(&self.height);
         let shown = Rc::clone(&self.shown);
         let entity = entity.downgrade();
         canvas(
@@ -161,6 +201,7 @@ impl ListBarPin {
                 let offset = scroll.offset();
                 let top = f32::from(bounds.top() - viewport.top() - offset.y);
                 rest_top.set(Some(top));
+                height.set(Some(f32::from(bounds.size.height)));
                 let pinned = list_bar_is_pinned(
                     f32::from(offset.y),
                     f32::from(scroll.max_offset().y),
@@ -292,6 +333,8 @@ pub(crate) struct ScrollReveal {
     pending_row: Rc<Cell<Option<usize>>>,
     section_top: Rc<Cell<Option<f32>>>,
     row_height: Rc<Cell<Option<f32>>>,
+    /// The pinned list bar that covers the top of the viewport.
+    pin: Option<ListBarPin>,
 }
 
 impl ScrollReveal {
@@ -304,7 +347,17 @@ impl ScrollReveal {
             pending_row: Rc::new(Cell::new(None)),
             section_top: Rc::new(Cell::new(None)),
             row_height: Rc::new(Cell::new(None)),
+            pin: None,
         }
+    }
+
+    /// Makes the reveal keep a row below the pinned list bar of `pin`. The
+    /// reveal and the bar use the same cells, because a clone of a pin
+    /// shares them.
+    #[must_use]
+    pub(crate) fn below_pin(mut self, pin: ListBarPin) -> Self {
+        self.pin = Some(pin);
+        self
     }
 
     /// Asks the next layout to show the row that carries the probe.
@@ -323,22 +376,18 @@ impl ScrollReveal {
     pub(crate) fn probe(&self) -> AnyElement {
         let scroll = self.scroll.clone();
         let pending = Rc::clone(&self.pending);
+        let pin = self.pin.clone();
         canvas(
-            move |bounds, window, _cx| {
+            move |bounds, window, cx| {
                 if !pending.replace(false) {
                     return;
                 }
-                let viewport = scroll.bounds();
-                let offset = scroll.offset();
-                if let Some(offset_y) = reveal_offset_y(
-                    (f32::from(viewport.top()), f32::from(viewport.bottom())),
-                    (f32::from(bounds.top()), f32::from(bounds.bottom())),
-                    f32::from(offset.y),
-                    f32::from(scroll.max_offset().y),
-                ) {
-                    scroll.set_offset(point(offset.x, Pixels::from(offset_y)));
-                    window.on_next_frame(|window, _cx| window.refresh());
-                }
+                reveal_row(
+                    &scroll,
+                    pin.as_ref(),
+                    bounds.dilate(Spacing::SM.scaled(cx)),
+                    window,
+                );
             },
             |_bounds, (), _window, _cx| {},
         )
@@ -354,23 +403,19 @@ impl ScrollReveal {
     pub(crate) fn probe_row(&self, index: usize) -> AnyElement {
         let scroll = self.scroll.clone();
         let pending_row = Rc::clone(&self.pending_row);
+        let pin = self.pin.clone();
         canvas(
-            move |bounds, window, _cx| {
+            move |bounds, window, cx| {
                 if pending_row.get() != Some(index) {
                     return;
                 }
                 pending_row.set(None);
-                let viewport = scroll.bounds();
-                let offset = scroll.offset();
-                if let Some(offset_y) = reveal_offset_y(
-                    (f32::from(viewport.top()), f32::from(viewport.bottom())),
-                    (f32::from(bounds.top()), f32::from(bounds.bottom())),
-                    f32::from(offset.y),
-                    f32::from(scroll.max_offset().y),
-                ) {
-                    scroll.set_offset(point(offset.x, Pixels::from(offset_y)));
-                    window.on_next_frame(|window, _cx| window.refresh());
-                }
+                reveal_row(
+                    &scroll,
+                    pin.as_ref(),
+                    bounds.dilate(Spacing::SM.scaled(cx)),
+                    window,
+                );
             },
             |_bounds, (), _window, _cx| {},
         )
@@ -379,6 +424,46 @@ impl ScrollReveal {
         .left_0()
         .size_full()
         .into_any_element()
+    }
+}
+
+/// Scrolls `scroll` by the smallest distance that shows the row with
+/// `bounds` below the pinned bar of `pin`. The caller adds the margin that
+/// keeps the focus ring clear of the edge, as [`focus_reveal_layer`] does. The bar covers the top of the
+/// viewport only at a pinned offset. When the first offset needs a larger
+/// inset, the offset is calculated again with that inset.
+fn reveal_row(
+    scroll: &ScrollHandle,
+    pin: Option<&ListBarPin>,
+    bounds: gpui::Bounds<Pixels>,
+    window: &mut Window,
+) {
+    let viewport = scroll.bounds();
+    let offset = scroll.offset();
+    let max_offset_y = f32::from(scroll.max_offset().y);
+    let row = (f32::from(bounds.top()), f32::from(bounds.bottom()));
+    let reveal = |inset: f32| {
+        reveal_offset_y(
+            (
+                f32::from(viewport.top()) + inset,
+                f32::from(viewport.bottom()),
+            ),
+            row,
+            f32::from(offset.y),
+            max_offset_y,
+        )
+    };
+    let inset_at = |offset_y: f32| pin.map_or(0.0, |pin| pin.pinned_inset(offset_y, max_offset_y));
+    let mut next = reveal(inset_at(f32::from(offset.y)));
+    if let Some(first) = next {
+        let inset = inset_at(first);
+        if inset > inset_at(f32::from(offset.y)) {
+            next = reveal(inset);
+        }
+    }
+    if let Some(offset_y) = next {
+        scroll.set_offset(point(offset.x, Pixels::from(offset_y)));
+        window.on_next_frame(|window, _cx| window.refresh());
     }
 }
 
@@ -998,6 +1083,124 @@ mod tests {
         assert!(
             row.bottom() <= viewport.bottom(),
             "row 400 is above the viewport bottom"
+        );
+    }
+
+    /// ADR 0084 task 041: a viewport top moved down by the inset of a
+    /// pinned bar scrolls a row that is below the inset into view.
+    #[test]
+    fn adr_0084_task_041_reveal_keeps_a_row_below_the_inset() {
+        let inset = 50.0;
+        let view = (100.0 + inset, 500.0);
+        // The row is in the full viewport but under the bar.
+        assert_eq!(
+            reveal_offset_y((100.0, 500.0), (110.0, 150.0), -50.0, 1000.0),
+            None
+        );
+        assert_eq!(
+            reveal_offset_y(view, (110.0, 150.0), -50.0, 1000.0),
+            Some(-50.0 + 40.0)
+        );
+        // A row below the inset stays.
+        assert_eq!(reveal_offset_y(view, (160.0, 200.0), -50.0, 1000.0), None);
+    }
+
+    /// ADR 0084 task 041: the inset is the bar height only while the bar
+    /// is pinned.
+    #[test]
+    fn adr_0084_task_041_pinned_inset_is_the_bar_height_only_when_pinned() {
+        let pin = ListBarPin::default();
+        assert!((pin.pinned_inset(-100.0, 1000.0)).abs() < f32::EPSILON);
+        pin.rest_top.set(Some(120.0));
+        pin.height.set(Some(50.0));
+        // At offset -100 the bar is 20 px below the top of the viewport.
+        assert!((pin.pinned_inset(-100.0, 1000.0)).abs() < f32::EPSILON);
+        assert!((pin.pinned_inset(-121.0, 1000.0) - 50.0).abs() < f32::EPSILON);
+        // A page that does not scroll never pins.
+        assert!((pin.pinned_inset(-121.0, 0.0)).abs() < f32::EPSILON);
+        // A clone shares the cells.
+        let shared = pin.clone();
+        pin.height.set(Some(60.0));
+        assert!((shared.pinned_inset(-121.0, 1000.0) - 60.0).abs() < f32::EPSILON);
+        // After a paint of the pinned copy, its own height wins.
+        pin.pinned_height.set(Some(84.0));
+        assert!((shared.pinned_inset(-121.0, 1000.0) - 84.0).abs() < f32::EPSILON);
+    }
+
+    struct PinnedRowsTest {
+        reveal: ScrollReveal,
+        scroll: ScrollHandle,
+    }
+
+    impl gpui::Render for PinnedRowsTest {
+        fn render(
+            &mut self,
+            _window: &mut gpui::Window,
+            _cx: &mut gpui::Context<Self>,
+        ) -> impl IntoElement {
+            let reveal = self.reveal.clone();
+            let rows = windowed_track_rows(&self.scroll, &self.reveal, 491, px(2.), px(40.), {
+                move |index| {
+                    let selector = format!("pinned-row-{index}");
+                    div()
+                        .h(px(40.))
+                        .debug_selector(move || selector.clone())
+                        .child(reveal.probe_row(index))
+                        .into_any_element()
+                }
+            });
+            div()
+                .w(px(400.))
+                .h(px(600.))
+                .flex()
+                .flex_col()
+                .child(music_column_tracked_scrollbar(
+                    div()
+                        .id("pinned-rows")
+                        .child(div().h(px(50.)).w_full())
+                        .child(rows),
+                    &self.scroll,
+                    None,
+                ))
+        }
+    }
+
+    /// ADR 0084 task 041, defect E: a reveal of row 0 from a scrolled
+    /// position puts the top of the row at or below the bottom of the
+    /// pinned bar, 50 px high, at the top of the viewport.
+    #[gpui::test]
+    fn adr_0084_task_041_reveal_puts_the_row_below_the_pinned_bar(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let scroll = ScrollHandle::new();
+        let pin = ListBarPin::default();
+        // The in-flow bar is the first 50 px of the content.
+        pin.rest_top.set(Some(0.0));
+        pin.height.set(Some(50.0));
+        let reveal = ScrollReveal::new(scroll.clone()).below_pin(pin);
+        let (view, cx) = cx.add_window_view(|_, _| PinnedRowsTest {
+            reveal,
+            scroll: scroll.clone(),
+        });
+        draw_windowed_rows(cx);
+        scroll.set_offset(point(px(0.), px(-16_000.)));
+        draw_windowed_rows(cx);
+        view.update(cx, |test, cx| {
+            test.reveal.request_row(0);
+            cx.notify();
+        });
+        draw_windowed_rows(cx);
+        draw_windowed_rows(cx);
+
+        let row = cx
+            .debug_bounds("pinned-row-0")
+            .expect("the requested row renders");
+        let viewport = scroll.bounds();
+        assert!(
+            row.top() >= viewport.top() + px(50.) - px(0.5),
+            "row 0 is below the pinned bar: row {:?}, viewport {:?}, offset {:?}",
+            row,
+            viewport,
+            scroll.offset()
         );
     }
 

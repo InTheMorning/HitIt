@@ -129,6 +129,8 @@ The walk found two defects that this task did not cause. The code of each one is
 - D: Tab into the track list puts the cursor on the first row, but the column does not scroll to show it. `sync_detail_keyboard_focus` (`src/library/detail_selection.rs`) asks for no reveal.
 - E: the row reveal uses the full viewport. It does not subtract the pinned list bar, so a row at the top of the viewport stays below the bar. This is an inference from the code of `ScrollReveal::probe`. The agent did not operate the binary from before this task.
 
+[ADR 0084 task 041](adr-0084-task-041-the-row-reveal-clears-the-pinned-bar.md) corrects D and E. Its agent walk passed Home in V2.
+
 ## Stop And Ask
 
 - Stop if two track rows of one release page have different heights.

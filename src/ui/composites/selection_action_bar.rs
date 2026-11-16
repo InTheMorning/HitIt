@@ -485,7 +485,7 @@ pub(crate) fn render_list_bar_copies<T: 'static>(
     let pinned = list_bar
         .as_ref()
         .filter(|_| pin.is_pinned(scroll))
-        .map(|bar| render_pinned_list_bar(bar.clone(), playlists, on_command, cx));
+        .map(|bar| render_pinned_list_bar(bar.clone(), playlists, on_command, pin, cx));
     let in_flow = list_bar
         .map(|bar| render_in_flow_list_bar(bar, playlists, on_command, pin, scroll, entity, cx));
     (in_flow, pinned)
@@ -518,6 +518,7 @@ fn render_pinned_list_bar(
     bar: ListBarVm,
     playlists: &SelectionActionBarPlaylists,
     on_command: &ListBarHandler,
+    pin: &ListBarPin,
     cx: &App,
 ) -> AnyElement {
     let bar_element = render_list_bar(bar, playlists, on_command, ListBarCopy::Pinned, cx);
@@ -534,5 +535,7 @@ fn render_pinned_list_bar(
         .pr(spacing::LG + OVERLAY_SCROLLBAR_WIDTH + Spacing::SM.scaled(cx))
         .bg(color(cx, SemanticColor::SystemBackground))
         .child(bar_element)
+        // ADR 0084 task 041: the row reveal keeps a row below this copy.
+        .child(pin.pinned_probe())
         .into_any_element()
 }

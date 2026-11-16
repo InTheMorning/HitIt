@@ -513,8 +513,17 @@ impl LibraryApp {
             && crate::ui::focus_ring::focus_ring_shows(cx);
         match rows {
             Some(rows) => {
-                self.detail_selection
-                    .enter_with_keyboard(shows, false, &rows.selection_rows());
+                let entered =
+                    self.detail_selection
+                        .enter_with_keyboard(shows, false, &rows.selection_rows());
+                // The entry can move the cursor to a row out of view.
+                if let Some(key) = entered {
+                    if let Some(index) = rows.track_row_index(&key) {
+                        self.detail_scroll_reveal().request_row(index);
+                    } else {
+                        self.detail_scroll_reveal().request();
+                    }
+                }
             }
             None => self.detail_selection.set_focus_mark_shows(shows),
         }

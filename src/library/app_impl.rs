@@ -1157,6 +1157,8 @@ impl LibraryApp {
         };
         let vm = LibraryViewModel::new();
         let detail_column_scroll = gpui::ScrollHandle::new();
+        // The reveal and the pinned bar share the cells of one pin.
+        let list_bar_pin = ListBarPin::default();
         let inbox_scroll = gpui::ScrollHandle::new();
         let playlists_scroll = gpui::ScrollHandle::new();
         let releases_tiles_scroll = gpui::ScrollHandle::new();
@@ -1245,8 +1247,9 @@ impl LibraryApp {
             sidebar_selected: None,
             pending_inspect_sources: None,
             spring_load: crate::view_models::library::SpringLoadVm::default(),
-            detail_scroll_reveal: ScrollReveal::new(detail_column_scroll.clone()),
-            list_bar_pin: ListBarPin::default(),
+            detail_scroll_reveal: ScrollReveal::new(detail_column_scroll.clone())
+                .below_pin(list_bar_pin.clone()),
+            list_bar_pin,
             detail_column_scroll,
             detail_scroll_binding: super::detail_selection::DetailScrollBinding::default(),
             saved_searches: Vec::new(),

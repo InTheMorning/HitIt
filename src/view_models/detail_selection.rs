@@ -689,17 +689,18 @@ impl DetailSelection {
     }
 
     /// A list gets the keyboard focus from a key: `shows` is true. The focus
-    /// goes to the first row when the list has no focused row.
+    /// goes to the first row when the list has no focused row. Gives the
+    /// key of the row that got the focus, or `None` when the entry did not
+    /// move the focus.
     pub(crate) fn enter_with_keyboard(
         &mut self,
         shows: bool,
         has_marked_row: bool,
         visible: &[SelectionRow<DetailRowKey, DetailRowKey>],
-    ) {
+    ) -> Option<DetailRowKey> {
         self.set_focus_mark_shows(shows);
-        if let Some(step) = keyboard_entry_step(shows, self.focused().is_some(), has_marked_row) {
-            self.selection.move_focus(step, visible);
-        }
+        let step = keyboard_entry_step(shows, self.focused().is_some(), has_marked_row)?;
+        self.selection.move_focus(step, visible)
     }
 
     /// The selection facts of a row with `key`, named `title`. A row with
@@ -1481,6 +1482,25 @@ mod tests {
         assert!(!selection.row_selection(Some(&key), "One").focused);
         selection.enter_with_keyboard(true, false, &rows);
         assert!(selection.row_selection(Some(&key), "One").focused);
+    }
+
+    /// ADR 0084 task 041: the entry gives the key of the row that got the
+    /// cursor, so the caller can reveal that row. A list with a cursor gives
+    /// `None`, and so does an entry with no focus mark.
+    #[test]
+    fn adr_0084_task_041_entry_gives_the_key_that_got_the_cursor() {
+        let rows = vec![
+            SelectionRow::of_one(DetailRowKey::Release(ReleaseKey::LibraryFeed(1))),
+            SelectionRow::of_one(DetailRowKey::Release(ReleaseKey::LibraryFeed(2))),
+        ];
+        let first = rows[0].id.clone();
+        let mut selection = DetailSelection::new();
+        assert_eq!(selection.enter_with_keyboard(false, false, &rows), None);
+        assert_eq!(
+            selection.enter_with_keyboard(true, false, &rows),
+            Some(first)
+        );
+        assert_eq!(selection.enter_with_keyboard(true, false, &rows), None);
     }
 
     /// R18-04: the detail header action reads "Select" and "Done" with an
