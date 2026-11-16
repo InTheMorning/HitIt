@@ -13,10 +13,10 @@ The test also finds a sheet that is wider than the window less the window margin
 ## Authority
 
 - [ADR 0097](../adr/0097-the-fit-check-at-two-widths.md) Decisions 2, 4, 5 and 6. Decision 4 item 2 gives the overlap fault.
-- musicindex ADR 0065 R-FIT-3. musicindex ADR 0077 R-SHEET-2 replaces R-FIT-2 item 4 (musicindex `ff65fb9`, orchestrator text of 2026-11-15):
+- musicindex ADR 0065 R-FIT-3. musicindex ADR 0077 R-SHEET-2 replaces R-FIT-2 item 4 (musicindex `d3db352`, orchestrator text of 2026-11-15):
   1. At each width of R-FIT-2, the check opens each page and each sheet of the app.
   2. Each app keeps a list of each sheet in its layout test. Each new sheet goes into that list in the same commit.
-  3. The check examines an open sheet as a panel of R-FIT-3. It finds each fault of that rule in the sheet. It also finds a sheet that is wider than the window less the window margin.
+  3. The check examines an open sheet as a panel of R-FIT-3. It finds each fault of that rule in the sheet. It also finds a sheet that is wider than the window less the window margin, or that has content in that margin. Only a bottom sheet in a narrow window can be as wide as the window. Then the window margin is its inner padding, and its content must not go into that padding.
   4. HitIt makes this check as GPUI layout tests.
   5. The failure message names this record, the sheet, the width and the fix.
 - musicindex ADR 0068 R-SPACE-1 item 2: the window margin is 16 px in a narrow window and 20 px in a wide window. For HitIt, narrow is below 940 px. This is an inference of the orchestrator. Thus a sheet is at most 358 px wide at 390 px, and at most 900 px wide at 940 px.
@@ -77,7 +77,7 @@ Inference: the frame actions menu cannot open now (`src/view_models/workspace/ch
 2. Mark each overlay layer in a test binary only. A production binary records nothing.
 3. Put the phase 5 test in `src/app/fit_check/overlays.rs`. Put the list of "The Sheet List" in that file as one constant list. Each entry has the sheet name and a function that opens it. A comment above the list says: "musicindex ADR 0077 R-SHEET-2 item 2: each new sheet goes into this list in the same commit".
 
-   Add the width fault: the sheet is wider than the window less the window margin on each side. The margin is 16 px below 940 px and 20 px at 940 px and above. The fault message has this form:
+   Add the width fault: the sheet is wider than the window less the window margin on each side. No HitIt sheet is a bottom sheet. Inspect Sources opens at the right edge (`window.open_sheet`, `gpui-component` 0.6.1 `window_ext.rs:115`). Thus each HitIt sheet keeps the window margin on each side. The margin is 16 px below 940 px and 20 px at 940 px and above. The fault message has this form:
 
    ```text
    musicindex ADR 0077 R-SHEET-1: at 390 px the sheet "Inspect Sources" is 560 px wide, and the window allows 358 px.
