@@ -678,6 +678,9 @@ impl RenderOnce for Button {
         let on_key_activate = self.on_key_activate.clone();
         let (focus, reveal_probe) = self.focus_for_reveal(window, cx);
         let disabled = self.disabled;
+        // The probe exists only while the keyboard focus shows the ring.
+        let ring = (reveal_probe.is_some() && !disabled)
+            .then(|| RingPlacement::for_fill(bg, appearance, cx));
         let full_width = self.full_width;
         let content_alignment = self.content_alignment;
         let label_treatment = self.label_treatment;
@@ -694,6 +697,7 @@ impl RenderOnce for Button {
             .text_size(font);
 
         visual = self.with_width(visual, cx);
+        visual = shown_button_marks(visual, &self.id, ring, (radius, appearance), cx);
 
         visual = match content_alignment {
             ButtonContentAlignment::Center => visual.justify_center(),
@@ -750,7 +754,7 @@ impl RenderOnce for Button {
             // Menu triggers delegate activation to their popover, but keep
             // the shared focus chrome and tab stop (ADR 0074).
             if in_tab_sequence {
-                hit_target = keyboard_button_focus(hit_target, appearance, focus, tab_index, cx)
+                hit_target = keyboard_button_focus(hit_target, focus, tab_index, cx)
                     .tab_index(tab_index)
                     .rounded(radius);
             }
@@ -801,25 +805,103 @@ fn button_icon(icon: IconName, color: Rgba) -> gpui::Div {
     element
 }
 
+/// The test selector of the shown button, and its ring while the keyboard
+/// focus shows it. ADR 0101 Decision 1: the ring touches the shown button, not
+/// the larger hit target.
+fn shown_button_marks(
+    visual: gpui::Div,
+    id: &ElementId,
+    ring: Option<RingPlacement>,
+    (radius, appearance): (gpui::Pixels, Option<Appearance>),
+    cx: &App,
+) -> gpui::Div {
+    #[cfg(test)]
+    let visual = {
+        let selector = format!("{id}-shown");
+        visual.debug_selector(move || selector)
+    };
+    #[cfg(not(test))]
+    let _ = id;
+    match ring {
+        Some(placement) => visual
+            .relative()
+            .child(focus_ring_layer(radius, appearance, placement, cx)),
+        None => visual,
+    }
+}
+
+/// Where the ring of a focused button goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RingPlacement {
+    /// The ring is on the edge of the shown button, with no gap.
+    OnEdge,
+    /// The ring is 2 px outside the shown button, and the page background
+    /// shows in the gap. A ring in the color of the fill does not show on the
+    /// fill.
+    Outside,
+}
+
+impl RingPlacement {
+    /// musicindex ADR 0073 R-FOCUS-2 item 6: a control whose fill is the accent color or the focus color
+    /// has its ring 2 px outside the control. Each other control has the ring
+    /// on its edge (ADR 0101 Decision 1).
+    fn for_fill(fill: Rgba, appearance: Option<Appearance>, cx: &App) -> Self {
+        let accent = resolve_color(cx, SemanticColor::Accent, appearance);
+        let focus = resolve_color(cx, SemanticColor::Focus, appearance);
+        if fill == accent || fill == focus {
+            Self::Outside
+        } else {
+            Self::OnEdge
+        }
+    }
+}
+
+/// The ring of a focused button. It takes no pointer input. Only keyboard
+/// focus makes the caller add it (R-FOCUS-1).
+fn focus_ring_layer(
+    radius: gpui::Pixels,
+    appearance: Option<Appearance>,
+    placement: RingPlacement,
+    cx: &App,
+) -> gpui::Div {
+    let width = layout::scaled_dimension(layout::CONTROL_FOCUS_RING_WIDTH, cx);
+    let layer = div().absolute();
+    let layer = match placement {
+        RingPlacement::OnEdge => layer.inset_0().rounded(radius),
+        RingPlacement::Outside => {
+            let out =
+                width + layout::scaled_dimension(layout::CONTROL_FOCUS_RING_FILLED_OFFSET, cx);
+            layer
+                .top(-out)
+                .left(-out)
+                .right(-out)
+                .bottom(-out)
+                .rounded(radius + out)
+        }
+    };
+    let layer =
+        layer
+            .border(width)
+            .border_color(resolve_color(cx, SemanticColor::Focus, appearance));
+    #[cfg(test)]
+    let layer = layer.debug_selector(|| "button-focus-ring".to_owned());
+    layer
+}
+
+/// The Tab stop and the key context of a button. The hit target keeps a
+/// transparent border, so the layout stays the same as before (ADR 0069). The
+/// visible ring is `focus_ring_layer` on the shown button.
 fn keyboard_button_focus(
     target: gpui::Stateful<gpui::Div>,
-    appearance: Option<Appearance>,
     focus_handle: Option<gpui::FocusHandle>,
     tab_index: isize,
     cx: &App,
 ) -> gpui::Stateful<gpui::Div> {
     let focus_ring_width = layout::scaled_dimension(layout::CONTROL_FOCUS_RING_WIDTH, cx);
-    // R-FOCUS-1 item 3: a mouse click shows no ring.
-    let focus_color = if focus_ring_shows(cx) {
-        resolve_color(cx, SemanticColor::Focus, appearance)
-    } else {
-        gpui::transparent_black().into()
-    };
     target
         .key_context(BUTTON_KEY_CONTEXT)
         .border(focus_ring_width)
         .border_color(gpui::transparent_black())
-        .focus(move |style| style.border_color(focus_color))
         .when_some(focus_handle, |button, handle| {
             // GPUI skips its automatic tab-stop setup for supplied handles.
             button.track_focus(&handle.tab_index(tab_index).tab_stop(true))
@@ -1340,6 +1422,101 @@ mod tests {
         assert!(
             !cx.update(|window, _| focus.is_focused(window)),
             "a mouse click moves the focus to the button"
+        );
+    }
+
+    struct RingRoot {
+        focus: gpui::FocusHandle,
+        filled: bool,
+    }
+
+    impl gpui::Render for RingRoot {
+        fn render(
+            &mut self,
+            _: &mut gpui::Window,
+            _: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            let button = if self.filled {
+                Button::filled("ring").label("Download album")
+            } else {
+                Button::styled("ring", ControlStyle::Neutral).label("Website")
+            };
+            crate::ui::focus_ring::track_focus_ring_mouse(
+                div().id("ring-root").size_full().p(px(20.)),
+            )
+            .child(button.track_focus(&self.focus).on_click(|_, _, _| {}))
+        }
+    }
+
+    /// Gives the bounds of the shown button and of its ring after keyboard
+    /// focus. It also proves that a click focus shows no ring layer.
+    fn ring_and_shown_bounds(
+        cx: &mut gpui::TestAppContext,
+        filled: bool,
+    ) -> (gpui::Bounds<gpui::Pixels>, gpui::Bounds<gpui::Pixels>) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+        });
+        let (root, cx) = cx.add_window_view(|_, cx| RingRoot {
+            focus: cx.focus_handle(),
+            filled,
+        });
+        let focus = cx.update(|_, cx| root.read(cx).focus.clone());
+        cx.update(|window, cx| {
+            window.activate_window();
+            window.focus(&focus, cx);
+            window.draw(cx).clear(cx);
+        });
+        assert!(
+            cx.debug_bounds("button-focus-ring").is_none(),
+            "R-FOCUS-1: only keyboard input shows the ring"
+        );
+
+        cx.simulate_keystrokes("shift");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let shown = cx.debug_bounds("ring-shown").expect("the shown button");
+        let hit = cx.debug_bounds("ring").expect("the hit target");
+        let ring = cx
+            .debug_bounds("button-focus-ring")
+            .expect("keyboard focus shows the ring layer");
+        assert!(hit.size.height > shown.size.height);
+
+        cx.simulate_mouse_down(shown.center(), MouseButton::Left, gpui::Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(
+            cx.debug_bounds("button-focus-ring").is_none(),
+            "R-FOCUS-1 item 3: a click shows no ring layer"
+        );
+        (ring, shown)
+    }
+
+    /// ADR 0101 Decision 1, walk of 2026-11-16: a dark space showed between the
+    /// ring and the button. On a neutral button the ring layer has the bounds
+    /// of the shown button.
+    #[gpui::test]
+    fn adr_0101_the_ring_has_the_bounds_of_the_shown_button(cx: &mut gpui::TestAppContext) {
+        let (ring, shown) = ring_and_shown_bounds(cx, false);
+        assert_eq!(
+            ring, shown,
+            "ADR 0101 Decision 1: the ring must touch the shown button. Fix: paint it on the shown button."
+        );
+    }
+
+    /// musicindex ADR 0073 R-FOCUS-2 item 6: on an accent fill the ring is 2 px outside the button, with
+    /// a gap of 2 px. A ring in the color of the fill does not show on it.
+    #[gpui::test]
+    fn adr_0101_an_accent_fill_has_its_ring_outside(cx: &mut gpui::TestAppContext) {
+        let (ring, shown) = ring_and_shown_bounds(cx, true);
+        let out = px(4.);
+        assert_eq!(
+            ring,
+            gpui::Bounds::new(
+                gpui::point(shown.origin.x - out, shown.origin.y - out),
+                gpui::size(shown.size.width + out * 2., shown.size.height + out * 2.),
+            ),
+            "musicindex ADR 0073 R-FOCUS-2 item 6: an accent fill \
+             needs its ring 2 px outside. Fix: use RingPlacement::Outside for this fill."
         );
     }
 

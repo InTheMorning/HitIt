@@ -1738,6 +1738,16 @@ mod tests {
             Some(0.0),
             "musicindex ADR 0073 R-FOCUS-2: HitIt draws the ring inset, so focus-ring.hitit.offset is 0."
         );
+        assert!(
+            (px_value(crate::ui::layouts::CONTROL_FOCUS_RING_FILLED_OFFSET)
+                - shared["focus-ring"]["hitit"]["filled-offset"]
+                    .as_f64()
+                    .expect("filled-offset"))
+            .abs()
+                < f64::EPSILON,
+            "musicindex ADR 0073 R-FOCUS-2 item 6: CONTROL_FOCUS_RING_FILLED_OFFSET must equal \
+             focus-ring.hitit.filled-offset. Fix: copy the value from src/assets/tokens.json."
+        );
     }
 
     /// musicindex ADR 0056 R-SIDE-1: the glow color of each theme and the glow

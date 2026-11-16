@@ -16462,7 +16462,7 @@ fn adr_0069_keyboard_buttons_show_focus_without_layout_shift() {
     );
     let keyboard = enabled.rsplit_once("if in_tab_sequence {").unwrap().1;
     for required in [
-        "keyboard_button_focus(hit_target, appearance, focus, tab_index, cx)",
+        "keyboard_button_focus(hit_target, focus, tab_index, cx)",
         ".tab_index(tab_index)",
         ".rounded(radius)",
         "on_keyboard_activate(hit_target, handler)",
@@ -16488,21 +16488,32 @@ fn adr_0069_keyboard_buttons_show_focus_without_layout_shift() {
     );
     for required in [
         "layout::scaled_dimension(layout::CONTROL_FOCUS_RING_WIDTH, cx)",
-        "resolve_color(cx, SemanticColor::Focus, appearance)",
         ".border(focus_ring_width)",
         ".border_color(gpui::transparent_black())",
-        ".focus(move |style| style.border_color(focus_color))",
     ] {
         assert!(
             focus.contains(required),
             "Situational ADR 0069: keyboard button focus requires {required}"
         );
     }
-    assert!(focus.find(".border(focus_ring_width)").unwrap() < focus.find(".focus(").unwrap());
     assert!(
-        !focus.contains("style.border("),
-        "Focus must not change layout dimensions"
+        !focus.contains(".focus(") && !focus.contains("style.border("),
+        "ADR 0101 Decision 1: the hit target must not paint the ring and must not change layout. \
+         Move the ring color into focus_ring_layer on the shown button."
     );
+    let ring = source_between(&button, "fn focus_ring_layer(", "fn keyboard_button_focus(");
+    for required in [
+        "layout::CONTROL_FOCUS_RING_WIDTH",
+        "resolve_color(cx, SemanticColor::Focus, appearance)",
+        ".absolute()",
+        ".inset_0()",
+    ] {
+        assert!(
+            ring.contains(required),
+            "ADR 0101 Decision 1: the ring layer requires {required}. The ring must touch the shown \
+             button. Fix: build it in focus_ring_layer."
+        );
+    }
     let disabled = enabled.split_once("} else {").unwrap().0;
     assert!(!disabled.contains(".tab_index(") && !disabled.contains("keyboard_button_focus("));
 }
@@ -16943,9 +16954,7 @@ fn adr_0066_editor_escape_focuses_close_without_closing() {
         "if in_tab_sequence {",
         "if let Some(icon) = leading_icon",
     );
-    assert!(
-        keyboard.contains("keyboard_button_focus(hit_target, appearance, focus, tab_index, cx)")
-    );
+    assert!(keyboard.contains("keyboard_button_focus(hit_target, focus, tab_index, cx)"));
     let focus = source_between(
         &button,
         "fn keyboard_button_focus(",

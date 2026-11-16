@@ -27,6 +27,9 @@ pub const HIT_TARGET_MIN: Pixels = MIN_HIT_TARGET;
 /// The outline of a selected sidebar row (musicindex ADR 0020 R-ACT-1 item 3).
 pub const SIDEBAR_ROW_OUTLINE_WIDTH: Pixels = px(1.0);
 pub const CONTROL_FOCUS_RING_WIDTH: Pixels = px(2.0);
+/// musicindex ADR 0073 R-FOCUS-2 item 6: the gap between a control with an
+/// accent or focus fill and its ring (`focus-ring.hitit.filled-offset`).
+pub const CONTROL_FOCUS_RING_FILLED_OFFSET: Pixels = px(2.0);
 pub const INSPECTOR_WIDTH: Pixels = px(360.0);
 /// The width of the Inspect Sources sheet (ADR 0089 Decision 8).
 pub const INSPECT_SOURCES_SHEET_WIDTH: Pixels = px(560.0);

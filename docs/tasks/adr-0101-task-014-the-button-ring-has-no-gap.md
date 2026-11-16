@@ -1,6 +1,6 @@
 # ADR 0101 Task 014: The Button Ring Touches The Button
 
-Status: Ready, 2026-11-16.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -11,6 +11,7 @@ The focus ring of a button touches the shown button. Today a dark space shows be
 - [ADR 0101](../adr/0101-the-design-language-follows-the-shared-rules.md) Decision 1: the focus ring is 2 px with no space between the ring and the control. musicindex ADR 0073 R-FOCUS-2 gives this ring to HitIt.
 - ADR 0069 (situational guard `adr_0069_keyboard_buttons_show_focus_without_layout_shift`): the focus ring does not change the layout.
 - musicindex ADR 0026 R-FOCUS-1: only keyboard input shows the ring.
+- musicindex ADR 0073 R-FOCUS-2 item 6 (musicindex `804589b`): a control with an accent or focus fill has its ring outside the control, with a gap. The token is `focus-ring.hitit.filled-offset` (2) of musicindex-assets `c81e250`.
 
 Operator choice line, 2026-11-16: this is a defect correction of ADR 0101 Decision 1. The agent walk of [ADR 0101 task 001](adr-0101-task-001-shared-tokens.md) V1 found it.
 
@@ -78,3 +79,23 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 - Stop if the ring hides a necessary border of a button style. Give the style.
 - Stop if the ring layer changes the dimensions of a button in a fit test.
+
+## Implementation Report - 2026-11-16
+
+A delegate made the first change. The primary agent made the corrections below.
+
+- `focus_ring_layer` (`src/ui/primitives/button.rs`) paints the ring as an absolute layer of the shown button. `keyboard_button_focus` keeps the Tab stop, the key context and the transparent border of the hit target, so no layout moves.
+- The first Xvfb walk found that the ring did not show on "Download album". The fill and the ring had the same color, `#2d7bff`. The orchestrator gave the operator decision, now musicindex ADR 0073 R-FOCUS-2 item 6.
+- `RingPlacement::for_fill` compares the fill with the accent color and the focus color. For each of the two, the ring is outside the button, with a gap of `CONTROL_FOCUS_RING_FILLED_OFFSET` (`src/ui/layouts.rs`). For each other fill, the ring is on the edge.
+- `src/assets/tokens.json` is a copy of musicindex-assets `tokens/tokens.json` with `filled-offset` and without `shape.edge-indicator`. HitIt did not use `shape.edge-indicator`. `focus_ring_matches_the_shared_tokens` also compares the gap.
+- Tests: `adr_0101_the_ring_has_the_bounds_of_the_shown_button` and `adr_0101_an_accent_fill_has_its_ring_outside`. Each one also proves that a click shows no ring.
+- The two source guards of `tests/architecture_tests.rs` read the new code. Their messages name ADR 0101 Decision 1 and the fix.
+
+## Walk Result - 2026-11-16
+
+The agent walked V1 and V2 on an Xvfb display with the debug binary, in Dark and Light at M. The page is the Index release "GLOBAL FEDPILLED INDUSTRIAL COMPLEX".
+
+- V1: Pass. The ring of "Download album" is outside the fill, and the page background shows in the gap.
+- V2: Pass. The ring touches "⋯" and "Website".
+
+The operator confirmation stays open.

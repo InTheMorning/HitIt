@@ -726,5 +726,5 @@ Agent walk, 2026-11-16, Dark only. The task file gives the details.
 - V2, V4 and V5 pass.
 - V3 passes for the HitIt radii. A gpui-component field keeps a corner of approximately 4 px. This is an open point of the task.
 - V1 fails: a space shows between the ring and a button. [ADR 0101 task 014](tasks/adr-0101-task-014-the-button-ring-has-no-gap.md) corrects it.
-- The operator walk waits for task 014.
+- Task 014 is implemented. Its agent walk passed in Dark and Light: the ring of "Download album" is outside the fill with a gap, and the ring touches "⋯" and "Website".
 
