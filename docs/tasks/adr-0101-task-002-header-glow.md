@@ -1,6 +1,6 @@
 # ADR 0101 Task 002: The Page Header Glow
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Stopped - 2026-11-16, at Stop And Ask item 3 (M5). The orchestrator session gets the questions of "Stop Report - 2026-11-16". No code changed.
 
 ## Goal
 
@@ -127,3 +127,35 @@ A delegate does not commit. It leaves its change in the working tree and reports
 - Stop if the preparation of one cover takes more than 200 ms in a release build.
 - Stop if a contrast pair of M5 is below 4.5:1 with the veil values of "The Values".
 - Stop if a page kind of R-ART-5 has no header that can hold the backdrop.
+
+## Stop Report - 2026-11-16
+
+A delegate stopped before the first edit. The primary agent examined the first value by hand and got the same result.
+
+### M5 Contrast With The Veil Of "The Values"
+
+Model: a white glow or a black glow at opacity 0.85 on the page background, then the veil. The veil alpha changes linearly between its stops. The text colors are `Label` and `SecondaryLabel` of `src/ui/tokens.rs`. The height is a fraction of the veil height.
+
+| Condition | 0 % | 40 % | 55 % | 70 % | 85 % |
+|---|---|---|---|---|---|
+| Dark, white glow, `Label` | 2.22 | 4.43 | 5.95 | 9.17 | 13.76 |
+| Dark, white glow, `SecondaryLabel` | 1.06 | 1.87 | 2.52 | 3.88 | 5.82 |
+| Light, black glow, `Label` | 6.24 | 9.74 | 11.32 | 13.00 | 14.84 |
+| Light, black glow, `SecondaryLabel` | 2.46 | 3.84 | 4.46 | 5.13 | 5.86 |
+
+A black glow in Dark and a white glow in Light give 4.5:1 or more at each height.
+
+- In Dark with a white glow, `Label` gets 4.5:1 only below approximately 41 % of the veil height. `SecondaryLabel` gets it only below approximately 78 %.
+- In Light with a black glow, `SecondaryLabel` gets 4.5:1 only below approximately 56 %.
+
+### Questions
+
+1. The veil values. Is the stack of the website different from "The Values"? For example, does a layer below the text have its own fill? Or do the veil values change so that M5 passes at the top of the header?
+2. The image of an artist page and a label page. These pages show `CollectionArt`: a mosaic of logos or a logo in the entity color. They have no one cover. Which image gives the glow: the provided image of `CollectionArtVm::ProvidedImage`, one cover of the mosaic, or the entity color?
+
+### Facts For The Next Attempt
+
+- GPUI animates a `RenderImage` of more than one frame in `gpui::img(ImageSource::Render(..))` when the element has an id. `RenderImage::new` takes `image::Frame` values with the bytes B, G, R, A. Thus Stop And Ask item 1 does not apply.
+- The track page header (`TrackHeader`) has no backdrop and no cover color path.
+- The `Environment` struct literals in `src/ui/theme_bridge.rs` and in a test of `src/ui/tokens.rs` need the new field.
+- A grain in a prepared image of 96 px is approximately 10 times larger on the screen. A prepared image of 240 px, the grain tile, is better.
