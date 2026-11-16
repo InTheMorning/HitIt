@@ -2149,6 +2149,17 @@ impl ReleasesListItemVm {
         }
     }
 
+    /// Returns whether this item carries the Back mark.
+    #[must_use]
+    pub(crate) fn is_marked(&self) -> bool {
+        match self {
+            Self::Release(row) | Self::Single(row) => row.marked,
+            Self::Group(group) => group.marked,
+            Self::WindowGroup(tile) => tile.marked,
+            Self::LeadingStatus(_) | Self::TrailingStatus(_) => false,
+        }
+    }
+
     /// The element id of the row. The virtual list keys its measured
     /// sizes by this id (Design step 8).
     #[must_use]

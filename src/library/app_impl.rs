@@ -134,7 +134,7 @@ use crate::view_models::library_removal::{
 };
 use crate::view_models::library_search_facts::LibrarySearchFacts;
 use crate::view_models::list_page::{ListPageHeadVm, ListPageKey, ListScope, ListSort, ListView};
-use crate::view_models::list_selection::{keyboard_entry_step, list_is_tab_stop};
+use crate::view_models::list_selection::{keyboard_entry, list_is_tab_stop, KeyboardEntry};
 use crate::view_models::list_selection::{FocusStep, ListSelection, SelectionMode, SelectionRow};
 use crate::view_models::name_level_page::NameLevelLibraryRelease;
 use crate::view_models::playlist_option_displays;
@@ -4653,18 +4653,46 @@ impl LibraryApp {
             MusicDestination::Artists => self.artists_selection.focused().is_some(),
             _ => return,
         };
-        let Some(step) = keyboard_entry_step(
+        let entry = keyboard_entry(
             self.list_row_focus_shows,
             has_focused_row,
             self.marked_entry.is_some(),
-        ) else {
+        );
+        if entry == KeyboardEntry::None {
             return;
-        };
+        }
         match self.vm.active_destination() {
             MusicDestination::Releases => {
                 let rows = self.releases_rows();
                 let visible = rows.selection_rows();
-                if let Some(focused) = self.releases_selection.move_focus(step, visible) {
+                let marked_index = rows
+                    .items()
+                    .iter()
+                    .map(|item| item.clone().with_marked(self.marked_entry.as_ref()))
+                    .position(|item| item.is_marked())
+                    .and_then(|index| index.checked_sub(rows.leading()))
+                    .and_then(|index| visible.get(index))
+                    .map(|row| row.id.clone());
+                let target = match (entry, marked_index) {
+                    (KeyboardEntry::MarkedRow, Some(id)) => Some(id),
+                    _ => None,
+                };
+                if let Some(id) = target {
+                    self.releases_selection.focus_row(id);
+                    if let Some(focused) = self.releases_selection.focused() {
+                        if matches!(self.vm.list_view(ListPageKey::Releases), ListView::Tiles) {
+                            self.reveal_releases_tile(rows.item_element_of_selection(focused));
+                        } else if let Some(index) =
+                            visible.iter().position(|row| &row.id == focused)
+                        {
+                            self.releases_list_state
+                                .scroll_to_reveal_item(index + rows.leading());
+                        }
+                    }
+                    return;
+                }
+                if let Some(focused) = self.releases_selection.move_focus(FocusStep::Home, visible)
+                {
                     if let Some(index) = visible.iter().position(|row| row.id == focused) {
                         self.releases_list_state
                             .scroll_to_reveal_item(index + rows.leading());
@@ -4673,21 +4701,80 @@ impl LibraryApp {
             }
             MusicDestination::Inbox => {
                 let visible = self.content_list_visible_rows();
-                if self.track_selection.move_focus(step, &visible).is_some() {
+                let marked = self
+                    .vm
+                    .content_list_rows_with_marked(
+                        self.vm
+                            .content_list_page()
+                            .visible_rows()
+                            .into_iter()
+                            .cloned()
+                            .collect(),
+                        self.marked_entry.as_ref(),
+                    )
+                    .iter()
+                    .find(|row| row.marked)
+                    .and_then(|row| self.vm.content_list_track_row_key(&row.id));
+                if let Some(marked) = marked.filter(|_| entry == KeyboardEntry::MarkedRow) {
+                    self.track_selection.focus_row(marked);
+                    if let Some(focused) = self.track_selection.focused() {
+                        if let Some(index) = visible.iter().position(|row| &row.id == focused) {
+                            self.inbox_scroll.scroll_to_item(index);
+                        }
+                    }
+                } else if self
+                    .track_selection
+                    .move_focus(FocusStep::Home, &visible)
+                    .is_some()
+                {
                     self.inbox_scroll.scroll_to_item(0);
                 }
             }
             MusicDestination::Playlists => {
                 let visible = self.playlist_selection_rows();
-                if self
+                let marked = self
+                    .vm
+                    .playlist_sidebar()
+                    .with_marked(self.marked_entry.as_ref())
+                    .rows
+                    .into_iter()
+                    .find(|row| row.marked)
+                    .map(|row| row.id);
+                let marked_is_visible = marked
+                    .as_ref()
+                    .is_some_and(|id| visible.iter().any(|row| &row.id == id));
+                if let Some(marked) =
+                    marked.filter(|_| entry == KeyboardEntry::MarkedRow && marked_is_visible)
+                {
+                    self.playlists_selection.focus_row(marked);
+                    self.playlists_reveal.request();
+                } else if self
                     .playlists_selection
-                    .move_focus(step, &visible)
+                    .move_focus(FocusStep::Home, &visible)
                     .is_some()
                 {
                     self.playlists_reveal.request();
                 }
             }
-            MusicDestination::Artists => self.move_artists_focus(step),
+            MusicDestination::Artists => {
+                let sections = self.artists_sections();
+                let items = ArtistsListItemVm::of_sections(sections);
+                let marked = items.iter().find_map(|item| {
+                    match item.clone().with_marked(self.marked_entry.as_ref()) {
+                        ArtistsListItemVm::Row(row) if row.marked => Some(row.element_id),
+                        _ => None,
+                    }
+                });
+                let visible = artist_selection_rows(&self.artists_sections());
+                if let Some(marked) = marked.filter(|marked| {
+                    entry == KeyboardEntry::MarkedRow && visible.iter().any(|row| row.id == *marked)
+                }) {
+                    self.artists_selection.focus_row(marked.clone());
+                    self.reveal_artists_row(&marked, &items);
+                } else {
+                    self.move_artists_focus(FocusStep::Home);
+                }
+            }
             _ => {}
         }
     }
@@ -7893,5 +7980,227 @@ mod tests {
              row that has the cursor. Call `reveal_focused_row` when \
              `list_row_focus_shows` becomes true."
         );
+    }
+
+    /// ADR 0092 task 003: keyboard entry uses the Back mark and reveals it.
+    #[gpui::test]
+    fn adr_0092_back_mark_entry_sets_the_cursor_and_requests_scroll(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+        });
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+            crate::db::init_schema(&conn).expect("the schema");
+            crate::db::migrate_schema(&conn).expect("the migrations");
+            let dir = std::env::temp_dir().join("hitit-back-mark-entry-test");
+            let services = crate::application::ApplicationServices::local_with_service_adapters()
+                .expect("the local services");
+            let library = cx.new(|cx| {
+                let mut library = LibraryApp::new(
+                    std::sync::Arc::new(std::sync::Mutex::new(conn)),
+                    crate::media::ImageCache::new(dir.join("cache")),
+                    "http://127.0.0.1:9".into(),
+                    dir,
+                    std::sync::Arc::new(services),
+                    None,
+                    window,
+                    cx,
+                );
+                let artists = (1..=40)
+                    .map(|id| {
+                        let mut album = test_album(id, vec![test_track(id, id, true)]);
+                        album.name = format!("Release {id:02}");
+                        album.feed_guid = Some(format!("feed-{id:02}"));
+                        crate::view_models::library::ArtistNode {
+                            name: format!("Artist {id:02}"),
+                            albums: vec![album],
+                        }
+                    })
+                    .collect();
+                library
+                    .vm
+                    .replace_tree(crate::view_models::library::LibraryTree { artists });
+                library.vm.set_active_destination(MusicDestination::Artists);
+                library
+                    .vm
+                    .set_list_view(ListPageKey::Artists, ListView::Rows);
+                library.marked_entry = ArtistsListItemVm::of_sections(library.artists_sections())
+                    .into_iter()
+                    .rev()
+                    .find_map(|item| match item {
+                        ArtistsListItemVm::Row(row) => match row.open {
+                            DestinationListRowTarget::ArtistName(key) => {
+                                Some(FrameNavigationEntry::ArtistName(key))
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    });
+                library
+            });
+            ListColumnRoot { library }
+        });
+        let library = cx.update(|_, cx| root.read(cx).library.clone());
+        let draw = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+        };
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        let (list, other) = cx.update(|_, cx| {
+            let library = library.read(cx);
+            (
+                library.list_column_focus.clone(),
+                library.letter_bar_focus.clone(),
+            )
+        });
+        cx.update(|window, cx| window.focus(&other, cx));
+        cx.simulate_keystrokes("shift");
+        cx.update(|_, cx| {
+            library.update(cx, |library, _| library.list_row_focus_shows = false);
+        });
+        cx.update(|window, cx| window.focus(&list, cx));
+        draw(cx);
+        cx.update(|_, cx| {
+            let library = library.read(cx);
+            let focused = library
+                .artists_selection
+                .focused()
+                .expect("marked artist cursor");
+            let marked = ArtistsListItemVm::of_sections(library.artists_sections())
+                .into_iter()
+                .map(|item| item.with_marked(library.marked_entry.as_ref()))
+                .find_map(|item| match item {
+                    ArtistsListItemVm::Row(row) if row.marked => Some(row.element_id),
+                    _ => None,
+                })
+                .expect("marked artist row");
+            assert_eq!(focused, &marked);
+            assert!(
+                library
+                    .artists_list_state
+                    .state()
+                    .logical_scroll_top()
+                    .item_ix
+                    > 0
+            );
+        });
+
+        cx.update(|window, cx| window.focus(&other, cx));
+        cx.update(|_, cx| {
+            library.update(cx, |library, _| {
+                library.artists_selection = ListSelection::new();
+                library
+                    .vm
+                    .set_list_view(ListPageKey::Artists, ListView::Tiles);
+            });
+        });
+        draw(cx);
+        cx.update(|window, cx| window.focus(&list, cx));
+        draw(cx);
+        cx.update(|_, cx| {
+            let library = library.read(cx);
+            let focused = library
+                .artists_selection
+                .focused()
+                .expect("marked artist cursor");
+            assert!(focused.starts_with("music-artist-row-name:"));
+            assert!(library.artists_tiles_scroll.offset().y < gpui::px(0.));
+        });
+    }
+
+    /// ADR 0092 task 003: Releases entry uses the Back mark and reveals its row.
+    #[gpui::test]
+    fn adr_0092_releases_entry_uses_back_mark_and_requests_scroll(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+        });
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+            crate::db::init_schema(&conn).expect("the schema");
+            crate::db::migrate_schema(&conn).expect("the migrations");
+            let dir = std::env::temp_dir().join("hitit-release-back-mark-entry-test");
+            let services = crate::application::ApplicationServices::local_with_service_adapters()
+                .expect("the local services");
+            let library = cx.new(|cx| {
+                let mut library = LibraryApp::new(
+                    std::sync::Arc::new(std::sync::Mutex::new(conn)),
+                    crate::media::ImageCache::new(dir.join("cache")),
+                    "http://127.0.0.1:9".into(),
+                    dir,
+                    std::sync::Arc::new(services),
+                    None,
+                    window,
+                    cx,
+                );
+                let artists = (1..=40)
+                    .map(|id| {
+                        let mut album = test_album(id, vec![test_track(id, id, true)]);
+                        album.name = format!("Release {id:02}");
+                        album.feed_guid = Some(format!("feed-{id:02}"));
+                        crate::view_models::library::ArtistNode {
+                            name: format!("Artist {id:02}"),
+                            albums: vec![album],
+                        }
+                    })
+                    .collect();
+                library
+                    .vm
+                    .replace_tree(crate::view_models::library::LibraryTree { artists });
+                library
+                    .vm
+                    .set_active_destination(MusicDestination::Releases);
+                library
+                    .vm
+                    .set_list_view(ListPageKey::Releases, ListView::Rows);
+                library.marked_entry = Some(FrameNavigationEntry::Release(
+                    crate::view_models::workspace::ReleaseKey::FeedGuid("feed-40".into()),
+                ));
+                library
+            });
+            ListColumnRoot { library }
+        });
+        let library = cx.update(|_, cx| root.read(cx).library.clone());
+        let draw = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+        };
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        let (list, other) = cx.update(|_, cx| {
+            let library = library.read(cx);
+            (
+                library.list_column_focus.clone(),
+                library.letter_bar_focus.clone(),
+            )
+        });
+        cx.update(|window, cx| window.focus(&other, cx));
+        cx.simulate_keystrokes("shift");
+        cx.update(|_, cx| {
+            library.update(cx, |library, _| library.list_row_focus_shows = false);
+        });
+        cx.update(|window, cx| window.focus(&list, cx));
+        draw(cx);
+        cx.update(|_, cx| {
+            let library = library.read(cx);
+            assert_eq!(
+                library.releases_selection.focused(),
+                Some(&crate::view_models::library::ReleasesRowId::Release(
+                    crate::view_models::workspace::ReleaseKey::FeedGuid("feed-40".into())
+                ))
+            );
+            assert!(
+                library
+                    .releases_list_state
+                    .state()
+                    .logical_scroll_top()
+                    .item_ix
+                    > 0
+            );
+        });
     }
 }

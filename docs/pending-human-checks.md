@@ -662,3 +662,19 @@ The agent check of 2026-11-15 ran these steps on an Xvfb display with a null aud
 - Incorrect: Tab skips the first track row, or Down does not move keyboard focus in the list.
 
 The agent walk of 2026-11-16 ran steps 3 to 5 on an Xvfb display with the release binary, on the Index release "Waltz Tunes Volume 2". Tab went from "Reverse" to the first track row, Down moved the ring, and Shift+Tab went back to "Reverse". V1 passed there. The scratch Library had no tracks, so V2 stays open for a person.
+
+## 22. ADR 0092 Task 003 Keyboard Entry Puts The Cursor On The Marked Row - 2026-11-16
+
+[ADR 0092 task 003](tasks/adr-0092-task-003-entry-puts-the-cursor-on-the-marked-row.md) gives the procedure.
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`.
+3. On Releases, scroll down and open a release. Push Back.
+4. Scroll the list to the top, so the marked row is out of view.
+5. Click "Search" in the sidebar. Push Shift+Tab. Make sure the marked row has the focus ring and is in view (V2).
+6. On Artists in the Tiles view, open an artist and push Back. Put the focus in the grid with Tab or Shift+Tab. Make sure the tile of that artist has the focus outline and is in view (V1).
+7. Do step 6 again in the Rows view (V2).
+
+- Incorrect: no row has the ring after keyboard entry, or the list does not scroll to the marked row.
+
+The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the release binary. On Releases, entry scrolled to "The Dark Plains - 00001" and showed the ring. On Artists, entry showed "2140" in the Rows view and "888childish" in the Tiles view. All three passed there.

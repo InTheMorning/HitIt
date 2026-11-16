@@ -38,6 +38,17 @@ pub(crate) enum FocusStep {
     End,
 }
 
+/// The cursor action when a list gets keyboard focus (ADR 0092 task 003).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum KeyboardEntry {
+    /// Put the cursor on the first row.
+    Home,
+    /// Put the cursor on the row marked by Back.
+    MarkedRow,
+    /// Keep the current cursor state.
+    None,
+}
+
 /// The number of rows a Page Up or a Page Down step moves.
 pub(crate) const SELECTION_PAGE_STEP: usize = 10;
 
@@ -463,10 +474,25 @@ pub(crate) const fn keyboard_entry_step(
     has_focused_row: bool,
     has_marked_row: bool,
 ) -> Option<FocusStep> {
-    if focus_ring_shows && !has_focused_row && !has_marked_row {
-        Some(FocusStep::Home)
+    match keyboard_entry(focus_ring_shows, has_focused_row, has_marked_row) {
+        KeyboardEntry::Home => Some(FocusStep::Home),
+        KeyboardEntry::MarkedRow | KeyboardEntry::None => None,
+    }
+}
+
+/// Selects the cursor target when a list gets keyboard focus.
+#[must_use]
+pub(crate) const fn keyboard_entry(
+    focus_ring_shows: bool,
+    has_focused_row: bool,
+    has_marked_row: bool,
+) -> KeyboardEntry {
+    if !focus_ring_shows || has_focused_row {
+        KeyboardEntry::None
+    } else if has_marked_row {
+        KeyboardEntry::MarkedRow
     } else {
-        None
+        KeyboardEntry::Home
     }
 }
 
@@ -488,6 +514,26 @@ mod tests {
         assert_eq!(super::keyboard_entry_step(false, false, false), None);
         assert_eq!(super::keyboard_entry_step(true, true, false), None);
         assert_eq!(super::keyboard_entry_step(true, false, true), None);
+    }
+
+    #[test]
+    fn adr_0092_keyboard_entry_uses_the_back_mark() {
+        assert_eq!(
+            super::keyboard_entry(true, false, true),
+            super::KeyboardEntry::MarkedRow
+        );
+        assert_eq!(
+            super::keyboard_entry(true, false, false),
+            super::KeyboardEntry::Home
+        );
+        assert_eq!(
+            super::keyboard_entry(true, true, true),
+            super::KeyboardEntry::None
+        );
+        assert_eq!(
+            super::keyboard_entry(false, false, true),
+            super::KeyboardEntry::None
+        );
     }
 
     use super::*;
