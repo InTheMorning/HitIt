@@ -346,6 +346,7 @@ fn contributor_identity_actions(contributor: &ContributorRowVm<'_>) -> Vec<Relea
                         kind: IdentityActionKind::Website,
                         a11y_label,
                     })
+                    .tab_index(1)
                     .on_click(move |_, _, _| {
                         let _ = open::that(&target_for_click);
                     })
@@ -357,6 +358,7 @@ fn contributor_identity_actions(contributor: &ContributorRowVm<'_>) -> Vec<Relea
                         kind: IdentityActionKind::Nostr,
                         a11y_label,
                     })
+                    .tab_index(1)
                     .on_click(move |_, _, cx| {
                         cx.write_to_clipboard(ClipboardItem::new_string(target_for_click.clone()));
                     })

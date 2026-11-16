@@ -1237,7 +1237,7 @@ impl LibraryApp {
             selection_removal: SelectionRemovalConfirmationState::new(),
             selection_removal_report: None,
             detail_selection: DetailSelection::new(),
-            detail_column_focus: cx.focus_handle(),
+            detail_column_focus: cx.focus_handle().tab_index(1),
             sidebar_focus: crate::view_models::sidebar::SidebarDestination::ALL
                 .into_iter()
                 .map(|row| (row, cx.focus_handle().tab_index(0).tab_stop(true)))

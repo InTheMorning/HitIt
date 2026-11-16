@@ -1104,6 +1104,87 @@ mod tests {
         inner: gpui::FocusHandle,
     }
 
+    struct DetailListTabRoot {
+        first_control: gpui::FocusHandle,
+        last_control: gpui::FocusHandle,
+        list: gpui::FocusHandle,
+        after_control: gpui::FocusHandle,
+    }
+
+    impl gpui::Render for DetailListTabRoot {
+        fn render(
+            &mut self,
+            _: &mut gpui::Window,
+            _: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            div()
+                .size_full()
+                .track_focus(&self.list.clone().tab_index(1).tab_stop(true))
+                .child(
+                    Button::plain("first-page-control")
+                        .label("Name")
+                        .track_focus(&self.first_control)
+                        .on_click(|_, _, _| {}),
+                )
+                .child(
+                    Button::plain("last-page-control")
+                        .label("Reverse")
+                        .track_focus(&self.last_control)
+                        .on_click(|_, _, _| {}),
+                )
+                .child(
+                    Button::plain("after-list-control")
+                        .label("Contributor website")
+                        .track_focus(&self.after_control)
+                        .tab_index(1)
+                        .on_click(|_, _, _| {}),
+                )
+        }
+    }
+
+    /// ADR 0092 Decision 1: page controls precede the detail list, and
+    /// controls painted after rows follow the list at Tab index 1.
+    #[gpui::test]
+    fn adr_0092_detail_list_follows_page_controls(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_component::init);
+        let (root, cx) = cx.add_window_view(|_, cx| DetailListTabRoot {
+            first_control: cx.focus_handle(),
+            last_control: cx.focus_handle(),
+            list: cx.focus_handle(),
+            after_control: cx.focus_handle(),
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        let (first_control, last_control, list, after_control) = cx.update(|_, cx| {
+            let root = root.read(cx);
+            (
+                root.first_control.clone(),
+                root.last_control.clone(),
+                root.list.clone(),
+                root.after_control.clone(),
+            )
+        });
+
+        cx.update(|window, cx| window.focus(&first_control, cx));
+        cx.update(gpui::Window::focus_prev);
+        assert!(
+            !cx.update(|window, _| list.is_focused(window)),
+            "Shift+Tab from the first page control does not focus the detail list"
+        );
+
+        cx.update(|window, cx| window.focus(&last_control, cx));
+        cx.update(gpui::Window::focus_next);
+        assert!(
+            cx.update(|window, _| list.is_focused(window)),
+            "Tab from the last page control focuses the detail list"
+        );
+        cx.update(gpui::Window::focus_next);
+        assert!(
+            cx.update(|window, _| after_control.is_focused(window)),
+            "Tab from the detail list focuses a control after its rows"
+        );
+    }
+
     impl gpui::Render for ListTabRoot {
         fn render(
             &mut self,

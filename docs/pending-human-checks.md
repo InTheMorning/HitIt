@@ -646,3 +646,19 @@ Use the scratch setup of section 19, steps 1 to 6. Use a playlist with three or 
 - Also examine: the empty cuelist reads "Queue is empty".
 
 The agent check of 2026-11-15 ran these steps on an Xvfb display with a null audio output. It read the stored session after each step. It cannot hear audio, so each audio statement stays open for a person.
+
+## 21. ADR 0092 Task 002 The Detail List Follows The Page Controls - 2026-11-16
+
+[ADR 0092 task 002](tasks/adr-0092-task-002-detail-list-follows-the-page-controls.md) gives the procedure. Use a Linux desktop session with the Index and Library release pages available.
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`.
+3. Open an Index release page with tracks.
+4. Push Tab until “Reverse” has focus. Push Tab again. Make sure the first track row has the focus ring (V1).
+5. Push Down. Make sure keyboard focus moves in the track list.
+6. Repeat steps 3 to 5 on a Library release page with tracks (V2).
+7. Close HitIt. Remove scratch folders that you created for this check.
+
+- Incorrect: Tab skips the first track row, or Down does not move keyboard focus in the list.
+
+The agent walk of 2026-11-16 ran steps 3 to 5 on an Xvfb display with the release binary, on the Index release "Waltz Tunes Volume 2". Tab went from "Reverse" to the first track row, Down moved the ring, and Shift+Tab went back to "Reverse". V1 passed there. The scratch Library had no tracks, so V2 stays open for a person.
