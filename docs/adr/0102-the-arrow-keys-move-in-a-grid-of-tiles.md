@@ -42,7 +42,7 @@ In the Tiles view of Releases, Right and Left move as item 2 of Decision 1 says.
 
 ### 3. Page Up and Page Down
 
-R-GRIDKEY-1 gives no Page Up and no Page Down. In a grid of tiles, they keep their step in the sequence of the list. Main session choice, 2026-11-15. It stays open for the orchestrator.
+R-GRIDKEY-1 gives no Page Up and no Page Down. In a grid of tiles, they keep their step in the sequence of the list. The orchestrator closed this point on 2026-11-15. No shared rule is necessary, and each app keeps its current step.
 
 ### 4. The key model owns the move
 
