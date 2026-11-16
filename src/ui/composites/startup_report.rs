@@ -190,6 +190,7 @@ fn capability_button(display: CapabilityActionDisplay, handler: CapabilityHandle
     .label(display.label)
     .a11y_label(display.a11y_label)
     .disabled(display.availability != StartupAvailability::Available)
+    .busy(display.availability == StartupAvailability::Working)
     .on_activate(move |window, cx| handler(action, window, cx))
 }
 
@@ -229,6 +230,7 @@ pub(crate) fn startup_report(
             .label(display.label)
             .a11y_label(display.a11y_label)
             .disabled(display.availability != StartupAvailability::Available)
+            .busy(display.availability == StartupAvailability::Working)
             .on_activate(move |window, cx| callback(intent, window, cx))
             .into_any_element(),
         );

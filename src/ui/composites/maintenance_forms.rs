@@ -278,6 +278,7 @@ fn session_button(display: SessionActionDisplay, callback: SessionCallback) -> B
     .label(display.label)
     .a11y_label(display.a11y_label)
     .disabled(display.availability != StartupAvailability::Available)
+    .busy(display.availability == StartupAvailability::Working)
     .on_activate(move |window, cx| callback(action, window, cx))
 }
 

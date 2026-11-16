@@ -99,6 +99,7 @@ pub(crate) mod pagination;
 pub(crate) mod playlist_curation;
 pub mod playlist_detail;
 pub(crate) mod playlist_rss_check;
+pub(crate) mod progress_count;
 pub(crate) mod public_playlists;
 pub(crate) mod publisher_page;
 pub(crate) mod queue_now_playing;

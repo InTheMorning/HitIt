@@ -217,6 +217,9 @@ pub struct StagedId3EditsDisplay {
     pub message: ActionStatusMessageDisplay,
     pub apply_label: String,
     pub apply_enabled: bool,
+    /// `true` while the apply runs. The button shows the spinner and the
+    /// busy label (ADR 0101 Decision 12).
+    pub apply_busy: bool,
     pub conflict_message: Option<ActionStatusMessageDisplay>,
     pub discard_label: &'static str,
     pub show_discard: bool,
@@ -418,11 +421,12 @@ impl TrackMetadataActionState {
                 if count == 1 { "" } else { "s" }
             )),
             apply_label: if applying {
-                "Applying tags...".into()
+                "Applying tags…".into()
             } else {
                 format!("Apply tags ({count})")
             },
             apply_enabled: !applying && !has_conflicts,
+            apply_busy: applying,
             conflict_message: conflict_text
                 .filter(|text| !text.trim().is_empty())
                 .map(|text| {
@@ -2144,6 +2148,7 @@ mod tests {
                 message: ActionStatusMessageDisplay::neutral("2 staged tag edits"),
                 apply_label: "Apply tags (2)".into(),
                 apply_enabled: false,
+                apply_busy: false,
                 conflict_message: Some(ActionStatusMessageDisplay::danger(
                     "Duplicate target: TIT2",
                     ActionStatusMessageWidth::Conflict,
@@ -2157,8 +2162,9 @@ mod tests {
             Some(StagedId3EditsDisplay {
                 action_row_a11y_label: "Metadata edit actions",
                 message: ActionStatusMessageDisplay::neutral("1 staged tag edit"),
-                apply_label: "Applying tags...".into(),
+                apply_label: "Applying tags…".into(),
                 apply_enabled: false,
+                apply_busy: true,
                 conflict_message: None,
                 discard_label: "Discard staged",
                 show_discard: false,

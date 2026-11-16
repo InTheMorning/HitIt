@@ -137,6 +137,7 @@ pub struct Button {
     full_width: bool,
     content_alignment: ButtonContentAlignment,
     disabled: bool,
+    busy: bool,
     selected: bool,
     label_treatment: ButtonLabelTreatment,
 }
@@ -169,6 +170,7 @@ impl Button {
             full_width: false,
             content_alignment: ButtonContentAlignment::Center,
             disabled: false,
+            busy: false,
             selected: false,
             label_treatment: ButtonLabelTreatment::Plain,
         }
@@ -289,6 +291,25 @@ impl Button {
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
+    }
+
+    /// Marks the button as busy while its action runs (ADR 0101 Decision 12,
+    /// musicindex ADR 0026 R-LOADING-1 item 2). A busy button is disabled and
+    /// shows a turning spinner in place of its leading icon. The caller gives
+    /// the busy label, which ends with "…", through [`Self::label`].
+    /// Reduce Motion stops the turn, and the label stays.
+    pub const fn busy(mut self, busy: bool) -> Self {
+        self.busy = busy;
+        self
+    }
+
+    /// The leading icon. A busy button shows the spinner.
+    const fn leading_mark(&self) -> Option<IconName> {
+        if self.busy {
+            Some(IconName::InProgress)
+        } else {
+            self.leading_icon
+        }
     }
 
     pub const fn foreground(mut self, color: SemanticColor) -> Self {
@@ -695,7 +716,7 @@ impl RenderOnce for Button {
         let on_activate = self.on_activate.clone();
         let on_key_activate = self.on_key_activate.clone();
         let (focus, reveal_probe) = self.focus_for_reveal(window, cx);
-        let disabled = self.disabled;
+        let disabled = self.disabled || self.busy;
         // The probe exists only while the keyboard focus shows the ring.
         let ring = (reveal_probe.is_some() && !disabled)
             .then(|| RingPlacement::for_fill(bg, appearance, cx));
@@ -705,7 +726,8 @@ impl RenderOnce for Button {
         let tooltip = self.effective_tooltip();
         let in_tab_sequence = self.in_tab_sequence();
         let tab_index = self.tab_index;
-        let leading_icon = self.leading_icon;
+        let leading_icon = self.leading_mark();
+        let turning = self.busy;
         let icon_only = self.is_icon_only();
 
         let mut visual = self
@@ -782,7 +804,7 @@ impl RenderOnce for Button {
         }
 
         if let Some(icon) = leading_icon {
-            visual = visual.child(button_icon(icon, icon_color));
+            visual = visual.child(button_icon(icon, icon_color, turning));
         }
         let text_box = div().when(label_treatment.line_through(), Styled::line_through);
         let label = text_with_fit_probe(text_box, &self.id, label);
@@ -813,11 +835,13 @@ fn hit_target_base(id: ElementId) -> gpui::Stateful<gpui::Div> {
     target
 }
 
-fn button_icon(icon: IconName, color: Rgba) -> gpui::Div {
-    let element = div()
-        .flex()
-        .flex_none()
-        .child(Icon::new(icon).size(IconSize::Transport).color(color));
+fn button_icon(icon: IconName, color: Rgba, turning: bool) -> gpui::Div {
+    let element = div().flex().flex_none().child(
+        Icon::new(icon)
+            .size(IconSize::Transport)
+            .color(color)
+            .turning(turning),
+    );
     #[cfg(test)]
     let element = element.debug_selector(|| "button-icon".to_owned());
     element
@@ -978,6 +1002,26 @@ fn keyboard_activation_key(event: &KeyDownEvent) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// R-LOADING-1 item 2: a busy button shows the turning spinner in place of
+    /// its icon. Its label stays, and the button takes no click.
+    #[test]
+    fn a_busy_button_shows_the_spinner_and_keeps_its_label() {
+        let idle = Button::styled("idle", ControlStyle::Primary)
+            .leading_icon(IconName::Close)
+            .label("Add");
+        assert_eq!(idle.leading_mark(), Some(IconName::Close));
+        let busy = Button::styled("busy", ControlStyle::Primary)
+            .leading_icon(IconName::Close)
+            .label("Adding…")
+            .busy(true);
+        assert_eq!(busy.leading_mark(), Some(IconName::InProgress));
+        assert_eq!(busy.label.as_deref(), Some("Adding…"));
+        let plain_busy = Button::styled("plain", ControlStyle::Primary)
+            .label("Adding…")
+            .busy(true);
+        assert_eq!(plain_busy.leading_mark(), Some(IconName::InProgress));
+    }
 
     /// ADR 0101 Decision 11, Increase Contrast: each control has a 1 px
     /// outline. Without the setting a plain button has none.

@@ -82,6 +82,10 @@ impl SessionReportVm {
     pub(crate) fn action(&self, action: SessionAction) -> SessionActionDisplay {
         let (label, a11y_label) = match action {
             SessionAction::EndSession => return Self::entry(false),
+            SessionAction::RetryDrain if self.working => (
+                "Retrying drain…",
+                "App is waiting again for this session to finish and release its resources",
+            ),
             SessionAction::RetryDrain => (
                 "Retry drain",
                 "Wait again for this app session to finish and release its resources",
@@ -157,6 +161,10 @@ mod tests {
         assert_eq!(
             vm.action(SessionAction::RetryDrain).availability,
             StartupAvailability::Working
+        );
+        assert_eq!(
+            vm.action(SessionAction::RetryDrain).label,
+            "Retrying drain…"
         );
         vm.failed(&["Held fixture command: 1".into()]);
         assert!(vm.report.contains("Maintenance is not available"));

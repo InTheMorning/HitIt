@@ -760,3 +760,14 @@ Task: [ADR 0101 task 006](tasks/adr-0101-task-006-dates-in-the-system-language.m
 - Incorrect: a date is in English with a French system language, or a total time shows "1h 12m".
 
 Agent walk, 2026-11-16: V2 passes on the Xvfb display. V1 and V3 are open.
+
+## 29. ADR 0101 Task 007 Loading States - 2026-11-16
+
+Task: [ADR 0101 task 007](tasks/adr-0101-task-007-loading-states.md).
+
+- V1: in My playlists, open a playlist of more than 100 tracks and scroll down fast. The gray rows that wait for their tracks show a soft light band that moves from left to right. The tracks replace them in the same places.
+- V3: download an album of more than one track. Below the title "Downloading 2 of 9", a bar and a count such as "1 of 9 done" show. You can see the track of the bar in Dark and in Light.
+- V4: turn on reduced animation in the desktop settings and do V1 again. The band does not move. The words stay.
+- Incorrect: you cannot see the track of the bar, or the band moves with reduced animation on.
+
+Agent walk, 2026-11-16: V1 and V3 could not be walked with the test data. V2 of the packet ("Adding…") is not possible, because the add has no busy condition.

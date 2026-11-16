@@ -951,6 +951,7 @@ mod tests {
             match action.action {
                 CapabilityAction::CheckAgain(Dependency::MusicIndex) => {
                     assert_eq!(action.availability, StartupAvailability::Working);
+                    assert_eq!(action.label, "Checking…");
                 }
                 CapabilityAction::CheckAgain(_) => {
                     assert_eq!(action.availability, StartupAvailability::Unavailable);

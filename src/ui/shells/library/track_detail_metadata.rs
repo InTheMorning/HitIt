@@ -222,6 +222,7 @@ fn render_inspect_sources_controls(
                     )
                     .control_style(ControlStyle::CompactAction)
                     .disabled(!staged_display.apply_enabled)
+                    .busy(staged_display.apply_busy)
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.apply_pending_id3_edits(cx);
                     }))

@@ -2,7 +2,8 @@
 //! and 027).
 //!
 //! The item shows the download batch on each section, for example
-//! "Downloading 3 of 9". It renders the display facts of
+//! "Downloading 3 of 9", and a bar with its count text, for example
+//! "3 of 9 done", while the batch runs (ADR 0101 Decision 12). It renders the display facts of
 //! [`DownloadProgressDisplay`] and exposes two callbacks: "Stop queued" of
 //! a running batch, and "Dismiss" of a finished batch. It makes no text,
 //! no count and no time. The text wraps, so a narrow window does not clip
@@ -19,7 +20,7 @@ use gpui::{
 
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::{Icon, IconName, IconSize};
-use crate::ui::primitives::{Button as UiButton, Tooltip};
+use crate::ui::primitives::{Button as UiButton, ProgressBar, Tooltip};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::download_progress::{
     DownloadProgressDismissAction, DownloadProgressDisplay, DownloadProgressIconRole,
@@ -62,6 +63,7 @@ impl RenderOnce for DownloadStatusItem {
             failure_text,
             failure_lines,
             a11y_label,
+            progress,
             stop_queued,
             dismiss,
             ..
@@ -106,6 +108,9 @@ impl RenderOnce for DownloadStatusItem {
                     )
                     .when(item_name.is_some() || failure_text.is_some(), |el| {
                         el.child(render_detail_line(item_name, failure_text, cx))
+                    })
+                    .when_some(progress, |el, progress| {
+                        el.child(ProgressBar::new(progress.fraction(), progress.count_text()))
                     })
                     .children(failure_lines.into_iter().map(|line| {
                         div()
@@ -192,5 +197,64 @@ const fn icon_color(role: DownloadProgressIconRole) -> SemanticColor {
         DownloadProgressIconRole::InProgress => SemanticColor::InfoLabel,
         DownloadProgressIconRole::Success => SemanticColor::SuccessLabel,
         DownloadProgressIconRole::Warning => SemanticColor::WarningLabel,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{px, size, Context, Render, TestAppContext};
+
+    use super::*;
+    use crate::ui::primitives::progress_bar::{TRACK_HEIGHT, TRACK_MIN_WIDTH};
+    use crate::view_models::download_progress::DownloadBatch;
+
+    struct Item(DownloadProgressDisplay);
+
+    impl Render for Item {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            download_status_item(self.0.clone(), |_, _, _| {}, |_, _, _| {})
+        }
+    }
+
+    /// ADR 0101 Decision 12: the bar of a running batch shows. Its track is at
+    /// least `TRACK_MIN_WIDTH` wide and `TRACK_HEIGHT` high, and the fill is
+    /// the fraction of the track. Walk of 2026-11-16: the track had the color
+    /// of the item and did not show.
+    #[gpui::test]
+    fn the_progress_bar_of_a_running_batch_has_a_track_and_a_fill(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let batch = DownloadBatch {
+            total: 4,
+            done: 1,
+            failures: Vec::new(),
+            stopped: 0,
+            queued: 0,
+            current_label: None,
+            finished_at: None,
+            waiting: None,
+        };
+        let display = DownloadProgressDisplay::project(&batch).expect("a display");
+        let (_root, cx) = cx.add_window_view(|_, _| Item(display));
+        cx.simulate_resize(size(px(390.0), px(300.0)));
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+        let track = cx
+            .debug_bounds("progress-bar-track")
+            .expect("the track has bounds");
+        let fill = cx
+            .debug_bounds("progress-bar-fill")
+            .expect("the fill has bounds");
+        assert!(f32::from(track.size.width) >= TRACK_MIN_WIDTH, "{track:?}");
+        assert!(
+            (f32::from(track.size.height) - TRACK_HEIGHT).abs() < 0.5,
+            "{track:?}"
+        );
+        let expected = f32::from(track.size.width) * 0.25;
+        assert!(
+            (f32::from(fill.size.width) - expected).abs() < 0.5,
+            "{fill:?}"
+        );
     }
 }

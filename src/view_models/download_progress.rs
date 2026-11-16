@@ -13,6 +13,8 @@ use std::fmt::Write as _;
 
 use chrono::{DateTime, Local};
 
+use super::progress_count::ProgressCount;
+
 /// The queue key of a release (ADR 0084 Decision 10). A Library release
 /// and the Index copy of that release have the same key.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -309,6 +311,10 @@ pub(crate) struct DownloadProgressDisplay {
     /// One report line for each failed job, with its name and its error.
     pub(crate) failure_lines: Vec<String>,
     pub(crate) a11y_label: String,
+    /// The bar and the count text of a running batch: the jobs that ended,
+    /// with or without an error, of all jobs. `None` when the batch is
+    /// finished.
+    pub(crate) progress: Option<ProgressCount>,
     /// Present only while the batch runs and one or more jobs wait.
     pub(crate) stop_queued: Option<DownloadProgressStopQueuedAction>,
     /// Present only when the batch is finished.
@@ -372,6 +378,10 @@ impl DownloadProgressDisplay {
                     failure_text: (failed > 0).then(|| format!("{failed} failed")),
                     failure_lines,
                     a11y_label,
+                    progress: Some(ProgressCount {
+                        done: batch.done + failed,
+                        total: batch.total,
+                    }),
                     stop_queued,
                     dismiss: None,
                 }
@@ -407,6 +417,7 @@ impl DownloadProgressDisplay {
                     failure_text: None,
                     failure_lines,
                     a11y_label,
+                    progress: None,
                     stop_queued: None,
                     dismiss: Some(DISMISS_ACTION),
                 }
@@ -509,6 +520,29 @@ mod tests {
             "Downloading item 3 of 9: Face Pale. 1 download failed."
         );
         assert_eq!(display.icon_role, DownloadProgressIconRole::Warning);
+    }
+
+    /// ADR 0101 Decision 12: a running batch of nine jobs with three ended
+    /// jobs gives the bar the count text "3 of 9 done". A finished batch gives no
+    /// bar.
+    #[test]
+    fn adr_0101_running_batch_gives_the_progress_bar_its_count() {
+        let mut batch = DownloadBatch {
+            total: 9,
+            done: 2,
+            failures: vec![failure("Old Song")],
+            stopped: 0,
+            queued: 0,
+            current_label: None,
+            finished_at: None,
+            waiting: None,
+        };
+        let display = DownloadProgressDisplay::project(&batch).expect("a display");
+        let progress = display.progress.expect("a running batch has a bar");
+        assert_eq!(progress.count_text(), "3 of 9 done");
+        batch.finished_at = Some(recorded_time());
+        let display = DownloadProgressDisplay::project(&batch).expect("a display");
+        assert_eq!(display.progress, None);
     }
 
     /// R22-07: the position is never more than the total.
