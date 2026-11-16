@@ -1,6 +1,6 @@
 # ADR 0101 Task 006: Dates In The System Language
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks. The operator approved the new crate `icu_datetime` on 2026-11-15.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -102,3 +102,35 @@ A delegate does not commit. It leaves its change in the working tree and reports
 - Stop if `icu_datetime` `~2.1` needs a different version of `icu_locale_core`.
 - Stop if the release binary grows by more than 5 MB.
 - Stop if a caller uses the date text as a key or stores it.
+
+## Implementation Report - 2026-11-16
+
+The change is in the working tree. It is not committed.
+
+Files changed: `Cargo.toml`, `Cargo.lock`, `src/view_models/format.rs`, `src/view_models/name_order.rs`, `src/view_models/live_page.rs`, `src/view_models/track.rs`, `src/view_models/library.rs`, `src/view_models/queue_now_playing.rs`, `src/view_models/playlist_rss_check.rs`, `src/view_models/show.rs`, `src/metadata.rs`, `tests/architecture_tests.rs`.
+
+- `Cargo.toml` names `icu_datetime` at `~2.1`. `icu_locale_core` stays at 2.1.1. The feature `clock` of `chrono` is on, because the local time zone needs it. The crate `iana-time-zone` was already in `Cargo.lock`.
+- `system_locale` and `locale_from_read` are in `name_order.rs`. A failed read gives `en-US`.
+- `format.rs` has `fmt_date`, `fmt_month_day`, `fmt_date_time_zone`, `fmt_duration` and `fmt_total_time`. The `_in` variants take a locale and a UTC offset for tests.
+- Unit tests use `en-US` and UTC through `cfg!(test)`, so that existing date tests do not depend on the machine.
+
+Tests: M1 `r_date_1_date_follows_the_locale`. M2 `r_date_1_day_is_the_local_day_near_midnight`. M3 `r_date_1_duration_is_minutes_or_hours`. M4 `r_date_1_total_time_is_minutes_or_hours`. M5 `r_date_1_locale_read_falls_back_to_en_us`. M6 `adr_0101_dates_guard_no_view_model_formats_a_month_name_outside_format_rs`.
+
+Text changes: `fmt_total_runtime_clock` is now `fmt_total_time`. The playlist and album totals change from "5:05" and "1h 23m" to "5 min" and "1 h 23 min". The now-playing duration was a track duration. It uses `fmt_duration` and keeps "m:ss". The live schedule changes from "Mar 13, 01:00 UTC" to the date of the locale, the time and a GMT offset name. A track of one hour or more changes from "62:05" to "1:02:05".
+
+Percentages in `src/view_models/`: one, `value_route_split_label` in `track_metadata_grid.rs`. It gives the split with "%" and no decimal place. Task 004 owns it, so it is not changed. `src/metadata.rs:878` has "{}% local" for a match score. It is outside `src/view_models/` and is not changed.
+
+Open points: a zero offset gives "GMT+0" and not "GMT" in the live schedule. `src/view_models/show.rs` has `%m-%d %H:%M` date texts that this guard does not cover.
+
+Release binary: 95633448 bytes with the change, built in a separate folder. The base `target/release/hitit` is 92857984 bytes from an earlier commit. The growth is 2775464 bytes (2.65 MiB).
+
+Checks: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` and `cargo build --bin hitit` pass.
+
+## Primary Agent Check - 2026-11-16
+
+- The primary agent read the diff and ran the gate: fmt, clippy, 3174 lib tests, 413 architecture tests and `cargo build --bin hitit` pass.
+- The `clock` feature of `chrono` was on before this task, through a different dependency. The lock file adds only the `icu_datetime` family.
+- Unit tests use `en-US` and UTC through `cfg!(test)` in `system_locale` and `local_offset_secs`. The tests of the `_in` functions give the locale and the offset.
+- The live schedule shows "GMT+0" for an offset of zero. This is the text of the ICU zone format.
+- Open point: `src/view_models/show.rs` has two `%m-%d %H:%M` patterns. They have no month name, so the guard does not include them. This packet does not include them.
+- Agent walk on the Xvfb display, debug binary, `LANG=fr_FR.UTF-8`: the Releases list shows "4 nov. to 13 nov.", and the release page "Waltz Tunes Volume 2" shows "12 nov. 2026" and "1 h 16 min". V2: Pass. Before this task, the English page showed "Nov 13, 2026". After this task, the day is the local day, and the time zone of this machine is west of UTC.

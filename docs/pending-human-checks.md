@@ -749,3 +749,14 @@ Task: [ADR 0101 task 005](tasks/adr-0101-task-005-system-accessibility-settings.
 - Incorrect: HitIt needs a restart, an icon continues to turn, or a separator is not clear.
 
 Agent check, 2026-11-16: the mechanical tests pass. The Xvfb display has no desktop settings, so the agent did not walk V1 to V3.
+
+## 28. ADR 0101 Task 006 Dates In The System Language - 2026-11-16
+
+Task: [ADR 0101 task 006](tasks/adr-0101-task-006-dates-in-the-system-language.md).
+
+- V1: with the system language English, a release page shows its date as "Nov 12, 2026". The day is the day in your time zone.
+- V2: start HitIt with `LANG=fr_FR.UTF-8`. A release page shows the date in French, for example "12 nov. 2026".
+- V3: a playlist of more than one hour shows "1 h 12 min" and not "1h 12m".
+- Incorrect: a date is in English with a French system language, or a total time shows "1h 12m".
+
+Agent walk, 2026-11-16: V2 passes on the Xvfb display. V1 and V3 are open.

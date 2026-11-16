@@ -4002,7 +4002,7 @@ pub fn track_title(track: &Track) -> String {
 }
 
 pub fn fmt_dur(secs: i32) -> String {
-    format!("{}:{:02}", secs / 60, secs % 60)
+    crate::view_models::format::fmt_duration(i64::from(secs))
 }
 
 pub fn fmt_ms(ms: i64) -> String {
@@ -4026,17 +4026,11 @@ pub fn join_line_values(values: &[String]) -> Option<String> {
 }
 
 pub fn fmt_runtime(total_secs: i32) -> String {
-    let hours = total_secs / 3600;
-    let minutes = (total_secs % 3600) / 60;
-    if hours > 0 {
-        format!("{hours} h {minutes} min")
-    } else {
-        format!("{minutes} min")
-    }
+    crate::view_models::format::fmt_runtime(total_secs)
 }
 
 pub fn fmt_date(ts: i64) -> Option<String> {
-    chrono::DateTime::from_timestamp(ts, 0).map(|dt| dt.format("%b %-d, %Y").to_string())
+    crate::view_models::format::fmt_date(ts)
 }
 
 pub fn id3_frame_version(frame_id: &str) -> Id3FrameVersion {

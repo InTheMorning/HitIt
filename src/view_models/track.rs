@@ -7,6 +7,8 @@
 
 #![warn(clippy::pedantic)]
 
+use crate::view_models::format::fmt_duration;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[must_use]
 pub struct TrackHeaderVm {
@@ -14,11 +16,11 @@ pub struct TrackHeaderVm {
     pub artist: String,
 }
 
-/// Format a duration in seconds as `"M:SS"`. Matches the legacy
-/// `search::fmt_dur` contract exactly.
+/// Formats a duration in seconds as `"m:ss"`, or as `"h:mm:ss"` from one
+/// hour (R-DATE-1 item 2). The shared formatter is [`fmt_duration`].
 #[must_use]
 pub fn fmt_dur(secs: i32) -> String {
-    format!("{}:{:02}", secs / 60, secs % 60)
+    fmt_duration(i64::from(secs))
 }
 
 #[cfg(test)]
@@ -29,6 +31,6 @@ mod tests {
     fn fmt_dur_pads_seconds_below_ten() {
         assert_eq!(fmt_dur(65), "1:05");
         assert_eq!(fmt_dur(0), "0:00");
-        assert_eq!(fmt_dur(3725), "62:05");
+        assert_eq!(fmt_dur(3725), "1:02:05");
     }
 }

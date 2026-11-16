@@ -12,6 +12,7 @@
 
 use crate::api::LiveItem;
 use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
+use crate::view_models::format::fmt_date_time_zone;
 use crate::view_models::index_name_list::{IndexListStatusRowVm, IndexNameList, IndexNameListPage};
 use crate::view_models::library::{DestinationListRowTarget, DestinationListRowVm};
 use crate::view_models::list_selection::RowSelectionVm;
@@ -208,24 +209,30 @@ fn is_web_link(url: &str) -> bool {
     host.is_some_and(|host| !host.is_empty() && !host.chars().any(char::is_whitespace))
 }
 
-/// The scheduled time of a live item as text, in UTC (ADR 0089 packet 011).
+/// The scheduled time of a live item as text, in the language and the local
+/// time zone of the system (ADR 0089 packet 011, R-DATE-1).
 /// A time out of range gives no words. The text is empty when neither time
 /// is known.
 #[must_use]
 pub(crate) fn live_schedule_text(start: Option<i64>, end: Option<i64>) -> String {
-    let start = start.and_then(utc_text);
-    let end = end.and_then(utc_text);
+    schedule_text(start, end, fmt_date_time_zone)
+}
+
+/// The schedule text with the formatter of one time. Tests give a formatter
+/// with a fixed locale and a fixed time zone.
+fn schedule_text(
+    start: Option<i64>,
+    end: Option<i64>,
+    format_time: impl Fn(i64) -> Option<String>,
+) -> String {
+    let start = start.and_then(&format_time);
+    let end = end.and_then(&format_time);
     match (start, end) {
         (Some(start), Some(end)) => format!("Starts {start}, ends {end}"),
         (Some(start), None) => format!("Starts {start}"),
         (None, Some(end)) => format!("Ends {end}"),
         (None, None) => String::new(),
     }
-}
-
-fn utc_text(timestamp: i64) -> Option<String> {
-    chrono::DateTime::from_timestamp(timestamp, 0)
-        .map(|time| time.format("%b %-d, %H:%M UTC").to_string())
 }
 
 fn non_empty(value: Option<&str>) -> Option<&str> {
@@ -235,6 +242,7 @@ fn non_empty(value: Option<&str>) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::view_models::format::fmt_date_time_zone_in;
     use crate::view_models::index_name_list::IndexNameListBatch;
 
     fn item(feed: Option<&str>, title: Option<&str>, link: Option<&str>) -> LiveItem {
@@ -283,7 +291,9 @@ mod tests {
         assert_eq!(row.row.label, "Tonight's Listening Party");
         assert_eq!(row.row.secondary_text, "Late Night Feed");
         assert_eq!(row.type_word, "Live");
-        assert_eq!(row.when, "Starts Mar 13, 01:00 UTC");
+        // The text depends on the language and the time zone of the system.
+        assert_eq!(row.when, live_schedule_text(Some(1_710_291_600), None));
+        assert!(row.when.starts_with("Starts "), "{}", row.when);
         assert_eq!(
             row.row.open,
             DestinationListRowTarget::Release(ReleaseKey::from_index_feed_guid("feed-guid"))
@@ -411,15 +421,24 @@ mod tests {
         assert!(row.row.marked);
     }
 
-    /// ADR 0089 packet 011: the schedule text names each known time.
+    /// ADR 0089 packet 011: the schedule text names each known time. R-DATE-1
+    /// item 1: the text has the date of the locale and the time zone name.
     #[test]
     fn adr_0089_live_schedule_text_names_each_known_time() {
-        assert_eq!(live_schedule_text(None, None), "");
-        assert_eq!(live_schedule_text(Some(0), None), "Starts Jan 1, 00:00 UTC");
-        assert_eq!(live_schedule_text(None, Some(0)), "Ends Jan 1, 00:00 UTC");
+        let english: icu_locale_core::Locale = "en-US".parse().expect("a locale");
+        let utc = |ts| fmt_date_time_zone_in(ts, &english, 0);
+        assert_eq!(schedule_text(None, None, utc), "");
         assert_eq!(
-            live_schedule_text(Some(0), Some(3600)),
-            "Starts Jan 1, 00:00 UTC, ends Jan 1, 01:00 UTC"
+            schedule_text(Some(0), None, utc),
+            "Starts Jan 1, 1970, 12:00\u{202f}AM GMT+0"
+        );
+        assert_eq!(
+            schedule_text(None, Some(0), utc),
+            "Ends Jan 1, 1970, 12:00\u{202f}AM GMT+0"
+        );
+        assert_eq!(
+            schedule_text(Some(0), Some(3600), utc),
+            "Starts Jan 1, 1970, 12:00\u{202f}AM GMT+0, ends Jan 1, 1970, 1:00\u{202f}AM GMT+0"
         );
     }
 }

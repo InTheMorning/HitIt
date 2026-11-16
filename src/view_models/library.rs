@@ -52,7 +52,7 @@ use crate::view_models::entity_detail::{
     EntityActionTarget, EntityActionVm, ReleaseMembershipState, TrackActionState,
     TrackMembershipState,
 };
-use crate::view_models::format::{fmt_date, fmt_total_runtime_clock, plural};
+use crate::view_models::format::{fmt_date, fmt_duration, fmt_total_time, plural};
 use crate::view_models::inbox::{order_problem_tracks, update_items, InboxPageVm, InboxSetupItem};
 use crate::view_models::index_feed_singles::IndexFeedSingles;
 use crate::view_models::index_name_list::{
@@ -2502,7 +2502,7 @@ fn album_total_duration_label(album: &AlbumNode) -> Option<String> {
         .iter()
         .filter_map(|track| track.duration_seconds)
         .sum();
-    fmt_total_runtime_clock(seconds)
+    fmt_total_time(seconds)
 }
 
 /// The release row of one Library album, with its download-state icon
@@ -6245,14 +6245,14 @@ impl<'a> LibraryTrackRowVm<'a> {
             .unwrap_or_default()
     }
 
-    /// Trailing `"  (M:SS)"` segment, empty when there is no
+    /// Trailing `"  (m:ss)"` segment, empty when there is no
     /// duration.
     #[cfg(test)]
     #[must_use]
     pub(crate) fn duration_suffix(&self) -> String {
         self.track
             .duration_seconds
-            .map(|s| format!("  ({}:{:02})", s / 60, s % 60))
+            .map(|s| format!("  ({})", fmt_duration(s)))
             .unwrap_or_default()
     }
 
@@ -7118,12 +7118,12 @@ impl<'a> PlaylistTrackRowVm<'a> {
             .to_string()
     }
 
-    /// `"M:SS"` formatted duration, or `""` when the track has none.
+    /// `"m:ss"` formatted duration, or `""` when the track has none.
     #[must_use]
     pub(crate) fn duration_label(&self) -> String {
         self.track
             .duration_seconds
-            .map(|s| format!("{}:{:02}", s / 60, s % 60))
+            .map(fmt_duration)
             .unwrap_or_default()
     }
 
@@ -7313,12 +7313,11 @@ impl<'a> PlaylistDetailVm<'a> {
             .sum()
     }
 
-    /// `"M:SS"` for short playlists, `"Hh Mm"` once total runtime
-    /// crosses an hour, or `None` when the total is zero (no track
-    /// has a known duration). Matches the legacy renderer exactly.
+    /// `"41 min"`, or `"1 h 12 min"` from one hour (R-DATE-1 item 3), or
+    /// `None` when the total is zero (no track has a known duration).
     #[must_use]
     pub(crate) fn total_duration_label(&self) -> Option<String> {
-        fmt_total_runtime_clock(self.total_duration_seconds())
+        fmt_total_time(self.total_duration_seconds())
     }
 
     /// Detail-grid rows in display order.
@@ -8384,7 +8383,7 @@ mod tests {
         let tracks = [t1, t2];
         let vm = PlaylistDetailVm::new(&pl, &tracks);
         assert_eq!(vm.total_duration_seconds(), 305);
-        assert_eq!(vm.total_duration_label().as_deref(), Some("5:05"));
+        assert_eq!(vm.total_duration_label().as_deref(), Some("5 min"));
     }
 
     #[test]
@@ -8395,7 +8394,7 @@ mod tests {
         t.duration_seconds = Some(4980);
         let tracks = [t];
         let vm = PlaylistDetailVm::new(&pl, &tracks);
-        assert_eq!(vm.total_duration_label().as_deref(), Some("1h 23m"));
+        assert_eq!(vm.total_duration_label().as_deref(), Some("1 h 23 min"));
     }
 
     #[test]
@@ -8417,7 +8416,7 @@ mod tests {
         let rows = vm.detail_rows();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0], ("Tracks".into(), "1".into()));
-        assert_eq!(rows[1], ("Duration".into(), "1:00".into()));
+        assert_eq!(rows[1], ("Duration".into(), "1 min".into()));
     }
 
     #[test]

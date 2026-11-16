@@ -8,7 +8,7 @@
 
 #![warn(clippy::pedantic)]
 
-use crate::view_models::format::fmt_total_runtime_clock;
+use crate::view_models::format::fmt_duration;
 use crate::view_models::text_filter::{contains_normalized, normalize};
 use crate::view_models::workspace::FrameChromeButtonDisplay;
 
@@ -231,7 +231,10 @@ impl QueueRowDisplay {
             .title
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| "Untitled track".to_string());
-        let duration_label = input.duration_seconds.and_then(fmt_total_runtime_clock);
+        let duration_label = input
+            .duration_seconds
+            .filter(|seconds| *seconds > 0)
+            .map(fmt_duration);
         let a11y_label = queue_row_a11y_label(
             &title,
             input.artist.as_deref(),

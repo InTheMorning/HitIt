@@ -21,6 +21,7 @@ use crate::broadcast::{
     live_value::live_value_uri,
 };
 use crate::runtime::{broadcast_service_watch, BroadcastReadinessSnapshot};
+use crate::view_models::format::fmt_duration;
 use crate::view_models::queue_now_playing::{
     QueueNowPlayingPageVm, QueueRowDisplay, TransportState,
 };
@@ -2897,14 +2898,7 @@ const fn stream_action_availability(available: bool) -> StreamActionAvailability
 }
 
 fn elapsed_label(seconds: u64) -> String {
-    let hours = seconds / 3_600;
-    let minutes = (seconds % 3_600) / 60;
-    let seconds = seconds % 60;
-    if hours > 0 {
-        format!("{hours}:{minutes:02}:{seconds:02}")
-    } else {
-        format!("{minutes}:{seconds:02}")
-    }
+    fmt_duration(i64::try_from(seconds).unwrap_or(i64::MAX))
 }
 
 fn service_actions(

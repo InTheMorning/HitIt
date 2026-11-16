@@ -25008,3 +25008,33 @@ then run `python3 {} --bar-from 0100 .` again.\n{}{}",
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// Situational: owner: musicindex ADR 0023 R-DATE-1, applied to HitIt by ADR
+/// 0101 Decision 11. Dates are in the language of the system. A view model
+/// that formats a month name with a chrono pattern gives English text. The
+/// formatters of `src/view_models/format.rs` are the one owner of each date
+/// text. Delete this guard when ADR 0101 Decision 11 no longer gives the
+/// rule.
+#[test]
+fn adr_0101_dates_guard_no_view_model_formats_a_month_name_outside_format_rs() {
+    let mut violations = Vec::new();
+    for path in rust_files_under("src/view_models") {
+        let rel = rel_path(&path);
+        if rel == "src/view_models/format.rs" {
+            continue;
+        }
+        for (index, line) in read_source(&path).lines().enumerate() {
+            if line.contains("format(\"%b") {
+                violations.push(format!("{rel}:{}", index + 1));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "musicindex ADR 0023 R-DATE-1 (HitIt ADR 0101 Decision 11): a view model must not \
+call format(\"%b ...) on a date. That pattern gives English month names. \
+Call fmt_date, fmt_month_day or fmt_date_time_zone of src/view_models/format.rs. \
+Add a formatter there when none fits. Violations:\n{}",
+        violations.join("\n")
+    );
+}

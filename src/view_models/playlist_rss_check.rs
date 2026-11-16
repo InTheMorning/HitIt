@@ -23,6 +23,7 @@ use crate::runtime::{
     RssCheckRunState, RssCheckTrigger, RssFeedCheck, RssFeedOutcome, RssField, StoppedHost,
     StoredDifference,
 };
+use crate::view_models::format::fmt_duration;
 
 /// The podping.me page. ADR 0075 Decision I and ADR 0076 Decision 4 direct
 /// the operator there. The app sends no podping.
@@ -550,7 +551,7 @@ fn value_text(field: RssField, value: Option<&Value>) -> String {
         },
         (RssField::Duration, value) => value["seconds"].as_i64().map_or_else(
             || value["raw"].as_str().unwrap_or("no value").to_owned(),
-            |seconds| format!("{}:{:02}", seconds / 60, seconds % 60),
+            fmt_duration,
         ),
         (RssField::Date, value) => value["text"].as_str().map_or_else(
             || {
