@@ -39,6 +39,7 @@ ADR 0101 Decision 12 gives the sequence. The packet numbers follow it.
 | [010](../tasks/adr-0101-task-010-selected-look.md) | The selected look: a gradient, an inner edge and a highlight | R-SELECT-1 | Waits for 001 |
 | [011](../tasks/adr-0101-task-011-main-action.md) | The main action in a glow header uses the text color. No next curation step is filled | R-ACT-7, R-PAGE-2 item 2 | Waits for 002 |
 | [012](../tasks/adr-0101-task-012-light-levels-on-surfaces.md) | The group level and the open entry level on the surfaces. The floating layer in Light | R-ELEVATION-1, R-ELEVATION-2 | Waits for 001 |
+| [013](../tasks/adr-0101-task-013-sheets-fit-the-window.md) | Each sheet, dialog, menu and popover fits the window less the window margin | R-SHEET-1 | Waits for ADR 0097 task 005 |
 
 Each packet changes many views. Thus one coding agent works at a time on this phase (CLAUDE.md, one agent for each set of files). Packets 002 to 012 can run in a different order when the operator asks, but these orders are fixed:
 
@@ -51,10 +52,11 @@ Each packet changes many views. Thus one coding agent works at a time on this ph
 ADR 0101 Decision 12 item 3 puts these packets after the token packet. This plan gives their place:
 
 1. [ADR 0097 tasks 003 to 005](../tasks/adr-0097-task-003-item-pages-fit.md), the fit tests of the item pages, the Settings and the sheets, come right after packet 001. They find the faults of the new type sizes, for example a clipped page title, before the surface packets change the same views.
-2. [ADR 0097 task 006](../tasks/adr-0097-task-006-each-text-and-control-records-a-probe.md) comes after them.
-3. [ADR 0093 task 001](../tasks/adr-0093-task-001-settings-tab-row-and-rows.md), the Settings tab row, comes after packet 010, because the tab row uses the selected look.
-4. [ADR 0069 task 002](../tasks/adr-0069-task-002-shared-guarded-editor.md), the editor, comes after ADR 0093 task 001. Its Save bar shows "Saved, not written" in the bar (R-NOTICE-1 item 1).
-5. [ADR 0094 tasks 001 and 002](../tasks/adr-0094-task-001-fold-header-composite.md) wait until the operator or the orchestrator gives their sequence.
+2. Packet 013 comes after ADR 0097 task 005. Task 005 adds the sheet check of musicindex ADR 0077 R-SHEET-2 and marks the width faults that it finds. Packet 013 corrects them.
+3. [ADR 0097 task 006](../tasks/adr-0097-task-006-each-text-and-control-records-a-probe.md) comes after packet 013.
+4. [ADR 0093 task 001](../tasks/adr-0093-task-001-settings-tab-row-and-rows.md), the Settings tab row, comes after packet 010, because the tab row uses the selected look.
+5. [ADR 0069 task 002](../tasks/adr-0069-task-002-shared-guarded-editor.md), the editor, comes after ADR 0093 task 001. Its Save bar shows "Saved, not written" in the bar (R-NOTICE-1 item 1).
+6. [ADR 0094 tasks 001 and 002](../tasks/adr-0094-task-001-fold-header-composite.md) wait until the operator or the orchestrator gives their sequence.
 
 ## Visual Defects That Move Into This Phase
 

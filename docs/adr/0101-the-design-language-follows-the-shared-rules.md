@@ -9,7 +9,7 @@ Accepted - 2026-11-15. The operator accepted this ADR on 2026-11-15, and the orc
 
 Operator choice, 2026-11-15: HitIt adopts musicindex ADR 0045 R-ACT-7 for the main action ([Decision 5](#5-actions-have-a-hierarchy)). HitIt keeps the focus ring of 2 px with no gap ([Decision 1](#1-the-palette)). musicindex ADR 0073 R-FOCUS-2 (musicindex commit `785ae28`) gives this ring to Studio and HitIt. It replaces musicindex ADR 0068 R-SCALE-4 item 6.
 
-Operator choice, 2026-11-15, relayed by the orchestrator session: HitIt adopts musicindex ADR 0075 R-VALUE-4 and R-VALUE-5 (musicindex commit `bf58554`). R-VALUE-5 replaces R-VALUE-1 item 1. HitIt also adopts musicindex ADR 0076 R-ADDRESS-1 to R-ADDRESS-3 (musicindex commit `a08dc01`). The crate `musicindex-value` gives the split arithmetic and the short form of an address ([Decision 2](#2-color-roles-do-not-mix), [Decision 11](#11-hitit-adopts-these-shared-rules)).
+Operator choice, 2026-11-15, relayed by the orchestrator session: HitIt adopts musicindex ADR 0075 R-VALUE-4 and R-VALUE-5 (musicindex commit `bf58554`). R-VALUE-5 replaces R-VALUE-1 item 1. HitIt also adopts musicindex ADR 0076 R-ADDRESS-1 to R-ADDRESS-3 (musicindex commit `a08dc01`) and musicindex ADR 0077 R-SHEET-1 and R-SHEET-2 (musicindex commit `ff65fb9`). The crate `musicindex-value` gives the split arithmetic and the short form of an address ([Decision 2](#2-color-roles-do-not-mix), [Decision 11](#11-hitit-adopts-these-shared-rules)).
 
 ## Context
 
@@ -173,6 +173,7 @@ HitIt adopts the rules in this table, at musicindex commit `3baa6f0`. musicindex
 | 0063, the check box | R-CHECK-1 to R-CHECK-8 | None |
 | 0075, the split code and the fee of a split | R-VALUE-4, R-VALUE-5, at musicindex commit `bf58554`. R-VALUE-5 replaces R-VALUE-1 item 1 | None |
 | 0076, the short form of a long address | R-ADDRESS-1 to R-ADDRESS-3, at musicindex commit `a08dc01` | None |
+| 0077, a sheet fits the window | R-SHEET-1, R-SHEET-2, at musicindex commit `ff65fb9`. R-SHEET-2 replaces R-FIT-2 item 4 of musicindex ADR 0065. ADR 0097 task 005 makes the check | None |
 | 0071, the edge indicator | R-EDGE-3, the token copy | R-EDGE-1 and R-EDGE-2. HitIt keeps its desktop tab bar |
 
 [ADR 0098](0098-the-music-shell-pages-lists-and-search.md), [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md), [ADR 0094](0094-one-fold-header.md) and [ADR 0097](0097-the-fit-check-at-two-widths.md) adopt other shared rules. They stay the owners of those adoptions. musicindex ADRs 0022, 0028, 0032, 0042, 0056, 0064 and 0073 are not in the list of the orchestrator brief. ADR 0073 records the operator choice of the focus ring. ADR 0083 adopted 0022, 0028, 0032, 0042 and 0064, so this ADR restates those adoptions. It adopts 0056, because HitIt builds R-SIDE-1 and no HitIt ADR adopts it.
