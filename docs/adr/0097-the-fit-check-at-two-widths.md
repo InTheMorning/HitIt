@@ -8,7 +8,7 @@ Accepted - 2026-11-13. The operator selected the narrowest width and the text sy
 
 ## Context
 
-[musicindex ADR 0065](../../../musicindex/docs/adr/0065-each-app-checks-its-fit-at-two-widths.md), Accepted on 2026-11-13, makes each app check its fit at two widths. R-FIT-2 gives the two widths. R-FIT-3 gives the faults: a break inside a word, an edge cut, an overflow and an overlap. The overlap, and the overflow of a text out of its own box, came with the R-FIT-3 change of 2026-11-13. R-FIT-4 item 2 makes HitIt do the check as GPUI layout tests. musicindex ADR 0065 leaves the narrowest width of HitIt to this app (musicindex ADR 0069 R-FIT-1 item 1).
+[musicindex ADR 0065](../../../musicindex/docs/adr/0065-each-app-checks-its-fit-at-two-widths.md), Accepted on 2026-11-13, makes each app check its fit at two widths. R-FIT-2 gives the two widths. R-FIT-3 gives the faults: a break inside a word, an edge cut, an overflow and an overlap. The overlap, and the overflow of a text out of its own box, came with the R-FIT-3 change of 2026-11-13. R-FIT-4 item 2 makes HitIt do the check as GPUI layout tests. musicindex ADR 0065 leaves the narrowest width of HitIt to this app (musicindex ADR 0080 R-FIT-1 item 1).
 
 These facts about HitIt and gpui-pre 0.3.1 control the design:
 
@@ -23,7 +23,7 @@ These facts about HitIt and gpui-pre 0.3.1 control the design:
 
 ### 1. The narrowest supported width is 390 px
 
-1. The narrowest supported window width of HitIt is 390 px. This is the narrowest width of musicindex ADR 0069 R-FIT-1 item 1 for HitIt.
+1. The narrowest supported window width of HitIt is 390 px. This is the narrowest width of musicindex ADR 0080 R-FIT-1 item 1 for HitIt.
 2. The window sets `window_min_size` to a width of 390 px, so the app cannot become narrower. The constant is in `src/ui/layouts.rs`. This record gives no minimum height.
 
 ### 2. The two widths of the check
@@ -55,7 +55,7 @@ The message of each fault names musicindex ADR 0065 R-FIT-3, the fault, the widt
 
 ```text
 musicindex ADR 0065 R-FIT-3: at 940 px the label "Public playlists" breaks inside a word.
-Give the label more width, make the text shorter, or let the row wrap between the controls (musicindex ADR 0069 R-FIT-1 item 2).
+Give the label more width, make the text shorter, or let the row wrap between the controls (musicindex ADR 0080 R-FIT-1 item 2).
 ```
 
 ### 6. The phases

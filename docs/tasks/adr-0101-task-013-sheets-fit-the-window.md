@@ -13,7 +13,7 @@ Each sheet, dialog, menu and popover is not wider than the window less the windo
   1. A sheet is not wider than the window. Its width is the smaller of two values: its design width, and the window width less the window margin on each side.
   2. Each child of a sheet can become narrower than its content. A field, a select or a button row has no fixed width that is larger than the sheet.
   3. Text wraps between words. A node key or an npub uses the short form of musicindex ADR 0076 R-ADDRESS-1. Other text with no break point, for example a URL, has the break attribute of musicindex ADR 0065 R-FIT-3 item 3.
-  4. A row of fields or buttons that does not fit wraps to the next line (musicindex ADR 0069 R-FIT-1 item 2).
+  4. A row of fields or buttons that does not fit wraps to the next line (musicindex ADR 0080 R-FIT-1 item 2).
   5. A sheet scrolls only vertically. It has no horizontal scroll.
 - musicindex ADR 0077 R-SHEET-1 item 1 also lets a bottom sheet in a narrow window be as wide as the window. Then the window margin is its inner padding. No HitIt sheet is a bottom sheet, because Inspect Sources opens at the right edge. Do not change a sheet into a bottom sheet in this packet.
 - musicindex ADR 0068 R-SPACE-1 item 2: the window margin is 16 px in a narrow window and 20 px in a wide window. For HitIt, narrow is below 940 px. This is an inference of the orchestrator.

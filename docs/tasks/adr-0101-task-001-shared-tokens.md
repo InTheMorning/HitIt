@@ -48,7 +48,7 @@ Main session choice, 2026-11-15: two new spacing roles give 20 and 48. `LGPlus` 
 
 ## Required Changes
 
-1. **The focus color.** Set `Focus` to `#2d7bff` dark and `#005bd3` light. Replace the comment "Derived: reuses AccentHover" with a comment that cites musicindex ADR 0069 R-TOKEN-1. Do not change the high-contrast profiles.
+1. **The focus color.** Set `Focus` to `#2d7bff` dark and `#005bd3` light. Replace the comment "Derived: reuses AccentHover" with a comment that cites musicindex ADR 0080 R-TOKEN-1. Do not change the high-contrast profiles.
 2. **The type sizes.** Set Title2 to 22, Title to 26 and Display to 42, as the main session choice gives. Update the doc comment of each changed role. Keep the per-role scale endpoints of ADR 0039 (`src/ui/layouts.rs:145` to `:156`) unless a test of ADR 0039 fails. If one fails, stop and ask.
 3. **The page titles.** An album, track or playlist page title uses `FontSize::Title` (26, Large Title) in bold. An artist or label page title uses `FontSize::Display` (42) in bold. Examine each caller of `title_size` and the track page header. Change the size of each caller that does not agree. Update the doc comment of `title_size`. Report each caller with its page kind and its size.
 4. **The radii.** Set SM 6, MD 10, LG 12 and XL 20, and add `Sheet` 24, as the main session choice gives. Update each doc comment. Find each sheet surface that sets `Radius::LG`, for example the confirmation dialog and the Inspect Sources sheet, and give it `Radius::Sheet`. Report each sheet that you changed.

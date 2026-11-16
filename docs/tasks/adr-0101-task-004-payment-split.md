@@ -9,7 +9,7 @@ A track page and a release page show the payment split of the item in one sectio
 ## Authority
 
 - [ADR 0101](../adr/0101-the-design-language-follows-the-shared-rules.md) Decision 2, "Value", owns this packet. Read Decisions 2 and 12 before the first edit.
-- musicindex ADR 0069 R-VALUE-1 and R-VALUE-2 (`../musicindex/docs/adr/0069-the-interface-rules-and-the-shell-of-the-three-apps.md` lines 59 to 77, at musicindex `785ae28`):
+- musicindex ADR 0080 R-VALUE-1 and R-VALUE-2 (musicindex commit `72b4e4a`). ADR 0080 keeps the rule IDs of the archived musicindex ADR 0069:
   - R-VALUE-1 item 1 is replaced. Use R-VALUE-5 of musicindex ADR 0075.
   - R-VALUE-1 item 2: a fee shows apart from the other recipients, with the word "fee".
   - R-VALUE-1 item 3: the total is not always 100. The raw share is also available, for example in a tooltip.

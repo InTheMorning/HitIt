@@ -57,7 +57,7 @@ This record was written for the three sections of ADR 0060. ADR 0089, Accepted o
 
 These facts come from the accepted record. This revision does not change them.
 
-- The panel of musicindex ADR 0069 R-SHELL-1 item 5 is on the right. It shows only while something plays or a show is live (ADR 0098 Decision 18).
+- The panel of musicindex ADR 0080 R-SHELL-1 item 5 is on the right. It shows only while something plays or a show is live (ADR 0098 Decision 18).
 - The panel holds the current track, the transport, a seek control and Up Next. The transport and Up Next move there from the Show page (ADR 0098 Decision 18).
 - Play stays on the current page and opens the panel (ADR 0098 Decision 18).
 - The main action of an album or a track in the Library is Play (ADR 0098 Decision 15).
@@ -84,7 +84,7 @@ The operator accepted each recommendation below on 2026-11-11. Each recommendati
    - A: Show only. An audition gets its own small control, apart from the panel.
    - B: Both, in two parts with labels. The Show part has the cue entry, the transport, the seek control and Up Next. The Audition part has the track, Pause, a seek control and Stop. Each part shows only while its player plays, or while a show is live for the Show part. Each part sends only its own commands.
 
-   Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. On 2026-11-11 the orchestrator session examined musicindex ADR 0069 R-SHELL-1 item 5. The rule does not limit the panel to one track or one player, so B needs no musicindex record. Two parts in one panel are one pane, so B also agrees with item 6.
+   Recommendation: B. The curator then finds each sound that plays in one place. The typed commands keep the isolation, so the place of the controls does not weaken it. On 2026-11-11 the orchestrator session examined musicindex ADR 0069 R-SHELL-1 item 5, now musicindex ADR 0080 R-SHELL-1 item 5. The rule does not limit the panel to one track or one player, so B needs no musicindex record. Two parts in one panel are one pane, so B also agrees with item 6.
 
 2. **What does Play on an album do?** The text below gives an audition one track, and the end of that track stops it. ADR 0098 Decision 15 makes Play the main action of an album.
    - A: Play auditions the first track only.

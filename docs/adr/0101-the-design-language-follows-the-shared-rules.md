@@ -47,7 +47,7 @@ The theme profiles use these values. Dark is the default. Each value is a named 
 - **Dark levels.** The dark levels stay: background `#0b0b0d`, surface `#1c1c1f` and raised surface `#26262a`.
 - **Light levels.** The light levels obey musicindex ADR 0045 R-ELEVATION-2. The light page is white. This corrects ADR 0083 line 161, which gave the page `#f2f2f7` from the earlier R-ELEVATION-1.
 - **Light level values.** R-ELEVATION-2 gives three levels: the page `#ffffff`, a group or a card `#f2f2f7`, and an open entry in a group `#ffffff`. In light, a popover, a menu and a sheet have `#ffffff` with the shadow of R-ELEVATION-1. The open entry is not `#ececef`, because the status text `#1a7f37` has only 4.31:1 on it. The light raised surface is not a level. The orchestrator session read these values in musicindex at `3baa6f0` on 2026-11-15.
-- **Focus.** One focus token, `#2d7bff` dark and `#005bd3` light (musicindex ADR 0069 R-TOKEN-1). The accent is not the focus color.
+- **Focus.** One focus token, `#2d7bff` dark and `#005bd3` light (musicindex ADR 0080 R-TOKEN-1). The accent is not the focus color.
 - **Focus ring.** The focus ring is 2 px with no gap, an inset border (`src/ui/layouts.rs:29`). musicindex ADR 0073 R-FOCUS-2 (musicindex commit `785ae28`) gives this ring to Studio and HitIt. The token `focus-ring.hitit` of musicindex-assets `b8399cc` gives width 2 and offset 0.
 - **High contrast.** The high-contrast profiles keep their own values and their contrast tests. The system setting selects them (Decision 11, R-A11Y-1).
 
@@ -56,9 +56,9 @@ The theme profiles use these values. Dark is the default. Each value is a named 
 Each color has one meaning:
 
 - **Accent** marks the selected item and a link.
-- **Status** colors mark success, warning, danger and information. musicindex ADR 0068 R-STATUS-1 gives the values, and musicindex ADR 0069 R-TOKEN-1 gives danger and its tint. Danger also marks a destructive action. In the dark profile, the warning color is orange, as in the light profile.
+- **Status** colors mark success, warning, danger and information. musicindex ADR 0068 R-STATUS-1 gives the values, and musicindex ADR 0080 R-TOKEN-1 gives danger and its tint. Danger also marks a destructive action. In the dark profile, the warning color is orange, as in the light profile.
 - **Entity** colors mark a stated entity kind: feed, track, playlist, artist, publisher, label and the other kinds of the website. They show as a dot, and musicindex ADR 0032 R-DOT-1 sets the dimensions of the dot and the hollow dot. `src/assets/tokens.json` gives the entity values that R-DOT-2 checks. A dot is never a filled text badge. Live red is reserved for a live item.
-- **Value** marks the shares of a payment split. musicindex ADR 0069 R-VALUE-2 gives one row for each recipient and one summary bar in the share color, `#2d7bff` dark and `#1a56c0` light. musicindex ADR 0075 R-VALUE-5 gives the percentage of each share, with a fee share in the total. musicindex ADR 0076 R-ADDRESS-1 gives the short form of a node key or an npub in a row. HitIt calls the crate `musicindex-value` for both, and it has no copy of the code (R-VALUE-4, R-ADDRESS-3).
+- **Value** marks the shares of a payment split. musicindex ADR 0080 R-VALUE-2 gives one row for each recipient and one summary bar in the share color, `#2d7bff` dark and `#1a56c0` light. musicindex ADR 0075 R-VALUE-5 gives the percentage of each share, with a fee share in the total. musicindex ADR 0076 R-ADDRESS-1 gives the short form of a node key or an npub in a row. HitIt calls the crate `musicindex-value` for both, and it has no copy of the code (R-VALUE-4, R-ADDRESS-3).
 
 An entity color appears only when the source states the kind. A payment recipient has no stated kind, so a payment split never uses entity colors. Text always carries the meaning: a name, a word or a number. Color alone never does.
 
@@ -94,7 +94,7 @@ The renderer gets the header art from a view-model fact, for example a prepared 
 
 - A download action is a button of the role Secondary, because a download changes stored data (R-ACT-4 item 3, `ControlStyle::by_result` in `src/ui/control_styles.rs:139`). Until a track page has an audio action, it has no primary button. The download state icon of Decision 6 shows the download step.
 - Buttons and menu items use title case (musicindex ADR 0023 R-CASE-1), for example "Add to Playlist" and "Download Album". A label names a release by its kind ([ADR 0098](0098-the-music-shell-pages-lists-and-search.md) item map, ADR 0084 Decision 5).
-- A destructive item is last in its menu, after a divider. Its label ends with "…" (musicindex ADR 0026 R-ELLIPSIS-1 item 2). It has a red label on a red tint and is never filled. Its label names the result (musicindex ADR 0069 R-ACT-3).
+- A destructive item is last in its menu, after a divider. Its label ends with "…" (musicindex ADR 0026 R-ELLIPSIS-1 item 2). It has a red label on a red tint and is never filled. Its label names the result (musicindex ADR 0080 R-ACT-3).
 - A destructive item asks for a confirmation, except when the person can undo in the same view (R-ACT-3). The confirmation is a sheet with "Cancel" (musicindex ADR 0023 R-CONFIRM-1).
 - In a horizontal row of buttons, musicindex ADR 0064 R-ACT-8 applies. This includes a dialog, a bar and the buttons of a list entry. The destructive button is the leftmost button, a larger space follows it, and the safe action is the rightmost button. When a row has two destructive buttons and other buttons, the two destructive buttons are at the left end.
 - A row with only destructive buttons shows one button "Remove…" with a menu (R-ACT-10), for example the playlist row of a removed track.

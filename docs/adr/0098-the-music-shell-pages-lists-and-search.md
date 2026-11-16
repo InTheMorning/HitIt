@@ -22,7 +22,7 @@ The app has the name HitIt (ADR 0096). The six ADRs use the earlier name v4vmm. 
 
 ## Context
 
-musicindex ADR 0069 owns the shell, the back control, sort, view and the toolbar of the three apps. musicindex ADR 0028 owns the sections and the header actions of an item page. This ADR cites them, and does not state their rules again. It states only what those records leave to HitIt (R-LIST-1 item 6), and the Music rules of HitIt.
+musicindex ADR 0080 owns the shell, the back control, sort, view and the toolbar of the three apps. musicindex ADR 0028 owns the sections and the header actions of an item page. This ADR cites them, and does not state their rules again. It states only what those records leave to HitIt (R-LIST-1 item 6), and the Music rules of HitIt.
 
 Six ADRs held these rules from 2026-10-08 to 2026-11-06. ADR 0084 had five "Changed by" ADRs, more than the limit of three of the project-baseline skill. The archived ADRs keep the context, the operator answers and the rejected alternatives of each rule.
 
@@ -30,7 +30,7 @@ Six ADRs held these rules from 2026-10-08 to 2026-11-06. ADR 0084 had five "Chan
 
 ### 1. One Sidebar Holds Each Destination
 
-The shell is a stack of musicindex ADR 0069 R-SHELL-1: a list is a page at full width, and an item opens over it.
+The shell is a stack of musicindex ADR 0080 R-SHELL-1: a list is a page at full width, and an item opens over it.
 
 The sidebar is one list with no group labels. The toolbar has no section tabs.
 
@@ -343,7 +343,7 @@ One part of R-SITE-15 is not applied. The heading of a capped group gives its co
 
 ### 12. One Navigation Stack
 
-The Music content area has one navigation stack. Each page change goes into it: a sidebar click, a row, a link and a search. musicindex ADR 0069 R-NAV-2 gives Back and Forward.
+The Music content area has one navigation stack. Each page change goes into it: a sidebar click, a row, a link and a search. musicindex ADR 0080 R-NAV-2 gives Back and Forward.
 
 - A page shows the back icons and its title (R-TOOLBAR-1). No page shows a breadcrumb.
 - Back and Forward show a page at the scroll position that it had in that history entry. A new open of a page, by a sidebar click, a row, a link or a search, shows the page at the top.
@@ -376,7 +376,7 @@ The controls of the selection are in one list bar:
 
 Each page moves to the list bar in a packet of the [ADR 0090 phase plan](../plans/adr-0090-list-bar-phase-plan.md). Until its packet, a page keeps its earlier position: "Select" in the title row of the list page, and the action bar at the bottom of the list.
 
-A list page has its title row above its rows. A later packet decides if that row is the list bar, and checks musicindex ADR 0069 R-LIST-1 item 4 first. A change to that rule needs a record in `../musicindex`.
+A list page has its title row above its rows. A later packet decides if that row is the list bar, and checks musicindex ADR 0080 R-LIST-1 item 4 first. A change to that rule needs a record in `../musicindex`.
 
 ### 14. One Download Queue
 
@@ -680,7 +680,7 @@ Each row gives an item of a superseded ADR and its place in this ADR. "Not resta
 
 | Old item | New item |
 | --- | --- |
-| Decision 1, three columns, the collapsed sidebar and the column scrollbars | Not restated. musicindex ADR 0069 R-SHELL-1 replaced it on 2026-10-25. Decision 1 cites R-SHELL-1. The scroll to a focused button is an Invariant |
+| Decision 1, three columns, the collapsed sidebar and the column scrollbars | Not restated. musicindex ADR 0069 R-SHELL-1, now musicindex ADR 0080 R-SHELL-1, replaced it on 2026-10-25. Decision 1 cites R-SHELL-1. The scroll to a focused button is an Invariant |
 | Decision 2, the destinations | Not restated. ADR 0089 Decision 1 replaced it. See Decision 1 |
 | Decision 3, Music opens on Discover | Not restated. ADR 0089 replaced it. See Decisions 1 and 3 |
 | Decision 4, one page for each item | Decision 6 |

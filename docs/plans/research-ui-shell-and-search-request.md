@@ -36,7 +36,7 @@ commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 | The decisions that the mockups show | `../musicindex-research/research_notes/ui-design/mockups/README.md` |
 | The journeys study of HitIt, the layout reference | `../musicindex-research/sources/captures/2026-10-24-v4vmm-journeys/journeys/` |
 | The study compared with the cross-app rules | `../musicindex-research/research_notes/ui-design/v4vmm-journeys-comparison.md` |
-| The cross-app rules | musicindex ADRs 0021, 0022, 0023, 0026, 0068 and 0069 |
+| The cross-app rules | musicindex ADRs 0021, 0022, 0023, 0026, 0068 and 0080 |
 | The search filters of the Index | `docs/plans/hitit-open-requests.md`, request 10 |
 | The alternatives for Discover and for the edit of a saved search | `../musicindex-research/research_notes/ui-design/mockups/discover-options.html` |
 | Three feeds of the Index in the mockups, with their tracks and covers | `../musicindex-research/sources/captures/2026-10-24-heycitizen-feeds/` |
@@ -158,7 +158,7 @@ it filters the Library rows by the host of the feed URL.
   and ADR 0087 state. It is at most 640 px wide. Its width does not change
   when it gets the focus. The operator does not want the animation.
 - **The toolbar** has the `‹ ›` icons and the page title at the left, as
-  musicindex ADR 0069 R-NAV-1 gives for HitIt. The website uses the same
+  musicindex ADR 0080 R-NAV-1 gives for HitIt. The website uses the same
   form.
   The field list of ADR 0087 Decision 3 opens under it. ⌘K and ⌘F focus it.
 - The website uses the same field and the same query text, with the Index

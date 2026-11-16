@@ -118,7 +118,7 @@ searches. ADR 0098 Decision 1.
 active, `Music` and `Settings` show no queue, no transport, and no broadcast
 status. A surface that cannot act is absent, not disabled. ADR 0098 Decision 18.
 
-**One page for each item.** A list is a page, and an item opens over it (musicindex ADR 0069, ADR 0098 Decision 6). Each release, track, artist and playlist has one
+**One page for each item.** A list is a page, and an item opens over it (musicindex ADR 0080, ADR 0098 Decision 6). Each release, track, artist and playlist has one
 page, whatever its origin. The Library is a state that each page and list shows, not a place. ADR 0098 Decision 6.
 
 **Artists, not publishers.** A feed shows its role word, not the RSS word. The word rules are musicindex ADR 0033

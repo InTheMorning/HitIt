@@ -260,7 +260,7 @@ impl SemanticColor {
             Self::AccentHover => hex(0x57_95ff),
             Self::AccentPressed => hex(0x24_62cc),
             Self::OnAccent => hex(0x0b_0d13),
-            // musicindex ADR 0069 R-TOKEN-1: `color.dark.focus` of the shared copy.
+            // musicindex ADR 0080 R-TOKEN-1: `color.dark.focus` of the shared copy.
             Self::Focus => hex(0x2d_7bff),
             Self::AccentTint => hex_alpha(0x2d_7bff, 0.18),
             Self::SidebarGlowTop => hex_alpha(0x2d_7bff, 0.09),
@@ -371,7 +371,7 @@ impl SemanticColor {
             Self::AccentHover => hex(0x3b_7cde),
             Self::AccentPressed => hex(0x08_49ab),
             Self::OnAccent => hex(0xff_ffff),
-            // musicindex ADR 0069 R-TOKEN-1: `color.light.focus` of the shared copy.
+            // musicindex ADR 0080 R-TOKEN-1: `color.light.focus` of the shared copy.
             Self::Focus => hex(0x00_5bd3),
             Self::AccentTint => hex_alpha(0x0a_5bd6, 0.12),
             Self::SidebarGlowTop => hex_alpha(0x0a_5bd6, 0.09),
@@ -1577,7 +1577,7 @@ mod tests {
         f64::from(f32::from(value))
     }
 
-    /// musicindex ADR 0069 R-TOKEN-1: the focus color of each theme equals the shared copy
+    /// musicindex ADR 0080 R-TOKEN-1: the focus color of each theme equals the shared copy
     /// in `src/assets/tokens.json`. Fix: copy `color.dark.focus` and `color.light.focus`.
     #[test]
     fn focus_color_matches_the_shared_tokens() {
@@ -1586,7 +1586,7 @@ mod tests {
             assert_eq!(
                 Some(rgb_of(SemanticColor::Focus.resolve(appearance)).as_str()),
                 shared["color"][key]["focus"].as_str(),
-                "musicindex ADR 0069 R-TOKEN-1: Focus in {key} must equal color.{key}.focus. \
+                "musicindex ADR 0080 R-TOKEN-1: Focus in {key} must equal color.{key}.focus. \
                  Fix: copy the value from src/assets/tokens.json."
             );
         }
