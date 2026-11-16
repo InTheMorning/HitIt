@@ -8225,6 +8225,18 @@ fn release_feed_identity_actions_use_shared_renderer() {
                 .to_string(),
         );
     }
+    let identity = read_source(&manifest_path("src/ui/composites/identity_action.rs"));
+    if !ui_entity
+        .contains("IdentityActionDisplayKind::MusicIndex => IdentityActionKind::MusicIndex")
+        || !ui_entity.contains("| IdentityActionKind::MusicIndex => {")
+        || !identity.contains("Self::MusicIndex => Some(IconName::ExternalLink)")
+        || !identity.contains(".tooltip_show_delay(Duration::ZERO)")
+        || !identity.contains("Open on musicindex.org")
+    {
+        violations.push(
+            "src/ui/shells/entity.rs: ADR 0101 task 009 must route the MusicIndex action through the shared identity renderer and ExternalLink icon".to_string(),
+        );
+    }
 
     assert!(
         violations.is_empty(),
@@ -8261,6 +8273,13 @@ fn track_identity_links_use_shared_renderer() {
         violations.push(
             "src/ui/shells/track.rs: ADR 0037 must define `fn render_track_page_identity_actions`"
                 .to_string(),
+        );
+    }
+    if !ui_track.contains("IdentityActionDisplayKind::MusicIndex => IdentityActionKind::MusicIndex")
+        || !ui_track.contains("| IdentityActionKind::MusicIndex => {")
+    {
+        violations.push(
+            "src/ui/shells/track.rs: ADR 0101 task 009 must route the MusicIndex action through the shared track identity renderer".to_string(),
         );
     }
 

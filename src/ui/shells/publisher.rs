@@ -28,12 +28,14 @@ use crate::ui::composites::release_section_list::{
     render_release_section, title_display_text, ReleaseSectionRows,
 };
 use crate::ui::composites::{
-    CollectionArt, CollectionArtImage, CoverBackdrop, DetailHeader, DetailHeaderDataRow,
-    DetailHeaderDisplay, EntityKind, ListRow, ListRowA11yLabel, PageTitleKind, ThumbnailSize,
+    musicindex_link, CollectionArt, CollectionArtImage, CoverBackdrop, DetailHeader,
+    DetailHeaderDataRow, DetailHeaderDisplay, EntityKind, ListRow, ListRowA11yLabel,
+    MusicIndexLinkDisplay, PageTitleKind, ThumbnailSize,
 };
 use crate::ui::primitives::{Label, LabelVariant, SectionHeader};
 use crate::ui::tokens::{color, Radius, SemanticColor, Spacing};
 use crate::view_models::collection_art::CollectionKind;
+use crate::view_models::entity_detail::MUSICINDEX_NOT_IN_INDEX_TEXT;
 use crate::view_models::publisher_page::{
     CoCreditedFeedVm, HeaderRole, OtherAlbumsStatus, PublisherPageContext,
     PublisherPageLoadDisplay, PublisherPageVm,
@@ -149,6 +151,11 @@ fn render_header(
         subtitle: None,
         data_rows,
     })
+    .name_links(vec![musicindex_link(MusicIndexLinkDisplay {
+        id: "publisher-open-musicindex".into(),
+        url: vm.musicindex_url().map(SharedString::from),
+        unavailable_text: MUSICINDEX_NOT_IN_INDEX_TEXT,
+    })])
     .art(CollectionArt::new(
         header_art,
         CollectionKind::Artist,

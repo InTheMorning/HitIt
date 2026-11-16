@@ -38,6 +38,7 @@ pub enum IconName {
     Close,
     Info,
     Search,
+    ExternalLink,
     Rss,
     Nostr,
     Play,
@@ -110,6 +111,7 @@ impl IconName {
             | Self::Close
             | Self::Info
             | Self::Search
+            | Self::ExternalLink
             | Self::Play
             | Self::Pause
             | Self::Stop
@@ -166,6 +168,7 @@ impl IconName {
             Self::MbSkipped => Some(ComponentIconName::CircleX),
             Self::Rss
             | Self::Nostr
+            | Self::ExternalLink
             | Self::Stop
             | Self::Previous
             | Self::Next
@@ -197,6 +200,7 @@ impl IconName {
     #[must_use]
     fn extra_icon(self) -> Option<LucideIconName> {
         match self {
+            Self::ExternalLink => Some(LucideIconName::ExternalLink),
             Self::Stop => Some(LucideIconName::Square),
             Self::Previous => Some(LucideIconName::SkipBack),
             Self::Next => Some(LucideIconName::SkipForward),
@@ -266,6 +270,7 @@ impl IconName {
             | Self::Close
             | Self::Info
             | Self::Search
+            | Self::ExternalLink
             | Self::Play
             | Self::Pause
             | Self::Stop

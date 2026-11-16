@@ -15,14 +15,14 @@ use gpui::{div, prelude::*, App, ClipboardItem, Image, SharedString, Window};
 
 use crate::media::header_glow::GlowImage;
 use crate::ui::composites::{
-    identity_action_button, render_feed_identity_panel, IdentityActionButtonDisplay,
-    IdentityActionKind, TrackDetailSurface, TrackSurfaceElement,
+    identity_action_button, not_in_index_label, render_feed_identity_panel,
+    IdentityActionButtonDisplay, IdentityActionKind, TrackDetailSurface, TrackSurfaceElement,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button, Label, LabelVariant};
 use crate::ui::tokens::{SemanticColor, Spacing};
 use crate::view_models::entity_detail::{
-    EntityActionVm, IdentityActionDisplay, IdentityActionDisplayKind,
+    EntityActionVm, IdentityActionDisplay, IdentityActionDisplayKind, MUSICINDEX_NOT_IN_INDEX_TEXT,
 };
 use crate::view_models::track_detail::{TrackDetailPageVm, TrackNameLinkTarget, TrackNameLinkVm};
 
@@ -135,6 +135,12 @@ fn render_track_identity_actions(
                 IdentityActionDisplayKind::Website => IdentityActionKind::Website,
                 IdentityActionDisplayKind::Nostr => IdentityActionKind::Nostr,
                 IdentityActionDisplayKind::Rss => IdentityActionKind::Rss,
+                IdentityActionDisplayKind::MusicIndex => IdentityActionKind::MusicIndex,
+                IdentityActionDisplayKind::MusicIndexUnavailable => {
+                    return Some(TrackSurfaceElement::from_element(not_in_index_label(
+                        MUSICINDEX_NOT_IN_INDEX_TEXT,
+                    )));
+                }
             };
             let payload_for_click = payload;
             let button = identity_action_button(IdentityActionButtonDisplay {
@@ -143,7 +149,9 @@ fn render_track_identity_actions(
                 a11y_label: SharedString::from(a11y_label),
             })
             .on_click(move |_, _, cx| match kind {
-                IdentityActionKind::Website | IdentityActionKind::Rss => {
+                IdentityActionKind::Website
+                | IdentityActionKind::Rss
+                | IdentityActionKind::MusicIndex => {
                     let _ = open::that(&payload_for_click);
                 }
                 IdentityActionKind::Nostr => {

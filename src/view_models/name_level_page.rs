@@ -340,6 +340,17 @@ pub(crate) struct NameLevelPageVm {
 }
 
 impl NameLevelPageVm {
+    /// The musicindex.org address of this name page.
+    #[must_use]
+    pub(crate) fn musicindex_url(&self) -> Option<String> {
+        let key = self.facts.key.key.as_str();
+        (!key.is_empty()).then(|| {
+            crate::view_models::musicindex_link::page_url(
+                crate::view_models::musicindex_link::MusicIndexTarget::Name(key),
+            )
+        })
+    }
+
     /// The frame title (packet 017 decision D5).
     pub(crate) const FRAME_TITLE: &'static str = "Artist name";
     /// The label of the confirmation level fact (ADR 0085 Decision 2).
@@ -610,6 +621,21 @@ mod tests {
             other_identity_feed_guids: BTreeSet::new(),
             matched_feed: None,
         }
+    }
+
+    #[test]
+    fn musicindex_link_uses_the_name_key() {
+        let vm = NameLevelPageVm::new(facts(
+            vec![],
+            NameLevelIndexState::Loaded {
+                releases: vec![],
+                more_available: false,
+            },
+        ));
+        assert_eq!(
+            vm.musicindex_url().as_deref(),
+            Some("https://musicindex.org/#name=haleen")
+        );
     }
 
     fn titles(section: &PublisherPageSectionVm) -> Vec<&str> {

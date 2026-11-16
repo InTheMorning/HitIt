@@ -59,6 +59,8 @@
 
 #![warn(clippy::pedantic)]
 
+pub(crate) mod musicindex_link;
+
 pub(crate) mod app_toolbar;
 pub(crate) mod cached_files;
 pub(crate) mod collection_art;

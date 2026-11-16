@@ -22,13 +22,15 @@ use crate::ui::composites::release_section_list::{
     render_release_list_status, render_release_section, ReleaseSectionRows,
 };
 use crate::ui::composites::{
-    CollectionArt, CollectionArtImage, CoverBackdrop, DetailHeader, DetailHeaderDataRow,
-    DetailHeaderDisplay, EntityKind, PageTitleKind, ThumbnailSize,
+    musicindex_link, CollectionArt, CollectionArtImage, CoverBackdrop, DetailHeader,
+    DetailHeaderDataRow, DetailHeaderDisplay, EntityKind, MusicIndexLinkDisplay, PageTitleKind,
+    ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button, Label, LabelVariant};
 use crate::ui::tokens::{SemanticColor, Spacing};
 use crate::view_models::collection_art::CollectionKind;
+use crate::view_models::entity_detail::MUSICINDEX_NOT_IN_INDEX_TEXT;
 use crate::view_models::name_level_page::{MatchedFeedNoticeVm, NameLevelPageVm};
 
 /// Renders a name level page from `NameLevelPageVm`.
@@ -111,6 +113,11 @@ fn render_header(
         subtitle: None,
         data_rows,
     })
+    .name_links(vec![musicindex_link(MusicIndexLinkDisplay {
+        id: "name-level-open-musicindex".into(),
+        url: vm.musicindex_url().map(SharedString::from),
+        unavailable_text: MUSICINDEX_NOT_IN_INDEX_TEXT,
+    })])
     .art(CollectionArt::new(
         header_art,
         CollectionKind::Artist,

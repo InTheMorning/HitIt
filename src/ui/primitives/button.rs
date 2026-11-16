@@ -17,6 +17,7 @@
 #![warn(clippy::pedantic)]
 
 use std::rc::Rc;
+use std::time::Duration;
 
 use gpui::{
     div, prelude::*, px, App, ClickEvent, ElementId, FontWeight, IntoElement, KeyDownEvent,
@@ -134,6 +135,7 @@ pub struct Button {
     border: Option<SemanticColor>,
     control_style: Option<ControlStyle>,
     tooltip: Option<Tooltip>,
+    tooltip_show_delay: Option<Duration>,
     full_width: bool,
     content_alignment: ButtonContentAlignment,
     disabled: bool,
@@ -167,6 +169,7 @@ impl Button {
             border: None,
             control_style: None,
             tooltip: None,
+            tooltip_show_delay: None,
             full_width: false,
             content_alignment: ButtonContentAlignment::Center,
             disabled: false,
@@ -207,6 +210,11 @@ impl Button {
 
     pub fn tooltip(mut self, label: impl Into<gpui::SharedString>) -> Self {
         self.tooltip = Tooltip::non_empty(label);
+        self
+    }
+
+    pub fn tooltip_show_delay(mut self, delay: Duration) -> Self {
+        self.tooltip_show_delay = Some(delay);
         self
     }
 
@@ -698,6 +706,10 @@ fn text_with_fit_probe(
 }
 
 impl RenderOnce for Button {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the button renderer applies its shared visual and interaction contract in one pass"
+    )]
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let min_hit_target = Self::min_hit_target(cx);
         let font_role = self.font_size.unwrap_or_else(|| self.font_size());
@@ -768,6 +780,9 @@ impl RenderOnce for Button {
         }
 
         if let Some(tooltip) = tooltip {
+            if let Some(delay) = self.tooltip_show_delay {
+                hit_target = hit_target.tooltip_show_delay(delay);
+            }
             hit_target = hit_target.tooltip(move |window, cx| tooltip.build(window, cx));
         }
 

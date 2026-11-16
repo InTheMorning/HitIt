@@ -95,7 +95,8 @@ pub use file_header::FileHeader;
 )]
 pub(crate) use frame_shell::{frame_shell, FrameShell, FrameShellSlots};
 pub use identity_action::{
-    identity_action_button, IdentityActionButtonDisplay, IdentityActionKind,
+    identity_action_button, musicindex_link, not_in_index_label, IdentityActionButtonDisplay,
+    IdentityActionKind, MusicIndexLinkDisplay,
 };
 pub use list_row::{ListRow, ListRowA11yLabel, ListRowDensity};
 pub(crate) use live_status_strip::{live_status_strip, LiveStatusStrip, LiveStatusStripSlots};

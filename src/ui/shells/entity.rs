@@ -16,11 +16,11 @@ use gpui::{
 use crate::media::header_glow::GlowImage;
 use crate::ui::composites::music_column_scroll::{windowed_track_rows, ScrollReveal};
 use crate::ui::composites::{
-    identity_action_button, CoverBackdrop, DetailGrid, DetailHeader, DetailHeaderDataRow,
-    DetailHeaderDisplay, DetailRow, DetailTextRow, EntityKind, IdentityActionButtonDisplay,
-    IdentityActionKind, ListRow, ListRowA11yLabel, PageTitleKind, ReleaseActionGroupDisplay,
-    ReleaseDetailSurface, ReleaseSurfaceElement, ReleaseTrackSectionDisplay, Thumbnail,
-    ThumbnailSize,
+    identity_action_button, not_in_index_label, CoverBackdrop, DetailGrid, DetailHeader,
+    DetailHeaderDataRow, DetailHeaderDisplay, DetailRow, DetailTextRow, EntityKind,
+    IdentityActionButtonDisplay, IdentityActionKind, ListRow, ListRowA11yLabel, PageTitleKind,
+    ReleaseActionGroupDisplay, ReleaseDetailSurface, ReleaseSurfaceElement,
+    ReleaseTrackSectionDisplay, Thumbnail, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{Button, Label, LabelVariant};
@@ -31,6 +31,7 @@ use crate::view_models::entity_detail::{
     ContributorListVm, ContributorPersonVm, ContributorRoleRowVm, ContributorRowVm,
     EntitySurfaceKind, IdentityActionDisplay, IdentityActionDisplayKind, NamedFeedRowVm,
     ReleaseDetailPageVm, ReleaseHeroVm, ReleasePanelKind, ReleasePanelVm, ReleaseTextPanelDisplay,
+    MUSICINDEX_NOT_IN_INDEX_TEXT,
 };
 
 #[derive(Default)]
@@ -173,6 +174,12 @@ pub fn render_feed_identity_actions(page: &ReleaseDetailPageVm<'_>) -> Vec<Relea
                 IdentityActionDisplayKind::Website => IdentityActionKind::Website,
                 IdentityActionDisplayKind::Nostr => IdentityActionKind::Nostr,
                 IdentityActionDisplayKind::Rss => IdentityActionKind::Rss,
+                IdentityActionDisplayKind::MusicIndex => IdentityActionKind::MusicIndex,
+                IdentityActionDisplayKind::MusicIndexUnavailable => {
+                    return Some(ReleaseSurfaceElement::from_element(not_in_index_label(
+                        MUSICINDEX_NOT_IN_INDEX_TEXT,
+                    )));
+                }
             };
             let payload_for_click = payload;
             let button = identity_action_button(IdentityActionButtonDisplay {
@@ -181,7 +188,9 @@ pub fn render_feed_identity_actions(page: &ReleaseDetailPageVm<'_>) -> Vec<Relea
                 a11y_label: SharedString::from(a11y_label),
             })
             .on_click(move |_, _, cx| match kind {
-                IdentityActionKind::Website | IdentityActionKind::Rss => {
+                IdentityActionKind::Website
+                | IdentityActionKind::Rss
+                | IdentityActionKind::MusicIndex => {
                     let _ = open::that(&payload_for_click);
                 }
                 IdentityActionKind::Nostr => {

@@ -400,13 +400,35 @@ impl<'a> TrackDetailVm<'a> {
             actions.push(
                 EntityActionVm::new(
                     EntityActionKind::CopyNostr,
-                    target,
+                    target.clone(),
                     "Copy Nostr",
                     EntityActionTone::Quiet,
                 )
                 .with_payload(npub),
             );
         }
+        let musicindex_action = match (
+            self.track.track_guid.as_deref().and_then(nonempty),
+            self.track.feed_guid.as_deref().and_then(nonempty),
+        ) {
+            (Some(guid), Some(feed_guid)) => EntityActionVm::new(
+                EntityActionKind::OpenMusicIndex,
+                target,
+                "Open on musicindex.org",
+                EntityActionTone::Quiet,
+            )
+            .with_payload(crate::view_models::musicindex_link::page_url(
+                crate::view_models::musicindex_link::MusicIndexTarget::Track { guid, feed_guid },
+            )),
+            _ => EntityActionVm::new(
+                EntityActionKind::MusicIndexUnavailable,
+                target,
+                "Not in the index yet",
+                EntityActionTone::Quiet,
+            )
+            .with_payload("Not in the index yet"),
+        };
+        actions.push(musicindex_action);
         actions
     }
 
@@ -1255,8 +1277,43 @@ mod tests {
                     Some("https://example.test/track")
                 ),
                 (EntityActionKind::CopyNostr, Some("npub1track")),
+                (
+                    EntityActionKind::MusicIndexUnavailable,
+                    Some("Not in the index yet"),
+                ),
             ]
         );
+    }
+
+    #[test]
+    fn musicindex_track_link_includes_its_feed_guid() {
+        let mut track = track();
+        track.track_guid = Some("track guid".into());
+        track.feed_guid = Some("feed guid".into());
+        let vm = TrackDetailVm::new(&track, TrackDetailSurfaceContext::Discover);
+        let link = vm
+            .identity_actions()
+            .into_iter()
+            .find(|action| action.kind == EntityActionKind::OpenMusicIndex)
+            .and_then(|action| action.payload)
+            .expect("the indexed track has a MusicIndex address");
+
+        assert_eq!(
+            link,
+            "https://musicindex.org/#track=track%20guid&in=feed%20guid"
+        );
+    }
+
+    #[test]
+    fn track_without_guid_projects_not_in_index_yet() {
+        let mut track = track();
+        track.track_guid = None;
+        let action = TrackDetailVm::new(&track, TrackDetailSurfaceContext::Library)
+            .identity_actions()
+            .pop()
+            .expect("the track has an unavailable MusicIndex action");
+        assert_eq!(action.kind, EntityActionKind::MusicIndexUnavailable);
+        assert_eq!(action.label, "Not in the index yet");
     }
 
     #[test]
@@ -1274,6 +1331,7 @@ mod tests {
             vec![
                 "discover-track-website:https://example.test/track".to_string(),
                 "discover-track-nostr:npub1track".to_string(),
+                "discover-track-musicindex-unavailable:Not in the index yet".to_string(),
             ]
         );
     }
@@ -1296,6 +1354,7 @@ mod tests {
             vec![
                 "library-track-website:https://example.test/track".to_string(),
                 "library-track-nostr:npub1track".to_string(),
+                "library-track-musicindex-unavailable:Not in the index yet".to_string(),
             ]
         );
     }
@@ -1339,7 +1398,13 @@ mod tests {
         let vm = TrackDetailVm::new(&track, TrackDetailSurfaceContext::Discover)
             .with_feed_identity(Some(&feed));
 
-        assert!(vm.identity_actions().is_empty());
+        assert_eq!(
+            vm.identity_actions()
+                .iter()
+                .map(|action| action.kind.clone())
+                .collect::<Vec<_>>(),
+            vec![EntityActionKind::MusicIndexUnavailable]
+        );
     }
 
     /// R22-03: the feed identity section names the feed as the owner, and
@@ -1395,6 +1460,7 @@ mod tests {
             vec![
                 Some("https://example.test/track".to_string()),
                 Some("npub1track".to_string()),
+                Some("Not in the index yet".to_string()),
             ]
         );
         let section = vm
@@ -1464,7 +1530,7 @@ mod tests {
         assert_eq!(page.detail().display_title(), "Page title");
         assert_eq!(page.identity_action_prefix(), "library-track");
         assert_eq!(page.row().title, "Page title");
-        assert_eq!(page.identity_actions().len(), 2);
+        assert_eq!(page.identity_actions().len(), 3);
     }
 
     #[test]

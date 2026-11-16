@@ -1,6 +1,6 @@
 # ADR 0101 Task 009: Open On musicindex.org
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -38,6 +38,7 @@ Operator choice, 2026-11-15: a Library page shows the link when it has the feed 
 | Component | Status | Location | Reason |
 |---|---|---|---|
 | Identity actions | extend | `src/ui/composites/identity_action.rs` | It draws each link out of a header. Add the kind `MusicIndex`. |
+| Button tooltip | extend | `src/ui/primitives/button.rs` | Set the tooltip show delay for the instant link tooltip. |
 | Page address | new | `src/view_models/musicindex_link.rs` | Searched `src/view_models/`, `src/api.rs` and `src/ui/composites/` in HitIt. No code builds a musicindex.org page address. Searched musicindex-lib 953e464 and Studio 44d1895 through the orchestrator on 2026-11-15: no link builder. Keep it in one file with no HitIt type, so that it can move to musicindex-lib. |
 | Track page actions | extend | `src/view_models/track_detail.rs` | It gives the identity actions of a track. |
 | Release page actions | extend | `src/ui/shells/entity.rs` | It gives the identity actions of a release. |
@@ -99,3 +100,51 @@ A delegate does not commit. It leaves its change in the working tree and reports
 
 - Stop if `ArtistNameKey` is not the KEY that musicindex.org uses.
 - Stop if the icon catalog of `gpui-kit-assets` has no icon for a link out.
+
+## Progress - 2026-11-16
+
+- `ArtistNameKey.key` is the `KEY` in musicindex.org `#name=KEY`. musicindex ADR 0067 item 100 uses that key for `/v1/feeds/by-name?artist_key=KEY`.
+- `gpui-kit-assets` includes the Lucide `ExternalLink` icon.
+- `page_url` encodes feed, track, feed GUID and name values in the URL fragment.
+- Release, track, feed artist and name pages provide the required MusicIndex address. Pages without a GUID show `Not in the index yet`.
+- The shared identity renderer uses the `ExternalLink` icon and the tooltip `Open on musicindex.org`. The new architecture guard covers the release and track renderers.
+- M1 tests: `builds_encoded_feed_address`, `builds_track_address_with_feed`, `builds_name_address`.
+- M2 test: `musicindex_track_link_includes_its_feed_guid`.
+- M3 tests: `identity_actions_include_website_nostr_and_rss`, `musicindex_link_uses_the_publisher_feed_guid`, `musicindex_link_uses_the_name_key`.
+- M4 tests: `release_without_index_guid_projects_not_in_index_yet`, `track_without_guid_projects_not_in_index_yet`.
+- V1 to V3 remain open for the operator. The agent has not inspected them in HitIt on an Xvfb display.
+
+## Operator Visual Check
+
+Walk each step in Dark and Light at M. MusicIndex and a system browser must be available.
+
+1. Compile HitIt with `cargo build --bin hitit`.
+2. Start HitIt with `target/debug/hitit`.
+3. Search for `I Don't Wanna Leave` and open that release page.
+4. Examine the header buttons. The ExternalLink icon button must follow RSS. Hover over it. The tooltip must show immediately and read `Open on musicindex.org`.
+5. Use Tab to select the button, then push Enter. The browser must open `https://musicindex.org/#feed=f46a2d4b-4f94-5b84-8808-5f095efbc4ca`.
+6. Open the track `I Don't Wanna Leave`. Use Tab to select its MusicIndex button, then push Enter. The browser must open `https://musicindex.org/#track=96b17655-2548-4fd9-80ff-a346e49001f2&in=f46a2d4b-4f94-5b84-8808-5f095efbc4ca`.
+7. Open the artist feed page `DJ Yo!`. Use Tab to select its MusicIndex button, then push Enter. The browser must open `https://musicindex.org/#feed=03d4ab60-da21-4453-8692-1c1e24ab2d49`.
+8. Open the name page `$2 Holla`. Make sure its header has the same icon button and that it opens `https://musicindex.org/#name=%242%20holla`.
+
+- Incorrect: a link opens an incorrect item, button sequence changes, the tooltip does not show immediately, or a page without a GUID shows a button.
+- Close HitIt and each browser tab that these steps opened. These steps change no Library data.
+
+## Primary Agent Check - 2026-11-16
+
+The second delegate run stopped at its time limit of 600 s after it wrote the code. The primary agent read the diff and made these corrections:
+
+- `publisher.rs` and `name_level_page.rs` had two copies of the button code, and four shells had copies of the "Not in the index yet" label. `musicindex_link` and `not_in_index_label` (`src/ui/composites/identity_action.rs`) own them. `musicindex_link` takes `MusicIndexLinkDisplay`, as the ADR 0038 guard requires.
+- `entity_detail.rs` uses `MUSICINDEX_NOT_IN_INDEX_TEXT`, not a second literal.
+
+Gate, run by the primary agent: `cargo fmt -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (3224 library tests, 413 architecture tests) and `cargo build --bin hitit` pass.
+
+## Walk Result - 2026-11-16
+
+The agent walked on an Xvfb display with the debug binary, in Light at M.
+
+- V1: Pass. On "Fox Trot Tunes Volume 2", the ExternalLink button is after RSS. The tooltip "Open on musicindex.org" shows in less than 0.6 s.
+- V3, part: the artist page "minimalizman" shows the button below the name. The track page "rose" shows the button in its row of links.
+- V2 and V3: Open. The display has no browser, so the agent did not open an address.
+
+The operator confirmation stays open.

@@ -785,3 +785,14 @@ Task: [ADR 0101 task 002](tasks/adr-0101-task-002-header-glow.md).
 - Incorrect: the glow has a hard edge, the text is hard to read, or the page waits for the glow.
 
 Agent walk, 2026-11-16: V1 passes in Dark and Light. The agent did not compare it with musicindex.org. V2 passes for the artist page and the track page. V5 passes for the walked pages. V3, V4 and V6 are open.
+
+## 31. ADR 0101 Task 009 Open On musicindex.org - 2026-11-16
+
+[ADR 0101 task 009](tasks/adr-0101-task-009-open-on-musicindex.md) gives the steps. Walk them in Dark and Light at M.
+
+- V1: a release page shows the ExternalLink icon button after RSS. Its tooltip shows immediately and reads "Open on musicindex.org".
+- V2: the release and track buttons open the same item on musicindex.org.
+- V3: the artist feed and name pages open the same item on musicindex.org.
+- Incorrect: a link opens an incorrect item, button sequence changes, the tooltip does not show immediately, or a page without a GUID shows a button.
+
+Agent walk, 2026-11-16: V1 passes in Light. The button shows on the artist page and the track page. V2 and V3 are open, because the test display has no browser.

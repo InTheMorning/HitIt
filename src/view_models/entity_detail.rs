@@ -5,6 +5,8 @@
 
 #![warn(clippy::pedantic)]
 
+pub(crate) const MUSICINDEX_NOT_IN_INDEX_TEXT: &str = "Not in the index yet";
+
 use std::collections::BTreeMap;
 
 use crate::view_models::album_page::{AlbumNameLinkTarget, AlbumNameLinkVm};
@@ -46,6 +48,8 @@ pub enum EntityActionKind {
     OpenWebsite,
     CopyNostr,
     OpenRss,
+    OpenMusicIndex,
+    MusicIndexUnavailable,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,6 +73,8 @@ pub enum IdentityActionDisplayKind {
     Website,
     Nostr,
     Rss,
+    MusicIndex,
+    MusicIndexUnavailable,
 }
 
 impl IdentityActionDisplayKind {
@@ -78,6 +84,8 @@ impl IdentityActionDisplayKind {
             Self::Website => "website",
             Self::Nostr => "nostr",
             Self::Rss => "rss",
+            Self::MusicIndex => "musicindex",
+            Self::MusicIndexUnavailable => "musicindex-unavailable",
         }
     }
 }
@@ -100,6 +108,7 @@ impl IdentityActionDisplayKind {
             Self::Website => "Open website",
             Self::Nostr => "Copy Nostr identifier",
             Self::Rss => "Open RSS feed",
+            Self::MusicIndex | Self::MusicIndexUnavailable => "Open on musicindex.org",
         }
     }
 }
@@ -316,7 +325,7 @@ impl TrackMetadataActionState {
             return Some(
                 EntityActionVm::new(
                     EntityActionKind::CompareMetadata,
-                    target,
+                    target.clone(),
                     "Compare ID3",
                     EntityActionTone::Quiet,
                 )
@@ -519,6 +528,10 @@ impl EntityActionVm {
             EntityActionKind::OpenWebsite => IdentityActionDisplayKind::Website,
             EntityActionKind::CopyNostr => IdentityActionDisplayKind::Nostr,
             EntityActionKind::OpenRss => IdentityActionDisplayKind::Rss,
+            EntityActionKind::OpenMusicIndex => IdentityActionDisplayKind::MusicIndex,
+            EntityActionKind::MusicIndexUnavailable => {
+                IdentityActionDisplayKind::MusicIndexUnavailable
+            }
             EntityActionKind::Download
             | EntityActionKind::Remove
             | EntityActionKind::AddToPlaylist
@@ -876,19 +889,46 @@ impl<'a> ReleaseDetailVm<'a> {
             return Vec::new();
         };
 
+        let feed_guid = self.view.feed_guid.clone().or_else(|| match &id {
+            FeedRef::Musicindex(guid) => Some(guid.clone()),
+            FeedRef::LocalFeedId(_) => None,
+        });
         let target = EntityActionTarget::Feed(id);
         let mut actions = IdentityLinksVm::new(&self.view.identity).actions(target.clone());
         if let Some(feed_url) = nonempty(self.view.feed_url.as_deref()) {
             actions.push(
                 EntityActionVm::new(
                     EntityActionKind::OpenRss,
-                    target,
+                    target.clone(),
                     "RSS",
                     EntityActionTone::Quiet,
                 )
                 .with_payload(feed_url),
             );
         }
+        let musicindex_action = feed_guid.as_deref().map_or_else(
+            || {
+                EntityActionVm::new(
+                    EntityActionKind::MusicIndexUnavailable,
+                    target.clone(),
+                    MUSICINDEX_NOT_IN_INDEX_TEXT,
+                    EntityActionTone::Quiet,
+                )
+                .with_payload(MUSICINDEX_NOT_IN_INDEX_TEXT)
+            },
+            |guid| {
+                EntityActionVm::new(
+                    EntityActionKind::OpenMusicIndex,
+                    target.clone(),
+                    "Open on musicindex.org",
+                    EntityActionTone::Quiet,
+                )
+                .with_payload(crate::view_models::musicindex_link::page_url(
+                    crate::view_models::musicindex_link::MusicIndexTarget::Feed(guid),
+                ))
+            },
+        );
+        actions.push(musicindex_action);
         actions
     }
 
@@ -1400,6 +1440,7 @@ mod tests {
     fn feed_view() -> FeedView {
         FeedView {
             id: Some(FeedRef::Musicindex("feed-guid".into())),
+            feed_guid: Some("feed-guid".into()),
             title: Some("Release".into()),
             feed_url: Some("https://feeds.example.test/rss.xml".into()),
             artist: Some("Artist".into()),
@@ -1467,7 +1508,7 @@ mod tests {
 
         assert_eq!(page.hero.kind, EntitySurfaceKind::Release);
         assert_eq!(page.hero.title, "Release");
-        assert_eq!(page.identity_actions.len(), 3);
+        assert_eq!(page.identity_actions.len(), 4);
         assert!(!page.summary_facts.is_empty());
         assert!(!page.panels.is_empty());
         assert!(page.tracks.summary().starts_with("2 total"));
@@ -1759,11 +1800,29 @@ mod tests {
         let actions =
             ReleaseDetailVm::new(&feed, EntitySurfaceContext::Discover).identity_actions();
 
-        assert_eq!(actions.len(), 3);
+        assert_eq!(actions.len(), 4);
         assert_eq!(actions[0].kind, EntityActionKind::OpenWebsite);
         assert_eq!(actions[1].kind, EntityActionKind::CopyNostr);
         assert_eq!(actions[2].kind, EntityActionKind::OpenRss);
+        assert_eq!(actions[3].kind, EntityActionKind::OpenMusicIndex);
+        assert_eq!(
+            actions[3].payload.as_deref(),
+            Some("https://musicindex.org/#feed=feed-guid")
+        );
         assert!(actions.iter().all(|action| action.enabled));
+    }
+
+    #[test]
+    fn release_without_index_guid_projects_not_in_index_yet() {
+        let mut feed = feed_view();
+        feed.id = Some(FeedRef::LocalFeedId(1));
+        feed.feed_guid = None;
+        let action = ReleaseDetailVm::new(&feed, EntitySurfaceContext::Library)
+            .identity_actions()
+            .pop()
+            .expect("the release has an unavailable MusicIndex action");
+        assert_eq!(action.kind, EntityActionKind::MusicIndexUnavailable);
+        assert_eq!(action.label, "Not in the index yet");
     }
 
     #[test]
@@ -1802,6 +1861,13 @@ mod tests {
                         .default_a11y_label()
                         .to_string(),
                 },
+                IdentityActionDisplay {
+                    id: "library-feed-musicindex:https://musicindex.org/#feed=feed-guid"
+                        .to_string(),
+                    kind: IdentityActionDisplayKind::MusicIndex,
+                    payload: "https://musicindex.org/#feed=feed-guid".to_string(),
+                    a11y_label: "Open on musicindex.org".to_string(),
+                },
             ]
         );
 
@@ -1839,6 +1905,10 @@ mod tests {
                 (
                     EntityActionKind::OpenRss,
                     Some("https://feeds.example.test/rss.xml")
+                ),
+                (
+                    EntityActionKind::OpenMusicIndex,
+                    Some("https://musicindex.org/#feed=feed-guid")
                 ),
             ]
         );

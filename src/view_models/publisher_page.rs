@@ -598,6 +598,17 @@ pub(crate) struct MatchedByNameFacts {
 }
 
 impl PublisherPageVm {
+    /// The musicindex.org address of this feed page.
+    #[must_use]
+    pub(crate) fn musicindex_url(&self) -> Option<String> {
+        let guid = self.facts.publisher_feed_guid.as_str();
+        (!guid.is_empty()).then(|| {
+            crate::view_models::musicindex_link::page_url(
+                crate::view_models::musicindex_link::MusicIndexTarget::Feed(guid),
+            )
+        })
+    }
+
     /// Row label for the "No title" fact, shown only when the feed states
     /// no title.
     pub(crate) const TITLE_LABEL: &'static str = "Title";
@@ -1309,6 +1320,15 @@ mod tests {
             albums,
             ..PublisherPageFacts::default()
         }
+    }
+
+    #[test]
+    fn musicindex_link_uses_the_publisher_feed_guid() {
+        let vm = PublisherPageVm::new(facts(vec![]));
+        assert_eq!(
+            vm.musicindex_url().as_deref(),
+            Some("https://musicindex.org/#feed=publisher-guid")
+        );
     }
 
     /// Every album row in `sections`, flattened across every section, in
