@@ -127,13 +127,7 @@ impl RenderOnce for CollectionArt {
                 .child(Thumbnail::new(entity, self.size).image(Some(image)))
                 .into_any_element(),
             CollectionArtImage::SquarePending => slot
-                .child(
-                    div()
-                        .w(dim)
-                        .h(dim)
-                        .rounded(self.size.radius().scaled(cx))
-                        .bg(fill),
-                )
+                .child(div().w(dim).h(dim).rounded(self.size.radius(cx)).bg(fill))
                 .into_any_element(),
             CollectionArtImage::EntityColor => logo_placeholder(entity, dim, cx),
             CollectionArtImage::Logo(image) => {
@@ -179,6 +173,27 @@ mod tests {
         assert_eq!(
             collection_entity_kind(CollectionKind::Playlist),
             EntityKind::Playlist
+        );
+    }
+
+    /// musicindex ADR 0021 R-ART-4 item 2: a collection art with a square
+    /// cover that is not loaded uses the art radius of its size. It sets no
+    /// `Radius` role.
+    #[test]
+    fn r_art_4_collection_art_uses_the_art_radius_function() {
+        // `file!()` avoids a path literal. A guard (ADR 0060) scans string
+        // literals for a banned display word.
+        let source = std::fs::read_to_string(file!()).expect("the source file is readable");
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        assert!(
+            production.contains("self.size.radius(cx)"),
+            "R-ART-4 item 2: this composite must take its radius from ThumbnailSize::radius. \
+             Fix: do not set a Radius role here."
+        );
+        assert!(
+            !production.contains("Radius::"),
+            "R-ART-4 item 2: this composite must not use a Radius role. \
+             Fix: use ThumbnailSize::radius."
         );
     }
 }

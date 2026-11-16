@@ -6079,7 +6079,7 @@ fn playlist_rows_scale_through_design_tokens() {
     for required in [
         "render_album_thumb(image: Option<Arc<Image>>, size: f32, cx: &App)",
         "let size = layout::scaled_f32(size, cx);",
-        "Radius::SM.scaled(cx)",
+        "ArtworkRadius::for_edge(size)",
         "FontSize::Headline.scaled(cx)",
     ] {
         if !thumbnail_shell.contains(required) {

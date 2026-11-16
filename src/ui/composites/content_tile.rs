@@ -15,7 +15,7 @@ use gpui::{div, prelude::*, AnyElement, App, FontWeight, Image};
 use crate::ui::composites::thumbnail::logo_placeholder;
 use crate::ui::composites::EntityKind;
 use crate::ui::primitives::{Image as ImagePrimitive, ImageSize, Label};
-use crate::ui::tokens::{FontSize, Radius, SemanticColor};
+use crate::ui::tokens::{FontSize, SemanticColor};
 
 /// The artwork of a content tile: the cover, or the logo shape when no image
 /// loaded. The Releases list tiles share it (ADR 0089 packet 005 Part
@@ -28,10 +28,10 @@ pub(crate) fn render_content_list_tile_artwork(
     match thumbnail {
         // ADR 0101 Decision 4: `Size::ContentTileArtwork` shares the `Xl`
         // footprint (152 px), so `ImageSize::Xl` renders the same dimension
-        // and gives the content tile its artwork shadow.
+        // and gives the content tile its artwork shadow. The primitive sets
+        // the radius from the edge (R-ART-4 item 2).
         Some(image) => ImagePrimitive::new(image)
             .size(ImageSize::Xl)
-            .radius(Radius::MD)
             .into_any_element(),
         // musicindex ADR 0021 R-ART-2: a release tile with no cover, or with a
         // cover that did not load, shows the logo shape. Only artwork has a
@@ -60,4 +60,27 @@ pub(crate) fn tile_text_line(
                 .truncated(),
         )
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    /// musicindex ADR 0021 R-ART-4 item 2: the tile image sets no `Radius`
+    /// role and no radius of its own. The image primitive gives it the art
+    /// radius of its edge, as it does for `Thumbnail`.
+    #[test]
+    fn r_art_4_content_tile_uses_the_art_radius_function() {
+        let source = include_str!("content_tile.rs");
+        let production = source.split("#[cfg(test)]").next().unwrap_or(source);
+        assert!(
+            !production.contains("Radius::") && !production.contains(".radius("),
+            "R-ART-4 item 2: the tile image must use the art radius of the image primitive. \
+             Fix: do not set a radius or a Radius role here."
+        );
+        let primitive = include_str!("../primitives/image.rs");
+        assert!(
+            primitive.contains("ArtworkRadius::for_edge(dim)"),
+            "R-ART-4 item 2: the image primitive must use ArtworkRadius. \
+             Fix: call ArtworkRadius::for_edge with the edge."
+        );
+    }
 }

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use gpui::{div, prelude::*, AnyElement, App, Image};
 
 use crate::ui::primitives::Image as ImagePrimitive;
-use crate::ui::tokens::{FontSize, Radius};
+use crate::ui::tokens::{ArtworkRadius, FontSize};
 use crate::ui::{layouts as layout, style::color};
 use crate::view_models::library::LibraryViewModel;
 
@@ -17,13 +17,12 @@ pub(crate) fn render_album_thumb(image: Option<Arc<Image>>, size: f32, cx: &App)
     if let Some(img_data) = image {
         ImagePrimitive::new(img_data)
             .dimension(size)
-            .radius(Radius::SM)
             .into_any_element()
     } else {
         div()
             .w(size)
             .h(size)
-            .rounded(Radius::SM.scaled(cx))
+            .rounded(ArtworkRadius::for_edge(size))
             .bg(color::border_subtle())
             .flex()
             .items_center()

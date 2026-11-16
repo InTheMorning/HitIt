@@ -4,7 +4,7 @@
 //! system. It owns:
 //!
 //! * a semantic size that resolves through the global [`Environment`] scale,
-//! * a corner radius taken from the [`Radius`] token (defaults to `MD`),
+//! * a corner radius of 6 % of the edge (`ArtworkRadius`),
 //! * `ObjectFit::Cover` so the image fills its box without distortion, and
 //! * the GIF-id stamping required by GPUI to drive frame ticking on animated
 //!   images.
@@ -25,7 +25,7 @@ use gpui::{
     SharedString, Window,
 };
 
-use crate::ui::tokens::{ArtworkShadow, Radius, ScaleFactor};
+use crate::ui::tokens::{ArtworkRadius, ArtworkShadow, ScaleFactor};
 
 /// Semantic image sizes. Base values follow the artwork conventions used
 /// across the app (list rows, headers, large detail-view tiles).
@@ -70,10 +70,12 @@ impl ImageSize {
 
     /// The artwork shadow role for this `ImageSize`.
     ///
-    /// ADR 0101 Decision 4: only `Xl` and `XXl` artwork draws a shadow.
+    /// ADR 0101 Decision 4: `Lg`, `Xl` and `XXl` artwork draws a shadow. A
+    /// larger image has a larger shadow. `Sm` and `Md` have none.
     fn artwork_shadow(self) -> Option<ArtworkShadow> {
         match self {
-            Self::Sm | Self::Md | Self::Lg => None,
+            Self::Sm | Self::Md => None,
+            Self::Lg => Some(ArtworkShadow::Lg),
             Self::Xl => Some(ArtworkShadow::Xl),
             Self::XXl => Some(ArtworkShadow::XXl),
         }
@@ -86,7 +88,6 @@ pub struct Image {
     handle: Arc<gpui::Image>,
     size: ImageSize,
     dimension: Option<Pixels>,
-    radius: Radius,
 }
 
 impl Image {
@@ -95,7 +96,6 @@ impl Image {
             handle: image,
             size: ImageSize::Md,
             dimension: None,
-            radius: Radius::MD,
         }
     }
 
@@ -113,23 +113,21 @@ impl Image {
         self.dimension = Some(dimension);
         self
     }
-
-    pub fn radius(mut self, radius: Radius) -> Self {
-        self.radius = radius;
-        self
-    }
 }
 
 impl RenderOnce for Image {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let dim = self.dimension.unwrap_or_else(|| self.size.scaled(cx));
-        let radius = self.radius.scaled(cx);
+        let radius = ArtworkRadius::for_edge(dim);
         let shadow = self.size.artwork_shadow().map(|role| role.shadow(cx));
         let image = self.handle;
 
         let inner = img(image.clone())
             .w(dim)
             .h(dim)
+            // The container clips to its rectangle, not to its corners. The
+            // image paints its own corner radius (R-ART-4 item 2).
+            .rounded(radius)
             .object_fit(ObjectFit::Cover);
         let inner = if image.format == ImageFormat::Gif {
             // Animated GIFs need a stable id to drive frame ticking.
@@ -157,14 +155,20 @@ impl RenderOnce for Image {
 mod tests {
     use super::*;
 
-    /// ADR 0101 Decision 4: only `Xl` and `XXl` artwork draws a shadow. No
-    /// other `ImageSize` draws one.
+    /// ADR 0101 Decision 4: `Sm` and `Md` have no art shadow. The shadow
+    /// grows with the size from `Lg` to `XXl`.
     #[test]
-    fn only_xl_and_xxl_resolve_an_artwork_shadow() {
+    fn the_art_shadow_grows_with_the_image_size() {
         assert_eq!(ImageSize::Sm.artwork_shadow(), None);
         assert_eq!(ImageSize::Md.artwork_shadow(), None);
-        assert_eq!(ImageSize::Lg.artwork_shadow(), None);
+        assert_eq!(ImageSize::Lg.artwork_shadow(), Some(ArtworkShadow::Lg));
         assert_eq!(ImageSize::Xl.artwork_shadow(), Some(ArtworkShadow::Xl));
         assert_eq!(ImageSize::XXl.artwork_shadow(), Some(ArtworkShadow::XXl));
+        let blur = |role: ArtworkShadow| f32::from(role.blur_radius_base());
+        let offset = |role: ArtworkShadow| f32::from(role.offset_y_base());
+        assert!(blur(ArtworkShadow::Lg) < blur(ArtworkShadow::Xl));
+        assert!(offset(ArtworkShadow::Lg) < offset(ArtworkShadow::Xl));
+        assert!(blur(ArtworkShadow::Xl) <= blur(ArtworkShadow::XXl));
+        assert!(offset(ArtworkShadow::Xl) <= offset(ArtworkShadow::XXl));
     }
 }

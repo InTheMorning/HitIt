@@ -1,6 +1,6 @@
 # ADR 0101 Task 003: The Art Radius And The Art Shadow
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks. It does not wait for task 002.
+Status: Implemented - operator visual checks open, 2026-11-16.
 
 ## Goal
 
@@ -75,7 +75,7 @@ Mechanical:
 
 Visual, for the operator, in Dark and Light at M:
 
-- V1: the corners of a row image, a tile and a page header image look the same in proportion. A tile corner is not round like a button.
+- V1: the corners of a row image, a tile and a page header image look the same in proportion. A tile corner does not have the curve of a button.
 - V2: a header image has a larger shadow than a tile. A row image has no shadow.
 
 ## Test Commands
@@ -101,3 +101,46 @@ A delegate does not commit. It leaves its change in the working tree and reports
 - Stop if `art-radius` in `src/assets/tokens.json` does not give 0.06 and 4.
 - Stop if the GPUI image corner radius cannot take a value that is not a `Radius` role.
 - Stop if an image is art in one view and an icon in a different view.
+
+## Implementation Report - 2026-11-16
+
+Status: the mechanical checks M1 to M8 pass. The visual checks V1 and V2 stay open for the operator.
+
+Changes:
+
+- `src/ui/tokens.rs`: new `ArtworkRadius` with `FRACTION_OF_EDGE` 0.06, `MINIMUM_PX` 4, `px_for_edge` (rounds half up) and `for_edge`. New `ArtworkShadow::Lg` (blur 8, offset 2, alpha 0.22).
+- `src/ui/primitives/image.rs`: the primitive takes its radius from the edge. The `radius` field and method are removed. `ImageSize::Lg` has the Lg shadow.
+- `src/ui/composites/thumbnail.rs`: `ThumbnailSize::radius(cx)` and `radius_at(scale)` use the function.
+- `src/ui/composites/content_tile.rs`, `src/ui/composites/collection_art.rs`, `src/ui/shells/library/thumbnail.rs`: callers use the function.
+- `tests/architecture_tests.rs`: the guard `playlist_rows_scale_through_design_tokens` requires `ArtworkRadius::for_edge(size)` in place of `Radius::SM.scaled(cx)`. Its purpose (the radius scales) is unchanged.
+
+Callers at UI scale Medium:
+
+| Caller | Edge | Radius before | Radius after |
+|---|---|---|---|
+| `Thumbnail` Sm | 32 | 6 (SM, task 001 value) | 4 |
+| `Thumbnail` Md | 48 | 6 | 4 |
+| `Thumbnail` Lg | 80 | 10 (MD) | 5 |
+| `Thumbnail` Xl | 152 | 10 | 9 |
+| `Thumbnail` XXl | 200 | 12 (LG) | 12 |
+| `ContentTile` image | 152 | 10 | 9 |
+| `CollectionArt` pending square | size of `ThumbnailSize` | role value | same as `Thumbnail` |
+| `render_album_thumb` (playlist row) | 24 | 6 | 4 |
+
+The logo frame raster (`src/media/logo_frame.rs`) draws a polygon shape with no corner radius. It needed no change. `track_header.rs` and `file_header.rs` set no image radius.
+
+Tests: M1 `ui::tokens::tests::r_art_4_art_radius_is_six_percent_of_the_edge_with_a_minimum`, M2 `ui::composites::thumbnail::tests::r_art_4_each_thumbnail_size_has_the_art_radius_of_its_scaled_edge`, M3 `ui::composites::content_tile::tests::r_art_4_content_tile_uses_the_art_radius_function` and `ui::composites::collection_art::tests::r_art_4_collection_art_uses_the_art_radius_function`, M4 `ui::primitives::image::tests::the_art_shadow_grows_with_the_image_size` and `adr_0083_artwork_shadow_grows_with_image_size`, M5 `ui::tokens::tests::r_art_4_art_radius_matches_the_shared_token`.
+
+Primary agent choice, 2026-11-16: the Lg art shadow has blur 8, offset 2 and alpha 0.22. Each value is approximately half of the Xl value or less, so the shadow grows from Lg to Xl to XXl. The packet gave only "smaller than Xl".
+
+The primary agent examined the diff and ran the gate. Each user of the image primitive shows art, so no icon or logo gets the art radius.
+
+## Walk Result - 2026-11-16
+
+The primary agent walked V1 on an Xvfb display with the debug binary, in Dark at M.
+
+- The first walk found square corners on each image. The container of the image primitive clips to its rectangle, not to its corners. The code before this task had the same fault. Correction: the `img` element of `src/ui/primitives/image.rs` gets the same radius, because GPUI paints an image with the corner radii of its own style.
+- After the correction, V1: Pass. A row image has a corner of approximately 4 px, a tile approximately 9 px and the page header image approximately 12 px. A tile corner does not have the curve of a button.
+- V2 is open. On the dark page background, the agent cannot compare the shadow sizes in a screenshot. The operator does V2 in Light.
+
+The operator confirmation stays open.

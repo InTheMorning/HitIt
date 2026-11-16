@@ -621,6 +621,42 @@ impl Radius {
 }
 
 // -----------------------------------------------------------------------------
+// ArtworkRadius. ADR 0101 Decision 4.
+// -----------------------------------------------------------------------------
+
+/// The corner radius of an image of art.
+///
+/// musicindex ADR 0021 R-ART-4 item 2: the radius is 6 % of the edge, rounded
+/// to a full pixel, with a minimum of 4 px. The shared token `art-radius` in
+/// `src/assets/tokens.json` gives the same values, and a test compares them.
+/// The radius is a function of the edge. It is not a [`Radius`] role, so a
+/// change of a role does not change the art.
+pub struct ArtworkRadius;
+
+impl ArtworkRadius {
+    /// The part of the edge that the radius takes (`fraction-of-edge`).
+    pub const FRACTION_OF_EDGE: f32 = 0.06;
+    /// The smallest radius in pixels (`minimum-px`).
+    pub const MINIMUM_PX: f32 = 4.0;
+
+    /// The radius for an edge in pixels. The result rounds half up.
+    #[must_use]
+    pub fn px_for_edge(edge_px: f32) -> f32 {
+        (edge_px * Self::FRACTION_OF_EDGE + 0.5)
+            .floor()
+            .max(Self::MINIMUM_PX)
+    }
+
+    /// The radius for an edge that is already at the current UI scale
+    /// (ADR 0039). The scaled edge sets the radius, so the radius keeps its
+    /// proportion at each scale step.
+    #[must_use]
+    pub fn for_edge(edge: Pixels) -> Pixels {
+        px(Self::px_for_edge(f32::from(edge)))
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Typography.
 // -----------------------------------------------------------------------------
 
@@ -779,7 +815,8 @@ impl From<Weight> for FontWeight {
 
 /// Artwork shadow scale.
 ///
-/// `Xl` matches `ImageSize::Xl`, 152 px artwork. The Music content tile
+/// `Lg` matches `ImageSize::Lg`, 80 px artwork. `Xl` matches
+/// `ImageSize::Xl`, 152 px artwork. The Music content tile
 /// also uses `Xl`, through `Size::ContentTileArtwork`. `XXl` matches
 /// `ImageSize::XXl`, 200 px page-header artwork.
 ///
@@ -789,6 +826,8 @@ impl From<Weight> for FontWeight {
 /// values into its composed image, through [`ArtworkShadow::baked`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ArtworkShadow {
+    /// 80 px artwork — `ImageSize::Lg`.
+    Lg,
     /// 152 px artwork — `ImageSize::Xl` and the Music content tile.
     Xl,
     /// 200 px artwork — `ImageSize::XXl` page-header covers.
@@ -800,6 +839,7 @@ impl ArtworkShadow {
     #[must_use]
     pub const fn blur_radius_base(self) -> Pixels {
         match self {
+            Self::Lg => px(8.0),
             Self::Xl => px(16.0),
             Self::XXl => px(24.0),
         }
@@ -809,6 +849,7 @@ impl ArtworkShadow {
     #[must_use]
     pub const fn offset_y_base(self) -> Pixels {
         match self {
+            Self::Lg => px(2.0),
             Self::Xl => px(4.0),
             Self::XXl => px(6.0),
         }
@@ -820,6 +861,7 @@ impl ArtworkShadow {
     /// correctly on larger artwork.
     const fn alpha(self) -> f32 {
         match self {
+            Self::Lg => 0.22,
             Self::Xl => 0.28,
             Self::XXl => 0.34,
         }
@@ -1558,6 +1600,47 @@ mod tests {
         serde_json::from_str(include_str!("../assets/tokens.json")).expect("valid JSON")
     }
 
+    /// musicindex ADR 0021 R-ART-4 item 2: the art radius is 6 % of the edge,
+    /// rounded half up, with a minimum of 4 px.
+    #[test]
+    fn r_art_4_art_radius_is_six_percent_of_the_edge_with_a_minimum() {
+        for (edge, radius) in [
+            (32.0, 4.0),
+            (40.0, 4.0),
+            (48.0, 4.0),
+            (84.0, 5.0),
+            (152.0, 9.0),
+            (200.0, 12.0),
+        ] {
+            assert!(
+                (ArtworkRadius::px_for_edge(edge) - radius).abs() < f32::EPSILON,
+                "edge {edge} must give radius {radius}"
+            );
+        }
+        // 75 px gives 4.5 px, which rounds half up to 5 px.
+        assert!((ArtworkRadius::px_for_edge(75.0) - 5.0).abs() < f32::EPSILON);
+    }
+
+    /// musicindex ADR 0021 R-ART-4 item 2: `ArtworkRadius` matches the shared
+    /// token `shape.art-radius` in `src/assets/tokens.json`. Fix: copy the
+    /// value from that file into `ArtworkRadius`, or ask for a new shared copy.
+    #[test]
+    fn r_art_4_art_radius_matches_the_shared_token() {
+        let shared = shared_tokens();
+        let token = &shared["shape"]["art-radius"];
+        let fraction = token["fraction-of-edge"].as_f64().expect("a fraction");
+        let minimum = token["minimum-px"].as_f64().expect("a minimum");
+        assert!(
+            (fraction - f64::from(ArtworkRadius::FRACTION_OF_EDGE)).abs() < 1e-6,
+            "R-ART-4 item 2: fraction-of-edge is {fraction}. Fix: copy it into ArtworkRadius."
+        );
+        assert!(
+            (minimum - f64::from(ArtworkRadius::MINIMUM_PX)).abs() < 1e-6,
+            "R-ART-4 item 2: minimum-px is {minimum}. Fix: copy it into ArtworkRadius."
+        );
+        assert_eq!(token["rounding"].as_str(), Some("nearest pixel"));
+    }
+
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
@@ -1961,6 +2044,14 @@ mod tests {
     #[test]
     fn adr_0083_artwork_shadow_grows_with_image_size() {
         assert!(
+            ArtworkShadow::Xl.blur_radius_base() > ArtworkShadow::Lg.blur_radius_base(),
+            "Xl blur radius must exceed Lg"
+        );
+        assert!(
+            ArtworkShadow::Xl.offset_y_base() > ArtworkShadow::Lg.offset_y_base(),
+            "Xl vertical offset must exceed Lg"
+        );
+        assert!(
             ArtworkShadow::XXl.blur_radius_base() > ArtworkShadow::Xl.blur_radius_base(),
             "XXl blur radius must exceed Xl"
         );
@@ -1975,7 +2066,7 @@ mod tests {
     #[gpui::test]
     fn adr_0083_artwork_shadow_is_translucent_black(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
-            for role in [ArtworkShadow::Xl, ArtworkShadow::XXl] {
+            for role in [ArtworkShadow::Lg, ArtworkShadow::Xl, ArtworkShadow::XXl] {
                 let shadow = role.shadow(cx);
                 assert_eq!(
                     shadow.len(),

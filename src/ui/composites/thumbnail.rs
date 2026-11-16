@@ -17,7 +17,7 @@ use gpui::{
 
 use crate::ui::icons::LOGO_FRAME_ASSET_PATH;
 use crate::ui::primitives::{Image as ImagePrimitive, ImageSize};
-use crate::ui::tokens::{ArtworkShape, Radius, ScaleFactor};
+use crate::ui::tokens::{ArtworkRadius, ArtworkShape, ScaleFactor};
 
 use super::tag_badge::EntityKind;
 
@@ -82,15 +82,23 @@ impl ThumbnailSize {
 
     /// ADR 0039: artwork sizing is geometry — this resolves through CHROME.
     pub(crate) fn scaled(self, cx: &App) -> Pixels {
-        gpui::px(self.base() * ScaleFactor::current(cx).chrome_multiplier())
+        self.scaled_at(ScaleFactor::current(cx))
     }
 
-    pub(crate) fn radius(self) -> Radius {
-        match self {
-            Self::Sm | Self::Md => Radius::SM,
-            Self::Lg | Self::Xl => Radius::MD,
-            Self::XXl => Radius::LG,
-        }
+    /// The edge at one UI scale step.
+    fn scaled_at(self, scale: ScaleFactor) -> Pixels {
+        gpui::px(self.base() * scale.chrome_multiplier())
+    }
+
+    /// The corner radius of this size at one UI scale step. The scaled edge
+    /// sets it (musicindex ADR 0021 R-ART-4 item 2).
+    pub(crate) fn radius_at(self, scale: ScaleFactor) -> Pixels {
+        ArtworkRadius::for_edge(self.scaled_at(scale))
+    }
+
+    /// The corner radius of this size at the current UI scale.
+    pub(crate) fn radius(self, cx: &App) -> Pixels {
+        self.radius_at(ScaleFactor::current(cx))
     }
 }
 
@@ -122,7 +130,6 @@ impl RenderOnce for Thumbnail {
         match self.image {
             Some(image) => ImagePrimitive::new(image)
                 .size(self.size.image_size())
-                .radius(self.size.radius())
                 .into_any_element(),
             None => logo_placeholder(self.kind, self.size.scaled(cx), cx),
         }
@@ -181,6 +188,37 @@ mod tests {
                 "{size:?}"
             );
         }
+    }
+
+    /// musicindex ADR 0021 R-ART-4 item 2: each size gives the radius of
+    /// `ArtworkRadius` for its scaled edge at each UI scale step.
+    #[test]
+    fn r_art_4_each_thumbnail_size_has_the_art_radius_of_its_scaled_edge() {
+        for scale in [
+            ScaleFactor::XSmall,
+            ScaleFactor::Small,
+            ScaleFactor::Medium,
+            ScaleFactor::Large,
+            ScaleFactor::XLarge,
+        ] {
+            for size in [
+                ThumbnailSize::Sm,
+                ThumbnailSize::Md,
+                ThumbnailSize::Lg,
+                ThumbnailSize::Xl,
+                ThumbnailSize::XXl,
+            ] {
+                let edge = size.base() * scale.chrome_multiplier();
+                let expected = ArtworkRadius::px_for_edge(edge);
+                assert!(
+                    (f32::from(size.radius_at(scale)) - expected).abs() < f32::EPSILON,
+                    "{size:?} at {scale:?}"
+                );
+            }
+        }
+        let medium = ScaleFactor::Medium;
+        assert!((f32::from(ThumbnailSize::Xl.radius_at(medium)) - 9.0).abs() < f32::EPSILON);
+        assert!((f32::from(ThumbnailSize::XXl.radius_at(medium)) - 12.0).abs() < f32::EPSILON);
     }
 
     /// R86-2-32: the 152 px tile size uses the `Xl` image size, so a group
