@@ -25,6 +25,7 @@ use crate::theme_profile::ThemeProfile;
 use crate::ui::composites::selection_action_bar::{
     list_bar_playlists, render_list_bar, ListBarCopy, ListBarHandler,
 };
+use crate::ui::composites::{status_bar, StatusBarSlots};
 use crate::ui::layouts::{
     MUSIC_SIDEBAR_WIDTH, SHELL_TAB_BAR_BREAKPOINT, WINDOW_HEIGHT, WINDOW_MIN_WIDTH,
 };
@@ -36,6 +37,10 @@ use crate::view_models::detail_selection::{
 use crate::view_models::list_page::{ListPageKey, ListPageState};
 use crate::view_models::sidebar::SidebarDestination;
 use crate::view_models::singles_group::{SinglesGroupPageEntryVm, SinglesGroupPageRowVm};
+use crate::view_models::status_bar::{
+    StatusBarDisplay, StatusEventDisplay, StatusItemDetail, StatusItemDisplay, StatusItemIcon,
+    StatusItemKind,
+};
 use crate::view_models::workspace::ReleaseKey;
 
 /// The two widths of the check (ADR 0097 Decision 2).
@@ -223,6 +228,105 @@ fn list_bar_faults(width: Pixels, selecting: bool) -> (usize, Vec<String>) {
     let found = draw_and_read(window);
     cx.quit();
     found
+}
+
+/// The status bar with a long event and each right side item, in a box as
+/// wide as the window (ADR 0101 Decision 7).
+struct StatusBarCase {
+    width: Pixels,
+}
+
+fn status_bar_display() -> StatusBarDisplay {
+    let item = |kind, id, icon, word: &str, detail| StatusItemDisplay {
+        kind,
+        id,
+        icon,
+        word: word.to_owned(),
+        a11y_label: word.to_owned(),
+        detail,
+        enabled: true,
+    };
+    StatusBarDisplay {
+        id: "status-bar",
+        event: Some(StatusEventDisplay {
+            words: format!("The app could not download {LONG_TITLE}: the host sent no file."),
+            time_label: "08:01:01 UTC".to_owned(),
+            a11y_label: "Recorded at 2027-01-15 08:01:01 UTC.".to_owned(),
+        }),
+        items: vec![
+            item(
+                StatusItemKind::Feed,
+                "status-feed",
+                StatusItemIcon::Feed,
+                "2 feeds failed",
+                StatusItemDetail::FeedCheck { playlist_id: 1 },
+            ),
+            item(
+                StatusItemKind::Files,
+                "status-files",
+                StatusItemIcon::Files,
+                "Update 12 files",
+                StatusItemDetail::TagUpdatePopup,
+            ),
+            item(
+                StatusItemKind::Reports,
+                "status-reports",
+                StatusItemIcon::Reports,
+                "3 reports",
+                StatusItemDetail::ReportsNotice,
+            ),
+            item(
+                StatusItemKind::Show,
+                "status-show",
+                StatusItemIcon::Show,
+                "Playing",
+                StatusItemDetail::ShowSection,
+            ),
+        ],
+    }
+}
+
+impl Render for StatusBarCase {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .size_full()
+            .font_family(crate::ui::fonts::FIGTREE_FAMILY)
+            .child(div().w(self.width).overflow_hidden().child(status_bar(
+                status_bar_display(),
+                StatusBarSlots::new().on_open_item(|_, _, _| {}),
+            )))
+    }
+}
+
+fn status_bar_faults(width: Pixels) -> (usize, Vec<String>) {
+    let mut cx = fit_probe::figtree_test_context();
+    cx.update(init);
+    let (_, window) = cx.add_window_view(move |_, _| StatusBarCase { width });
+    window.simulate_resize(size(width, WINDOW_HEIGHT));
+    window.run_until_parked();
+    let found = draw_and_read(window);
+    cx.quit();
+    found
+}
+
+/// ADR 0097 §How This Decision Is Checked: the status bar, with a long event
+/// text and each right side item, has no break inside a word, no edge cut
+/// and no overflow at 390 px and at 940 px (ADR 0101 task 008, M7).
+#[test]
+fn adr_0097_the_status_bar_fits_at_the_two_widths() {
+    for width in WIDTHS {
+        let (count, faults) = status_bar_faults(width);
+        assert!(
+            count > 0,
+            "ADR 0097 Decision 4: the status bar recorded no fit probe."
+        );
+        assert!(
+            faults.is_empty(),
+            "at {} px:\n{}",
+            f32::from(width),
+            faults.join("\n")
+        );
+    }
 }
 
 /// ADR 0097 §How This Decision Is Checked: the shell has no break inside a

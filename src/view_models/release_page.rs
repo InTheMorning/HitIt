@@ -407,6 +407,8 @@ pub(crate) struct ReleasePageActionVm {
     pub(crate) destructive: bool,
     /// The command of the action. `None` for "Add to playlist".
     pub(crate) command: Option<ReleasePageCommand>,
+    /// The result that the "⋯" button shows after the action.
+    pub(crate) result_label: Option<&'static str>,
 }
 
 /// The action row of a release page (ADR 0101 Decision 5).
@@ -1229,6 +1231,7 @@ fn release_page_actions(input: &ReleasePageFacts) -> ReleasePageActionsVm {
             available: display.available && has_target,
             destructive: action.is_destructive(),
             command: ReleasePageCommand::for_action(action),
+            result_label: action.result_label(),
         }
     };
     ReleasePageActionsVm {

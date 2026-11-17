@@ -272,6 +272,10 @@ pub(crate) struct TrackPageActionVm {
     /// The text under an unavailable menu item that tells why. `None`
     /// when the item has no such text.
     pub(crate) reason: Option<&'static str>,
+    /// The result that the "⋯" button shows after the action. `None` when
+    /// the result is not known at once: the copy of an Index track reads
+    /// its feed first, and its status line reports the result.
+    pub(crate) result_label: Option<&'static str>,
 }
 
 /// The action row of a track page (ADR 0101 Decision 5).
@@ -449,8 +453,9 @@ fn track_page_action_row(
                 .as_deref()
                 .map(str::trim)
                 .filter(|feed_guid| !feed_guid.is_empty());
-            let action_vm = |display: TrackPageActionDisplay, place: &str| {
-                track_page_action_vm(display, &format!("index-track-page-{place}"), None)
+            let action_vm = |display: TrackPageActionDisplay, place: &str| TrackPageActionVm {
+                result_label: None,
+                ..track_page_action_vm(display, &format!("index-track-page-{place}"), None)
             };
             // An Index track with no feed GUID has no menu: each menu
             // command reads the album feed by its GUID.
@@ -501,6 +506,7 @@ fn track_page_action_vm(
         available: display.available,
         destructive: action.is_destructive(),
         reason,
+        result_label: action.result_label(),
     }
 }
 

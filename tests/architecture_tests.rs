@@ -352,6 +352,7 @@ const SCREEN_FILES: &[&str] = &[
     "src/app/search_dispatch.rs",
     "src/app/search_field_list.rs",
     "src/app/search_live.rs",
+    "src/app/status_bar.rs",
     "src/app/toolbar.rs",
     "src/library.rs",
 ];
@@ -14319,146 +14320,104 @@ fn adr_0060_queue_has_no_volume_or_output_picker_display() {
     );
 }
 
-/// Situational ADR 0060: live status is a passive strip above Music/Settings.
+/// Situational ADR 0101 Decision 7: one composite owns the status bar, and no
+/// screen renders a second status band. The old live status band is gone.
 #[test]
-fn adr_0060_live_status_strip_contract_and_mount_are_guarded() {
-    let vm_source = read_source(&manifest_path("src/view_models/live_status.rs"));
-    let vm_mod_source = read_source(&manifest_path("src/view_models/mod.rs"));
-    let composite_source = read_source(&manifest_path("src/ui/composites/live_status_strip.rs"));
+fn adr_0101_decision_7_one_composite_owns_the_status_bar_and_no_screen_renders_a_second_band() {
+    const FIX: &str = "Put the content in a status bar item or in the app event list \
+        (src/view_models/status_bar.rs), and draw it only in src/ui/composites/status_bar.rs.";
+    let composite_path = manifest_path("src/ui/composites/status_bar.rs");
+    let composite_source = read_source(&composite_path);
     let composite_mod_source = read_source(&manifest_path("src/ui/composites/mod.rs"));
     let app_source = read_source(&manifest_path("src/app.rs"));
-    let show_adapter_source = read_source(&manifest_path("src/app/show.rs"));
     let app_render = app_source
         .split_once("impl Render for TopApp")
         .expect("app renderer")
         .1;
-    let build_live_status_strip = source_between(
-        &show_adapter_source,
-        "pub(super) fn build_live_status_strip(",
-        "impl TopApp",
-    );
     let mut violations = Vec::new();
 
-    for (line_number, line) in code_lines(&vm_source) {
-        for pattern in VIEW_MODEL_FORBIDDEN_PATTERNS {
-            if line.contains(pattern) {
-                violations.push(format!(
-                    "src/view_models/live_status.rs:{line_number}: ADR 0060 task 004 LiveStatus VM must stay renderer-free; found `{pattern}` in `{line}`"
-                ));
-            }
-        }
+    if manifest_path("src/ui/composites/live_status_strip.rs").exists() {
+        violations.push(format!(
+            "src/ui/composites/live_status_strip.rs: ADR 0101 Decision 7: the live status band is replaced by the status bar. Delete the file. {FIX}"
+        ));
     }
-
     for required in [
-        "pub(crate) struct LiveStatusDisplay",
-        "pub(crate) active: bool",
-        "pub(crate) heading_label: &'static str",
-        "pub(crate) summary_label: String",
-        "pub(crate) struct LiveStatusNowPlayingDisplay",
-        "pub(crate) enum LiveStatusHealthState",
-        "pub(crate) enum LiveStatusHealthIconRole",
-        "pub(crate) struct LiveStatusHealthDisplay",
-        "pub(crate) struct LiveStatusRecordingDisplay",
-        "pub(crate) struct LiveStatusOpenShowActionDisplay",
-        "pub(crate) struct LiveStatusProjection",
-        "pub(crate) fn from_show_page(show: &ShowPageVm) -> Self",
-        "Health unknown",
-        "Recording",
-        "Open Show",
-    ] {
-        if !vm_source.contains(required) {
-            violations.push(format!(
-                "src/view_models/live_status.rs: ADR 0060 task 004 display contract missing `{required}`"
-            ));
-        }
-    }
-
-    if !vm_mod_source.contains("pub(crate) mod live_status;") {
-        violations.push(
-            "src/view_models/mod.rs: ADR 0060 task 004 live_status VM module is not exported"
-                .to_string(),
-        );
-    }
-
-    for required in [
-        "pub(crate) fn live_status_strip(",
-        "pub(crate) struct LiveStatusStripSlots",
-        "pub(crate) fn on_open_show(",
-        "Icon::new(icon).size(IconSize::Action)",
-        "SharedString::from(health.label)",
-        "let now_playing_state_label = now_playing.map(|value| value.state_label);",
-        "SharedString::from(state_label)",
-        "recording.summary_label",
-        "open_show.label",
+        "pub(crate) fn status_bar(",
+        "pub(crate) struct StatusBarSlots",
+        "pub(crate) fn on_open_item(",
+        ".truncate()",
     ] {
         if !composite_source.contains(required) {
             violations.push(format!(
-                "src/ui/composites/live_status_strip.rs: ADR 0060 task 004 strip composite missing `{required}`"
+                "src/ui/composites/status_bar.rs: ADR 0101 Decision 7: the status bar composite is missing `{required}`. {FIX}"
             ));
+        }
+    }
+    if !composite_mod_source.contains("pub(crate) use status_bar::{") {
+        violations.push(format!(
+            "src/ui/composites/mod.rs: ADR 0101 Decision 7: the status bar composite is not exported. {FIX}"
+        ));
+    }
+    // The shell mounts the one status bar view once, after the body.
+    let mounts = app_render.matches("self.status_bar_view.clone()").count();
+    if mounts != 1 {
+        violations.push(format!(
+            "src/app.rs: ADR 0101 Decision 7: the shell must mount the status bar view exactly once; found {mounts} mounts. {FIX}"
+        ));
+    }
+    // No other source draws a band: only the composite names its element id
+    // or builds it, and nothing keeps the old band names.
+    let mut files = rust_files_under("src");
+    files.sort();
+    for path in files {
+        if path == composite_path {
+            continue;
+        }
+        let relative = rel_path(&path);
+        // The view model and the shell view feed the composite. The fit
+        // check draws it in a box (ADR 0097).
+        let feeds_composite = relative == "src/view_models/status_bar.rs"
+            || relative.starts_with("src/app/fit_check/")
+            || relative == "src/app/status_bar.rs"
+            || relative == "src/ui/composites/mod.rs";
+        let source = read_source(&path);
+        for (line_number, line) in code_lines(production_source(&source)) {
+            for forbidden in [
+                "live_status_strip",
+                "LiveStatusStrip",
+                "live-status-strip",
+                "build_live_status_strip",
+            ] {
+                if line.contains(forbidden) {
+                    violations.push(format!(
+                        "{relative}:{line_number}: ADR 0101 Decision 7: the live status band is gone; found `{forbidden}`. {FIX}"
+                    ));
+                }
+            }
+            if !feeds_composite
+                && (line.contains("status_bar(")
+                    || line.contains("StatusBarSlots")
+                    || line.contains("\"status-bar\""))
+                && !line.contains("fn sync_status_bar")
+                && !line.contains("self.sync_status_bar")
+            {
+                violations.push(format!(
+                    "{relative}:{line_number}: ADR 0101 Decision 7: only the status bar view may build the status bar; found `{line}`. {FIX}"
+                ));
+            }
         }
     }
 
     for forbidden in [
         "crate::db",
         "PlaybackOwner",
-        "PausePlayback",
-        "ResumePlayback",
-        "SkipPlayback",
-        "StopPlayback",
-        "queue_transport_action",
         "present_command(",
         "ApplicationCommand",
         "BroadcastObservation",
-        "value.artist",
-        "when_some(artist",
     ] {
         if composite_source.contains(forbidden) {
             violations.push(format!(
-                "src/ui/composites/live_status_strip.rs: ADR 0060 task 004 strip is a glance surface; found command/state source `{forbidden}`"
-            ));
-        }
-    }
-
-    for required in [
-        "pub(crate) use live_status_strip::{",
-        "live_status_strip",
-        "LiveStatusStrip",
-        "LiveStatusStripSlots",
-    ] {
-        if !composite_mod_source.contains(required) {
-            violations.push(format!(
-                "src/ui/composites/mod.rs: ADR 0060 task 004 live status strip export missing `{required}`"
-            ));
-        }
-    }
-
-    for required in [
-        "let live_status_strip = build_live_status_strip(self, mount, cx)",
-        ".when_some(live_status_strip, gpui::ParentElement::child)",
-        "WorkspaceScreenMount::Music | WorkspaceScreenMount::Settings",
-        "LiveStatusDisplay::from_show_page(&app.show_page)",
-        "this.select_tab(AppTab::Show, window, cx);",
-    ] {
-        if !app_render.contains(required) && !show_adapter_source.contains(required) {
-            violations.push(format!(
-                "src/app.rs or src/app/show.rs: ADR 0060 task 004 live strip mount/action missing `{required}`"
-            ));
-        }
-    }
-
-    for forbidden in [
-        "skip_playback",
-        "toggle_playback",
-        "PausePlayback",
-        "ResumePlayback",
-        "SkipPlayback",
-        "StopPlayback",
-        "queue_transport_action",
-        "present_command(",
-    ] {
-        if build_live_status_strip.contains(forbidden) {
-            violations.push(format!(
-                "src/app/show.rs: ADR 0060 task 004 live strip may only open Show; found `{forbidden}`"
+                "src/ui/composites/status_bar.rs: ADR 0101 Decision 7: the status bar draws display facts only; found `{forbidden}`. {FIX}"
             ));
         }
     }
@@ -14473,19 +14432,85 @@ fn adr_0060_live_status_strip_contract_and_mount_are_guarded() {
     ] {
         if app_render.contains(forbidden) {
             violations.push(format!(
-                "src/app.rs: ADR 0060 task 004 render path must not read show state; found `{forbidden}`"
+                "src/app.rs: ADR 0101 Decision 7: the render path must not read show state; found `{forbidden}`. {FIX}"
             ));
         }
     }
 
     assert!(
         violations.is_empty(),
-        "ADR 0060 live status strip violations:\n{}",
+        "ADR 0101 Decision 7 status bar violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0060: Show and the strip share one cached projector.
+/// musicindex ADR 0026 R-NOTICE-1 item 3: no app shows a toast. No code
+/// builds a notice that closes itself on a timer. The files that use a timer
+/// are the ones below, and no timer closure of them touches a notice.
+#[test]
+fn adr_0101_task_008_no_code_builds_a_notice_that_closes_on_a_timer() {
+    const TIMER_FILES: &[&str] = &[
+        "src/presentation/delayed_presenter.rs",
+        "src/app/bootstrap.rs",
+        "src/app/search_live.rs",
+        "src/app/search_field_list.rs",
+        "src/library/downloads.rs",
+        "src/library/app_impl.rs",
+    ];
+    const NOTICE_WORDS: &[&str] = &[
+        "notice",
+        "toast",
+        "settings_status",
+        "status_message",
+        "reports_open",
+        "app_events",
+    ];
+    let mut violations = Vec::new();
+    // The runtime layer has no notices. Its timers pace background work.
+    let ui_dirs = ["src/app", "src/ui", "src/library", "src/presentation"];
+    let ui_files = ui_dirs
+        .iter()
+        .flat_map(|dir| rust_files_under(dir))
+        .chain([manifest_path("src/app.rs"), manifest_path("src/library.rs")]);
+    for path in ui_files {
+        let relative = rel_path(&path);
+        let source = read_source(&path);
+        let lines: Vec<(usize, String)> = code_lines(production_source(&source)).collect();
+        for (index, (line_number, line)) in lines.iter().enumerate() {
+            if line.to_lowercase().contains("toast") {
+                violations.push(format!(
+                    "{relative}:{line_number}: musicindex ADR 0026 R-NOTICE-1 item 3: no app shows a toast. Show the result where the action was, or send the event to the status bar."
+                ));
+            }
+            let uses_timer = line.contains("present_after(")
+                || line.contains(".timer(")
+                || line.contains("tokio::time::sleep");
+            if !uses_timer || relative == "src/presentation/delayed_presenter.rs" {
+                continue;
+            }
+            if !TIMER_FILES.contains(&relative.as_str()) {
+                violations.push(format!(
+                    "{relative}:{line_number}: musicindex ADR 0026 R-NOTICE-1 item 3: a notice must not close on a timer. This file is not a known user of a timer. Show the result where the action was, or send the event to the status bar."
+                ));
+                continue;
+            }
+            for (other_number, other) in lines.iter().skip(index).take(10) {
+                if NOTICE_WORDS.iter().any(|word| other.contains(word)) {
+                    violations.push(format!(
+                        "{relative}:{other_number}: musicindex ADR 0026 R-NOTICE-1 item 3: a timer closure must not set or clear a notice; found `{other}`. Show the result where the action was, or send the event to the status bar."
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "R-NOTICE-1 item 3 violations:\n{}",
+        violations.join("\n")
+    );
+}
+
+/// Situational ADR 0060: Show and the status bar share one cached projector.
 #[test]
 fn adr_0060_live_status_and_show_share_cached_projection() {
     let app_source = read_source(&manifest_path("src/app.rs"));

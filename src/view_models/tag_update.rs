@@ -270,6 +270,30 @@ pub(crate) fn report(
         })
 }
 
+/// The words of each tag write that failed in the latest confirm: the error
+/// of a confirm that wrote no file, and each file with a write error. The
+/// status bar event list records them (ADR 0101 Decision 7). The words are
+/// the report words of [`report`] and the report lines of the file.
+#[must_use]
+pub(crate) fn failure_words(snapshot: &TagUpdateSnapshot) -> Vec<String> {
+    if let Some(error) = &snapshot.write_error {
+        return vec![format!("The tag update wrote no file. {error}")];
+    }
+    snapshot
+        .last_write
+        .iter()
+        .flat_map(|write| write_report(write).lines)
+        .filter(|line| line.role == TagUpdateReportRole::Failed)
+        .map(|line| line.text)
+        .collect()
+}
+
+/// The words of a confirm that the runtime did not accept.
+#[must_use]
+pub(crate) fn request_failure_words() -> String {
+    report(None, true).map_or_else(String::new, |report| report.summary)
+}
+
 fn write_report(write: &TagUpdateWriteReport) -> TagUpdateReportDisplay {
     let at = chrono::DateTime::from_timestamp_micros(write.finished_at_us).map_or_else(
         || "an unknown time".to_owned(),

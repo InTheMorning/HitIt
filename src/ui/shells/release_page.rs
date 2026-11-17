@@ -273,6 +273,9 @@ fn render_release_page_menu(
             let dispatch = Rc::clone(dispatch);
             item = item.on_select(move |window, cx| dispatch(command.clone(), window, cx));
         }
+        if let Some(label) = action.result_label {
+            item = item.result_label(label);
+        }
         item
     });
     ContextMenu::new(

@@ -35,6 +35,7 @@ use crate::presentation::delayed_presenter::present_after;
 use crate::presentation::present_command;
 use crate::subscribe_service::{SubscribeFeedRequest, SubscribeTrackRequest};
 use crate::ui::composites::download_status_item;
+use crate::view_models::app_events::AppEventOwner;
 use crate::view_models::detail_selection::index_track_guid;
 use crate::view_models::download_progress::{DownloadProgressDisplay, FeedKey};
 use crate::view_models::library::LibraryTrackRowVm;
@@ -118,6 +119,11 @@ impl LibraryApp {
     /// Starts jobs while fewer than three run, then updates the busy state
     /// of each page.
     pub(crate) fn pump_downloads(&mut self, cx: &mut Context<Self>) {
+        // ADR 0101 Decision 7: a failed download has no visible action.
+        // It goes to the app event list, with the words of the progress item.
+        for failure in self.download_queue.take_new_failures() {
+            self.emit_app_event(AppEventOwner::Download, failure.words(), cx);
+        }
         while let Some(job) = self.download_queue.start_next() {
             self.run_download_job(job, cx);
         }

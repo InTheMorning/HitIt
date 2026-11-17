@@ -789,15 +789,47 @@ fn with_message(result: String, message: Option<&str>) -> String {
     }
 }
 
-fn row(playlist_id: i64, feed: &RssFeedCheck) -> PlaylistRssFeedRowDisplay {
-    let name = feed
-        .title
+/// The name of a feed in the report: its title, its URL or its id.
+fn check_feed_name(feed: &RssFeedCheck) -> String {
+    feed.title
         .as_deref()
         .map(str::trim)
         .filter(|title| !title.is_empty())
         .map(str::to_owned)
         .or_else(|| feed.feed_url.clone())
-        .unwrap_or_else(|| format!("Feed {}", feed.feed_id));
+        .unwrap_or_else(|| format!("Feed {}", feed.feed_id))
+}
+
+/// The result text of a feed whose request failed.
+fn failed_result(feed: &RssFeedCheck) -> String {
+    let host = feed.host.as_deref().unwrap_or("the feed host");
+    let status = feed
+        .http_status
+        .map_or_else(String::new, |status| format!(" HTTP {status}."));
+    format!(
+        "Failed. {}",
+        feed.message
+            .clone()
+            .unwrap_or_else(|| format!("The request to {host} failed.{status}"))
+    )
+}
+
+/// The words of each failure of a run that ended: one text for each feed
+/// that failed, and the error of a run that failed. The status bar event
+/// list records them (ADR 0101 Decision 7). They are the words of the
+/// report row, with the feed name before them.
+#[must_use]
+pub(crate) fn failure_words(run: &PlaylistRssRun) -> Vec<String> {
+    let feeds = run
+        .feeds
+        .iter()
+        .filter(|feed| feed.outcome == Some(RssFeedOutcome::Failed))
+        .map(|feed| format!("{}: {}", check_feed_name(feed), failed_result(feed)));
+    feeds.chain(run.error.clone()).collect()
+}
+
+fn row(playlist_id: i64, feed: &RssFeedCheck) -> PlaylistRssFeedRowDisplay {
+    let name = check_feed_name(feed);
     let host = feed.host.as_deref().unwrap_or("the feed host");
     let status = feed
         .http_status
@@ -821,15 +853,7 @@ fn row(playlist_id: i64, feed: &RssFeedCheck) -> PlaylistRssFeedRowDisplay {
                 feed.message.as_deref(),
             ),
         ),
-        Some(RssFeedOutcome::Failed) => (
-            PlaylistRssFeedRowRole::Failed,
-            format!(
-                "Failed. {}",
-                feed.message
-                    .clone()
-                    .unwrap_or_else(|| format!("The request to {host} failed.{status}"))
-            ),
-        ),
+        Some(RssFeedOutcome::Failed) => (PlaylistRssFeedRowRole::Failed, failed_result(feed)),
         Some(RssFeedOutcome::NotChecked) => (
             PlaylistRssFeedRowRole::NotChecked,
             feed.message
@@ -848,6 +872,47 @@ fn row(playlist_id: i64, feed: &RssFeedCheck) -> PlaylistRssFeedRowDisplay {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// M2a (ADR 0101 task 008): a failed feed gives the words of the report
+    /// row, and a run error gives its own words. A feed with a result gives
+    /// no event.
+    #[test]
+    fn adr_0101_task_008_failed_feed_gives_the_words_of_the_report_row() {
+        let feed = |feed_id, outcome, message: Option<&str>| RssFeedCheck {
+            feed_id,
+            title: Some(format!("Feed title {feed_id}")),
+            feed_url: None,
+            host: Some("relay.test".to_owned()),
+            outcome: Some(outcome),
+            http_status: None,
+            observation_id: None,
+            message: message.map(str::to_owned),
+        };
+        let run = PlaylistRssRun {
+            run_id: None,
+            playlist_id: 1,
+            trigger: RssCheckTrigger::Button,
+            started_at_us: 0,
+            finished_at_us: Some(1),
+            state: RssCheckRunState::Finished,
+            feeds: vec![
+                feed(1, RssFeedOutcome::Document, None),
+                feed(2, RssFeedOutcome::Failed, None),
+                feed(3, RssFeedOutcome::Failed, Some("The host sent no file.")),
+            ],
+            stopped_hosts: Vec::new(),
+            differences: Vec::new(),
+            error: Some("The check could not read the playlist.".to_owned()),
+        };
+        assert_eq!(
+            failure_words(&run),
+            vec![
+                "Feed title 2: Failed. The request to relay.test failed.".to_owned(),
+                "Feed title 3: Failed. The host sent no file.".to_owned(),
+                "The check could not read the playlist.".to_owned(),
+            ]
+        );
+    }
 
     /// R2-16: the report exposes each difference with the feed, field, old
     /// value, new value, time and podping.me link.

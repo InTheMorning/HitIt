@@ -28,7 +28,24 @@ pub enum AlbumPageAction {
     RemoveAlbum,
 }
 
+/// The result that a copy action shows on the "⋯" button of a page header
+/// (musicindex ADR 0028 R-PAGE-2 item 4).
+pub(crate) const COPIED_LABEL: &str = "Copied";
+
 impl AlbumPageAction {
+    /// The result that the "⋯" button shows after the action. Only a copy
+    /// action has one.
+    #[must_use]
+    pub(crate) const fn result_label(self) -> Option<&'static str> {
+        match self {
+            Self::CopyFeedUrl => Some(COPIED_LABEL),
+            Self::DownloadAlbum
+            | Self::AddToPlaylist
+            | Self::MusicBrainzLookup
+            | Self::RemoveAlbum => None,
+        }
+    }
+
     /// The visible label. A label that opens a confirmation ends with "…".
     /// `kind` names the release (ADR 0084 Decision 5) for "Download …" and
     /// "Remove …", for example "Download Single". The kind is in title
@@ -227,6 +244,33 @@ mod tests {
     }
 
     const FEED_URL: Option<&str> = Some("https://feeds.example.test/album.xml");
+
+    /// M5 (ADR 0101 task 008): a copy action gives "Copied" for its button,
+    /// and no other action of a page header gives a result.
+    #[test]
+    fn adr_0101_task_008_copy_action_gives_copied_for_its_button() {
+        use crate::view_models::track_detail::TrackPageAction;
+        assert_eq!(AlbumPageAction::CopyFeedUrl.result_label(), Some("Copied"));
+        assert_eq!(TrackPageAction::CopyFeedUrl.result_label(), Some("Copied"));
+        for action in [
+            AlbumPageAction::DownloadAlbum,
+            AlbumPageAction::AddToPlaylist,
+            AlbumPageAction::MusicBrainzLookup,
+            AlbumPageAction::RemoveAlbum,
+        ] {
+            assert_eq!(action.result_label(), None, "{action:?}");
+        }
+        for action in [
+            TrackPageAction::DownloadAlbum,
+            TrackPageAction::DownloadTrack,
+            TrackPageAction::AddToPlaylist,
+            TrackPageAction::MusicBrainzLookup,
+            TrackPageAction::InspectSources,
+            TrackPageAction::RemoveTrack,
+        ] {
+            assert_eq!(action.result_label(), None, "{action:?}");
+        }
+    }
 
     /// ADR 0101 Decision 5 (M2): no album state gives a filled action. The
     /// plain buttons and the "⋯" items follow the state table of task 005.

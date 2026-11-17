@@ -315,6 +315,13 @@ impl PlaylistRssCheckSnapshot {
             .is_some_and(PlaylistRssRun::is_running)
     }
 
+    /// The latest run of each playlist, with the playlist id.
+    pub fn runs(&self) -> impl Iterator<Item = (i64, &PlaylistRssRun)> + '_ {
+        self.runs
+            .iter()
+            .map(|(playlist_id, run)| (*playlist_id, run))
+    }
+
     /// Each playlist with a running check. The Library compares two
     /// snapshots with it to find a check that completed (packet 004).
     pub fn running_playlists(&self) -> impl Iterator<Item = i64> + '_ {

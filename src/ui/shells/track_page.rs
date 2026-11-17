@@ -222,6 +222,9 @@ fn render_track_page_menu(
                 item = item.on_select(move |window, cx| {
                     dispatch(TrackPageCommand::Action(command), window, cx);
                 });
+                if let Some(label) = action.result_label {
+                    item = item.result_label(label);
+                }
             }
             item
         });

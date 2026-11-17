@@ -31,12 +31,10 @@ use crate::runtime::{
     BroadcastServiceRole, BroadcastServiceWatchHandle, BroadcastServiceWatchPace,
     BroadcastServiceWatchSnapshot, BroadcastServiceWatchUnit,
 };
-use crate::ui::composites::{live_status_strip, LiveStatusStrip, LiveStatusStripSlots};
 use crate::ui::composites::{
     open_confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
 };
 use crate::ui::shells::show::{render_show, ShowShell, ShowSlots};
-use crate::view_models::live_status::LiveStatusDisplay;
 use crate::view_models::queue_now_playing::QueueNowPlayingPageVm;
 use crate::view_models::show::{
     EventCheckResponse, EventCommandFeedback, EventCommandState, EventControlIntent,
@@ -52,7 +50,7 @@ use super::queue_now_playing::{
     queue_now_playing_input, queue_now_playing_vm, queue_select_entry_action,
     queue_transport_action,
 };
-use super::{AppTab, TopApp, WorkspaceScreenMount};
+use super::{AppTab, TopApp};
 
 const PRODUCER_UNIT: &str = "mixxx-now-playing.service";
 
@@ -290,33 +288,6 @@ fn with_log_slots(slots: ShowSlots, entity: &Entity<TopApp>) -> ShowSlots {
         })
 }
 
-pub(super) fn build_live_status_strip(
-    app: &TopApp,
-    mount: WorkspaceScreenMount,
-    cx: &mut Context<TopApp>,
-) -> Option<LiveStatusStrip> {
-    if !matches!(
-        mount,
-        WorkspaceScreenMount::Music | WorkspaceScreenMount::Settings
-    ) {
-        return None;
-    }
-    let display = LiveStatusDisplay::from_show_page(&app.show_page);
-    if !display.active {
-        return None;
-    }
-
-    let entity = cx.entity();
-    Some(live_status_strip(
-        display,
-        LiveStatusStripSlots::new().on_open_show(move |_, window, cx| {
-            entity.update(cx, |this, cx| {
-                this.select_tab(AppTab::Show, window, cx);
-            });
-        }),
-    ))
-}
-
 impl TopApp {
     pub(super) fn maybe_start_broadcast_readiness_watch(&mut self, cx: &mut Context<Self>) {
         if self.broadcast_readiness_watch.is_some() {
@@ -484,6 +455,9 @@ impl TopApp {
         }
         if let Some(input) = &self.event_section_input {
             self.event_session.remember(input);
+            // ADR 0101 Decision 7: each show event report goes to the app
+            // event list, which the status bar shows.
+            self.app_events.record_show_reports(input);
             if self.show_page.log_pane.shows_event() {
                 self.show_page.log_pane.show_event(input);
             }

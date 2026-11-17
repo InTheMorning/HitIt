@@ -155,6 +155,10 @@ struct ContextMenuState {
     /// The index of the item whose second level shows. `None` shows the
     /// first level.
     level: Option<usize>,
+    /// The result of the last selected item that has a result label. The
+    /// trigger shows it until the menu opens again (musicindex ADR 0026
+    /// R-NOTICE-1 item 1: the result shows where the action was).
+    result: Option<SharedString>,
 }
 
 /// The second-level state of a [`PointerContextMenu`].
@@ -217,6 +221,7 @@ pub struct ContextMenuItem {
     on_select: Option<SelectHandler>,
     level: Option<MenuLevelBuilder>,
     checked: bool,
+    result_label: Option<SharedString>,
 }
 
 /// Shared context-menu surface.
@@ -407,7 +412,16 @@ impl ContextMenuItem {
             on_select: None,
             level: None,
             checked: false,
+            result_label: None,
         }
+    }
+
+    /// Gives the item a result label. After a selection, the trigger of the
+    /// menu shows the label until the menu opens again, for example
+    /// "Copied" after a copy.
+    pub fn result_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.result_label = Some(label.into());
+        self
     }
 
     /// Marks the item with a check mark. A checked item is the current
@@ -434,6 +448,28 @@ impl ContextMenuItem {
 
     pub fn on_select(mut self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_select = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl ContextMenuItem {
+    /// Wraps the select handler so a selection records the result label in
+    /// `state`. An item with no result label stays as it is.
+    fn with_result(mut self, state: &Entity<ContextMenuState>) -> Self {
+        let Some(label) = self.result_label.clone() else {
+            return self;
+        };
+        let state = state.clone();
+        let inner = self.on_select.take();
+        self.on_select = Some(Rc::new(move |window, cx| {
+            state.update(cx, |state, cx| {
+                state.result = Some(label.clone());
+                cx.notify();
+            });
+            if let Some(inner) = &inner {
+                inner(window, cx);
+            }
+        }));
         self
     }
 }
@@ -535,6 +571,7 @@ impl ContextMenuState {
         Self {
             open: false,
             level: None,
+            result: None,
         }
     }
 }
@@ -547,12 +584,13 @@ impl RenderOnce for ContextMenu {
         };
 
         let open = state.read(cx).open && !self.disabled;
+        let trigger_label = state.read(cx).result.clone().unwrap_or(self.trigger_label);
         let items = self.items;
         let trigger_id = SharedString::from(format!("{}-trigger", self.id));
         let mut trigger = Button::styled(trigger_id, self.trigger_style)
             .leading_icon(self.trigger_icon)
             .disabled(self.disabled)
-            .label(self.trigger_label)
+            .label(trigger_label)
             .a11y_label(self.trigger_a11y_label);
         // The popover owns the click. Enter and Space open the menu from the
         // keyboard (ADR 0090 invariant "keyboard reach").
@@ -562,6 +600,7 @@ impl RenderOnce for ContextMenu {
                 state.update(cx, |state, cx| {
                     state.open = !state.open;
                     state.level = None;
+                    state.result = None;
                     cx.notify();
                 });
             });
@@ -581,6 +620,9 @@ impl RenderOnce for ContextMenu {
                     state.update(cx, |state, cx| {
                         state.open = *is_open;
                         state.level = None;
+                        if *is_open {
+                            state.result = None;
+                        }
                         cx.notify();
                     });
                 }
@@ -616,10 +658,15 @@ impl RenderOnce for ContextMenu {
                     })
                 };
                 let level = state.read(cx).level;
+                let items = items
+                    .iter()
+                    .cloned()
+                    .map(|item| item.with_result(&state))
+                    .collect();
                 build_menu_level(
                     &MenuLevelControls { back, dismiss },
                     &open_level,
-                    items.clone(),
+                    items,
                     level,
                     window,
                     cx,
@@ -888,6 +935,53 @@ mod tests {
             *selected.borrow(),
             vec!["one", "three", "two", "three", "one", "three", "one", "one"]
         );
+    }
+
+    struct EmptyView;
+
+    impl gpui::Render for EmptyView {
+        fn render(&mut self, _: &mut Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
+            div()
+        }
+    }
+
+    /// M5 (ADR 0101 task 008): the selection of an item with a result label
+    /// stores the label for the trigger, runs the handler of the item, and
+    /// an item with no result label stores nothing. The menu clears the
+    /// result when it opens again.
+    #[gpui::test]
+    fn adr_0101_task_008_selected_item_stores_its_result_label(cx: &mut gpui::TestAppContext) {
+        let (_view, cx) = cx.add_window_view(|_, _| EmptyView);
+        let state = cx.new(|_| ContextMenuState::closed());
+        let ran = Rc::new(std::cell::Cell::new(0));
+        let item = |label: Option<&'static str>| {
+            let ran = Rc::clone(&ran);
+            let item = ContextMenuItem::new(ContextMenuItemDisplay {
+                id: "copy".into(),
+                label: "Copy".into(),
+                a11y_label: "Copy".into(),
+                destructive: false,
+                disabled: false,
+            })
+            .on_select(move |_, _| ran.set(ran.get() + 1));
+            match label {
+                Some(label) => item.result_label(label),
+                None => item,
+            }
+            .with_result(&state)
+        };
+        let select = |item: ContextMenuItem, cx: &mut gpui::VisualTestContext| {
+            let handler = item.on_select.expect("a handler");
+            cx.update(|window, cx| handler(window, cx));
+        };
+        select(item(None), cx);
+        assert_eq!(state.read_with(cx, |state, _| state.result.clone()), None);
+        select(item(Some("Copied")), cx);
+        assert_eq!(
+            state.read_with(cx, |state, _| state.result.clone()),
+            Some(SharedString::from("Copied"))
+        );
+        assert_eq!(ran.get(), 2);
     }
 
     #[test]

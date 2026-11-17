@@ -80,6 +80,7 @@ mod search_field_list;
 mod search_live;
 mod search_selection;
 mod show;
+mod status_bar;
 mod tab_bar;
 mod toolbar;
 
@@ -89,7 +90,7 @@ use search_dispatch::RemoteDetailThumbnailState;
 use search_field_list::{FieldValueRequest, SearchFieldListView};
 use search_selection::{sort_handler, SearchPageSlot, SearchRowClick};
 use settings::render_settings;
-use show::{build_live_status_strip, build_show_screen};
+use show::build_show_screen;
 use toolbar::{render_app_mark, render_toolbar};
 
 const WORKSPACE_CONTENT_FRAME_ID: WorkspaceFrameId = WorkspaceFrameId::new(2);
@@ -153,8 +154,14 @@ pub struct TopApp {
     /// match, or search page.
     library_detail_view: Entity<LibraryColumnView>,
     /// The download progress item (ADR 0084 Decision 10, packet 022). It
-    /// shows on each section, beside the live status strip.
+    /// shows on each section.
     download_status_view: Entity<DownloadStatusView>,
+    /// The status bar view (ADR 0101 Decision 7).
+    status_bar_view: Entity<status_bar::StatusBarView>,
+    /// The bounded list of app events. The status bar shows the latest.
+    app_events: crate::view_models::app_events::AppEventList,
+    /// `true` while the reports item shows the normal-shell notice.
+    reports_open: bool,
     global_search_input: Entity<InputState>,
     /// The field list under the toolbar search field (ADR 0087 Decision 3).
     search_field_list: Entity<SearchFieldListView>,
@@ -411,10 +418,18 @@ impl TopApp {
         let library_detail_view =
             cx.new(|cx| LibraryColumnView::new(library.clone(), LibraryColumn::Detail, cx));
         let download_status_view = cx.new(|cx| DownloadStatusView::new(library.clone(), cx));
+        let status_bar_view = {
+            let top = cx.weak_entity();
+            cx.new(|cx| status_bar::StatusBarView::new(top, library.clone(), cx))
+        };
         let library_sub = cx.subscribe_in(
             &library,
             window,
             move |this: &mut Self, library, event: &LibraryAppEvent, window, cx| match event {
+                LibraryAppEvent::AppEvent(event) => {
+                    this.app_events.record(event.clone());
+                    cx.notify();
+                }
                 LibraryAppEvent::ShowCueLoaded => {
                     this.refresh_show_page(cx);
                 }
@@ -509,6 +524,9 @@ impl TopApp {
             library_list_view,
             library_detail_view,
             download_status_view,
+            status_bar_view,
+            app_events: crate::view_models::app_events::AppEventList::default(),
+            reports_open: false,
             global_search_input,
             search_field_list,
             pending_toolbar_search: PendingToolbarSearchText::default(),
@@ -799,6 +817,10 @@ impl TopApp {
     }
 
     fn select_tab(&mut self, tab: AppTab, window: &mut Window, cx: &mut Context<Self>) {
+        if tab == AppTab::Settings {
+            // The Settings report replaces the normal-shell notice.
+            self.reports_open = false;
+        }
         self.tab = tab;
         self.focus_active_tab(window, cx);
         self.sync_broadcast_service_watch_pace();
@@ -2168,6 +2190,7 @@ impl Drop for TopApp {
 impl Render for TopApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.defer_application_event_drain(window, cx);
+        self.sync_status_bar(cx);
         self.apply_pending_toolbar_search(window, cx);
         let mount = self.active_workspace_screen_mount();
         self.apply_music_focus(mount, window, cx);
@@ -2176,8 +2199,9 @@ impl Render for TopApp {
         self.library.update(cx, |library, cx| {
             library.set_sidebar_selected(Some(sidebar_row), cx);
         });
-        let live_status_strip = build_live_status_strip(self, mount, cx);
-        let capability_notice = if mount == WorkspaceScreenMount::Settings {
+        // ADR 0101 Decision 7: the reports item of the status bar opens the
+        // normal-shell notice. It no longer shows by itself.
+        let capability_notice = if mount == WorkspaceScreenMount::Settings || !self.reports_open {
             None
         } else {
             self.render_capabilities(false, cx)
@@ -2213,9 +2237,8 @@ impl Render for TopApp {
                     .min_h_0()
                     .min_w_0()
                     .overflow_hidden()
-                    .when_some(live_status_strip, gpui::ParentElement::child)
                     // ADR 0084 Decision 10: the download progress item
-                    // shows on each section, beside the live status strip.
+                    // shows on each section.
                     .child(self.download_status_view.clone())
                     // ADR 0060: workspace render delegates to the active app-section mount.
                     .child(self.render_workspace_content(mount, show_window_width, window, cx)),
@@ -2265,6 +2288,9 @@ impl Render for TopApp {
                 .on_action(cx.listener(TopApp::handle_toggle_focused_selection))
                 .on_action(cx.listener(TopApp::handle_select_all_visible))
                 .child(body)
+                // ADR 0101 Decision 7: one status bar at the bottom of each
+                // section. In the narrow shell it sits above the tab bar.
+                .child(self.status_bar_view.clone())
                 .when_some(tab_bar, gpui::ParentElement::child)
                 .children(render_window_layers(window, cx)),
         )

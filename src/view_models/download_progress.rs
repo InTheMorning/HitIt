@@ -202,6 +202,15 @@ pub(crate) struct DownloadFailure {
     pub(crate) error: String,
 }
 
+impl DownloadFailure {
+    /// The report line of the failure. The progress item and the status
+    /// bar event list use these words.
+    #[must_use]
+    pub(crate) fn words(&self) -> String {
+        format!("The app could not download {}: {}", self.label, self.error)
+    }
+}
+
 /// A snapshot of the download batch. The queue makes it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DownloadBatch {
@@ -330,16 +339,7 @@ impl DownloadProgressDisplay {
             return None;
         }
         let failed = batch.failures.len();
-        let failure_lines = batch
-            .failures
-            .iter()
-            .map(|failure| {
-                format!(
-                    "The app could not download {}: {}",
-                    failure.label, failure.error
-                )
-            })
-            .collect();
+        let failure_lines = batch.failures.iter().map(DownloadFailure::words).collect();
         let icon_role = |finished: bool| {
             if failed > 0 {
                 DownloadProgressIconRole::Warning

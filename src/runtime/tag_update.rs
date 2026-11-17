@@ -41,6 +41,10 @@ pub(crate) struct TagUpdateSnapshot {
     pub(crate) last_write: Option<TagUpdateWriteReport>,
     /// The error of the latest confirm, when it wrote no file.
     pub(crate) write_error: Option<String>,
+    /// The count of the confirms that ended. Each ended confirm adds one,
+    /// so a reader that misses a snapshot still finds each write end
+    /// (ADR 0101 Decision 7).
+    pub(crate) writes_ended: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -152,6 +156,7 @@ async fn handle(
             snapshot_tx.send_modify(|snapshot| {
                 snapshot.writing = false;
                 snapshot.scanning = true;
+                snapshot.writes_ended += 1;
                 match written {
                     Ok(report) => snapshot.last_write = Some(report),
                     Err(error) => snapshot.write_error = Some(error),
@@ -249,6 +254,9 @@ mod tests {
         .await;
 
         assert_eq!(confirmed.last_write.unwrap().written_count(), 2);
+        // ADR 0101 Decision 7: each ended confirm adds one to the count.
+        assert_eq!(scanned.writes_ended, 0);
+        assert_eq!(confirmed.writes_ended, 1);
         assert_eq!(confirmed.scan.unwrap().count(), 0);
         let mut changed = Vec::new();
         while let Ok(VmEvent::TrackChanged { track_id }) = events.try_recv() {

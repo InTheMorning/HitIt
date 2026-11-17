@@ -81,6 +81,10 @@ pub(crate) struct PlaylistDetail {
 
 #[derive(Clone, Debug)]
 pub(crate) enum LibraryAppEvent {
+    /// An event with no visible action: a feed check, a download or a tag
+    /// write that fails. The top app records it in the app event list
+    /// (ADR 0101 Decision 7).
+    AppEvent(crate::view_models::app_events::AppEvent),
     /// A click on the list bar above the rows of a group page (ADR 0090).
     /// The top app runs the command through its selection path.
     ListBar(ListBarCommand),
@@ -260,6 +264,13 @@ pub struct LibraryApp {
     playlist_rss_check: Option<crate::runtime::PlaylistRssCheckHandle>,
     /// Latest RSS check snapshot. `None` while no check actor runs.
     playlist_rss_snapshot: Option<crate::runtime::PlaylistRssCheckSnapshot>,
+    /// The wall time when this session started, in microseconds. A feed
+    /// check run that started before it gives no app event (ADR 0101
+    /// Decision 7).
+    rss_session_started_us: i64,
+    /// The start time of the latest run of each playlist whose failures
+    /// went to the app event list. Each run gives its events once.
+    reported_rss_runs: std::collections::HashMap<i64, i64>,
     /// Tag update actor (ADR 0076 Decision 8). Dropping the handle closes
     /// the inbox and lets the runtime task exit.
     tag_update: Option<crate::runtime::TagUpdateHandle>,

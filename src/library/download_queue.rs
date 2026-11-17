@@ -415,9 +415,17 @@ pub(crate) struct DownloadQueue {
     /// Decision 5). A later successful job of the key removes it. The set
     /// is session state and is not saved.
     failed_keys: BTreeSet<FeedKey>,
+    /// Each failure that no reader took yet, oldest first. The status bar
+    /// event list takes them (ADR 0101 Decision 7).
+    new_failures: Vec<DownloadFailure>,
 }
 
 impl DownloadQueue {
+    /// Takes each failure that was recorded since the last call.
+    pub(crate) fn take_new_failures(&mut self) -> Vec<DownloadFailure> {
+        std::mem::take(&mut self.new_failures)
+    }
+
     /// Adds `job` at the end of the queue. The first job with no running
     /// batch opens a batch. A job queued during a running batch joins it.
     pub(crate) fn enqueue(&mut self, job: QueuedJob) -> EnqueueResult {
@@ -434,12 +442,14 @@ impl DownloadQueue {
     /// Records a refused job as a failure of the batch, so the progress
     /// item names it.
     pub(crate) fn refuse(&mut self, refusal: DownloadRefusal, now: DateTime<Local>) {
-        let batch = self.open_batch_slot();
-        batch.total += 1;
-        batch.failures.push(DownloadFailure {
+        let failure = DownloadFailure {
             label: refusal.label,
             error: refusal.reason,
-        });
+        };
+        let batch = self.open_batch_slot();
+        batch.total += 1;
+        batch.failures.push(failure.clone());
+        self.new_failures.push(failure);
         self.close_batch_when_idle(now);
     }
 
@@ -496,10 +506,14 @@ impl DownloadQueue {
         if let Some(batch) = self.batch.as_mut() {
             match outcome {
                 DownloadOutcome::Succeeded => batch.done += 1,
-                DownloadOutcome::Failed { error } => batch.failures.push(DownloadFailure {
-                    label: job.label,
-                    error,
-                }),
+                DownloadOutcome::Failed { error } => {
+                    let failure = DownloadFailure {
+                        label: job.label,
+                        error,
+                    };
+                    batch.failures.push(failure.clone());
+                    self.new_failures.push(failure);
+                }
             }
         }
         self.close_batch_when_idle(now);
@@ -809,8 +823,9 @@ impl DownloadQueue {
 
     /// Records a failed job of the batch, without a completion of the job.
     fn fail_running(&mut self, label: String, error: String, now: DateTime<Local>) {
-        let batch = self.open_batch_slot();
-        batch.failures.push(DownloadFailure { label, error });
+        let failure = DownloadFailure { label, error };
+        self.open_batch_slot().failures.push(failure.clone());
+        self.new_failures.push(failure);
         self.close_batch_when_idle(now);
     }
 

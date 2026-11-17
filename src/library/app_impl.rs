@@ -107,6 +107,7 @@ use crate::ui::shells::tag_update_confirmation::{
 use crate::ui::style::color;
 use crate::ui::style::spacing;
 use crate::ui::tokens::Motion;
+use crate::view_models::app_events::{AppEvent, AppEventOwner};
 use crate::view_models::artist_groups::{
     artist_selection_rows, ArtistGroup, ArtistGroupPages, ArtistSection, ShowMoreFocusStep,
 };
@@ -1196,6 +1197,8 @@ impl LibraryApp {
             musicbrainz_feed_saga: None,
             playlist_rss_check: None,
             playlist_rss_snapshot: None,
+            rss_session_started_us: chrono::Utc::now().timestamp_micros(),
+            reported_rss_runs: std::collections::HashMap::new(),
             tag_update: None,
             tag_update_snapshot: None,
             tag_update_request_failed: false,
@@ -1369,6 +1372,25 @@ impl LibraryApp {
                         .running_playlists()
                         .any(|playlist_id| !snapshot.is_running(playlist_id))
                 });
+                // ADR 0101 Decision 7: a failed feed has no visible action.
+                // Each failure of a run that ended goes to the event list
+                // once. A run that started before this session, such as a
+                // run that a playlist page loads, gives no event.
+                let mut failures = Vec::new();
+                for (playlist_id, run) in snapshot.runs() {
+                    if run.is_running()
+                        || run.started_at_us < this.rss_session_started_us
+                        || this.reported_rss_runs.get(&playlist_id) == Some(&run.started_at_us)
+                    {
+                        continue;
+                    }
+                    this.reported_rss_runs
+                        .insert(playlist_id, run.started_at_us);
+                    failures.extend(crate::view_models::playlist_rss_check::failure_words(run));
+                }
+                for words in failures {
+                    this.emit_app_event(AppEventOwner::FeedCheck, words, cx);
+                }
                 this.playlist_rss_snapshot = Some(snapshot);
                 if applied {
                     this.refresh_origin_playlist_actor();
@@ -1411,6 +1433,17 @@ impl LibraryApp {
                     .tag_update_snapshot
                     .as_ref()
                     .is_some_and(|previous| previous.last_write != snapshot.last_write);
+                // ADR 0101 Decision 7: a failed tag write goes to the event list.
+                // The count finds a write that ended between two snapshots.
+                let write_ended = this
+                    .tag_update_snapshot
+                    .as_ref()
+                    .is_some_and(|previous| previous.writes_ended != snapshot.writes_ended);
+                if write_ended {
+                    for words in crate::view_models::tag_update::failure_words(&snapshot) {
+                        this.emit_app_event(AppEventOwner::TagWrite, words, cx);
+                    }
+                }
                 this.tag_update_snapshot = Some(snapshot);
                 if wrote {
                     this.refresh_current_broadcast_readiness_report(cx);
@@ -1456,7 +1489,39 @@ impl LibraryApp {
             .tag_update
             .as_ref()
             .is_some_and(|handle| handle.confirm(self.music_dir.clone(), files));
+        if self.tag_update_request_failed {
+            self.emit_app_event(
+                AppEventOwner::TagWrite,
+                crate::view_models::tag_update::request_failure_words(),
+                cx,
+            );
+        }
         cx.notify();
+    }
+
+    /// Sends an event with no visible action to the app event list (ADR
+    /// 0101 Decision 7). The top app records it.
+    pub(crate) fn emit_app_event(
+        &self,
+        owner: AppEventOwner,
+        words: String,
+        cx: &mut Context<Self>,
+    ) {
+        cx.emit(super::LibraryAppEvent::AppEvent(AppEvent::now(
+            owner, words,
+        )));
+    }
+
+    /// The latest tag update snapshot, for the status bar.
+    pub(crate) fn tag_update_snapshot(&self) -> Option<&crate::runtime::TagUpdateSnapshot> {
+        self.tag_update_snapshot.as_ref()
+    }
+
+    /// The latest playlist feed check snapshot, for the status bar.
+    pub(crate) fn playlist_rss_snapshot(
+        &self,
+    ) -> Option<&crate::runtime::PlaylistRssCheckSnapshot> {
+        self.playlist_rss_snapshot.as_ref()
     }
 
     /// Send `CheckPlaylistRss` for the playlist (ADR 0076 Decision 2).

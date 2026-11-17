@@ -69,6 +69,7 @@ pub(crate) mod releases_everything;
 pub mod startup;
 
 pub mod album_page;
+pub(crate) mod app_events;
 pub(crate) mod artist_groups;
 pub mod artist_identity;
 pub(crate) mod artists_everything;
@@ -124,6 +125,7 @@ pub(crate) mod selection_action_bar;
 pub(crate) mod show;
 pub(crate) mod sidebar;
 pub mod singles_group;
+pub(crate) mod status_bar;
 pub(crate) mod tag_update;
 pub(crate) mod text_filter;
 pub(crate) mod text_selection;

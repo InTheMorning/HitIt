@@ -88,6 +88,24 @@ impl EventSectionInput {
     }
 }
 
+impl EventSectionInput {
+    /// The time and the words of each recorded report, the oldest first.
+    /// The words are the sentences of the report. The status bar shows
+    /// them as the app event list gets them (ADR 0101 Decision 7).
+    pub(crate) fn report_events(&self) -> Vec<(DateTime<Utc>, String)> {
+        let mut events: Vec<_> = self
+            .feedback
+            .report
+            .entries
+            .iter()
+            .map(|entry| (entry.at, entry.sentences().join(" ")))
+            .filter(|(_, words)| !words.is_empty())
+            .collect();
+        events.sort_by_key(|(at, _)| *at);
+        events
+    }
+}
+
 fn time(at: DateTime<Utc>) -> String {
     at.format("%Y-%m-%d %H:%M:%S UTC").to_string()
 }

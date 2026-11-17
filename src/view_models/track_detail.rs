@@ -909,6 +909,21 @@ pub enum TrackPageAction {
 }
 
 impl TrackPageAction {
+    /// The result that the "⋯" button shows after the action. Only a copy
+    /// action has one (musicindex ADR 0028 R-PAGE-2 item 4).
+    #[must_use]
+    pub(crate) const fn result_label(self) -> Option<&'static str> {
+        match self {
+            Self::CopyFeedUrl => Some(crate::view_models::album_page::COPIED_LABEL),
+            Self::DownloadAlbum
+            | Self::DownloadTrack
+            | Self::AddToPlaylist
+            | Self::MusicBrainzLookup
+            | Self::InspectSources
+            | Self::RemoveTrack => None,
+        }
+    }
+
     /// The visible label. A label that opens a confirmation ends with "…".
     ///
     /// `release_kind` names the release that "Download …" downloads (ADR

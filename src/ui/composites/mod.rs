@@ -36,7 +36,6 @@ pub mod inspect_sources_sheet;
 pub mod letter_bar;
 pub mod list_page_head;
 pub mod list_row;
-pub mod live_status_strip;
 pub(crate) mod music_column_scroll;
 pub mod musicbrainz_panel;
 pub(crate) mod page_scroll_content;
@@ -60,6 +59,7 @@ pub mod sidebar_glow;
 pub mod skeleton_inspector;
 pub mod skeleton_track_row;
 pub mod split_pane;
+pub mod status_bar;
 pub mod tab_bar;
 pub mod tag_badge;
 pub mod thumbnail;
@@ -99,7 +99,6 @@ pub use identity_action::{
     IdentityActionKind, MusicIndexLinkDisplay,
 };
 pub use list_row::{ListRow, ListRowA11yLabel, ListRowDensity};
-pub(crate) use live_status_strip::{live_status_strip, LiveStatusStrip, LiveStatusStripSlots};
 pub use musicbrainz_panel::MusicBrainzPanel;
 pub use playlist_popover::{
     AddToPlaylistDisplay, AddToPlaylistPopover, PlaylistOption, PlaylistOptionDisplay,
@@ -120,6 +119,7 @@ pub(crate) use show_log_pane::{ShowLogPane, ShowLogPaneSlots};
 pub use skeleton_inspector::SkeletonInspector;
 pub use skeleton_track_row::SkeletonTrackRow;
 pub use split_pane::SplitPane;
+pub(crate) use status_bar::{status_bar, StatusBarSlots};
 pub use tag_badge::{EntityKind, ProvenanceRole, StatusRole, TagBadge, TagBadgeDisplay};
 pub use thumbnail::{Thumbnail, ThumbnailSize};
 pub(crate) use track_detail_surface::render_feed_identity_panel;

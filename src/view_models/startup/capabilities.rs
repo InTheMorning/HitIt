@@ -114,6 +114,14 @@ impl CapabilityReportVm {
         parts.join("; ")
     }
 
+    /// The number of reports: each setup issue and each retained action.
+    /// The status bar shows it, and the notice summary counts the same
+    /// items (ADR 0101 Decision 7).
+    #[must_use]
+    pub fn report_count(&self) -> usize {
+        self.issues().count() + self.pending.entries().len()
+    }
+
     #[must_use]
     pub fn new(observations: CapabilitySnapshot, worker_available: bool) -> Self {
         Self {

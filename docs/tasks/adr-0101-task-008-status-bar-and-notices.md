@@ -1,6 +1,6 @@
 # ADR 0101 Task 008: The Status Bar And The Notices
 
-Status: Open - 2026-11-16. The orchestrator session chose A in the Stop Report.
+Status: Implemented - 2026-11-16. The orchestrator session chose A in the Stop Report. The operator visual checks are open.
 
 ## Goal
 
@@ -125,3 +125,92 @@ The delegate (ChatGPT) stopped before the first edit. The primary agent examined
 Question: which events go to the left side of the status bar?
 
 Orchestrator choice, 2026-11-16: option A, because musicindex ADR 0026 R-NOTICE-1 item 2 requires it. One bounded app event list collects the show event reports and the events with no visible action. Each event keeps the words of its owner. musicindex ADR 0026 R-NOTICE-1 item 2 binds HitIt, and option B breaks it. ADR 0101 has a Revised line for Decision 7. The main session chose the limit of 50 events.
+
+## Implementation Report
+
+Status: the delegate finished the code and the checks. The visual criteria V1 to V4 are open for the operator. The delegate did not commit.
+
+### Files changed
+
+- New: `src/view_models/app_events.rs`, `src/view_models/status_bar.rs`, `src/ui/composites/status_bar.rs` (renamed from `live_status_strip.rs`), `src/app/status_bar.rs`.
+- Changed: `src/app.rs`, `src/app/show.rs`, `src/app/fit_check/mod.rs`, `src/library.rs`, `src/library/app_impl.rs`, `src/library/download_queue.rs`, `src/library/downloads.rs`, `src/runtime/playlist_rss_check.rs`, `src/ui/composites/mod.rs`, `src/ui/primitives/context_menu.rs`, `src/ui/shells/release_page.rs`, `src/ui/shells/track_page.rs`, `src/view_models/{album_page,download_progress,live_status,mod,playlist_rss_check,release_page,tag_update,track_detail,track_page}.rs`, `src/view_models/show/event_report.rs`, `src/view_models/startup/capabilities.rs`, `tests/architecture_tests.rs`.
+- Deleted: `src/ui/composites/live_status_strip.rs` (the band composite), `build_live_status_strip`, and the band types and tests of `live_status.rs` (health, recording, heading, open-show button).
+
+### Tests
+
+- M1: `view_models::status_bar::tests::adr_0101_task_008_show_item_exists_only_while_a_show_is_active`.
+- M2: `view_models::status_bar::tests::adr_0101_task_008_latest_event_gives_words_and_recorded_time` and `view_models::app_events::tests::adr_0101_task_008_latest_event_keeps_owner_words_and_time`.
+- M2a: `view_models::app_events::tests::adr_0101_task_008_list_keeps_fifty_events_newest_first`, `...show_report_and_failed_feed_check_enter_the_list` and `view_models::playlist_rss_check::tests::adr_0101_task_008_failed_feed_gives_the_words_of_the_report_row`.
+- M3: `view_models::status_bar::tests::adr_0101_task_008_reports_item_gives_count_and_opens_the_notice`.
+- M4: `adr_0101_decision_7_one_composite_owns_the_status_bar_and_no_screen_renders_a_second_band` in `tests/architecture_tests.rs`. It replaces `adr_0060_live_status_strip_contract_and_mount_are_guarded`.
+- M5: `view_models::album_page::tests::adr_0101_task_008_copy_action_gives_copied_for_its_button` and `ui::primitives::context_menu::tests::adr_0101_task_008_selected_item_stores_its_result_label`.
+- M6: `adr_0101_task_008_no_code_builds_a_notice_that_closes_on_a_timer` in `tests/architecture_tests.rs`. It is a heuristic: it limits the timer users in the UI layers to a list, and it fails when a timer closure names a notice field.
+- M7: `app::fit_check::adr_0097_the_status_bar_fits_at_the_two_widths`. At 390 px it found a real fault (four items in one row). The bar now wraps its items.
+
+### Source of each event (step 1)
+
+- Show event reports: `EventSectionInput::report_events` (`src/view_models/show/event_report.rs`). `reproject_show_page` (`src/app/show.rs`) records the new entries after each recording flow. This is a change from the packet text: a hook in `record_event_report_for` would lose or double events, because the input is cloned and replaced in several flows.
+- Failed feed check: `view_models::playlist_rss_check::failure_words`. The words are the report row words with the feed name before them, and the run error. `LibraryApp` emits them when a run moves from Running to ended.
+- Failed download: `DownloadFailure::words` (`src/view_models/download_progress.rs`), the same words as the progress item. `DownloadQueue` keeps a new-failure outbox. `pump_downloads` emits it.
+- Failed tag write: `view_models::tag_update::failure_words` (write error, and each file with a write error) and `request_failure_words` (a confirm that the runtime did not accept). The tag update bridge emits them when a write ends.
+
+### Source of each right item
+
+- Feed state: `PlaylistRssCheckSnapshot` (`running_playlists`, and the latest run with failed feeds). It opens the playlist page.
+- Files to update: `view_models::tag_update::button`. It opens the tag update popup.
+- Reports: `CapabilityReportVm::report_count`. It toggles the normal-shell notice `reports_open` (on Settings it runs `OpenReport`).
+- Show: `LiveStatusDisplay::from_show_page`. It shows only while `ShowPageVm::is_active`. It opens the Show section.
+
+### Copy actions (step 4)
+
+- Library release page "..." menu, Index release page "..." menu, Library track page "..." menu: "Copied" on the button (`result_label`, cleared when the menu opens, no timer).
+- Index track page "..." menu: no result label. The copy reads the feed first and can fail, so the result is not known at once. The status line keeps its words. This is an open point for the orchestrator.
+- No row menu has a copy action. Other clipboard writes (Nostr icon, podping row button, log copies, report copies) are not in a "..." menu or a row menu and stay unchanged.
+
+### Other notices (step 5)
+
+- `publisher.rs` `unavailable_notice`: the result of the page load, a page state. It stays.
+- `name_level_page.rs` `render_matched_feed_notice`: a page state with an open action. It stays.
+- `search_results_inspector.rs` `empty_state_content`: the empty or failed state of a search that the operator ran. It stays.
+
+### Limits and inferences
+
+- Inference: the status bar view is a separate entity so that a library change redraws only the bar. The top app pushes its facts at the start of its render.
+- A download that the queue fails through a host stop goes through `fail_running` and is in the outbox. A feed check or tag scan error is not an event: `scan_error` is not a tag write.
+- Tag update confirm results also show in the existing report. The event is an addition.
+
+### Checks
+
+- `cargo fmt -- --check`: pass.
+- `cargo clippy --all-targets -- -D warnings`: pass.
+- `cargo test`: library 3244 passed, 0 failed (the final run is below in the main report), `architecture_tests` 417 passed, 0 failed.
+- `cargo build --bin hitit`: pass.
+
+## Review Corrections - 2026-11-16
+
+An independent review (ChatGPT, `gpt-6-astra`, effort high) examined the delegate change. The primary agent made these corrections.
+
+- A show report that left the 50-event list entered the list again. `AppEventList` now keeps the time of the newest show report that it recorded, and the words at that time. An older report, or the same report at that time, does not enter again. Test: `adr_0101_task_008_a_dropped_show_report_does_not_enter_again`.
+- A feed check that failed before the next render gave no event. `LibraryApp` now examines each ended run of the snapshot. It records the start time of each run that it reported, and ignores the runs that started before the session.
+- A tag write that failed before the next render gave no event. `TagUpdateSnapshot` now has a `writes_ended` count. The bridge emits an event when the count changes.
+- The status bar items used `on_click`. They now use `on_activate`, so Enter and Space open the detail with the key-down handler of the button (ADR 0069).
+- Main session choice: the bar has a minimum height of `Size::MinHitTarget`. With no event and no item, the bar was approximately 9 px high, and the content moved when the first event came.
+
+Open point for the orchestrator: the "..." menu of an Index track page shows no "Copied". The copy reads the feed first and can fail, so the result is not known when the menu closes. The status line keeps its words.
+
+### Checks After The Corrections
+
+- `cargo fmt -- --check`: pass.
+- `cargo clippy --all-targets -- -D warnings`: pass.
+- `cargo test`: library 3245 passed, `architecture_tests` 417 passed, 0 failed.
+
+## Walk Result - 2026-11-16
+
+The agent walked the debug binary on an Xvfb display at M, after the review corrections.
+
+- V1: Pass on Music (Light) and Settings (Light and Dark, at 1200 px and 700 px). The bar is at the bottom with a height of approximately 44 px when it is empty. At 700 px it is above the bottom tab bar. No event came during the walk, so the text of an event is not examined.
+- V2: Pass for the first half. With no active show, the bar shows no show item. The test data has no show, so the second half is open.
+- V3: Not walked. The test data has no report.
+- V4: Pass. After Copy Feed URL on "Waltz Tunes Volume 1", its "…" button shows "Copied". The "…" button of "Fox Trot Tunes Volume 2" shows no result.
+
+The operator confirmation stays open.
