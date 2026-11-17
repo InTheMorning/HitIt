@@ -43,7 +43,8 @@ use crate::ui::shells::library::index_list_status::{
 use crate::ui::shells::library::public_playlists::{
     public_playlist_copy_dialog, render_playlist_curator_row, render_playlist_group_heading,
     render_public_playlist_failed, render_public_playlist_item, render_public_playlist_list_item,
-    render_public_playlist_loading, render_public_playlist_page_body, render_public_playlist_tile,
+    render_public_playlist_loading, render_public_playlist_not_indexed,
+    render_public_playlist_page_body, render_public_playlist_tile,
 };
 use crate::ui::shells::library::releases_tiles::render_tile_grid;
 use crate::view_models::index_name_list::{IndexListStatusRowVm, IndexNameListLoadIntent};
@@ -195,10 +196,11 @@ impl LibraryApp {
             CommandContext::next(),
             cx,
             move |this, load: PublicPlaylistLoad, cx| {
-                if this
-                    .public_playlist_pages
-                    .finish(&load.feed_guid, &load.feed, generation)
-                {
+                if this.public_playlist_pages.finish(
+                    &load.feed_guid,
+                    load.feed.as_ref(),
+                    generation,
+                ) {
                     cx.notify();
                 }
             },
@@ -765,6 +767,7 @@ impl LibraryApp {
             Some(PublicPlaylistLoadState::Failed { detail }) => {
                 render_public_playlist_failed(detail, cx)
             }
+            Some(PublicPlaylistLoadState::NotIndexed) => render_public_playlist_not_indexed(),
             Some(PublicPlaylistLoadState::Loading) | None => render_public_playlist_loading(),
         }
     }

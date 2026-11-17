@@ -161,7 +161,9 @@ impl ApplicationCommand for FetchPlaylistPublishers {
 #[derive(Clone, Debug)]
 pub(crate) struct PublicPlaylistLoad {
     pub(crate) feed_guid: String,
-    pub(crate) feed: Feed,
+    /// The feed, or `None` when the index does not hold it: Music Index
+    /// replied with HTTP `404` (musicindex ADR 0081 task 003).
+    pub(crate) feed: Option<Feed>,
 }
 
 /// Reads one public playlist with its remote items (ADR 0089 packet 009).
@@ -193,9 +195,12 @@ impl ApplicationCommand for FetchPublicPlaylist {
             return Err(CommandError::Cancelled);
         }
         let client = Client::new_with_base_url(self.endpoint);
-        let feed = client
-            .fetch_feed_with_profile(&self.feed_guid, &INDEX_PUBLIC_PLAYLIST_DETAIL)
-            .map_err(|error| CommandError::Query(format!("{error:#}")))?;
+        let feed =
+            match client.fetch_feed_with_profile(&self.feed_guid, &INDEX_PUBLIC_PLAYLIST_DETAIL) {
+                Ok(feed) => Some(feed),
+                Err(error) if is_not_found(&error) => None,
+                Err(error) => return Err(CommandError::Query(format!("{error:#}"))),
+            };
         Ok(CommandOutcome::without_events(PublicPlaylistLoad {
             feed_guid: self.feed_guid,
             feed,
@@ -203,10 +208,45 @@ impl ApplicationCommand for FetchPublicPlaylist {
     }
 }
 
+/// Tells if Music Index replied with HTTP `404`: the index does not hold
+/// the feed. Each other error is a failed read.
+fn is_not_found(error: &anyhow::Error) -> bool {
+    error
+        .downcast_ref::<crate::api::HttpStatusError>()
+        .is_some_and(crate::api::HttpStatusError::is_not_found)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::application::queries::name_lists::tests::serve_routes;
+
+    /// Musicindex ADR 0081 task 003: a `404` "feed not found" reply gives
+    /// a load with no feed, not a command error.
+    #[test]
+    fn musicindex_adr_0081_task_003_feed_not_found_gives_no_feed() {
+        let (endpoint, _, _) = serve_routes(|_| r#"404 {"error":"feed not found"}"#.to_owned(), 1);
+
+        let load = FetchPublicPlaylist::new(endpoint, "missing")
+            .execute(&CommandContext::next())
+            .expect("a 404 reply is not a command error")
+            .into_parts()
+            .0;
+
+        assert_eq!(load.feed_guid, "missing");
+        assert!(load.feed.is_none());
+    }
+
+    /// Musicindex ADR 0081 task 003: a `500` reply stays a command error,
+    /// so the page keeps the error state with "Try again".
+    #[test]
+    fn musicindex_adr_0081_task_003_server_error_stays_an_error() {
+        let (endpoint, _, _) = serve_routes(|_| String::new(), 1);
+
+        let result = FetchPublicPlaylist::new(endpoint, "any").execute(&CommandContext::next());
+
+        assert!(matches!(result, Err(CommandError::Query(_))));
+    }
 
     /// Musicindex ADR 0081 R-CURATOR-5 and main session choice 2 of task
     /// 002: the read of `/v1/feeds/playlist-publishers` follows the cursor,

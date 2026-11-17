@@ -645,10 +645,15 @@ pub(crate) mod tests {
                     std::thread::sleep(Duration::from_millis(60));
                     let body = answer(&path);
                     counter.lock().unwrap().0 -= 1;
-                    let status = if body.is_empty() {
-                        "500 Internal Server Error"
+                    // An empty answer is a `500` reply, and an answer
+                    // that starts with "404 " is a `404` reply with the
+                    // rest as its body.
+                    let (status, body) = if body.is_empty() {
+                        ("500 Internal Server Error", body)
+                    } else if let Some(rest) = body.strip_prefix("404 ") {
+                        ("404 Not Found", rest.to_owned())
                     } else {
-                        "200 OK"
+                        ("200 OK", body)
                     };
                     write!(
                         stream,

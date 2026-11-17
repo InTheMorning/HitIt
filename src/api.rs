@@ -1757,6 +1757,13 @@ impl HttpStatusError {
     pub(crate) fn is_bad_request(&self) -> bool {
         self.status == StatusCode::BAD_REQUEST
     }
+
+    /// Tells if the server does not hold the requested item: HTTP `404 Not
+    /// Found` (musicindex ADR 0081 task 003).
+    #[must_use]
+    pub(crate) fn is_not_found(&self) -> bool {
+        self.status == StatusCode::NOT_FOUND
+    }
 }
 
 impl fmt::Display for HttpStatusError {

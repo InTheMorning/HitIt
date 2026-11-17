@@ -302,6 +302,31 @@ pub(crate) fn render_public_playlist_loading() -> AnyElement {
         .into_any_element()
 }
 
+/// The state of a public playlist page when the index does not hold the
+/// feed (musicindex ADR 0081 task 003). It shows no HTTP text and no
+/// "Try again", because a new read gets the same reply.
+pub(crate) fn render_public_playlist_not_indexed() -> AnyElement {
+    div()
+        .flex()
+        .flex_1()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .gap(spacing::XS)
+        .p(spacing::LG)
+        .child(
+            Label::new("Not indexed")
+                .size(FontSize::Caption)
+                .color(SemanticColor::SecondaryLabel),
+        )
+        .child(
+            Label::new("Music Index does not hold this feed.")
+                .size(FontSize::Micro)
+                .color(SemanticColor::TertiaryLabel),
+        )
+        .into_any_element()
+}
+
 /// The error state of a public playlist page, with "Try again" (ADR 0089
 /// packet 009). `detail` names the cause, and `retry` sends the read
 /// again.

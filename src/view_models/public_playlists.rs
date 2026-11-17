@@ -506,6 +506,9 @@ pub(crate) enum PublicPlaylistLoadState {
     Loaded(Box<PublicPlaylistPageVm>),
     /// The read failed. `detail` names the cause.
     Failed { detail: String },
+    /// The index does not hold the feed: Music Index replied with HTTP
+    /// `404` (musicindex ADR 0081 task 003). The state holds no error text.
+    NotIndexed,
 }
 
 /// The item page of the open public playlist: the feed GUID, its load
@@ -528,7 +531,11 @@ impl PublicPlaylistPages {
         if same
             && matches!(
                 self.state,
-                Some(PublicPlaylistLoadState::Loading | PublicPlaylistLoadState::Loaded(_))
+                Some(
+                    PublicPlaylistLoadState::Loading
+                        | PublicPlaylistLoadState::Loaded(_)
+                        | PublicPlaylistLoadState::NotIndexed
+                )
             )
         {
             return None;
@@ -539,16 +546,17 @@ impl PublicPlaylistPages {
         Some(self.generation)
     }
 
-    /// Stores the feed of the read `generation`. It gives `false` and
+    /// Stores the feed of the read `generation`. No feed gives the state
+    /// `NotIndexed` (musicindex ADR 0081 task 003). It gives `false` and
     /// changes nothing when `generation` is old or `feed_guid` is not the
     /// playlist of the page.
-    pub(crate) fn finish(&mut self, feed_guid: &str, feed: &Feed, generation: u64) -> bool {
+    pub(crate) fn finish(&mut self, feed_guid: &str, feed: Option<&Feed>, generation: u64) -> bool {
         if !self.accepts(feed_guid, generation) {
             return false;
         }
-        self.state = Some(PublicPlaylistLoadState::Loaded(Box::new(
-            PublicPlaylistPageVm::from_feed(feed),
-        )));
+        self.state = Some(feed.map_or(PublicPlaylistLoadState::NotIndexed, |feed| {
+            PublicPlaylistLoadState::Loaded(Box::new(PublicPlaylistPageVm::from_feed(feed)))
+        }));
         true
     }
 
@@ -592,7 +600,11 @@ impl PublicPlaylistPages {
     pub(crate) fn loaded_title(&self, feed_guid: &str) -> Option<&str> {
         match self.state_of(feed_guid) {
             Some(PublicPlaylistLoadState::Loaded(page)) => Some(&page.title),
-            Some(PublicPlaylistLoadState::Loading | PublicPlaylistLoadState::Failed { .. })
+            Some(
+                PublicPlaylistLoadState::Loading
+                | PublicPlaylistLoadState::Failed { .. }
+                | PublicPlaylistLoadState::NotIndexed,
+            )
             | None => None,
         }
     }
@@ -798,9 +810,9 @@ mod tests {
             .begin("two")
             .expect("a read of another playlist starts");
         let feed = playlist(Some("Two"), Vec::new());
-        assert!(!pages.finish("one", &feed, old), "an old generation");
-        assert!(!pages.finish("two", &feed, old), "an old generation");
-        assert!(pages.finish("two", &feed, new));
+        assert!(!pages.finish("one", Some(&feed), old), "an old generation");
+        assert!(!pages.finish("two", Some(&feed), old), "an old generation");
+        assert!(pages.finish("two", Some(&feed), new));
         assert_eq!(pages.loaded_title("two"), Some("Two"));
         assert_eq!(pages.loaded_title("one"), None);
         assert!(
@@ -822,6 +834,26 @@ mod tests {
             })
         );
         assert!(pages.begin("one").is_some());
+    }
+
+    /// Musicindex ADR 0081 task 003: a `404` "feed not found" reply gives
+    /// a load with no feed. The page then holds the state `NotIndexed`, with
+    /// no error text, and a new open does not read again.
+    #[test]
+    fn musicindex_adr_0081_task_003_feed_not_found_gives_not_indexed() {
+        let mut pages = PublicPlaylistPages::default();
+        let generation = pages.begin("missing").expect("starts");
+        assert!(pages.finish("missing", None, generation));
+        assert_eq!(
+            pages.state_of("missing"),
+            Some(&PublicPlaylistLoadState::NotIndexed)
+        );
+        assert!(!matches!(
+            pages.state_of("missing"),
+            Some(PublicPlaylistLoadState::Failed { .. })
+        ));
+        assert_eq!(pages.loaded_title("missing"), None);
+        assert!(pages.begin("missing").is_none(), "no read again");
     }
 
     /// ADR 0089 packet 009: an item that opens a track or a release gives
