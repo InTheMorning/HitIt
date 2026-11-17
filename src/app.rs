@@ -220,6 +220,12 @@ pub struct TopApp {
     theme_profile: ThemeProfile,
     cfg_path: PathBuf,
     settings_status: String,
+    /// The state of "Copy Feed URL" of an Index track page, with the track
+    /// that it is for (ADR 0101 task 008).
+    index_track_copy: Option<(
+        crate::view_models::workspace::IndexTrackTarget,
+        crate::view_models::track_page::IndexFeedCopy,
+    )>,
     settings: SettingsVm,
     settings_scroll: crate::ui::composites::settings::SettingsScrollHandles,
     _global_search_sub: gpui::Subscription,
@@ -563,6 +569,7 @@ impl TopApp {
             theme_profile,
             cfg_path,
             settings_status: String::new(),
+            index_track_copy: None,
             settings: SettingsVm::default(),
             settings_scroll: crate::ui::composites::settings::SettingsScrollHandles::default(),
             _global_search_sub: global_search_sub,

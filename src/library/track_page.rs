@@ -53,6 +53,8 @@ impl LibraryApp {
                 self.create_playlist_and_add_track(&name, track_id, cx);
             }
             TrackPageCommand::ToggleDescription => self.toggle_track_description(cx),
+            // The "⋯" button of a Library track holds no owner result.
+            TrackPageCommand::MenuOpened => {}
             TrackPageCommand::OpenNameLink(target) => self.open_track_name_link(&target, cx),
         }
     }

@@ -164,7 +164,7 @@ Status: the delegate finished the code and the checks. The visual criteria V1 to
 ### Copy actions (step 4)
 
 - Library release page "..." menu, Index release page "..." menu, Library track page "..." menu: "Copied" on the button (`result_label`, cleared when the menu opens, no timer).
-- Index track page "..." menu: no result label. The copy reads the feed first and can fail, so the result is not known at once. The status line keeps its words. This is an open point for the orchestrator.
+- Index track page "..." menu: the result comes when the feed read ends. See the orchestrator choice in the Review Corrections section.
 - No row menu has a copy action. Other clipboard writes (Nostr icon, podping row button, log copies, report copies) are not in a "..." menu or a row menu and stay unchanged.
 
 ### Other notices (step 5)
@@ -196,7 +196,13 @@ An independent review (ChatGPT, `gpt-6-astra`, effort high) examined the delegat
 - The status bar items used `on_click`. They now use `on_activate`, so Enter and Space open the detail with the key-down handler of the button (ADR 0069).
 - Main session choice: the bar has a minimum height of `Size::MinHitTarget`. With no event and no item, the bar was approximately 9 px high, and the content moved when the first event came.
 
-Open point for the orchestrator: the "..." menu of an Index track page shows no "Copied". The copy reads the feed first and can fail, so the result is not known when the menu closes. The status line keeps its words.
+Orchestrator choice, 2026-11-16: the "..." button of an Index track page shows the result of "Copy Feed URL" when the feed read ends. Reason: musicindex ADR 0026 R-NOTICE-1 item 1 says that the result of an action shows where the action was. The copy is a visible action, so item 2 (the status line) does not apply.
+
+- While the read runs, the button is busy (ADR 0101 task 007): it shows the spinner and "Copying…", and takes no input.
+- When the read succeeds, the button shows "Copied".
+- When the read fails, the button shows "Copy failed", or "No feed URL" when Music Index gives no feed URL. Main session choice: the full failure words are in the hover help of the button, because a long error does not fit on the button.
+- The result stays until the menu opens again. The status line no longer gets the words of this copy.
+- `IndexFeedCopy` and `TrackPageMenuResult` (`src/view_models/track_page.rs`) hold the state and the result. `ContextMenu::owner_result` and `ContextMenu::on_open` (`src/ui/primitives/context_menu.rs`) show a result that the owner holds, and tell the owner when the menu opens. Test: `adr_0101_task_008_index_copy_shows_its_result_on_the_menu_button`.
 
 ### Checks After The Corrections
 
@@ -214,3 +220,9 @@ The agent walked the debug binary on an Xvfb display at M, after the review corr
 - V4: Pass. After Copy Feed URL on "Waltz Tunes Volume 1", its "…" button shows "Copied". The "…" button of "Fox Trot Tunes Volume 2" shows no result.
 
 The operator confirmation stays open.
+
+Walk of the orchestrator choice, 2026-11-16, debug binary, Light, M, on the Index track page "Golden Age" (Let Em Riot):
+
+- After "Copy Feed URL", the "…" button shows "Copied", and the clipboard holds the feed URL. Pass.
+- When the menu opens again, the button shows only its icon. Pass.
+- The busy state is not seen: the feed read ended before the first screenshot. The failure words are not walked: the walk cannot make the feed read fail. The view model test proves the two states.

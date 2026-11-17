@@ -45,7 +45,7 @@ pub(crate) use checkbox::{Checkbox, CheckboxState};
 pub use context_menu::{
     ContextMenu, ContextMenuItem, ContextMenuItemDisplay, ContextMenuScope, PointerContextMenu,
 };
-pub(crate) use context_menu::{ContextMenuHandle, MenuLevelControls};
+pub(crate) use context_menu::{ContextMenuHandle, MenuLevelControls, MenuTriggerResult};
 pub use divider::Divider;
 pub use image::{Image, ImageSize};
 pub use label::{Label, LabelVariant};

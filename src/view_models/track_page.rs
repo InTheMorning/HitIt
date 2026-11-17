@@ -156,6 +156,67 @@ pub(crate) struct TrackPageFacts {
     /// that the length of the text selects.
     description_state: Option<DescriptionState>,
     playlists: Vec<PlaylistOptionDisplayVm>,
+    /// The state of "Copy Feed URL" of an Index track. `None` when no copy
+    /// result shows.
+    index_copy: Option<IndexFeedCopy>,
+}
+
+/// The state of "Copy Feed URL" of an Index track. The copy reads the album
+/// feed first, so the result comes when the read ends (orchestrator choice
+/// of ADR 0101 task 008, musicindex ADR 0026 R-NOTICE-1 item 1).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum IndexFeedCopy {
+    /// The feed read runs.
+    Running,
+    /// The app copied the feed URL.
+    Copied,
+    /// `MusicIndex` gave no feed URL for the album.
+    NoFeedUrl,
+    /// The feed read failed, with the words of the error.
+    ReadFailed(String),
+}
+
+/// The result that the "⋯" button shows in place of its label.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct TrackPageMenuResult {
+    /// The words on the button.
+    pub(crate) label: String,
+    /// `true` while the action runs. The button shows the spinner and
+    /// takes no input (ADR 0101 task 007).
+    pub(crate) busy: bool,
+    /// The full words of a failure. `None` when the label says all.
+    pub(crate) detail: Option<String>,
+}
+
+/// The busy label of "Copy Feed URL" while the feed read runs.
+pub(crate) const COPYING_LABEL: &str = "Copying…";
+
+impl IndexFeedCopy {
+    /// The result on the "⋯" button.
+    #[must_use]
+    pub(crate) fn menu_result(&self) -> TrackPageMenuResult {
+        let (label, busy, detail) = match self {
+            Self::Running => (COPYING_LABEL, true, None),
+            Self::Copied => (crate::view_models::album_page::COPIED_LABEL, false, None),
+            Self::NoFeedUrl => (
+                "No feed URL",
+                false,
+                Some("Music Index gave no feed URL for the album of this track.".to_string()),
+            ),
+            Self::ReadFailed(error) => (
+                "Copy failed",
+                false,
+                Some(format!(
+                    "App could not read the album of this track from Music Index: {error}"
+                )),
+            ),
+        };
+        TrackPageMenuResult {
+            label: label.to_string(),
+            busy,
+            detail,
+        }
+    }
 }
 
 impl TrackPageFacts {
@@ -170,6 +231,7 @@ impl TrackPageFacts {
             feed: context.feed.as_ref().map(TrackFeedFacts::from_api_feed),
             description_state: None,
             playlists: Vec::new(),
+            index_copy: None,
         }
     }
 
@@ -185,7 +247,18 @@ impl TrackPageFacts {
             feed: feed.map(TrackFeedFacts::from_feed_view),
             description_state: None,
             playlists: Vec::new(),
+            index_copy: None,
         }
+    }
+
+    /// Sets the state of "Copy Feed URL" of an Index track. A Library
+    /// track does not change.
+    #[must_use]
+    pub(crate) fn with_index_copy(mut self, copy: Option<IndexFeedCopy>) -> Self {
+        if matches!(self.origin, TrackPageOrigin::Index(_)) {
+            self.index_copy = copy;
+        }
+        self
     }
 
     /// Sets the queue phase of an Index track (ADR 0084 task 030,
@@ -258,6 +331,8 @@ pub(crate) enum TrackPageCommand {
     ToggleDescription,
     /// Open the page of a name link.
     OpenNameLink(TrackNameLinkTarget),
+    /// The "⋯" menu opened. The host clears the result on the button.
+    MenuOpened,
 }
 
 /// One display-ready action of a track page.
@@ -274,7 +349,7 @@ pub(crate) struct TrackPageActionVm {
     pub(crate) reason: Option<&'static str>,
     /// The result that the "⋯" button shows after the action. `None` when
     /// the result is not known at once: the copy of an Index track reads
-    /// its feed first, and its status line reports the result.
+    /// its feed first, and the row gives its result in `menu_result`.
     pub(crate) result_label: Option<&'static str>,
 }
 
@@ -292,6 +367,9 @@ pub(crate) struct TrackPageActionRowVm {
     pub(crate) menu_id: String,
     /// The accessibility label of the "⋯" menu.
     pub(crate) menu_a11y_label: &'static str,
+    /// The result on the "⋯" button that the host holds. `None` when the
+    /// button shows its icon, or the result of a copy that ended at once.
+    pub(crate) menu_result: Option<TrackPageMenuResult>,
     /// The accessibility label of the action row.
     pub(crate) a11y_label: &'static str,
     /// The status message below the row. `None` when no message exists.
@@ -438,6 +516,7 @@ fn track_page_action_row(
                     .collect(),
                 menu_id: format!("track-page-menu-{}", state.track_id),
                 menu_a11y_label: TRACK_PAGE_MENU_A11Y_LABEL,
+                menu_result: None,
                 a11y_label: TRACK_PAGE_ACTIONS_A11Y_LABEL,
                 message,
                 playlist_popover_id: Some(
@@ -477,6 +556,7 @@ fn track_page_action_row(
                 menu,
                 menu_id: format!("index-track-page-menu-{}", feed_guid.unwrap_or("unknown")),
                 menu_a11y_label: TRACK_PAGE_MENU_A11Y_LABEL,
+                menu_result: facts.index_copy.as_ref().map(IndexFeedCopy::menu_result),
                 a11y_label: TRACK_PAGE_ACTIONS_A11Y_LABEL,
                 // The message slot of the Library track page shows the
                 // queue word (ADR 0084 task 030, decision D8).
@@ -930,6 +1010,40 @@ mod tests {
         assert_eq!(row.plain[0].action, TrackPageAction::DownloadAlbum);
         assert!(!row.plain[0].available);
         assert!(row.menu.is_empty());
+    }
+
+    /// ADR 0101 task 008, orchestrator choice: the "⋯" button of an Index
+    /// track page is busy while the feed read of "Copy Feed URL" runs. Then
+    /// it shows "Copied", or the failure words. A Library track has no such
+    /// result.
+    #[test]
+    fn adr_0101_task_008_index_copy_shows_its_result_on_the_menu_button() {
+        let result = |copy: Option<IndexFeedCopy>| {
+            track_page_vm(&index_facts(None).with_index_copy(copy))
+                .actions
+                .menu_result
+        };
+        assert_eq!(result(None), None);
+        let running = result(Some(IndexFeedCopy::Running)).expect("busy result");
+        assert_eq!(
+            (running.label.as_str(), running.busy),
+            (COPYING_LABEL, true)
+        );
+        let copied = result(Some(IndexFeedCopy::Copied)).expect("copied result");
+        assert_eq!((copied.label.as_str(), copied.busy), ("Copied", false));
+        assert_eq!(copied.detail, None);
+        let failed =
+            result(Some(IndexFeedCopy::ReadFailed("timeout".into()))).expect("failed result");
+        assert_eq!((failed.label.as_str(), failed.busy), ("Copy failed", false));
+        assert!(failed
+            .detail
+            .is_some_and(|words| words.ends_with(": timeout")));
+        let no_url = result(Some(IndexFeedCopy::NoFeedUrl)).expect("no URL result");
+        assert_eq!(no_url.label, "No feed URL");
+        assert!(no_url.detail.is_some());
+
+        let library = library_facts(None).with_index_copy(Some(IndexFeedCopy::Copied));
+        assert_eq!(track_page_vm(&library).actions.menu_result, None);
     }
 
     /// R23-10: the album name link is a data rule. A Library album feed id

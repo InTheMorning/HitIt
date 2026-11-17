@@ -25,6 +25,7 @@ use crate::ui::composites::{
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::{
     Button, ContextMenu, ContextMenuItem, ContextMenuItemDisplay, ContextMenuScope,
+    MenuTriggerResult,
 };
 use crate::ui::shells::track::{
     build_track_detail_surface, render_track_feed_identity_section, render_track_name_links,
@@ -228,6 +229,17 @@ fn render_track_page_menu(
             }
             item
         });
+    // A result that comes after the menu closes, for example the copy of
+    // an Index track (ADR 0101 task 008).
+    let owner_result = actions
+        .menu_result
+        .as_ref()
+        .map(|result| MenuTriggerResult {
+            label: SharedString::from(result.label.clone()),
+            busy: result.busy,
+            tooltip: result.detail.clone().map(SharedString::from),
+        });
+    let dispatch = Rc::clone(dispatch);
     ContextMenu::new(
         SharedString::from(actions.menu_id.clone()),
         ContextMenuScope::TrackList,
@@ -235,6 +247,8 @@ fn render_track_page_menu(
     )
     .trigger_label("")
     .items(menu_items)
+    .owner_result(owner_result)
+    .on_open(move |window, cx| dispatch(TrackPageCommand::MenuOpened, window, cx))
     .into_any_element()
 }
 

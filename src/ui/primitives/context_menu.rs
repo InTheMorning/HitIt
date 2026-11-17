@@ -240,6 +240,22 @@ pub struct ContextMenu {
     placement: PopoverPlacement,
     trigger_style: ControlStyle,
     trigger_in_tab_sequence: bool,
+    owner_result: Option<MenuTriggerResult>,
+    on_open: Option<SelectHandler>,
+}
+
+/// A result on the trigger that the owner of the menu holds, for an action
+/// whose result comes after the menu closes.
+#[derive(Clone, Debug)]
+pub(crate) struct MenuTriggerResult {
+    /// The words on the trigger.
+    pub(crate) label: SharedString,
+    /// `true` while the action runs: the trigger shows the spinner and
+    /// takes no input.
+    pub(crate) busy: bool,
+    /// The hover help of the trigger. `None` keeps the hover help of the
+    /// menu.
+    pub(crate) tooltip: Option<SharedString>,
 }
 
 /// Controlled menu at a pointer position. The owner removes it on dismissal.
@@ -493,6 +509,8 @@ impl ContextMenu {
             placement: PopoverPlacement::Below,
             trigger_style: ControlStyle::RowAction,
             trigger_in_tab_sequence: true,
+            owner_result: None,
+            on_open: None,
         }
     }
 
@@ -545,6 +563,19 @@ impl ContextMenu {
         SharedString::from(format!("{id}-state"))
     }
 
+    /// A result that the owner holds. It replaces the result of a selected
+    /// item. The owner clears it in [`Self::on_open`].
+    pub(crate) fn owner_result(mut self, result: Option<MenuTriggerResult>) -> Self {
+        self.owner_result = result;
+        self
+    }
+
+    /// Runs when the menu opens, so that the owner can clear its result.
+    pub(crate) fn on_open(mut self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+        self.on_open = Some(Rc::new(handler));
+        self
+    }
+
     pub fn trigger_label(mut self, label: impl Into<SharedString>) -> Self {
         self.trigger_label = label.into();
         self
@@ -576,38 +607,66 @@ impl ContextMenuState {
     }
 }
 
+impl ContextMenu {
+    /// The trigger button. A result of the owner replaces the result of a
+    /// selected item. Enter and Space open the menu from the keyboard,
+    /// because the popover owns the click (ADR 0090 invariant "keyboard
+    /// reach").
+    fn trigger(&mut self, state: &Entity<ContextMenuState>, cx: &App) -> Button {
+        let owner_result = self.owner_result.take();
+        let busy = owner_result.as_ref().is_some_and(|result| result.busy);
+        let trigger_label = match &owner_result {
+            Some(result) => result.label.clone(),
+            None => state
+                .read(cx)
+                .result
+                .clone()
+                .unwrap_or_else(|| std::mem::take(&mut self.trigger_label)),
+        };
+        let trigger_tooltip = owner_result
+            .and_then(|result| result.tooltip)
+            .or_else(|| self.trigger_tooltip.take());
+        let trigger_id = SharedString::from(format!("{}-trigger", self.id));
+        let mut trigger = Button::styled(trigger_id, self.trigger_style)
+            .leading_icon(self.trigger_icon)
+            .disabled(self.disabled)
+            .busy(busy)
+            .label(trigger_label)
+            .a11y_label(std::mem::take(&mut self.trigger_a11y_label));
+        if self.trigger_in_tab_sequence {
+            let state = state.clone();
+            let on_open = self.on_open.clone();
+            trigger = trigger.on_key_activate(move |window, cx| {
+                let opened = state.update(cx, |state, cx| {
+                    state.open = !state.open;
+                    state.level = None;
+                    state.result = None;
+                    cx.notify();
+                    state.open
+                });
+                if let (true, Some(on_open)) = (opened, &on_open) {
+                    on_open(window, cx);
+                }
+            });
+        }
+        if let Some(tooltip) = trigger_tooltip {
+            trigger = trigger.tooltip(tooltip);
+        }
+        trigger
+    }
+}
+
 impl RenderOnce for ContextMenu {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let state: Entity<ContextMenuState> = match self.handle {
+    fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let state: Entity<ContextMenuState> = match self.handle.take() {
             Some(handle) => handle.0,
             None => ContextMenuHandle::new(&self.id, window, cx).0,
         };
 
         let open = state.read(cx).open && !self.disabled;
-        let trigger_label = state.read(cx).result.clone().unwrap_or(self.trigger_label);
+        let on_open = self.on_open.clone();
+        let trigger = self.trigger(&state, cx);
         let items = self.items;
-        let trigger_id = SharedString::from(format!("{}-trigger", self.id));
-        let mut trigger = Button::styled(trigger_id, self.trigger_style)
-            .leading_icon(self.trigger_icon)
-            .disabled(self.disabled)
-            .label(trigger_label)
-            .a11y_label(self.trigger_a11y_label);
-        // The popover owns the click. Enter and Space open the menu from the
-        // keyboard (ADR 0090 invariant "keyboard reach").
-        if self.trigger_in_tab_sequence {
-            let state = state.clone();
-            trigger = trigger.on_key_activate(move |_, cx| {
-                state.update(cx, |state, cx| {
-                    state.open = !state.open;
-                    state.level = None;
-                    state.result = None;
-                    cx.notify();
-                });
-            });
-        }
-        if let Some(tooltip) = self.trigger_tooltip {
-            trigger = trigger.tooltip(tooltip);
-        }
 
         Popover::new(self.id)
             .placement(self.placement)
@@ -616,7 +675,7 @@ impl RenderOnce for ContextMenu {
             .open(open)
             .on_open_change({
                 let state = state.clone();
-                move |is_open, _window, cx| {
+                move |is_open, window, cx| {
                     state.update(cx, |state, cx| {
                         state.open = *is_open;
                         state.level = None;
@@ -625,6 +684,9 @@ impl RenderOnce for ContextMenu {
                         }
                         cx.notify();
                     });
+                    if let (true, Some(on_open)) = (*is_open, &on_open) {
+                        on_open(window, cx);
+                    }
                 }
             })
             .trigger(trigger)

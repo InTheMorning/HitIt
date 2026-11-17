@@ -53,7 +53,7 @@ use crate::view_models::search_results::{
 };
 use crate::view_models::track_detail::{TrackNameLinkTarget, TrackPageAction};
 use crate::view_models::track_page::{
-    index_track_description_key, track_page_vm, TrackPageCommand, TrackPageFacts,
+    index_track_description_key, track_page_vm, IndexFeedCopy, TrackPageCommand, TrackPageFacts,
 };
 use crate::view_models::workspace::{
     release_download_updates_open_page, resolve_release_page_source, resolve_track_page_source,
@@ -1609,8 +1609,15 @@ impl TopApp {
             .and_then(|feed_guid| self.index_track_page_feed(feed_guid));
         // ADR 0084 task 030, decisions D8 and D9. The page reads the phase
         // of a job of its track, then of a release job of its feed.
+        let copy_key = index_track_description_key(track);
+        let copy = self
+            .index_track_copy
+            .as_ref()
+            .filter(|(key, _)| *key == copy_key)
+            .map(|(_, copy)| copy.clone());
         let mut facts = TrackPageFacts::from_index_track(track.clone(), feed)
-            .with_index_track_work(self.library.read(cx).busy_items());
+            .with_index_track_work(self.library.read(cx).busy_items())
+            .with_index_copy(copy);
         if let Some(description) = display_description_text(track.description.as_deref()) {
             let key = index_track_description_key(track);
             facts =
@@ -1649,7 +1656,8 @@ impl TopApp {
             }
             TrackPageCommand::Action(TrackPageAction::CopyFeedUrl) => {
                 if let Some(feed_guid) = feed_guid {
-                    self.copy_index_feed_url_of_track(feed_guid, cx);
+                    let key = index_track_description_key(&track);
+                    self.copy_index_feed_url_of_track(key, feed_guid, cx);
                 }
             }
             TrackPageCommand::ToggleDescription => {
@@ -1659,6 +1667,18 @@ impl TopApp {
                 }
             }
             TrackPageCommand::OpenNameLink(target) => self.open_index_track_name_link(&target, cx),
+            TrackPageCommand::MenuOpened => {
+                // The menu opened again, so the button shows its icon. A
+                // running copy keeps its busy state.
+                if self
+                    .index_track_copy
+                    .as_ref()
+                    .is_some_and(|(_, copy)| *copy != IndexFeedCopy::Running)
+                {
+                    self.index_track_copy = None;
+                    cx.notify();
+                }
+            }
             // An Index track page offers no such action.
             TrackPageCommand::Action(
                 TrackPageAction::DownloadTrack
@@ -1682,28 +1702,41 @@ impl TopApp {
     }
 
     /// "Copy feed URL" of an Index track: reads the album feed from
-    /// `MusicIndex`, which indexes the feed URL, and copies that URL.
-    fn copy_index_feed_url_of_track(&mut self, feed_guid: String, cx: &mut Context<Self>) {
+    /// `MusicIndex`, which indexes the feed URL, and copies that URL. The
+    /// "⋯" button is busy while the read runs, then shows the result (ADR
+    /// 0101 task 008, musicindex ADR 0026 R-NOTICE-1 item 1).
+    fn copy_index_feed_url_of_track(
+        &mut self,
+        key: IndexTrackTarget,
+        feed_guid: String,
+        cx: &mut Context<Self>,
+    ) {
+        self.index_track_copy = Some((key.clone(), IndexFeedCopy::Running));
+        cx.notify();
         let command = FetchIndexFeedDetail::new(self.musicindex_endpoint.clone(), feed_guid);
+        let failed_key = key.clone();
         present_command(
             &self.command_runner,
             command,
             CommandContext::next(),
             cx,
-            |this, feed, cx| match feed.feed_url {
-                Some(url) => {
-                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(url));
-                    this.settings_status = "App copied the feed URL of this track.".to_string();
-                }
-                None => {
-                    this.settings_status =
-                        "Music Index gave no feed URL for the album of this track.".to_string();
-                }
+            move |this, feed, cx| {
+                let copy = match feed.feed_url {
+                    Some(url) => {
+                        cx.write_to_clipboard(gpui::ClipboardItem::new_string(url));
+                        IndexFeedCopy::Copied
+                    }
+                    None => IndexFeedCopy::NoFeedUrl,
+                };
+                this.index_track_copy = Some((key.clone(), copy));
+                cx.notify();
             },
-            |this, error, _cx| {
-                this.settings_status = format!(
-                    "App could not read the album of this track from Music Index: {error:#}"
-                );
+            move |this, error, cx| {
+                this.index_track_copy = Some((
+                    failed_key.clone(),
+                    IndexFeedCopy::ReadFailed(format!("{error:#}")),
+                ));
+                cx.notify();
             },
         );
     }
