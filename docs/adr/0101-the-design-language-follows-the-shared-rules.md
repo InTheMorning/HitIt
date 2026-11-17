@@ -6,6 +6,7 @@ Accepted - 2026-11-15. The operator accepted this ADR on 2026-11-15, and the orc
 
 - Bar: crosses repositories. musicindex owns each rule that this ADR adopts, and musicindex.org and Studio obey the same rules.
 - Supersedes: [ADR 0083](archive/0083-design-language.md), the design language.
+- Revised: 2026-11-16, Decision 7, by operator decision relayed by the orchestrator session: the left side of the status bar shows the latest event of one bounded app event list. The list holds the show event reports and the events with no visible action of musicindex ADR 0026 R-NOTICE-1 item 2. [ADR 0101 task 008](../tasks/adr-0101-task-008-status-bar-and-notices.md) builds it.
 
 Operator choice, 2026-11-15: HitIt adopts musicindex ADR 0045 R-ACT-7 for the main action ([Decision 5](#5-actions-have-a-hierarchy)). HitIt keeps the focus ring of 2 px with no gap ([Decision 1](#1-the-palette)). musicindex ADR 0073 R-FOCUS-2 (musicindex commit `785ae28`) gives this ring to Studio and HitIt. It replaces musicindex ADR 0068 R-SCALE-4 item 6.
 
@@ -128,7 +129,7 @@ These items of ADR 0083 stay open for the operator:
 
 The window has one status bar at the bottom, the same on every section. One shared composite owns it.
 
-- **Left:** the latest reported event, in the words of the report owner ([ADRs 0059 and 0063](0059-broadcast-control-surface.md)), with its recorded time.
+- **Left:** the latest event of one bounded app event list. The list holds the show event reports ([ADRs 0059 and 0063](0059-broadcast-control-surface.md)) and the events with no visible action of musicindex ADR 0026 R-NOTICE-1 item 2: a feed check, a download or a tag write that fails. Each event keeps the words of its owner and its recorded time.
 - **Right:** small items with a simple icon and a short word. Each item opens its detail. The items are feed state, files to update, reports with a count, and show state.
 - **The show item appears only while a show is active.** With no active show, Music and Settings show no broadcast state ([ADR 0098](0098-the-music-shell-pages-lists-and-search.md) Decision 18).
 

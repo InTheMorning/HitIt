@@ -1,6 +1,6 @@
 # ADR 0101 Task 008: The Status Bar And The Notices
 
-Status: Waits - 2026-11-15. This packet starts after [task 001](adr-0101-task-001-shared-tokens.md) passes its checks.
+Status: Open - 2026-11-16. The operator chose A in the Stop Report.
 
 ## Goal
 
@@ -9,7 +9,7 @@ The window has one status bar at the bottom, the same on each section. It replac
 ## Authority
 
 - [ADR 0101](../adr/0101-the-design-language-follows-the-shared-rules.md) Decision 7 owns the status bar. Read Decision 7 fully before the first edit:
-  - Left: the latest reported event, in the words of the report owner (ADRs 0059 and 0063), with its recorded time.
+  - Left: the latest event of one bounded app event list. The list holds the show event reports (ADRs 0059 and 0063) and the events with no visible action of musicindex ADR 0026 R-NOTICE-1 item 2: a feed check, a download or a tag write that fails. Each event keeps the words of its owner and its recorded time (Revised 2026-11-16).
   - Right: small items with a simple icon and a short word. Each item opens its detail. The items are feed state, files to update, reports with a count, and show state.
   - The show item appears only while a show is active. With no active show, Music and Settings show no broadcast state ([ADR 0098](../adr/0098-the-music-shell-pages-lists-and-search.md) Decision 18).
   - The reports item opens the normal-shell notice of [ADR 0066](../adr/0066-configuration-and-startup-failure-recovery.md). Its subjects, repair actions and retained actions stay reachable there and in Settings.
@@ -43,6 +43,7 @@ Main session choice, 2026-11-15: in the narrow shell, the status bar is above th
 | Component | Status | Location | Reason |
 |---|---|---|---|
 | Live status projection | extend | `src/view_models/live_status.rs` | It gives the show state. The status bar view model uses it for the show item. |
+| App event list | new | `src/view_models/app_events.rs` | Searched `src/view_models/show/event_report.rs` (`EventReport` keeps only the latest show result for each operation), the `VecDeque` users in `src/` (download queue, backfill queue, startup capabilities) and `~/build/musicindex-lib` (fit, search and value only). No component holds a bounded list of app events. |
 | Status bar view model | new | `src/view_models/status_bar.rs` | Searched `src/view_models/` in HitIt. `live_status.rs` gives only the show. No view model gives the latest event and the right items. |
 | Status bar composite | extend | `src/ui/composites/live_status_strip.rs` | It is the one band. Change it into the status bar, and rename the file and the type. |
 | Normal-shell notice | reuse | `src/ui/composites/startup_report.rs` | `capability_notice` is the notice that the reports item opens. |
@@ -51,7 +52,8 @@ Main session choice, 2026-11-15: in the narrow shell, the status bar is above th
 
 ## Required Changes
 
-1. **The view model.** `status_bar.rs` gives the latest event with its time, and the right items: feed state, files to update, reports with a count, and show state. The show item exists only while a show is active. Each item gives its icon, its word, its accessibility label and the detail that it opens. Find the source of each item, and report it.
+1. **The event list.** `app_events.rs` holds one bounded list of app events, newest first. Each event has its owner, its words and its recorded time. The list keeps at most 50 events. The show event reports go into the list when `EventSectionInput::record_event_report_for` records them. A feed check that fails, a download that fails and a tag write that fails also go into the list. Each event keeps the words of its owner. This packet adds no new words. Report the source of each event.
+1a. **The view model.** `status_bar.rs` gives the latest event of the list with its time, and the right items: feed state, files to update, reports with a count, and show state. The show item exists only while a show is active. Each item gives its icon, its word, its accessibility label and the detail that it opens. Find the source of each item, and report it.
 2. **The composite.** The status bar draws the view model in one row at the bottom of the window. The event text truncates. The right items keep their place.
 3. **The shell.** The status bar shows on each section. The live status band and its mount go away. The capability notice no longer shows below the toolbar. The reports item opens it.
 4. **The copy result.** After a copy, the "…" button of a page header shows "Copied". Find each copy action, and give it this result. A copy in a row menu shows "Copied" in the row.
@@ -71,6 +73,7 @@ Mechanical:
 
 - M1: a test proves that the status bar view model gives no show item when no show is active, and gives one when a show is active.
 - M2: a test proves that the latest event gives its words and its recorded time.
+- M2a: a test proves that the list keeps at most 50 events, newest first, and that a show report and a failed feed check both go into it.
 - M3: a test proves that the reports item gives the count and opens the normal-shell notice.
 - M4: the changed guard proves one composite owner and no second status band.
 - M5: a test proves that a copy action gives "Copied" on its button.
@@ -106,5 +109,19 @@ A delegate does not commit. It leaves its change in the working tree and reports
 ## Stop And Ask
 
 - Stop if an item of the right side has no source in the code.
+- Stop if a failed feed check, download or tag write has no words of its owner in the code.
 - Stop if the Show page needs the band for a control that the status bar does not give.
 - Stop if a repair action of the notice is not reachable after the change.
+
+## Stop Report - 2026-11-16
+
+The delegate (ChatGPT) stopped before the first edit. The primary agent examined the stop.
+
+- ADR 0101 Decision 7 names ADRs 0059 and 0063 as the owners of the words of the latest event. These ADRs own the show reports only. `src/view_models/show/event_report.rs` is the one event report in the code.
+- musicindex ADR 0026 R-NOTICE-1 item 2 sends each event that is not the result of a visible action to the status bar. Examples are a feed check that fails, a download that fails and a tag write that fails. These events have no show report.
+- With no active show, ADR 0101 Decision 7 permits no broadcast state on Music and Settings. Thus a show event alone can leave the left side empty for a user with no show.
+- The right items have a source: feed state (`RssCheckRunState`, `src/runtime/playlist_rss_check.rs`), files to update (`src/audio_tags.rs`), reports (`src/ui/composites/startup_report.rs`) and the show (`src/view_models/live_status.rs`).
+
+Question: which events go to the left side of the status bar?
+
+Operator choice, 2026-11-16, relayed by the orchestrator session: option A. One bounded app event list collects the show event reports and the events with no visible action. Each event keeps the words of its owner. musicindex ADR 0026 R-NOTICE-1 item 2 binds HitIt, and option B breaks it. ADR 0101 has a Revised line for Decision 7. The main session chose the limit of 50 events.
