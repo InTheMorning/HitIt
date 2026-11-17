@@ -417,11 +417,13 @@ fn value_route_open_content(
         .text_size(FontSize::Caption.scaled(cx));
     if let (Some(full), Some(open)) = (&row.full_address, &row.open_address) {
         let copied = full.clone();
+        // Copy is at the center of the address lines, so a one-line address is
+        // on the line of Copy, as on the website.
         content = content.child(
             div()
                 .flex()
                 .flex_row()
-                .items_start()
+                .items_center()
                 .gap(spacing::SM)
                 .child(
                     div()
