@@ -10,9 +10,9 @@
 
 use chrono::{Datelike, FixedOffset, Offset, TimeZone, Timelike};
 use icu_datetime::fieldsets::zone::LocalizedOffsetShort;
-use icu_datetime::fieldsets::{MD, YMD};
+use icu_datetime::fieldsets::{MD, T, YMD};
 use icu_datetime::input::{Date, Time, UtcOffset, ZonedDateTime};
-use icu_datetime::DateTimeFormatter;
+use icu_datetime::{DateTimeFormatter, NoCalendarFormatter};
 use icu_locale_core::Locale;
 
 use crate::view_models::name_order::system_locale;
@@ -62,7 +62,7 @@ pub fn fmt_duration(secs: i64) -> String {
 /// The UTC offset of the local time zone at `ts`, in seconds. A time out of
 /// range gives zero. Unit tests use UTC, so that their dates do not depend on
 /// the machine. The tests of the `_in` functions give an offset.
-fn local_offset_secs(ts: i64) -> i32 {
+pub(crate) fn local_offset_secs(ts: i64) -> i32 {
     if cfg!(test) {
         return 0;
     }
@@ -171,6 +171,27 @@ pub fn fmt_date_time_zone_in(ts: i64, locale: &Locale, offset_secs: i32) -> Opti
             .format(&ZonedDateTime { date, time, zone })
             .to_string(),
     )
+}
+
+/// Formats a Unix epoch timestamp as the time of day of `locale`, with
+/// hours, minutes and seconds, in the time zone with the offset
+/// `offset_secs`. For example `"7:12:48 AM"` in `en-US` and `"07:12:48"` in
+/// `de-DE`. Returns `None` when the timestamp is out of range.
+///
+/// musicindex ADR 0023 R-DATE-1 has no rule for a time of day yet. The
+/// orchestrator choice of ADR 0101 task 008 applies the idea of item 1.
+#[must_use]
+pub fn fmt_time_in(ts: i64, locale: &Locale, offset_secs: i32) -> Option<String> {
+    let local = local_time(ts, offset_secs)?;
+    let time = Time::try_new(
+        u8::try_from(local.hour()).ok()?,
+        u8::try_from(local.minute()).ok()?,
+        u8::try_from(local.second()).ok()?,
+        0,
+    )
+    .ok()?;
+    let formatter = NoCalendarFormatter::try_new(locale.into(), T::hms()).ok()?;
+    Some(formatter.format(&time).to_string())
 }
 
 /// Formats a Unix epoch timestamp as the medium date, the time and the time

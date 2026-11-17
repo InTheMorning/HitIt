@@ -9,7 +9,10 @@
 #![warn(clippy::pedantic)]
 
 use crate::runtime::{PlaylistRssCheckSnapshot, RssFeedOutcome, TagUpdateSnapshot};
-use crate::view_models::app_events::AppEventList;
+use icu_locale_core::Locale;
+
+use crate::view_models::app_events::{AppEvent, AppEventList};
+use crate::view_models::format::{fmt_date_in, fmt_time_in};
 use crate::view_models::live_status::{LiveStatusDisplay, OPEN_SHOW_A11Y_LABEL};
 use crate::view_models::tag_update::{self, TagUpdateAvailability};
 
@@ -91,18 +94,34 @@ pub(crate) struct StatusBarDisplay {
     pub(crate) items: Vec<StatusItemDisplay>,
 }
 
+impl StatusEventDisplay {
+    /// The display of `event` in `locale`, at the time zone with the offset
+    /// `offset_secs`. The list keeps the time in UTC. Only the display
+    /// converts it (orchestrator choice of ADR 0101 task 008).
+    #[must_use]
+    pub(crate) fn from_event_in(event: &AppEvent, locale: &Locale, offset_secs: i32) -> Self {
+        let ts = event.at.timestamp();
+        let time = fmt_time_in(ts, locale, offset_secs).unwrap_or_default();
+        let date = fmt_date_in(ts, locale, offset_secs).unwrap_or_default();
+        Self {
+            words: event.words.clone(),
+            a11y_label: format!("{} Recorded at {time}, {date}.", event.words),
+            time_label: time,
+        }
+    }
+}
+
 impl StatusBarDisplay {
     /// Projects the bar from its sources.
     #[must_use]
     pub(crate) fn project(input: &StatusBarInput<'_>) -> Self {
-        let event = input.events.latest().map(|event| StatusEventDisplay {
-            words: event.words.clone(),
-            time_label: event.at.format("%H:%M:%S UTC").to_string(),
-            a11y_label: format!(
-                "{} Recorded at {}.",
-                event.words,
-                event.at.format("%Y-%m-%d %H:%M:%S UTC")
-            ),
+        let event = input.events.latest().map(|event| {
+            let ts = event.at.timestamp();
+            StatusEventDisplay::from_event_in(
+                event,
+                &crate::view_models::name_order::system_locale(),
+                crate::view_models::format::local_offset_secs(ts),
+            )
         });
         let items = [
             feed_item(input.feed_checks),
@@ -225,7 +244,7 @@ mod tests {
     use chrono::{DateTime, Utc};
 
     use super::*;
-    use crate::view_models::app_events::{AppEvent, AppEventOwner};
+    use crate::view_models::app_events::AppEventOwner;
     use crate::view_models::queue_now_playing::{
         QueueNowPlayingPageVm, QueueTrackInput, TransportState,
     };
@@ -298,10 +317,30 @@ mod tests {
         let bar = project(&events, &ShowPageVm::idle(), 0);
         let event = bar.event.expect("an event");
         assert_eq!(event.words, "The app could not download Song: no space");
-        assert_eq!(event.time_label, "08:01:01 UTC");
-        assert!(event
+        assert!(!event.time_label.is_empty());
+        assert!(!event.time_label.contains("UTC"));
+    }
+
+    /// Orchestrator choice of ADR 0101 task 008: the time of the event is
+    /// the local time in the time format of the language. The list keeps
+    /// the time in UTC. 2027-01-15 08:01:01 UTC is 03:01:01 at UTC-5.
+    #[test]
+    fn adr_0101_task_008_event_time_is_local_in_the_language_format() {
+        let event = AppEvent {
+            owner: AppEventOwner::Download,
+            words: "The app could not download Song: no space".to_owned(),
+            at: at(61),
+        };
+        let us: Locale = "en-US".parse().expect("a locale");
+        let de: Locale = "de-DE".parse().expect("a locale");
+        let east_coast = StatusEventDisplay::from_event_in(&event, &us, -5 * 3600);
+        assert_eq!(east_coast.time_label, "3:01:01\u{202f}AM");
+        assert!(east_coast
             .a11y_label
-            .ends_with("Recorded at 2027-01-15 08:01:01 UTC."));
+            .ends_with("Recorded at 3:01:01\u{202f}AM, Jan 15, 2027."));
+        let berlin = StatusEventDisplay::from_event_in(&event, &de, 3600);
+        assert_eq!(berlin.time_label, "09:01:01");
+        assert_eq!(event.at.timestamp(), 1_800_000_061);
     }
 
     /// M3: the reports item gives the count and opens the normal-shell
