@@ -13,7 +13,7 @@ HitIt builds musicindex ADR 0081 R-CURATOR-3 to R-CURATOR-6 from the fields of S
 
 Each new part shows only when `GET /v1/node/capabilities` names `playlist_links` (Stophammer ADR 0102 §7). A node without the capability shows each page as before.
 
-The orchestrator sent this task on 2026-11-17. It answers HitIt requests 16 and 17. Stophammer ADR 0102 is Accepted (stophammer `7ca65ca`), and §5a is Accepted (stophammer `c3e028b`). The code is on stophammer `main` (tasks 001 to 003 in `b231ec1`, task 004 in `b4f4f1d`). No Stophammer release holds it.
+The orchestrator sent this task on 2026-11-17. It answers HitIt requests 16 and 17. Stophammer ADR 0102 is Accepted (stophammer `7ca65ca`), and §5a is Accepted (stophammer `c3e028b`). The code is on stophammer `main` (tasks 001 to 003 in `b231ec1`, task 004 in `b4f4f1d`). Stophammer release 0.21.0 (tag `v0.21.0` at git `238d1b6`) holds it, and the live API gives it on 2026-11-17.
 
 The record of the Public playlists section is ADR 0098 Decisions 1 and 4. ADR 0081 names HitIt ADR 0089, but ADR 0098 supersedes ADR 0089.
 
@@ -38,7 +38,7 @@ Each choice is from 2026-11-17.
 3. The groups of Public playlists apply in the Rows view and in the Tiles view. Each group has its heading, then its rows or its tiles. Each row and each tile keeps its look (R-CURATOR-5 item 5).
 4. No new HitIt ADR. ADR 0098 gets the reference to musicindex ADR 0081 in its "Revised:" line of 2026-11-17. That line already names ADR 0081 for the role curator, so the record keeps three change lines.
 
-Orchestrator choice of 2026-11-17: `tests/fixtures/musicindex-openapi-0.21.0.json` holds the contract of Stophammer main at `b4f4f1d` (ADR 0102 tasks 001 to 004). It is version 0.21.0 from a local debug build, with no release tag. The guard of ADR 0075 section 6 needs the ADR 0102 fields, and no release holds them.
+Orchestrator choice of 2026-11-17: `tests/fixtures/musicindex-openapi-0.21.0.json` holds the contract of Stophammer release 0.21.0, tag `v0.21.0` at git `238d1b6`. The file is the reply of `https://api.musicindex.org/openapi.json` on 2026-11-17, when the node gave `git_revision` `238d1b6`. Its content is equal to the earlier copy from `b4f4f1d`.
 
 Orchestrator choice of 2026-11-17 (keyboard): a playlist row of a feed page takes the keyboard focus. The arrow keys move to it after the release rows, and Enter opens the playlist page. `DetailRowKey::FeedPlaylist` and `DetailPageRows::FeedPage` in `src/view_models/detail_selection.rs` hold the row. The row has no member, so Space, Ctrl+A and the release commands do not act on it. A feed page with playlist rows only has no "Select" button.
 
@@ -50,7 +50,7 @@ HitIt has no hollow badge, so the row uses the "Feed" badge that HitIt has now. 
 
 ## Open Items
 
-- Replace `tests/fixtures/musicindex-openapi-0.21.0.json` with the contract of the first Stophammer release candidate that holds ADR 0102. Then run the guard again. The orchestrator sends the candidate hash.
+None. The release contract replaced the fixture on 2026-11-17.
 
 Main session note of 2026-11-17: the Playlists section of a feed page and the "N playlists" text do not examine the capability. They read the fields of Stophammer ADR 0102. Only a node with ADR 0102 sends `publisher_to_playlist` rows and `two_way_playlist_link_count`. A node without the capability thus shows each page as before.
 

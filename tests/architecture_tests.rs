@@ -19748,9 +19748,9 @@ fn adr_0075_projection_views_combine_no_fact_and_column() {
 // parameters and two search row fields that HitIt does not decode.
 // The live contract of Stophammer candidate v0.19.0-rc.5 (git a0c0c5a)
 // replaced it on 2026-11-08, for `newest_release_at` and `sort=date` on
-// `/v1/artist-names`. The contract of Stophammer main at b4f4f1d, version
-// 0.21.0 with no release tag, replaced it on 2026-11-17, for the playlist
-// links of Stophammer ADR 0102 (orchestrator choice of 2026-11-17).
+// `/v1/artist-names`. The contract of Stophammer release 0.21.0 (tag
+// v0.21.0 at git 238d1b6) replaced it on 2026-11-17, for the playlist links
+// of Stophammer ADR 0102.
 
 /// The stored MusicIndex contract (ADR 0075 section 6). The file name holds
 /// the contract version. A person or an agent replaces this file after each
