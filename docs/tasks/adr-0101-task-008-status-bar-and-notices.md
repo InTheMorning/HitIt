@@ -226,3 +226,9 @@ Walk of the orchestrator choice, 2026-11-16, debug binary, Light, M, on the Inde
 - After "Copy Feed URL", the "…" button shows "Copied", and the clipboard holds the feed URL. Pass.
 - When the menu opens again, the button shows only its icon. Pass.
 - The busy state is not seen: the feed read ended before the first screenshot. The failure words are not walked: the walk cannot make the feed read fail. The view model test proves the two states.
+
+## Operator Walk Correction - 2026-11-17
+
+The operator walk of pending human checks section 24 found a defect. On the Index release page "GLOBAL FEDPILLED INDUSTRIAL COMPLEX", Tab went from "Reverse" to the status bar item "Update 28 files" before the rows. Cause: the items got Tab index 0 with `on_activate`, and the detail list has Tab index 1 (ADR 0092 task 002). Correction: each item has `Button::tab_index(1)`, so Tab reaches the bar after the page and its list. Test: `adr_0101_task_008_tab_reaches_the_list_before_the_status_bar`.
+
+Open point for the orchestrator: the time of the latest event shows in UTC, for example "12:12:48 UTC". musicindex ADR 0023 R-DATE-1 gives the format of a date, not of a time of day.

@@ -139,7 +139,11 @@ fn render_item(item: StatusItemDisplay, handler: Option<StatusItemHandler>) -> U
         .leading_icon(item_icon(item.icon))
         .label(item.word)
         .a11y_label(item.a11y_label.clone())
-        .tooltip(item.a11y_label);
+        .tooltip(item.a11y_label)
+        // Tab reaches the bar after the page and its list. A detail list has
+        // Tab index 1 (ADR 0092 task 002), so an item with index 0 came
+        // before the rows (operator walk of 2026-11-17).
+        .tab_index(1);
     match handler {
         Some(handler) if item.enabled => {
             // A pointer click, Enter and Space open the detail (ADR 0069).
@@ -158,5 +162,81 @@ const fn item_icon(icon: StatusItemIcon) -> IconName {
         StatusItemIcon::Files => IconName::Track,
         StatusItemIcon::Reports => IconName::Warning,
         StatusItemIcon::Show => IconName::Show,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::view_models::status_bar::StatusItemKind;
+
+    struct BarTabRoot {
+        page_control: gpui::FocusHandle,
+        list: gpui::FocusHandle,
+    }
+
+    impl gpui::Render for BarTabRoot {
+        fn render(&mut self, _: &mut Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
+            let item = StatusItemDisplay {
+                kind: StatusItemKind::Files,
+                id: "status-item-files",
+                icon: StatusItemIcon::Files,
+                word: "Update 28 files".into(),
+                a11y_label: "Update 28 files".into(),
+                detail: StatusItemDetail::TagUpdatePopup,
+                enabled: true,
+            };
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(
+                    div()
+                        .track_focus(&self.list.clone().tab_index(1).tab_stop(true))
+                        .child(
+                            UiButton::plain("page-control")
+                                .label("Reverse")
+                                .track_focus(&self.page_control)
+                                .on_click(|_, _, _| {}),
+                        ),
+                )
+                .child(status_bar(
+                    StatusBarDisplay {
+                        id: "status-bar",
+                        event: None,
+                        items: vec![item],
+                    },
+                    StatusBarSlots::new().on_open_item(|_, _, _| {}),
+                ))
+        }
+    }
+
+    /// Operator walk of 2026-11-17: Tab went from "Reverse" to the status bar
+    /// item "Update 28 files" before the rows of the release page.
+    #[gpui::test]
+    fn adr_0101_task_008_tab_reaches_the_list_before_the_status_bar(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_component::init);
+        let (root, cx) = cx.add_window_view(|_, cx| BarTabRoot {
+            page_control: cx.focus_handle(),
+            list: cx.focus_handle(),
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        let (page_control, list) = cx.update(|_, cx| {
+            let root = root.read(cx);
+            (root.page_control.clone(), root.list.clone())
+        });
+        cx.update(|window, cx| window.focus(&page_control, cx));
+        cx.update(gpui::Window::focus_next);
+        assert!(
+            cx.update(|window, _| list.is_focused(window)),
+            "ADR 0092 task 002: Tab goes from the last page control to the list, \
+             not to a status bar item. Give each item `Button::tab_index(1)`."
+        );
+        cx.update(gpui::Window::focus_next);
+        assert!(
+            cx.update(|window, _| !list.is_focused(window) && !page_control.is_focused(window)),
+            "Tab goes from the list to the status bar item"
+        );
     }
 }
