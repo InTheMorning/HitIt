@@ -1,6 +1,6 @@
 # musicindex ADR 0082 Task 001: The Value Routes Look
 
-Status: Done. The agent did the live walk in the four themes. The visual criteria are open for the operator.
+Status: Closed. The operator passed the visual criteria on 2026-11-17 (`8c92250` and `87e76e6`).
 
 ## Goal
 
@@ -75,7 +75,7 @@ Each criterion is proved by a test.
 
 ## Visual Criteria
 
-A person judges each of these criteria.
+A person judges each of these criteria. The operator passed V1 to V6 on 2026-11-17.
 
 - V1. The summary bar has round ends, a gap between segments and diagonal stripes on a fee segment.
 - V2. The names line is under the bar, in the center, and each part stays on one line.
