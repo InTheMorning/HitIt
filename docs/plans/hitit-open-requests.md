@@ -685,7 +685,7 @@ Release 0.19.0 delivers requests 14 and 15 and item 1 of request 11 (Stophammer 
 - `release` still reads only the title of the feed. No filter now reads only the title of the track.
 - A filter does not change `rank`. So HitIt ADR 0087 Known Difference 1 closes with this release.
 
-**Part 2 is declined.** The node still infers no kind (Stophammer ADR 0080 §2, ADR 0085 §6). Musicindex ADR 0069 R-WORD-1 gives this rule to the apps. An app can send the rule today as one request for each type, with no new release of Stophammer:
+**Part 2 is declined.** The node still infers no kind (Stophammer ADR 0080 §2, ADR 0085 §6). Musicindex ADR 0080 R-WORD-1 gives this rule to the apps. An app can send the rule today as one request for each type, with no new release of Stophammer:
 
 | The person types | The app sends | Music feeds in the backup of 2026-11-05 |
 |---|---|---|

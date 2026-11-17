@@ -55,6 +55,12 @@ A person judges each of these criteria.
 - V1. On the ChadF page, a click on the row "No title" (`0a28983e-c60c-467d-8d76-6ec7663fbfec`) opens a page that shows "Not indexed". The page shows no HTTP text and no "Try again" button.
 - V2. The state looks correct in the light theme and in the high contrast theme.
 
+## Open Items
+
+- HTTP 429 on an artist name page. This item is not in the scope of this task. The orchestrator sent it on 2026-11-17 and asked for no task at this time. After many runs against `https://api.musicindex.org`, the live API replied with HTTP 429 "rate limit exceeded". The Artist name page then showed the raw text "query refresh failed: GET failed with HTTP 429 Too Many Requests" below its error line (shot `l4-chadf-page.png` of the live check of 2026-11-17).
+
+  A possible correction is a text that tells the person that Music Index is busy and that they can try again after a short time. The page also shows an error line that a person can read. Usually, a person does not go to the limit. Only the test runs went to it.
+
 ## Test Commands
 
 ```bash
