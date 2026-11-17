@@ -359,6 +359,9 @@ pub(super) fn artist_row_vm(
     lookup: &dyn SearchLibraryLookup,
 ) -> SearchResultRowVm {
     let badge = match SearchResultTarget::from_row_id(SearchResultsTab::Artists, &row.id) {
+        // Musicindex ADR 0081 R-CURATOR-3: a feed with playlist links only
+        // is a feed.
+        Some(SearchResultTarget::FeedPage(_)) if row.playlist_feed => Some(SearchRowBadge::Feed),
         Some(SearchResultTarget::FeedPage(feed_guid)) => Some(SearchRowBadge::for_feed(
             lookup.is_artist_feed(&feed_guid),
             row.link_class.as_ref(),

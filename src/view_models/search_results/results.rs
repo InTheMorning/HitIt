@@ -43,6 +43,13 @@ pub(crate) struct ArtistResultDisplay {
     /// packet 029). `None` for a row that gives no link fact, and for each
     /// row that is not a `MusicIndex` feed row.
     pub(crate) link_class: Option<FeedLinkClass>,
+    /// The `MusicIndex` feed row has no confirmed release link and one or
+    /// more confirmed playlist links (musicindex ADR 0081 R-CURATOR-3,
+    /// orchestrator choice of 2026-11-17 in task 002). The row is a
+    /// feed, not an artist: it is in the "Feeds" group of the tab All
+    /// only. Only a node that names `playlist_links` sends the playlist
+    /// count, so with no such node this is `false`.
+    pub(crate) playlist_feed: bool,
 }
 
 impl SearchRowMergeKey for ArtistResultDisplay {
@@ -105,6 +112,7 @@ impl ArtistResultDisplay {
             thumbnail_href: None,
             art: None,
             link_class: None,
+            playlist_feed: false,
         }
     }
 

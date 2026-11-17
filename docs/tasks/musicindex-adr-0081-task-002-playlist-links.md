@@ -40,10 +40,17 @@ Each choice is from 2026-11-17.
 
 Orchestrator choice of 2026-11-17: `tests/fixtures/musicindex-openapi-0.21.0.json` holds the contract of Stophammer main at `b4f4f1d` (ADR 0102 tasks 001 to 004). It is version 0.21.0 from a local debug build, with no release tag. The guard of ADR 0075 section 6 needs the ADR 0102 fields, and no release holds them.
 
+Orchestrator choice of 2026-11-17 (keyboard): a playlist row of a feed page takes the keyboard focus. The arrow keys move to it after the release rows, and Enter opens the playlist page. `DetailRowKey::FeedPlaylist` and `DetailPageRows::FeedPage` in `src/view_models/detail_selection.rs` hold the row. The row has no member, so Space, Ctrl+A and the release commands do not act on it. A feed page with playlist rows only has no "Select" button.
+
+Orchestrator choice of 2026-11-17 (search): a feed with `two_way_link_count` 0 and `two_way_playlist_link_count` 1 or more is a feed, not an artist. This follows the website decision for gap 3 of ADR 0081 R-CURATOR-3 item 1.
+
+The search shows such a row in a group "Feeds" of the tab All only, after the artist groups. The group has no intro line. The row has the badge "Feed" and the text "N playlists". The Artists tab and its count do not include the row. The Artists list does not show the row.
+
+HitIt has no hollow badge, so the row uses the "Feed" badge that HitIt has now. The rule reads the fields of Stophammer ADR 0102, as the main session note below states. A node without `playlist_links` sends no playlist count, so its rows stay as before.
+
 ## Open Items
 
 - Replace `tests/fixtures/musicindex-openapi-0.21.0.json` with the contract of the first Stophammer release candidate that holds ADR 0102. Then run the guard again. The orchestrator sends the candidate hash.
-- A playlist row of a feed page opens with a click only. The keyboard selection of a feed page holds release keys only (`feed_page_release_rows` in `src/view_models/detail_selection.rs`). The arrow keys skip a playlist row, and Enter does not open it. A subsequent task adds a playlist row kind to that selection, with no release command.
 
 Main session note of 2026-11-17: the Playlists section of a feed page and the "N playlists" text do not examine the capability. They read the fields of Stophammer ADR 0102. Only a node with ADR 0102 sends `publisher_to_playlist` rows and `two_way_playlist_link_count`. A node without the capability thus shows each page as before.
 
@@ -74,6 +81,9 @@ These follow the website task `../musicindex/docs/tasks/site-curator-task-001-pl
 | Publisher page facts | extend | src/application/queries/feed.rs | `publisher_page_facts_from_feed` also reads `publisher_to_playlist`. |
 | Named feed row | reuse | src/ui/shells/entity.rs | `render_named_feed_rows` draws the Curator row of a playlist page. |
 | Search row text | extend | src/application/queries/search.rs | `index_feed_page_result_display` gives the playlist count. |
+| Detail selection | extend | src/view_models/detail_selection.rs | `DetailPageRows::FeedPage` adds the playlist rows to the focus order of a feed page. |
+| Search groups | extend | src/view_models/search_results/mod.rs | The tab All gets the "Feeds" group after the artist groups. |
+| Artist row class | extend | src/view_models/artists_everything.rs | `IndexArtistClass::PlaylistFeed` keeps a playlist feed out of the Artists list. |
 | Fixed API server | reuse | src/application/queries/name_lists.rs | `serve_routes` gives fixed JSON for each path in a test. |
 
 ## Phase A: The Data

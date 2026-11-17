@@ -48,6 +48,16 @@ pub(crate) enum SearchResultItemVm {
     /// (musicindex ADR 0057 R-ARTIST-1). It is not a row and has no
     /// selection key.
     ArtistGroupHeading(ArtistGroup),
+    /// The heading of the "Feeds" group of the tab All (musicindex ADR 0081
+    /// R-CURATOR-3, orchestrator choice of 2026-11-17 in task 002): the
+    /// feeds with playlist links and no release link. It has no intro
+    /// line. It is not a row and has no selection key.
+    FeedsHeading,
+}
+
+impl SearchResultItemVm {
+    /// The words of [`Self::FeedsHeading`].
+    pub(crate) const FEEDS_HEADING: &'static str = "Feeds";
 }
 
 impl SearchResultItemVm {
@@ -58,7 +68,7 @@ impl SearchResultItemVm {
         match self {
             Self::Row(row) => row.key.clone(),
             Self::WindowGroup(tile) => Some(DetailRowKey::Release(tile.page_key.anchor.clone())),
-            Self::Heading(_) | Self::ArtistGroupHeading(_) => None,
+            Self::Heading(_) | Self::ArtistGroupHeading(_) | Self::FeedsHeading => None,
         }
     }
 
@@ -69,7 +79,7 @@ impl SearchResultItemVm {
         match self {
             Self::Row(row) => Some(&row.id),
             Self::WindowGroup(tile) => Some(&tile.open_row_id),
-            Self::Heading(_) | Self::ArtistGroupHeading(_) => None,
+            Self::Heading(_) | Self::ArtistGroupHeading(_) | Self::FeedsHeading => None,
         }
     }
 
@@ -80,7 +90,7 @@ impl SearchResultItemVm {
         match self {
             Self::Row(row) => Some(row.tab),
             Self::WindowGroup(_) => Some(SearchResultsTab::Releases),
-            Self::Heading(_) | Self::ArtistGroupHeading(_) => None,
+            Self::Heading(_) | Self::ArtistGroupHeading(_) | Self::FeedsHeading => None,
         }
     }
 }
@@ -447,6 +457,7 @@ mod tests {
                 SearchResultItemVm::ArtistGroupHeading(group) => {
                     format!("artist-group:{}", group.slug())
                 }
+                SearchResultItemVm::FeedsHeading => "feeds".to_owned(),
             })
             .collect()
     }
@@ -458,7 +469,8 @@ mod tests {
                 SearchResultItemVm::WindowGroup(tile) => Some(tile.as_ref()),
                 SearchResultItemVm::Row(_)
                 | SearchResultItemVm::Heading(_)
-                | SearchResultItemVm::ArtistGroupHeading(_) => None,
+                | SearchResultItemVm::ArtistGroupHeading(_)
+                | SearchResultItemVm::FeedsHeading => None,
             })
             .collect()
     }

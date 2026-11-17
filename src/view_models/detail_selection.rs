@@ -49,6 +49,11 @@ pub(crate) enum DetailRowKey {
     Release(ReleaseKey),
     /// An entry row of a playlist page.
     PlaylistEntry(PlaylistEntryKey),
+    /// A playlist row of a feed page, by the feed GUID of the playlist
+    /// (musicindex ADR 0081 R-CURATOR-3). The row takes the focus, and
+    /// Enter opens the playlist page. The row has no member, so it is
+    /// never selected and no release command acts on it.
+    FeedPlaylist(String),
 }
 
 impl DetailRowKey {
@@ -262,6 +267,15 @@ pub(crate) struct DetailReleaseDownloadPlan {
     pub(crate) index_releases: Vec<(String, String)>,
 }
 
+/// One playlist row of a feed page (musicindex ADR 0081 R-CURATOR-3).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct DetailFeedPlaylistRow {
+    /// The feed GUID of the playlist. Enter opens its page.
+    pub(crate) feed_guid: String,
+    /// The title of the row.
+    pub(crate) title: String,
+}
+
 /// One entry row of a playlist page (packet 025).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DetailPlaylistEntryRow {
@@ -293,6 +307,14 @@ pub(crate) enum DetailPageRows {
     Tracks(Vec<DetailTrackRow>),
     /// The release rows of a feed page.
     Releases(Vec<DetailReleaseRow>),
+    /// The rows of a feed page with a "Playlists" section (musicindex ADR
+    /// 0081 R-CURATOR-3). The release sections come before "Playlists", so
+    /// the release rows come before the playlist rows in the focus order.
+    /// A playlist row takes the focus but has no member.
+    FeedPage {
+        releases: Vec<DetailReleaseRow>,
+        playlists: Vec<DetailFeedPlaylistRow>,
+    },
     /// The rows of a singles group page or a window group page. The bar says
     /// "singles", as the title of the page does.
     Singles(Vec<DetailReleaseRow>),
@@ -333,7 +355,9 @@ impl DetailPageRows {
         match self {
             Self::Tracks(_) => DetailListKind::Tracks,
             Self::Singles(_) => DetailListKind::Singles,
-            Self::Releases(_) | Self::GroupedReleases { .. } => DetailListKind::Releases,
+            Self::Releases(_) | Self::FeedPage { .. } | Self::GroupedReleases { .. } => {
+                DetailListKind::Releases
+            }
             Self::PlaylistEntries { .. } => DetailListKind::PlaylistEntries,
         }
     }
@@ -346,7 +370,10 @@ impl DetailPageRows {
                 .iter()
                 .filter_map(|row| row.key.clone().map(DetailRowKey::Track))
                 .collect(),
-            Self::Releases(rows) | Self::Singles(rows) | Self::GroupedReleases { rows, .. } => rows
+            Self::Releases(rows)
+            | Self::FeedPage { releases: rows, .. }
+            | Self::Singles(rows)
+            | Self::GroupedReleases { rows, .. } => rows
                 .iter()
                 .map(|row| DetailRowKey::Release(row.key.clone()))
                 .collect(),
@@ -366,10 +393,30 @@ impl DetailPageRows {
         if let Self::GroupedReleases { tiles, .. } = self {
             return tiles.clone();
         }
-        self.members()
+        let mut rows: Vec<_> = self
+            .members()
             .into_iter()
             .map(SelectionRow::of_one)
-            .collect()
+            .collect();
+        if let Self::FeedPage { playlists, .. } = self {
+            rows.extend(playlists.iter().map(|row| {
+                SelectionRow::new(
+                    DetailRowKey::FeedPlaylist(row.feed_guid.clone()),
+                    Vec::new(),
+                )
+            }));
+        }
+        rows
+    }
+
+    /// Tells if one or more rows can take the keyboard focus. A playlist
+    /// row of a feed page can take the focus, but it is not selectable.
+    #[must_use]
+    pub(crate) fn has_focusable_rows(&self) -> bool {
+        match self {
+            Self::FeedPage { playlists, .. } => self.has_selectable_rows() || !playlists.is_empty(),
+            _ => self.has_selectable_rows(),
+        }
     }
 
     /// Tells if one or more rows have a key.
@@ -377,7 +424,9 @@ impl DetailPageRows {
     pub(crate) fn has_selectable_rows(&self) -> bool {
         match self {
             Self::Tracks(rows) => rows.iter().any(|row| row.key.is_some()),
-            Self::Releases(rows) | Self::Singles(rows) => !rows.is_empty(),
+            Self::Releases(rows) | Self::FeedPage { releases: rows, .. } | Self::Singles(rows) => {
+                !rows.is_empty()
+            }
             Self::GroupedReleases { tiles, .. } => !tiles.is_empty(),
             Self::PlaylistEntries { rows, .. } => !rows.is_empty(),
         }
@@ -392,7 +441,10 @@ impl DetailPageRows {
                 .find(|row| row.key.as_ref() == Some(key))
                 .map(|row| row.title.as_str()),
             (
-                Self::Releases(rows) | Self::Singles(rows) | Self::GroupedReleases { rows, .. },
+                Self::Releases(rows)
+                | Self::FeedPage { releases: rows, .. }
+                | Self::Singles(rows)
+                | Self::GroupedReleases { rows, .. },
                 DetailRowKey::Release(key),
             ) => rows
                 .iter()
@@ -401,6 +453,10 @@ impl DetailPageRows {
             (Self::PlaylistEntries { .. }, DetailRowKey::PlaylistEntry(key)) => {
                 self.playlist_entry(key).map(|row| row.title.as_str())
             }
+            (Self::FeedPage { playlists, .. }, DetailRowKey::FeedPlaylist(feed_guid)) => playlists
+                .iter()
+                .find(|row| &row.feed_guid == feed_guid)
+                .map(|row| row.title.as_str()),
             _ => None,
         }
     }
@@ -412,6 +468,7 @@ impl DetailPageRows {
             Self::PlaylistEntries { rows, .. } => rows.iter().find(|row| &row.key == key),
             Self::Tracks(_)
             | Self::Releases(_)
+            | Self::FeedPage { .. }
             | Self::Singles(_)
             | Self::GroupedReleases { .. } => None,
         }
@@ -434,6 +491,7 @@ impl DetailPageRows {
                 .collect(),
             Self::Tracks(_)
             | Self::Releases(_)
+            | Self::FeedPage { .. }
             | Self::Singles(_)
             | Self::GroupedReleases { .. } => Vec::new(),
         }
@@ -447,6 +505,7 @@ impl DetailPageRows {
             Self::PlaylistEntries { playlist_id, .. } => Some(*playlist_id),
             Self::Tracks(_)
             | Self::Releases(_)
+            | Self::FeedPage { .. }
             | Self::Singles(_)
             | Self::GroupedReleases { .. } => None,
         };
@@ -472,6 +531,7 @@ impl DetailPageRows {
                 })
                 .collect(),
             Self::Releases(_)
+            | Self::FeedPage { .. }
             | Self::Singles(_)
             | Self::GroupedReleases { .. }
             | Self::PlaylistEntries { .. } => Vec::new(),
@@ -482,7 +542,10 @@ impl DetailPageRows {
     #[must_use]
     pub(crate) fn selected_releases(&self, selection: &DetailSelection) -> Vec<&DetailReleaseRow> {
         match self {
-            Self::Releases(rows) | Self::Singles(rows) | Self::GroupedReleases { rows, .. } => rows
+            Self::Releases(rows)
+            | Self::FeedPage { releases: rows, .. }
+            | Self::Singles(rows)
+            | Self::GroupedReleases { rows, .. } => rows
                 .iter()
                 .filter(|row| {
                     selection
@@ -559,7 +622,10 @@ impl DetailPageRows {
             // ADR 0084 task 031: the release row menu and this bar count
             // through the one availability rule. The detail rows hold no
             // job fact of an Index release.
-            Self::Releases(_) | Self::Singles(_) | Self::GroupedReleases { .. } => {
+            Self::Releases(_)
+            | Self::FeedPage { .. }
+            | Self::Singles(_)
+            | Self::GroupedReleases { .. } => {
                 let selected = self.selected_releases(selection);
                 let counts = ReleaseActionCounts::of(selected.iter().map(|row| row.state()));
                 SelectionActionCounts {
@@ -737,6 +803,21 @@ impl DetailSelection {
                     self.row_selection(Some(&DetailRowKey::Release(row.key.clone())), &row.title)
                 })
                 .collect(),
+            DetailPageRows::FeedPage {
+                releases,
+                playlists,
+            } => releases
+                .iter()
+                .map(|row| {
+                    self.row_selection(Some(&DetailRowKey::Release(row.key.clone())), &row.title)
+                })
+                .chain(playlists.iter().map(|row| {
+                    self.row_selection(
+                        Some(&DetailRowKey::FeedPlaylist(row.feed_guid.clone())),
+                        &row.title,
+                    )
+                }))
+                .collect(),
             DetailPageRows::PlaylistEntries { rows, .. } => rows
                 .iter()
                 .map(|row| {
@@ -824,7 +905,16 @@ impl DetailSelection {
 
     /// Space: starts [`SelectionMode::Selecting`] and changes the
     /// selection of the row with the keyboard focus.
+    /// A row with no member, for example a playlist row of a feed page,
+    /// changes nothing.
     pub(crate) fn toggle_focused(&mut self, visible: &[SelectionRow<DetailRowKey, DetailRowKey>]) {
+        let focused = self.selection.focused();
+        if visible
+            .iter()
+            .any(|row| Some(&row.id) == focused && row.members.is_empty())
+        {
+            return;
+        }
         self.mode = SelectionMode::Selecting;
         self.selection.toggle_focused(visible);
     }
@@ -884,7 +974,9 @@ impl DetailSelection {
             .selected_keys()
             .filter_map(|key| match key {
                 DetailRowKey::PlaylistEntry(entry) => Some(*entry),
-                DetailRowKey::Track(_) | DetailRowKey::Release(_) => None,
+                DetailRowKey::Track(_)
+                | DetailRowKey::Release(_)
+                | DetailRowKey::FeedPlaylist(_) => None,
             })
             .collect();
         entries.sort_unstable();
@@ -1156,6 +1248,39 @@ pub(crate) fn feed_page_release_rows(
             })
         })
         .collect()
+}
+
+/// The rows of a feed page, in the order of its sections. A page with a
+/// playlist row gives [`DetailPageRows::FeedPage`] (musicindex ADR 0081
+/// R-CURATOR-3). Each other page gives [`DetailPageRows::Releases`].
+#[must_use]
+pub(crate) fn feed_page_rows(
+    sections: &[PublisherPageSectionVm],
+    facts: impl Fn(&ReleaseKey) -> Option<LibraryReleaseFacts>,
+) -> DetailPageRows {
+    let releases = feed_page_release_rows(sections, facts);
+    let playlists: Vec<DetailFeedPlaylistRow> = sections
+        .iter()
+        .flat_map(|section| section.rows.iter())
+        .filter_map(|row| {
+            let open = row.playlist_open.as_ref()?;
+            let title = match &row.title {
+                TitleDisplay::Stated(text) | TitleDisplay::Missing(text) => text.clone(),
+            };
+            Some(DetailFeedPlaylistRow {
+                feed_guid: open.feed_guid.clone(),
+                title,
+            })
+        })
+        .collect();
+    if playlists.is_empty() {
+        DetailPageRows::Releases(releases)
+    } else {
+        DetailPageRows::FeedPage {
+            releases,
+            playlists,
+        }
+    }
 }
 
 /// The rows of a playlist page (packet 025), from the full list of its
@@ -1852,6 +1977,77 @@ mod tests {
         assert!(ListBarVm::new(&rows, &DetailSelection::new()).is_none());
         let empty = DetailPageRows::Releases(Vec::new());
         assert!(ListBarVm::new(&empty, &DetailSelection::new()).is_none());
+    }
+
+    /// Musicindex ADR 0081 R-CURATOR-3, orchestrator choice of 2026-11-17
+    /// in task 002: the arrow keys move the focus to a playlist row of a
+    /// feed page, and Enter has its key and title. The row is not
+    /// selectable, so Space, Ctrl+A and the bar counts do not include it.
+    #[test]
+    fn musicindex_adr_0081_curator_3_playlist_rows_take_the_focus_and_no_selection() {
+        let mut playlist = feed_row("list-1", "Curated List");
+        playlist.open = None;
+        playlist.playlist_open = Some(crate::view_models::publisher_page::PlaylistRowOpenAction {
+            feed_guid: "list-1".to_owned(),
+            a11y_label: "Open the playlist Curated List".to_owned(),
+        });
+        let mut sections = two_feed_sections();
+        sections.truncate(1);
+        sections.push(PublisherPageSectionVm {
+            heading: crate::view_models::publisher_page::PublisherPageVm::PLAYLISTS_HEADING
+                .to_owned(),
+            rows: vec![playlist],
+            note: None,
+            status: None,
+            controls: None,
+            view: ListView::Rows,
+        });
+        let rows = feed_page_rows(&sections, |_| None);
+        let playlist_key = DetailRowKey::FeedPlaylist("list-1".to_owned());
+        let album_key = DetailRowKey::Release(release_key("album-1"));
+        assert_eq!(rows.kind(), DetailListKind::Releases);
+        assert_eq!(rows.members(), vec![album_key.clone()]);
+        assert!(rows.has_focusable_rows());
+
+        // Down, Down: the release row, then the playlist row. Enter reads
+        // the focused key and its title.
+        let mut selection = DetailSelection::new();
+        let visible = rows.selection_rows();
+        assert_eq!(
+            selection.move_focus(FocusStep::Down, &visible),
+            Some(album_key)
+        );
+        assert_eq!(
+            selection.move_focus(FocusStep::Down, &visible),
+            Some(playlist_key.clone())
+        );
+        assert_eq!(selection.focused(), Some(&playlist_key));
+        assert_eq!(rows.title_of(&playlist_key), Some("Curated List"));
+        let shown = selection.row_selections(&rows);
+        assert_eq!(shown.len(), 2);
+        assert!(shown[1].focused, "the playlist row shows the focus ring");
+
+        // Space on the playlist row changes nothing. Ctrl+A selects the
+        // release only.
+        selection.toggle_focused(&visible);
+        assert_eq!(selection.mode(), SelectionMode::Normal);
+        assert_eq!(selection.selected_count(), 0);
+        selection.select_all(&visible);
+        assert_eq!(selection.selected_count(), 1);
+        assert!(!rows.selected_releases(&selection).is_empty());
+
+        // A curator feed with playlists only: the rows take the focus, and
+        // the page has no "Select".
+        let only = feed_page_rows(&sections[1..], |_| None);
+        assert!(only.has_focusable_rows());
+        assert!(!only.has_selectable_rows());
+        assert!(detail_header_action(Some(&only), SelectionMode::Normal).is_none());
+
+        // A feed page with no playlist row keeps the release rows.
+        assert!(matches!(
+            feed_page_rows(&sections[..1], |_| None),
+            DetailPageRows::Releases(_)
+        ));
     }
 
     /// ADR 0090 task 004: a selection spans all sections of the page, and the

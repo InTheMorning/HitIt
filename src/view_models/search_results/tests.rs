@@ -2281,7 +2281,8 @@ fn adr_0089_task_008_all_lists_the_groups_in_order_with_headings() {
                 super::SearchResultItemVm::Heading(tab) => Some(tab.label()),
                 super::SearchResultItemVm::Row(_)
                 | super::SearchResultItemVm::WindowGroup(_)
-                | super::SearchResultItemVm::ArtistGroupHeading(_) => None,
+                | super::SearchResultItemVm::ArtistGroupHeading(_)
+                | super::SearchResultItemVm::FeedsHeading => None,
             })
             .collect::<Vec<_>>()
     };
@@ -2790,4 +2791,62 @@ fn adr_0091_pin_634e4cc_enter_shows_the_note_and_the_live_run_does_not() {
             state.title
         );
     }
+}
+
+/// Musicindex ADR 0081 R-CURATOR-3, orchestrator choice of 2026-11-17 in
+/// task 002: a feed with playlist links and no release link is in the
+/// "Feeds" group of the tab All, after the artist groups. It is in no artist
+/// group, the Artists tab does not show it, and the Artists count does not
+/// include it. Its badge is "Feed".
+#[test]
+fn musicindex_adr_0081_curator_3_playlist_feed_is_in_the_feeds_group_of_all_only() {
+    let lookup = RecordedLibrary::default();
+    let (chad_id, mut chad) = index_feed_page(4_000_000_001, "chad-guid", "ChadF");
+    chad.secondary_text = "1 playlist".to_owned();
+    chad.playlist_feed = true;
+    let mut vm = SearchResultsInspectorPageVm::new("chadf");
+    vm.replace_index_results(IndexSearchResultRows {
+        artists: vec![(1_000_000_000, artist(1, "Haleen")), (chad_id, chad)],
+        ..no_index_rows()
+    });
+    let item_words = |vm: &SearchResultsInspectorPageVm| {
+        vm.visible_items(&lookup)
+            .iter()
+            .map(|item| match item {
+                super::SearchResultItemVm::Heading(tab) => tab.label().to_owned(),
+                super::SearchResultItemVm::ArtistGroupHeading(group) => group.heading().to_owned(),
+                super::SearchResultItemVm::FeedsHeading => {
+                    super::SearchResultItemVm::FEEDS_HEADING.to_owned()
+                }
+                super::SearchResultItemVm::Row(row) => format!(
+                    "{} | {} | {}",
+                    row.label,
+                    row.secondary_text,
+                    row.badge.as_ref().map_or("", |badge| badge.label())
+                ),
+                super::SearchResultItemVm::WindowGroup(tile) => tile.title.clone(),
+            })
+            .collect::<Vec<_>>()
+    };
+    let all = item_words(&vm);
+    assert_eq!(
+        all.last().map(String::as_str),
+        Some("ChadF | 1 playlist | Feed")
+    );
+    assert_eq!(all[all.len() - 2], "Feeds");
+    assert!(
+        !all.iter().any(|word| word == "Inferred artists"),
+        "the playlist feed is in no artist group: {all:?}"
+    );
+    assert_eq!(vm.tab_count(SearchResultsTab::Artists).count, 1);
+    assert_eq!(vm.tab_count(SearchResultsTab::All).count, 2);
+
+    vm.set_tab(SearchResultsTab::Artists);
+    let artists = item_words(&vm);
+    assert!(
+        !artists
+            .iter()
+            .any(|word| word.starts_with("ChadF") || word == "Feeds"),
+        "the Artists tab does not show the playlist feed: {artists:?}"
+    );
 }

@@ -12053,7 +12053,9 @@ mod tests {
                     .expect("a heading comes before each row")
                     .1
                     .push(row.label),
-                SearchResultItemVm::Heading(_) | SearchResultItemVm::WindowGroup(_) => {}
+                SearchResultItemVm::Heading(_)
+                | SearchResultItemVm::WindowGroup(_)
+                | SearchResultItemVm::FeedsHeading => {}
             }
         }
         assert_eq!(

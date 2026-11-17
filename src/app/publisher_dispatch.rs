@@ -475,10 +475,13 @@ impl TopApp {
         let list_bar_pin = library.list_bar_pin();
         for section in &mut sections {
             for row in &mut section.rows {
-                let key = row
-                    .open
-                    .as_ref()
-                    .map(|open| DetailRowKey::Release(open.key.clone()));
+                // Musicindex ADR 0081 R-CURATOR-3: a playlist row shows
+                // the focus ring and has no checkbox.
+                let key = match (&row.open, &row.playlist_open) {
+                    (Some(open), _) => Some(DetailRowKey::Release(open.key.clone())),
+                    (None, Some(open)) => Some(DetailRowKey::FeedPlaylist(open.feed_guid.clone())),
+                    (None, None) => None,
+                };
                 let title = match &row.title {
                     TitleDisplay::Stated(text) | TitleDisplay::Missing(text) => text.as_str(),
                 };

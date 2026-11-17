@@ -680,6 +680,13 @@ fn index_feed_page_result_display(hit: &SearchResult) -> Option<ArtistResultDisp
             hit.first_named_count,
         ));
     }
+    // Musicindex ADR 0081 R-CURATOR-3, orchestrator choice of 2026-11-17
+    // in task 002: a feed with playlist links and no release link is a
+    // feed, not an inferred artist.
+    display.playlist_feed = hit.two_way_link_count == Some(0)
+        && hit
+            .two_way_playlist_link_count
+            .is_some_and(|count| count > 0);
     if let Some(image_url) = non_empty_string(hit.feed_image_url.clone()) {
         display = display.with_thumbnail_href(image_url);
     }
@@ -2552,6 +2559,16 @@ mod adr_0084_name_level_query_tests {
             ["1 album \u{b7} 18 singles", "0 releases", "", "2 playlists"],
             "musicindex ADR 0023 R-WORD-9 and ADR 0081 R-CURATOR-6: the count is the secondary text"
         );
+        // Musicindex ADR 0081 R-CURATOR-3, orchestrator choice of
+        // 2026-11-17 in task 002: only a feed with playlist links and no
+        // release link is a playlist feed. A node without `playlist_links`
+        // sends no playlist count, so its rows are not.
+        let playlist_feeds: Vec<bool> = response
+            .data
+            .iter()
+            .map(|hit| index_feed_page_result_display(hit).unwrap().playlist_feed)
+            .collect();
+        assert_eq!(playlist_feeds, [false, false, false, true]);
     }
 
     /// R29-08, the decode part: a `type=publisher` row with no link fact

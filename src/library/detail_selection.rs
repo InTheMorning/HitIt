@@ -549,7 +549,7 @@ impl LibraryApp {
             return;
         }
         self.clear_pending_detail_scroll();
-        match rows.filter(|rows| rows.has_selectable_rows()) {
+        match rows.filter(|rows| rows.has_focusable_rows()) {
             Some(rows) => {
                 if let Some(key) = self
                     .detail_selection

@@ -677,22 +677,33 @@ impl SearchResultsInspectorPageVm {
     /// each group, in the order of [`SearchResultsTab::GROUPS`].
     #[must_use]
     pub(crate) fn row_label(&self, tab: SearchResultsTab, id: &str) -> Option<String> {
-        group_tabs_of(tab).into_iter().find_map(|tab| match tab {
-            SearchResultsTab::Releases => self
-                .releases
-                .cached_row_matching(|row| row.id == id)
-                .map(|row| row.label),
-            SearchResultsTab::Tracks => self
-                .tracks
-                .cached_row_matching(|row| row.id == id)
-                .map(|row| row.label),
-            SearchResultsTab::Artists | SearchResultsTab::Labels => self
-                .artist_rows_of(tab)
+        let feed_label = if tab == SearchResultsTab::All {
+            self.playlist_feed_rows()
                 .into_iter()
                 .find(|row| row.id == id)
-                .map(|row| row.label),
-            SearchResultsTab::All => None,
-        })
+                .map(|row| row.label)
+        } else {
+            None
+        };
+        group_tabs_of(tab)
+            .into_iter()
+            .find_map(|tab| match tab {
+                SearchResultsTab::Releases => self
+                    .releases
+                    .cached_row_matching(|row| row.id == id)
+                    .map(|row| row.label),
+                SearchResultsTab::Tracks => self
+                    .tracks
+                    .cached_row_matching(|row| row.id == id)
+                    .map(|row| row.label),
+                SearchResultsTab::Artists | SearchResultsTab::Labels => self
+                    .artist_rows_of(tab)
+                    .into_iter()
+                    .find(|row| row.id == id)
+                    .map(|row| row.label),
+                SearchResultsTab::All => None,
+            })
+            .or(feed_label)
     }
 
     /// Returns whether a tab has no rows.
@@ -705,11 +716,28 @@ impl SearchResultsInspectorPageVm {
     /// rows of the Artists tab and the Labels tab are one list, divided by
     /// the role of each feed (musicindex ADR 0033 R-WORD-3).
     fn artist_rows_of(&self, tab: SearchResultsTab) -> Vec<ArtistResultDisplay> {
+        self.sorted_artist_rows(|row| !row.playlist_feed && rows::artist_tab(row) == tab)
+    }
+
+    /// The rows of the "Feeds" group of the tab All: the feeds with
+    /// playlist links and no release link (musicindex ADR 0081
+    /// R-CURATOR-3, orchestrator choice of 2026-11-17 in task 002). No
+    /// other tab shows them, so no tab count includes them.
+    fn playlist_feed_rows(&self) -> Vec<ArtistResultDisplay> {
+        self.sorted_artist_rows(|row| row.playlist_feed)
+    }
+
+    /// The feed and name rows that `keep` accepts, in the order of the
+    /// sort.
+    fn sorted_artist_rows(
+        &self,
+        keep: impl Fn(&ArtistResultDisplay) -> bool,
+    ) -> Vec<ArtistResultDisplay> {
         let mut rows: Vec<ArtistResultDisplay> = self
             .artists
             .rows()
             .into_iter()
-            .filter(|row| rows::artist_tab(row) == tab)
+            .filter(|row| keep(row))
             .collect();
         // An artist row has no date, so Newest keeps the order of the run.
         sort::sort_rows(&mut rows, self.sort(), |_| None, |row| row.label.as_str());
@@ -762,10 +790,13 @@ impl SearchResultsInspectorPageVm {
     /// the groups.
     fn count_of(&self, tab: SearchResultsTab) -> usize {
         match tab {
-            SearchResultsTab::All => SearchResultsTab::GROUPS
-                .into_iter()
-                .map(|group| self.count_of(group))
-                .sum(),
+            SearchResultsTab::All => {
+                SearchResultsTab::GROUPS
+                    .into_iter()
+                    .map(|group| self.count_of(group))
+                    .sum::<usize>()
+                    + self.playlist_feed_rows().len()
+            }
             SearchResultsTab::Releases => self.releases.window().total(),
             SearchResultsTab::Tracks => self.tracks.window().total(),
             SearchResultsTab::Artists | SearchResultsTab::Labels => self.artist_rows_of(tab).len(),
@@ -945,17 +976,23 @@ impl SearchResultsInspectorPageVm {
         }
         // ADR 0089 Decision 4: the tab All lists each group that has rows,
         // in the order of `SearchResultsTab::GROUPS`, under its heading.
+        // Musicindex ADR 0081 R-CURATOR-3, orchestrator choice of 2026-11-17
+        // in task 002: the "Feeds" group comes after the artist groups.
         SearchResultsTab::GROUPS
             .into_iter()
             .flat_map(|group| {
                 let items = self.group_items(group, lookup);
-                if items.is_empty() {
+                let mut group_items = if items.is_empty() {
                     Vec::new()
                 } else {
                     std::iter::once(SearchResultItemVm::Heading(group))
                         .chain(items)
                         .collect()
+                };
+                if group == SearchResultsTab::Artists {
+                    group_items.extend(self.feeds_group_items(lookup));
                 }
+                group_items
             })
             .collect()
     }
@@ -1018,6 +1055,21 @@ impl SearchResultsInspectorPageVm {
                         .collect()
                 }
             })
+            .collect()
+    }
+
+    /// The items of the "Feeds" group of the tab All, under its heading.
+    /// The group with no row has no heading.
+    fn feeds_group_items(&self, lookup: &dyn SearchLibraryLookup) -> Vec<SearchResultItemVm> {
+        let rows = self.playlist_feed_rows();
+        if rows.is_empty() {
+            return Vec::new();
+        }
+        std::iter::once(SearchResultItemVm::FeedsHeading)
+            .chain(
+                rows.iter()
+                    .map(|row| SearchResultItemVm::Row(rows::artist_row_vm(row, lookup))),
+            )
             .collect()
     }
 

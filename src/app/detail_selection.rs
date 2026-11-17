@@ -20,8 +20,8 @@ use crate::db::PlaylistEdge;
 use crate::library::{index_track_job, index_track_job_by_key, playlist_options, LibraryApp};
 use crate::ui::composites::{list_bar_playlists, ListBarHandler, SelectionActionBar};
 use crate::view_models::detail_selection::{
-    detail_header_action, feed_page_release_rows, has_list_bar, index_release_track_rows,
-    DetailListKind, DetailPageRows, DetailRowKey, DetailSelection,
+    detail_header_action, feed_page_release_rows, feed_page_rows, has_list_bar,
+    index_release_track_rows, DetailListKind, DetailPageRows, DetailRowKey, DetailSelection,
 };
 use crate::view_models::list_page::{in_shown_order, ListPageKey};
 use crate::view_models::list_selection::FocusStep;
@@ -30,7 +30,8 @@ use crate::view_models::selection_action_bar::{
     ListBarCommand, SelectionActionBarVm, SelectionActionKind,
 };
 use crate::view_models::workspace::{
-    FrameHeaderActionDisplay, FrameNavigationEntry, ReleasePageSource, TrackKey,
+    FrameHeaderActionDisplay, FrameNavigationEntry, NavigationPathStart, ReleasePageSource,
+    TrackKey,
 };
 use crate::views::FeedView;
 
@@ -125,12 +126,12 @@ impl TopApp {
             FrameNavigationEntry::PublisherDetail(_) => {
                 let (vm, _) = self.publisher_page_vm(cx)?;
                 // Musicindex ADR 0053 R-LIST-9: the rows come in the shown
-                // order of each section.
+                // order of each section. Musicindex ADR 0081 R-CURATOR-3:
+                // the playlist rows take the focus after the releases.
                 let sections = self.ordered_release_sections(vm.sections(), cx);
-                Some(DetailPageRows::Releases(feed_page_release_rows(
-                    &sections,
-                    |key| library.library_release_facts(key),
-                )))
+                Some(feed_page_rows(&sections, |key| {
+                    library.library_release_facts(key)
+                }))
             }
             // ADR 0084 packet 017: the name level page gives its rows
             // through the feed page rows, with no new selection code.
@@ -256,6 +257,12 @@ impl TopApp {
                 let entry = *entry;
                 self.library
                     .update(cx, |library, cx| library.open_playlist_entry(entry, cx));
+            }
+            // Musicindex ADR 0081 R-CURATOR-3: Enter on a playlist row
+            // opens the playlist page, as a click does.
+            DetailRowKey::FeedPlaylist(feed_guid) => {
+                let entry = FrameNavigationEntry::PublicPlaylist(feed_guid.clone());
+                self.open_music_page(&entry, NavigationPathStart::CurrentPath, cx);
             }
         }
     }
@@ -508,6 +515,7 @@ impl TopApp {
                 self.download_index_track_keys(index_rows, cx);
             }
             DetailPageRows::Releases(_)
+            | DetailPageRows::FeedPage { .. }
             | DetailPageRows::Singles(_)
             | DetailPageRows::GroupedReleases { .. } => {
                 // ADR 0084 task 031: the plan and the bar count use the
@@ -605,6 +613,7 @@ impl TopApp {
                 library.add_tracks_to_playlist(track_ids, playlist_id, cx);
             }
             DetailPageRows::Releases(_)
+            | DetailPageRows::FeedPage { .. }
             | DetailPageRows::Singles(_)
             | DetailPageRows::GroupedReleases { .. } => {
                 library.add_albums_to_playlist(&feed_ids, playlist_id, cx);
@@ -637,6 +646,7 @@ impl TopApp {
                 library.create_playlist_and_add_tracks(name, track_ids, cx);
             }
             DetailPageRows::Releases(_)
+            | DetailPageRows::FeedPage { .. }
             | DetailPageRows::Singles(_)
             | DetailPageRows::GroupedReleases { .. } => {
                 library.create_playlist_and_add_albums(name, feed_ids, cx);
@@ -702,6 +712,7 @@ pub(super) fn detail_removal_items(
             "track",
         ),
         DetailPageRows::Releases(_)
+        | DetailPageRows::FeedPage { .. }
         | DetailPageRows::Singles(_)
         | DetailPageRows::GroupedReleases { .. } => (
             rows.selected_releases(selection)

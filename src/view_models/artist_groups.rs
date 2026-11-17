@@ -101,6 +101,7 @@ impl ArtistGroup {
             IndexArtistClass::Name => Some(Self::Names),
             IndexArtistClass::OtherRole
             | IndexArtistClass::NotNamedFirst
+            | IndexArtistClass::PlaylistFeed
             | IndexArtistClass::UnknownKind => None,
         }
     }

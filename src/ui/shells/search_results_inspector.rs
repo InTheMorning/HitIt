@@ -507,6 +507,23 @@ fn render_group_heading(group: SearchResultsTab, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
+/// The heading of the "Feeds" group of the tab All (musicindex ADR 0081
+/// R-CURATOR-3). It has the style of a group heading of the tab All and
+/// no intro line.
+fn render_feeds_heading(cx: &App) -> AnyElement {
+    div()
+        .id("search-results-group-feeds")
+        .w_full()
+        .pt(Spacing::SM.scaled(cx))
+        .child(
+            Label::new(SearchResultItemVm::FEEDS_HEADING)
+                .size(FontSize::Caption)
+                .weight(FontWeight::MEDIUM)
+                .color(SemanticColor::SecondaryLabel),
+        )
+        .into_any_element()
+}
+
 /// The heading of one group of the Artists list (musicindex ADR 0057
 /// R-ARTIST-1): the words of the group and the line that says what it is.
 fn render_artist_group_heading(group: ArtistGroup, cx: &App) -> AnyElement {
@@ -581,6 +598,7 @@ fn render_active_result_list(
                 SearchResultItemVm::ArtistGroupHeading(group) => {
                     return render_artist_group_heading(*group, cx)
                 }
+                SearchResultItemVm::FeedsHeading => return render_feeds_heading(cx),
                 SearchResultItemVm::WindowGroup(tile) => {
                     let art = slots
                         .arts

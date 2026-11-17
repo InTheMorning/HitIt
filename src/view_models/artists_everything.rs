@@ -200,6 +200,12 @@ pub(crate) enum IndexArtistClass {
     /// A feed with no agreed role that no confirmed link names first.
     /// Absent.
     NotNamedFirst,
+    /// A feed with no confirmed release link and one or more confirmed
+    /// playlist links (musicindex ADR 0081 R-CURATOR-3, orchestrator
+    /// choice of 2026-11-17 in task 002). It is a feed, not an artist.
+    /// Absent. Only a node that names `playlist_links` sends the playlist
+    /// count.
+    PlaylistFeed,
     /// A name row (the name level). Shown.
     Name,
     /// A row of a kind that this app does not know. Absent.
@@ -221,6 +227,14 @@ pub(crate) fn classify_index_artist(row: &ArtistNameRow) -> IndexArtistClass {
     match row.kind {
         ArtistNameKind::Name => IndexArtistClass::Name,
         ArtistNameKind::Unknown => IndexArtistClass::UnknownKind,
+        ArtistNameKind::Publisher
+            if row.two_way_link_count == Some(0)
+                && row
+                    .two_way_playlist_link_count
+                    .is_some_and(|count| count > 0) =>
+        {
+            IndexArtistClass::PlaylistFeed
+        }
         ArtistNameKind::Publisher => {
             match FeedLinkClass::from_link_facts(row.agreed_roles.as_deref(), row.first_named_count)
             {
@@ -643,6 +657,31 @@ mod tests {
         assert_eq!(
             classify_index_artist(&null_count),
             IndexArtistClass::NotNamedFirst
+        );
+        // Musicindex ADR 0081 R-CURATOR-3, orchestrator choice of
+        // 2026-11-17 in task 002: a feed with playlist links and no release
+        // link is not an artist, also when a link names it first. With no
+        // playlist count (a node without `playlist_links`), the class stays.
+        let playlist_feed = ArtistNameRow {
+            kind: ArtistNameKind::Publisher,
+            first_named_count: Some(1),
+            two_way_link_count: Some(0),
+            two_way_playlist_link_count: Some(1),
+            ..ArtistNameRow::default()
+        };
+        assert_eq!(
+            classify_index_artist(&playlist_feed),
+            IndexArtistClass::PlaylistFeed
+        );
+        assert!(!IndexArtistClass::PlaylistFeed.is_shown());
+        assert_eq!(ArtistGroup::of_index_row(&playlist_feed), None);
+        let old_node = ArtistNameRow {
+            two_way_playlist_link_count: None,
+            ..playlist_feed
+        };
+        assert_eq!(
+            classify_index_artist(&old_node),
+            IndexArtistClass::UnverifiedArtist
         );
 
         let rows = everything_rows(
