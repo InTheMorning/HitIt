@@ -40,5 +40,6 @@ pub mod track_detail_metadata;
 pub mod track_detail_metadata_cells;
 pub mod track_detail_metadata_grid;
 pub mod track_detail_metadata_values;
+mod track_detail_value_routes;
 pub mod window_group;
 pub mod window_groups;

@@ -20,6 +20,16 @@ use crate::track_compare::ComparisonStatus;
 pub struct TrackMetadataGridVm {
     headings: Vec<TrackMetadataGridHeading>,
     columns: u16,
+    show_id3: bool,
+}
+
+/// One open value routes panel in the row under the compare row.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TrackMetadataValueRoutesPanel {
+    /// The cell column: "rss" or "id3".
+    pub column: &'static str,
+    /// The heading of the column, for example "RSS" or "ID3".
+    pub label: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -74,12 +84,6 @@ pub struct TrackMetadataDragPreviewDisplay {
 pub enum ValueRoutesSummaryFallback {
     DisplayValue,
     MultilineCount,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ValueRouteFieldContext {
-    Library,
-    Discover,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -447,54 +451,6 @@ impl TrackMetadataGridVm {
     }
 
     #[must_use]
-    pub fn value_route_item_label(recipient_label: &str, split_label: Option<&str>) -> String {
-        split_label.map_or_else(
-            || recipient_label.to_string(),
-            |split| format!("{recipient_label} {split}"),
-        )
-    }
-
-    #[must_use]
-    pub fn value_route_split_label(value: &serde_json::Value) -> Option<String> {
-        match value {
-            serde_json::Value::Number(number) => {
-                let raw = number.to_string();
-                let trimmed = raw.strip_suffix(".0").unwrap_or(&raw);
-                Some(format!("{trimmed}%"))
-            }
-            _ => json_value_display_label(value),
-        }
-    }
-
-    #[must_use]
-    pub fn value_route_field_key_label(key: &str) -> String {
-        format!("{key}: ")
-    }
-
-    #[must_use]
-    pub fn value_route_field_value_label(value: &serde_json::Value) -> Option<String> {
-        json_value_display_label(value)
-    }
-
-    #[must_use]
-    pub fn value_route_child_field_is_visible(key: &str, context: ValueRouteFieldContext) -> bool {
-        match (context, key) {
-            (_, "recipient_name") | (ValueRouteFieldContext::Library, "split") => false,
-            (_, _) => true,
-        }
-    }
-
-    #[must_use]
-    pub fn json_tree_scalar_label(value: &serde_json::Value) -> Option<String> {
-        match value {
-            serde_json::Value::Object(_) | serde_json::Value::Array(_) => None,
-            serde_json::Value::String(value) => Some(value.clone()),
-            serde_json::Value::Null => Some("null".to_string()),
-            other => Some(other.to_string()),
-        }
-    }
-
-    #[must_use]
     pub fn source_drag_display(
         column: MetadataColumn,
         row_id: &str,
@@ -568,21 +524,6 @@ impl TrackMetadataGridVm {
         }
     }
 
-    #[must_use]
-    pub fn discover_value_route_item_display(
-        column: &str,
-        row_id: &str,
-        index: usize,
-        expanded: bool,
-    ) -> TrackMetadataValueRouteItemDisplay {
-        TrackMetadataValueRouteItemDisplay {
-            item_key: Self::value_route_item_key(column, row_id, index),
-            item_id: format!("vr-{column}-{index}"),
-            header_id: None,
-            expanded,
-        }
-    }
-
     pub fn new(show_id3: bool, show_musicbrainz: bool, tag_column_label: &str) -> Self {
         let mut headings = vec![TrackMetadataGridHeading {
             label: "RSS".to_string(),
@@ -604,7 +545,41 @@ impl TrackMetadataGridVm {
         Self {
             columns: u16::try_from(headings.len()).unwrap_or(u16::MAX),
             headings,
+            show_id3,
         }
+    }
+
+    /// musicindex ADR 0082 R-ROUTES-8 item 1 in `HitIt`: a compare cell is too
+    /// narrow for the row of R-ROUTES-4. Thus each open value routes cell keeps
+    /// its summary, and its panel shows in one row under the compare row. That
+    /// row spans all columns. The panels are in the sequence of the columns.
+    #[must_use]
+    pub fn value_routes_panels(
+        &self,
+        field: &str,
+        expansion: TrackMetadataGridExpansion,
+        rss_value: &str,
+        id3_value: &str,
+    ) -> Vec<TrackMetadataValueRoutesPanel> {
+        let logical = Self::logical_field(field);
+        if Self::expanded_field_kind(logical) != TrackMetadataExpandedFieldKind::ValueRoutes {
+            return Vec::new();
+        }
+        let mut panels = Vec::new();
+        if expansion.rss_expanded && Self::field_is_expandable(logical, rss_value) {
+            panels.push(TrackMetadataValueRoutesPanel {
+                column: "rss",
+                label: self.headings[0].label.clone(),
+            });
+        }
+        if self.show_id3 && expansion.id3_expanded && Self::field_is_expandable(logical, id3_value)
+        {
+            panels.push(TrackMetadataValueRoutesPanel {
+                column: "id3",
+                label: self.headings[1].label.clone(),
+            });
+        }
+        panels
     }
 
     #[must_use]
@@ -632,22 +607,6 @@ impl TrackMetadataGridVm {
 
 fn metadata_cell_key(column: &str, row_id: &str) -> String {
     format!("{column}:{row_id}")
-}
-
-fn json_value_display_label(value: &serde_json::Value) -> Option<String> {
-    let label = match value {
-        serde_json::Value::Null => return None,
-        serde_json::Value::String(value) => value.clone(),
-        serde_json::Value::Number(value) => value.to_string(),
-        serde_json::Value::Bool(value) => value.to_string(),
-        other => other.to_string(),
-    };
-    let label = label.trim();
-    if label.is_empty() {
-        None
-    } else {
-        Some(label.to_string())
-    }
 }
 
 #[cfg(test)]
@@ -1181,6 +1140,46 @@ mod tests {
     }
 
     #[test]
+    fn r_routes_8_open_value_routes_panels_follow_the_open_cells() {
+        let vm = TrackMetadataGridVm::new(true, false, "ID3");
+        let both = TrackMetadataGridExpansion {
+            rss_expanded: true,
+            id3_expanded: true,
+        };
+        let panels = vm.value_routes_panels("Value Routes", both, "[]", "[]");
+        assert_eq!(
+            panels,
+            vec![
+                TrackMetadataValueRoutesPanel {
+                    column: "rss",
+                    label: "RSS".into(),
+                },
+                TrackMetadataValueRoutesPanel {
+                    column: "id3",
+                    label: "ID3".into(),
+                },
+            ]
+        );
+        let id3_only = TrackMetadataGridExpansion {
+            rss_expanded: false,
+            id3_expanded: true,
+        };
+        let panels = vm.value_routes_panels("TXXX:MusicIndex Value Routes", id3_only, "[]", "[]");
+        assert_eq!(panels.len(), 1);
+        assert_eq!(panels[0].column, "id3");
+        // An empty value has no panel, and another field has no panel.
+        assert!(vm
+            .value_routes_panels("Value Routes", both, "", "")
+            .is_empty());
+        assert!(vm.value_routes_panels("Title", both, "a", "b").is_empty());
+        // Without the tag column, the ID3 panel does not show.
+        let rss_only = TrackMetadataGridVm::new(false, true, "ID3");
+        let panels = rss_only.value_routes_panels("Value Routes", both, "[]", "[]");
+        assert_eq!(panels.len(), 1);
+        assert_eq!(panels[0].column, "rss");
+    }
+
+    #[test]
     fn field_is_expandable_preserves_metadata_gate_and_empty_values() {
         assert!(TrackMetadataGridVm::field_is_expandable(
             "Contributors",
@@ -1259,110 +1258,6 @@ mod tests {
     }
 
     #[test]
-    fn value_route_item_label_appends_split_when_present() {
-        assert_eq!(
-            TrackMetadataGridVm::value_route_item_label("Alice", None),
-            "Alice"
-        );
-        assert_eq!(
-            TrackMetadataGridVm::value_route_item_label("Alice", Some("25%")),
-            "Alice 25%"
-        );
-    }
-
-    #[test]
-    fn value_route_split_label_formats_percent_and_ignores_empty_values() {
-        assert_eq!(
-            TrackMetadataGridVm::value_route_split_label(&serde_json::json!(25.0)),
-            Some("25%".into())
-        );
-        assert_eq!(
-            TrackMetadataGridVm::value_route_split_label(&serde_json::json!("  custom split  ")),
-            Some("custom split".into())
-        );
-        assert_eq!(
-            TrackMetadataGridVm::value_route_split_label(&serde_json::json!("   ")),
-            None
-        );
-        assert_eq!(
-            TrackMetadataGridVm::value_route_split_label(&serde_json::Value::Null),
-            None
-        );
-    }
-
-    #[test]
-    fn value_route_field_key_label_adds_separator() {
-        assert_eq!(
-            TrackMetadataGridVm::value_route_field_key_label("custom_key"),
-            "custom_key: "
-        );
-    }
-
-    #[test]
-    fn value_route_field_value_label_trims_and_suppresses_empty_values() {
-        assert_eq!(
-            TrackMetadataGridVm::value_route_field_value_label(&serde_json::json!("  Alice  ")),
-            Some("Alice".into())
-        );
-        assert_eq!(
-            TrackMetadataGridVm::value_route_field_value_label(&serde_json::json!(true)),
-            Some("true".into())
-        );
-        assert_eq!(
-            TrackMetadataGridVm::value_route_field_value_label(&serde_json::json!("   ")),
-            None
-        );
-        assert_eq!(
-            TrackMetadataGridVm::value_route_field_value_label(&serde_json::Value::Null),
-            None
-        );
-    }
-
-    #[test]
-    fn value_route_child_field_visibility_preserves_screen_contexts() {
-        assert!(!TrackMetadataGridVm::value_route_child_field_is_visible(
-            "recipient_name",
-            ValueRouteFieldContext::Library,
-        ));
-        assert!(!TrackMetadataGridVm::value_route_child_field_is_visible(
-            "split",
-            ValueRouteFieldContext::Library,
-        ));
-        assert!(TrackMetadataGridVm::value_route_child_field_is_visible(
-            "split",
-            ValueRouteFieldContext::Discover,
-        ));
-        assert!(TrackMetadataGridVm::value_route_child_field_is_visible(
-            "address",
-            ValueRouteFieldContext::Discover,
-        ));
-    }
-
-    #[test]
-    fn json_tree_scalar_label_preserves_raw_json_leaf_display() {
-        assert_eq!(
-            TrackMetadataGridVm::json_tree_scalar_label(&serde_json::json!(" Alice ")),
-            Some(" Alice ".into())
-        );
-        assert_eq!(
-            TrackMetadataGridVm::json_tree_scalar_label(&serde_json::Value::Null),
-            Some("null".into())
-        );
-        assert_eq!(
-            TrackMetadataGridVm::json_tree_scalar_label(&serde_json::json!(42)),
-            Some("42".into())
-        );
-        assert_eq!(
-            TrackMetadataGridVm::json_tree_scalar_label(&serde_json::json!({"a": 1})),
-            None
-        );
-        assert_eq!(
-            TrackMetadataGridVm::json_tree_scalar_label(&serde_json::json!([1, 2])),
-            None
-        );
-    }
-
-    #[test]
     fn source_drag_display_projects_discover_source_cell_ids() {
         assert_eq!(
             TrackMetadataGridVm::source_drag_display(MetadataColumn::Rss, "title"),
@@ -1420,15 +1315,6 @@ mod tests {
                 item_id: "value-route:rss:value-routes:2".into(),
                 header_id: Some("value-route:rss:value-routes:2:header".into()),
                 expanded: true,
-            }
-        );
-        assert_eq!(
-            TrackMetadataGridVm::discover_value_route_item_display("id3", "value-routes", 3, false),
-            TrackMetadataValueRouteItemDisplay {
-                item_key: "id3:value-routes:3".into(),
-                item_id: "vr-id3-3".into(),
-                header_id: None,
-                expanded: false,
             }
         );
     }

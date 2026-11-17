@@ -1070,7 +1070,7 @@ fn id3_field(frame: &Frame) -> Id3Field {
     match frame.content() {
         Content::ExtendedText(ext) => Id3Field {
             frame_id: descriptor_frame_label("TXXX", &ext.description),
-            value: ext.value.clone(),
+            value: extended_text_value(&ext.value),
         },
         Content::ExtendedLink(ext) => Id3Field {
             frame_id: descriptor_frame_label("WXXX", &ext.description),
@@ -1102,6 +1102,13 @@ fn id3_field(frame: &Frame) -> Id3Field {
             value: frame.content().to_string(),
         },
     }
+}
+
+/// A tool such as mutagen ends a `TXXX` value with a NUL terminator, and the
+/// `id3` crate keeps it. Without the trim, the JSON of a value routes frame does
+/// not parse, and the compare grid shows a difference that is not real.
+fn extended_text_value(value: &str) -> String {
+    value.trim_end_matches('\0').to_string()
 }
 
 fn format_involved_people_list(list: &InvolvedPeopleList) -> String {
@@ -1572,6 +1579,20 @@ mod tests {
         resolve_license_edits, vorbis_storage_key, write_id3v24_edits, AudioTags, EmbeddedArtwork,
         Id3Field, Id3v24Edit,
     };
+
+    #[test]
+    fn extended_text_value_drops_the_nul_terminator_of_mutagen() {
+        let frame = Frame::with_content(
+            "TXXX",
+            id3::Content::ExtendedText(ExtendedText {
+                description: "MusicIndex Value Routes".into(),
+                value: "[{\"split\": 40}]\0".into(),
+            }),
+        );
+        let field = super::id3_field(&frame);
+        assert_eq!(field.value, "[{\"split\": 40}]");
+        assert!(crate::metadata::parse_value_routes(&field.value).is_some());
+    }
 
     #[test]
     fn maps_id3_frames_to_audio_tags() {

@@ -127,6 +127,14 @@ pub enum SemanticColor {
     /// separator lines does not change the check box.
     CheckboxBorder,
 
+    /// The fill of a share in the summary bar and in the split bar of a
+    /// value route (musicindex ADR 0082 R-ROUTES-1 item 5 and R-ROUTES-4
+    /// item 3, `share` in the shared copy at `src/assets/tokens.json`).
+    Share,
+    /// The track of a split bar and the second stripe of a fee segment
+    /// (musicindex ADR 0082, `share-track` in the shared copy).
+    ShareTrack,
+
     // Tint / Accent.
     Accent,
     AccentHover,
@@ -278,6 +286,10 @@ impl SemanticColor {
             Self::Focus => hex(0x2d_7bff),
             Self::AccentTint => hex_alpha(0x2d_7bff, 0.18),
             Self::SidebarGlowTop => hex_alpha(0x2d_7bff, 0.09),
+            // musicindex ADR 0082 R-ROUTES-7: `color.dark.share` and
+            // `color.dark.share-track` of the shared copy.
+            Self::Share => hex(0x2d_7bff),
+            Self::ShareTrack => hex_alpha(0x2d_7bff, 0.2),
             Self::SelectedTop => hex_alpha(0x2d_7bff, 0.24),
             Self::SelectedBottom => hex_alpha(0x2d_7bff, 0.12),
             Self::SelectedEdge => hex_alpha(0x2d_7bff, 0.34),
@@ -393,6 +405,10 @@ impl SemanticColor {
             Self::Focus => hex(0x00_5bd3),
             Self::AccentTint => hex_alpha(0x0a_5bd6, 0.12),
             Self::SidebarGlowTop => hex_alpha(0x0a_5bd6, 0.09),
+            // musicindex ADR 0082 R-ROUTES-7: `color.light.share` and
+            // `color.light.share-track` of the shared copy.
+            Self::Share => hex(0x1a_56c0),
+            Self::ShareTrack => hex_alpha(0x1a_56c0, 0.16),
             Self::SelectedTop => hex_alpha(0x0a_5bd6, 0.20),
             Self::SelectedBottom => hex_alpha(0x0a_5bd6, 0.10),
             Self::SelectedEdge => hex_alpha(0x0a_5bd6, 0.40),
@@ -545,6 +561,61 @@ impl TypeDot {
     #[must_use]
     pub fn ring_width(cx: &App) -> Pixels {
         scale_chrome_px(Self::HOLLOW_RING_PX, ScaleFactor::current(cx))
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ValueRoutesShape — musicindex ADR 0082 R-ROUTES-7.
+// -----------------------------------------------------------------------------
+
+/// The sizes of the value routes look. Each constant is one value of
+/// musicindex ADR 0082 R-ROUTES-7 and matches the shared copy at
+/// `src/assets/tokens.json`. A test checks them.
+pub struct ValueRoutesShape;
+
+impl ValueRoutesShape {
+    /// R-ROUTES-7 `shape.radius.value-panel`: the corner radius of the panel.
+    pub const PANEL_RADIUS_PX: f32 = 14.0;
+    /// R-ROUTES-7 `shape.share-stack.width`: the width of the summary bar.
+    pub const STACK_WIDTH_PX: f32 = 160.0;
+    /// R-ROUTES-7 `shape.share-stack.height`: the height of the summary bar.
+    pub const STACK_HEIGHT_PX: f32 = 8.0;
+    /// R-ROUTES-7 `shape.share-stack.end-radius`: the radius of the two ends
+    /// of the summary bar.
+    pub const STACK_END_RADIUS_PX: f32 = 4.0;
+    /// R-ROUTES-7 `shape.share-stack.gap`: the gap between two segments.
+    pub const STACK_GAP_PX: f32 = 2.0;
+    /// R-ROUTES-7 `shape.share-stack.minimum-segment`: the minimum width of a
+    /// segment.
+    pub const STACK_MINIMUM_SEGMENT_PX: f32 = 3.0;
+    /// R-ROUTES-7 `shape.share-stack.fee-stripe`: the width of one stripe of
+    /// a fee segment.
+    pub const STACK_FEE_STRIPE_PX: f32 = 2.0;
+    /// R-ROUTES-7 `shape.share-meter.width`: the width of the split bar of a
+    /// row.
+    pub const METER_WIDTH_PX: f32 = 64.0;
+    /// R-ROUTES-7 `shape.share-meter.height`: the height of the split bar.
+    pub const METER_HEIGHT_PX: f32 = 6.0;
+    /// R-ROUTES-7 `shape.share-meter.radius`: the radius of the split bar.
+    pub const METER_RADIUS_PX: f32 = 3.0;
+    /// R-ROUTES-7 `shape.value-columns.share-rem`: the width of the
+    /// percentage column, in rem.
+    pub const SHARE_COLUMN_REM: f32 = 6.5;
+    /// The size of 1 rem in the site, in pixels at 1.0×. `HitIt` has no root
+    /// font size, so a rem value of R-ROUTES-7 uses the size of the site.
+    pub const REM_PX: f32 = 16.0;
+
+    /// A size of this struct in pixels at 1.0×, scaled by the active
+    /// [`ScaleFactor`].
+    #[must_use]
+    pub fn scaled(base_px: f32, cx: &App) -> Pixels {
+        scale_chrome_px(base_px, ScaleFactor::current(cx))
+    }
+
+    /// A rem size of this struct, scaled by the active [`ScaleFactor`].
+    #[must_use]
+    pub fn scaled_rem(rem: f32, cx: &App) -> Pixels {
+        Self::scaled(rem * Self::REM_PX, cx)
     }
 }
 
@@ -1928,6 +1999,7 @@ mod tests {
                 (SemanticColor::SelectedBottom, "selected-bottom"),
                 (SemanticColor::SelectedEdge, "selected-edge"),
                 (SemanticColor::SelectedHighlight, "selected-highlight"),
+                (SemanticColor::ShareTrack, "share-track"),
             ] {
                 let color = token.resolve(appearance);
                 let channel = |value: f32| (value * 255.0).round();
@@ -2025,6 +2097,69 @@ mod tests {
                  Fix: copy the value from src/assets/tokens.json."
             );
         }
+    }
+
+    /// musicindex ADR 0082 R-ROUTES-7: the share color of each theme equals the shared copy
+    /// in `src/assets/tokens.json`. Fix: copy `color.dark.share` and `color.light.share`.
+    #[test]
+    fn share_color_matches_the_shared_tokens() {
+        let shared = shared_tokens();
+        for (appearance, key) in [(Appearance::Dark, "dark"), (Appearance::Light, "light")] {
+            assert_eq!(
+                Some(rgb_of(SemanticColor::Share.resolve(appearance)).as_str()),
+                shared["color"][key]["share"].as_str(),
+                "musicindex ADR 0082 R-ROUTES-7: Share in {key} must equal color.{key}.share. \
+                 Fix: copy the value from src/assets/tokens.json."
+            );
+        }
+    }
+
+    /// musicindex ADR 0082 R-ROUTES-7: each size of `ValueRoutesShape` equals the shared copy
+    /// in `src/assets/tokens.json`. Fix: copy the value from that file into `ValueRoutesShape`.
+    #[test]
+    fn value_routes_sizes_match_the_shared_tokens() {
+        let shared = shared_tokens();
+        let shape = &shared["shape"];
+        for (path, value) in [
+            (["radius", "value-panel"], ValueRoutesShape::PANEL_RADIUS_PX),
+            (["share-stack", "width"], ValueRoutesShape::STACK_WIDTH_PX),
+            (["share-stack", "height"], ValueRoutesShape::STACK_HEIGHT_PX),
+            (
+                ["share-stack", "end-radius"],
+                ValueRoutesShape::STACK_END_RADIUS_PX,
+            ),
+            (["share-stack", "gap"], ValueRoutesShape::STACK_GAP_PX),
+            (
+                ["share-stack", "minimum-segment"],
+                ValueRoutesShape::STACK_MINIMUM_SEGMENT_PX,
+            ),
+            (
+                ["share-stack", "fee-stripe"],
+                ValueRoutesShape::STACK_FEE_STRIPE_PX,
+            ),
+            (["share-meter", "width"], ValueRoutesShape::METER_WIDTH_PX),
+            (["share-meter", "height"], ValueRoutesShape::METER_HEIGHT_PX),
+            (["share-meter", "radius"], ValueRoutesShape::METER_RADIUS_PX),
+            (
+                ["value-columns", "share-rem"],
+                ValueRoutesShape::SHARE_COLUMN_REM,
+            ),
+        ] {
+            let token = shape[path[0]][path[1]].as_f64().expect("a size");
+            assert!(
+                (token - f64::from(value)).abs() < 1e-6,
+                "musicindex ADR 0082 R-ROUTES-7: shape.{}.{} is {token}. \
+                 Fix: copy it into ValueRoutesShape.",
+                path[0],
+                path[1]
+            );
+        }
+        assert!(
+            (shape["radius"]["row"].as_f64().expect("row radius") - f64::from(Radius::MD.px()))
+                .abs()
+                < 1e-6,
+            "musicindex ADR 0082 R-ROUTES-7: the open content uses shape.radius.row (Radius::MD)."
+        );
     }
 
     /// musicindex ADR 0068 R-TYPE-1 and R-TYPE-2: each `FontSize` role is a desktop size of the

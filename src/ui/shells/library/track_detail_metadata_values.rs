@@ -1,11 +1,10 @@
 //! Library track-detail metadata value renderers.
 //!
-//! Owns expandable values, value-route trees, and compact text/tag cells used
+//! Owns expandable values and compact text/tag cells used
 //! by the Library metadata grid cells.
 
 #![warn(clippy::pedantic)]
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use gpui::{div, prelude::*, AnyElement, Context, Image, SharedString, Styled};
@@ -18,11 +17,9 @@ use crate::ui::composites::{
 };
 use crate::ui::primitives::MultilineText;
 use crate::ui::style::{color, spacing, typography};
-use crate::view_models::metadata::value_route_recipient_label;
 use crate::view_models::track_metadata_grid::{
     TrackMetadataExpandableCellDisplay, TrackMetadataExpandedFieldKind, TrackMetadataGridVm,
-    TrackMetadataId3FrameColorContext, TrackMetadataId3FrameColorRole,
-    TrackMetadataValueRouteItemDisplay, ValueRouteFieldContext, ValueRoutesSummaryFallback,
+    TrackMetadataId3FrameColorContext, TrackMetadataId3FrameColorRole, ValueRoutesSummaryFallback,
 };
 
 #[expect(
@@ -37,7 +34,6 @@ pub(super) fn metadata_value_cell(
     expanded: bool,
     color: gpui::Rgba,
     column: &str,
-    expanded_cells: &BTreeSet<String>,
     file_image: Option<&Arc<Image>>,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -54,45 +50,9 @@ pub(super) fn metadata_value_cell(
         display_value,
         ValueRoutesSummaryFallback::DisplayValue,
     );
-    if expanded && field_kind == TrackMetadataExpandedFieldKind::ValueRoutes {
-        let TrackMetadataExpandableCellDisplay {
-            cell_key: header_key,
-            header_id,
-            expanded: header_expanded,
-            ..
-        } = display;
-        return div()
-            .text_size(typography::SIZE_MICRO)
-            .line_height(typography::LINE_BODY)
-            .text_color(color)
-            .flex()
-            .flex_col()
-            .child(
-                div()
-                    .id(SharedString::from(header_id))
-                    .cursor_pointer()
-                    .flex()
-                    .flex_row()
-                    .items_start()
-                    .gap(spacing::XS)
-                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _window, cx| {
-                        this.toggle_metadata_cell(header_key.clone(), cx);
-                    }))
-                    .child(DisclosureIndicator::new(DisclosureIndicatorDisplay {
-                        expanded: header_expanded,
-                    })),
-            )
-            .child(div().flex().flex_col().children(value_routes_tree_elements(
-                raw_value,
-                column,
-                row_id,
-                color,
-                expanded_cells,
-                cx,
-            )))
-            .into_any_element();
-    }
-    let content = if expanded {
+    // musicindex ADR 0082 R-ROUTES-8 item 1: an open value routes cell keeps
+    // its summary. The grid shows the panel in the row under the compare row.
+    let content = if expanded && field_kind != TrackMetadataExpandedFieldKind::ValueRoutes {
         expanded_metadata_value(
             field_kind,
             logical_field,
@@ -145,7 +105,6 @@ pub(super) fn metadata_tag_cell(
     expanded: bool,
     color: gpui::Rgba,
     frame_id: Option<&str>,
-    expanded_cells: &BTreeSet<String>,
     file_image: Option<&Arc<Image>>,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -161,7 +120,6 @@ pub(super) fn metadata_tag_cell(
         expanded,
         color,
         "id3",
-        expanded_cells,
         file_image,
         cx,
     );
@@ -229,139 +187,6 @@ fn expanded_metadata_value(
         .max_lines(20)
         .color_raw(color)
         .into_any_element()
-}
-
-fn value_routes_tree_elements(
-    raw_value: &str,
-    column: &str,
-    row_id: &str,
-    color: gpui::Rgba,
-    expanded_cells: &BTreeSet<String>,
-    cx: &mut Context<LibraryApp>,
-) -> Vec<AnyElement> {
-    let Ok(routes) = serde_json::from_str::<Vec<serde_json::Value>>(raw_value) else {
-        return vec![
-            MultilineText::new(TrackMetadataGridVm::text_value_display(raw_value))
-                .max_lines(20)
-                .color_raw(color)
-                .into_any_element(),
-        ];
-    };
-
-    routes
-        .into_iter()
-        .enumerate()
-        .map(|(index, route)| {
-            value_route_tree_element(route, column, row_id, index, color, expanded_cells, cx)
-        })
-        .collect()
-}
-
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "route values are moved from the parsed JSON array into row renderers"
-)]
-fn value_route_tree_element(
-    route: serde_json::Value,
-    column: &str,
-    row_id: &str,
-    index: usize,
-    color: gpui::Rgba,
-    expanded_cells: &BTreeSet<String>,
-    cx: &mut Context<LibraryApp>,
-) -> AnyElement {
-    let name = value_route_recipient_label(&route);
-    let split = route
-        .get("split")
-        .and_then(TrackMetadataGridVm::value_route_split_label);
-    let label = TrackMetadataGridVm::value_route_item_label(&name, split.as_deref());
-    let item_key = TrackMetadataGridVm::value_route_item_key(column, row_id, index);
-    let display = TrackMetadataGridVm::library_value_route_item_display(
-        column,
-        row_id,
-        index,
-        expanded_cells.contains(&item_key),
-    );
-    let TrackMetadataValueRouteItemDisplay {
-        item_key: header_key,
-        item_id,
-        header_id,
-        expanded: item_expanded,
-    } = display;
-    let sub_expanded = expanded_cells.contains(&header_key);
-
-    let mut item = div()
-        .id(SharedString::from(item_id))
-        .flex()
-        .flex_col()
-        .gap(spacing::XXS)
-        .child(
-            div()
-                .id(SharedString::from(
-                    header_id.expect("Library value-route rows have header ids"),
-                ))
-                .cursor_pointer()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(spacing::XS)
-                .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _window, cx| {
-                    this.toggle_metadata_cell(header_key.clone(), cx);
-                }))
-                .child(DisclosureIndicator::new(DisclosureIndicatorDisplay {
-                    expanded: item_expanded,
-                }))
-                .child(
-                    div()
-                        .text_color(if sub_expanded { color } else { color::accent() })
-                        .truncate()
-                        .child(SharedString::from(label)),
-                ),
-        );
-
-    if sub_expanded {
-        item = item.children(value_route_child_elements(&route, color));
-    }
-
-    item.into_any_element()
-}
-
-fn value_route_child_elements(route: &serde_json::Value, color: gpui::Rgba) -> Vec<AnyElement> {
-    let serde_json::Value::Object(map) = route else {
-        return Vec::new();
-    };
-
-    map.iter()
-        .filter_map(|(key, value)| {
-            if !TrackMetadataGridVm::value_route_child_field_is_visible(
-                key,
-                ValueRouteFieldContext::Library,
-            ) {
-                return None;
-            }
-            let value = TrackMetadataGridVm::value_route_field_value_label(value)?;
-            let key_label = TrackMetadataGridVm::value_route_field_key_label(key);
-            Some(
-                div()
-                    .pl(spacing::LG)
-                    .flex()
-                    .flex_row()
-                    .gap(spacing::XS)
-                    .child(
-                        div()
-                            .text_color(color::text_muted())
-                            .child(SharedString::from(key_label)),
-                    )
-                    .child(
-                        div()
-                            .text_color(color)
-                            .truncate()
-                            .child(SharedString::from(value)),
-                    )
-                    .into_any_element(),
-            )
-        })
-        .collect()
 }
 
 fn compare_cell(value: &str, color: Option<gpui::Rgba>) -> AnyElement {

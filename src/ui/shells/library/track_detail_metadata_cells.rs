@@ -8,19 +8,24 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use gpui::{Context, Image, IntoElement, SharedString};
+use gpui::{div, prelude::*, Context, Image, SharedString};
 
 use super::track_detail_metadata_values::{
     compare_tag_cell, metadata_tag_cell, metadata_value_cell,
 };
+use super::track_detail_value_routes::value_routes_panel;
 use crate::library::LibraryApp;
 use crate::metadata::{display_metadata_value, AlignedCompareRow, MetadataColumn, PendingId3Edit};
 use crate::ui::composites::{
     ProvenanceRole, TrackMetadataFieldCell, TrackMetadataFieldDisplay, TrackMetadataGroupCell,
     TrackMetadataGroupDisplay, TrackMetadataSourceCell,
 };
-use crate::ui::style::color;
-use crate::view_models::track_metadata_grid::{TrackMetadataComparisonRole, TrackMetadataGridVm};
+use crate::ui::layouts as layout;
+use crate::ui::style::{color, spacing};
+use crate::ui::tokens::FontSize;
+use crate::view_models::track_metadata_grid::{
+    TrackMetadataComparisonRole, TrackMetadataGridVm, TrackMetadataValueRoutesPanel,
+};
 
 pub(super) fn metadata_group_cell(
     group: crate::metadata::MetadataGroupRow,
@@ -59,23 +64,14 @@ pub(super) fn metadata_rss_cell(
     row: &AlignedCompareRow,
     pending: Option<&PendingId3Edit>,
     expanded: bool,
-    expanded_cells: &BTreeSet<String>,
     cx: &mut Context<LibraryApp>,
 ) -> gpui::AnyElement {
     let value = TrackMetadataGridVm::rss_cell_value(row.rss_value.as_deref());
     let base_display = display_metadata_value(&row.field, value);
-    let source_role = pending.and_then(|edit| {
-        TrackMetadataGridVm::pending_source_role(
-            edit.source,
-            &edit.value,
-            MetadataColumn::Rss,
-            row.rss_value.as_deref(),
-        )
-        .map(ProvenanceRole::from)
-    });
+    let source_role = rss_source_role(row, pending);
     let glyph = source_role.map(ProvenanceRole::glyph);
     let display_value = TrackMetadataGridVm::display_with_glyph(glyph, &base_display);
-    let value_color = source_role.map_or_else(color::text_primary, |role| role.color(cx));
+    let value_color = rss_value_color(source_role, cx);
     let value_element = metadata_value_cell(
         &row.field,
         &row.row_id,
@@ -84,7 +80,6 @@ pub(super) fn metadata_rss_cell(
         expanded,
         value_color,
         "rss",
-        expanded_cells,
         None,
         cx,
     );
@@ -95,11 +90,102 @@ pub(super) fn metadata_rss_cell(
     .into_any_element()
 }
 
+fn rss_source_role(
+    row: &AlignedCompareRow,
+    pending: Option<&PendingId3Edit>,
+) -> Option<ProvenanceRole> {
+    pending.and_then(|edit| {
+        TrackMetadataGridVm::pending_source_role(
+            edit.source,
+            &edit.value,
+            MetadataColumn::Rss,
+            row.rss_value.as_deref(),
+        )
+        .map(ProvenanceRole::from)
+    })
+}
+
+fn rss_value_color(
+    source_role: Option<ProvenanceRole>,
+    cx: &mut Context<LibraryApp>,
+) -> gpui::Rgba {
+    source_role.map_or_else(color::text_primary, |role| role.color(cx))
+}
+
+fn id3_value_color(
+    row: &AlignedCompareRow,
+    pending: Option<&PendingId3Edit>,
+    cx: &mut Context<LibraryApp>,
+) -> gpui::Rgba {
+    match pending {
+        Some(edit) => pending_source_color(edit.source, cx),
+        None => id3_cell_status_color(row, cx),
+    }
+}
+
+/// musicindex ADR 0082 R-ROUTES-8 item 1: the row under the value routes
+/// compare row. It spans all columns and holds the panel of each open cell,
+/// with the heading of its column. Each panel keeps the compare color of its
+/// cell (R-ROUTES-8 item 2).
+pub(super) fn value_routes_panels_cell(
+    row: &AlignedCompareRow,
+    pending: Option<&PendingId3Edit>,
+    panels: &[TrackMetadataValueRoutesPanel],
+    columns: u16,
+    expanded_cells: &BTreeSet<String>,
+    cx: &mut Context<LibraryApp>,
+) -> gpui::AnyElement {
+    let mut cell = div()
+        .col_span(columns)
+        .pl(layout::COMPACT_COLUMN_WIDTH + spacing::SM)
+        .pb(spacing::SM)
+        .flex()
+        .flex_col()
+        .gap(spacing::MD);
+    for panel in panels {
+        let (raw_value, value_color) = if panel.column == "id3" {
+            (
+                TrackMetadataGridVm::id3_cell_value(
+                    pending.map(|edit| edit.value.as_str()),
+                    row.id3_value.as_deref(),
+                ),
+                id3_value_color(row, pending, cx),
+            )
+        } else {
+            (
+                TrackMetadataGridVm::rss_cell_value(row.rss_value.as_deref()),
+                rss_value_color(rss_source_role(row, pending), cx),
+            )
+        };
+        cell = cell.child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(spacing::XXS)
+                .child(
+                    div()
+                        .text_size(FontSize::Micro.scaled(cx))
+                        .font_weight(gpui::FontWeight::BOLD)
+                        .text_color(color::text_secondary())
+                        .child(SharedString::from(panel.label.clone())),
+                )
+                .child(value_routes_panel(
+                    raw_value,
+                    panel.column,
+                    &row.row_id,
+                    value_color,
+                    expanded_cells,
+                    cx,
+                )),
+        );
+    }
+    cell.into_any_element()
+}
+
 pub(super) fn metadata_id3_cell(
     row: &AlignedCompareRow,
     pending: Option<&PendingId3Edit>,
     expanded: bool,
-    expanded_cells: &BTreeSet<String>,
     file_image: Option<&Arc<Image>>,
     cx: &mut Context<LibraryApp>,
 ) -> gpui::AnyElement {
@@ -118,10 +204,7 @@ pub(super) fn metadata_id3_cell(
         TrackMetadataGridVm::comparison_glyph(&row.id3_status)
     };
     let display_value = TrackMetadataGridVm::display_with_glyph(glyph, &base_display);
-    let color = match pending {
-        Some(edit) => pending_source_color(edit.source, cx),
-        None => id3_cell_status_color(row, cx),
-    };
+    let color = id3_value_color(row, pending, cx);
     let value_element = metadata_tag_cell(
         &row.field,
         &row.row_id,
@@ -130,7 +213,6 @@ pub(super) fn metadata_id3_cell(
         expanded,
         color,
         frame,
-        expanded_cells,
         file_image,
         cx,
     );

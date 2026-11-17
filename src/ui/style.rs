@@ -131,6 +131,14 @@ pub mod color {
     pub fn accent() -> Rgba {
         role(SemanticColor::Accent)
     }
+    /// musicindex ADR 0082 R-ROUTES-7: the share color of the value routes.
+    pub fn share() -> Rgba {
+        role(SemanticColor::Share)
+    }
+    /// musicindex ADR 0082 R-ROUTES-7: the share track color of the value routes.
+    pub fn share_track() -> Rgba {
+        role(SemanticColor::ShareTrack)
+    }
     pub fn accent_hover() -> Rgba {
         role(SemanticColor::AccentHover)
     }

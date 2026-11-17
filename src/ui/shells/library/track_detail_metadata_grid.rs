@@ -13,6 +13,7 @@ use gpui::{AnyElement, Context, Image, IntoElement};
 
 use super::track_detail_metadata_cells::{
     metadata_group_cell, metadata_id3_cell, metadata_musicbrainz_cell, metadata_rss_cell,
+    value_routes_panels_cell,
 };
 use crate::library::{InspectorFrame, LazyPanel, LibraryApp};
 use crate::metadata::{
@@ -74,25 +75,37 @@ pub(crate) fn library_track_metadata_grid(
             MetadataGridRow::Data(row) => {
                 let pending = pending_id3_edits.get(&row.row_id);
                 let expansion = vm.expansion_for(&row.row_id, expanded_metadata_cells);
-                cells.push(metadata_rss_cell(
-                    &row,
-                    pending,
-                    expansion.rss_expanded,
-                    expanded_metadata_cells,
-                    cx,
-                ));
+                cells.push(metadata_rss_cell(&row, pending, expansion.rss_expanded, cx));
                 if show_id3 {
                     cells.push(metadata_id3_cell(
                         &row,
                         pending,
                         expansion.id3_expanded,
-                        expanded_metadata_cells,
                         file_image.as_ref(),
                         cx,
                     ));
                 }
                 if show_musicbrainz {
                     cells.push(metadata_musicbrainz_cell(&row, pending, cx));
+                }
+                let panels = vm.value_routes_panels(
+                    &row.field,
+                    expansion,
+                    TrackMetadataGridVm::rss_cell_value(row.rss_value.as_deref()),
+                    TrackMetadataGridVm::id3_cell_value(
+                        pending.map(|edit| edit.value.as_str()),
+                        row.id3_value.as_deref(),
+                    ),
+                );
+                if !panels.is_empty() {
+                    cells.push(value_routes_panels_cell(
+                        &row,
+                        pending,
+                        &panels,
+                        vm.columns(),
+                        expanded_metadata_cells,
+                        cx,
+                    ));
                 }
             }
         }

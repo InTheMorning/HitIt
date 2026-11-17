@@ -7668,13 +7668,13 @@ fn screens_do_not_duplicate_render_helpers_without_baseline() {
 }
 
 #[test]
-fn screens_do_not_inline_value_route_recipient_label_fallbacks() {
+fn screens_do_not_inline_value_route_recipient_names() {
     for file_name in screen_enforcement_files() {
         let file = file_name.as_str();
         let source = read_source(&manifest_path(file));
         assert!(
             !source.contains(".get(\"recipient_name\")"),
-            "{file}: value-route recipient display labels must be projected by `view_models::metadata::value_route_recipient_label`, not rebuilt in screen code"
+            "{file}: musicindex ADR 0082: value-route recipient names must be projected by `view_models::value_routes`, not rebuilt in screen code"
         );
     }
 }
@@ -8750,11 +8750,6 @@ fn view_models_own_display_fallbacks_for_library() {
         ),
         (
             "src/library.rs",
-            "matches!(key.as_str(), \"recipient_name\" | \"split\")",
-            "Library Value Routes child-field visibility belongs in TrackMetadataGridVm::value_route_child_field_is_visible",
-        ),
-        (
-            "src/library.rs",
             "ActionRowMessageDisplay {",
             "Library action-row message tone/width belongs in VM display contracts",
         ),
@@ -8797,26 +8792,6 @@ fn view_models_own_display_fallbacks_for_library() {
             "src/library.rs",
             "format!(\"{} ({} unused)\", group.label, group.unused_count)",
             "metadata group heading fallback belongs in TrackMetadataGridVm::group_heading_label",
-        ),
-        (
-            "src/library.rs",
-            "format!(\"{name} {split}\")",
-            "metadata value-route item label fallback belongs in TrackMetadataGridVm::value_route_item_label",
-        ),
-        (
-            "src/library.rs",
-            "strip_suffix(\".0\")",
-            "metadata value-route split label fallback belongs in TrackMetadataGridVm::value_route_split_label",
-        ),
-        (
-            "src/library.rs",
-            "format!(\"{key}: \")",
-            "metadata value-route field key display belongs in TrackMetadataGridVm::value_route_field_key_label",
-        ),
-        (
-            "src/library.rs",
-            "fn route_value_label(",
-            "metadata value-route field value display belongs in TrackMetadataGridVm::value_route_field_value_label",
         ),
         (
             "src/library.rs",

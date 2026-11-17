@@ -3185,6 +3185,7 @@ dependencies = [
  "markup5ever_rcdom",
  "mime",
  "musicindex-search",
+ "musicindex-value",
  "open",
  "quick-xml 0.37.5",
  "reqwest",
@@ -4456,6 +4457,11 @@ dependencies = [
  "serde_json",
  "unicode-normalization",
 ]
+
+[[package]]
+name = "musicindex-value"
+version = "0.1.0"
+source = "git+https://github.com/InTheMorning/musicindex-lib?rev=5e35cf5c39a8ff68c64267156d0a7165c43f1826#5e35cf5c39a8ff68c64267156d0a7165c43f1826"
 
 [[package]]
 name = "naga"

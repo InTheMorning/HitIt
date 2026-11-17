@@ -131,6 +131,10 @@ fn high_contrast_dark(token: SemanticColor) -> Rgba {
         // No sidebar glow under Increase Contrast (musicindex ADR 0056
         // R-SIDE-1 item 4).
         SemanticColor::SidebarGlowTop => tint(0x66_d9ff, 0.0),
+        // The shared tokens have no high contrast share color. The share
+        // uses the accent of this profile (musicindex ADR 0082 R-ROUTES-7).
+        SemanticColor::Share => hex(0x66_d9ff),
+        SemanticColor::ShareTrack => tint(0x66_d9ff, 0.3),
         // ADR 0101 Decision 2, task 010: two equal stops and an opaque edge.
         SemanticColor::SelectedTop | SemanticColor::SelectedBottom => tint(0x66_d9ff, 0.22),
         SemanticColor::SelectedEdge => hex(0x66_d9ff),
@@ -220,6 +224,10 @@ fn high_contrast_light(token: SemanticColor) -> Rgba {
         // No sidebar glow under Increase Contrast (musicindex ADR 0056
         // R-SIDE-1 item 4).
         SemanticColor::SidebarGlowTop => tint(0x00_40dd, 0.0),
+        // The shared tokens have no high contrast share color. The share
+        // uses the accent of this profile (musicindex ADR 0082 R-ROUTES-7).
+        SemanticColor::Share => hex(0x00_40dd),
+        SemanticColor::ShareTrack => tint(0x00_40dd, 0.24),
         SemanticColor::AccentTint => tint(0x00_40dd, 0.12),
         // ADR 0101 Decision 2, task 010: two equal stops and an opaque edge.
         SemanticColor::SelectedTop | SemanticColor::SelectedBottom => tint(0x00_40dd, 0.14),
@@ -431,6 +439,7 @@ mod tests {
             SemanticColor::DangerTint,
             SemanticColor::ButtonFill,
             SemanticColor::ButtonFillHover,
+            SemanticColor::ShareTrack,
         ];
         for profile in [ThemeProfile::Dark, ThemeProfile::Light] {
             for token in translucent {
