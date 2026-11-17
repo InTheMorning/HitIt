@@ -373,23 +373,27 @@ impl ListScope {
 /// reversed entry and no Artists Newest show in the scope All.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct NodeSorts {
-    /// The node lists `sort`.
+    /// Each field records one capability that the node lists.
     pub(crate) sort: bool,
     /// The node lists `artist_newest`.
     pub(crate) artist_newest: bool,
+    /// The node lists `playlist_links`.
+    pub(crate) playlist_links: bool,
 }
 
 impl NodeSorts {
-    /// The node lists no sort capability, or the read has not answered.
+    /// The node has no listed capability, or the read has not answered.
     pub(crate) const NONE: Self = Self {
         sort: false,
         artist_newest: false,
+        playlist_links: false,
     };
     /// The node lists `sort` only.
     #[cfg(test)]
     pub(crate) const SORT: Self = Self {
         sort: true,
         artist_newest: false,
+        playlist_links: false,
     };
 
     /// The fact of the capability names of the node.
@@ -399,6 +403,7 @@ impl NodeSorts {
         Self {
             sort: lists("sort"),
             artist_newest: lists("artist_newest"),
+            playlist_links: lists("playlist_links"),
         }
     }
 }
@@ -2140,6 +2145,7 @@ mod tests {
         let newest_node = NodeSorts {
             sort: true,
             artist_newest: true,
+            playlist_links: false,
         };
         assert_eq!(key.sorts_in(ListScope::All, newest_node), both);
         assert_eq!(
@@ -2186,6 +2192,7 @@ mod tests {
         pages.set_index_sorts(NodeSorts {
             sort: true,
             artist_newest: true,
+            playlist_links: false,
         });
         pages.set_reversed(key, true);
         let state = *pages.get(key);
@@ -2221,6 +2228,12 @@ mod tests {
         let names = |values: &[&str]| -> Vec<String> {
             values.iter().map(|value| (*value).to_owned()).collect()
         };
+        let curator = NodeSorts::from_capabilities(&names(&["search", "playlist_links"]));
+        assert!(
+            curator.playlist_links,
+            "musicindex ADR 0081 R-CURATOR-6: the capability playlist_links sets the flag"
+        );
+        assert!(!NodeSorts::from_capabilities(&names(&["search", "sort"])).playlist_links);
         let both = NodeSorts::from_capabilities(&names(&["search", "sort", "artist_newest"]));
         assert!(both.sort && both.artist_newest);
         let sort_only = NodeSorts::from_capabilities(&names(&["search", "sort"]));

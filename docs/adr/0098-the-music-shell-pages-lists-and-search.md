@@ -13,7 +13,7 @@ Accepted - 2026-11-14.
 - Supersedes: [ADR 0090](archive/0090-one-list-bar-above-the-rows.md), one list bar above the rows.
 - Changed by: [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), 2026-11-07. The parser, the Index plan and the kind rule of Decisions 21 to 25 are in the `musicindex-search` crate. musicindex ADR 0049 owns the syntax. ADR 0091 records this change against ADR 0087.
 - Revised: 2026-11-14: Decision 16 states the open point of ADR 0068 Answer 1. No rule changes.
-- Revised: 2026-11-17: the known roles are the nine roles of musicindex ADR 0081 R-CURATOR-1. That record adds curator. No rule of this record changes.
+- Revised: 2026-11-17: the known roles are the nine roles of musicindex ADR 0081 R-CURATOR-1. That record adds curator. When the node lists `playlist_links`, the pages and the lists also show the playlist links of musicindex ADR 0081 R-CURATOR-3 to R-CURATOR-6. No rule of this record changes.
 
 The six ADRs above changed other ADRs. Their "Changes" lines and the "Changed by" lines in ADRs 0046, 0047, 0049, 0060, 0062, 0082, 0083 and 0091 stay as they are. Each of those "Changed by" lines names this ADR as the place of the restated rule.
 

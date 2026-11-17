@@ -29,7 +29,8 @@ use crate::presentation::collection_art::collection_art_image;
 use crate::presentation::header_glow::header_glow;
 use crate::presentation::present_command;
 use crate::ui::composites::release_section_list::{
-    ClickReleaseCallback, ReleaseSectionRows, SectionCommandCallback, ToggleReleaseCallback,
+    ClickReleaseCallback, OpenPlaylistCallback, ReleaseSectionRows, SectionCommandCallback,
+    ToggleReleaseCallback,
 };
 use crate::ui::composites::{list_bar_playlists, render_list_bar_copies, ThumbnailSize};
 use crate::ui::shells::publisher::{render_publisher_page, render_publisher_page_status};
@@ -121,20 +122,21 @@ impl TopApp {
         self.fetch_publisher_page(publisher_feed_guid, context, cx);
     }
 
-    /// Opens the feed page of a `MusicIndex` feed row of the Artists list
-    /// directly under its destination (ADR 0084 Decision 9, packet 016
-    /// decision D14). The page uses the `MusicIndex` query, because the
-    /// Library holds no release of the feed.
-    pub(super) fn open_index_publisher_page_from_list_row(
+    /// Opens the feed page of a `MusicIndex` feed at `start`. A row of the
+    /// Artists list opens it directly under its destination (ADR 0084
+    /// Decision 9, packet 016 decision D14). The page uses the `MusicIndex`
+    /// query, because the Library holds no release of the feed.
+    pub(super) fn open_index_publisher_page(
         &mut self,
         publisher_feed_guid: String,
+        start: NavigationPathStart,
         cx: &mut Context<Self>,
     ) {
         self.publisher_page_routes
             .insert(publisher_feed_guid.clone(), PublisherPageContext::Index);
         self.open_music_page(
             &FrameNavigationEntry::PublisherDetail(publisher_feed_guid),
-            NavigationPathStart::ListRow,
+            start,
             cx,
         );
     }
@@ -530,6 +532,16 @@ impl TopApp {
                 let key = DetailRowKey::Release(key.clone());
                 entity.update(cx, |this, cx| this.toggle_detail_row(&key, cx));
             });
+        // Musicindex ADR 0081 R-CURATOR-3: a playlist row opens the
+        // playlist page in the current path.
+        let entity = cx.entity();
+        let on_open_playlist: OpenPlaylistCallback =
+            Rc::new(move |feed_guid: &str, _window, cx: &mut App| {
+                let entry = FrameNavigationEntry::PublicPlaylist(feed_guid.to_owned());
+                entity.update(cx, |this, cx| {
+                    this.open_music_page(&entry, NavigationPathStart::CurrentPath, cx);
+                });
+            });
         let entity = cx.entity();
         let on_section_command: SectionCommandCallback = Rc::new(
             move |id: &ReleaseSectionId, command, _window, cx: &mut App| {
@@ -544,6 +556,7 @@ impl TopApp {
             reveal,
             on_click_release,
             on_toggle_release,
+            on_open_playlist,
             menu,
             on_section_command,
             list_bar,

@@ -101,6 +101,7 @@ pub(crate) mod named_feeds;
 pub mod paged_playlist_detail;
 pub(crate) mod pagination;
 pub(crate) mod playlist_curation;
+pub(crate) mod playlist_curators;
 pub mod playlist_detail;
 pub(crate) mod playlist_rss_check;
 pub(crate) mod progress_count;

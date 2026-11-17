@@ -891,6 +891,7 @@ pub(crate) fn fetch_library_publisher_page(
     let mut unconfirmed_release_artist_count = None;
     let mut unconfirmed_release_artists = Vec::new();
     let mut co_credited_feeds = Vec::new();
+    let mut playlists = Vec::new();
     match crate::application::queries::feed::fetch_index_publisher_page_albums(
         &client,
         &provider_identity,
@@ -907,6 +908,9 @@ pub(crate) fn fetch_library_publisher_page(
             unconfirmed_release_artist_count = remote.unconfirmed_release_artist_count;
             unconfirmed_release_artists = remote.unconfirmed_release_artists;
             co_credited_feeds = remote.co_credited_feeds;
+            // musicindex ADR 0081 R-CURATOR-3: the playlists come from the
+            // same request. The Library holds no public playlist.
+            playlists = remote.playlists;
             if feed_image_url.is_none() {
                 feed_image_url = remote.feed_image_url.clone();
             }
@@ -932,6 +936,7 @@ pub(crate) fn fetch_library_publisher_page(
         unconfirmed_release_artist_count,
         unconfirmed_release_artists,
         albums,
+        playlists,
         co_credited_feeds,
         other_albums_failure,
     })

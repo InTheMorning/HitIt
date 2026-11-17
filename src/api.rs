@@ -77,6 +77,9 @@ pub struct SearchResult {
     /// The count of the confirmed links of a `publisher` row, with
     /// `include=link_facts`.
     pub two_way_link_count: Option<i64>,
+    /// The count of the confirmed playlist links of a `publisher` row
+    /// (Stophammer ADR 0102 §3).
+    pub two_way_playlist_link_count: Option<i64>,
     /// The number of releases for each track count. A key is a track count
     /// as text. The values sum to the release count of the row (capability
     /// `release_track_counts`).
@@ -130,6 +133,15 @@ pub struct FeedNamesResponse {
     pub pagination: Pagination,
 }
 
+/// One page of `GET /v1/feeds/playlist-publishers` (Stophammer ADR 0102 §4). A
+/// row is a feed row, and the app does not read `newest_playlist_at`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct PlaylistPublishersResponse {
+    pub data: Vec<Feed>,
+    pub pagination: Pagination,
+}
+
 /// One page of `GET /v1/artist-names` (Stophammer ADR 0070, ADR 0084
 /// packet 016). The rows come in the order of their sort key.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -175,6 +187,9 @@ pub struct ArtistNameRow {
     pub first_named_count: Option<i64>,
     pub stated_rels: Option<Vec<String>>,
     pub two_way_link_count: Option<i64>,
+    /// The count of the confirmed playlist links of a `publisher` row
+    /// (Stophammer ADR 0102 §3).
+    pub two_way_playlist_link_count: Option<i64>,
     /// The number of releases for each track count. A key is a track count
     /// as text. The values sum to `release_count`, or to `two_way_link_count`
     /// on a `publisher` row (capability `release_track_counts`).
@@ -229,10 +244,47 @@ pub struct DetailResponse<T> {
     pub data: T,
 }
 
+/// The confirmed publisher of a playlist (Stophammer ADR 0102 §5). `role` is
+/// the sorted role set joined with ", ". `role_agreement` can be null.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct ConfirmedPublisher {
+    pub feed_guid: String,
+    pub title: Option<String>,
+    pub role: Option<String>,
+    pub role_agreement: Option<String>,
+}
+
+/// The publisher feed that a playlist names with a link that is not
+/// confirmed (Stophammer ADR 0102 §5a).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct UnconfirmedPublisher {
+    pub feed_guid: String,
+    pub title: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Feed {
     pub feed_guid: Option<String>,
+    /// The confirmed publisher of a `musicL` feed (Stophammer ADR 0102 §5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirmed_publisher: Option<ConfirmedPublisher>,
+    /// The publisher of a `musicL` feed with a link that is not confirmed
+    /// (Stophammer ADR 0102 §5a).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unconfirmed_publisher: Option<UnconfirmedPublisher>,
+    /// The count of the confirmed playlist links (Stophammer ADR 0102 §3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub two_way_playlist_link_count: Option<i64>,
+    /// The count of the confirmed release links (Stophammer ADR 0068 §1).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub two_way_link_count: Option<i64>,
+    /// The agreed roles of the release links only (Stophammer ADR 0102
+    /// §3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agreed_roles: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<i64>,
     pub title: Option<String>,
@@ -1171,6 +1223,21 @@ impl Client {
         self.get_json(&["v1", "artist-names"], &params)
     }
 
+    /// Fetches one page of playlist publisher feeds (Stophammer ADR 0102 §5a).
+    pub(crate) fn fetch_playlist_publishers(
+        &self,
+        limit: i32,
+        cursor: Option<&str>,
+        profile: &RequestProfile,
+    ) -> Result<PlaylistPublishersResponse> {
+        debug_assert_eq!(
+            profile.path_shape(),
+            RequestPathShape::PlaylistPublisherList
+        );
+        let params = name_list_params(limit, cursor, profile);
+        self.get_json(&["v1", "feeds", "playlist-publishers"], &params)
+    }
+
     /// Fetches one page of music releases in name order (`GET
     /// /v1/feeds/by-name`, ADR 0084 packet 016). The profile gives the
     /// `include` value. The default medium of the endpoint is `music`.
@@ -1706,6 +1773,64 @@ impl std::error::Error for HttpStatusError {}
 
 #[cfg(test)]
 pub(crate) mod tests {
+
+    /// Musicindex ADR 0081 R-CURATOR-6: a `musicL` row gives
+    /// `confirmed_publisher` or `unconfirmed_publisher` (Stophammer ADR 0102
+    /// §5 and §5a). A row of an older node has neither field.
+    #[test]
+    fn musicindex_adr_0081_curator_6_feed_rows_decode_the_publisher_fields() {
+        let confirmed: Feed = serde_json::from_str(
+            r#"{"feed_guid":"iam","raw_medium":"musicL","title":"IAM",
+                "confirmed_publisher":{"feed_guid":"chadf","title":"ChadF",
+                    "role":"curator","role_agreement":"both"},
+                "unconfirmed_publisher":null}"#,
+        )
+        .unwrap();
+        let publisher = confirmed.confirmed_publisher.unwrap();
+        assert_eq!(publisher.feed_guid, "chadf");
+        assert_eq!(publisher.title.as_deref(), Some("ChadF"));
+        assert_eq!(publisher.role.as_deref(), Some("curator"));
+        assert_eq!(publisher.role_agreement.as_deref(), Some("both"));
+        assert!(confirmed.unconfirmed_publisher.is_none());
+
+        let unconfirmed: Feed = serde_json::from_str(
+            r#"{"feed_guid":"one-way","raw_medium":"musicL",
+                "confirmed_publisher":null,
+                "unconfirmed_publisher":{"feed_guid":"chadf","title":"ChadF"}}"#,
+        )
+        .unwrap();
+        assert!(unconfirmed.confirmed_publisher.is_none());
+        let publisher = unconfirmed.unconfirmed_publisher.unwrap();
+        assert_eq!(publisher.feed_guid, "chadf");
+        assert_eq!(publisher.title.as_deref(), Some("ChadF"));
+
+        let old: Feed =
+            serde_json::from_str(r#"{"feed_guid":"old","raw_medium":"musicL"}"#).unwrap();
+        assert!(old.confirmed_publisher.is_none());
+        assert!(old.unconfirmed_publisher.is_none());
+        assert!(old.two_way_playlist_link_count.is_none());
+    }
+
+    /// Musicindex ADR 0081 R-CURATOR-6: a row of
+    /// `/v1/feeds/playlist-publishers` gives the link facts (Stophammer ADR
+    /// 0102 §4).
+    #[test]
+    fn musicindex_adr_0081_curator_6_playlist_publisher_rows_decode() {
+        let page: super::PlaylistPublishersResponse = serde_json::from_str(
+            r#"{"data":[{"feed_guid":"sir-libre","title":"Sir Libre Records",
+                    "raw_medium":"publisher","two_way_link_count":1,
+                    "two_way_playlist_link_count":1,"agreed_roles":["label"]}],
+                "pagination":{"cursor":"next","has_more":true}}"#,
+        )
+        .unwrap();
+        let row = &page.data[0];
+        assert_eq!(row.feed_guid.as_deref(), Some("sir-libre"));
+        assert_eq!(row.two_way_link_count, Some(1));
+        assert_eq!(row.two_way_playlist_link_count, Some(1));
+        assert_eq!(row.agreed_roles.as_deref(), Some(&["label".to_owned()][..]));
+        assert_eq!(page.pagination.cursor.as_deref(), Some("next"));
+        assert!(page.pagination.has_more);
+    }
 
     #[test]
     fn adr_0080_source_link_decodes_label_and_url_scheme_added_when_present_or_absent() {

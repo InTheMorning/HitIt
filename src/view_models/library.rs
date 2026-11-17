@@ -3761,6 +3761,15 @@ impl LibraryViewModel {
         self.list_pages.set_index_sorts(node);
     }
 
+    /// Whether the node lists `playlist_links` (Stophammer ADR 0102 §7).
+    #[must_use]
+    pub(crate) fn index_lists_playlist_links(&self) -> bool {
+        self.list_pages
+            .get(ListPageKey::PublicPlaylists)
+            .index_sorts
+            .playlist_links
+    }
+
     /// Whether the Index request of the list page `key` sends
     /// `reverse=true` now (musicindex ADR 0053 R-LIST-8 item 4).
     #[must_use]
@@ -10910,6 +10919,7 @@ mod tests {
         vm.set_index_sorts(NodeSorts {
             sort: true,
             artist_newest: true,
+            playlist_links: false,
         });
         assert_eq!(vm.artist_node_sort(), crate::api::ArtistNameSort::Date);
         assert_eq!(labels(&vm, ListScope::All), ["Autechre", "Aphex Twin"]);
@@ -11930,6 +11940,7 @@ mod tests {
             vm.set_index_sorts(NodeSorts {
                 sort: true,
                 artist_newest: newest,
+                playlist_links: false,
             });
             vm.set_list_sort(
                 ListPageKey::Artists,

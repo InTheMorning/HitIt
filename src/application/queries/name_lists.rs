@@ -421,7 +421,7 @@ impl ApplicationCommand for FetchArtistNameValues {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpListener;
@@ -602,7 +602,7 @@ mod tests {
         clippy::type_complexity,
         reason = "a test server gives its address, its request log and its request counts"
     )]
-    fn serve_routes(
+    pub(crate) fn serve_routes(
         answer: fn(&str) -> String,
         expected_requests: usize,
     ) -> (String, Arc<Mutex<Vec<String>>>, Arc<Mutex<(usize, usize)>>) {

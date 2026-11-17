@@ -48,6 +48,11 @@ pub(crate) type ClickReleaseCallback =
 /// A click on the checkbox of a release row (ADR 0084 packet 018).
 pub(crate) type ToggleReleaseCallback = Rc<dyn Fn(&ReleaseKey, &mut Window, &mut App)>;
 
+/// A click on a playlist row of a publisher page (musicindex ADR 0081
+/// R-CURATOR-3). The argument is the feed GUID of the playlist. The app
+/// layer opens the playlist page.
+pub(crate) type OpenPlaylistCallback = Rc<dyn Fn(&str, &mut Window, &mut App)>;
+
 /// A command of a section heading, with the id of its section (musicindex
 /// ADR 0053 R-LIST-9). The app layer sets the state of the section and
 /// builds the page again in place.
@@ -68,6 +73,8 @@ pub(crate) struct ReleaseSectionRows {
     pub(crate) on_click_release: ClickReleaseCallback,
     /// A click on the checkbox of a release row.
     pub(crate) on_toggle_release: ToggleReleaseCallback,
+    /// A click on a playlist row (musicindex ADR 0081 R-CURATOR-3).
+    pub(crate) on_open_playlist: OpenPlaylistCallback,
     /// The context of the release row menus (ADR 0084 task 031). The app
     /// layer sets `PublisherPageAlbumVm::menu` on each row.
     pub(crate) menu: ReleaseRowMenuContext,
@@ -241,24 +248,18 @@ fn render_release_row(
             .into_any_element(),
         );
     }
+    // Musicindex ADR 0081 R-CURATOR-3: a playlist row has the playlist
+    // thumbnail.
+    let thumb_kind = if row.playlist_open.is_some() {
+        EntityKind::Playlist
+    } else {
+        EntityKind::Release
+    };
     list_row = list_row
-        .child(Thumbnail::new(EntityKind::Release, ThumbnailSize::Sm).image(thumb_image))
+        .child(Thumbnail::new(thumb_kind, ThumbnailSize::Sm).image(thumb_image))
         .child(div().flex_1().min_w_0().child(text_block));
 
-    // The view model decides the open action's availability. A row with
-    // no open action gets no click handler, so it stays inert.
-    if let Some(open) = &row.open {
-        let on_click_release = Rc::clone(&rows.on_click_release);
-        let key = open.key.clone();
-        let label = title.clone();
-        list_row = list_row
-            .a11y_label(ListRowA11yLabel {
-                label: open.a11y_label.clone().into(),
-            })
-            .on_click(move |event: &ClickEvent, window, cx| {
-                on_click_release(&key, label.clone(), event.modifiers(), window, cx);
-            });
-    }
+    list_row = with_open_click(list_row, row, &title, rows);
 
     // ADR 0101 Decision 6, amended 2026-10-22; ADR 0084 task 033: the
     // download-state icon replaces the "In Library" mark of decision
@@ -270,17 +271,57 @@ fn render_release_row(
             label: Some(SharedString::from(PublisherPageAlbumVm::NOT_LISTED_LABEL)),
         }));
     }
-    list_row = list_row.trailing(render_release_download_state(
-        &row.download_state,
-        format!("{row_id}-download-state"),
-        cx,
-    ));
+    // A playlist row has no download state.
+    if row.playlist_open.is_none() {
+        list_row = list_row.trailing(render_release_download_state(
+            &row.download_state,
+            format!("{row_id}-download-state"),
+            cx,
+        ));
+    }
 
     // ADR 0084 task 031: the one release row menu, the same as a row of
     // the Releases list. The view model gives `None` in selection mode.
     list_row
         .menu_cell(release_row_menu(row.menu.as_ref(), &rows.menu))
         .into_any_element()
+}
+
+/// The click of a release row or of a playlist row. The view model decides
+/// the open action's availability. A row with no open action gets no click
+/// handler, so it stays inert.
+fn with_open_click(
+    mut list_row: ListRow,
+    row: &PublisherPageAlbumVm,
+    title: &str,
+    rows: &ReleaseSectionRows,
+) -> ListRow {
+    if let Some(open) = &row.open {
+        let on_click_release = Rc::clone(&rows.on_click_release);
+        let key = open.key.clone();
+        let label = title.to_owned();
+        list_row = list_row
+            .a11y_label(ListRowA11yLabel {
+                label: open.a11y_label.clone().into(),
+            })
+            .on_click(move |event: &ClickEvent, window, cx| {
+                on_click_release(&key, label.clone(), event.modifiers(), window, cx);
+            });
+    }
+    // Musicindex ADR 0081 R-CURATOR-3: a click on a playlist row opens the
+    // playlist page.
+    if let Some(open) = &row.playlist_open {
+        let on_open_playlist = Rc::clone(&rows.on_open_playlist);
+        let feed_guid = open.feed_guid.clone();
+        list_row = list_row
+            .a11y_label(ListRowA11yLabel {
+                label: open.a11y_label.clone().into(),
+            })
+            .on_click(move |_event: &ClickEvent, window, cx| {
+                on_open_playlist(&feed_guid, window, cx);
+            });
+    }
+    list_row
 }
 
 /// Maps the typed check state of the view model to the state of the

@@ -128,6 +128,7 @@ impl LibraryApp {
                 first_named_count: None,
                 stated_rels: Some(vec!["artist".to_owned()]),
                 two_way_link_count: Some(52),
+                two_way_playlist_link_count: None,
                 release_track_counts: Some(std::collections::BTreeMap::from([
                     ("1".to_owned(), 14),
                     ("2".to_owned(), 38),

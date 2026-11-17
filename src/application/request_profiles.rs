@@ -39,6 +39,8 @@ pub(crate) enum RequestPathShape {
     /// section 2, ADR 0084 packet 026): one page of the releases that name
     /// one feed, newest first.
     RecentFeedList,
+    /// `/v1/feeds/playlist-publishers` (Stophammer ADR 0102 §5a).
+    PlaylistPublisherList,
 }
 
 /// One named MusicIndex request profile.
@@ -178,12 +180,14 @@ pub(crate) const INDEX_FEED_SINGLES: RequestProfile =
 pub(crate) const INDEX_PUBLIC_PLAYLIST_LIST: RequestProfile =
     RequestProfile::new(RequestPathShape::FeedNameList, None);
 
-/// Public playlist detail. The one request of the item page of a public
-/// playlist (ADR 0089 packet 009). It reads `GET /v1/feeds/{guid}` with
-/// `include=remote_items`, so each entry of the playlist comes with it.
+/// Public playlist publisher list. It reads curator feed link facts without includes.
+pub(crate) const INDEX_PLAYLIST_PUBLISHERS: RequestProfile =
+    RequestProfile::new(RequestPathShape::PlaylistPublisherList, None);
+
+/// Public playlist detail. It reads remote items and the publisher link.
 /// Owner: `public_playlists::FetchPublicPlaylist`.
 pub(crate) const INDEX_PUBLIC_PLAYLIST_DETAIL: RequestProfile =
-    RequestProfile::new(RequestPathShape::Feed, Some("remote_items"));
+    RequestProfile::new(RequestPathShape::Feed, Some("remote_items,publisher"));
 
 /// MusicIndex artist names of the field list. The one request of the
 /// `artist:` values after each pause of the toolbar search field (ADR 0087

@@ -600,6 +600,7 @@ impl LibraryApp {
             DestinationListRowTarget::IndexPublisher(feed_guid) => {
                 cx.emit(super::LibraryAppEvent::OpenIndexPublisherPage {
                     publisher_feed_guid: feed_guid.clone(),
+                    start: NavigationPathStart::ListRow,
                 });
                 return;
             }
@@ -1232,6 +1233,8 @@ impl LibraryApp {
             public_playlists_tiles_scroll: gpui::ScrollHandle::new(),
             destinations_scroll: gpui::ScrollHandle::new(),
             public_playlist_list: IndexNameListPage::default(),
+            playlist_curators: crate::view_models::playlist_curators::PlaylistCurators::default(),
+            playlist_publishers_requested: false,
             public_playlist_pages: PublicPlaylistPages::default(),
             live_list_state: MusicColumnList::new(cx),
             live_list: IndexNameListPage::default(),

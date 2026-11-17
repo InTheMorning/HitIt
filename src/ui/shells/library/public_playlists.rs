@@ -21,7 +21,8 @@ use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::selectable_tile::SelectableTile;
 use crate::ui::composites::{
-    CollectionArt, CollectionArtImage, ListRow, ListRowA11yLabel, ThumbnailSize,
+    CollectionArt, CollectionArtImage, ListRow, ListRowA11yLabel, TagBadge, TagBadgeDisplay,
+    ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
@@ -32,10 +33,14 @@ use crate::ui::shells::library::destination_lists::{
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
+use crate::ui::shells::publisher::entity_kind_for_header_role;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor, Size};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::library::DestinationListRowVm;
+use crate::view_models::playlist_curators::{
+    CuratorBadgeVm, PlaylistCuratorVm, PlaylistGroup, PlaylistGroupHeadingVm, CURATOR_ROW_LABEL,
+};
 use crate::view_models::public_playlists::{
     PublicPlaylistCopyDialogVm, PublicPlaylistItemVm, PublicPlaylistListItemVm,
     PublicPlaylistPageVm, COPY_CANCEL_LABEL, COPY_CONFIRM_LABEL, COPY_DIALOG_TITLE,
@@ -180,7 +185,7 @@ pub(crate) fn render_public_playlist_page_body(
     header_art: CollectionArtImage,
     header_menu: AnyElement,
     status: Option<&str>,
-    heading: Option<AnyElement>,
+    above_rows: Vec<AnyElement>,
     rows: Vec<AnyElement>,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
@@ -215,7 +220,7 @@ pub(crate) fn render_public_playlist_page_body(
     let content = page_scroll_content(cx)
         .gap(spacing::SM)
         .child(header)
-        .children(heading)
+        .children(above_rows)
         .children(rows);
     div()
         .id("public-playlist-page")
@@ -358,6 +363,118 @@ pub(crate) fn render_public_playlist_list_item(
                 cx,
             )
         }
+        PublicPlaylistListItemVm::Heading(heading) => render_playlist_group_heading(&heading, cx),
         PublicPlaylistListItemVm::Status(row) => render_index_list_status_row(row, actions, cx),
+    }
+}
+
+/// The dot and the role words of a curator feed (musicindex ADR 0032
+/// R-DOT-1). The words show with the dot, so color is never the only
+/// signal (ADR 0101 Decision 2).
+fn curator_badge(badge: &CuratorBadgeVm) -> TagBadge {
+    TagBadge::new(TagBadgeDisplay {
+        kind: entity_kind_for_header_role(badge.role),
+        label: Some(SharedString::from(badge.word.clone())),
+    })
+    .hollow(badge.hollow)
+}
+
+/// The heading of one group of the Public playlists list (musicindex ADR
+/// 0081 R-CURATOR-5). The title of a curator group opens the feed page. In
+/// the Tiles view the heading takes a full line of the grid.
+pub(crate) fn render_playlist_group_heading(
+    heading: &PlaylistGroupHeadingVm,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    let row = div()
+        .id(SharedString::from(heading.element_id.clone()))
+        .w_full()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(spacing::SM)
+        .pt(spacing::LG)
+        .pb(spacing::XS);
+    match &heading.group {
+        PlaylistGroup::Curator {
+            feed_guid,
+            title,
+            badge,
+            a11y_label,
+        } => {
+            let feed_guid = feed_guid.clone();
+            row.child(curator_badge(badge))
+                .child(
+                    UiButton::styled(
+                        SharedString::from(format!("{}-open", heading.element_id)),
+                        ControlStyle::Unfilled,
+                    )
+                    .label(title.clone())
+                    .a11y_label(a11y_label.clone())
+                    .on_click(cx.listener(
+                        move |_this, _: &ClickEvent, _window, cx| {
+                            cx.emit(crate::library::LibraryAppEvent::OpenIndexPublisherPage {
+                                publisher_feed_guid: feed_guid.clone(),
+                                start: NavigationPathStart::ListRow,
+                            });
+                        },
+                    )),
+                )
+                .into_any_element()
+        }
+        PlaylistGroup::Other => row
+            .child(
+                Label::new(heading.title().to_owned())
+                    .size(FontSize::Caption)
+                    .weight(FontWeight::MEDIUM)
+                    .color(SemanticColor::SecondaryLabel),
+            )
+            .into_any_element(),
+    }
+}
+
+/// The Curator row of a playlist page (musicindex ADR 0081 R-CURATOR-4). A
+/// confirmed link opens the feed page in the current path.
+pub(crate) fn render_playlist_curator_row(
+    curator: &PlaylistCuratorVm,
+    cx: &mut Context<LibraryApp>,
+) -> AnyElement {
+    let row = div()
+        .id("public-playlist-curator")
+        .flex()
+        .flex_row()
+        .flex_wrap()
+        .items_center()
+        .gap(spacing::SM)
+        .child(
+            Label::new(CURATOR_ROW_LABEL)
+                .size(FontSize::Caption)
+                .color(SemanticColor::SecondaryLabel),
+        );
+    match curator {
+        PlaylistCuratorVm::Feed {
+            feed_guid,
+            title,
+            badge,
+            a11y_label,
+        } => {
+            let feed_guid = feed_guid.clone();
+            row.child(curator_badge(badge))
+                .child(
+                    UiButton::styled("public-playlist-curator-open", ControlStyle::Unfilled)
+                        .label(title.clone())
+                        .a11y_label(a11y_label.clone())
+                        .on_click(cx.listener(move |_this, _: &ClickEvent, _window, cx| {
+                            cx.emit(crate::library::LibraryAppEvent::OpenIndexPublisherPage {
+                                publisher_feed_guid: feed_guid.clone(),
+                                start: NavigationPathStart::CurrentPath,
+                            });
+                        })),
+                )
+                .into_any_element()
+        }
+        PlaylistCuratorVm::Author { text } => row
+            .child(Label::new(text.clone()).size(FontSize::Caption))
+            .into_any_element(),
     }
 }

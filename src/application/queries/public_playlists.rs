@@ -16,7 +16,7 @@ use crate::application::command_bus::{ApplicationCommand, CommandOutcome, Comman
 use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
 use crate::application::request_profiles::{
-    INDEX_PUBLIC_PLAYLIST_DETAIL, INDEX_PUBLIC_PLAYLIST_LIST,
+    INDEX_PLAYLIST_PUBLISHERS, INDEX_PUBLIC_PLAYLIST_DETAIL, INDEX_PUBLIC_PLAYLIST_LIST,
 };
 use crate::view_models::index_name_list::IndexNameListBatch;
 use crate::view_models::list_page::ListSort;
@@ -113,6 +113,49 @@ impl ApplicationCommand for FetchPublicPlaylistPage {
     }
 }
 
+/// Fetches at most five pages of playlist publisher feeds.
+#[derive(Clone, Debug)]
+pub(crate) struct FetchPlaylistPublishers {
+    endpoint: crate::config::MusicIndexEndpoint,
+}
+
+impl FetchPlaylistPublishers {
+    /// Creates the command for the given Index endpoint.
+    #[must_use]
+    pub(crate) fn new(endpoint: impl Into<crate::config::MusicIndexEndpoint>) -> Self {
+        Self {
+            endpoint: endpoint.into(),
+        }
+    }
+}
+
+impl ApplicationCommand for FetchPlaylistPublishers {
+    type Output = Vec<Feed>;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        let client = Client::new_with_base_url(self.endpoint);
+        let mut rows = Vec::new();
+        let mut cursor = None;
+        for _ in 0..5 {
+            if context.cancellation().is_cancelled() {
+                return Err(CommandError::Cancelled);
+            }
+            let response = client
+                .fetch_playlist_publishers(200, cursor.as_deref(), &INDEX_PLAYLIST_PUBLISHERS)
+                .map_err(|error| CommandError::Query(format!("{error:#}")))?;
+            rows.extend(response.data);
+            if !response.pagination.has_more {
+                break;
+            }
+            cursor = response.pagination.cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        Ok(CommandOutcome::without_events(rows))
+    }
+}
+
 /// The answer of [`FetchPublicPlaylist`]: the feed GUID that was asked for,
 /// and the feed with its remote items.
 #[derive(Clone, Debug)]
@@ -157,5 +200,68 @@ impl ApplicationCommand for FetchPublicPlaylist {
             feed_guid: self.feed_guid,
             feed,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::application::queries::name_lists::tests::serve_routes;
+
+    /// Musicindex ADR 0081 R-CURATOR-5 and main session choice 2 of task
+    /// 002: the read of `/v1/feeds/playlist-publishers` follows the cursor,
+    /// with 200 rows on each page, and stops after 5 pages.
+    #[test]
+    fn musicindex_adr_0081_playlist_publishers_follow_the_cursor_up_to_five_pages() {
+        fn answer(path: &str) -> String {
+            let page = path
+                .split("cursor=")
+                .nth(1)
+                .and_then(|rest| rest.split('&').next())
+                .map_or(0, |cursor| cursor.parse::<usize>().unwrap());
+            serde_json::json!({
+                "data": [{"feed_guid": format!("p{page}"), "agreed_roles": ["label"]}],
+                "pagination": {"cursor": (page + 1).to_string(), "has_more": true}
+            })
+            .to_string()
+        }
+        let (endpoint, requests, _) = serve_routes(answer, 5);
+
+        let rows = FetchPlaylistPublishers::new(endpoint)
+            .execute(&CommandContext::next())
+            .unwrap()
+            .into_parts()
+            .0;
+
+        assert_eq!(rows.len(), 5);
+        let requests = requests.lock().unwrap().clone();
+        assert_eq!(requests.len(), 5, "at most 5 pages");
+        assert_eq!(requests[0], "/v1/feeds/playlist-publishers?limit=200");
+        assert_eq!(
+            requests[1],
+            "/v1/feeds/playlist-publishers?limit=200&cursor=1"
+        );
+    }
+
+    /// The read stops at the page with `has_more` false.
+    #[test]
+    fn musicindex_adr_0081_playlist_publishers_stop_at_the_last_page() {
+        fn answer(_path: &str) -> String {
+            serde_json::json!({
+                "data": [{"feed_guid": "chadf"}],
+                "pagination": {"cursor": null, "has_more": false}
+            })
+            .to_string()
+        }
+        let (endpoint, requests, _) = serve_routes(answer, 1);
+
+        let rows = FetchPlaylistPublishers::new(endpoint)
+            .execute(&CommandContext::next())
+            .unwrap()
+            .into_parts()
+            .0;
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(requests.lock().unwrap().len(), 1);
     }
 }

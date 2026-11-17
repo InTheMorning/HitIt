@@ -23,7 +23,7 @@ use crate::view_models::library_search_facts::LibrarySearchFacts;
 use crate::view_models::name_level_page::{
     NameLevelIndexRelease, NameLevelIndexState, NameLevelPageVm,
 };
-use crate::view_models::release_count::with_release_count;
+use crate::view_models::release_count::with_link_count;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::search_query::{
     ContentValue, FieldTerm, FieldValue, FieldValueState, LibraryStateValue, QueryFieldName,
@@ -667,8 +667,12 @@ fn index_feed_page_result_display(hit: &SearchResult) -> Option<ArtistResultDisp
         ArtistResultDisplay::new(format!("{INDEX_FEED_PAGE_RESULT_PREFIX}{feed_guid}"), label);
     display.a11y_label = format!("Open the feed page {label}");
     if let Some(total) = hit.two_way_link_count {
-        display.secondary_text =
-            with_release_count(&[], hit.release_track_counts.as_ref(), Some(total));
+        display.secondary_text = with_link_count(
+            &[],
+            hit.release_track_counts.as_ref(),
+            Some(total),
+            hit.two_way_playlist_link_count,
+        );
     }
     if hit.agreed_roles.is_some() || hit.first_named_count.is_some() {
         display.link_class = Some(FeedLinkClass::from_link_facts(
@@ -2531,7 +2535,9 @@ mod adr_0084_name_level_query_tests {
                  "two_way_link_count": 19, "release_track_counts": {"1": 18, "3": 1}},
                 {"entity_type": "publisher", "entity_id": "g1", "title": "Empty",
                  "two_way_link_count": 0, "release_track_counts": {}},
-                {"entity_type": "publisher", "entity_id": "g2", "title": "Old node"}
+                {"entity_type": "publisher", "entity_id": "g2", "title": "Old node"},
+                {"entity_type": "publisher", "entity_id": "g3", "title": "ChadF",
+                 "two_way_link_count": 0, "two_way_playlist_link_count": 2}
             ],
             "pagination": {"has_more": false, "cursor": null}
         }))
@@ -2543,8 +2549,8 @@ mod adr_0084_name_level_query_tests {
             .collect();
         assert_eq!(
             texts,
-            ["1 album \u{b7} 18 singles", "0 releases", ""],
-            "musicindex ADR 0023 R-WORD-9: the count is the secondary text"
+            ["1 album \u{b7} 18 singles", "0 releases", "", "2 playlists"],
+            "musicindex ADR 0023 R-WORD-9 and ADR 0081 R-CURATOR-6: the count is the secondary text"
         );
     }
 

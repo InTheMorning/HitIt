@@ -113,7 +113,7 @@ pub(crate) fn render_publisher_page(
 /// The entity kind of a header role (musicindex ADR 0033 R-WORD-3). The view
 /// model decides the role and whether the dot is filled. This screen maps
 /// the role to the entity palette, which the view model cannot name.
-const fn entity_kind_for_header_role(role: HeaderRole) -> EntityKind {
+pub(crate) const fn entity_kind_for_header_role(role: HeaderRole) -> EntityKind {
     match role {
         HeaderRole::Artist => EntityKind::Artist,
         HeaderRole::Label => EntityKind::Label,

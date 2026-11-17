@@ -134,6 +134,11 @@ pub(crate) struct PublisherPageFacts {
     pub(crate) unconfirmed_release_artist_count: Option<i64>,
     pub(crate) unconfirmed_release_artists: Vec<String>,
     pub(crate) albums: Vec<PublisherPageAlbumFact>,
+    /// The playlists that this feed lists (musicindex ADR 0081 R-CURATOR-3).
+    /// Each one comes from a row with the direction `publisher_to_playlist`
+    /// (Stophammer ADR 0102 §1). A node without `playlist_links` gives no
+    /// such row, so the list is then empty.
+    pub(crate) playlists: Vec<PublisherPageAlbumFact>,
     /// Each other feed that shares a confirmed album with this feed (ADR
     /// 0082 Decision 5). Empty when the response names none.
     pub(crate) co_credited_feeds: Vec<CoCreditedFeedFact>,
@@ -226,6 +231,16 @@ pub(crate) struct ReleaseRowOpenAction {
     pub(crate) a11y_label: String,
 }
 
+/// The open action of a playlist row of a feed page (musicindex ADR 0081
+/// R-CURATOR-3). The row opens the public playlist page.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PlaylistRowOpenAction {
+    /// The GUID of the playlist feed.
+    pub(crate) feed_guid: String,
+    /// The accessibility label, for example "Open the playlist IAM".
+    pub(crate) a11y_label: String,
+}
+
 /// One album row, ready to view (ADR 0085 Decision 3).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PublisherPageAlbumVm {
@@ -267,6 +282,10 @@ pub(crate) struct PublisherPageAlbumVm {
     /// source gives no date. A section offers Newest only when each of its
     /// rows has one (musicindex ADR 0053 R-LIST-9 item 1).
     pub(crate) date: Option<i64>,
+    /// The open action of a playlist row (musicindex ADR 0081
+    /// R-CURATOR-3). A playlist row has no release open action, no
+    /// selection, no menu and no download state, so `open` is `None`.
+    pub(crate) playlist_open: Option<PlaylistRowOpenAction>,
 }
 
 impl PublisherPageAlbumVm {
@@ -490,7 +509,7 @@ pub(crate) struct HeaderBadge {
 }
 
 /// The entity color of one known role (ADR 0012 item 5).
-const fn header_role_for(role: KnownRole) -> HeaderRole {
+pub(crate) const fn header_role_for(role: KnownRole) -> HeaderRole {
     match role {
         KnownRole::Artist => HeaderRole::Artist,
         KnownRole::Label => HeaderRole::Label,
@@ -661,6 +680,9 @@ impl PublisherPageVm {
     /// The note of the section "Matched by name".
     pub(crate) const MATCHED_BY_NAME_NOTE: &'static str =
         "These releases name no artist feed. The app relates them to this artist by the name only.";
+    /// Heading of the section of the confirmed playlists (musicindex ADR
+    /// 0081 R-CURATOR-3).
+    pub(crate) const PLAYLISTS_HEADING: &'static str = "Playlists";
     /// Heading of the section for a stated role that is not confirmed.
     pub(crate) const ROLE_NOT_CONFIRMED_HEADING: &'static str = "Role not confirmed";
     /// The fallback name of this feed in its "Listed by … only" heading,
@@ -920,10 +942,18 @@ impl PublisherPageVm {
     /// producer" row gives both roles. An unknown word gives no role. Empty
     /// when the page has no agreed row with a known role.
     fn agreed_known_roles(&self) -> Vec<KnownRole> {
+        // A confirmed playlist link that agrees on a role also gives that
+        // role (musicindex ADR 0081 R-CURATOR-3 items 2 and 5).
         let combined = self
             .facts
             .albums
             .iter()
+            .chain(
+                self.facts
+                    .playlists
+                    .iter()
+                    .filter(|playlist| playlist.two_way_validated == Some(true)),
+            )
             .filter(|album| album.role_agreement == Some(RoleAgreement::Both))
             .filter_map(|album| album.role.as_deref())
             .collect::<Vec<_>>()
@@ -944,6 +974,7 @@ impl PublisherPageVm {
         let mut as_roles: BTreeMap<String, Vec<PublisherPageAlbumVm>> = BTreeMap::new();
         let mut role_not_confirmed = Vec::new();
         let mut listed_only = Vec::new();
+        let mut playlists = Vec::new();
         let feed_title_text = self.title_text();
 
         for album in &self.facts.albums {
@@ -982,58 +1013,50 @@ impl PublisherPageVm {
                 }
             }
         }
+        // musicindex ADR 0081 R-CURATOR-3 and the orchestrator choice 1 of
+        // task 002: a confirmed playlist goes into "Playlists", a conflict
+        // into "Role not confirmed", and a one-way link into "Listed by
+        // <feed title> only", with the releases.
+        for playlist in &self.facts.playlists {
+            match Self::playlist_bucket(playlist) {
+                PlaylistBucket::Confirmed => playlists.push(Self::playlist_vm(playlist, None)),
+                PlaylistBucket::RoleNotConfirmed => {
+                    let role_line = stated_sides_text(
+                        &feed_title_text,
+                        playlist.publisher_rel.as_deref(),
+                        playlist.music_rel.as_deref(),
+                    );
+                    role_not_confirmed.push(Self::playlist_vm(playlist, Some(role_line)));
+                }
+                PlaylistBucket::ListedOnly => listed_only.push(Self::playlist_vm(playlist, None)),
+            }
+        }
 
-        let mut sections = Vec::new();
-        if !albums_and_eps.is_empty() {
-            sections.push(PublisherPageSectionVm {
-                heading: Self::ALBUMS_AND_EPS_HEADING.to_owned(),
-                rows: albums_and_eps,
-                note: None,
-                status: None,
-                controls: None,
-                view: ListView::Rows,
-            });
-        }
-        if !singles.is_empty() {
-            sections.push(PublisherPageSectionVm {
-                heading: Self::SINGLES_HEADING.to_owned(),
-                rows: singles,
-                note: None,
-                status: None,
-                controls: None,
-                view: ListView::Rows,
-            });
-        }
-        for (heading, rows) in as_roles {
-            sections.push(PublisherPageSectionVm {
-                heading,
-                rows,
-                note: None,
-                status: None,
-                controls: None,
-                view: ListView::Rows,
-            });
-        }
-        if !role_not_confirmed.is_empty() {
-            sections.push(PublisherPageSectionVm {
-                heading: Self::ROLE_NOT_CONFIRMED_HEADING.to_owned(),
-                rows: role_not_confirmed,
-                note: None,
-                status: None,
-                controls: None,
-                view: ListView::Rows,
-            });
-        }
-        if !listed_only.is_empty() {
-            sections.push(PublisherPageSectionVm {
-                heading: self.listed_only_heading(),
-                rows: listed_only,
-                note: None,
-                status: None,
-                controls: None,
-                view: ListView::Rows,
-            });
-        }
+        let mut sections: Vec<PublisherPageSectionVm> = [
+            (Self::ALBUMS_AND_EPS_HEADING.to_owned(), albums_and_eps),
+            (Self::SINGLES_HEADING.to_owned(), singles),
+        ]
+        .into_iter()
+        .chain(as_roles)
+        // The release sections come first (R-CURATOR-3 item 4).
+        .chain([
+            (Self::PLAYLISTS_HEADING.to_owned(), playlists),
+            (
+                Self::ROLE_NOT_CONFIRMED_HEADING.to_owned(),
+                role_not_confirmed,
+            ),
+            (self.listed_only_heading(), listed_only),
+        ])
+        .filter(|(_, rows)| !rows.is_empty())
+        .map(|(heading, rows)| PublisherPageSectionVm {
+            heading,
+            rows,
+            note: None,
+            status: None,
+            controls: None,
+            view: ListView::Rows,
+        })
+        .collect();
         if let Some(section) = self.matched_by_name_section(&sections) {
             sections.push(section);
         }
@@ -1109,6 +1132,20 @@ impl PublisherPageVm {
         )
     }
 
+    /// The section of a playlist row (Stophammer ADR 0102 §2). A link is
+    /// confirmed when the two feeds name each other and the roles do not
+    /// conflict. `one_side` and no role count as confirmed.
+    fn playlist_bucket(playlist: &PublisherPageAlbumFact) -> PlaylistBucket {
+        if playlist.two_way_validated != Some(true) {
+            return PlaylistBucket::ListedOnly;
+        }
+        if playlist.role_agreement == Some(RoleAgreement::Conflict) {
+            PlaylistBucket::RoleNotConfirmed
+        } else {
+            PlaylistBucket::Confirmed
+        }
+    }
+
     /// The section a row belongs to (ADR 0085 Decision 3).
     fn section_bucket(album: &PublisherPageAlbumFact) -> SectionBucket {
         if album.album_names_as != Some(AlbumNamesAs::Publisher) {
@@ -1167,7 +1204,30 @@ impl PublisherPageVm {
             kind: ReleaseKind::resolve(None, album_track_count(album)),
             menu: None,
             date: album.newest_date,
+            playlist_open: None,
         }
+    }
+
+    /// The row of one playlist (musicindex ADR 0081 R-CURATOR-3). It opens
+    /// the public playlist page, not a release page.
+    fn playlist_vm(
+        playlist: &PublisherPageAlbumFact,
+        role_line: Option<String>,
+    ) -> PublisherPageAlbumVm {
+        let mut vm = Self::album_vm(playlist, role_line);
+        vm.open = None;
+        vm.artist = None;
+        vm.not_listed = false;
+        vm.in_library = false;
+        vm.playlist_open = playlist
+            .feed_guid
+            .clone()
+            .filter(|guid| !guid.trim().is_empty())
+            .map(|feed_guid| PlaylistRowOpenAction {
+                a11y_label: format!("Open the playlist {}", vm.title.text()),
+                feed_guid,
+            });
+        vm
     }
 
     /// R3-11, R7-05 (ADR 0077 Task 007): the confirmed artist count.
@@ -1250,6 +1310,17 @@ impl PublisherPageVm {
     }
 }
 
+/// The section of a playlist row (musicindex ADR 0081 R-CURATOR-3).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PlaylistBucket {
+    /// "Playlists".
+    Confirmed,
+    /// "Role not confirmed".
+    RoleNotConfirmed,
+    /// "Listed by <feed title> only".
+    ListedOnly,
+}
+
 /// The section a row belongs to (ADR 0085 Decision 3), before it becomes a
 /// [`PublisherPageSectionVm`]. Kept separate from [`PublisherPageAlbumVm`]
 /// so a change to one row's shape never changes how a row is sorted into
@@ -1294,6 +1365,91 @@ mod tests {
             HeaderRole::Curator,
             "musicindex ADR 0081 R-CURATOR-2: a curator feed has the curator dot"
         );
+    }
+
+    /// A playlist row of a `publisher_to_playlist` link.
+    fn playlist(
+        guid: &str,
+        two_way: bool,
+        agreement: Option<RoleAgreement>,
+    ) -> PublisherPageAlbumFact {
+        PublisherPageAlbumFact {
+            feed_guid: Some(guid.to_owned()),
+            title: Some(format!("Playlist {guid}")),
+            two_way_validated: Some(two_way),
+            role_agreement: agreement,
+            role: Some("curator".to_owned()),
+            ..PublisherPageAlbumFact::default()
+        }
+    }
+
+    fn headings(vm: &PublisherPageVm) -> Vec<String> {
+        vm.sections()
+            .into_iter()
+            .map(|section| section.heading)
+            .collect()
+    }
+
+    /// musicindex ADR 0081 R-CURATOR-3: a feed that lists only playlists
+    /// is a curator. Its page has "Playlists" and no release section. A
+    /// conflict link goes into "Role not confirmed", and a one-way link into
+    /// "Listed by ... only".
+    #[test]
+    fn musicindex_adr_0081_curator_3_curator_only_feed_shows_playlists() {
+        let vm = PublisherPageVm::new(PublisherPageFacts {
+            playlists: vec![
+                playlist("iam", true, Some(RoleAgreement::Both)),
+                playlist("itdv", true, None),
+                playlist("clash", true, Some(RoleAgreement::Conflict)),
+                playlist("one-way", false, Some(RoleAgreement::Both)),
+            ],
+            ..facts(vec![])
+        });
+        assert_eq!(
+            headings(&vm),
+            [
+                PublisherPageVm::PLAYLISTS_HEADING.to_owned(),
+                PublisherPageVm::ROLE_NOT_CONFIRMED_HEADING.to_owned(),
+                vm.listed_only_heading(),
+            ]
+        );
+        assert_eq!(vm.sections()[0].rows.len(), 2);
+        assert_eq!(vm.header_badge().word, "Curator");
+        assert_eq!(vm.header_badge().role, HeaderRole::Curator);
+    }
+
+    /// musicindex ADR 0081 R-CURATOR-3 items 2, 4 and 5: a label with an
+    /// agreed playlist link is "Label \u{b7} Curator", and the release
+    /// sections come before "Playlists". A one-way playlist link gives no
+    /// role.
+    #[test]
+    fn musicindex_adr_0081_curator_3_label_curator_releases_first() {
+        let label_album = album_with_guid(
+            "release",
+            Some(AlbumNamesAs::Publisher),
+            Some(RoleAgreement::Both),
+            Some("label"),
+        );
+        let vm = PublisherPageVm::new(PublisherPageFacts {
+            playlists: vec![playlist("list", true, Some(RoleAgreement::Both))],
+            ..facts(vec![label_album.clone()])
+        });
+        assert_eq!(vm.header_badge().word, "Label \u{b7} Curator");
+        let headings = headings(&vm);
+        assert_eq!(
+            headings.last().map(String::as_str),
+            Some(PublisherPageVm::PLAYLISTS_HEADING)
+        );
+        assert!(
+            headings.len() > 1,
+            "the release section comes first: {headings:?}"
+        );
+
+        let one_way = PublisherPageVm::new(PublisherPageFacts {
+            playlists: vec![playlist("list", false, Some(RoleAgreement::Both))],
+            ..facts(vec![label_album])
+        });
+        assert_eq!(one_way.header_badge().word, "Label");
     }
 
     /// Review correction F of 2026-10-21 (ADR 0084 task 031): the same

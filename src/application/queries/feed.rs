@@ -305,44 +305,24 @@ pub(crate) fn fetch_index_publisher_page(
     Ok(facts)
 }
 
+/// The direction of a row of a playlist that a publisher feed lists
+/// (Stophammer ADR 0102 §1).
+const PUBLISHER_TO_PLAYLIST: &str = "publisher_to_playlist";
+
 fn publisher_page_facts_from_feed(publisher_feed_guid: &str, feed: &Feed) -> PublisherPageFacts {
-    let albums = feed
-        .publisher
-        .as_deref()
-        .unwrap_or_default()
-        .iter()
-        .filter(|entry| entry.direction.as_deref() == Some("publisher_to_music"))
-        .map(|entry| PublisherPageAlbumFact {
-            // A feed can list an album under a GUID that is not the GUID
-            // of the album. Stophammer then resolves the link by the feed
-            // URL, and `music_feed_guid` gives the album that it found. The
-            // release route and the Library mark need that GUID (operator
-            // check of 2026-10-18: each DETOX row opened a 404).
-            feed_guid: entry
-                .music_feed_guid
-                .clone()
-                .filter(|guid| !guid.trim().is_empty())
-                .or_else(|| entry.remote_feed_guid.clone()),
-            title: entry.remote_feed_title.clone(),
-            image_url: entry.remote_feed_image_url.clone(),
-            artist: entry.remote_release_artist.clone(),
-            artist_source: entry.remote_release_artist_source.clone(),
-            role: entry.role.clone(),
-            music_names_publisher: entry.music_names_publisher,
-            publisher_lists_music: entry.publisher_lists_music,
-            publisher_link_resolution: entry.publisher_link_resolution.clone(),
-            publisher_rel: entry.publisher_rel.clone(),
-            music_rel: entry.music_rel.clone(),
-            album_names_as: entry.album_names_as.clone(),
-            role_agreement: entry.role_agreement.clone(),
-            in_library: false,
-            named_rank: entry.album_names_rank,
-            track_count: entry.remote_episode_count,
-            two_way_validated: entry.two_way_validated,
-            // The Index response gives no date for an album.
-            newest_date: None,
-        })
-        .collect();
+    let rows_of = |direction: &str| -> Vec<PublisherPageAlbumFact> {
+        feed.publisher
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .filter(|entry| entry.direction.as_deref() == Some(direction))
+            .map(publisher_page_album_fact)
+            .collect()
+    };
+    let albums = rows_of("publisher_to_music");
+    // musicindex ADR 0081 R-CURATOR-3: a node with `playlist_links` gives
+    // these rows. An older node gives none, so the page does not change.
+    let playlists = rows_of(PUBLISHER_TO_PLAYLIST);
     let co_credited_feeds = feed
         .co_credited_feeds
         .as_deref()
@@ -364,8 +344,44 @@ fn publisher_page_facts_from_feed(publisher_feed_guid: &str, feed: &Feed) -> Pub
         unconfirmed_release_artist_count: feed.unconfirmed_release_artist_count,
         unconfirmed_release_artists: feed.unconfirmed_release_artists.clone().unwrap_or_default(),
         albums,
+        playlists,
         co_credited_feeds,
         other_albums_failure: None,
+    }
+}
+
+/// The facts of one row of `include=publisher`. The release rows and the
+/// playlist rows have the same fields (Stophammer ADR 0102 §1).
+fn publisher_page_album_fact(entry: &crate::api::PublisherRelationship) -> PublisherPageAlbumFact {
+    PublisherPageAlbumFact {
+        // A feed can list an album under a GUID that is not the GUID
+        // of the album. Stophammer then resolves the link by the feed
+        // URL, and `music_feed_guid` gives the album that it found. The
+        // release route and the Library mark need that GUID (operator
+        // check of 2026-10-18: each DETOX row opened a 404).
+        feed_guid: entry
+            .music_feed_guid
+            .clone()
+            .filter(|guid| !guid.trim().is_empty())
+            .or_else(|| entry.remote_feed_guid.clone()),
+        title: entry.remote_feed_title.clone(),
+        image_url: entry.remote_feed_image_url.clone(),
+        artist: entry.remote_release_artist.clone(),
+        artist_source: entry.remote_release_artist_source.clone(),
+        role: entry.role.clone(),
+        music_names_publisher: entry.music_names_publisher,
+        publisher_lists_music: entry.publisher_lists_music,
+        publisher_link_resolution: entry.publisher_link_resolution.clone(),
+        publisher_rel: entry.publisher_rel.clone(),
+        music_rel: entry.music_rel.clone(),
+        album_names_as: entry.album_names_as.clone(),
+        role_agreement: entry.role_agreement.clone(),
+        in_library: false,
+        named_rank: entry.album_names_rank,
+        track_count: entry.remote_episode_count,
+        two_way_validated: entry.two_way_validated,
+        // The Index response gives no date for an album.
+        newest_date: None,
     }
 }
 

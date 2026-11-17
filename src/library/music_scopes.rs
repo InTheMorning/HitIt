@@ -265,7 +265,7 @@ impl LibraryApp {
     /// (musicindex ADR 0053 R-LIST-8 item 4). The answer sets the reverse
     /// button of each Index list. A failed read lets the next list load ask
     /// again.
-    fn request_index_sorts(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn request_index_sorts(&mut self, cx: &mut Context<Self>) {
         if self.index_sorts_requested {
             return;
         }
@@ -278,6 +278,13 @@ impl LibraryApp {
             move |this, node, cx| {
                 let before = this.artists_node_request();
                 this.vm.set_index_sorts(node);
+                // Musicindex ADR 0081 R-CURATOR-5: an open Public playlists
+                // list or playlist page reads the playlist publishers.
+                if !this.public_playlist_list.is_not_started()
+                    || this.public_playlist_pages.feed_guid().is_some()
+                {
+                    this.request_playlist_publishers(cx);
+                }
                 // The first Artists request can leave before this answer. A
                 // node that lists `artist_newest` gives the sort Newest, so
                 // the loaded list starts again with the request that the

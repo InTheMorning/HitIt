@@ -1304,6 +1304,7 @@ mod tests {
             kind: crate::view_models::release_kind::ReleaseKind::Album,
             menu: None,
             date: None,
+            playlist_open: None,
         }
     }
 

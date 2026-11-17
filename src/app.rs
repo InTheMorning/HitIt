@@ -453,8 +453,9 @@ impl TopApp {
                 }
                 LibraryAppEvent::OpenIndexPublisherPage {
                     publisher_feed_guid,
+                    start,
                 } => {
-                    this.open_index_publisher_page_from_list_row(publisher_feed_guid.clone(), cx);
+                    this.open_index_publisher_page(publisher_feed_guid.clone(), *start, cx);
                 }
                 LibraryAppEvent::OpenAlbumPage { feed_id } => {
                     this.open_library_album_page(*feed_id, cx);

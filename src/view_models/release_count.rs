@@ -31,6 +31,8 @@ pub(crate) fn release_count_text(
         .map_or_else(|| total_text(total), kinds_text)
 }
 
+const PLAYLIST: usize = 3;
+
 /// The secondary text of a row with `parts` first and the count text last.
 /// A row with no total adds no count part.
 #[must_use]
@@ -39,7 +41,28 @@ pub(crate) fn with_release_count(
     track_counts: Option<&BTreeMap<String, i64>>,
     total: Option<i64>,
 ) -> String {
-    let count = total.map(|total| release_count_text(track_counts, total));
+    with_link_count(parts, track_counts, total, None)
+}
+
+/// The secondary text of a feed row with `parts` first and the count text
+/// last. A feed with no confirmed release and one or more confirmed
+/// playlists gives "N playlists" (musicindex ADR 0081 R-CURATOR-6, main
+/// session choice 4 of task 002). Each other feed gives the release count.
+#[must_use]
+pub(crate) fn with_link_count(
+    parts: &[&str],
+    track_counts: Option<&BTreeMap<String, i64>>,
+    releases: Option<i64>,
+    playlists: Option<i64>,
+) -> String {
+    let count = match (releases, playlists) {
+        (Some(0), Some(playlists)) if playlists > 0 => {
+            let mut kinds = [0_i64; 4];
+            kinds[PLAYLIST] = playlists;
+            Some(kinds_text(kinds))
+        }
+        (releases, _) => releases.map(|total| release_count_text(track_counts, total)),
+    };
     parts
         .iter()
         .copied()
@@ -102,6 +125,17 @@ mod tests {
 
     fn text(pairs: &[(&str, i64)], total: i64) -> String {
         release_count_text(Some(&counts(pairs)), total)
+    }
+
+    /// Musicindex ADR 0081 R-CURATOR-6: a feed with no confirmed release
+    /// and confirmed playlists shows the playlist count.
+    #[test]
+    fn musicindex_adr_0081_curator_6_playlist_count_replaces_zero_releases() {
+        assert_eq!(with_link_count(&[], None, Some(0), Some(2)), "2 playlists");
+        assert_eq!(with_link_count(&[], None, Some(0), Some(1)), "1 playlist");
+        assert_eq!(with_link_count(&[], None, Some(0), Some(0)), "0 releases");
+        assert_eq!(with_link_count(&[], None, Some(3), Some(2)), "3 releases");
+        assert_eq!(with_link_count(&[], None, None, Some(2)), "");
     }
 
     #[test]

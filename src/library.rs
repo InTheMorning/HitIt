@@ -99,11 +99,14 @@ pub(crate) enum LibraryAppEvent {
     OpenPublisherPage {
         publisher_feed_guid: String,
     },
-    /// Opens the feed page of a MusicIndex feed row of the Artists list,
-    /// with the MusicIndex context, directly under its destination (ADR
-    /// 0084 packet 016 decision D14).
+    /// Opens the feed page of a MusicIndex feed, with the MusicIndex
+    /// context. A row of the Artists list and a group heading of the Public
+    /// playlists list open it directly under the destination (ADR 0084
+    /// packet 016 decision D14). The Curator row of a playlist page opens it
+    /// in the current path (musicindex ADR 0081 R-CURATOR-4).
     OpenIndexPublisherPage {
         publisher_feed_guid: String,
+        start: NavigationPathStart,
     },
     /// Opens the Library album page of a feed id, from the album name link
     /// of a track page (ADR 0101 Decision 5).
@@ -383,6 +386,13 @@ pub struct LibraryApp {
     public_playlist_list: IndexNameListPage<Feed>,
     /// The item page of the open public playlist (ADR 0089 packet 009).
     public_playlist_pages: PublicPlaylistPages,
+    /// The rows of `GET /v1/feeds/playlist-publishers` (musicindex ADR 0081
+    /// R-CURATOR-5). They are used only when the node lists
+    /// `playlist_links`.
+    playlist_curators: crate::view_models::playlist_curators::PlaylistCurators,
+    /// Whether the app asked for the playlist publishers. The app asks one
+    /// time in each session, until a read answers.
+    playlist_publishers_requested: bool,
     /// The Live list's virtual list state (ADR 0089 packet 011).
     live_list_state: MusicColumnList,
     /// The pages of the Live list (ADR 0089 packet 011). A new read keeps the

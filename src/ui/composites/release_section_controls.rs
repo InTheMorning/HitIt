@@ -179,16 +179,26 @@ fn render_release_tile(
             artwork_size,
         ));
     }
-    card = card.child(render_release_download_state(
-        &row.download_state,
-        format!("{row_id}-download-state"),
-        cx,
-    ));
+    // A playlist tile has no download state (musicindex ADR 0081
+    // R-CURATOR-3).
+    if row.playlist_open.is_none() {
+        card = card.child(render_release_download_state(
+            &row.download_state,
+            format!("{row_id}-download-state"),
+            cx,
+        ));
+    }
     if let Some(open) = &row.open {
         let on_click_release = Rc::clone(&rows.on_click_release);
         let key = open.key.clone();
         card = card.on_click(move |event: &ClickEvent, window, cx| {
             on_click_release(&key, title.clone(), event.modifiers(), window, cx);
+        });
+    } else if let Some(open) = &row.playlist_open {
+        let on_open_playlist = Rc::clone(&rows.on_open_playlist);
+        let feed_guid = open.feed_guid.clone();
+        card = card.on_click(move |_event: &ClickEvent, window, cx| {
+            on_open_playlist(&feed_guid, window, cx);
         });
     }
     card.into_any_element()

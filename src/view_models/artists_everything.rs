@@ -23,7 +23,7 @@ use crate::view_models::library::{
     release_row_slug_text, DestinationListRowTarget, DestinationListRowVm,
 };
 use crate::view_models::list_selection::RowSelectionVm;
-use crate::view_models::release_count::with_release_count;
+use crate::view_models::release_count::{with_link_count, with_release_count};
 use crate::view_models::role_words::{known_roles, KnownRole};
 
 /// The secondary text of a `MusicIndex` row (packet 016 decision D12).
@@ -276,10 +276,11 @@ pub(crate) fn index_artist_row(row: &ArtistNameRow) -> DestinationListRowVm {
                 marked: false,
                 element_id: format!("music-artist-row-index-publisher:{feed_guid}"),
                 label: row.name.clone(),
-                secondary_text: with_release_count(
+                secondary_text: with_link_count(
                     &[NOT_IN_LIBRARY],
                     row.release_track_counts.as_ref(),
                     row.two_way_link_count,
+                    row.two_way_playlist_link_count,
                 ),
                 a11y_label: format!("Artist: {}", row.name),
                 thumbnail_href: None,
@@ -798,7 +799,9 @@ mod tests {
              "feed_guid": "g0", "two_way_link_count": 19,
              "release_track_counts": {"1": 18, "3": 1}},
             {"kind": "publisher", "name": "No Total", "sort_name": "no total", "key": "g1",
-             "feed_guid": "g1"}
+             "feed_guid": "g1"},
+            {"kind": "publisher", "name": "ChadF", "sort_name": "chadf", "key": "g2",
+             "feed_guid": "g2", "two_way_link_count": 0, "two_way_playlist_link_count": 2}
         ]))
         .expect("the rows decode");
         assert_eq!(
@@ -815,6 +818,11 @@ mod tests {
             index_artist_row(&rows[2]).secondary_text,
             "Not in Library",
             "musicindex ADR 0023 R-WORD-9: no total gives no count part"
+        );
+        assert_eq!(
+            index_artist_row(&rows[3]).secondary_text,
+            "Not in Library \u{b7} 2 playlists",
+            "musicindex ADR 0081 R-CURATOR-6: a curator row counts its playlists"
         );
     }
 

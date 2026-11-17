@@ -19,6 +19,10 @@ use crate::view_models::index_name_list::{
 use crate::view_models::library::{DestinationListRowTarget, DestinationListRowVm};
 use crate::view_models::list_page::{in_shown_order, ListPageKey, ListPageState, SectionHeadingVm};
 use crate::view_models::list_selection::RowSelectionVm;
+use crate::view_models::playlist_curators::{
+    playlist_groups, PlaylistCuratorFacts, PlaylistCurators, PlaylistGroupHeadingVm,
+    PlaylistGroupItem, PlaylistGroupOrder, UNVERIFIED_LINK_NOTE,
+};
 use crate::view_models::release_page::{public_playlist_copy_menu_vm, TrackRowMenuVm};
 use crate::view_models::workspace::{FrameNavigationEntry, ReleaseKey, TrackKey};
 
@@ -52,6 +56,8 @@ const UNTITLED_ITEM: &str = "Untitled item";
 pub(crate) enum PublicPlaylistListItemVm {
     /// A playlist row.
     Row(PublicPlaylistRowVm),
+    /// The heading of a group (musicindex ADR 0081 R-CURATOR-5).
+    Heading(PlaylistGroupHeadingVm),
     /// The loading row, the error row or "Load more".
     Status(IndexListStatusRowVm),
 }
@@ -68,10 +74,7 @@ impl PublicPlaylistListItemVm {
     /// The items of `rows`, with `status` before or after them (ADR 0084
     /// packet 016 decision D8).
     #[must_use]
-    pub(crate) fn of(
-        rows: Vec<PublicPlaylistRowVm>,
-        status: Option<IndexListStatusRowVm>,
-    ) -> Vec<Self> {
+    pub(crate) fn of(rows: Vec<Self>, status: Option<IndexListStatusRowVm>) -> Vec<Self> {
         let (leading, trailing) = match status {
             Some(row) if row.at_list_start() => (Some(row), None),
             other => (None, other),
@@ -79,7 +82,7 @@ impl PublicPlaylistListItemVm {
         leading
             .map(Self::Status)
             .into_iter()
-            .chain(rows.into_iter().map(Self::Row))
+            .chain(rows)
             .chain(trailing.map(Self::Status))
             .collect()
     }
@@ -89,13 +92,16 @@ impl PublicPlaylistListItemVm {
     pub(crate) fn element_id(&self) -> &str {
         match self {
             Self::Row(row) => &row.row.element_id,
+            Self::Heading(heading) => &heading.element_id,
             Self::Status(row) => row.element_id(),
         }
     }
 }
 
 /// The rows of the Public playlists list, one for each feed that has a
-/// GUID. A feed with no GUID cannot open its page, so it has no row.
+/// GUID. A feed with no GUID cannot open its page, so it has no row. The
+/// list builds each row in [`public_playlist_list_items`].
+#[cfg(test)]
 #[must_use]
 pub(crate) fn public_playlist_rows(feeds: &[Feed]) -> Vec<DestinationListRowVm> {
     feeds.iter().filter_map(public_playlist_row).collect()
@@ -143,34 +149,76 @@ fn public_playlist_row(feed: &Feed) -> Option<DestinationListRowVm> {
 ///
 /// `copying` is the playlist whose copy runs. Its row shows the busy text,
 /// and no row has a menu while a copy runs.
+///
+/// `curators` is `Some` only when the node lists `playlist_links`. The rows
+/// then come in their groups, in the sequence that `order` gives, and a row
+/// of "Other playlists" with `unconfirmed_publisher` ends with "(unverified
+/// link)" (musicindex ADR 0081 R-CURATOR-5).
 #[must_use]
 pub(crate) fn public_playlist_list_items(
     page: &IndexNameListPage<Feed>,
     marked: Option<&FrameNavigationEntry>,
     copying: Option<&str>,
+    curators: Option<&PlaylistCurators>,
+    order: PlaylistGroupOrder,
 ) -> Vec<PublicPlaylistListItemVm> {
-    let rows = public_playlist_rows(page.rows())
-        .into_iter()
-        .map(|row| {
-            let row = row.with_marked(marked);
-            let feed_guid = match &row.open {
-                DestinationListRowTarget::PublicPlaylist(guid) => guid.clone(),
-                _ => String::new(),
-            };
-            let busy = copying == Some(feed_guid.as_str());
-            let menu = public_playlist_copy_menu(&feed_guid, &row.label, copying.is_some());
-            let row = if busy {
-                DestinationListRowVm {
-                    secondary_text: COPYING_TEXT.to_owned(),
-                    ..row
+    let feeds = page.rows();
+    let row_item = |feed: &Feed, unverified: bool| {
+        let row = public_playlist_row(feed)?.with_marked(marked);
+        let feed_guid = match &row.open {
+            DestinationListRowTarget::PublicPlaylist(guid) => guid.clone(),
+            _ => String::new(),
+        };
+        let busy = copying == Some(feed_guid.as_str());
+        let menu = public_playlist_copy_menu(&feed_guid, &row.label, copying.is_some());
+        let secondary_text = if busy {
+            COPYING_TEXT.to_owned()
+        } else if unverified {
+            [row.secondary_text.as_str(), UNVERIFIED_LINK_NOTE]
+                .iter()
+                .filter(|text| !text.is_empty())
+                .copied()
+                .collect::<Vec<_>>()
+                .join(" ")
+        } else {
+            row.secondary_text.clone()
+        };
+        let a11y_label = if unverified && !busy {
+            format!("{}, unverified link", row.a11y_label)
+        } else {
+            row.a11y_label.clone()
+        };
+        Some(PublicPlaylistListItemVm::Row(PublicPlaylistRowVm {
+            row: DestinationListRowVm {
+                secondary_text,
+                a11y_label,
+                ..row
+            },
+            menu,
+        }))
+    };
+    let items = match curators {
+        None => feeds
+            .iter()
+            .filter_map(|feed| row_item(feed, false))
+            .collect(),
+        Some(curators) => {
+            let groups = playlist_groups(feeds, curators, order);
+            let mut items = Vec::with_capacity(groups.len());
+            for item in groups {
+                match item {
+                    PlaylistGroupItem::Heading(heading) => {
+                        items.push(PublicPlaylistListItemVm::Heading(heading));
+                    }
+                    PlaylistGroupItem::Row { index, unverified } => {
+                        items.extend(row_item(&feeds[index], unverified));
+                    }
                 }
-            } else {
-                row
-            };
-            PublicPlaylistRowVm { row, menu }
-        })
-        .collect();
-    PublicPlaylistListItemVm::of(rows, page.status_row(IndexNameList::PublicPlaylists))
+            }
+            items
+        }
+    };
+    PublicPlaylistListItemVm::of(items, page.status_row(IndexNameList::PublicPlaylists))
 }
 
 /// The "More actions" menu of a public playlist, with its one item "Copy
@@ -348,6 +396,8 @@ pub(crate) struct PublicPlaylistPageVm {
     /// count of the controls, and in the page that [`Self::from_feed`]
     /// gives.
     pub(crate) heading: Option<SectionHeadingVm>,
+    /// The facts of the Curator row (musicindex ADR 0081 R-CURATOR-4).
+    pub(crate) curator: PlaylistCuratorFacts,
 }
 
 impl PublicPlaylistPageVm {
@@ -378,6 +428,7 @@ impl PublicPlaylistPageVm {
             art,
             items,
             heading: None,
+            curator: PlaylistCuratorFacts::from_feed(feed),
         }
     }
 
@@ -715,12 +766,20 @@ mod tests {
             },
             intent.generation,
         ));
-        assert!(public_playlist_list_items(&page, None, None).is_empty());
+        assert!(public_playlist_list_items(
+            &page,
+            None,
+            None,
+            None,
+            PlaylistGroupOrder::RowSequence
+        )
+        .is_empty());
 
         let mut failed: IndexNameListPage<Feed> = IndexNameListPage::default();
         let intent = failed.begin_load(false).expect("page 1 starts");
         assert!(failed.fail_load("timeout", intent.generation));
-        let items = public_playlist_list_items(&failed, None, None);
+        let items =
+            public_playlist_list_items(&failed, None, None, None, PlaylistGroupOrder::RowSequence);
         assert!(matches!(
             items.as_slice(),
             [PublicPlaylistListItemVm::Status(
@@ -800,6 +859,56 @@ mod tests {
         assert!(public_playlist_copy_menu("playlist-guid", "Late Night", true).is_none());
     }
 
+    /// Musicindex ADR 0081 R-CURATOR-5 and Stophammer ADR 0102 §7: without
+    /// `playlist_links` the list has no group heading. With it, the rows
+    /// come in their groups and an unconfirmed row has the note.
+    #[test]
+    fn musicindex_adr_0081_curator_5_groups_only_with_the_capability() {
+        let feeds: Vec<Feed> = serde_json::from_value(serde_json::json!([
+            {"feed_guid": "one", "title": "First", "unconfirmed_publisher": {"feed_guid": "x"}},
+            {"feed_guid": "two", "title": "Second",
+             "confirmed_publisher": {"feed_guid": "chadf", "title": "ChadF"}}
+        ]))
+        .unwrap();
+        let mut page: IndexNameListPage<Feed> = IndexNameListPage::default();
+        let intent = page.begin_load(false).expect("page 1 starts");
+        assert!(page.finish_load(
+            IndexNameListBatch {
+                rows: feeds,
+                cursor: None,
+                has_more: false,
+            },
+            intent.generation,
+        ));
+        let is_heading =
+            |item: &PublicPlaylistListItemVm| matches!(item, PublicPlaylistListItemVm::Heading(_));
+
+        let plain =
+            public_playlist_list_items(&page, None, None, None, PlaylistGroupOrder::RowSequence);
+        assert_eq!(plain.len(), 2);
+        assert!(!plain.iter().any(is_heading));
+
+        let curators = PlaylistCurators::default();
+        let grouped = public_playlist_list_items(
+            &page,
+            None,
+            None,
+            Some(&curators),
+            PlaylistGroupOrder::RowSequence,
+        );
+        assert_eq!(grouped.len(), 4);
+        assert!(is_heading(&grouped[0]) && is_heading(&grouped[2]));
+        let PublicPlaylistListItemVm::Row(other) = &grouped[3] else {
+            panic!("the last item is a row");
+        };
+        assert_eq!(other.row.label, "First");
+        assert!(other.row.secondary_text.ends_with(UNVERIFIED_LINK_NOTE));
+        let PublicPlaylistListItemVm::Row(confirmed) = &grouped[1] else {
+            panic!("the second item is a row");
+        };
+        assert!(!confirmed.row.secondary_text.contains(UNVERIFIED_LINK_NOTE));
+    }
+
     /// ADR 0089 packet 010: the copying playlist shows the busy text, and
     /// no row has a menu while a copy runs.
     #[test]
@@ -827,14 +936,21 @@ mod tests {
             intent.generation,
         ));
 
-        let idle = public_playlist_list_items(&page, None, None);
+        let idle =
+            public_playlist_list_items(&page, None, None, None, PlaylistGroupOrder::RowSequence);
         let PublicPlaylistListItemVm::Row(first) = &idle[0] else {
             panic!("the first item is a row");
         };
         assert!(first.menu.is_some());
         assert_ne!(first.row.secondary_text, COPYING_TEXT);
 
-        let busy = public_playlist_list_items(&page, None, Some("one"));
+        let busy = public_playlist_list_items(
+            &page,
+            None,
+            Some("one"),
+            None,
+            PlaylistGroupOrder::RowSequence,
+        );
         let PublicPlaylistListItemVm::Row(first) = &busy[0] else {
             panic!("the first item is a row");
         };

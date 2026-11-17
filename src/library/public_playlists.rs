@@ -22,7 +22,7 @@ use crate::application::commands::playlist::{
     CopyPublicPlaylistResult, CopyPublicPlaylistToMyPlaylists,
 };
 use crate::application::queries::public_playlists::{
-    FetchPublicPlaylist, FetchPublicPlaylistPage, PublicPlaylistLoad,
+    FetchPlaylistPublishers, FetchPublicPlaylist, FetchPublicPlaylistPage, PublicPlaylistLoad,
 };
 use crate::application::CommandContext;
 use crate::presentation::collection_art::collection_art_image;
@@ -41,14 +41,15 @@ use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
 use crate::ui::shells::library::public_playlists::{
-    public_playlist_copy_dialog, render_public_playlist_failed, render_public_playlist_item,
-    render_public_playlist_list_item, render_public_playlist_loading,
-    render_public_playlist_page_body, render_public_playlist_tile,
+    public_playlist_copy_dialog, render_playlist_curator_row, render_playlist_group_heading,
+    render_public_playlist_failed, render_public_playlist_item, render_public_playlist_list_item,
+    render_public_playlist_loading, render_public_playlist_page_body, render_public_playlist_tile,
 };
 use crate::ui::shells::library::releases_tiles::render_tile_grid;
 use crate::view_models::index_name_list::{IndexListStatusRowVm, IndexNameListLoadIntent};
 use crate::view_models::library::DestinationListRowTarget;
 use crate::view_models::list_page::{ListPageKey, ListSort, ListView};
+use crate::view_models::playlist_curators::{PlaylistCurators, PlaylistGroupOrder};
 use crate::view_models::public_playlists::{
     public_playlist_copy_menu, public_playlist_copy_report, public_playlist_list_items,
     PublicPlaylistCopyDialogVm, PublicPlaylistCopyName, PublicPlaylistCopyReport,
@@ -121,6 +122,9 @@ impl LibraryApp {
         intent: Option<IndexNameListLoadIntent>,
         cx: &mut Context<Self>,
     ) {
+        // Musicindex ADR 0081 R-CURATOR-5: each list request also asks for
+        // the playlist publishers again after a failed read.
+        self.request_playlist_publishers(cx);
         let Some(IndexNameListLoadIntent {
             cursor,
             generation,
@@ -174,6 +178,11 @@ impl LibraryApp {
     /// playlist with its remote items, unless the page holds it already
     /// (ADR 0089 packet 009). A failed read starts again.
     pub(crate) fn request_public_playlist(&mut self, feed_guid: &str, cx: &mut Context<Self>) {
+        // Musicindex ADR 0081 R-CURATOR-4: the Curator row needs the
+        // capabilities of the node and the playlist publishers. A page in
+        // the cache also asks again after a failed read.
+        self.request_index_sorts(cx);
+        self.request_playlist_publishers(cx);
         let Some(generation) = self.public_playlist_pages.begin(feed_guid) else {
             return;
         };
@@ -200,6 +209,55 @@ impl LibraryApp {
                 {
                     cx.notify();
                 }
+            },
+        );
+    }
+
+    /// The curator facts of the node, or `None` when the node does not list
+    /// `playlist_links` (Stophammer ADR 0102 §7). Each curator part reads
+    /// it, so a node without the capability shows each page as before.
+    pub(crate) fn playlist_curators(&self) -> Option<&PlaylistCurators> {
+        self.vm
+            .index_lists_playlist_links()
+            .then_some(&self.playlist_curators)
+    }
+
+    /// The sequence of the groups of the Public playlists list (main
+    /// session choice 1 of musicindex ADR 0081 task 002). With Newest, the
+    /// groups follow their rows. With A to Z, they follow the feed titles.
+    fn playlist_group_order(&self) -> PlaylistGroupOrder {
+        match self.public_playlist_sort() {
+            ListSort::AToZ => PlaylistGroupOrder::Title {
+                reversed: self.vm.list_index_reversed(ListPageKey::PublicPlaylists),
+            },
+            ListSort::Newest
+            | ListSort::Relevance
+            | ListSort::FeedOrder
+            | ListSort::PlaylistOrder
+            | ListSort::CuratorOrder => PlaylistGroupOrder::RowSequence,
+        }
+    }
+
+    /// Reads the rows of `GET /v1/feeds/playlist-publishers` one time in
+    /// each session, when the node lists `playlist_links` (musicindex ADR
+    /// 0081 R-CURATOR-5). A failed read lets the next list or page ask
+    /// again. Until the answer, the curator parts use the link facts only.
+    pub(crate) fn request_playlist_publishers(&mut self, cx: &mut Context<Self>) {
+        if self.playlist_publishers_requested || !self.vm.index_lists_playlist_links() {
+            return;
+        }
+        self.playlist_publishers_requested = true;
+        present_command(
+            &self.command_runner,
+            FetchPlaylistPublishers::new(self.musicindex_endpoint.clone()),
+            CommandContext::next(),
+            cx,
+            move |this, rows, cx| {
+                this.playlist_curators = PlaylistCurators::from_publisher_rows(&rows);
+                cx.notify();
+            },
+            move |this, _error, _cx| {
+                this.playlist_publishers_requested = false;
             },
         );
     }
@@ -501,6 +559,8 @@ impl LibraryApp {
             &self.public_playlist_list,
             self.marked_entry.as_ref(),
             self.copying_public_playlist.as_deref(),
+            self.playlist_curators(),
+            self.playlist_group_order(),
         ));
         match self.vm.list_view(ListPageKey::PublicPlaylists) {
             ListView::Rows => {
@@ -542,7 +602,9 @@ impl LibraryApp {
                     .map(|art| collection_art_image(self, art, ThumbnailSize::Sm, cx)),
                 self.public_playlist_row_menu(row, cx),
             ),
-            PublicPlaylistListItemVm::Status(_) => (None, None),
+            PublicPlaylistListItemVm::Heading(_) | PublicPlaylistListItemVm::Status(_) => {
+                (None, None)
+            }
         };
         render_public_playlist_list_item(
             item.clone(),
@@ -584,6 +646,11 @@ impl LibraryApp {
                         .as_ref()
                         .map(|art| collection_art_image(self, art, ThumbnailSize::Xl, cx));
                     tiles.push(render_public_playlist_tile(row.row.clone(), art, cx));
+                }
+                // Musicindex ADR 0081 R-CURATOR-5: a group heading takes a
+                // full line of the grid, then its tiles follow.
+                PublicPlaylistListItemVm::Heading(heading) => {
+                    tiles.push(render_playlist_group_heading(heading, cx));
                 }
                 PublicPlaylistListItemVm::Status(status) => {
                     let element = render_index_list_status_row(
@@ -654,6 +721,10 @@ impl LibraryApp {
                 // Reverse toggle from the count of the controls.
                 let page = page.shown(self.vm.list_page_state(ListPageKey::PublicPlaylistItems));
                 let heading = Self::render_public_playlist_heading(&page, cx);
+                let curator = page
+                    .curator
+                    .row(self.playlist_curators())
+                    .map(|curator| render_playlist_curator_row(&curator, cx));
                 let mut rows = Vec::new();
                 for item in &page.items {
                     let art = collection_art_image(self, &item.art, ThumbnailSize::Sm, cx);
@@ -685,7 +756,8 @@ impl LibraryApp {
                     header_art,
                     menu_cell.into_any_element(),
                     status.as_deref(),
-                    heading,
+                    // The Curator row, then the heading row of the entries.
+                    curator.into_iter().chain(heading).collect(),
                     rows,
                     cx,
                 )

@@ -165,6 +165,7 @@ mod tests {
             kind: ReleaseKind::Album,
             menu: None,
             date: None,
+            playlist_open: None,
         }
     }
 

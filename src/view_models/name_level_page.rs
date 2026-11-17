@@ -290,6 +290,7 @@ fn row_vm(
         kind,
         menu: None,
         date: None,
+        playlist_open: None,
     }
 }
 
