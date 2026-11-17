@@ -16551,8 +16551,8 @@ fn adr_0069_settings_group_ownership() {
     assert!(!app.contains("fn render_settings(") && !app.contains("fn render_ui_scale_picker("));
     assert_eq!(screen.matches("fn render_settings(").count(), 1);
     for required in [
-        "settings_frame(navigation, content, page_scroll, workspace, cx)",
-        "settings_field(field, input, cx)",
+        "settings_frame(tab_row, navigation, content, page_scroll, workspace, cx)",
+        "settings_row(",
         "app.render_capabilities(true, cx)",
         "app.cached_files.status()",
     ] {
@@ -16588,9 +16588,29 @@ fn adr_0069_settings_group_ownership() {
     }
     assert!(form.contains(".flex_wrap()") && form.contains(".on_activate("));
     assert!(form.contains(".a11y_label(") && form.contains(".disabled(display.availability"));
+    // ADR 0074: the page navigation is above the page. `SettingsBars` puts
+    // the Diagnostics page menu on the title line or on the tab row line.
     assert!(
-        form.find(".children(navigation)").unwrap() < form.find(".id(\"settings-page\")").unwrap()
+        form.find(".child(SettingsBars {").unwrap() < form.find(".id(\"settings-page\")").unwrap()
+            && form.contains(".children(title_menu)")
+            && form.contains(".children(row_menu)"),
+        "ADR 0074: mount the page navigation above the page with `.child(SettingsBars {{ .. }})` in `settings_frame`."
     );
+    // ADR 0093 Decision 1: a segmented control selects the group, and the
+    // group menu is gone. The Diagnostics page menu stays (Decision 4).
+    assert!(
+        form.contains("SegmentedControl::new(control.selected)")
+            && screen.contains("settings_tab_row(app.settings.group_control()"),
+        "ADR 0093 Decision 1: the group is selected by a segmented control below the page bar. \
+Render `settings_tab_row(app.settings.group_control(), ..)` in `render_settings`."
+    );
+    for forbidden in ["GROUP_MENU", "settings-group-menu", "fn navigation("] {
+        assert!(
+            !screen.contains(forbidden) && !vm.contains(forbidden) && !form.contains(forbidden),
+            "ADR 0093 Decision 1: the group `PageMenu` is removed. \
+Use the segmented control, and keep `PageMenu` for the Diagnostics pages only: {forbidden}"
+        );
+    }
     assert!(form.contains(".min_h_0()"));
     assert!(
         form.contains("music_column_tracked_scrollbar("),

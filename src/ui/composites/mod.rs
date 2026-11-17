@@ -137,5 +137,6 @@ pub(crate) use track_row_menu::TrackRowMenuHandlers;
 pub(crate) mod maintenance_forms;
 pub(crate) mod maintenance_page;
 pub(crate) mod settings;
+pub(crate) mod settings_row;
 
 pub(crate) mod log_frame;

@@ -4,20 +4,24 @@
 
 use std::rc::Rc;
 
-use gpui::{AnyElement, Context, IntoElement, Window};
+use gpui::{AnyElement, Context, Empty, IntoElement, Window};
 
 use crate::config;
 use crate::theme_profile::ThemeProfile;
 use crate::ui::composites::maintenance_page::PageNavigation;
 use crate::ui::composites::settings::{
-    settings_actions, settings_cached_row, settings_field, settings_frame, settings_heading,
-    settings_message, settings_text_input, SettingsCallback,
+    settings_actions, settings_cached_row, settings_frame, settings_heading, settings_message,
+    settings_section_heading, settings_tab_row, settings_text_input, settings_value_and_action,
+    SettingsCallback,
 };
+use crate::ui::composites::settings_row::{settings_row, SettingsRowDisplay};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::Button;
 use crate::view_models::cached_files::{CachedFileAction, CachedFileActionDisplay, CachedFileRow};
 use crate::view_models::settings::{DiagnosticPage, SettingsGroup};
-use crate::view_models::settings::{SettingsAction, SettingsContent, SettingsEffect, SettingsVm};
+use crate::view_models::settings::{
+    SettingsAction, SettingsContent, SettingsEffect, SettingsRowControl, SettingsVm,
+};
 use crate::view_models::startup::StartupAvailability;
 
 use super::TopApp;
@@ -142,13 +146,8 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
     let callback: SettingsCallback = Rc::new(move |action, window, cx| {
         let _ = entity.update(cx, |this, cx| this.settings_action(action, window, cx));
     });
-    let mut navigation = vec![crate::ui::composites::maintenance_page::PageMenu::new(
-        "settings-group-menu",
-        SettingsVm::GROUP_MENU,
-        app.settings.navigation(),
-        callback.clone(),
-    )
-    .into_any_element()];
+    let tab_row = settings_tab_row(app.settings.group_control(), &callback);
+    let mut navigation = Vec::new();
     let workspace = app.settings.selected() == SettingsGroup::Diagnostics;
     if workspace {
         navigation.push(
@@ -166,35 +165,26 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
     } else {
         vec![settings_heading(app.settings.selected().label(), cx)]
     };
+    for section in app.settings.sections() {
+        content.push(settings_section_heading(section.heading, cx));
+        for &field in section.rows {
+            let row = settings_content_row(app, field, correction_idle, &callback, cx);
+            content.push(row);
+        }
+    }
     for &field in app.settings.contents() {
-        let input = match field {
+        match field {
             SettingsContent::SessionMaintenance => {
                 content.extend(render_session_tools(app, correction_idle, cx));
-                continue;
             }
             SettingsContent::DatabaseTools => {
                 use gpui::IntoElement as _;
                 if let Some(tools) = &app.database_tools {
                     content.push(tools.clone().into_any_element());
                 }
-                continue;
-            }
-            SettingsContent::Scale => {
-                settings_actions(SettingsVm::scale_choices(app.ui_scale), &callback, cx)
-            }
-            SettingsContent::Theme => {
-                settings_actions(SettingsVm::theme_choices(app.theme_profile), &callback, cx)
-            }
-            SettingsContent::Endpoint => settings_text_input(&app.endpoint_input, cx),
-            SettingsContent::MusicDirectory => {
-                settings_message(app.music_dir.display().to_string(), cx)
-            }
-            SettingsContent::FlacPath => {
-                settings_actions(SettingsVm::converter_setup(), &callback, cx)
             }
             SettingsContent::BackgroundReports => {
                 content.extend(app.render_capabilities(true, cx));
-                continue;
             }
             SettingsContent::CachedFiles => {
                 content.push(crate::ui::composites::settings::settings_plain_page(
@@ -203,10 +193,9 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
                         .diagnostic_handle(DiagnosticPage::CachedFiles),
                     cx,
                 ));
-                continue;
             }
-        };
-        content.push(settings_field(field, input, cx));
+            _ => {}
+        }
     }
     if app.settings.editable() {
         content.push(settings_message(SettingsVm::SAVE_SCOPE, cx));
@@ -222,14 +211,68 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
             content.push(editor.clone().into_any_element());
         }
     }
-    if app.settings.selected() == SettingsGroup::Library {
-        content.push(settings_actions(SettingsVm::repair_entry(), &callback, cx));
-    }
     if !app.settings_status.is_empty() && !workspace {
         content.push(settings_message(app.settings_status.clone(), cx));
     }
     let page_scroll = app.settings_scroll.handle(app.settings.selected());
-    settings_frame(navigation, content, page_scroll, workspace, cx)
+    settings_frame(tab_row, navigation, content, page_scroll, workspace, cx)
+}
+
+/// One row of a General or Library section. The view model gives the name,
+/// the hint and the control type. This function gives the control.
+fn settings_content_row(
+    app: &TopApp,
+    field: SettingsContent,
+    correction_idle: bool,
+    callback: &SettingsCallback,
+    cx: &mut Context<TopApp>,
+) -> AnyElement {
+    let callback = Rc::clone(callback);
+    let control = match field {
+        SettingsContent::Scale => {
+            settings_actions(SettingsVm::scale_choices(app.ui_scale), &callback, cx)
+        }
+        SettingsContent::Theme => {
+            settings_actions(SettingsVm::theme_choices(app.theme_profile), &callback, cx)
+        }
+        SettingsContent::Defaults => {
+            settings_actions(app.settings.defaults_action(correction_idle), &callback, cx)
+        }
+        SettingsContent::Endpoint => settings_text_input(&app.endpoint_input, cx),
+        SettingsContent::MusicDirectory => settings_value_and_action(
+            settings_message(app.music_dir.display().to_string(), cx),
+            settings_actions(SettingsVm::repair_entry(), &callback, cx),
+            cx,
+        ),
+        SettingsContent::FlacPath => {
+            let path = app.flac_path_input.read(cx).value().to_string();
+            let path = if path.is_empty() {
+                "Not set".to_owned()
+            } else {
+                path
+            };
+            settings_value_and_action(
+                settings_message(path, cx),
+                settings_actions(SettingsVm::converter_setup(), &callback, cx),
+                cx,
+            )
+        }
+        SettingsContent::BackgroundReports
+        | SettingsContent::CachedFiles
+        | SettingsContent::SessionMaintenance
+        | SettingsContent::DatabaseTools => return Empty.into_any_element(),
+    };
+    settings_row(
+        SettingsRowDisplay {
+            name: field.label().into(),
+            hint: field.help().into(),
+            control_below: field
+                .control()
+                .is_some_and(SettingsRowControl::always_below),
+        },
+        control,
+        cx,
+    )
 }
 
 fn render_session_tools(

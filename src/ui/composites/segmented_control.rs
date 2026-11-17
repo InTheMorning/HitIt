@@ -12,7 +12,8 @@
 use std::rc::Rc;
 
 use gpui::{
-    App, ClickEvent, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Window,
+    div, App, ClickEvent, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
+    Window,
 };
 
 use crate::ui::control_styles::ControlStyle;
@@ -74,6 +75,7 @@ pub struct SegmentedControl<K: Clone + PartialEq + 'static> {
     selected: K,
     on_select: Option<OnSelect<K>>,
     style: SegmentedControlStyle,
+    fill_width: bool,
 }
 
 impl<K: Clone + PartialEq + 'static> SegmentedControl<K> {
@@ -83,6 +85,7 @@ impl<K: Clone + PartialEq + 'static> SegmentedControl<K> {
             selected,
             on_select: None,
             style: SegmentedControlStyle::Prominent,
+            fill_width: false,
         }
     }
 
@@ -104,6 +107,15 @@ impl<K: Clone + PartialEq + 'static> SegmentedControl<K> {
         self
     }
 
+    /// When `fill` is true, the control fills the width of its parent and
+    /// the segments share the width. Each label keeps its full width
+    /// (musicindex ADR 0051 R-SEG-1 item 5: a tab row on a narrow page).
+    #[must_use]
+    pub const fn fill_width(mut self, fill: bool) -> Self {
+        self.fill_width = fill;
+        self
+    }
+
     #[must_use]
     pub fn on_select(mut self, handler: impl Fn(&K, &mut Window, &mut App) + 'static) -> Self {
         self.on_select = Some(Rc::new(handler));
@@ -112,11 +124,18 @@ impl<K: Clone + PartialEq + 'static> SegmentedControl<K> {
 }
 
 impl<K: Clone + PartialEq + 'static> RenderOnce for SegmentedControl<K> {
-    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let on_select = self.on_select;
         let selected = self.selected;
         let style = self.style;
+        let fill_width = self.fill_width;
         let mut row = HStack::new().spacing(style.spacing()).center();
+        let mut filled = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .w_full()
+            .gap(style.spacing().scaled(cx));
 
         for segment in self.segments {
             let key = segment.key.clone();
@@ -136,10 +155,18 @@ impl<K: Clone + PartialEq + 'static> RenderOnce for SegmentedControl<K> {
                     handler(&key_for_click, window, cx);
                 });
             }
-            row = row.child(button);
+            if fill_width {
+                filled = filled.child(div().flex_1().child(button.full_width()));
+            } else {
+                row = row.child(button);
+            }
         }
 
-        row
+        if fill_width {
+            filled.into_any_element()
+        } else {
+            row.into_any_element()
+        }
     }
 }
 

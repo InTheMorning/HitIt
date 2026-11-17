@@ -18,6 +18,24 @@ pub(crate) enum SettingsGroup {
 
 impl SettingsGroup {
     pub(crate) const ALL: [Self; 3] = [Self::General, Self::Library, Self::Diagnostics];
+    /// The most groups that the tab row can hold (ADR 0093 Decision 2).
+    pub(crate) const MAX_GROUPS: usize = 5;
+
+    const fn id(self) -> &'static str {
+        match self {
+            Self::General => "settings-group-general",
+            Self::Library => "settings-group-library",
+            Self::Diagnostics => "settings-group-diagnostics",
+        }
+    }
+
+    const fn a11y_label(self) -> &'static str {
+        match self {
+            Self::General => "Show General settings",
+            Self::Library => "Show Library settings",
+            Self::Diagnostics => "Show Diagnostics tools",
+        }
+    }
 
     pub(crate) const fn label(self) -> &'static str {
         match self {
@@ -27,22 +45,41 @@ impl SettingsGroup {
         }
     }
 
-    pub(crate) const fn contents(self) -> &'static [SettingsContent] {
-        use SettingsContent::{
-            BackgroundReports, CachedFiles, DatabaseTools, Endpoint, FlacPath, MusicDirectory,
-            Scale, SessionMaintenance, Theme,
-        };
+    /// The sections and rows of the group (ADR 0093 Decision 7). Diagnostics
+    /// holds tools, not settings, so it has no section.
+    pub(crate) const fn sections(self) -> &'static [SettingsSection] {
+        use SettingsContent::{Defaults, Endpoint, FlacPath, MusicDirectory, Scale, Theme};
         match self {
-            Self::General => &[Scale, Theme],
-            Self::Library => &[Endpoint, MusicDirectory, FlacPath],
-            Self::Diagnostics => &[
-                SessionMaintenance,
-                DatabaseTools,
-                BackgroundReports,
-                CachedFiles,
+            Self::General => &[
+                SettingsSection {
+                    heading: "Appearance",
+                    rows: &[Scale, Theme],
+                },
+                SettingsSection {
+                    heading: "Defaults",
+                    rows: &[Defaults],
+                },
             ],
+            Self::Library => &[
+                SettingsSection {
+                    heading: "Music Index",
+                    rows: &[Endpoint],
+                },
+                SettingsSection {
+                    heading: "Files",
+                    rows: &[MusicDirectory, FlacPath],
+                },
+            ],
+            Self::Diagnostics => &[],
         }
     }
+}
+
+/// One section of a group. The heading is the section heading of the page.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct SettingsSection {
+    pub(crate) heading: &'static str,
+    pub(crate) rows: &'static [SettingsContent],
 }
 
 /// One Diagnostics page is mounted at a time (ADR 0074).
@@ -93,20 +130,56 @@ pub(crate) enum SettingsContent {
     Endpoint,
     MusicDirectory,
     FlacPath,
+    Defaults,
     BackgroundReports,
     CachedFiles,
     SessionMaintenance,
     DatabaseTools,
 }
 
+/// The control of one row (ADR 0093 Decision 7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SettingsRowControl {
+    /// A set of choices, such as the UI scale.
+    Choices,
+    /// One action.
+    Action,
+    /// A text field. It is always below the name of its row.
+    TextField,
+    /// The current value and one action.
+    ValueAndAction,
+}
+
+impl SettingsRowControl {
+    /// True when the control must go below the name, whatever the width.
+    pub(crate) const fn always_below(self) -> bool {
+        matches!(self, Self::TextField)
+    }
+}
+
 impl SettingsContent {
+    /// The control type of a setting row, or `None` for a Diagnostics item.
+    pub(crate) const fn control(self) -> Option<SettingsRowControl> {
+        match self {
+            Self::Scale | Self::Theme => Some(SettingsRowControl::Choices),
+            Self::Defaults => Some(SettingsRowControl::Action),
+            Self::Endpoint => Some(SettingsRowControl::TextField),
+            Self::MusicDirectory | Self::FlacPath => Some(SettingsRowControl::ValueAndAction),
+            Self::BackgroundReports
+            | Self::CachedFiles
+            | Self::SessionMaintenance
+            | Self::DatabaseTools => None,
+        }
+    }
+
     pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::Scale => "UI scale",
             Self::Theme => "Theme",
             Self::Endpoint => "Music Index endpoint",
             Self::MusicDirectory => "Music directory",
-            Self::FlacPath => "Audio converter (optional)",
+            Self::FlacPath => "Audio converter",
+            Self::Defaults => "Default values",
             Self::BackgroundReports => "Background tools",
             Self::CachedFiles => "Cached files",
             Self::SessionMaintenance => "App session",
@@ -121,6 +194,7 @@ impl SettingsContent {
             Self::Endpoint => "Use api.musicindex.org or a full http/https URL.",
             Self::MusicDirectory => "Current session folder. Open Configuration repair to test and save a different existing folder after ending this session.",
             Self::FlacPath => "Test FLAC and ffmpeg availability, edit the FLAC executable path, and save it with an original-file backup in Converter setup.",
+            Self::Defaults => "Resets the General and Library settings to the defaults and saves them.",
             Self::BackgroundReports | Self::CachedFiles | Self::SessionMaintenance | Self::DatabaseTools => "",
         }
     }
@@ -204,6 +278,22 @@ pub(crate) struct SettingsActionDisplay {
     pub(crate) selected: bool,
 }
 
+/// One segment of the group control.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct SettingsGroupSegment {
+    pub(crate) group: SettingsGroup,
+    pub(crate) id: &'static str,
+    pub(crate) label: &'static str,
+    pub(crate) a11y_label: &'static str,
+}
+
+/// The group control below the page bar (ADR 0093 Decision 1).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SettingsGroupControl {
+    pub(crate) selected: SettingsGroup,
+    pub(crate) segments: Vec<SettingsGroupSegment>,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct SettingsVm {
     selected: SettingsGroup,
@@ -213,7 +303,6 @@ pub(crate) struct SettingsVm {
 
 impl SettingsVm {
     pub(crate) const TITLE: &'static str = "Settings";
-    pub(crate) const GROUP_MENU: &'static str = "Choose settings group";
     pub(crate) const DIAGNOSTIC_MENU: &'static str = "Choose diagnostics page";
     pub(crate) const SAVE_SCOPE: &'static str =
         "Save applies General and Library controls together. Use Defaults resets and saves these controls; core paths use Configuration repair.";
@@ -231,11 +320,18 @@ impl SettingsVm {
         self.views[self.diagnostic as usize]
     }
 
+    /// The Diagnostics items of the mounted page. The other groups show
+    /// their rows through `sections`.
     pub(crate) const fn contents(&self) -> &'static [SettingsContent] {
         match self.selected {
             SettingsGroup::Diagnostics => self.diagnostic.contents(),
-            group => group.contents(),
+            _ => &[],
         }
+    }
+
+    /// The sections and rows of the selected group.
+    pub(crate) const fn sections(&self) -> &'static [SettingsSection] {
+        self.selected.sections()
     }
 
     pub(crate) const fn selected(&self) -> SettingsGroup {
@@ -283,17 +379,22 @@ impl SettingsVm {
         }
     }
 
-    pub(crate) fn navigation(&self) -> Vec<PageChoice<SettingsAction>> {
-        SettingsGroup::ALL
-            .into_iter()
-            .map(|group| {
-                PageChoice::new(
-                    SettingsAction::SelectGroup(group),
-                    group.label(),
-                    self.selected == group,
-                )
-            })
-            .collect()
+    /// The group control: one segment for each group, in the sequence of
+    /// `SettingsGroup::ALL`.
+    pub(crate) fn group_control(&self) -> SettingsGroupControl {
+        debug_assert!(SettingsGroup::ALL.len() <= SettingsGroup::MAX_GROUPS);
+        SettingsGroupControl {
+            selected: self.selected,
+            segments: SettingsGroup::ALL
+                .into_iter()
+                .map(|group| SettingsGroupSegment {
+                    group,
+                    id: group.id(),
+                    label: group.label(),
+                    a11y_label: group.a11y_label(),
+                })
+                .collect(),
+        }
     }
 
     pub(crate) fn diagnostic_navigation(&self) -> Vec<PageChoice<SettingsAction>> {
@@ -331,41 +432,44 @@ impl SettingsVm {
         }]
     }
 
+    fn form_availability(correction_idle: bool) -> StartupAvailability {
+        if correction_idle {
+            StartupAvailability::Available
+        } else {
+            StartupAvailability::Working
+        }
+    }
+
+    /// The action of the row "Default values". It has the red tint and its
+    /// confirmation (musicindex ADR 0064 R-ACT-12).
+    pub(crate) fn defaults_action(&self, correction_idle: bool) -> Vec<SettingsActionDisplay> {
+        if !self.editable() {
+            return Vec::new();
+        }
+        vec![SettingsActionDisplay {
+            action: SettingsAction::UseDefaults,
+            id: "settings-default".into(),
+            label: "Use Defaults…".into(),
+            a11y_label: "Reset and save General and Library defaults".into(),
+            availability: Self::form_availability(correction_idle),
+            selected: false,
+        }]
+    }
+
+    /// The Save action. It stays at the end of the form until ADR 0069 task
+    /// 002 moves it to the page bar.
     pub(crate) fn edit_actions(&self, correction_idle: bool) -> Vec<SettingsActionDisplay> {
         if !self.editable() {
             return Vec::new();
         }
-        // Use Defaults saves the default values with no undo. It is the
-        // leftmost button, and Save is the rightmost button (musicindex ADR
-        // 0064 R-ACT-8).
-        [
-            (
-                SettingsAction::UseDefaults,
-                "settings-default",
-                "Use Defaults…",
-                "Reset and save General and Library defaults",
-            ),
-            (
-                SettingsAction::Save,
-                "settings-save",
-                "Save",
-                "Save General and Library settings",
-            ),
-        ]
-        .into_iter()
-        .map(|(action, id, label, a11y_label)| SettingsActionDisplay {
-            action,
-            id: id.into(),
-            label: label.into(),
-            a11y_label: a11y_label.into(),
-            availability: if correction_idle {
-                StartupAvailability::Available
-            } else {
-                StartupAvailability::Working
-            },
+        vec![SettingsActionDisplay {
+            action: SettingsAction::Save,
+            id: "settings-save".into(),
+            label: "Save".into(),
+            a11y_label: "Save General and Library settings".into(),
+            availability: Self::form_availability(correction_idle),
             selected: false,
-        })
-        .collect()
+        }]
     }
 
     pub(crate) fn scale_choices(current: UiScale) -> Vec<SettingsActionDisplay> {
@@ -438,62 +542,86 @@ mod tests {
     }
 
     #[test]
-    fn adr_0069_group_contract_has_stable_membership_and_accessible_actions() {
+    fn adr_0093_group_control_has_stable_segments_and_accessible_labels() {
         let mut vm = SettingsVm::default();
-        let ids = vm
-            .navigation()
-            .into_iter()
-            .map(|item| item.value)
-            .collect::<Vec<_>>();
         assert_eq!(vm.selected(), SettingsGroup::General);
         for group in SettingsGroup::ALL {
             assert_eq!(
                 vm.dispatch(SettingsAction::SelectGroup(group)),
                 SettingsEffect::Navigate
             );
-            let navigation = vm.navigation();
+            let control = vm.group_control();
+            assert_eq!(control.selected, group);
+            assert!(control.segments.len() <= SettingsGroup::MAX_GROUPS);
             assert_eq!(
-                navigation
+                control
+                    .segments
                     .iter()
-                    .map(|item| &item.value)
+                    .map(|segment| segment.label)
                     .collect::<Vec<_>>(),
-                ids.iter().collect::<Vec<_>>()
-            );
-            assert_eq!(
-                navigation.iter().map(|item| item.label).collect::<Vec<_>>(),
                 ["General", "Library", "Diagnostics"]
             );
-            assert_eq!(navigation.iter().filter(|item| item.selected).count(), 1);
-            for item in navigation {
-                assert_eq!(item.availability, StartupAvailability::Available);
-                assert!(!item.a11y_label.is_empty());
-                assert_eq!(
-                    item.selected,
-                    item.value == SettingsAction::SelectGroup(group)
-                );
+            assert_eq!(
+                control
+                    .segments
+                    .iter()
+                    .map(|segment| segment.group)
+                    .collect::<Vec<_>>(),
+                SettingsGroup::ALL
+            );
+            for segment in &control.segments {
+                assert!(!segment.a11y_label.is_empty());
+                assert!(!segment.id.is_empty());
             }
         }
+    }
+
+    /// ADR 0093 Decision 7: the sections and rows of General and Library,
+    /// and no row for Diagnostics.
+    #[test]
+    fn adr_0093_sections_give_the_rows_of_decision_7() {
+        let rows = |group: SettingsGroup| {
+            group
+                .sections()
+                .iter()
+                .map(|section| (section.heading, section.rows.to_vec()))
+                .collect::<Vec<_>>()
+        };
         assert_eq!(
-            SettingsGroup::General.contents(),
-            &[SettingsContent::Scale, SettingsContent::Theme]
-        );
-        assert_eq!(
-            SettingsGroup::Library.contents(),
-            &[
-                SettingsContent::Endpoint,
-                SettingsContent::MusicDirectory,
-                SettingsContent::FlacPath
+            rows(SettingsGroup::General),
+            [
+                (
+                    "Appearance",
+                    vec![SettingsContent::Scale, SettingsContent::Theme]
+                ),
+                ("Defaults", vec![SettingsContent::Defaults]),
             ]
         );
         assert_eq!(
-            SettingsGroup::Diagnostics.contents(),
-            &[
-                SettingsContent::SessionMaintenance,
-                SettingsContent::DatabaseTools,
-                SettingsContent::BackgroundReports,
-                SettingsContent::CachedFiles
+            rows(SettingsGroup::Library),
+            [
+                ("Music Index", vec![SettingsContent::Endpoint]),
+                (
+                    "Files",
+                    vec![SettingsContent::MusicDirectory, SettingsContent::FlacPath]
+                ),
             ]
         );
+        assert!(SettingsGroup::Diagnostics.sections().is_empty());
+        for group in [SettingsGroup::General, SettingsGroup::Library] {
+            for content in group.sections().iter().flat_map(|section| section.rows) {
+                assert!(content.control().is_some());
+                assert!(!content.label().is_empty());
+                assert!(!content.help().is_empty());
+                assert!(!content.help().contains('\n'));
+            }
+        }
+        assert!(SettingsContent::Endpoint
+            .control()
+            .is_some_and(SettingsRowControl::always_below));
+        assert!(!SettingsContent::Scale
+            .control()
+            .is_some_and(SettingsRowControl::always_below));
     }
 
     #[test]
@@ -517,31 +645,6 @@ mod tests {
         assert_eq!(vm.selected(), SettingsGroup::Diagnostics);
     }
 
-    /// musicindex ADR 0064 R-ACT-8: Use Defaults saves the default values
-    /// with no undo. It is the leftmost button, and Save is the rightmost
-    /// button.
-    #[test]
-    fn adr_0064_r_act_8_use_defaults_is_left_of_save() {
-        use crate::view_models::button_row::{adr_0064_violation, ButtonRowRole};
-
-        let mut vm = SettingsVm::default();
-        for group in [SettingsGroup::General, SettingsGroup::Library] {
-            vm.dispatch(SettingsAction::SelectGroup(group));
-            let roles: Vec<ButtonRowRole> = vm
-                .edit_actions(true)
-                .iter()
-                .map(|display| match display.action {
-                    SettingsAction::UseDefaults => ButtonRowRole::Destructive,
-                    SettingsAction::Save => ButtonRowRole::Safe,
-                    _ => ButtonRowRole::Other,
-                })
-                .collect();
-            if let Some(violation) = adr_0064_violation(&roles) {
-                panic!("{violation} Change the order in `SettingsVm::edit_actions`.");
-            }
-        }
-    }
-
     /// musicindex ADR 0064 R-ACT-12: "Use
     /// Defaults…" is destructive (ADR 0020 R-ACT-3 items 1 and 4). It opens
     /// a confirmation and does not save the defaults at once.
@@ -551,9 +654,9 @@ mod tests {
         let mut vm = SettingsVm::default();
         vm.dispatch(SettingsAction::SelectGroup(SettingsGroup::General));
         let use_defaults = vm
-            .edit_actions(true)
+            .defaults_action(true)
             .into_iter()
-            .find(|display| display.action == SettingsAction::UseDefaults)
+            .next()
             .expect("General has Use Defaults");
         assert!(use_defaults.action.is_destructive(), "{FIX}");
         assert!(!SettingsAction::Save.is_destructive());
@@ -578,23 +681,28 @@ mod tests {
         for group in [SettingsGroup::General, SettingsGroup::Library] {
             vm.dispatch(SettingsAction::SelectGroup(group));
             let actions = vm.edit_actions(true);
+            let defaults = vm.defaults_action(true);
             assert!(vm
                 .edit_actions(false)
                 .iter()
+                .chain(vm.defaults_action(false).iter())
                 .all(|action| action.availability == StartupAvailability::Working));
-            assert_eq!(actions.len(), 2);
+            assert_eq!(actions.len(), 1);
+            assert_eq!(defaults.len(), 1);
             assert_eq!(
-                vm.dispatch(actions[0].action),
+                vm.dispatch(defaults[0].action),
                 SettingsEffect::ConfirmUseDefaults
             );
-            assert_eq!(vm.dispatch(actions[1].action), SettingsEffect::Save);
+            assert_eq!(vm.dispatch(actions[0].action), SettingsEffect::Save);
             assert!(actions
                 .iter()
+                .chain(defaults.iter())
                 .all(|action| action.a11y_label.contains("General and Library")));
             assert_eq!(vm.selected(), group);
         }
         vm.dispatch(SettingsAction::OpenReport);
         assert!(vm.edit_actions(true).is_empty());
+        assert!(vm.defaults_action(true).is_empty());
         for (choices, expected) in [
             (
                 SettingsVm::scale_choices(UiScale::Large),

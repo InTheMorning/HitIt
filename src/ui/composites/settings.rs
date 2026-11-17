@@ -9,17 +9,18 @@ use gpui_component::input::{Input, InputState};
 use gpui_component::scroll::ScrollableElement;
 use gpui_component::Size;
 
-use crate::ui::composites::confirmation_dialog::destructive_button_space;
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
+use crate::ui::composites::segmented_control::{Segment, SegmentDisplay, SegmentedControl};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
 use crate::ui::primitives::primary_selection::PrimarySelectionExt as _;
 use crate::ui::primitives::Button;
 use crate::ui::sizable_bridge::SizableScaled;
-use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
+use crate::ui::tokens::{color, FontSize, ScaleFactor, SemanticColor, Spacing};
+use crate::view_models::maintenance::MaintenanceLayout;
 use crate::view_models::settings::{
-    SettingsAction, SettingsActionDisplay, SettingsContent, SettingsGroup, SettingsVm,
+    SettingsAction, SettingsActionDisplay, SettingsGroup, SettingsGroupControl, SettingsVm,
 };
 use crate::view_models::startup::StartupAvailability;
 
@@ -56,6 +57,7 @@ impl SettingsScrollHandles {
 }
 
 pub(crate) fn settings_frame(
+    tab_row: AnyElement,
     navigation: Vec<AnyElement>,
     content: Vec<AnyElement>,
     scroll_handle: &ScrollHandle,
@@ -72,30 +74,10 @@ pub(crate) fn settings_frame(
         .min_w_0()
         .overflow_hidden()
         .bg(color(cx, SemanticColor::SystemBackground))
-        .child(
-            div()
-                .flex()
-                .flex_wrap()
-                .items_center()
-                .flex_shrink_0()
-                // ADR 0101 task 001: with the title of 22 px, the gap of XS
-                // keeps the title and the two menus on one line at XL in a
-                // page of 438 px (ADR 0074 short window test).
-                .gap(Spacing::XS.scaled(cx))
-                .px(Spacing::MD.scaled(cx))
-                .pt(Spacing::MD.scaled(cx))
-                .child(
-                    div()
-                        .child(settings_heading(SettingsVm::TITLE, cx))
-                        .debug_selector(|| "settings-title".to_owned()),
-                )
-                .children(navigation)
-                .map(|header| {
-                    #[cfg(test)]
-                    let header = header.debug_selector(|| "settings-header".to_owned());
-                    header
-                }),
-        )
+        .child(SettingsBars {
+            tab_row,
+            navigation,
+        })
         .child(if workspace {
             div()
                 .flex()
@@ -126,6 +108,77 @@ pub(crate) fn settings_frame(
             )
         })
         .into_any_element()
+}
+
+/// ADR 0093 Decision 3 and ADR 0074: a narrow page is a page below the
+/// stacked width of the maintenance pages. ADR 0039: the breakpoint uses the
+/// unscaled viewport (CHROME domain).
+fn settings_page_is_narrow(window: &Window, cx: &App) -> bool {
+    let width =
+        f32::from(window.viewport_size().width) / ScaleFactor::current(cx).chrome_multiplier();
+    MaintenanceLayout::for_width(width) == MaintenanceLayout::Stacked
+}
+
+/// The title line and the tab row of Settings.
+#[derive(IntoElement)]
+struct SettingsBars {
+    tab_row: AnyElement,
+    navigation: Vec<AnyElement>,
+}
+
+impl RenderOnce for SettingsBars {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        // Operator choice, 2026-11-16 (ADR 0093 task 001): on a narrow page,
+        // the Diagnostics page menu is on the title line, so a short window
+        // keeps space for the task content (ADR 0074). On a wide page, it is
+        // at the end of the tab row line, so the title line keeps its height.
+        let narrow = settings_page_is_narrow(window, cx);
+        let SettingsBars {
+            tab_row,
+            navigation,
+        } = self;
+        let (title_menu, row_menu) = if narrow {
+            (navigation, Vec::new())
+        } else {
+            (Vec::new(), navigation)
+        };
+        div()
+            .flex()
+            .flex_col()
+            .flex_shrink_0()
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .gap(Spacing::XS.scaled(cx))
+                    .px(Spacing::MD.scaled(cx))
+                    .pt(Spacing::MD.scaled(cx))
+                    .child(
+                        div()
+                            .child(settings_heading(SettingsVm::TITLE, cx))
+                            .debug_selector(|| "settings-title".to_owned()),
+                    )
+                    .children(title_menu)
+                    .map(|header| {
+                        #[cfg(test)]
+                        let header = header.debug_selector(|| "settings-header".to_owned());
+                        header
+                    }),
+            )
+            // The tab row is directly below the page bar (ADR 0093 Decision 1).
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .gap(Spacing::XS.scaled(cx))
+                    .px(Spacing::MD.scaled(cx))
+                    .pt(Spacing::XS.scaled(cx))
+                    .child(tab_row)
+                    .children(row_menu),
+            )
+    }
 }
 
 pub(crate) fn settings_actions(
@@ -160,13 +213,9 @@ pub(crate) fn settings_actions(
             if display.selected {
                 button = button.leading_icon(IconName::Check);
             }
-            let mut elements = vec![button.into_any_element()];
-            // A larger space follows the destructive button (musicindex ADR
-            // 0064 R-ACT-8 item 4).
-            if action.is_destructive() {
-                elements.push(destructive_button_space(cx).into_any_element());
-            }
-            elements
+            // Each action row holds one button, so no space follows the
+            // destructive button (musicindex ADR 0064 R-ACT-8).
+            [button.into_any_element()]
         }))
         .into_any_element()
 }
@@ -210,21 +259,79 @@ pub(crate) fn settings_message(message: impl Into<SharedString>, cx: &App) -> An
         .into_any_element()
 }
 
-pub(crate) fn settings_field(field: SettingsContent, input: AnyElement, cx: &App) -> AnyElement {
+/// The group control below the page bar (ADR 0093 Decision 1). It uses the
+/// shared segmented control. A change of the group runs no command.
+pub(crate) fn settings_tab_row(
+    control: SettingsGroupControl,
+    callback: &SettingsCallback,
+) -> AnyElement {
+    SettingsTabRow {
+        control,
+        callback: Rc::clone(callback),
+    }
+    .into_any_element()
+}
+
+#[derive(IntoElement)]
+struct SettingsTabRow {
+    control: SettingsGroupControl,
+    callback: SettingsCallback,
+}
+
+impl RenderOnce for SettingsTabRow {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        // ADR 0093 Decision 3: on a narrow page, the tab row fills the width.
+        let narrow = settings_page_is_narrow(window, cx);
+        let SettingsTabRow { control, callback } = self;
+        div()
+            .id("settings-group-control")
+            .debug_selector(|| "settings-group-control".to_owned())
+            .when(narrow, Styled::w_full)
+            .child(
+                SegmentedControl::new(control.selected)
+                    .fill_width(narrow)
+                    .segments(control.segments.into_iter().map(|segment| {
+                        Segment::new(SegmentDisplay {
+                            id: SharedString::from(segment.id).into(),
+                            key: segment.group,
+                            label: SharedString::from(segment.label),
+                            a11y_label: SharedString::from(segment.a11y_label),
+                        })
+                    }))
+                    .on_select(move |group, window, cx| {
+                        callback(SettingsAction::SelectGroup(*group), window, cx);
+                    }),
+            )
+    }
+}
+
+/// One section heading above its rows (ADR 0093 Decision 6).
+pub(crate) fn settings_section_heading(label: &'static str, cx: &App) -> AnyElement {
     div()
-        .w_full()
         .min_w_0()
+        .text_size(FontSize::Headline.scaled(cx))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .child(label)
+        .into_any_element()
+}
+
+/// The control of a row with a value and one action. The value is at the
+/// start of the control, and the action follows it. An empty value shows
+/// "Not set".
+pub(crate) fn settings_value_and_action(
+    value: AnyElement,
+    action: AnyElement,
+    cx: &App,
+) -> AnyElement {
+    div()
         .flex()
-        .flex_col()
+        .flex_row()
+        .flex_wrap()
+        .items_center()
+        .justify_end()
         .gap(Spacing::XS.scaled(cx))
-        .child(
-            div()
-                .text_size(FontSize::Caption.scaled(cx))
-                .font_weight(gpui::FontWeight::MEDIUM)
-                .child(field.label()),
-        )
-        .child(input)
-        .child(settings_message(field.help(), cx))
+        .child(div().min_w_0().child(value))
+        .child(action)
         .into_any_element()
 }
 
@@ -332,22 +439,14 @@ mod tests {
                 .flex()
                 .flex_col()
                 .child(settings_frame(
-                    vec![
-                        PageMenu::new(
-                            "test-settings-menu",
-                            SettingsVm::GROUP_MENU,
-                            vm.navigation(),
-                            callback.clone(),
-                        )
-                        .into_any_element(),
-                        PageMenu::new(
-                            "test-diagnostics-menu",
-                            SettingsVm::DIAGNOSTIC_MENU,
-                            vm.diagnostic_navigation(),
-                            callback,
-                        )
-                        .into_any_element(),
-                    ],
+                    settings_tab_row(vm.group_control(), &callback),
+                    vec![PageMenu::new(
+                        "test-diagnostics-menu",
+                        SettingsVm::DIAGNOSTIC_MENU,
+                        vm.diagnostic_navigation(),
+                        callback,
+                    )
+                    .into_any_element()],
                     vec![page],
                     &ScrollHandle::default(),
                     true,
@@ -408,14 +507,39 @@ mod tests {
                                         && title.bottom() <= header.bottom()
                                 );
                             }
-                            let minimum = if width > 760. { 200. } else { 110. };
+                            // ADR 0093 task 001: at XL in a short window, the task
+                            // content keeps 60 px at a narrow width (operator
+                            // choice A) and 160 px at a wide width (orchestrator
+                            // choice A2), both of 2026-11-16. The tab row of
+                            // ADR 0093 Decision 1 uses the rest. M is not changed.
+                            let minimum = match (width > 760., scale) {
+                                (true, ScaleFactor::XLarge) => 160.,
+                                (true, _) => 200.,
+                                (false, ScaleFactor::XLarge) => 60.,
+                                (false, _) => 110.,
+                            };
                             assert!(main.size.height >= gpui::px(minimum),
-                                "recovery={recovery} scale={scale:?} width={width} task={task:?} view={view:?}: {main:?} actions={actions:?} header={header:?} toolbar={toolbar:?}");
+                                "ADR 0074 and ADR 0093 task 001 (operator choice A and orchestrator choice A2, 2026-11-16): the task content needs {minimum} px. Keep the Diagnostics page menu on the title line at a narrow width and on the tab row line at a wide width. Add no line above the content. recovery={recovery} scale={scale:?} width={width} task={task:?} view={view:?}: {main:?} actions={actions:?} header={header:?} toolbar={toolbar:?}");
+                            if !recovery && width < 760. {
+                                // ADR 0093 Decision 3: on a narrow page, the
+                                // tab row fills the width.
+                                let row = cx.debug_bounds("settings-group-control").unwrap();
+                                let inset = cx.update(|_, cx| Spacing::MD.scaled(cx));
+                                let expected = gpui::px(width) - inset * 2.;
+                                assert!(
+                                    (row.size.width - expected).abs() < gpui::px(1.),
+                                    "ADR 0093 Decision 3: on a narrow page, the tab row fills the width. Call SegmentedControl::fill_width(true) below the stacked width. row={row:?} expected={expected:?}"
+                                );
+                            }
                             assert!(main.bottom() <= gpui::px(382.));
                             assert!(main.right() <= gpui::px(width));
                             if width < 760. {
                                 assert!(actions.bottom() <= main.top());
-                                assert!(actions.size.height < main.size.height);
+                                // At XL, the 60 px minimum of the operator choice is
+                                // less than the action band, so only M compares them.
+                                if scale != ScaleFactor::XLarge {
+                                    assert!(actions.size.height < main.size.height);
+                                }
                             } else {
                                 assert!(actions.right() <= main.left());
                             }
