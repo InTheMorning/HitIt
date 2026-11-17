@@ -13,6 +13,7 @@ Accepted - 2026-11-14.
 - Supersedes: [ADR 0090](archive/0090-one-list-bar-above-the-rows.md), one list bar above the rows.
 - Changed by: [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md), 2026-11-07. The parser, the Index plan and the kind rule of Decisions 21 to 25 are in the `musicindex-search` crate. musicindex ADR 0049 owns the syntax. ADR 0091 records this change against ADR 0087.
 - Revised: 2026-11-14: Decision 16 states the open point of ADR 0068 Answer 1. No rule changes.
+- Revised: 2026-11-17: the known roles are the nine roles of musicindex ADR 0081 R-CURATOR-1. That record adds curator. No rule of this record changes.
 
 The six ADRs above changed other ADRs. Their "Changes" lines and the "Changed by" lines in ADRs 0046, 0047, 0049, 0060, 0062, 0082, 0083 and 0091 stay as they are. Each of those "Changed by" lines names this ADR as the place of the restated rule.
 
@@ -327,7 +328,7 @@ The frame title of a feed page is the type label of musicindex ADR 0033 R-WORD-3
 - "Definitely not an artist" is the test of this decision: no side states `artist`, and each named link has a known rank that is not 1. ADR 0033 R-WORD-3 item 4 cites it.
 - An unknown rank never gives "Publisher". Before the page facts load, the title is "Feed".
 - The R-WORD-7 label lists each stated role. Two or more roles do not give the label "Publisher".
-- A type label and its dot use only the eight known roles of musicindex ADR 0036 R-ROLE-1 item 1. They ignore each other role word, and the compare ignores capital letters (musicindex ADR 0066 R-ROLE-3). A feed with only unknown role words has no role (R-ROLE-4).
+- A type label and its dot use only the known roles of musicindex ADR 0081 R-CURATOR-1 items 1 and 2. They ignore each other role word, and the compare ignores capital letters (musicindex ADR 0066 R-ROLE-3). A feed with only unknown role words has no role (R-ROLE-4).
 - The badge has one dot. The dot has the color of the first role in the label, in the R-ROLE-1 sequence. It is filled when the two sides give that role (musicindex ADR 0066 R-WORD-8). A feed with no role has a hollow dot, with the word "Publisher" or "Feed" of this decision.
 - Each interface text that names the roles of a feed uses only the known roles, in the R-ROLE-1 sequence. The "Roles" fact joins them with ", ", and the "As <roles>" heading of Decision 11.3 joins them with "and". A text that only lists the roles does not show when no known role stays (musicindex ADR 0066 R-ROLE-6).
 - A text that tells what one source states, such as the line of a "Role not confirmed" row, shows an unknown word as RSS text in the form `rel="…"` (R-ROLE-5 items 3 and 4). Inspect sources shows each role word as RSS text (R-ROLE-5).

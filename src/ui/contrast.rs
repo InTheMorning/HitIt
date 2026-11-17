@@ -642,6 +642,30 @@ pub const REQUIRED_PAIRS: &[ContrastPair] = &[
         level: ContrastLevel::LargeOrGraphic,
         note: "sponsor entity dot on sidebar surface",
     },
+    ContrastPair {
+        fg: SemanticColor::EntityCurator,
+        bg: SemanticColor::SystemBackground,
+        level: ContrastLevel::LargeOrGraphic,
+        note: "curator entity dot on canvas",
+    },
+    ContrastPair {
+        fg: SemanticColor::EntityCurator,
+        bg: SemanticColor::GroupBackground,
+        level: ContrastLevel::LargeOrGraphic,
+        note: "curator entity dot on group level",
+    },
+    ContrastPair {
+        fg: SemanticColor::EntityCurator,
+        bg: SemanticColor::HoverBackground,
+        level: ContrastLevel::LargeOrGraphic,
+        note: "curator entity dot on hover fill",
+    },
+    ContrastPair {
+        fg: SemanticColor::EntityCurator,
+        bg: SemanticColor::SidebarBackground,
+        level: ContrastLevel::LargeOrGraphic,
+        note: "curator entity dot on sidebar surface",
+    },
     // musicindex ADR 0045 R-ELEVATION-2: text on the group and open entry levels.
     ContrastPair {
         fg: SemanticColor::Label,

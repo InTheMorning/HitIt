@@ -466,6 +466,7 @@ pub(crate) enum HeaderRole {
     Label,
     Host,
     Author,
+    Curator,
     Producer,
     Network,
     Hosting,
@@ -494,6 +495,7 @@ const fn header_role_for(role: KnownRole) -> HeaderRole {
         KnownRole::Artist => HeaderRole::Artist,
         KnownRole::Label => HeaderRole::Label,
         KnownRole::Hosting => HeaderRole::Hosting,
+        KnownRole::Curator => HeaderRole::Curator,
         KnownRole::Producer => HeaderRole::Producer,
         KnownRole::Host => HeaderRole::Host,
         KnownRole::Author => HeaderRole::Author,
@@ -1267,6 +1269,32 @@ enum SectionBucket {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// musicindex ADR 0081 R-CURATOR-1: curator is a known role between
+    /// hosting and producer, with the word "Curator". A feed that is an
+    /// artist and a curator has the label "Artist \u{b7} Curator" and the
+    /// artist dot, because curator is not a first-class role (item 4).
+    #[test]
+    fn musicindex_adr_0081_curator_is_a_known_role_after_hosting() {
+        assert_eq!(KnownRole::from_word("Curator"), Some(KnownRole::Curator));
+        assert_eq!(
+            known_roles(Some("producer, curator, hosting, sponsor")),
+            vec![
+                KnownRole::Hosting,
+                KnownRole::Curator,
+                KnownRole::Producer,
+                KnownRole::Sponsor,
+            ]
+        );
+        let roles = known_roles(Some("curator, artist"));
+        assert_eq!(type_label(&roles), "Artist \u{b7} Curator");
+        assert_eq!(header_role_for(roles[0]), HeaderRole::Artist);
+        assert_eq!(
+            header_role_for(KnownRole::Curator),
+            HeaderRole::Curator,
+            "musicindex ADR 0081 R-CURATOR-2: a curator feed has the curator dot"
+        );
+    }
 
     /// Review correction F of 2026-10-21 (ADR 0084 task 031): the same
     /// release in two sections of one page gets two element ids. Thus its

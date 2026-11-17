@@ -6,7 +6,8 @@
 //! packet 008 uses it for the "As <roles>" headings and the "Role not
 //! confirmed" rows of a feed page.
 //!
-//! The eight known roles are [`KnownRole`] (musicindex ADR 0066 R-ROLE-3).
+//! The nine known roles are [`KnownRole`] (musicindex ADR 0066 R-ROLE-3 and
+//! musicindex ADR 0081 R-CURATOR-1).
 //! A text that tells what one source states shows each other word as RSS
 //! text (R-ROLE-5 item 3). "label" and "recordLabel" are two different
 //! words.
@@ -51,14 +52,16 @@ pub(crate) fn role_words(role_set: Option<&str>) -> Vec<String> {
 /// R-WORD-7 item 1): a space, the middle dot and a space.
 const ROLE_SEPARATOR: &str = " \u{b7} ";
 
-/// One of the eight known roles (musicindex ADR 0066 R-ROLE-3). The
-/// variants are in the sequence of musicindex ADR 0036 R-ROLE-1, so the
-/// derived order is the sequence of a type label.
+/// One of the nine known roles (musicindex ADR 0066 R-ROLE-3 and musicindex
+/// ADR 0081 R-CURATOR-1 item 2). The variants are in the sequence of
+/// musicindex ADR 0081 R-CURATOR-1 item 1, so the derived order is the
+/// sequence of a type label.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) enum KnownRole {
     Artist,
     Label,
     Hosting,
+    Curator,
     Producer,
     Host,
     Author,
@@ -76,6 +79,7 @@ impl KnownRole {
             Self::Artist,
             Self::Label,
             Self::Hosting,
+            Self::Curator,
             Self::Producer,
             Self::Host,
             Self::Author,
@@ -93,6 +97,7 @@ impl KnownRole {
             Self::Artist => "artist",
             Self::Label => "label",
             Self::Hosting => "hosting",
+            Self::Curator => "curator",
             Self::Producer => "producer",
             Self::Host => "host",
             Self::Author => "author",

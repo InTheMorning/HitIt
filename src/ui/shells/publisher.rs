@@ -119,6 +119,7 @@ const fn entity_kind_for_header_role(role: HeaderRole) -> EntityKind {
         HeaderRole::Label => EntityKind::Label,
         HeaderRole::Host => EntityKind::Host,
         HeaderRole::Author => EntityKind::Author,
+        HeaderRole::Curator => EntityKind::Curator,
         HeaderRole::Producer => EntityKind::Producer,
         HeaderRole::Network => EntityKind::Network,
         HeaderRole::Hosting => EntityKind::Hosting,

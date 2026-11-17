@@ -38,6 +38,9 @@ pub enum EntityKind {
     Live,
     Host,
     Author,
+    /// A publisher feed that lists playlists (musicindex ADR 0081
+    /// R-CURATOR-1). It is not a first-class role (R-CURATOR-1 item 4).
+    Curator,
     Label,
     /// The shared `publisher` entity color. The label is "feed" here. A
     /// screen that shows this kind reads musicindex ADR 0033 R-WORD-3 item 3
@@ -68,6 +71,7 @@ impl EntityKind {
             "live" => Self::Live,
             "host" => Self::Host,
             "author" => Self::Author,
+            "curator" => Self::Curator,
             "label" => Self::Label,
             "producer" => Self::Producer,
             "network" => Self::Network,
@@ -89,6 +93,7 @@ impl EntityKind {
             Self::Live => "Live",
             Self::Host => "Host",
             Self::Author => "Author",
+            Self::Curator => "Curator",
             Self::Label => "Label",
             // ADR 0033 R-WORD-3 item 3: the word of a feed that is definitely
             // not an artist. It is the frame title constant of ADR 0085 Decision 7.
@@ -118,6 +123,7 @@ impl EntityKind {
             Self::Live => SemanticColor::EntityLive,
             Self::Host => SemanticColor::EntityHost,
             Self::Author => SemanticColor::EntityAuthor,
+            Self::Curator => SemanticColor::EntityCurator,
             Self::Label => SemanticColor::EntityLabel,
             Self::Publisher => SemanticColor::EntityPublisher,
             Self::Producer => SemanticColor::EntityProducer,
@@ -313,7 +319,7 @@ impl RenderOnce for TagBadge {
 mod tests {
     use super::*;
 
-    const ALL_KINDS: [EntityKind; 16] = [
+    const ALL_KINDS: [EntityKind; 17] = [
         EntityKind::Artist,
         EntityKind::Feed,
         EntityKind::Track,
@@ -323,6 +329,7 @@ mod tests {
         EntityKind::Live,
         EntityKind::Host,
         EntityKind::Author,
+        EntityKind::Curator,
         EntityKind::Label,
         EntityKind::Publisher,
         EntityKind::Producer,
@@ -369,6 +376,7 @@ mod tests {
             EntityKind::Live,
             EntityKind::Host,
             EntityKind::Author,
+            EntityKind::Curator,
             EntityKind::Label,
             EntityKind::Publisher,
             EntityKind::Producer,
@@ -473,6 +481,7 @@ mod tests {
             "artist" => EntityKind::Artist,
             "host" => EntityKind::Host,
             "author" => EntityKind::Author,
+            "curator" => EntityKind::Curator,
             "label" => EntityKind::Label,
             "publisher" => EntityKind::Publisher,
             "producer" => EntityKind::Producer,
