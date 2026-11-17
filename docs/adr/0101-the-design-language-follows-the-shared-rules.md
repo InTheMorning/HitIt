@@ -6,7 +6,7 @@ Accepted - 2026-11-15. The operator accepted this ADR on 2026-11-15, and the orc
 
 - Bar: crosses repositories. musicindex owns each rule that this ADR adopts, and musicindex.org and Studio obey the same rules.
 - Supersedes: [ADR 0083](archive/0083-design-language.md), the design language.
-- Revised: 2026-11-16, Decision 7, by operator decision relayed by the orchestrator session: the left side of the status bar shows the latest event of one bounded app event list. The list holds the show event reports and the events with no visible action of musicindex ADR 0026 R-NOTICE-1 item 2. [ADR 0101 task 008](../tasks/adr-0101-task-008-status-bar-and-notices.md) builds it.
+- Revised: 2026-11-16, Decision 7, by the orchestrator session, because musicindex ADR 0026 R-NOTICE-1 item 2 requires it: the left side of the status bar shows the latest event of one bounded app event list. The list holds the show event reports and the events with no visible action of musicindex ADR 0026 R-NOTICE-1 item 2. [ADR 0101 task 008](../tasks/adr-0101-task-008-status-bar-and-notices.md) builds it.
 
 Operator choice, 2026-11-15: HitIt adopts musicindex ADR 0045 R-ACT-7 for the main action ([Decision 5](#5-actions-have-a-hierarchy)). HitIt keeps the focus ring of 2 px with no gap ([Decision 1](#1-the-palette)). musicindex ADR 0073 R-FOCUS-2 (musicindex commit `785ae28`) gives this ring to Studio and HitIt. It replaces musicindex ADR 0068 R-SCALE-4 item 6.
 

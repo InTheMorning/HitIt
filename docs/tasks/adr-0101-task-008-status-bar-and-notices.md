@@ -1,6 +1,6 @@
 # ADR 0101 Task 008: The Status Bar And The Notices
 
-Status: Open - 2026-11-16. The operator chose A in the Stop Report.
+Status: Open - 2026-11-16. The orchestrator session chose A in the Stop Report.
 
 ## Goal
 
@@ -124,4 +124,4 @@ The delegate (ChatGPT) stopped before the first edit. The primary agent examined
 
 Question: which events go to the left side of the status bar?
 
-Operator choice, 2026-11-16, relayed by the orchestrator session: option A. One bounded app event list collects the show event reports and the events with no visible action. Each event keeps the words of its owner. musicindex ADR 0026 R-NOTICE-1 item 2 binds HitIt, and option B breaks it. ADR 0101 has a Revised line for Decision 7. The main session chose the limit of 50 events.
+Orchestrator choice, 2026-11-16: option A, because musicindex ADR 0026 R-NOTICE-1 item 2 requires it. One bounded app event list collects the show event reports and the events with no visible action. Each event keeps the words of its owner. musicindex ADR 0026 R-NOTICE-1 item 2 binds HitIt, and option B breaks it. ADR 0101 has a Revised line for Decision 7. The main session chose the limit of 50 events.
