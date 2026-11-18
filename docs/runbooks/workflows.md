@@ -1,19 +1,20 @@
 # Library And Discovery Workflows
 
-## Discover Workflow
+## Find Music Workflow
 
-The `Discover` tab is the entry point for browsing MusicIndex.
+Search, Releases and Artists in the Music sidebar show MusicIndex items. The
+scope `All` shows MusicIndex items. The scope `In Library` shows local items.
 
 ### Search And Inspect
 
-- Enter a query to search MusicIndex entities.
-- Leave the query empty to browse recent feeds.
+- Enter a query in the search field to search MusicIndex and the local library.
 - Open inspectors for artists, feeds, tracks, and publishers linked from feeds or tracks.
 - Feed and track inspectors surface source metadata, contributors, and value routes when available.
 
-### Subscribe A Feed
+### Download A Release
 
-Subscribing a feed does more than flip a local flag.
+`Download Release` subscribes the feed. A release page gives the release type
+in the label, for example `Download Album`. It does more than flip a local flag.
 
 The app will:
 
@@ -28,9 +29,9 @@ The app will:
 
 If a track cannot be downloaded or matched back into the database, the subscription message reports it as skipped rather than pretending it succeeded.
 
-### Subscribe A Track
+### Download A Track
 
-Subscribing a single track is a narrower version of the same flow:
+`Download Track` is a narrower version of the same flow:
 
 1. ensure the parent feed has been imported from RSS
 2. download the track file
@@ -39,19 +40,19 @@ Subscribing a single track is a narrower version of the same flow:
 
 Track subscription is the fastest path from discovery to a managed local file.
 
-### Unsubscribe In Discover
+### Remove From The Library
 
-- Unsubscribing a feed clears the local subscribed state for that feed.
-- Unsubscribing a track clears the local in-library state for that track.
-- Unsubscribe does not automatically delete files from disk.
+- `Remove Track…` and `Remove from Library…` clear the in-library state of the track.
+- A removal of a release also clears the subscribed state of the feed.
+- A removal moves the audio file from the music folder to the audio cache
+  `~/.cache/hitit/audio`. The feed and track rows stay in the database.
 
 ## Library Workflow
 
-The `Library` tab is the local operator surface.
+The scope `In Library` of Releases and Artists shows the local library.
 
 ### Browse Managed Tracks
 
-- Tracks are grouped by artist and then by release/feed.
 - Album inspectors show per-track actions plus album-level MusicBrainz staging.
 - Track inspectors show local-file-aware actions once a file exists on disk.
 
@@ -84,17 +85,16 @@ MusicBrainz lookup is available from local downloaded content.
 
 This is metadata matching, not fingerprinting.
 
-### Cached View
+### Audio Cache
 
-The `Cached` sub-tab lists downloaded files whose tracks are not currently marked as subscribed library items.
+`Settings`, `Library`, `Audio cache`, `Cached files` lists the files of removed tracks.
 
 Use it to:
 
-- inspect cached-but-unsubscribed tracks
-- delete individual cached files
-- delete all cached files in one action
+- delete one cached file with `Delete`
+- delete all cached files with `Delete All Cached`
 
-Deleting from `Cached` removes the file from disk and deletes its `local_files` entry. It does not remove the feed or track rows themselves.
+A delete removes the file from disk and deletes its `cached_files` entry. It does not remove the feed or track rows.
 
 ## Feed Refresh Workflow
 
@@ -102,7 +102,7 @@ The library can refresh already-subscribed feeds without re-importing everything
 
 ### Check Feeds
 
-`Check all feeds` compares each subscribed feed's stored
+`Check all feeds`, at the bottom of the sidebar, compares each subscribed feed's stored
 `musicindex_updated_at` value with the current MusicIndex feed detail.
 
 Feeds with newer remote timestamps are applied in the same press. After those
@@ -111,8 +111,9 @@ embedded payment-route tag.
 
 ### Apply Updates
 
-`Apply updates` appears when a single-feed check stages stale feed updates. It
-walks downloaded library tracks for those stale feeds and:
+When feeds have stale updates, the sidebar shows `Apply updates (n)` instead
+of `Check all feeds`. The Updates section of the Inbox also has `Apply updates`.
+It walks downloaded library tracks for those stale feeds and:
 
 1. fetches fresh track and feed detail from MusicIndex
 2. regenerates ID3 edits from the current metadata view
@@ -313,7 +314,7 @@ local file binding and feed GUID, matching the now-playing identity rules.
 
 ## State Model
 
-The UI uses three related states that are worth keeping distinct:
+The UI uses four related states that are worth keeping distinct:
 
 - `subscribed feed`: the feed is tracked locally and participates in feed refresh checks
 - `in library`: a track is part of the managed library view

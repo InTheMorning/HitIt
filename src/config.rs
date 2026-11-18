@@ -1158,8 +1158,9 @@ theme_profile = "dark"
 
 # Optional override for the `flac` CLI used to silently upgrade WAV downloads
 # to FLAC so they can be tagged. Leave unset to resolve `flac` via $PATH.
-# Install the `flac` package from your OS (e.g. `apt install flac`,
-# `brew install flac`). Without it, WAV downloads are kept as WAV and are not
+# When `flac` is missing or fails, the app uses `ffmpeg` from $PATH.
+# Install the `flac` or the `ffmpeg` package of your system, for example
+# `apt install flac`. Without both, WAV downloads are kept as WAV and are not
 # tagged.
 # flac_path = "/usr/bin/flac"
 

@@ -14,19 +14,20 @@ session-only mode and start no player.
 
 ## Main Tabs
 
-### Library
+### Music
 
-This is the managed-library view.
+The Music tab has a sidebar with Search, Releases, Artists, My playlists,
+Public playlists and Live. Show, Inbox and Settings follow below a line.
 
-- Shows tracks marked as part of the local library.
-- Groups them by artist, then by release/feed.
+- Releases and Artists have the scope `In Library` for the managed library.
 - Lets you open album and track inspectors.
 - Can compare local files against RSS-derived metadata.
 - Can run MusicBrainz lookups against downloaded files.
-- Can check subscribed feeds for newer MusicIndex updates and apply tag refreshes.
+- `Check all feeds`, at the bottom of the sidebar, checks subscribed feeds for
+  newer MusicIndex updates and applies tag refreshes.
 
-There is also a `Cached` sub-view for downloaded files that still exist locally.
-Those files are no longer marked as subscribed library tracks.
+The audio cache holds the files of removed tracks. `Settings`, `Library`,
+`Audio cache`, `Cached files` lists them.
 
 ### Index Browsing
 
@@ -40,17 +41,18 @@ workspace. The toolbar search covers Library rows and Index rows together.
 - Can subscribe or unsubscribe feeds and tracks from the Index side.
 - Uses MusicIndex detail responses for contributors, value routes, source links, source ids, release claims, and enclosure choices.
 
-The former dedicated Discover modules stay in the tree but the composition root
-does not reach them. See `docs/notes/2026-05-discover-module-parked.md`.
-
 ### Settings
 
-The settings screen currently manages only the values that matter to the app runtime:
+Settings has three tabs:
 
-- `MusicIndex endpoint`
-- `Music directory`
+- `General`: `UI scale`, `Theme` and `Default values` (`Use Defaults…`).
+- `Library`: `Music Index endpoint`, `Music directory`, `Audio converter` and
+  `Cached files`.
+- `Diagnostics`: the version line with `Copy`, then the pages `Database`,
+  `Configuration`, `Background tools` and `App session`.
 
-Saving settings updates the app state immediately and persists the values in `config.toml`.
+`Save` writes the General and Library values to `config.toml`. Appearance
+changes apply immediately.
 
 ## CLI Surface
 

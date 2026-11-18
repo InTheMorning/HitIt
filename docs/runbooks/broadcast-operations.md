@@ -20,7 +20,7 @@ run when the app is closed.
 
 In Show, open Live Metadata. Create registers an event when none is selected;
 Replace registers a new identity when the selected event is Dead and keeps the
-old entry for Forget. The row checks the new event automatically. If that check
+old entry. To remove the old entry, run `hitit broadcast events forget EVENT_ID`. The row checks the new event automatically. If that check
 fails, Retry check checks the same identity and preserves its token file.
 Attachment remains a separate action.
 

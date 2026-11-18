@@ -17,20 +17,27 @@ shell. It is a desktop operator app that already does four concrete jobs:
 
 ## What The App Does Today
 
-- `Discover` searches MusicIndex and shows recent feeds when the search box is empty.
-- Feed and track inspectors can subscribe or unsubscribe content against the local database.
-- Subscribing a feed stores its RSS metadata locally and attempts to download each track.
-- Subscribing a track stores the parent feed if needed, downloads the file, and
+- The Music sidebar has Search, Releases, Artists, My playlists, Public playlists and Live.
+  Show, Inbox and Settings follow below a line.
+- Search finds artists, releases and tracks in MusicIndex and in the local library.
+- Releases and Artists have the scope `All` for MusicIndex and the scope `In Library`
+  for the local library.
+- `Download Release` stores the RSS metadata of a feed locally and tries to
+  download each track. A release page gives the release type in the label, for
+  example `Download Album`.
+- `Download Track` stores the parent feed if necessary, downloads the file, and
   marks that track as part of the managed library.
-- `Library` shows subscribed tracks grouped by artist and release/feed.
-- `Cached` shows downloaded files that exist locally but are not currently
-  marked as subscribed library tracks.
+- `Remove Track…` and `Remove from Library…` move the audio file from the music
+  folder to the audio cache. The database rows of the feed and the track stay.
+- `Settings`, `Library`, `Audio cache`, `Cached files` lists the files in the
+  audio cache. `Delete` and `Delete All Cached` remove them from the disk.
 - Local track inspectors can compare embedded ID3 data against RSS-derived
   metadata and stage explicit ID3v2.4 edits.
 - Local track and album inspectors can run metadata-based MusicBrainz lookups.
   They can use the results to stage more ID3 edits.
-- The library can check subscribed feeds for newer `updated_at` values from
-  MusicIndex and apply tag refreshes to downloaded files.
+- `Check all feeds`, at the bottom of the sidebar, checks the subscribed feeds
+  for newer `updated_at` values from MusicIndex and applies tag refreshes to
+  downloaded files.
 
 ## Current Scope
 
@@ -52,17 +59,18 @@ cargo run
 ### Optional dependency: `flac`
 
 When a feed declares MP3 but actually ships WAV (a known RSS quirk), HitIt
-silently re-encodes the download to FLAC so it can be tagged. This path shells
-out to the standard `flac` CLI. Install it via your package manager:
+silently re-encodes the download to FLAC so it can be tagged. It uses the
+standard `flac` CLI. When `flac` is missing or fails, it uses `ffmpeg`.
+Install one of them with your package manager:
 
 - Debian/Ubuntu: `sudo apt install flac`
 - Fedora: `sudo dnf install flac`
 - Arch: `sudo pacman -S flac`
 - macOS (Homebrew): `brew install flac`
 
-Without `flac` installed, WAV downloads are kept as WAV and left untagged. A
-custom binary path can be set under `Settings → flac binary` or via the
-`flac_path` config key.
+Without `flac` and `ffmpeg`, WAV downloads are kept as WAV and left untagged. To
+set a custom `flac` path, use `Settings`, `Library`, `Files`, `Audio converter`,
+or the `flac_path` config key.
 
 Build the desktop binary:
 
@@ -101,20 +109,8 @@ Downloads are organized under:
 <music_dir>/artists/<artist>/<release-or-feed>/<track file>
 ```
 
-The app also keeps a thumbnail cache beside the config directory.
-
-## Storage Model
-
-The SQLite database tracks three related states:
-
-- `feeds`: imported RSS feeds and subscription state
-- `tracks`: feed items and whether each track is part of the managed library
-- `local_files`: downloaded files on disk
-
-That gives the UI two useful views:
-
-- `Library`: downloaded tracks that are still marked `is_in_library = 1`
-- `Cached`: downloaded files whose tracks exist locally but are currently unsubscribed
+The app keeps a thumbnail cache in the config directory
+(`~/.config/hitit/thumbnail-cache`) and an audio cache in `~/.cache/hitit/audio`.
 
 ## Metadata Behavior
 
@@ -140,14 +136,27 @@ Current limitations:
 
 ## Keyboard Shortcuts
 
-Global shortcuts wired in the app today:
+Global shortcuts. Ctrl is Cmd on macOS.
 
-- `Cmd/Ctrl+1`: switch to `Library`
-- `Cmd/Ctrl+2`: switch to `Discover`
-- `Cmd/Ctrl+3`: switch to `Settings`
-- `Cmd/Ctrl+F`: focus the active tab search field in `Library` or `Discover`
-- `Cmd/Ctrl+R`: refresh `Library`
-- `Esc`: close the active inspector
+- `Ctrl+1`: switch to `Music`
+- `Ctrl+2`: switch to `Show`
+- `Ctrl+3`: switch to `Settings`
+- `Ctrl+F` or `Ctrl+Alt+F`: focus the search field
+- `Ctrl+N`: make a new playlist
+- `Ctrl+R`: refresh the library
+- `Ctrl+Alt+P`: play or pause the Show
+- `Ctrl+Alt+Right` and `Ctrl+Alt+Left`: go to the next or the previous Show cue entry
+- `Ctrl+,`: open `Settings`
+- `Ctrl+Q`: close the app
+
+Keys of the active list:
+
+- `Esc`: go back
+- `Up`, `Down`, `Page Up`, `Page Down`, `Home` and `End`: move the selection
+- `Enter`: open the selected item
+- `Space`: select the focused row
+- `Ctrl+A`: select all visible rows
+- `Right` and `Left`: open or close the focused group
 
 ## Docs
 
