@@ -6,6 +6,7 @@ The operator resumed visual checks on 2026-10-02. Walk a new check right after i
 The older checks below stay open until a person walks them. The operator walked part of a visual batch on 2026-10-02 and stopped after its Part A step 8.
 The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) walked sections 6 to 9, 11 and 22 to 33 on Xvfb. It lists the checks that only a person can do.
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) walked sections 11, 13, 15 to 17, 25 and 33. It took the items that the earlier walk left open for an agent.
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) walked the items that the first walk of that day left open for an agent.
 
 The current evidence fixture is `/tmp/hitit-governance.ie6k8TQf`. Its cleanup remains unconfirmed.
 
@@ -483,6 +484,8 @@ The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed most che
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed most open items of packets 002 to 014 in Light at 1440 px. It passed most of them in Dark at 900 px too. **Packet 003 V3 fails at 900 px**: the section shortcuts stop on Show and Settings. The pinned list bar of ADR 0090 task 002 passed in Dark at 1440 px. A Space closes the New Playlist popover.
 
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) passed the same items in Light at 900 px, and 007 V3. The pinned list bar passed in Light at 1440, 900 and 480 px. At 480 px, a band shows above the bar. A person must judge it.
+
 ## 12. musicindex ADR 0053 The List Controls - 2026-11-08
 
 Open - the packets below are implemented, and the mechanical suite is Green. The main agent checked each packet on its own Xvfb display in Light and Dark. No person checked them. The [phase plan](plans/musicindex-adr-0053-list-controls-phase-plan.md) owns the packets.
@@ -570,6 +573,8 @@ target/debug/hitit &
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed most items in Dark. **The Library selection bar fails**: no space follows the remove button. The record gives three questions about the text of this section.
 
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) passed the open items in Light. **At 390 px, the restore band of Diagnostics, Database cuts its third row.**
+
 ## 14. ADR 0097 The Fit Check At Two Widths - 2026-11-13
 
 - Open HitIt at a window width of 940 px. The sidebar shows, and no label breaks inside a word (musicindex ADR 0065).
@@ -590,6 +595,8 @@ The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed most ite
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1, V2 and V4 at a window height of 600 px. V3 stays open, because no notice page with buttons was found.
 
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) did not walk V3. A search failure needs a failed network request.
+
 ## 16. ADR 0085 Task 001 The Type Label Of Known Roles - 2026-11-14
 
 [ADR 0085 task 001](tasks/adr-0085-task-001-type-label-of-known-roles.md) gives the procedure.
@@ -603,6 +610,8 @@ The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1, V2 a
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed the badge and the title of V1, and V4 and V5, on Sir Libre Records. The heading of V1, V2 and V3 stay open.
 
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) passed the heading of V1. V2 and V3 stay open, because no page with two known roles was found and no Sir Libre track can enter the Library.
+
 ## 17. ADR 0092 Task 001 Artists Takes The List Focus - 2026-11-14
 
 [ADR 0092 task 001](tasks/adr-0092-task-001-artists-list-focus.md) gives the procedure. Open Artists in the scope All.
@@ -615,6 +624,8 @@ The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed the badg
 - Wrong: Tab skips the list, the focus ring does not show, or the focus goes to the sidebar.
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1 with the focus on the sort menu, V2, and V3 in Tiles. V3 in Rows stays open. The record gives a case of two rings that is not confirmed.
+
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) passed V3 in Rows.
 
 ## 18. ADR 0097 Task 007 The List Rows Truncate A Long Name - 2026-11-14
 
@@ -759,6 +770,8 @@ The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed V1 for a
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1 for the dialog buttons and a page button at 390 px. A tile, a list row at 390 px and Light stay open.
 
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) passed a list row in Light at 1120 px. A tile stays open: no ring showed. **At 390 px, the Releases list is not a Tab stop**, so a row at 390 px stays open.
+
 ## 26. ADR 0101 Task 003 The Art Radius And The Art Shadow - 2026-11-16
 
 Task: [ADR 0101 task 003](tasks/adr-0101-task-003-art-radius.md). Do the check in Dark and in Light at M.
@@ -866,6 +879,8 @@ Agent walk, 2026-11-16: V1, V3, V4, V5 and V6 pass. V2 is open, because the test
 The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) moved a file out of the scratch music folder, but the screenshot does not show the playlist row of that file. V2 stays open.
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) did not walk V2. V2 is about the unavailable row of a playlist page, which has the open entry level.
+
+The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) found the unavailable row white on the white page in Light, with no gray group. The record asks the operator if the check text or the level of the row changes.
 
 ## 34. ADR 0101 Task 011 The Main Action - 2026-11-16
 
