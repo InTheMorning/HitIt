@@ -16,6 +16,12 @@ use crate::broadcast::registry::BroadcastRegistry;
 use crate::playback_driver::ConfiguredPlaybackDriver;
 use crate::{api, config, db, debug_contracts, playback};
 
+/// The line of `hitit --version` (musicindex ADR 0083 R-VERSION-2).
+#[must_use]
+pub fn version_line() -> String {
+    crate::build_values::info().version_line()
+}
+
 pub fn run(args: &[String]) -> Result<()> {
     let settings = &CliConfig::default();
     match args {
@@ -663,6 +669,7 @@ fn print_help() {
 
 fn help_text() -> &'static str {
     "Usage:
+  hitit --version
   hitit
   hitit now-playing --json
   hitit liveitem health [--endpoint <url>]

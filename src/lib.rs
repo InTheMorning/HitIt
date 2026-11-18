@@ -5,6 +5,7 @@ pub mod audio_cache;
 pub mod audio_format;
 pub mod audio_tags;
 pub mod broadcast;
+pub(crate) mod build_values;
 pub mod cli;
 pub mod config;
 pub mod db;

@@ -3184,6 +3184,7 @@ dependencies = [
  "lru",
  "markup5ever_rcdom",
  "mime",
+ "musicindex-build-info",
  "musicindex-search",
  "musicindex-value",
  "open",
@@ -4446,6 +4447,14 @@ checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
 dependencies = [
  "num-traits",
  "pxfm",
+]
+
+[[package]]
+name = "musicindex-build-info"
+version = "0.1.0"
+source = "git+https://github.com/InTheMorning/musicindex-lib?rev=e6d11118d33069c26c01368f7de71524988039c6#e6d11118d33069c26c01368f7de71524988039c6"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

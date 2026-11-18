@@ -1,5 +1,11 @@
 fn main() -> std::process::ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    // musicindex ADR 0083 R-VERSION-2: the version line reads no user data,
+    // so it comes before the move of ADR 0096 Decision 6.
+    if args == ["--version"] {
+        println!("{}", hitit::cli::version_line());
+        return std::process::ExitCode::SUCCESS;
+    }
     // ADR 0096 Decision 6: a failed move stops the app before it reads the
     // configuration.
     if let Err(error) = hitit::config::user_data_move::move_previous_user_data() {

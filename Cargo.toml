@@ -16,6 +16,8 @@ chrono = { version = "0.4", default-features = false, features = ["std", "clock"
 serde_json = "1"
 # ADR 0091 step 1: the search parser, the Index plan and the kind rule.
 musicindex-search = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "47611480a59ca72b57d00b02a94ef709e4ee66f5" }
+# musicindex ADR 0083 R-VERSION-8: share build values and version formatting.
+musicindex-build-info = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "e6d11118d33069c26c01368f7de71524988039c6" }
 # musicindex ADR 0075 R-VALUE-4: the share percentages and the short address
 # (musicindex ADR 0076 R-ADDRESS-2) come from the shared crate.
 musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5e35cf5c39a8ff68c64267156d0a7165c43f1826" }
@@ -65,6 +67,10 @@ tokio-util = { version = "0.7", features = ["rt"] }
 # the async-io runtime of zbus. The features here add no second runtime.
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 ashpd = { version = "=0.13.13", default-features = false, features = ["async-io", "settings"] }
+
+[build-dependencies]
+# musicindex ADR 0083 R-VERSION-8: emit the shared build values.
+musicindex-build-info = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "e6d11118d33069c26c01368f7de71524988039c6" }
 
 [dev-dependencies]
 gpui = { package = "gpui-pre", version = "=0.3.1", features = ["test-support"] }

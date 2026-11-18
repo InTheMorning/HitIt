@@ -877,3 +877,18 @@ Task: [ADR 0101 task 011](tasks/adr-0101-task-011-main-action.md).
 - Incorrect: a header button has a blue fill, or a button label does not use title case, for example "Add to playlist".
 
 Agent walk, 2026-11-16: V1 and V2 pass in Light. V3 is open, because the test display has no browser.
+
+## 35. musicindex ADR 0083 The Version Line - 2026-11-18
+
+Task: [musicindex ADR 0083 task 001](tasks/musicindex-adr-0083-task-001-version-line.md).
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`.
+3. Open Settings. Make sure that the last line of the page shows the version, for example "HitIt 0.1.0 (0dd3e95, 2026-11-18)", with "Copy" at its right (V1).
+4. Drag the pointer across the line. Make sure that the text shows as selected (V2).
+5. Click "Copy". Paste in a text editor. Make sure that the paste is the full line (V3).
+6. Open Library and Diagnostics. Make sure that each page ends with the same line.
+- Incorrect: no line, a line that overlaps "Copy", text that you cannot select, or a paste that is not the line.
+- Open point for the operator: the line shows on each tab of Settings. Tell if it must show on one tab only.
+
+Agent check, 2026-11-18: V1 to V3 pass on Xvfb in Dark and Light at 1440 px, and in Dark at 390 px.

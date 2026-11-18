@@ -210,6 +210,7 @@ pub(crate) enum SettingsAction {
     SelectDiagnostic(DiagnosticPage),
     SelectView(MaintenanceView),
     Save,
+    CopyVersion,
     UseDefaults,
     SetScale(UiScale),
     SetTheme(ThemeProfile),
@@ -264,6 +265,7 @@ pub(crate) enum SettingsEffect {
     /// Opens the confirmation of "Use Defaults…". Its confirm button resets
     /// and saves the defaults.
     ConfirmUseDefaults,
+    CopyVersion,
     SetScale(UiScale),
     SetTheme(ThemeProfile),
 }
@@ -306,6 +308,21 @@ impl SettingsVm {
     pub(crate) const DIAGNOSTIC_MENU: &'static str = "Choose diagnostics page";
     pub(crate) const SAVE_SCOPE: &'static str =
         "Save applies General and Library controls together. Use Defaults resets and saves these controls; core paths use Configuration repair.";
+
+    pub(crate) fn version_line() -> String {
+        crate::build_values::info().version_line()
+    }
+
+    pub(crate) fn version_copy_action() -> Vec<SettingsActionDisplay> {
+        vec![SettingsActionDisplay {
+            action: SettingsAction::CopyVersion,
+            id: "settings-copy-version".into(),
+            label: "Copy".into(),
+            a11y_label: "Copy the version line".into(),
+            availability: StartupAvailability::Available,
+            selected: false,
+        }]
+    }
 
     pub(crate) const fn shows_configuration_repair(&self) -> bool {
         matches!(self.selected, SettingsGroup::Diagnostics)
@@ -373,6 +390,7 @@ impl SettingsVm {
                 SettingsEffect::Navigate
             }
             SettingsAction::Save => SettingsEffect::Save,
+            SettingsAction::CopyVersion => SettingsEffect::CopyVersion,
             SettingsAction::UseDefaults => SettingsEffect::ConfirmUseDefaults,
             SettingsAction::SetScale(scale) => SettingsEffect::SetScale(scale),
             SettingsAction::SetTheme(profile) => SettingsEffect::SetTheme(profile),
@@ -510,6 +528,29 @@ impl SettingsVm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn musicindex_adr_0083_settings_exposes_version_line_and_copy_action() {
+        let info = crate::build_values::info();
+        let line = SettingsVm::version_line();
+        assert_eq!(line, info.version_line());
+        assert!(line.starts_with("HitIt 0.1.0"));
+        if let Some(revision) = info.git_revision {
+            assert!(line.contains(revision));
+        }
+        if let Some(built_at) = info.built_at {
+            assert!(line.contains(&built_at[..10]));
+        }
+
+        let copy = SettingsVm::version_copy_action();
+        assert_eq!(copy.len(), 1);
+        assert_eq!(copy[0].action, SettingsAction::CopyVersion);
+        assert_eq!(copy[0].label, "Copy");
+        assert_eq!(
+            SettingsVm::default().dispatch(copy[0].action),
+            SettingsEffect::CopyVersion
+        );
+    }
 
     #[test]
     fn adr_0074_diagnostics_selects_one_page_without_edit_effects() {

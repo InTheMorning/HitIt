@@ -4,11 +4,12 @@
 
 use std::rc::Rc;
 
-use gpui::{AnyElement, Context, Empty, IntoElement, Window};
+use gpui::{AnyElement, ClipboardItem, Context, Empty, IntoElement, Window};
 
 use crate::config;
 use crate::theme_profile::ThemeProfile;
 use crate::ui::composites::maintenance_page::PageNavigation;
+use crate::ui::composites::selectable_text::SelectableText;
 use crate::ui::composites::settings::{
     settings_actions, settings_cached_row, settings_frame, settings_heading, settings_message,
     settings_section_heading, settings_tab_row, settings_text_input, settings_value_and_action,
@@ -60,6 +61,9 @@ impl TopApp {
                 cx,
             ),
             SettingsEffect::Save => self.save_settings(window, cx),
+            SettingsEffect::CopyVersion => {
+                cx.write_to_clipboard(ClipboardItem::new_string(SettingsVm::version_line()));
+            }
             SettingsEffect::ConfirmUseDefaults => {
                 crate::ui::shells::settings_defaults_confirmation::open_use_defaults_dialog(
                     window,
@@ -214,6 +218,11 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
     if !app.settings_status.is_empty() && !workspace {
         content.push(settings_message(app.settings_status.clone(), cx));
     }
+    content.push(settings_value_and_action(
+        SelectableText::new("settings-version-line", SettingsVm::version_line()).into_any_element(),
+        settings_actions(SettingsVm::version_copy_action(), &callback, cx),
+        cx,
+    ));
     let page_scroll = app.settings_scroll.handle(app.settings.selected());
     settings_frame(tab_row, navigation, content, page_scroll, workspace, cx)
 }
