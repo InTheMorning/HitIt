@@ -487,7 +487,7 @@ The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed most ope
 
 The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) passed the same items in Light at 900 px, and 007 V3. The pinned list bar passed in Light at 1440, 900 and 480 px. At 480 px, a band shows above the bar. A person must judge it.
 
-The [third agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-third.md) passed a row download and "Add to playlist" with the bar pinned, in Light. The band at 480 px also shows in Light. No agent item stays open for ADR 0090 task 002. The band of about 30 px above the pinned list bar, in Light at 480 px, stays open for the operator on the real display (question 3 of the walk record).
+The [third agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-third.md) passed a row download and "Add to playlist" with the bar pinned, in Light. The band at 480 px also shows in Light. No agent item stays open for ADR 0090 task 002. The operator accepted the band of about 30 px above the pinned list bar, in Light at 480 px, on 2026-11-18 (question 3 of the walk record).
 
 ## 12. musicindex ADR 0053 The List Controls - 2026-11-08
 
