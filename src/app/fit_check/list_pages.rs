@@ -9,6 +9,10 @@ use crate::view_models::sidebar::SidebarDestination;
 use gpui::{size, AppContext, Entity};
 use std::{cell::RefCell, rc::Rc};
 
+/// A search query of one long word. A query title can break inside the word
+/// (ADR 0097 task 008, operator choice of 2026-11-18).
+const LONG_QUERY: &str = "Searchqueryofonelongwordwithnospace0123456789";
+
 fn page_faults(
     width: gpui::Pixels,
     destination: SidebarDestination,
@@ -46,11 +50,7 @@ fn page_faults(
     if search_results {
         window.update(|window, cx| {
             entity.update(cx, |app, cx| {
-                app.open_search_results_in_content_list(
-                    "Search results for a long query",
-                    window,
-                    cx,
-                );
+                app.open_search_results_in_content_list(LONG_QUERY, window, cx);
                 if let Some(page) = &mut app.search_results_detail {
                     page.replace_index_results(fit_fixtures::index_search_results());
                 }
@@ -89,7 +89,7 @@ fn check_case(
         failures.push(format!("{context}: no fit probe was recorded"));
     }
     let expected_title = if search_results {
-        "Search results for a long query"
+        LONG_QUERY
     } else {
         LONG_TITLE
     };

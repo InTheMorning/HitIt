@@ -82,15 +82,17 @@ Visual, listed apart, for the operator to walk:
 
 - V1: the page of Sir Libre Records shows the badge and the title "Label". Its shared releases heading is "Artists on these releases".
 - V2: a feed page with two or more known roles shows each role with " · ", and the dot has the color of the first role.
-- V3: Inspect sources of Sir Libre Records still shows `recordLabel`.
+- V3: the page of Sir Libre Records still shows the role word `recordLabel` as RSS text, as `rel="recordLabel"` in a "Role not confirmed" row.
+
+Operator choice, 2026-11-18: V3 names the publisher page in place of Inspect sources. Inspect sources opens only from a track and has no role field. The [third agent walk of 2026-11-18](../reviews/agent-walk-2026-11-18-third.md) question 1 gives the facts.
 
 ## Operator Visual Check
 
 1. Run `cargo run --bin hitit` in a desktop session.
 2. Open the feed page of Sir Libre Records. Do V1.
 3. Open a feed page with two or more roles. Do V2.
-4. Open Inspect sources on the Sir Libre Records page. Do V3.
-5. Wrong: a page shows "Publisher" for a feed with a known role, or Inspect sources hides a role word.
+4. On the Sir Libre Records page, find the "Role not confirmed" rows. Do V3.
+5. Wrong: a page shows "Publisher" for a feed with a known role, or the Sir Libre Records page hides the role word `recordLabel`.
 
 ## Test Commands
 

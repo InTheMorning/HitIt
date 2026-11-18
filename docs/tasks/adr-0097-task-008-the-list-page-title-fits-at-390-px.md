@@ -28,13 +28,14 @@ The main session read this in the code on 2026-11-18:
 - The title row wraps. When the title and the trailing controls do not fit on one line, the controls go to a second line below the title. The minimum width of the title is the width of its longest word.
 - The title records a fit probe, as a `Label` or with the probe of `src/ui/primitives/fit_probe.rs`, so the fit test sees a break inside a word.
 - A long query title can still wrap between words (ADR 0063). Do not call `truncate()` on the title.
+- A query title can also break inside a word (operator choice, Guard Change).
 - Do not change the tile grid. The one column of tiles at 390 px is not in this packet.
 
 ## Guard Change
 
 The search results case of `adr_0097_the_list_pages_fit_at_the_two_widths` used the fixture `LONG_TITLE` as the query. It is a word of 40 letters with no space. With the title probe, that query breaks inside the word at 390 px, and the test reports a fault. The case now uses the query "Search results for a long query".
 
-A query of one long word can still break inside the word. No rule says if a query title can break anywhere (`Label::break_anywhere`). This is open for the orchestrator.
+Operator choice, 2026-11-18: a search query title can break at any letter, as with `Label::break_anywhere`. This applies only to a query title. `ListPageHeadVm::title_breaks_anywhere` is true only from `ListPageHeadVm::for_search`. A query title box starts at the width of its text and can shrink, so a query of one long word takes a line of its own and breaks inside the word. Each other title keeps the width of its longest word. This uses musicindex ADR 0065 R-FIT-3 item 3 and ADR 0097 Decision 4 item 3, and does not change them. The search results case of `adr_0097_the_list_pages_fit_at_the_two_widths` now uses the query `LONG_QUERY`, one word of 45 characters. With the flag false, the case fails at 390 px with an overflow of 632 px.
 
 ## Base components
 
@@ -57,7 +58,8 @@ A query of one long word can still break inside the word. No rule says if a quer
 - V1: in Light and Dark at 390 px, examine the titles of Releases, Artists, My playlists, Public playlists and the Inbox. Each title is on one line with no break inside a word.
 - V2: at 390 px the sort, the view buttons and Select are on a second line below the title when they do not fit beside it. Each control shows fully.
 - V3: at 940 px and at 1440 px the title and the controls are on one line, as before.
-- Incorrect: a title breaks inside a word, a control is cut, or the head is higher at 940 px than before.
+- V4: at 390 px a search query of one long word is on a line of its own and breaks inside the word. The controls are below it. A short query and the controls are on one line.
+- Incorrect: a title that is not a query breaks inside a word, a control is cut, or the head is higher at 940 px than before.
 
 ## Observation Not In This Packet
 

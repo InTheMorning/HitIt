@@ -608,10 +608,10 @@ The [third agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-third.md) pas
 
 - V1: the page of Sir Libre Records shows the badge and the title "Label". Its shared releases heading is "Artists on these releases".
 - V2: a feed page with two or more known roles shows each role with " · ", and the dot has the color of the first role.
-- V3: Inspect sources of Sir Libre Records still shows `recordLabel`.
+- V3: the page of Sir Libre Records still shows the role word `recordLabel` as RSS text, as `rel="recordLabel"` in a "Role not confirmed" row. Operator choice of 2026-11-18: this check names the publisher page in place of Inspect sources.
 - V4: on a feed page with an agreed role other than artist, the "Roles" fact and the "As" heading show only known roles, in the sequence artist, label, hosting, producer, host, author, network, sponsor (musicindex ADR 0066 R-ROLE-6).
 - V5: a "Role not confirmed" row of a feed page or a release page shows an unknown word as `rel="…"`, for example "Sir Libre Records: label · the album: rel="recordLabel"" (R-ROLE-5 item 4).
-- Wrong: a page shows "Publisher" for a feed with a known role, Inspect sources hides a role word, a "Roles" fact or an "As" heading shows an unknown word, or a "Role not confirmed" row shows an unknown word without `rel="…"`.
+- Wrong: a page shows "Publisher" for a feed with a known role, the Sir Libre Records page hides the role word `recordLabel`, a "Roles" fact or an "As" heading shows an unknown word, or a "Role not confirmed" row shows an unknown word without `rel="…"`.
 
 The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed the badge and the title of V1, and V4 and V5, on Sir Libre Records. The heading of V1, V2 and V3 stay open.
 
@@ -966,5 +966,6 @@ Task: [ADR 0097 task 008](tasks/adr-0097-task-008-the-list-page-title-fits-at-39
 3. Open Releases, Artists, My playlists, Public playlists and the Inbox. Make sure that each title is on one line with no break inside a word (V1).
 4. Make sure that the sort, the view buttons and Select go to a second line below the title when they do not fit beside it. Each control shows fully (V2).
 5. Make the window 940 px and 1440 px wide. Make sure that the title and the controls are on one line, as before (V3).
-6. Do steps 3 to 5 in Light and Dark.
-- Incorrect: a title breaks inside a word, a control is cut, or the head is higher at 940 px than before.
+6. At 390 px, search for `Searchqueryofonelongwordwithnospace0123456789`. Make sure that the query title is on a line of its own and breaks inside the word, and that the controls are below it. Then search for one short word, for example `jazz`. Make sure that the title and the controls are on one line (V4).
+7. Do steps 3 to 6 in Light and Dark.
+- Incorrect: a title that is not a query breaks inside a word, a control is cut, or the head is higher at 940 px than before.

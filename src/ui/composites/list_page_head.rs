@@ -114,14 +114,16 @@ pub(crate) fn list_page_head(
         trailing = trailing.child(title_action(action, handlers.actions.get(index)));
     }
 
-    // Column text does not call `truncate()` (ADR 0063). A query title wraps.
+    // Column text does not call `truncate()` (ADR 0063). A query title wraps,
+    // and a query of one long word can break inside the word (ADR 0097 task
+    // 008).
     let title_text = SharedString::from(display.title);
     let title_layout = StyledText::new(title_text.clone());
     #[cfg(test)]
     let title_probe = crate::ui::primitives::fit_probe::probe(
         title_text,
         Some(title_layout.layout().clone()),
-        false,
+        display.title_breaks_anywhere,
     );
     let title = div()
         .text_size(FontSize::Title.scaled(cx))
@@ -130,6 +132,15 @@ pub(crate) fn list_page_head(
         .child(title_layout);
     #[cfg(test)]
     let title = title.child(title_probe);
+    // A query title starts at the width of its text. When it is wider than
+    // the row, it takes a line of its own and breaks inside its word. Each
+    // other title keeps the width of its longest word.
+    let title_box = if display.title_breaks_anywhere {
+        div().flex_auto().min_w_0()
+    } else {
+        div().flex_1()
+    }
+    .child(title);
     let title_row = div()
         .flex()
         .flex_row()
@@ -138,7 +149,7 @@ pub(crate) fn list_page_head(
         // The title keeps one height, with or without a control beside it.
         .min_h(Size::MinHitTarget.scaled(cx))
         .gap(Spacing::SM.scaled(cx))
-        .child(div().flex_1().child(title))
+        .child(title_box)
         .child(trailing);
 
     let mut head = div()

@@ -36,6 +36,8 @@ These facts come from a ChatGPT code search of 2026-11-14. The implementer exami
   - Remove a selection (`src/library/app_impl.rs:5479`).
   - Delete a saved search, from a row (`src/app/saved_search_dispatch.rs:135`) and from its page (`:148`).
   - Use Defaults (`src/app/settings.rs:59`).
+
+The [third agent walk of 2026-11-18](../reviews/agent-walk-2026-11-18-third.md) defect 2 is in the scope of this task: at 390 px, in Settings, General, in Light, the Use Defaults dialog is cut at the left edge of the window. The title shows as "se the default settings?". Screenshot: `../reviews/screenshots/agent-walk-2026-11-18-third/use-defaults-dialog-390-cut.png`. The fit check of the dialogs must find this fault before the fix, and must pass after it.
 - The public playlist copy dialog has its own builder (`src/library/public_playlists.rs:285`).
 - `AddToPlaylist` has a list mode and a create mode (`src/ui/composites/playlist_popover.rs:185`). Its trigger id ends in `-btn`.
 - `ContextMenu` (`src/ui/primitives/context_menu.rs:543`) and `PointerContextMenu` (`:274`) draw the menus. `LibraryApp::open_focused_row_menu` opens a row menu from the keyboard (`src/library/app_impl.rs:4728`).

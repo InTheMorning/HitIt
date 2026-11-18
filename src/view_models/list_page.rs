@@ -979,6 +979,11 @@ pub(crate) struct ListPageHeadVm {
     /// The page title. A search page gives the query text, or an empty text
     /// when its query field is open.
     pub(crate) title: String,
+    /// True when the title is a search query. A query of one long word can
+    /// break inside the word (musicindex ADR 0065 R-FIT-3 item 3, ADR 0097
+    /// task 008 operator choice of 2026-11-18). The fit probe of a test
+    /// binary does not count that break.
+    pub(crate) title_breaks_anywhere: bool,
     /// The scope control, or `None` when the page has no scope.
     pub(crate) scope: Option<ListScopeControlVm>,
     /// The sort button, or `None` when the page has no sort.
@@ -1013,6 +1018,7 @@ impl ListPageHeadVm {
         let reversed = state.order_reversed(key, scope);
         Self {
             title: key.title().to_owned(),
+            title_breaks_anywhere: false,
             scope: state
                 .scope
                 .map(|selected| scope_control(key, selected, library_count)),
@@ -1034,6 +1040,7 @@ impl ListPageHeadVm {
     pub(crate) fn titled(title: &str, action: Option<SearchPageActionDisplay>) -> Self {
         Self {
             title: title.to_owned(),
+            title_breaks_anywhere: false,
             scope: None,
             sort: None,
             letters: None,
@@ -1063,6 +1070,7 @@ impl ListPageHeadVm {
         };
         Self {
             title,
+            title_breaks_anywhere: true,
             scope: Some(search_scope_control(scope)),
             sort: sort_menu_vm(key, state),
             letters: None,
