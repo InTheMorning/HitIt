@@ -3045,7 +3045,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 27;
+pub(crate) const CURRENT_VERSION: i64 = 28;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -3182,6 +3182,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 27,
         name: "cached_files",
         apply: cached_files::apply,
+    },
+    Migration {
+        version: 28,
+        name: "named_feed_titles",
+        apply: publisher_relationships::apply_named_titles,
     },
 ];
 
@@ -5665,7 +5670,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26, 27
+                24, 25, 26, 27, 28
             ],
             "cleanup migration should be recorded exactly once"
         );
@@ -6709,8 +6714,14 @@ mod tests {
         expected.push("cached_files".to_owned());
         expected.sort();
         assert_eq!(after, expected, "ADR 0100 migration 27 adds one table");
-        assert_eq!(inspect_schema(&conn)?, SchemaCompatibility::Current);
-        upgrades::verify_target(&conn, CURRENT_VERSION)?;
+        assert_eq!(
+            inspect_schema(&conn)?,
+            SchemaCompatibility::UpgradeRequired {
+                applied: 27,
+                current: CURRENT_VERSION as usize
+            }
+        );
+        upgrades::verify_target(&conn, 27)?;
         Ok(())
     }
 }

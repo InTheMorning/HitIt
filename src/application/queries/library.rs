@@ -1548,6 +1548,8 @@ mod observation_tests {
             "music_rel": null,
             "role": "artist",
             "role_source": "default",
+            // ADR 0098 Decision 11.6: each row stores the title of its own entry.
+            "remote_feed_title": if mode == 24 { "Renamed publisher" } else { "Liberthea Anadara" },
             // ADR 0084 packet 024: the hydration stores this value, trimmed.
             "remote_feed_image_url": " https://example.test/publisher-artist.jpg "
         });
@@ -1565,7 +1567,8 @@ mod observation_tests {
             "publisher_rel": "label",
             "music_rel": "artist",
             "role": null,
-            "role_source": "conflict"
+            "role_source": "conflict",
+            "remote_feed_title": "Second publisher"
         });
         let publisher = match mode {
             23 | 27 => json!([recorded, conflict]),
@@ -1729,7 +1732,7 @@ mod observation_tests {
             ("music_rel", text("artist")),
             ("role", Value::Null),
             ("role_source", text("conflict")),
-            ("publisher_feed_title", text("Liberthea Anadara")),
+            ("publisher_feed_title", text("Second publisher")),
             ("observed_at", observed_at),
             ("album_names_as", Value::Null),
             ("role_agreement", Value::Null),
@@ -3708,6 +3711,49 @@ mod adr_0077_publisher_page_tests {
             Some("https://example.test/remote-publisher.jpg"),
             "R85-8-16 design: with no Library feed for publisher-guid, the header image falls back to the Index value"
         );
+    }
+
+    /// ADR 0098 Decision 11.6: the Library page of a label feed shows the
+    /// title of that feed, not the title of the artist feed that the album
+    /// response states as `publisher_feed_title`.
+    #[test]
+    fn adr_0098_publisher_page_title_is_the_title_of_the_page_feed() {
+        let fixture = Fixture::start();
+        let mut raw = Connection::open_in_memory().unwrap();
+        db::init_schema(&raw).unwrap();
+        db::migrate_schema(&raw).unwrap();
+        raw.execute(
+            "INSERT INTO feeds(id, feed_url, feed_guid, title)
+             VALUES (1, 'https://example.test/one.xml', 'album-guid-local', 'Local Album')",
+            [],
+        )
+        .unwrap();
+        let entry = |guid: &str, role: &str, title: &str| crate::api::PublisherRelationship {
+            direction: Some("music_to_publisher".to_owned()),
+            publisher_feed_guid: Some(guid.to_owned()),
+            remote_feed_guid: Some(guid.to_owned()),
+            role: Some(role.to_owned()),
+            music_names_publisher: Some(true),
+            remote_feed_title: Some(title.to_owned()),
+            ..crate::api::PublisherRelationship::default()
+        };
+        db::publisher_relationships::upsert_feed_publisher_relationships(
+            &mut raw,
+            1,
+            Some("Motive to Kill"),
+            Some(&[
+                entry("artist-guid", "artist", "Motive to Kill"),
+                entry("label-guid", "label", "Sir Libre Records"),
+            ]),
+            10,
+        )
+        .unwrap();
+        let conn: SharedConnection = Arc::new(Mutex::new(raw));
+
+        let facts = fetch_library_publisher_page(&conn, &fixture.endpoint, "label-guid")
+            .expect("the query should succeed");
+
+        assert_eq!(facts.feed_title.as_deref(), Some("Sir Libre Records"));
     }
 
     /// R3-02a: when the request for the other albums fails, the Library

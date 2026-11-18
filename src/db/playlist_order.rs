@@ -189,14 +189,14 @@ mod tests {
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
         assert_eq!(
-            CURRENT_VERSION, 27,
-            "ADR 0100 adds the cached_files migration"
+            CURRENT_VERSION, 28,
+            "ADR 0098 adds the named_feed_titles migration"
         );
         assert_eq!(
             inspect_schema(&conn).unwrap(),
             SchemaCompatibility::UpgradeRequired {
                 applied: 24,
-                current: 27,
+                current: 28,
             }
         );
         upgrades::verify_target(&conn, 24).unwrap();

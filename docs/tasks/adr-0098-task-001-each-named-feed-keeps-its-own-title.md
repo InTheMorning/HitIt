@@ -1,6 +1,6 @@
 # ADR 0098 Task 001: Each Named Feed Keeps Its Own Title
 
-Status: Ready - 2026-11-18. The orchestrator asked for this packet on 2026-11-18, with the approval of the operator.
+Status: Implemented - operator visual checks V1 and V2 open, 2026-11-18. The orchestrator asked for this packet on 2026-11-18, with the approval of the operator.
 
 ## Goal
 
@@ -77,3 +77,15 @@ The walk needs `cdn.kolomona.com` and `sirlibre.com` in the allowed hosts.
 - Stop if a reader of `publisher_feed_title` needs the title of a feed other than the first named feed.
 
 A delegate does not commit. It leaves the change in the working tree and reports it. Apply the STE skill at `/home/citizen/.agents/skills/asd-ste100/SKILL.md` to each comment and report.
+
+## Report
+
+Storage choice: no new column. Migration 28 only deletes old rows. The column `publisher_feed_title` of `feed_publisher_relationships` already means "the title of the publisher feed that this row names". A `music_to_publisher` row now stores the `remote_feed_title` of its own entry in that column. When the entry has no title, the row takes the album-level title only if the response has exactly one `music_to_publisher` entry. Otherwise the row stores null. A row of another direction stores the album-level title, as before.
+
+Readers examined: `named_feeds` and `local_albums_for_publisher` read the stored column. `fetch_library_publisher_page` takes the page title from `local_albums_for_publisher`, so it needs no change. `CuratorLink::of` in `playlist_curators.rs` and the hydration call read the API field `Feed.publisher_feed_title`, not the stored column. No reader needs the title of a feed other than its own row.
+
+Failing output before the fix: `adr_0098_named_feeds_each_keep_their_own_title` gave `left: None, right: Some("Sir Libre Records")`. `adr_0098_publisher_page_title_is_the_title_of_the_page_feed` gave `left: Some("Motive to Kill"), right: Some("Sir Libre Records")`. The test for the Library title fallback passed before and after.
+
+Changed test: `adr_0077_publisher_relationship_hydration_stores_each_field` asserted the same title on two entries. Its fixture entries now carry `remote_feed_title`, and the second row expects its own title.
+
+An album hydrated before this change: migration 28 (`named_feed_titles`) deletes the stored rows of each album with two or more named feeds, because each row held the album-level title. The identity backfill then hydrates the album again, and the hydration writes the title of each entry. An album with one named feed keeps its row. An album with a stored `publisher` hold keeps its rows, because the hydration does not write a held `music_to_publisher` row. The hydration writes each other column of a deleted row again from the response.

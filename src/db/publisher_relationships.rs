@@ -85,9 +85,61 @@ pub(super) fn apply(conn: &Connection) -> Result<()> {
         .context("Create feed publisher relationship table")
 }
 
+/// Migration 28 (ADR 0098 Decision 11.6): deletes the stored rows of each
+/// album that names two or more feeds.
+///
+/// Before this migration, each row of an album held the album-level title,
+/// not the title of its own entry, so those titles are not valid. The
+/// next hydration writes each column of a deleted row again from the
+/// response. `feed_ids_with_no_stored_relationship` then selects the album
+/// for the identity backfill. An album with one named feed keeps its row.
+/// An album with a stored `publisher` hold keeps its rows, because the
+/// hydration does not write a held `music_to_publisher` row.
+pub(super) fn apply_named_titles(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "DELETE FROM feed_publisher_relationships
+         WHERE feed_id IN (
+             SELECT feed_id FROM feed_publisher_relationships
+             WHERE direction = 'music_to_publisher' AND music_names_publisher = 1
+             GROUP BY feed_id HAVING COUNT(*) >= 2
+         )
+         AND feed_id NOT IN (
+             SELECT feed_id FROM rss_field_holds
+             WHERE owner_kind = 'feed' AND field = 'publisher'
+         )",
+        [],
+    )
+    .context("Delete the rows with an album-level title")?;
+    Ok(())
+}
+
 /// Returns the value when it is present and not empty.
 fn nonempty(value: Option<&str>) -> Option<&str> {
     value.filter(|value| !value.is_empty())
+}
+
+/// The number of `music_to_publisher` entries in one response.
+fn count_named_entries(relationships: &[PublisherRelationship]) -> usize {
+    relationships
+        .iter()
+        .filter(|entry| entry.direction.as_deref() == Some("music_to_publisher"))
+        .count()
+}
+
+/// The title that one row stores in `publisher_feed_title` (ADR 0098
+/// Decision 11.6). See [`upsert_feed_publisher_relationships`].
+fn row_title<'a>(
+    direction: &str,
+    entry: &'a PublisherRelationship,
+    album_title: Option<&'a str>,
+    named_entry_count: usize,
+) -> Option<&'a str> {
+    if direction == "music_to_publisher" {
+        nonempty(entry.remote_feed_title.as_deref())
+            .or_else(|| album_title.filter(|_| named_entry_count == 1))
+    } else {
+        album_title
+    }
 }
 
 /// Insert or update one row for each keyed entry of one response.
@@ -106,9 +158,16 @@ fn nonempty(value: Option<&str>) -> Option<&str> {
 /// entry, trimmed. An empty value stores null (ADR 0084 Decision 12,
 /// migration 20).
 ///
-/// `publisher_feed_title` comes from the same feed response. `observed_at`
-/// is the Unix time in seconds of the observation that supplied the
-/// response. The function returns the number of rows that it wrote.
+/// `publisher_feed_title` is the title of the first named feed, from the
+/// same feed response. A `music_to_publisher` row stores the
+/// `remote_feed_title` of its own entry in the column `publisher_feed_title`
+/// (ADR 0098 Decision 11.6). When that entry has no title, the row takes the
+/// album-level value only if the response has exactly one
+/// `music_to_publisher` entry. Otherwise the title of a different feed
+/// would fill the row, so the row stores null. A row of another direction
+/// stores the album-level value. `observed_at` is the Unix time in seconds
+/// of the observation that supplied the response. The function returns the
+/// number of rows that it wrote.
 pub(crate) fn upsert_feed_publisher_relationships(
     conn: &mut Connection,
     feed_id: i64,
@@ -119,6 +178,7 @@ pub(crate) fn upsert_feed_publisher_relationships(
     let Some(relationships) = relationships.filter(|entries| !entries.is_empty()) else {
         return Ok(0);
     };
+    let named_entry_count = count_named_entries(relationships);
     let transaction = conn
         .savepoint()
         .context("Begin feed publisher relationship write")?;
@@ -166,6 +226,7 @@ pub(crate) fn upsert_feed_publisher_relationships(
             ) else {
                 continue;
             };
+            let row_title = row_title(direction, entry, publisher_feed_title, named_entry_count);
             statement
                 .execute(params![
                     feed_id,
@@ -194,7 +255,7 @@ pub(crate) fn upsert_feed_publisher_relationships(
                         .role_source
                         .as_ref()
                         .map(crate::api::RoleSource::as_str),
-                    publisher_feed_title,
+                    row_title,
                     observed_at,
                     entry
                         .album_names_as
@@ -341,12 +402,11 @@ pub(crate) fn newest_track_date(conn: &Connection, feed_id: i64) -> Result<Optio
 /// Decision 6).
 ///
 /// Each `music_to_publisher` row with `music_names_publisher = 1` becomes
-/// one [`NamedFeed`](crate::view_models::named_feeds::NamedFeed). The title
-/// of the first named feed, after the sort, is the stored
-/// `publisher_feed_title`: the title of the primary party of the last
-/// hydration. Each other named feed gets the title of its own Library
-/// feed, when the Library has a feed with that GUID. Its title is null
-/// otherwise.
+/// one [`NamedFeed`](crate::view_models::named_feeds::NamedFeed). Each
+/// named feed gets the title that its own row stores (ADR 0098 Decision
+/// 11.6). When its row stores no title, the feed gets the title of the
+/// Library feed with that GUID. Its title is null when the Library has no
+/// such feed.
 ///
 /// A screen uses this list to show the artist link and the role rows of
 /// ADR 0085 Decisions 5 and 6. No screen builds a named feed from name text.
@@ -392,18 +452,15 @@ pub(crate) fn named_feeds(
         .context("Read named feeds")?;
 
     let mut feeds: Vec<NamedFeed> = Vec::with_capacity(rows.len());
-    let mut publisher_feed_title: Option<String> = None;
-    for (feed, title) in rows {
-        if publisher_feed_title.is_none() {
-            publisher_feed_title = title;
-        }
+    for (mut feed, title) in rows {
+        feed.title = title.filter(|title| !title.is_empty());
         feeds.push(feed);
     }
     sort_named_feeds(&mut feeds);
-    if let Some(first) = feeds.first_mut() {
-        first.title = publisher_feed_title;
-    }
-    for feed in feeds.iter_mut().skip(1) {
+    for feed in &mut feeds {
+        if feed.title.is_some() {
+            continue;
+        }
         feed.title = conn
             .query_row(
                 "SELECT title FROM feeds WHERE feed_guid = ?1",
@@ -1174,6 +1231,170 @@ mod tests {
             "the RSS position selects the primary named feed, not the newer observed_at"
         );
         assert_eq!(feeds[1].feed_guid, "publisher-second");
+    }
+
+    /// ADR 0098 Decision 11.6: each named feed keeps the title of its own
+    /// entry. The album response has one `publisher_feed_title`, the title
+    /// of the first named feed. The second named feed keeps its own
+    /// `remote_feed_title`, not that value.
+    #[test]
+    fn adr_0098_named_feeds_each_keep_their_own_title() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, CURRENT_VERSION).unwrap();
+        conn.execute(
+            "INSERT INTO feeds(id, feed_url, feed_guid) VALUES (1, 'https://example.test/one.xml', 'album-guid-1')",
+            [],
+        )
+        .unwrap();
+        let artist = PublisherRelationship {
+            music_names_publisher: Some(true),
+            remote_feed_title: Some("Motive to Kill".to_owned()),
+            ..entry("artist-guid", Some("artist"))
+        };
+        let label = PublisherRelationship {
+            music_names_publisher: Some(true),
+            remote_feed_title: Some("Sir Libre Records".to_owned()),
+            ..entry("label-guid", Some("label"))
+        };
+        upsert_feed_publisher_relationships(
+            &mut conn,
+            1,
+            Some("Motive to Kill"),
+            Some(&[artist, label]),
+            10,
+        )
+        .unwrap();
+        write_named_feed_positions(
+            &conn,
+            1,
+            &[
+                crate::api::RemoteItem {
+                    position: Some(0),
+                    remote_feed_guid: Some("artist-guid".to_owned()),
+                    source: Some("podcast_publisher".to_owned()),
+                    ..crate::api::RemoteItem::default()
+                },
+                crate::api::RemoteItem {
+                    position: Some(1),
+                    remote_feed_guid: Some("label-guid".to_owned()),
+                    source: Some("podcast_publisher".to_owned()),
+                    ..crate::api::RemoteItem::default()
+                },
+            ],
+        )
+        .unwrap();
+
+        let feeds = named_feeds(&conn, 1).unwrap();
+        assert_eq!(feeds.len(), 2);
+        assert_eq!(feeds[0].title.as_deref(), Some("Motive to Kill"));
+        assert_eq!(
+            feeds[1].title.as_deref(),
+            Some("Sir Libre Records"),
+            "ADR 0098 Decision 11.6: the label row keeps the title of its own entry"
+        );
+    }
+
+    /// ADR 0098 Decision 11.6: a row with no stored title uses the title of
+    /// the Library feed with the same GUID. When the album names more than
+    /// one feed, the album-level title does not fill a row without a title.
+    #[test]
+    fn adr_0098_named_feed_without_stored_title_uses_the_library_title() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, CURRENT_VERSION).unwrap();
+        conn.execute_batch(
+            "INSERT INTO feeds(id, feed_url, feed_guid) VALUES (1, 'https://example.test/one.xml', 'album-guid-1');
+             INSERT INTO feeds(id, feed_url, feed_guid, title) VALUES (2, 'https://example.test/two.xml', 'label-guid', 'Library Label');",
+        )
+        .unwrap();
+        let artist = PublisherRelationship {
+            music_names_publisher: Some(true),
+            remote_feed_title: Some("Motive to Kill".to_owned()),
+            ..entry("artist-guid", Some("artist"))
+        };
+        let label = PublisherRelationship {
+            music_names_publisher: Some(true),
+            remote_feed_title: None,
+            ..entry("label-guid", Some("label"))
+        };
+        upsert_feed_publisher_relationships(
+            &mut conn,
+            1,
+            Some("Motive to Kill"),
+            Some(&[artist, label]),
+            10,
+        )
+        .unwrap();
+        write_named_feed_positions(
+            &conn,
+            1,
+            &[
+                crate::api::RemoteItem {
+                    position: Some(0),
+                    remote_feed_guid: Some("artist-guid".to_owned()),
+                    source: Some("podcast_publisher".to_owned()),
+                    ..crate::api::RemoteItem::default()
+                },
+                crate::api::RemoteItem {
+                    position: Some(1),
+                    remote_feed_guid: Some("label-guid".to_owned()),
+                    source: Some("podcast_publisher".to_owned()),
+                    ..crate::api::RemoteItem::default()
+                },
+            ],
+        )
+        .unwrap();
+
+        let feeds = named_feeds(&conn, 1).unwrap();
+        assert_eq!(feeds[1].title.as_deref(), Some("Library Label"));
+    }
+
+    /// ADR 0098 Decision 11.6, migration 28: before the migration, every row
+    /// of an album held the album-level title. The migration deletes the rows
+    /// of each album with two or more named feeds, so the identity backfill
+    /// hydrates that album again. An album with one named feed keeps its row.
+    /// An album with a stored publisher hold keeps its rows, because the
+    /// hydration does not write a held `music_to_publisher` row again.
+    #[test]
+    fn adr_0098_migration_28_deletes_rows_of_albums_with_two_named_feeds() {
+        let conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, 27).unwrap();
+        conn.execute_batch(
+            "INSERT INTO feeds(id, feed_url, feed_guid) VALUES (1, 'https://example.test/1.xml', 'album-1');
+             INSERT INTO feeds(id, feed_url, feed_guid) VALUES (2, 'https://example.test/2.xml', 'album-2');
+             INSERT INTO feeds(id, feed_url, feed_guid) VALUES (3, 'https://example.test/3.xml', 'album-3');
+             INSERT INTO feed_publisher_relationships(feed_id, direction, publisher_feed_guid, remote_feed_guid, music_names_publisher, publisher_feed_title, observed_at)
+               VALUES (1, 'music_to_publisher', 'artist', 'artist', 1, 'Motive to Kill', 1),
+                      (1, 'music_to_publisher', 'label', 'label', 1, 'Motive to Kill', 1),
+                      (2, 'music_to_publisher', 'artist', 'artist', 1, 'Solo', 1),
+                      (3, 'music_to_publisher', 'artist', 'artist', 1, 'Held', 1),
+                      (3, 'music_to_publisher', 'label', 'label', 1, 'Held', 1);
+             INSERT INTO rss_field_holds(owner_kind, feed_id, track_id, field, checked_at_us)
+               VALUES ('feed', 3, NULL, 'publisher', 1);",
+        )
+        .unwrap();
+        assert_eq!(
+            feed_ids_with_no_stored_relationship(&conn, &[1, 2, 3]).unwrap(),
+            Vec::<i64>::new()
+        );
+
+        crate::db::migrate_schema_to(&conn, 28).unwrap();
+
+        let count = |feed_id: i64| -> i64 {
+            conn.query_row(
+                "SELECT COUNT(*) FROM feed_publisher_relationships WHERE feed_id = ?1",
+                [feed_id],
+                |row| row.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(count(1), 0, "two named feeds: the rows go");
+        assert_eq!(count(2), 1, "one named feed: the row stays");
+        assert_eq!(count(3), 2, "a publisher hold: the rows stay");
+        assert_eq!(
+            feed_ids_with_no_stored_relationship(&conn, &[1, 2, 3]).unwrap(),
+            vec![1]
+        );
+        upgrades::verify_target(&conn, 28).unwrap();
     }
 
     /// R85-3-07: `write_named_feed_positions` stores the position of each
