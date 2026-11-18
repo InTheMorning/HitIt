@@ -8,6 +8,8 @@ Accepted - 2026-11-10. The operator accepted [musicindex ADR 0059](../../../musi
 
 R-ACT-12 makes "Use Defaults" destructive. Today it saves immediately, so it has the red tint and a confirmation. Decision 10 changes it to an edit of the draft that does not save, and Discard in the same view undoes that edit. Thus musicindex ADR 0080 R-ACT-3 item 4 removes the confirmation at that time. The red tint and the first position stay (R-ACT-12). The orchestrator session gave this answer on 2026-11-12.
 
+- Changed by: operator decision, 2026-11-18, in [musicindex ADR 0083 task 001](../tasks/musicindex-adr-0083-task-001-version-line.md). A fourth group "About" holds the version line of musicindex ADR 0083 R-VERSION-4. These are Decisions 1 and 2.
+
 Applies: musicindex ADR 0059 R-SET-1 to R-SET-5. Uses: musicindex ADR 0051 R-SEG-1 for the tab row, and musicindex ADR 0032 R-DOT-1 for the type dot.
 
 - Changes: [ADR 0074](0074-repair-and-diagnostics-pages.md), the Settings group menu and the shared Settings header.
@@ -39,8 +41,8 @@ On 2026-11-10 Settings has these actions: Converter setup, Test converters and C
 
 ### The tab row (R-SET-1)
 
-1. A segmented control of musicindex ADR 0051 R-SEG-1, below the page bar, selects the group. It replaces the group menu of ADR 0074. The labels are General, Library and Diagnostics, in that sequence.
-2. ADR 0069 adds Live Metadata and Audio between General and Library when their owners exist. The row then has 5 groups, which is the limit of R-SET-1 item 2. A sixth group needs a change to this record.
+1. A segmented control of musicindex ADR 0051 R-SEG-1, below the page bar, selects the group. It replaces the group menu of ADR 0074. The labels are General, Library, Diagnostics and About, in that sequence. About holds only the version line of musicindex ADR 0083 R-VERSION-4. It has no setting and no Save bar.
+2. The row has 4 groups. The limit of R-SET-1 item 2 is 5 groups. ADR 0069 adds Live Metadata and Audio between General and Library when their owners exist. The row then has 6 groups, more than the limit. Before that change, the operator decides a change to musicindex ADR 0059 R-SET-1 item 2 or a different location for the version line. This is an open point.
 3. v4vmm has no narrow layout for a tab row. On a narrow page, the tab row fills the width (musicindex ADR 0051 R-SEG-1 item 5). It does not become a menu or a side column.
 4. Diagnostics holds tools, not settings. It keeps its page menu for Database, Configuration, Background tools, App session and Cached files (ADR 0074). Each tool is an action of R-SET-5.
 5. A change of the group runs no command (ADR 0069 Invariant 1). It keeps the draft, and the focus and the scroll position of each group.

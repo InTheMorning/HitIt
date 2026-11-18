@@ -32,6 +32,7 @@ pub(crate) struct SettingsScrollHandles {
     general: ScrollHandle,
     library: ScrollHandle,
     diagnostics: ScrollHandle,
+    about: ScrollHandle,
     pages: [ScrollHandle; 5],
 }
 
@@ -52,6 +53,7 @@ impl SettingsScrollHandles {
             SettingsGroup::General => &self.general,
             SettingsGroup::Library => &self.library,
             SettingsGroup::Diagnostics => &self.diagnostics,
+            SettingsGroup::About => &self.about,
         }
     }
 }

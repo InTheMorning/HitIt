@@ -218,11 +218,14 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
     if !app.settings_status.is_empty() && !workspace {
         content.push(settings_message(app.settings_status.clone(), cx));
     }
-    content.push(settings_value_and_action(
-        SelectableText::new("settings-version-line", SettingsVm::version_line()).into_any_element(),
-        settings_actions(SettingsVm::version_copy_action(), &callback, cx),
-        cx,
-    ));
+    if app.settings.shows_version() {
+        content.push(settings_value_and_action(
+            SelectableText::new("settings-version-line", SettingsVm::version_line())
+                .into_any_element(),
+            settings_actions(SettingsVm::version_copy_action(), &callback, cx),
+            cx,
+        ));
+    }
     let page_scroll = app.settings_scroll.handle(app.settings.selected());
     settings_frame(tab_row, navigation, content, page_scroll, workspace, cx)
 }

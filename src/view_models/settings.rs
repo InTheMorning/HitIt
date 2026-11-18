@@ -14,10 +14,14 @@ pub(crate) enum SettingsGroup {
     General,
     Library,
     Diagnostics,
+    /// The version line of musicindex ADR 0083 R-VERSION-4. Operator choice of
+    /// 2026-11-18: the line shows on this tab only (ADR 0093 Decision 1).
+    About,
 }
 
 impl SettingsGroup {
-    pub(crate) const ALL: [Self; 3] = [Self::General, Self::Library, Self::Diagnostics];
+    pub(crate) const ALL: [Self; 4] =
+        [Self::General, Self::Library, Self::Diagnostics, Self::About];
     /// The most groups that the tab row can hold (ADR 0093 Decision 2).
     pub(crate) const MAX_GROUPS: usize = 5;
 
@@ -26,6 +30,7 @@ impl SettingsGroup {
             Self::General => "settings-group-general",
             Self::Library => "settings-group-library",
             Self::Diagnostics => "settings-group-diagnostics",
+            Self::About => "settings-group-about",
         }
     }
 
@@ -34,6 +39,7 @@ impl SettingsGroup {
             Self::General => "Show General settings",
             Self::Library => "Show Library settings",
             Self::Diagnostics => "Show Diagnostics tools",
+            Self::About => "Show About",
         }
     }
 
@@ -42,11 +48,13 @@ impl SettingsGroup {
             Self::General => "General",
             Self::Library => "Library",
             Self::Diagnostics => "Diagnostics",
+            Self::About => "About",
         }
     }
 
     /// The sections and rows of the group (ADR 0093 Decision 7). Diagnostics
-    /// holds tools, not settings, so it has no section.
+    /// holds tools, not settings, so it has no section. About holds only the
+    /// version line.
     pub(crate) const fn sections(self) -> &'static [SettingsSection] {
         use SettingsContent::{Defaults, Endpoint, FlacPath, MusicDirectory, Scale, Theme};
         match self {
@@ -70,7 +78,7 @@ impl SettingsGroup {
                     rows: &[MusicDirectory, FlacPath],
                 },
             ],
-            Self::Diagnostics => &[],
+            Self::Diagnostics | Self::About => &[],
         }
     }
 }
@@ -313,6 +321,11 @@ impl SettingsVm {
         crate::build_values::info().version_line()
     }
 
+    /// musicindex ADR 0083 R-VERSION-4: the version line shows on About only.
+    pub(crate) const fn shows_version(&self) -> bool {
+        matches!(self.selected, SettingsGroup::About)
+    }
+
     pub(crate) fn version_copy_action() -> Vec<SettingsActionDisplay> {
         vec![SettingsActionDisplay {
             action: SettingsAction::CopyVersion,
@@ -542,6 +555,15 @@ mod tests {
             assert!(line.contains(&built_at[..10]));
         }
 
+        // Operator choice of 2026-11-18: the line shows on About only.
+        let mut vm = SettingsVm::default();
+        for group in SettingsGroup::ALL {
+            vm.dispatch(SettingsAction::SelectGroup(group));
+            assert_eq!(vm.shows_version(), group == SettingsGroup::About);
+        }
+        assert!(SettingsGroup::About.sections().is_empty());
+        assert!(!vm.editable());
+
         let copy = SettingsVm::version_copy_action();
         assert_eq!(copy.len(), 1);
         assert_eq!(copy[0].action, SettingsAction::CopyVersion);
@@ -600,7 +622,7 @@ mod tests {
                     .iter()
                     .map(|segment| segment.label)
                     .collect::<Vec<_>>(),
-                ["General", "Library", "Diagnostics"]
+                ["General", "Library", "Diagnostics", "About"]
             );
             assert_eq!(
                 control
