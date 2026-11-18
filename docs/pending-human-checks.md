@@ -930,3 +930,41 @@ Task: [ADR 0093 task 003](tasks/adr-0093-task-003-audio-cache-in-library.md).
 - Incorrect: no "Audio cache" section in Library, a file list that is not below its row, or "Cached files" in the Diagnostics page menu.
 
 Agent check, 2026-11-18: V1 and V3 passed in Dark at 1440 px and at 390 px, with one scratch cache file. The [third agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-third.md) passed V1 to V3 in Light at 1440 px and at 390 px. "Delete" on one scratch cache file at 390 px set the count to 0 and removed the file from the cache folder.
+
+## 37. ADR 0074 Task 001 The Restore Band Scrolls At 390 px - 2026-11-18
+
+Task: [ADR 0074 task 001](tasks/adr-0074-task-001-the-restore-band-scrolls-at-390-px.md).
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`. Make the window 390 px wide.
+3. Open Settings, select Diagnostics and open Database. In the task menu ("Check"), select "Restore". The band shows "Restore database", "Review restore", "Upgrade backup", Cancel and "Copy database report".
+4. Scroll the band with the wheel. Make sure that "Copy database report" shows fully (V1).
+5. Tab from the first button of the band to "Copy database report". Make sure that the band scrolls to show each focused button with its full ring (V2).
+6. Make the window 480 px and 1440 px wide. Make sure that the band and the action column look as before (V3).
+7. Do steps 3 to 6 in Light and Dark.
+- Incorrect: a button that is cut and does not come into view, or a band that is higher than before at 480 px.
+
+## 38. ADR 0092 Task 004 The List Comes Before The Tab Bar - 2026-11-18
+
+Task: [ADR 0092 task 004](tasks/adr-0092-task-004-the-list-comes-before-the-tab-bar.md).
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`. Make the window 390 px wide.
+3. Open Releases in the Rows view. Tab to "In Library", then push Tab one time. Make sure that the first row of the list shows the focus ring (V1).
+4. Push Tab again. Make sure that the focus goes to the status bar items, then to Search, Releases, Show, Inbox and More in the tab bar (V2).
+5. From Search, push shift+Tab. Make sure that the focus goes back through the status bar to the list (V3).
+6. Make the window 1440 px wide. Make sure that the sidebar is still the first Tab stop of the window (V4).
+7. Do steps 3 to 6 in Light and Dark.
+- Incorrect: the list does not take the focus after "In Library", or a tab of the tab bar comes before the list.
+
+## 39. ADR 0097 Task 008 The List Page Title Fits At 390 px - 2026-11-18
+
+Task: [ADR 0097 task 008](tasks/adr-0097-task-008-the-list-page-title-fits-at-390-px.md).
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`. Make the window 390 px wide.
+3. Open Releases, Artists, My playlists, Public playlists and the Inbox. Make sure that each title is on one line with no break inside a word (V1).
+4. Make sure that the sort, the view buttons and Select go to a second line below the title when they do not fit beside it. Each control shows fully (V2).
+5. Make the window 940 px and 1440 px wide. Make sure that the title and the controls are on one line, as before (V3).
+6. Do steps 3 to 5 in Light and Dark.
+- Incorrect: a title breaks inside a word, a control is cut, or the head is higher at 940 px than before.

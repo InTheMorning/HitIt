@@ -46,7 +46,11 @@ fn page_faults(
     if search_results {
         window.update(|window, cx| {
             entity.update(cx, |app, cx| {
-                app.open_search_results_in_content_list(LONG_TITLE, window, cx);
+                app.open_search_results_in_content_list(
+                    "Search results for a long query",
+                    window,
+                    cx,
+                );
                 if let Some(page) = &mut app.search_results_detail {
                     page.replace_index_results(fit_fixtures::index_search_results());
                 }
@@ -84,9 +88,14 @@ fn check_case(
     if count == 0 {
         failures.push(format!("{context}: no fit probe was recorded"));
     }
-    if !names.iter().any(|name| name.contains(LONG_TITLE)) {
+    let expected_title = if search_results {
+        "Search results for a long query"
+    } else {
+        LONG_TITLE
+    };
+    if !names.iter().any(|name| name.contains(expected_title)) {
         failures.push(format!(
-            "{context}: no probe recorded fixture text {LONG_TITLE}"
+            "{context}: no probe recorded fixture text {expected_title}"
         ));
     }
     failures.extend(

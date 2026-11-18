@@ -240,6 +240,7 @@ pub struct ContextMenu {
     placement: PopoverPlacement,
     trigger_style: ControlStyle,
     trigger_in_tab_sequence: bool,
+    trigger_tab_index: Option<isize>,
     owner_result: Option<MenuTriggerResult>,
     on_open: Option<SelectHandler>,
 }
@@ -509,6 +510,7 @@ impl ContextMenu {
             placement: PopoverPlacement::Below,
             trigger_style: ControlStyle::RowAction,
             trigger_in_tab_sequence: true,
+            trigger_tab_index: None,
             owner_result: None,
             on_open: None,
         }
@@ -519,6 +521,14 @@ impl ContextMenu {
     /// `Button`).
     pub(crate) const fn trigger_out_of_tab_sequence(mut self) -> Self {
         self.trigger_in_tab_sequence = false;
+        self
+    }
+
+    /// Gives the trigger a Tab index. Without it, the trigger has the index of
+    /// [`Button`]. A trigger in the narrow tab bar comes after the list and the
+    /// status bar (ADR 0092 task 004).
+    pub(crate) const fn trigger_tab_index(mut self, index: isize) -> Self {
+        self.trigger_tab_index = Some(index);
         self
     }
 
@@ -648,6 +658,9 @@ impl ContextMenu {
                     on_open(window, cx);
                 }
             });
+        }
+        if let Some(index) = self.trigger_tab_index {
+            trigger = trigger.tab_index(index);
         }
         if let Some(tooltip) = trigger_tooltip {
             trigger = trigger.tooltip(tooltip);

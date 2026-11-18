@@ -293,36 +293,60 @@ fn ordered_controls(
     elements
 }
 
-impl MaintenancePage {
-    fn render_layout(self, layout: MaintenanceLayout, cx: &App) -> impl IntoElement {
-        let has_actions = !self.actions.is_empty();
-        let stacked = layout == MaintenanceLayout::Stacked;
-        let mut actions = div()
+fn maintenance_actions(
+    controls: Vec<MaintenanceControl>,
+    layout: MaintenanceLayout,
+    cx: &App,
+) -> AnyElement {
+    let stacked = layout == MaintenanceLayout::Stacked;
+    let mut action_content = page_scroll_content(cx)
+        .p(Spacing::SM.scaled(cx))
+        .gap(Spacing::XS.scaled(cx));
+    let controls = ordered_controls(controls, layout, cx);
+    if stacked {
+        action_content = action_content.flex_row().flex_wrap();
+        div()
+            .id("maintenance-actions")
+            .min_w_0()
+            .min_h_0()
+            .flex_shrink_0()
+            .w_full()
+            .min_h(Size::MinHitTarget.scaled(cx) + Spacing::SM.scaled(cx) * 2.)
+            .max_h(gpui::relative(layouts::MAINTENANCE_ACTION_BAND_FRACTION))
+            .overflow_hidden()
+            .bg(color(cx, SemanticColor::GroupBackground))
+            .child(
+                div()
+                    .size_full()
+                    .min_h_0()
+                    .overflow_y_scrollbar()
+                    .child(action_content.children(controls)),
+            )
+            .debug_selector(|| "maintenance-actions".to_owned())
+            .into_any_element()
+    } else {
+        div()
             .id("maintenance-actions")
             .min_w_0()
             .min_h_0()
             .flex_shrink_0()
             .overflow_y_scrollbar()
-            .bg(color(cx, SemanticColor::GroupBackground));
-        let mut action_content = page_scroll_content(cx)
-            .p(Spacing::SM.scaled(cx))
-            .gap(Spacing::XS.scaled(cx));
-        if stacked {
-            actions = actions
-                .w_full()
-                .min_h(Size::MinHitTarget.scaled(cx) + Spacing::SM.scaled(cx) * 2.)
-                .max_h(gpui::relative(layouts::MAINTENANCE_ACTION_BAND_FRACTION));
-            action_content = action_content.flex_row().flex_wrap();
-        } else {
-            actions = actions.w(scaled_dimension(
+            .bg(color(cx, SemanticColor::GroupBackground))
+            .w(scaled_dimension(
                 layouts::MAINTENANCE_ACTION_COLUMN_WIDTH,
                 cx,
-            ));
-        }
-        actions =
-            actions.child(action_content.children(ordered_controls(self.actions, layout, cx)));
-        #[cfg(test)]
-        let actions = actions.debug_selector(|| "maintenance-actions".to_owned());
+            ))
+            .child(action_content.children(controls))
+            .debug_selector(|| "maintenance-actions".to_owned())
+            .into_any_element()
+    }
+}
+
+impl MaintenancePage {
+    fn render_layout(self, layout: MaintenanceLayout, cx: &App) -> impl IntoElement {
+        let has_actions = !self.actions.is_empty();
+        let stacked = layout == MaintenanceLayout::Stacked;
+        let actions = maintenance_actions(self.actions, layout, cx);
 
         let content = match self.navigation.view {
             MaintenanceView::Instructions => div()
@@ -474,6 +498,69 @@ mod tests {
         view: MaintenanceView,
         scroll: ScrollHandle,
         logs: LogFrames,
+    }
+
+    struct RestoreBandTest;
+
+    impl Render for RestoreBandTest {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            let labels = [
+                "Review restore",
+                "Upgrade backup",
+                "Restore database",
+                "Cancel",
+                "Copy database report",
+            ];
+            let actions = labels.into_iter().map(|label| {
+                Button::styled(label, ControlStyle::Secondary)
+                    .label(label)
+                    .a11y_label(label)
+                    .into_any_element()
+            });
+            let page = MaintenancePage::new(
+                "Database tools",
+                PageNavigation {
+                    view: MaintenanceView::Instructions,
+                    scroll: ScrollHandle::default(),
+                    select: Rc::new(|_, _, _| {}),
+                },
+                actions,
+                instructions(cx).into_any_element(),
+                div().into_any_element(),
+            );
+            div()
+                .w(gpui::px(390.))
+                .h(gpui::px(520.))
+                .flex()
+                .flex_col()
+                .child(page.render_layout(MaintenanceLayout::Stacked, cx))
+        }
+    }
+
+    /// Situational ADR 0074: the restore band scrolls to its final button at 390 px.
+    #[gpui::test]
+    fn adr_0074_task_001_the_restore_band_scrolls_at_390_px(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let (_, cx) = cx.add_window_view(|_, _| RestoreBandTest);
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        let band = cx.debug_bounds("maintenance-actions").unwrap();
+        let initial_last_button = cx.debug_bounds("Copy database report").unwrap();
+        assert!(initial_last_button.bottom() > band.bottom());
+        cx.simulate_event(ScrollWheelEvent {
+            position: band.center(),
+            delta: ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-1000.))),
+            modifiers: gpui::Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+        });
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        let band = cx.debug_bounds("maintenance-actions").unwrap();
+        let last_button = cx.debug_bounds("Copy database report").unwrap();
+        assert!(last_button.top() >= band.top());
+        assert!(last_button.bottom() <= band.bottom());
     }
 
     impl Render for PageTest {

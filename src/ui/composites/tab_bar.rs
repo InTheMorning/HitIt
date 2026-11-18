@@ -77,6 +77,9 @@ pub(crate) fn render_tab_bar(
                 .leading_icon(sidebar_icon_name(item.icon))
                 .label(item.label.clone())
                 .a11y_label(item.a11y_label.clone())
+                // The tab bar follows the list and the status bar (ADR 0092
+                // task 004, ADR 0101 task 008).
+                .tab_index(2)
                 .on_click(move |_, window, cx| (on_select)(destination, window, cx)),
         );
     }
@@ -107,8 +110,97 @@ pub(crate) fn render_tab_bar(
             .trigger_label("More")
             .trigger_icon(IconName::More)
             .trigger_style(more_style)
+            .trigger_tab_index(2)
             .placement(PopoverPlacement::Above)
             .items(menu_items),
     )
     .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::composites::status_bar::{status_bar, StatusBarSlots};
+    use crate::view_models::sidebar::{SidebarCounts, SidebarVm};
+    use crate::view_models::status_bar::{
+        StatusBarDisplay, StatusItemDetail, StatusItemDisplay, StatusItemIcon, StatusItemKind,
+    };
+
+    struct TabOrderRoot {
+        page_control: gpui::FocusHandle,
+        list: gpui::FocusHandle,
+    }
+
+    impl gpui::Render for TabOrderRoot {
+        fn render(&mut self, _: &mut Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
+            let sidebar =
+                SidebarVm::new(SidebarCounts::default(), Some(SidebarDestination::Releases));
+            let vm = TabBarVm::new(&sidebar);
+            let status_item = StatusItemDisplay {
+                kind: StatusItemKind::Files,
+                id: "status-item-files",
+                icon: StatusItemIcon::Files,
+                word: "Update 1 file".into(),
+                a11y_label: "Update 1 file".into(),
+                detail: StatusItemDetail::TagUpdatePopup,
+                enabled: true,
+            };
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(
+                    div()
+                        .flex_1()
+                        .track_focus(&self.list.clone().tab_index(1).tab_stop(true))
+                        .child(
+                            Button::plain("page-control")
+                                .label("In Library")
+                                .track_focus(&self.page_control)
+                                .on_click(|_, _, _| {}),
+                        )
+                        .child(div().id("list-row").child("One track")),
+                )
+                .child(status_bar(
+                    StatusBarDisplay {
+                        id: "status-bar",
+                        event: None,
+                        items: vec![status_item],
+                    },
+                    StatusBarSlots::new().on_open_item(|_, _, _| {}),
+                ))
+                .child(render_tab_bar(&vm, Vec::new(), |_, _, _| {}))
+        }
+    }
+
+    #[gpui::test]
+    fn adr_0092_task_004_the_list_comes_before_the_tab_bar(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_component::init);
+        let (root, cx) = cx.add_window_view(|_, cx| TabOrderRoot {
+            page_control: cx.focus_handle(),
+            list: cx.focus_handle(),
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        let (page_control, list) = cx.update(|_, cx| {
+            let root = root.read(cx);
+            (root.page_control.clone(), root.list.clone())
+        });
+
+        cx.update(|window, cx| window.focus(&page_control, cx));
+        cx.update(gpui::Window::focus_next);
+        assert!(cx.update(|window, _| list.is_focused(window)));
+        cx.update(gpui::Window::focus_next);
+        assert_eq!(
+            cx.update(|window, cx| window.focused(cx).map(|focus| focus.tab_index)),
+            Some(1),
+            "Tab reaches a status bar item after the list"
+        );
+        cx.update(gpui::Window::focus_next);
+        assert_eq!(
+            cx.update(|window, cx| window.focused(cx).map(|focus| focus.tab_index)),
+            Some(2),
+            "Tab reaches the first tab bar control after the status bar"
+        );
+    }
 }

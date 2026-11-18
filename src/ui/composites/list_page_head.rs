@@ -16,7 +16,7 @@ use std::rc::Rc;
 
 use gpui::{
     div, prelude::*, AnyElement, App, FontWeight, IntoElement, ParentElement, SharedString, Styled,
-    Window,
+    StyledText, Window,
 };
 use gpui_component::Selectable;
 
@@ -115,21 +115,30 @@ pub(crate) fn list_page_head(
     }
 
     // Column text does not call `truncate()` (ADR 0063). A query title wraps.
+    let title_text = SharedString::from(display.title);
+    let title_layout = StyledText::new(title_text.clone());
+    #[cfg(test)]
+    let title_probe = crate::ui::primitives::fit_probe::probe(
+        title_text,
+        Some(title_layout.layout().clone()),
+        false,
+    );
+    let title = div()
+        .text_size(FontSize::Title.scaled(cx))
+        .font_weight(FontWeight::SEMIBOLD)
+        .whitespace_normal()
+        .child(title_layout);
+    #[cfg(test)]
+    let title = title.child(title_probe);
     let title_row = div()
         .flex()
         .flex_row()
+        .flex_wrap()
         .items_center()
         // The title keeps one height, with or without a control beside it.
         .min_h(Size::MinHitTarget.scaled(cx))
         .gap(Spacing::SM.scaled(cx))
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_size(FontSize::Title.scaled(cx))
-                .font_weight(FontWeight::SEMIBOLD)
-                .child(SharedString::from(display.title)),
-        )
+        .child(div().flex_1().child(title))
         .child(trailing);
 
     let mut head = div()
