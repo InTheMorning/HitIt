@@ -2,7 +2,7 @@
 
 Status: Ready - 2026-11-18. The orchestrator asked for this packet on 2026-11-18, with the approval of the operator.
 
-Operator choice, 2026-11-18: one item has one color in each place. The dot of a role badge in a search row has the color of the first known role, as the badge of the feed page. This replaces the choice of [ADR 0084 task 029](adr-0084-task-029-search-link-facts.md) that `entity_kind_for_badge` maps `Roles` to the feed color.
+This packet brings HitIt into agreement with musicindex ADR 0037 R-WORD-7 item 2: "The dot has the color of the first role in that sequence." The website (`roleLabel` in `search.html`) and Studio (`mediumKind` in `crates/api/ui/shell.js`) already give a role row this dot, as the orchestrator reported on 2026-11-18. The packet replaces the choice of [ADR 0084 task 029](adr-0084-task-029-search-link-facts.md) that `entity_kind_for_badge` maps `Roles` to the feed color.
 
 ## Goal
 
@@ -10,6 +10,7 @@ The search row of a feed with known roles and its feed page show the dot in the 
 
 ## Authority
 
+- musicindex ADR 0037 R-WORD-7 item 2: the dot has the color of the first role in the R-ROLE-1 sequence. musicindex ADR 0066 R-WORD-8 gives the fill.
 - [ADR 0098](../adr/0098-the-music-shell-pages-lists-and-search.md) Decision 11.7: the badge has one dot. The dot has the color of the first role in the label, in the R-ROLE-1 sequence (musicindex ADR 0066 R-WORD-8).
 - [ADR 0098](../adr/0098-the-music-shell-pages-lists-and-search.md): each list row shows its type dot and type word (musicindex ADR 0038 R-DOT-4).
 
@@ -29,7 +30,7 @@ The main session read this in the code on 2026-11-18:
 
 - `SearchRowBadge::Roles` also holds the first known role, in the R-ROLE-1 sequence. The view model selects it with the same function as the type label (`known_roles` or `type_label` of `src/view_models/role_words.rs`).
 - `entity_kind_for_badge` maps the role to its `EntityKind`, with the same map as the feed page. Move the map of `src/ui/shells/publisher.rs` to one shared place, and use it in the two renderers. Do not copy it.
-- The filled or hollow dot follows R-WORD-8, as on the feed page, if the row has the agreement facts. If the row does not have them, keep the current dot fill and write this in the report.
+- The filled or hollow dot follows R-WORD-8, as on the feed page, if the row has the agreement facts. When nothing confirms the roles, the dot is hollow (musicindex ADR 0033 R-WORD-3 item 3), if HitIt has that state for the row. If the row does not have the agreement facts, keep the current dot fill and write this in the report.
 - Do not change the color of the "Feed" badge, the "Artist" badge or a release badge.
 
 ## Base components
@@ -55,6 +56,6 @@ The main session read this in the code on 2026-11-18:
 
 ## Stop And Ask
 
-- Stop if musicindex ADR 0038 R-DOT-4 or musicindex ADR 0066 gives a different color for the row dot of a role feed. Report the rule text. Do not change a shared rule.
+- Do not change a shared rule. Stop and report if a shared rule seems to disagree with this packet.
 
 A delegate does not commit. It leaves the change in the working tree and reports it. Apply the STE skill at `/home/citizen/.agents/skills/asd-ste100/SKILL.md` to each comment and report.
