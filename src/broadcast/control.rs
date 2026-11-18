@@ -84,6 +84,8 @@ pub enum ServiceState {
     },
     /// The unit file is absent from the user manager.
     NotInstalled,
+    /// The local SSH program is absent.
+    ProgramNotInstalled,
     /// The host that owns the unit cannot be reached.
     NotReachable,
     /// The unit is in a state that this surface does not classify.
@@ -231,7 +233,13 @@ impl<R: CommandRunner> ServiceControl<R> {
     ///
     /// Returns an error when `systemctl show` cannot run or returns no output.
     pub fn show(&self, transport: &Transport, unit: &UnitRef) -> Result<ServiceState> {
-        let run = transport.run(&self.runner, SYSTEMCTL, &systemctl_show_args(unit))?;
+        let run = match transport.run(&self.runner, SYSTEMCTL, &systemctl_show_args(unit)) {
+            Ok(run) => run,
+            Err(error) if transport_ssh_program_missing(transport, &error) => {
+                return Ok(ServiceState::ProgramNotInstalled);
+            }
+            Err(error) => return Err(error),
+        };
         if matches!(run.reachability, Reachability::NotReachable) {
             return Ok(ServiceState::NotReachable);
         }
@@ -363,6 +371,14 @@ impl<R: CommandRunner> ServiceControl<R> {
         }
         Err(command_failure(program, &output))
     }
+}
+
+fn transport_ssh_program_missing(transport: &Transport, error: &anyhow::Error) -> bool {
+    matches!(transport, Transport::Ssh { .. })
+        && error
+            .chain()
+            .filter_map(|cause| cause.downcast_ref::<std::io::Error>())
+            .any(|error| error.kind() == std::io::ErrorKind::NotFound)
 }
 
 /// Read one unit's service state with the real command runner.
@@ -519,6 +535,23 @@ mod tests {
     use std::cell::RefCell;
 
     use super::*;
+
+    #[derive(Debug)]
+    struct MissingProgramRunner;
+
+    impl CommandRunner for MissingProgramRunner {
+        fn run(&self, _program: &str, _args: &[String]) -> Result<CommandOutput> {
+            Err(std::io::Error::from(std::io::ErrorKind::NotFound).into())
+        }
+    }
+
+    #[test]
+    fn missing_ssh_is_a_program_state_not_a_host_failure() -> Result<()> {
+        let state = ServiceControl::new(MissingProgramRunner).show(&ssh_transport(), &unit())?;
+
+        assert_eq!(state, ServiceState::ProgramNotInstalled);
+        Ok(())
+    }
 
     #[derive(Clone, Debug, Eq, PartialEq)]
     struct RecordedCall {

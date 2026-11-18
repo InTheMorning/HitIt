@@ -10,6 +10,10 @@ use anyhow::Result;
 
 use crate::config::{PlaybackConfig, PlaybackDriver as PlaybackDriverConfig};
 
+/// The text before the path in the message of the mpv driver when mpv is missing. The playback
+/// bar reads it after the error becomes a `CommandError::Playback` string.
+pub(crate) const MPV_NOT_INSTALLED_PREFIX: &str = "mpv is not installed at ";
+
 #[cfg(unix)]
 pub mod mpv;
 pub mod null;

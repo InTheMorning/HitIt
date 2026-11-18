@@ -82,6 +82,7 @@ pub(crate) fn check(
             if matches!(
                 state,
                 crate::broadcast::control::ServiceState::NotReachable
+                    | crate::broadcast::control::ServiceState::ProgramNotInstalled
                     | crate::broadcast::control::ServiceState::Unknown
             ) {
                 return Err("App could not obtain the selected publisher's service state. Check its host and connection, then check again.");

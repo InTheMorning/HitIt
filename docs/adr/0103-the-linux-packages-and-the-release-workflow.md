@@ -83,10 +83,10 @@ This applies musicindex ADR 0084 R-PACKAGE-4.
 | `flac`, `ffmpeg` | Yes. The Audio converter report says "executable was not found" for each. | `src/view_models/startup/converter.rs:37` |
 | `butt` | Yes. The Show page shows "Not installed". | `src/view_models/show.rs:494` |
 | `musicindex-live-publisher` | Yes. The Show page shows "Unit file not found." and "Relay sender target commands are not installed." | `src/view_models/show.rs:506`, `src/view_models/show.rs:2446` |
-| `mpv` | No. The app shows "App cannot use built-in playback." and does not name `mpv`. | `src/view_models/startup/capabilities.rs:469`, `src/playback_driver/mpv.rs:83-84` |
-| `ssh` | No. A remote host with no `ssh` program is a host that the app cannot reach. This is an inference from the code. | `src/broadcast/transport.rs:79` |
+| `mpv` | Yes, since task 002. The Background tools report says "mpv is not installed" and gives the path that the app tried. | `src/view_models/startup/capabilities.rs`, `src/playback_driver/mpv.rs` (`MpvNotInstalled`) |
+| `ssh` | Yes, since task 002. The Show page shows "ssh not installed" for a remote service. | `src/broadcast/control.rs` (`ServiceState::ProgramNotInstalled`), `src/view_models/show.rs` |
 
-[Task 002](../tasks/adr-0103-task-002-missing-program-notices.md) closes the two gaps.
+[Task 002](../tasks/adr-0103-task-002-missing-program-notices.md) added the notices for `mpv` and `ssh`.
 
 `musicindex-live-publisher` is in `Suggests` because it has no Debian package on 2026-11-18. musicindex ADR 0084 gives it one later. Then it moves to `Recommends`.
 

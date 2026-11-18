@@ -488,6 +488,7 @@ pub fn observation_text(observation: &CapabilityObservation) -> String {
         Some(CapabilityFailure::MaintenanceUnavailable) => ("App could not run this check on its independent maintenance worker", None),
         Some(CapabilityFailure::Configuration(issue)) => return format!("{issue}. App did not change this setting. Ordinary configuration saves remain paused."),
         Some(CapabilityFailure::Preparation) => return format!("App could not prepare {} from its configured resource.", dependency_title(observation.dependency)),
+        Some(CapabilityFailure::PlaybackProgramMissing) => return "mpv is not installed. Install mpv, then choose Check player in Settings.".into(),
         Some(CapabilityFailure::PathRepair) => ("App could not finish repairing local file paths. App rechecked music storage and SQLite and kept the library open", None),
         None => return match observation.dependency {
             Dependency::BackgroundRuntime => "App started its background runtime. This does not confirm that any external service is reachable.".into(),
@@ -508,6 +509,7 @@ fn recovery(observation: &CapabilityObservation) -> &'static str {
         Some(CapabilityFailure::CachePrune(_)) => "Check thumbnail-cache permissions and available storage, then choose Check again.",
         Some(CapabilityFailure::Configuration(_)) => "Use Edit to open the named setting in Settings. Save the correction. Use Check to test the saved setup.",
         Some(CapabilityFailure::Preparation) => "Check the configured path, permissions and tool settings. Use Edit to open Settings. Use Check to test the saved setup. Other tools stay available.",
+        Some(CapabilityFailure::PlaybackProgramMissing) => "Install mpv, then choose Check player in Settings.",
         Some(CapabilityFailure::PathRepair) => "Inspect the music folder and preserved bindings before explicitly running local path repair. App has not rolled back completed statements.",
         _ => "Free system resources if necessary, then choose Check again. App will make a fresh attempt.",
     }
@@ -818,6 +820,25 @@ fn run_help(action: &RecoveryAction) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_mpv_report_names_the_program_and_attempted_path() {
+        let path = std::path::Path::new("/custom/bin/mpv");
+        let observation = CapabilityObservation::new(
+            Dependency::Playback,
+            Some(CapabilityFailure::PlaybackProgramMissing),
+        )
+        .at_path(path);
+        let vm = CapabilityReportVm::new(
+            [(Dependency::Playback, observation)].into_iter().collect(),
+            true,
+        );
+
+        let report = vm.report();
+
+        assert!(report.contains("mpv is not installed"));
+        assert!(report.contains("/custom/bin/mpv"));
+    }
 
     /// Musicindex ADR 0042 R-ACT-4: the original action of a pending entry
     /// writes data. Copy report writes nothing.

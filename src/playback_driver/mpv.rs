@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use std::{error::Error, fmt};
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
@@ -19,6 +20,24 @@ const IPC_TIMEOUT: Duration = Duration::from_secs(2);
 /// The longest time that one command waits for its reply. A read timeout of
 /// `IPC_TIMEOUT` is not an error before this time ends (ADR 0068 task 001).
 const REPLY_DEADLINE: Duration = Duration::from_secs(10);
+
+#[derive(Debug)]
+pub(crate) struct MpvNotInstalled {
+    pub(crate) path: PathBuf,
+}
+
+impl fmt::Display for MpvNotInstalled {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{}{}",
+            super::MPV_NOT_INSTALLED_PREFIX,
+            self.path.display()
+        )
+    }
+}
+
+impl Error for MpvNotInstalled {}
 
 #[derive(Debug)]
 pub struct MpvDriver {
@@ -81,7 +100,16 @@ impl MpvDriver {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .with_context(|| format!("spawn mpv at {}", self.mpv_path.display()))?;
+            .map_err(|error| {
+                if error.kind() == std::io::ErrorKind::NotFound {
+                    MpvNotInstalled {
+                        path: self.mpv_path.clone(),
+                    }
+                    .into()
+                } else {
+                    anyhow!(error).context(format!("spawn mpv at {}", self.mpv_path.display()))
+                }
+            })?;
 
         let stream = match wait_for_socket(&socket_path) {
             Ok(stream) => stream,
@@ -423,7 +451,22 @@ fn default_runtime_dir() -> Result<PathBuf> {
 mod tests {
     use std::thread;
 
+    use tempfile::tempdir;
+
     use super::*;
+
+    #[test]
+    fn missing_mpv_error_names_the_program_and_attempted_path() -> Result<()> {
+        let runtime = tempdir()?;
+        let mpv_path = runtime.path().join("missing-mpv");
+        let driver = MpvDriver::with_runtime_dir(&mpv_path, runtime.path().join("socket"))?;
+
+        let error = driver.ping().expect_err("missing mpv must fail to start");
+
+        assert!(error.to_string().contains("mpv is not installed"));
+        assert!(error.to_string().contains(&mpv_path.display().to_string()));
+        Ok(())
+    }
 
     #[test]
     fn adr_0066_shutdown_reaps_only_the_app_owned_child_without_mpv() {

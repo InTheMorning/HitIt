@@ -71,6 +71,7 @@ impl ShowCommandIntent {
                 .is_some_and(|unit| match unit.state {
                     ServiceState::Failed { .. }
                     | ServiceState::NotInstalled
+                    | ServiceState::ProgramNotInstalled
                     | ServiceState::NotReachable => true,
                     ServiceState::Active => operation != PublisherServiceOperation::Stop,
                     ServiceState::Inactive => operation != PublisherServiceOperation::Start,
@@ -427,6 +428,8 @@ pub(crate) enum PublisherServiceStateDisplay {
     },
     /// The unit file is absent.
     NotInstalled,
+    /// The local SSH program is absent.
+    ProgramNotInstalled,
     /// The host that owns the unit cannot be reached.
     NotReachable,
     /// The service manager reported a state this surface does not know.
@@ -441,13 +444,14 @@ pub(crate) enum PublisherServiceStateDisplay {
 
 impl PublisherServiceStateDisplay {
     #[cfg(test)]
-    const ALL_KINDS: [PublisherServiceStateKind; 9] = [
+    const ALL_KINDS: [PublisherServiceStateKind; 10] = [
         PublisherServiceStateKind::Active,
         PublisherServiceStateKind::Inactive,
         PublisherServiceStateKind::Starting,
         PublisherServiceStateKind::Stopping,
         PublisherServiceStateKind::Failed,
         PublisherServiceStateKind::NotInstalled,
+        PublisherServiceStateKind::ProgramNotInstalled,
         PublisherServiceStateKind::NotReachable,
         PublisherServiceStateKind::Unknown,
         PublisherServiceStateKind::Working,
@@ -463,6 +467,7 @@ impl PublisherServiceStateDisplay {
                 reason: reason.clone(),
             },
             ServiceState::NotInstalled => Self::NotInstalled,
+            ServiceState::ProgramNotInstalled => Self::ProgramNotInstalled,
             ServiceState::NotReachable => Self::NotReachable,
             ServiceState::Unknown => Self::Unknown,
         }
@@ -477,6 +482,7 @@ impl PublisherServiceStateDisplay {
             Self::Stopping => PublisherServiceStateKind::Stopping,
             Self::Failed { .. } => PublisherServiceStateKind::Failed,
             Self::NotInstalled => PublisherServiceStateKind::NotInstalled,
+            Self::ProgramNotInstalled => PublisherServiceStateKind::ProgramNotInstalled,
             Self::NotReachable => PublisherServiceStateKind::NotReachable,
             Self::Unknown => PublisherServiceStateKind::Unknown,
             Self::Working => PublisherServiceStateKind::Working,
@@ -492,6 +498,7 @@ impl PublisherServiceStateDisplay {
             Self::Stopping => "Stopping",
             Self::Failed { .. } => "Failed",
             Self::NotInstalled => "Not installed",
+            Self::ProgramNotInstalled => "ssh not installed",
             Self::NotReachable => "Not reachable",
             Self::Unknown => "Unknown",
             Self::Working => "Working",
@@ -504,6 +511,10 @@ impl PublisherServiceStateDisplay {
         match self {
             Self::Failed { reason } => format!("Reason: {reason}"),
             Self::NotInstalled => "Unit file not found.".to_owned(),
+            Self::ProgramNotInstalled => {
+                "ssh is not installed on this computer. Install OpenSSH, then check again."
+                    .to_owned()
+            }
             Self::NotReachable => "Host cannot be reached.".to_owned(),
             Self::Unknown => {
                 "The service manager reported a state this app does not know.".to_owned()
@@ -532,6 +543,8 @@ pub(crate) enum PublisherServiceStateKind {
     Failed,
     /// The unit file is absent.
     NotInstalled,
+    /// The local SSH program is absent.
+    ProgramNotInstalled,
     /// The host that owns the unit cannot be reached.
     NotReachable,
     /// The service manager reported a state this surface does not know.
@@ -2961,6 +2974,12 @@ fn source_reachability(
 ) -> SourceReachabilityState {
     if units
         .iter()
+        .any(|unit| matches!(unit.state, ServiceState::ProgramNotInstalled))
+    {
+        return SourceReachabilityState::Unknown;
+    }
+    if units
+        .iter()
         .any(|unit| matches!(unit.state, ServiceState::NotReachable))
     {
         return SourceReachabilityState::NotReachable;
@@ -4208,8 +4227,12 @@ mod tests {
     }
 
     #[test]
-    fn publisher_service_state_exposes_nine_variants_without_transport_error_payload() {
-        assert_eq!(PublisherServiceStateDisplay::ALL_KINDS.len(), 9);
+    fn publisher_service_state_exposes_ten_variants_without_transport_error_payload() {
+        assert_eq!(PublisherServiceStateDisplay::ALL_KINDS.len(), 10);
+        assert_eq!(
+            PublisherServiceStateDisplay::from_service_state(&ServiceState::ProgramNotInstalled),
+            PublisherServiceStateDisplay::ProgramNotInstalled
+        );
         assert_eq!(
             PublisherServiceStateDisplay::from_service_state(&ServiceState::NotReachable),
             PublisherServiceStateDisplay::NotReachable
@@ -5836,6 +5859,7 @@ fn service_badge(state: &PublisherServiceStateDisplay) -> ShowItemBadge {
         | PublisherServiceStateKind::Starting
         | PublisherServiceStateKind::Stopping
         | PublisherServiceStateKind::NotInstalled
+        | PublisherServiceStateKind::ProgramNotInstalled
         | PublisherServiceStateKind::NotReachable => ShowCardStateKind::Attention,
     };
     ShowItemBadge::new(kind, state.label())

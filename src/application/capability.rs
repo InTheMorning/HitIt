@@ -82,6 +82,7 @@ pub enum CapabilityFailure {
     MaintenanceUnavailable,
     Configuration(crate::config::ConfigFieldIssue),
     Preparation,
+    PlaybackProgramMissing,
     PathRepair,
 }
 

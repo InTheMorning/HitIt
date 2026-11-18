@@ -243,6 +243,22 @@ impl TopApp {
                 });
             },
             move |this, error, cx| {
+                let missing_mpv_path = match &error {
+                    crate::application::CommandError::Playback(message) => message
+                        .strip_prefix(crate::playback_driver::MPV_NOT_INSTALLED_PREFIX)
+                        .map(std::path::PathBuf::from),
+                    _ => None,
+                };
+                if let Some(path) = missing_mpv_path {
+                    this.capability_observations.record(
+                        crate::application::capability::CapabilityObservation::new(
+                            Dependency::Playback,
+                            Some(crate::application::capability::CapabilityFailure::PlaybackProgramMissing),
+                        )
+                        .at_path(&path),
+                    );
+                    this.capability_vm.observations = this.capability_observations.snapshot();
+                }
                 if let Some(id) = retry_id {
                     this.capability_vm.pending.finish(
                         id,

@@ -8,9 +8,9 @@ Make the `.deb`, the AppImage and the release workflow of [ADR 0103](../adr/0103
 
 | Phase | Task | Result | State |
 | --- | --- | --- | --- |
-| 1 | [Task 001](../tasks/adr-0103-task-001-deb-appimage-and-release-workflow.md) | `Cargo.toml` deb metadata, the AppImage script, the glibc script, `release.yml` and the runbook. A local `.deb` and AppImage. | Open |
-| 2 | [Task 002](../tasks/adr-0103-task-002-missing-program-notices.md) | The playback notice names `mpv`. The remote host state names `ssh`. | Open |
-| 3 | Operator | The first tag, the first workflow run and the visual checks of ADR 0103. | Waits for phases 1 and 2 |
+| 1 | [Task 001](../tasks/adr-0103-task-001-deb-appimage-and-release-workflow.md) | `Cargo.toml` deb metadata, the AppImage script, the glibc script, `release.yml` and the runbook. A local `.deb` and AppImage. | Done, `1f903cf` |
+| 2 | [Task 002](../tasks/adr-0103-task-002-missing-program-notices.md) | The playback notice names `mpv`. The remote host state names `ssh`. | Done |
+| 3 | Operator | The first tag, the first workflow run and the visual checks of ADR 0103. | Open |
 
 Phase 1 and phase 2 change different files. They can run in either sequence.
 
