@@ -436,6 +436,8 @@ target/debug/hitit &
 - [Packet 013](tasks/adr-0080-task-013-mp4-date-shares-one-value.md) V1: an MP4 file settles after one write. The run record also asks for the format of the two files of the observation of 2026-10-16.
 - [ADR 0076 packet 011](tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md) V1 and V2: the first Check RSS of a feed reads its full document, and its license reaches the "Update n files" list.
 
+The second [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md#second-walk) passed packets 007, 008, 010 and 013 and ADR 0076 packet 011 on a local copy of a real feed. A person must still check a real remixer credit, a real MP4 file and the compare rows of packet 010.
+
 ## 11. ADR 0089 The Shell - Implemented 2026-11-06
 
 Open - packets 001 to 015 are implemented, and the mechanical suite is Green. No person checked these packets. The [run record](reviews/orchestrated-run-2026-11-05-shell.md) lists the decisions and seven questions for the operator.

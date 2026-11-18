@@ -86,3 +86,65 @@ The operator answers them.
   The sandbox blocked the feed hosts, so this is probably the cause.
 - Q6: see defect 4. The Inbox was empty, so the tag update action was not seen.
 - Q7: not walked.
+
+## Second Walk
+
+Three more walkers (displays :82 to :84) walked the agent items that the first walk left open. These calls
+also declared the feed hosts and the audio hosts.
+
+### Downloads
+
+Downloads from `fountain.fm`, `headstarts.uk` and `op3.dev` worked. The Wavlake feeds of Jon Ross and
+Scary Things again gave HTTP 403. The walker declared `wavlake.com`, `*.wavlake.com` and `*.cloudfront.net`,
+and the sandbox refused no host. Thus the host list is not the cause. The cause stays unknown.
+`feeds.rssblue.com` gave HTTP 410 for one public playlist. That host removed the feed, so this is not an app defect.
+
+### Section 10
+
+No feed in about 700 recent Index feeds has a remixer, an MP4 file or a license with a URL. The walker
+served a local copy of one real feed (Hookah) with these properties added. On that feed:
+
+- ADR 0080 packet 007 V1 passed. The file holds `TPE4` and no `TIPL`, and the next scan is clean.
+- Packet 008 V1 passed for a channel banner before `itunes:image`. An item banner was not tested.
+- Packet 010 V1 and V2 passed for the frames. The compare rows on the track page were not read.
+- Packet 013 V1 passed on an M4A file: one date after one write, and the next scan is clean.
+- ADR 0076 packet 011 V1 and V2 passed: HTTP 200 on the first check, HTTP 304 on the second, and the
+  license reached the "Update 5 files" list.
+
+A person must still do these checks with a real remixer credit and a real MP4 file. The format of the two
+files of 2026-10-16 needs the operator database.
+
+Finding: each MP3 that the app writes has `TYER` next to `TDRC` in an ID3v2.4 tag. ID3v2.4 has no `TYER`
+frame, so exiftool gives a warning. The main agent confirmed this on 14 files. The test
+`src/audio_tags.rs` expects both frames, so the app does this by design. The operator decides if it is a defect.
+
+### Section 6
+
+- Light at 1440 and 900 px passed for the release list and tiles, the group page, the release page, the saved
+  search and the field list.
+- With Library singles, 0086-005 V1, V2, V4, V5 and V7 and 0087-002 V5 and 0087-005 V1 passed.
+- 0086-003 V9 names the Tracks view. ADR 0098 removed it, so the operator decides if the check is Superseded.
+- 0086-004 V6 and 0086-005 V6 stay open: the saved search page has no Select control.
+- 0087-004 V7 and V8 stay open for the timing of the list.
+- The walker saw these faults in Dark at 480 and 390 px. The main agent did not confirm them, because the
+  walker kept no screenshot of them:
+  - A group row wraps word by word at 390 px.
+  - Chips touch at 390 and 480 px.
+  - The title breaks as "Relea/ses" at 390 px.
+  - The field list touches the window edge and shows no scroll bar.
+
+### Section 11
+
+- Passed in Dark at 1440 px: 002 V2, 003 V3, 004 V3, 006 V2, 007 V2, 009 V3 and 014 V2. Light and 900 px were
+  not done.
+- The clicks of the search field list, the Tab order, the letter bar and the Edit Query keys passed.
+- 010 V2 and V3 passed. The copied rows show "Unavailable", and "Download" is only in the row menu. The operator
+  decides if that is the intended download control.
+- 007 V4 and the pinned list bar of ADR 0090 task 002 stay open.
+
+### Sections 25 And 32
+
+- Section 25 V1 in Light at 940 px: the ring shows on the sidebar rows, the buttons, the letter bar and Load more.
+  On a Releases tile, the walker saw no ring. One Tab stop between "Select all" and "Load more" showed no ring.
+  This is a possible defect. It is not confirmed.
+- Section 25 V1 at 390 px, the dialog button ring and section 32 V3 were not walked.
