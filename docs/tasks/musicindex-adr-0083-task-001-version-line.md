@@ -3,17 +3,19 @@
 Status: Implemented on 2026-11-18. The mechanical criteria pass. The visual criteria wait for a person, in section 35
 of [pending human checks](../pending-human-checks.md). The orchestrator sent this task on 2026-11-18.
 
-The first agent check of 2026-11-18 on Xvfb showed the line on each tab. It passed visual criteria 1 to 3 in Dark and
-Light at 1440 px, and in Dark at 390 px. "Copy" put the exact line on the clipboard. A drag marked the text, and
-Ctrl+C copied the marked part. The agent check of the About tab, also on 2026-11-18, passed in Dark at 1440 px and at 390 px. The tab row showed
-four tabs. About showed the line and "Copy", and "Copy" put the line on the clipboard. General, Library and
-Diagnostics showed no line. Light was not examined again.
+The first agent check of 2026-11-18 on Xvfb showed the line at the end of each tab. It passed in Dark and Light at
+1440 px, and in Dark at 390 px. A drag marked the text, and Ctrl+C copied the marked part.
+
+The agent check of the Diagnostics row, also on 2026-11-18, passed in Dark at 1440 px and at 390 px. Diagnostics
+shows the line and "Copy" as its first row. General and Library show no line. "Copy" put the exact line on the
+clipboard. Light was not examined for this row.
 
 ## Operator Choice
 
-2026-11-18: the line shows on one Settings tab only, and that tab is a new tab "About". This choice replaces the
-first main session choice "one line at the end of each page". [ADR 0093](../adr/0093-settings-has-a-tab-row-and-one-save-bar.md)
-Decision 1 and Decision 2 record the fourth group.
+Operator choice, 2026-11-18: the version line is the first row of Diagnostics, so that Live Metadata and Audio of
+HitIt ADR 0069 fit in the limit of 5 groups of musicindex ADR 0059 R-SET-1 item 2. This choice replaces the "About"
+tab choice of the same day and the first main session choice "one line at the end of each page".
+[ADR 0093](../adr/0093-settings-has-a-tab-row-and-one-save-bar.md) Decisions 2 and 4 record it.
 
 ## Goal
 
@@ -38,8 +40,8 @@ Each choice is from 2026-11-18.
 
 ## Main Session Choices
 
-1. The About tab is the last tab, after Diagnostics. It has the heading "About", the line and "Copy". It has no
-   Save bar, because it has no setting.
+1. The line is the first row of the Diagnostics content, above the content of each Diagnostics page. Settings
+   keeps its three tabs.
 2. The line text is `version_line()`. It is the same text as `hitit --version`, so a bug report has one form.
 3. `hitit --version` runs before the user data move of ADR 0096 Decision 6. A version request reads no user
    data and changes no user data.
@@ -51,9 +53,8 @@ Each choice is from 2026-11-18.
 | --- | --- | --- | --- |
 | Build values and the version line | reuse | Cargo.toml | The `musicindex-build-info` crate of musicindex-lib gives `build::emit`, `build_info!` and `BuildInfo::version_line` (R-VERSION-8). |
 | Command line entry | extend | src/cli.rs | `run` gets the `--version` arm next to `--help`. |
-| Settings view model | extend | src/view_models/settings.rs | `SettingsGroup::About` is the fourth group. `SettingsVm` gives the version line text, its Copy action and `shows_version`. |
-| Settings render | extend | src/app/settings.rs | `render_settings` adds the line when `shows_version` is true. |
-| Settings scroll handles | extend | src/ui/composites/settings.rs | `SettingsScrollHandles` gets a handle for About. |
+| Settings view model | extend | src/view_models/settings.rs | `SettingsVm` gives the version line text, its Copy action and `shows_version`. |
+| Settings render | extend | src/app/settings.rs | `render_settings` adds the line as the first row when `shows_version` is true. |
 | Selectable text | reuse | src/ui/composites/selectable_text.rs | `SelectableText` gives selection and the context menu Copy. |
 | Settings row composites | reuse | src/ui/composites/settings.rs | `settings_value_and_action` and `settings_actions` give the line and the button. |
 | Clipboard write | reuse | src/app/search_dispatch.rs | The pattern `cx.write_to_clipboard(ClipboardItem::new_string(...))`. |
@@ -72,7 +73,7 @@ Each choice is from 2026-11-18.
    `--version`.
 5. `src/view_models/settings.rs`: the view model gives the version line text and a Copy action. The action type
    follows the action pattern of the Settings view model.
-6. `src/app/settings.rs`: the version line shows on the About tab only (operator choice). The text is a
+6. `src/app/settings.rs`: the version line is the first row of Diagnostics (operator choice). The text is a
    `SelectableText`. "Copy" writes the line to the clipboard (R-VERSION-4).
 7. Tests (R-VERSION-9 item 1):
    - A test of the `--version` output: run the binary with `--version` (for example with
@@ -94,12 +95,12 @@ Mechanical:
 2. `cargo clippy --all-targets --locked -- -D warnings` passes.
 3. `cargo test --test architecture_tests` passes.
 4. `target/debug/hitit --version` prints one line in the form of R-VERSION-2.
-5. The Settings view model exposes the version line text and the Copy action. `shows_version` is true for About
-   only, and the group control lists General, Library, Diagnostics and About.
+5. The Settings view model exposes the version line text and the Copy action. `shows_version` is true for
+   Diagnostics only.
 
 Visual, for a person (R-VERSION-9 item 2):
 
-1. The About tab of Settings shows the line, in Light and Dark, at 1440 px and at 390 px. The text does not overlap
-   "Copy". The other tabs do not show the line.
+1. Diagnostics shows the line as its first row, in Light and Dark, at 1440 px and at 390 px. The text does not
+   overlap "Copy". General and Library do not show the line.
 2. A mouse drag selects the text of the line.
 3. "Copy" puts the line on the clipboard.

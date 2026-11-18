@@ -884,11 +884,11 @@ Task: [musicindex ADR 0083 task 001](tasks/musicindex-adr-0083-task-001-version-
 
 1. Compile HitIt with `cargo build --release --bin hitit`.
 2. Start HitIt with `target/release/hitit`.
-3. Open Settings. Make sure that the tab row shows General, Library, Diagnostics and About, in that sequence.
-4. Select About. Make sure that the page shows the version, for example "HitIt 0.1.0 (0dd3e95, 2026-11-18)", with "Copy" at its right (V1).
+3. Open Settings. Make sure that the tab row shows General, Library and Diagnostics.
+4. Select Diagnostics. Make sure that the first row shows the version, for example "HitIt 0.1.0 (0dd3e95, 2026-11-18)", with "Copy" at its right (V1).
 5. Drag the pointer across the line. Make sure that the text shows as selected (V2).
 6. Click "Copy". Paste in a text editor. Make sure that the paste is the full line (V3).
-7. Select General, Library and Diagnostics. Make sure that these pages do not show the line.
-- Incorrect: no About tab, no line on About, a line on another tab, a line that overlaps "Copy", text that you cannot select, or a paste that is not the line.
+7. Select General and Library. Make sure that these pages do not show the line.
+- Incorrect: no line on Diagnostics, a line that is not the first row, a line on General or Library, a line that overlaps "Copy", text that you cannot select, or a paste that is not the line.
 
-Agent check, 2026-11-18: V1 to V3 pass on Xvfb in Dark and Light at 1440 px, and in Dark at 390 px. That check showed the line on each tab, before the About tab. A second agent check of the About tab passed V1, V3 and step 7 in Dark at 1440 px and at 390 px.
+Agent check, 2026-11-18: an earlier layout put the line on each tab. V1 to V3 passed there in Dark and Light at 1440 px, and in Dark at 390 px, with a drag selection. A second agent check of the Diagnostics row passed V1, V3 and step 7 in Dark at 1440 px and at 390 px.
