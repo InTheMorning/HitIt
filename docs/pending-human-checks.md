@@ -5,6 +5,7 @@
 The operator resumed visual checks on 2026-10-02. Walk a new check right after its packet.
 The older checks below stay open until a person walks them. The operator walked part of a visual batch on 2026-10-02 and stopped after its Part A step 8.
 The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) walked sections 6 to 9, 11 and 22 to 33 on Xvfb. It lists the checks that only a person can do.
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) walked sections 11, 13, 15 to 17, 25 and 33. It took the items that the earlier walk left open for an agent.
 
 The current evidence fixture is `/tmp/hitit-governance.ie6k8TQf`. Its cleanup remains unconfirmed.
 
@@ -480,6 +481,8 @@ target/debug/hitit &
 
 The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed most checks of packets 001 to 015 in Light and Dark at 1440 and 900 px. **Packet 015 V3 fails**: a long value in the sheet ends in an ellipsis and does not wrap. The record lists the open checks, the evidence for questions 1 and 3 to 7 and the defects that the walk found.
 
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed most open items of packets 002 to 014 in Light at 1440 px. It passed most of them in Dark at 900 px too. **Packet 003 V3 fails at 900 px**: the section shortcuts stop on Show and Settings. The pinned list bar of ADR 0090 task 002 passed in Dark at 1440 px. A Space closes the New Playlist popover.
+
 ## 12. musicindex ADR 0053 The List Controls - 2026-11-08
 
 Open - the packets below are implemented, and the mechanical suite is Green. The main agent checked each packet on its own Xvfb display in Light and Dark. No person checked them. The [phase plan](plans/musicindex-adr-0053-list-controls-phase-plan.md) owns the packets.
@@ -565,6 +568,8 @@ target/debug/hitit &
 - R-ACT-11, Settings, Diagnostics, Database, the task Restore: in a wide window, "Restore database" is the last control of the column, after a divider. Make the window narrower than 760 px. The controls wrap into a band, and "Restore database" is first, with a space after it.
 - Wrong: a red or destructive button at the right end of a row, or Enter that removes data.
 
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed most items in Dark. **The Library selection bar fails**: no space follows the remove button. The record gives three questions about the text of this section.
+
 ## 14. ADR 0097 The Fit Check At Two Widths - 2026-11-13
 
 - Open HitIt at a window width of 940 px. The sidebar shows, and no label breaks inside a word (musicindex ADR 0065).
@@ -583,6 +588,8 @@ target/debug/hitit &
 - V4: in Settings, Tab to a control below the visible part. The page scrolls to show it. The padding and the scrollbar of Settings look as before.
 - Wrong: a focused control is out of view, or its focus ring is cut at the edge of the column.
 
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1, V2 and V4 at a window height of 600 px. V3 stays open, because no notice page with buttons was found.
+
 ## 16. ADR 0085 Task 001 The Type Label Of Known Roles - 2026-11-14
 
 [ADR 0085 task 001](tasks/adr-0085-task-001-type-label-of-known-roles.md) gives the procedure.
@@ -594,6 +601,8 @@ target/debug/hitit &
 - V5: a "Role not confirmed" row of a feed page or a release page shows an unknown word as `rel="…"`, for example "Sir Libre Records: label · the album: rel="recordLabel"" (R-ROLE-5 item 4).
 - Wrong: a page shows "Publisher" for a feed with a known role, Inspect sources hides a role word, a "Roles" fact or an "As" heading shows an unknown word, or a "Role not confirmed" row shows an unknown word without `rel="…"`.
 
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed the badge and the title of V1, and V4 and V5, on Sir Libre Records. The heading of V1, V2 and V3 stay open.
+
 ## 17. ADR 0092 Task 001 Artists Takes The List Focus - 2026-11-14
 
 [ADR 0092 task 001](tasks/adr-0092-task-001-artists-list-focus.md) gives the procedure. Open Artists in the scope All.
@@ -604,6 +613,8 @@ target/debug/hitit &
   - Walk of 2026-11-15: Tab went to each "Show more" first, and the grid did not scroll to the tile with the cursor. The correction of 2026-11-15 is in the task file. Do V2 again with the new build.
 - V3: press "Show more" with the keyboard. The focus goes to the first new row of that group, not to the sidebar.
 - Wrong: Tab skips the list, the focus ring does not show, or the focus goes to the sidebar.
+
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1 with the focus on the sort menu, V2, and V3 in Tiles. V3 in Rows stays open. The record gives a case of two rings that is not confirmed.
 
 ## 18. ADR 0097 Task 007 The List Rows Truncate A Long Name - 2026-11-14
 
@@ -746,6 +757,8 @@ Agent walk, 2026-11-16, Dark only. The task file gives the details.
 
 The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed V1 for a row at 1440 px, V2, V3 for the HitIt radii and V4 at 1440 and 440 px in Light. At XL and 390 px the page title shows one letter on each line, and the tab bar labels overlap. V5 shows the "Check" menu on its own line.
 
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1 for the dialog buttons and a page button at 390 px. A tile, a list row at 390 px and Light stay open.
+
 ## 26. ADR 0101 Task 003 The Art Radius And The Art Shadow - 2026-11-16
 
 Task: [ADR 0101 task 003](tasks/adr-0101-task-003-art-radius.md). Do the check in Dark and in Light at M.
@@ -851,6 +864,8 @@ Task: [ADR 0101 task 012](tasks/adr-0101-task-012-light-levels-on-surfaces.md).
 Agent walk, 2026-11-16: V1, V3, V4, V5 and V6 pass. V2 is open, because the test data has no playlist.
 
 The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) moved a file out of the scratch music folder, but the screenshot does not show the playlist row of that file. V2 stays open.
+
+The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) did not walk V2. V2 is about the unavailable row of a playlist page, which has the open entry level.
 
 ## 34. ADR 0101 Task 011 The Main Action - 2026-11-16
 
