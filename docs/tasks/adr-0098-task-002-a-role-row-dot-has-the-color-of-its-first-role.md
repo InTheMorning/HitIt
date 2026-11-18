@@ -1,6 +1,6 @@
 # ADR 0098 Task 002: A Role Row Dot Has The Color Of Its First Role
 
-Status: Ready - 2026-11-18. The orchestrator asked for this packet on 2026-11-18, with the approval of the operator.
+Status: Implemented - operator visual checks V1 and V2 open, 2026-11-18. The orchestrator asked for this packet on 2026-11-18, with the approval of the operator.
 
 This packet brings HitIt into agreement with musicindex ADR 0037 R-WORD-7 item 2: "The dot has the color of the first role in that sequence." The website (`roleLabel` in `search.html`) and Studio (`mediumKind` in `crates/api/ui/shell.js`) already give a role row this dot, as the orchestrator reported on 2026-11-18. The packet replaces the choice of [ADR 0084 task 029](adr-0084-task-029-search-link-facts.md) that `entity_kind_for_badge` maps `Roles` to the feed color.
 
@@ -59,3 +59,11 @@ The main session read this in the code on 2026-11-18:
 - Do not change a shared rule. Stop and report if a shared rule seems to disagree with this packet.
 
 A delegate does not commit. It leaves the change in the working tree and reports it. Apply the STE skill at `/home/citizen/.agents/skills/asd-ste100/SKILL.md` to each comment and report.
+
+## Report
+
+- `SearchRowBadge::Roles` now has the fields `words` and `first`. `first` is the `HeaderRole` of the first known role, from `header_role_for`.
+- The shared map is `EntityKind::from_header_role` in `src/ui/composites/tag_badge.rs`. The feed page, the curator badge and `entity_kind_for_badge` use it. The old function in `src/ui/shells/publisher.rs` is deleted.
+- The row has only agreed roles in `FeedLinkClass::OtherRoles`. The dot keeps its filled state, as before. The row has no state for a hollow dot.
+- Failure before the change: `entity_kind_for_badge` gave `Feed` where the test expects `Label`.
+- Visual criteria V1 and V2 are open. A person must judge them.

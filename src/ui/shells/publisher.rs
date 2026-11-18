@@ -37,8 +37,8 @@ use crate::ui::tokens::{color, Radius, SemanticColor, Spacing};
 use crate::view_models::collection_art::CollectionKind;
 use crate::view_models::entity_detail::MUSICINDEX_NOT_IN_INDEX_TEXT;
 use crate::view_models::publisher_page::{
-    CoCreditedFeedVm, HeaderRole, OtherAlbumsStatus, PublisherPageContext,
-    PublisherPageLoadDisplay, PublisherPageVm,
+    CoCreditedFeedVm, OtherAlbumsStatus, PublisherPageContext, PublisherPageLoadDisplay,
+    PublisherPageVm,
 };
 
 /// Opens the feed page of a feed GUID (ADR 0082 Decision 5). The app layer
@@ -110,25 +110,6 @@ pub(crate) fn render_publisher_page(
     music_column_tracked_scrollbar(container, &rows.scroll, pinned_list_bar)
 }
 
-/// The entity kind of a header role (musicindex ADR 0033 R-WORD-3). The view
-/// model decides the role and whether the dot is filled. This screen maps
-/// the role to the entity palette, which the view model cannot name.
-pub(crate) const fn entity_kind_for_header_role(role: HeaderRole) -> EntityKind {
-    match role {
-        HeaderRole::Artist => EntityKind::Artist,
-        HeaderRole::Label => EntityKind::Label,
-        HeaderRole::Host => EntityKind::Host,
-        HeaderRole::Author => EntityKind::Author,
-        HeaderRole::Curator => EntityKind::Curator,
-        HeaderRole::Producer => EntityKind::Producer,
-        HeaderRole::Network => EntityKind::Network,
-        HeaderRole::Hosting => EntityKind::Hosting,
-        HeaderRole::Sponsor => EntityKind::Sponsor,
-        HeaderRole::Publisher => EntityKind::Publisher,
-        HeaderRole::Feed => EntityKind::Feed,
-    }
-}
-
 fn render_header(
     vm: &PublisherPageVm,
     header_art: CollectionArtImage,
@@ -145,7 +126,7 @@ fn render_header(
         })
         .collect();
     let header = DetailHeader::new(DetailHeaderDisplay {
-        kind: entity_kind_for_header_role(badge.role),
+        kind: EntityKind::from_header_role(badge.role),
         hollow: !badge.confirmed,
         label: Some(badge.word.clone().into()),
         title: vm.title_text().into(),

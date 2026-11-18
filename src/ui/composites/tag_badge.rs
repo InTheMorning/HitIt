@@ -18,7 +18,7 @@ use crate::ui::icons::IconName;
 use crate::ui::tokens::{
     color, resolve_color, Appearance, FontSize, Radius, SemanticColor, Spacing, TypeDot,
 };
-use crate::view_models::publisher_page::PublisherPageVm;
+use crate::view_models::publisher_page::{HeaderRole, PublisherPageVm};
 use crate::view_models::track_metadata_grid::TrackMetadataComparisonRole;
 
 /// Domain entity kinds the badge knows how to color.
@@ -55,6 +55,27 @@ pub enum EntityKind {
 }
 
 impl EntityKind {
+    /// The entity kind of a header role (musicindex ADR 0033 R-WORD-3). The
+    /// view model decides the role. This map gives the entity palette, which
+    /// the view model cannot name. The feed page header and the role badge of
+    /// a search row share this map.
+    #[must_use]
+    pub(crate) const fn from_header_role(role: HeaderRole) -> Self {
+        match role {
+            HeaderRole::Artist => Self::Artist,
+            HeaderRole::Label => Self::Label,
+            HeaderRole::Host => Self::Host,
+            HeaderRole::Author => Self::Author,
+            HeaderRole::Curator => Self::Curator,
+            HeaderRole::Producer => Self::Producer,
+            HeaderRole::Network => Self::Network,
+            HeaderRole::Hosting => Self::Hosting,
+            HeaderRole::Sponsor => Self::Sponsor,
+            HeaderRole::Publisher => Self::Publisher,
+            HeaderRole::Feed => Self::Feed,
+        }
+    }
+
     /// Map the legacy `&'static str` keys (e.g. `"feed"`) used throughout
     /// the existing screen code. The keys of the entity types in the shared
     /// `tokens.json` are the same strings. Unknown values fall back to

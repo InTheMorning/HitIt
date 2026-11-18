@@ -6,6 +6,7 @@ use crate::view_models::detail_selection::{
     DetailRowClick, DetailRowKey, LibraryReleaseFacts, ReleaseDownloaded,
 };
 use crate::view_models::library::{RowTypeKind, RowTypeTag};
+use crate::view_models::publisher_page::HeaderRole;
 use crate::view_models::release_download_state::{ReleaseDownloadState, ReleaseDownloadStateVm};
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::selection_action_bar::SelectionActionKind;
@@ -1621,7 +1622,10 @@ fn adr_0084_search_link_facts_r29_07_badge_sequence() {
     assert_eq!(label_rows.len(), 1);
     assert_eq!(
         label_rows[0].badge,
-        Some(SearchRowBadge::Roles("Label".to_owned()))
+        Some(SearchRowBadge::Roles {
+            words: "Label".to_owned(),
+            first: HeaderRole::Label,
+        })
     );
     assert_eq!(
         label_rows[0].a11y_label,
@@ -1665,7 +1669,36 @@ fn adr_0084_search_link_facts_r29_07_two_roles_give_the_frame_title_text() {
     let rows = rows(&vm, &RecordedLibrary::default());
     assert_eq!(
         rows[0].badge,
-        Some(SearchRowBadge::Roles("Label \u{b7} Producer".to_owned()))
+        Some(SearchRowBadge::Roles {
+            words: "Label \u{b7} Producer".to_owned(),
+            first: HeaderRole::Label,
+        })
+    );
+}
+
+/// ADR 0098 task 002: a feed with the agreed roles host, label and studio
+/// gives the text "Label \u{b7} Host" and the label role for the dot. The
+/// word "studio" is not a known role.
+#[test]
+fn adr_0098_task_002_row_badge_holds_the_first_known_role() {
+    let mut vm = SearchResultsInspectorPageVm::new("ph");
+    vm.replace_index_results(IndexSearchResultRows {
+        artists: vec![index_feed_page_with_facts(
+            4_000_000_000,
+            "phafe-guid",
+            "Ph@fe",
+            &["host", "label", "studio"],
+            0,
+        )],
+        ..no_index_rows()
+    });
+    let rows = rows(&vm, &RecordedLibrary::default());
+    assert_eq!(
+        rows[0].badge,
+        Some(SearchRowBadge::Roles {
+            words: "Label \u{b7} Host".to_owned(),
+            first: HeaderRole::Label,
+        })
     );
 }
 
@@ -1701,7 +1734,10 @@ fn adr_0084_search_link_facts_r29_08_library_feed_keeps_its_role_word() {
     );
     assert_eq!(
         label_rows[0].badge,
-        Some(SearchRowBadge::Roles("Label".to_owned())),
+        Some(SearchRowBadge::Roles {
+            words: "Label".to_owned(),
+            first: HeaderRole::Label,
+        }),
         "a stated label role gives its word, not Artist (ADR 0085 Decision 7)"
     );
     assert_eq!(

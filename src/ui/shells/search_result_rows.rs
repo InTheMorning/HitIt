@@ -305,14 +305,15 @@ const fn entity_kind_for_tab(tab: SearchResultsTab) -> EntityKind {
     }
 }
 
-/// The entity color of a badge. A role badge has the feed color. Its text
-/// tells it apart from the "Feed" badge, so color is not the only
-/// difference (ADR 0084 packet 029).
+/// The entity color of a badge. A role badge has the color of its first
+/// role, as the badge on its feed page (musicindex ADR 0037 R-WORD-7 item
+/// 2). The shared map is [`EntityKind::from_header_role`].
 const fn entity_kind_for_badge(badge: &SearchRowBadge) -> EntityKind {
     match badge {
         SearchRowBadge::Release(_) => EntityKind::Release,
         SearchRowBadge::Artist => EntityKind::Artist,
-        SearchRowBadge::Roles(_) | SearchRowBadge::Feed => EntityKind::Feed,
+        SearchRowBadge::Roles { first, .. } => EntityKind::from_header_role(*first),
+        SearchRowBadge::Feed => EntityKind::Feed,
     }
 }
 
@@ -344,6 +345,7 @@ const fn origin_label_color(origin: SearchResultOrigin) -> SemanticColor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::view_models::publisher_page::HeaderRole;
 
     #[test]
     fn tab_ids_are_stable() {
@@ -361,6 +363,25 @@ mod tests {
         assert_eq!(
             origin_label_color(SearchResultOrigin::Library),
             SemanticColor::Accent
+        );
+    }
+
+    /// ADR 0098 task 002: a role badge has the color of its first role, and
+    /// the "Feed" and "Artist" badges keep their colors.
+    #[test]
+    fn adr_0098_task_002_label_role_badge_has_the_label_color() {
+        let badge = SearchRowBadge::Roles {
+            words: "Label \u{b7} Host".to_owned(),
+            first: HeaderRole::Label,
+        };
+        assert_eq!(entity_kind_for_badge(&badge), EntityKind::Label);
+        assert_eq!(
+            entity_kind_for_badge(&SearchRowBadge::Feed),
+            EntityKind::Feed
+        );
+        assert_eq!(
+            entity_kind_for_badge(&SearchRowBadge::Artist),
+            EntityKind::Artist
         );
     }
 }

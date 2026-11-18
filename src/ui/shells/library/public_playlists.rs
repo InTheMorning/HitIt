@@ -20,6 +20,7 @@ use crate::ui::composites::content_tile::tile_text_line;
 use crate::ui::composites::list_row::RowMenu;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::composites::selectable_tile::SelectableTile;
+use crate::ui::composites::EntityKind;
 use crate::ui::composites::{
     CollectionArt, CollectionArtImage, ListRow, ListRowA11yLabel, TagBadge, TagBadgeDisplay,
     ThumbnailSize,
@@ -33,7 +34,6 @@ use crate::ui::shells::library::destination_lists::{
 use crate::ui::shells::library::index_list_status::{
     render_index_list_status_row, IndexListActions,
 };
-use crate::ui::shells::publisher::entity_kind_for_header_role;
 use crate::ui::style::spacing;
 use crate::ui::tokens::{FontSize, SemanticColor, Size};
 use crate::view_models::collection_art::CollectionKind;
@@ -398,7 +398,7 @@ pub(crate) fn render_public_playlist_list_item(
 /// signal (ADR 0101 Decision 2).
 fn curator_badge(badge: &CuratorBadgeVm) -> TagBadge {
     TagBadge::new(TagBadgeDisplay {
-        kind: entity_kind_for_header_role(badge.role),
+        kind: EntityKind::from_header_role(badge.role),
         label: Some(SharedString::from(badge.word.clone())),
     })
     .hollow(badge.hollow)

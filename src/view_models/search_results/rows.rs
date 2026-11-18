@@ -13,6 +13,7 @@ use crate::view_models::collection_art::{CollectionArtVm, CollectionKind};
 use crate::view_models::detail_selection::{DetailRowKey, DetailSelection, LibraryReleaseFacts};
 use crate::view_models::library::{RowTypeKind, RowTypeTag};
 use crate::view_models::list_selection::RowSelectionVm;
+use crate::view_models::publisher_page::{header_role_for, HeaderRole};
 use crate::view_models::release_download_state::ReleaseDownloadStateVm;
 use crate::view_models::release_kind::ReleaseKind;
 use crate::view_models::role_words::type_label;
@@ -113,8 +114,12 @@ pub(crate) enum SearchRowBadge {
     Artist,
     /// A feed row with agreed roles and no `artist` role. The text is the
     /// role words with a capital first letter, for example "Label" (ADR
-    /// 0085 Decision 7, the frame title of the feed page).
-    Roles(String),
+    /// 0085 Decision 7, the frame title of the feed page). `first` is the
+    /// first known role in the sequence of musicindex ADR 0036 R-ROLE-1. It
+    /// gives the dot color (musicindex ADR 0037 R-WORD-7 item 2). The agreed
+    /// roles give the row, so the dot is filled (musicindex ADR 0066
+    /// R-WORD-8).
+    Roles { words: String, first: HeaderRole },
     /// Each other feed row. No row text calls a feed a "publisher" (ADR
     /// 0085 Decision 1).
     Feed,
@@ -127,7 +132,7 @@ impl SearchRowBadge {
         match self {
             Self::Release(kind) => kind.label(),
             Self::Artist => "Artist",
-            Self::Roles(words) => words,
+            Self::Roles { words, .. } => words,
             Self::Feed => "Feed",
         }
     }
@@ -140,7 +145,13 @@ impl SearchRowBadge {
     fn for_feed(is_library_artist: bool, link_class: Option<&FeedLinkClass>) -> Self {
         match link_class {
             // The type label of musicindex ADR 0037 R-WORD-7.
-            Some(FeedLinkClass::OtherRoles(roles)) => Self::Roles(type_label(roles)),
+            Some(FeedLinkClass::OtherRoles(roles)) => match roles.first() {
+                Some(&first) => Self::Roles {
+                    words: type_label(roles),
+                    first: header_role_for(first),
+                },
+                None => Self::Feed,
+            },
             _ if is_library_artist => Self::Artist,
             Some(FeedLinkClass::Artist | FeedLinkClass::UnverifiedArtist) => Self::Artist,
             Some(FeedLinkClass::NotNamedFirst) | None => Self::Feed,
