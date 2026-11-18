@@ -334,11 +334,12 @@ change to the "Zero warnings" commands also changes that file.
 GitHub. The [Arch package runbook](docs/runbooks/arch-package.md) tells how to
 build it. A new run-time library, program or file also changes the PKGBUILD.
 
-[ADR 0103](docs/adr/0103-the-linux-packages-and-the-release-workflow.md) adds a
-`.deb` and an AppImage, made by a release workflow on `ubuntu-22.04`, under
-musicindex ADR 0084. A new run-time library or external program also changes
-the `.deb` metadata in `Cargo.toml`. The
-[ADR 0103 plan](docs/plans/adr-0103-linux-packages-plan.md) gives the open tasks.
+[ADR 0103](docs/adr/0103-the-linux-packages-and-the-release-workflow.md) defines
+the Arch package, the `.deb` and the AppImage. The release workflow builds the
+`.deb` and the AppImage on `ubuntu-22.04`. `Cargo.toml` holds the `.deb`
+metadata. A new run-time library or external program also changes that metadata. The [Linux packages runbook](docs/runbooks/linux-packages.md) gives
+the local build steps. The [ADR 0103 plan](docs/plans/adr-0103-linux-packages-plan.md)
+gives the open tasks.
 
 ## Conventions
 

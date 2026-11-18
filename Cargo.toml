@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.97"
 license = "AGPL-3.0-only"
+description = "Desktop app for MusicIndex music feeds, a local audio library and live value broadcasts"
 
 [dependencies]
 toml  = "1.0"
@@ -123,3 +124,21 @@ opt-level = 3
 # binary itself stays optimized and has no debug assertions.
 [profile.release.build-override]
 debug-assertions = true
+
+# ADR 0103 Decisions 2 and 6. A new run-time library or external program
+# changes this table and the PKGBUILD.
+[package.metadata.deb]
+maintainer = "HeyCitizen <4637290+InTheMorning@users.noreply.github.com>"
+extended-description = "HitIt finds music in MusicIndex, downloads it to a local library and controls live value broadcasts. mpv, flac, ffmpeg, ssh and butt are optional programs from the distribution."
+depends = "$auto, libvulkan1, libegl1, libwayland-client0, libwayland-egl1, fontconfig, ca-certificates"
+recommends = "mpv, flac, ffmpeg, openssh-client, butt"
+suggests = "musicindex-live-publisher"
+section = "sound"
+priority = "optional"
+assets = [
+    ["target/release/hitit", "usr/bin/hitit", "755"],
+    ["packaging/arch/hitit.desktop", "usr/share/applications/hitit.desktop", "644"],
+    ["src/assets/music_network_logo.png", "usr/share/icons/hicolor/512x512/apps/hitit.png", "644"],
+    ["README.md", "usr/share/doc/hitit/README.md", "644"],
+    ["LICENSE", "usr/share/doc/hitit/copyright", "644"],
+]

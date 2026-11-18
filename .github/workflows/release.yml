@@ -1,0 +1,144 @@
+name: Linux release packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_RELEASE_DEBUG: "0"
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check tag version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          package_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1)"
+          if [[ "$tag_version" != "$package_version" ]]; then
+            echo "Tag version $tag_version does not match Cargo.toml version $package_version" >&2
+            exit 1
+          fi
+
+      - name: Install Linux system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config dpkg-dev binutils libxcb1-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libwayland-dev
+
+      - name: Install the toolchain
+        run: |
+          rustup toolchain install
+          rustup show active-toolchain
+          cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-deb 3.8.0
+        run: cargo install cargo-deb --version 3.8.0 --locked
+
+      - name: Run CI checks
+        run: |
+          cargo fmt --check
+          cargo check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: Build release binary
+        run: cargo build --release --bin hitit
+
+      - name: Check glibc floor
+        run: packaging/check-glibc-floor.sh target/release/hitit 2.35
+
+      - name: Download and verify AppImage tools
+        shell: bash
+        run: |
+          curl --fail --location --output target/appimagetool.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          echo 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  target/appimagetool.AppImage' | sha256sum --check
+          curl --fail --location --output target/runtime-x86_64 \
+            https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+          echo '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d  target/runtime-x86_64' | sha256sum --check
+          chmod +x target/appimagetool.AppImage
+
+      - name: Build packages
+        shell: bash
+        run: |
+          cargo deb --no-build
+          version="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1)"
+          APPIMAGE_EXTRACT_AND_RUN=1 packaging/appimage/build-appimage.sh target/release/hitit "$version" \
+            target/appimagetool.AppImage target/runtime-x86_64
+
+      - name: Write checksums
+        # File names only: the Release holds the three files in one folder.
+        run: |
+          (cd target/debian && sha256sum *.deb) > target/SHA256SUMS
+          (cd target && sha256sum HitIt-*-x86_64.AppImage) >> target/SHA256SUMS
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-packages
+          path: |
+            target/debian/*.deb
+            target/HitIt-*-x86_64.AppImage
+            target/SHA256SUMS
+          if-no-files-found: error
+
+  draft:
+    name: Draft GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-release-packages
+          path: release
+
+      # ADR 0103 Decision 5: the workflow makes or refreshes a draft. It never
+      # publishes a Release and never changes a published Release.
+      - name: Create or refresh draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"
+          files=(release/debian/*.deb release/HitIt-*-x86_64.AppImage release/SHA256SUMS)
+          if gh release view "$tag" --json isDraft --jq .isDraft > draft-state; then
+            if [[ "$(cat draft-state)" != true ]]; then
+              echo "ADR 0103 Decision 5: a published Release already uses the tag $tag. Make a new tag." >&2
+              exit 1
+            fi
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            prerelease=()
+            if [[ "$tag" == *-* ]]; then
+              prerelease=(--prerelease)
+            fi
+            gh release create "$tag" "${files[@]}" --draft --verify-tag "${prerelease[@]}" \
+              --title "HitIt $tag" \
+              --notes "Linux packages: a .deb for Ubuntu 22.04 and later, and an AppImage. The files are unsigned. mpv, flac, ffmpeg, ssh and butt are not in the packages. Install them from the distribution."
+          fi

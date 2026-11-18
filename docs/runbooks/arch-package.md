@@ -9,6 +9,8 @@ the `hitit` binary, a desktop file, the app icon, the license and the README.
 The package builds the commit at the top of `main` on GitHub. It does not
 build local commits that nobody pushed.
 
+For the `.deb` and AppImage, see the [Linux packages](linux-packages.md) runbook.
+
 ## Prerequisites
 
 - An Arch Linux system with `base-devel`.
