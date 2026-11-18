@@ -4,6 +4,7 @@
 
 The operator resumed visual checks on 2026-10-02. Walk a new check right after its packet.
 The older checks below stay open until a person walks them. The operator walked part of a visual batch on 2026-10-02 and stopped after its Part A step 8.
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) walked sections 6 to 9, 11 and 22 to 33 on Xvfb. It lists the checks that only a person can do.
 
 The current evidence fixture is `/tmp/hitit-governance.ie6k8TQf`. Its cleanup remains unconfirmed.
 
@@ -337,6 +338,8 @@ target/debug/hitit &
   - [ADR 0087 packet 003](tasks/adr-0087-task-003-live-results.md) V2, V8 and V9. Packet 007 V1 and V3 replace V3, and packet 008 V1 replaces V6 (section 7)
   - [ADR 0087 packet 005](tasks/adr-0087-task-005-field-list-values.md) V3 and V6. Packet 010 V3 replaces V7 (section 9)
 
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed ADR 0086 packet 002 V4, V6 and V8, packet 003 V4 to V7 in List, packet 004 V4, V9 and V10, packet 005 V3, and ADR 0087 packet 002 V6 and V8, packet 003 V8, packet 004 V9 and packet 005 V5. ADR 0098 replaced the screens of packet 004 V2, ADR 0087 packet 002 V2 to V4 and V9, and packet 003 V5. The record lists the checks that stay open. Most of them need downloads, timing or a network cut.
+
 ## 7. Final Walk Of The Run Of 2026-10-24
 
 Open - the run closed on 2026-10-24 after its walk. The operator passed ADR 0084 packets 036 and 037 and ADR 0087 packet 008. Those packets are Complete and archived. The items below stay open. Walk a check of a changed screen after its fix packet.
@@ -356,6 +359,8 @@ target/debug/hitit &
   - [ADR 0087 packet 007](tasks/adr-0087-task-007-live-run-index-rows.md) V4. Packet 009 replaces this check (section 9). With MusicIndex not reachable, a live run gave two errors, and they show as retained actions in the top bar
   - [ADR 0059 packet 019](tasks/adr-0059-task-019-livevalue-uri-is-a-url.md) V2 to V4. The operator removed the fixture before the steps of V2 and V3. V4 needs a real show feed. Its step 9 replaces the tag in each feed that holds the old form, outside the app
 
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed ADR 0059 packet 019 V1 to V3 on the local fixture. Packet 009 V1 replaces ADR 0087 packet 007 V4, and it passed. Packet 035 V2 and V3 need downloads. Packet 019 step 8 and V4 need a real show feed.
+
 ## 8. Packets 038 And 039 - Implemented 2026-10-25
 
 Open - the packets are implemented. The mechanical suite is Green. No person checked these packets. Walk each check at a terminal in a desktop session. Each packet gives the commands.
@@ -372,6 +377,8 @@ target/debug/hitit &
   For packet 038 V5, push Ctrl+F, type `haleen d` and push Enter. For packet 039 V1, the app needs a connection to `https://api.musicindex.org`.
 - [ADR 0084 packet 038](tasks/adr-0084-task-038-downloaded-single-joins-its-group.md): V1 to V5. V2, V3 and V4 walk [packet 035](tasks/adr-0084-task-035-download-stores-feed-links.md) V1, V2 and V3 again. V1 is the group rows of "Everything", and V5 is the search "haleen d".
 - [ADR 0084 packet 039](tasks/adr-0084-task-039-download-queue-host-limit.md): V1 to V4, and the step 4 observation of the lag (responsiveness item 32). V1 needs one group of 30 or more Wavlake singles that are not in the Library.
+
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) could not download from `wavlake.com` (HTTP 403 in the sandbox). Each check of this section stays open for the operator desktop. Packet 038 V1 also needs feeds 109 to 128 of the operator database.
 
 ## 9. ADR 0087 Packets 009 And 010 - 2026-10-25
 
@@ -401,6 +408,8 @@ mv ~/.config/hitit/config.toml.v009-check ~/.config/hitit/config.toml
 - The open checks:
   - [ADR 0087 packet 009](tasks/adr-0087-task-009-one-error-for-the-latest-text.md) V1 and V2. V1 replaces packet 007 V4. With MusicIndex not reachable, a live run of `haleen` then `haleen d` shows one note for `haleen d` and no retained action for a live run. V2 checks that Enter keeps one retained action with "Edit endpoint".
   - [ADR 0087 packet 010](tasks/adr-0087-task-010-field-list-row-height.md) V1 to V5. V1 walks packet 004 V1 again. V3 walks packet 005 V7 again. Each row keeps its height, the list scrolls to its end, and the scroll bar covers no text.
+
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed packet 009 V1 and V2 and packet 010 V1, V2, V4 and V5. Packet 010 V3 and the Library rows of packet 009 V1 need Library names. Step 7 of packet 010 must say 12 Down presses, not 11.
 
 ## 10. ADR 0080 Packets 007 To 013 And ADR 0076 Packet 011 - Implemented 2026-11-05
 
@@ -466,6 +475,8 @@ target/debug/hitit &
 - The search corrections of ADR 0091 step 2: a sort selected on the results page reloads the rows in that order, `-remix` alone shows its note and no error, and `haleen kind:single` shows Index rows. A live run keeps relevance. The operator accepted the look of the sort rows, of `in:library` with the reverse icon and of the scope All on 2026-11-07. The orchestrator session relayed this answer from the agent screenshots. The operator also accepted that each sort can change the rows two times.
   - The agent screenshot run of 2026-11-07 also shows three corrections: a saved search with no name of its own names what its query reads ("Library", "Index", "Library and Index" or "No results"), the two entries of a row menu have one text size in Light and Dark, and Tab scrolls a page to show a focused button. A later run shows two more: Tab reaches "Add to playlist", "…", "Website" and "RSS" of a page header, and Enter or Space opens the menus. Rows, tiles and page headers with no cover show the logo shape of musicindex ADR 0021 R-ART-2 in Light and Dark.
 - Wrong: a pane with no content, a control that does nothing, a page change after a mutation, or a lost keyboard focus.
+
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed most checks of packets 001 to 015 in Light and Dark at 1440 and 900 px. **Packet 015 V3 fails**: a long value in the sheet ends in an ellipsis and does not wrap. The record lists the open checks, the evidence for questions 1 and 3 to 7 and the defects that the walk found.
 
 ## 12. musicindex ADR 0053 The List Controls - 2026-11-08
 
@@ -679,6 +690,8 @@ The agent walk of 2026-11-16 ran steps 3 to 5 on an Xvfb display with the releas
 
 The agent walk of 2026-11-16 ran steps 3 to 7 on an Xvfb display with the release binary. On Releases, entry scrolled to "The Dark Plains - 00001" and showed the ring. On Artists, entry showed "2140" in the Rows view and "888childish" in the Tiles view. All three passed there.
 
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) could not walk V2, because the scratch Library had one release only.
+
 ## 23. ADR 0084 Task 040 The Release Page Shows Only The Rows In View - 2026-11-16
 
 [ADR 0084 task 040](tasks/adr-0084-task-040-release-page-draws-only-the-rows-in-view.md) gives the procedure.
@@ -729,6 +742,8 @@ Agent walk, 2026-11-16, Dark only. The task file gives the details.
 - Task 014 is implemented. Its agent walk passed in Dark and Light: the ring of "Download album" is outside the fill with a gap, and the ring touches "⋯" and "Website".
 
 
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed V1 for a row at 1440 px, V2, V3 for the HitIt radii and V4 at 1440 and 440 px in Light. At XL and 390 px the page title shows one letter on each line, and the tab bar labels overlap. V5 shows the "Check" menu on its own line.
+
 ## 26. ADR 0101 Task 003 The Art Radius And The Art Shadow - 2026-11-16
 
 Task: [ADR 0101 task 003](tasks/adr-0101-task-003-art-radius.md). Do the check in Dark and in Light at M.
@@ -738,6 +753,8 @@ Task: [ADR 0101 task 003](tasks/adr-0101-task-003-art-radius.md). Do the check i
 - Incorrect: an image has square corners, a small image has a large curve, or a row image has a shadow.
 
 Agent walk, 2026-11-16, Dark only. V1 passes after a correction in the task. V2 is open, because the shadow does not show clearly on the dark background.
+
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed V2 in Light.
 
 ## 27. ADR 0101 Task 005 The System Accessibility Settings - 2026-11-16
 
@@ -761,6 +778,8 @@ Task: [ADR 0101 task 006](tasks/adr-0101-task-006-dates-in-the-system-language.m
 
 Agent walk, 2026-11-16: V2 passes on the Xvfb display. V1 and V3 are open.
 
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed V3: "1 h 16 min" and "7 h 40 min". V1 stays open for the day in the time zone of the operator.
+
 ## 29. ADR 0101 Task 007 Loading States - 2026-11-16
 
 Task: [ADR 0101 task 007](tasks/adr-0101-task-007-loading-states.md).
@@ -771,6 +790,8 @@ Task: [ADR 0101 task 007](tasks/adr-0101-task-007-loading-states.md).
 - Incorrect: you cannot see the track of the bar, or the band moves with reduced animation on.
 
 Agent walk, 2026-11-16: V1 and V3 could not be walked with the test data. V2 of the packet ("Adding…") is not possible, because the add has no busy condition.
+
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) could not walk V1 or V3: a local playlist has no loading rows, and only one release was downloaded.
 
 ## 30. ADR 0101 Task 002 The Page Header Glow - 2026-11-16
 
@@ -785,6 +806,8 @@ Task: [ADR 0101 task 002](tasks/adr-0101-task-002-header-glow.md).
 - Incorrect: the glow has a hard edge, the text is hard to read, or the page waits for the glow.
 
 Agent walk, 2026-11-16: V1 passes in Dark and Light. The agent did not compare it with musicindex.org. V2 passes for the artist page and the track page. V5 passes for the walked pages. V3, V4 and V6 are open.
+
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) found no animated cover and no item with no image for V3 and V4. V6 stays open.
 
 ## 31. ADR 0101 Task 009 Open On musicindex.org - 2026-11-16
 
@@ -808,6 +831,8 @@ Task: [ADR 0101 task 010](tasks/adr-0101-task-010-selected-look.md).
 
 Agent walk, 2026-11-16: V1 and V2 pass in Light and Dark. V3 passes for the sidebar in Dark. The high-contrast profiles and V3 on a list row are open.
 
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) passed V1 and V2 in both high-contrast profiles, and V3 for the sidebar and for a row in High Contrast Dark.
+
 ## 33. ADR 0101 Task 012 The Levels On The Surfaces - 2026-11-16
 
 Task: [ADR 0101 task 012](tasks/adr-0101-task-012-light-levels-on-surfaces.md).
@@ -822,6 +847,8 @@ Task: [ADR 0101 task 012](tasks/adr-0101-task-012-light-levels-on-surfaces.md).
 - Incorrect: a hover does not show on a list row, or the field list goes below the window.
 
 Agent walk, 2026-11-16: V1, V3, V4, V5 and V6 pass. V2 is open, because the test data has no playlist.
+
+The [agent walk of 2026-11-17](reviews/agent-walk-2026-11-17.md) moved a file out of the scratch music folder, but the screenshot does not show the playlist row of that file. V2 stays open.
 
 ## 34. ADR 0101 Task 011 The Main Action - 2026-11-16
 
