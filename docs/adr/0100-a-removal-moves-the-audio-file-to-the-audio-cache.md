@@ -60,9 +60,9 @@ A download first looks for a `cached_files` row of the track. When the cache fil
 
 When the cache file is not on the disk, the download deletes the row and gets the audio from the network.
 
-### 6. Settings, Cached files, shows the audio cache
+### 6. Settings shows the audio cache
 
-The list reads `cached_files`. "Delete" and "Delete all" delete the file in the audio cache and its row. They change no file below `music_dir`.
+The list is in the section "Audio cache" of Settings, Library ([ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md) Decision 7). The list reads `cached_files`. "Delete" and "Delete all" delete the file in the audio cache and its row. They change no file below `music_dir`.
 
 ### 7. Each start completes the move
 

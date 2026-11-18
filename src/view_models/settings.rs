@@ -48,7 +48,9 @@ impl SettingsGroup {
     /// The sections and rows of the group (ADR 0093 Decision 7). Diagnostics
     /// holds tools, not settings, so it has no section.
     pub(crate) const fn sections(self) -> &'static [SettingsSection] {
-        use SettingsContent::{Defaults, Endpoint, FlacPath, MusicDirectory, Scale, Theme};
+        use SettingsContent::{
+            CachedFiles, Defaults, Endpoint, FlacPath, MusicDirectory, Scale, Theme,
+        };
         match self {
             Self::General => &[
                 SettingsSection {
@@ -68,6 +70,12 @@ impl SettingsGroup {
                 SettingsSection {
                     heading: "Files",
                     rows: &[MusicDirectory, FlacPath],
+                },
+                // Operator choice, 2026-11-18 (ADR 0093 Decision 7): the audio
+                // cache of ADR 0100 is a Library section, not a Diagnostics page.
+                SettingsSection {
+                    heading: "Audio cache",
+                    rows: &[CachedFiles],
                 },
             ],
             Self::Diagnostics => &[],
@@ -90,16 +98,14 @@ pub(crate) enum DiagnosticPage {
     Configuration,
     Background,
     Session,
-    CachedFiles,
 }
 
 impl DiagnosticPage {
-    pub(crate) const ALL: [Self; 5] = [
+    pub(crate) const ALL: [Self; 4] = [
         Self::Database,
         Self::Configuration,
         Self::Background,
         Self::Session,
-        Self::CachedFiles,
     ];
 
     pub(crate) const fn label(self) -> &'static str {
@@ -108,7 +114,6 @@ impl DiagnosticPage {
             Self::Configuration => "Configuration",
             Self::Background => "Background tools",
             Self::Session => "App session",
-            Self::CachedFiles => "Cached files",
         }
     }
 
@@ -118,7 +123,6 @@ impl DiagnosticPage {
             Self::Configuration => &[],
             Self::Background => &[SettingsContent::BackgroundReports],
             Self::Session => &[SettingsContent::SessionMaintenance],
-            Self::CachedFiles => &[SettingsContent::CachedFiles],
         }
     }
 }
@@ -162,13 +166,10 @@ impl SettingsContent {
     pub(crate) const fn control(self) -> Option<SettingsRowControl> {
         match self {
             Self::Scale | Self::Theme => Some(SettingsRowControl::Choices),
-            Self::Defaults => Some(SettingsRowControl::Action),
+            Self::Defaults | Self::CachedFiles => Some(SettingsRowControl::Action),
             Self::Endpoint => Some(SettingsRowControl::TextField),
             Self::MusicDirectory | Self::FlacPath => Some(SettingsRowControl::ValueAndAction),
-            Self::BackgroundReports
-            | Self::CachedFiles
-            | Self::SessionMaintenance
-            | Self::DatabaseTools => None,
+            Self::BackgroundReports | Self::SessionMaintenance | Self::DatabaseTools => None,
         }
     }
 
@@ -195,7 +196,8 @@ impl SettingsContent {
             Self::MusicDirectory => "Current session folder. Open Configuration repair to test and save a different existing folder after ending this session.",
             Self::FlacPath => "Test FLAC and ffmpeg availability, edit the FLAC executable path, and save it with an original-file backup in Converter setup.",
             Self::Defaults => "Resets the General and Library settings to the defaults and saves them.",
-            Self::BackgroundReports | Self::CachedFiles | Self::SessionMaintenance | Self::DatabaseTools => "",
+            Self::CachedFiles => "Files that a Library removal moved out of the music folder. Delete removes a file for good.",
+            Self::BackgroundReports | Self::SessionMaintenance | Self::DatabaseTools => "",
         }
     }
 }
@@ -300,7 +302,7 @@ pub(crate) struct SettingsGroupControl {
 pub(crate) struct SettingsVm {
     selected: SettingsGroup,
     diagnostic: DiagnosticPage,
-    views: [MaintenanceView; 5],
+    views: [MaintenanceView; 4],
 }
 
 impl SettingsVm {
@@ -659,6 +661,7 @@ mod tests {
                     "Files",
                     vec![SettingsContent::MusicDirectory, SettingsContent::FlacPath]
                 ),
+                ("Audio cache", vec![SettingsContent::CachedFiles]),
             ]
         );
         assert!(SettingsGroup::Diagnostics.sections().is_empty());

@@ -135,7 +135,7 @@ impl CachedFilesVm {
             LoadState::NotRequested => "App has not read the cached-file list.",
             LoadState::Loading => "App is reading the cached-file list.",
             LoadState::Unavailable => {
-                "App could not read the cached-file list because background tools are unavailable. Choose Check again in Background tools above."
+                "App could not read the cached-file list because background tools are unavailable. Choose Check again in Diagnostics, Background tools."
             }
             LoadState::Failed => {
                 "App could not read the cached-file list from the database. Reopen Settings to try again."

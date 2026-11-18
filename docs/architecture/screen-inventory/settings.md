@@ -13,7 +13,7 @@ notice, and the shared log frames.
 | Settings ▸ Diagnostics ▸ Configuration repair | Settings → Diagnostics → Configuration. Library's "Configuration repair" button. Library's "Audio converter (optional)" → Converter setup opens here on the `flac_path` field. Startup recovery → Configuration shows the same page. | `src/app/settings.rs`, `src/app/capabilities.rs`, `src/app/startup.rs` | `src/view_models/startup/correction.rs` (`CorrectionVm`) | `src/ui/composites/maintenance_forms.rs` (`configuration_correction`), `maintenance_page.rs` |
 | Settings ▸ Diagnostics ▸ Background tools | Settings → Diagnostics → Background tools. Or: "Open report" on the in-app capability notice. | `src/app/capabilities.rs`, `src/app/settings.rs` | `src/view_models/startup/capabilities.rs` (`CapabilityReportVm`) | `src/ui/composites/startup_report.rs` (`capability_report`), `maintenance_page.rs` |
 | Settings ▸ Diagnostics ▸ App session | Settings → Diagnostics → App session | `src/app/settings.rs` | `src/view_models/startup/session.rs` (`SessionReportVm`) | `src/ui/composites/maintenance_forms.rs` (`session_entry`), `maintenance_page.rs` |
-| Settings ▸ Diagnostics ▸ Cached files | Settings → Diagnostics → Cached files | `src/app/settings.rs`, `src/app.rs` | `src/view_models/cached_files.rs` (`CachedFilesVm`) | `src/ui/composites/settings.rs` (`settings_plain_page`, `settings_cached_row`) |
+| Settings ▸ Library ▸ Audio cache | Settings → Library → section "Audio cache" | `src/app/settings.rs`, `src/app.rs` | `src/view_models/cached_files.rs` (`CachedFilesVm`) | `src/ui/composites/settings.rs` (`settings_row`, `settings_cached_row`) |
 | Startup recovery | At launch, before the primary window mounts, when core checks block opening. Shown again after "End app session". | `src/app/startup.rs` (`StartupScreen`) | `src/view_models/startup.rs` (`StartupReportVm`). Embeds `DatabaseVm` and `CorrectionVm`. | `src/ui/composites/startup_report.rs` (`startup_report`), `maintenance_page.rs`, `log_frame.rs` |
 | Session drain | "End app session" from App session, Database tools, or Configuration repair. Or: Quit while work is outstanding. | `src/app/startup.rs` (`StartupScreen::render`, drain branch) | `src/view_models/startup/session.rs` (`SessionReportVm`) | `src/ui/composites/maintenance_forms.rs` (`session_drain`), `log_frame.rs` |
 | Shared log frame | Embedded "Report" view of Database tools, Configuration repair, Background tools, App session and Startup recovery | — (composite only) | `src/view_models/log_view.rs` (`LogReadingVm`, `LogSource`) | `src/ui/composites/log_frame.rs` |
@@ -247,17 +247,17 @@ own scrolling.
    but worth a single shared affordance in redesign rather than three buttons
    with the same label in different contexts.
 
-## 7. Settings ▸ Diagnostics ▸ Cached files
+## 7. Settings ▸ Library ▸ Audio cache
 
-1. **Name / reach.** "Cached files". Settings → Diagnostics → Cached files.
+1. **Name / reach.** "Cached files". Settings → Library → section "Audio cache"
+   (ADR 0093 Decision 7).
 2. **Owner files.** `src/view_models/cached_files.rs` (`CachedFilesVm`);
    `src/app/settings.rs` (`render_cached_files`); `src/application/queries/
    library.rs` (the read); `src/ui/composites/settings.rs`
-   (`settings_plain_page`, `settings_cached_row`).
-3. **Layout.** Not a `MaintenancePage` — a single scrollable list
-   (`settings_plain_page`): heading "Cached files (N)" → flat rows (artist name
-   rows, then track rows under each artist) → optional "Delete All Cached"
-   button → status line.
+   (`settings_row`, `settings_cached_row`).
+3. **Layout.** A section of the Library form: the row "Cached files (N)" with
+   its hint and the "Delete All Cached" button → flat rows (artist name rows,
+   then track rows under each artist) → status line.
 4. **Elements.** Artist-name rows are plain caption text; track rows show a
    compact title plus a per-row "Delete" button. No artwork, no provenance
    columns — this is a local-file presence list, not a metadata view.
@@ -271,9 +271,9 @@ own scrolling.
    loading/unavailable/failed/empty are plain one-line messages
    (`CachedFilesVm::status`), and a stale list is explicitly captioned "showing
    the last loaded list" rather than silently refreshing.
-8. **Redesign notes.** This is the only Diagnostics page that is a live content
-   list rather than a tool/report — its visual language (plain rows, no
-   artwork) is far plainer than the Library it is describing.
+8. **Redesign notes.** This is a live content list in a form of settings. Its
+   visual language (plain rows, no artwork) is far plainer than the Library it
+   describes.
 
 ## 8. Startup recovery
 
@@ -404,8 +404,7 @@ verbose error reports and logs stay."
 **Repeated patterns.**
 - Every Diagnostics page (§3–§6, and §8's two sub-pages) is the *same*
   `MaintenancePage` shape: toolbar with Instructions⇄Report toggle, actions
-  column/band, scrollable Instructions, `LogFrame` Report. Cached files (§7) is the
-  one exception — a plain list, no actions column, no log.
+  column/band, scrollable Instructions, `LogFrame` Report.
 - Three composites — Database tools, Configuration repair, and the whole Startup
   recovery screen — are mounted in two different screen contexts (Settings
   Diagnostics vs. pre-launch recovery) from the same view model and composite code.

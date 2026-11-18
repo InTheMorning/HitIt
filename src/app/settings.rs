@@ -19,7 +19,7 @@ use crate::ui::composites::settings_row::{settings_row, SettingsRowDisplay};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::primitives::Button;
 use crate::view_models::cached_files::{CachedFileAction, CachedFileActionDisplay, CachedFileRow};
-use crate::view_models::settings::{DiagnosticPage, SettingsGroup};
+use crate::view_models::settings::SettingsGroup;
 use crate::view_models::settings::{
     SettingsAction, SettingsContent, SettingsEffect, SettingsRowControl, SettingsVm,
 };
@@ -182,6 +182,10 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
     for section in app.settings.sections() {
         content.push(settings_section_heading(section.heading, cx));
         for &field in section.rows {
+            if field == SettingsContent::CachedFiles {
+                content.extend(render_cached_files(app, cx));
+                continue;
+            }
             let row = settings_content_row(app, field, correction_idle, &callback, cx);
             content.push(row);
         }
@@ -199,14 +203,6 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
             }
             SettingsContent::BackgroundReports => {
                 content.extend(app.render_capabilities(true, cx));
-            }
-            SettingsContent::CachedFiles => {
-                content.push(crate::ui::composites::settings::settings_plain_page(
-                    render_cached_files(app, cx),
-                    app.settings_scroll
-                        .diagnostic_handle(DiagnosticPage::CachedFiles),
-                    cx,
-                ));
             }
             _ => {}
         }
@@ -315,9 +311,27 @@ fn render_session_tools(
     None
 }
 
+/// The Audio cache section of Library (ADR 0100 Decision 6, ADR 0093
+/// Decision 7): one row with the count and "Delete All Cached", then one row
+/// for each cached file.
 fn render_cached_files(app: &TopApp, cx: &mut Context<TopApp>) -> Vec<AnyElement> {
-    let mut content = vec![settings_heading(app.cached_files.title(), cx)];
     let execution = app.command_runner.availability();
+    let delete_all = app.cached_files.delete_all_action(execution).map_or_else(
+        || Empty.into_any_element(),
+        |action| {
+            use gpui::IntoElement as _;
+            cached_action(action, cx).into_any_element()
+        },
+    );
+    let mut content = vec![settings_row(
+        SettingsRowDisplay {
+            name: app.cached_files.title().into(),
+            hint: SettingsContent::CachedFiles.help().into(),
+            control_below: false,
+        },
+        delete_all,
+        cx,
+    )];
     for row in app.cached_files.rows(&app.audio_cache_dir, execution) {
         content.push(match row {
             CachedFileRow::Artist(name) => settings_message(name, cx),
@@ -325,10 +339,6 @@ fn render_cached_files(app: &TopApp, cx: &mut Context<TopApp>) -> Vec<AnyElement
                 settings_cached_row(title, cached_action(delete, cx), cx)
             }
         });
-    }
-    if let Some(action) = app.cached_files.delete_all_action(execution) {
-        use gpui::IntoElement as _;
-        content.push(cached_action(action, cx).into_any_element());
     }
     if let Some(message) = app.cached_files.status() {
         content.push(settings_message(message, cx));

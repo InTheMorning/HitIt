@@ -55,7 +55,8 @@ instruction text inherits the toolkit's default font size.
 ## Decision
 
 Settings keeps General, Library and Diagnostics. Diagnostics selects one page:
-Database, Configuration, Background tools, App session or Cached files. Recovery
+Database, Configuration, Background tools or App session. [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md)
+Decision 7 puts the cached files in Library. Recovery
 selects Startup, Configuration or Database. Page selection runs no command and
 retains inputs, reports, selection and reading positions.
 

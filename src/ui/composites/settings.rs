@@ -6,7 +6,6 @@ use std::rc::Rc;
 
 use gpui::{div, prelude::*, AnyElement, App, Entity, ScrollHandle, SharedString, Window};
 use gpui_component::input::{Input, InputState};
-use gpui_component::scroll::ScrollableElement;
 use gpui_component::Size;
 
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
@@ -32,7 +31,7 @@ pub(crate) struct SettingsScrollHandles {
     general: ScrollHandle,
     library: ScrollHandle,
     diagnostics: ScrollHandle,
-    pages: [ScrollHandle; 5],
+    pages: [ScrollHandle; 4],
 }
 
 impl SettingsScrollHandles {
@@ -217,27 +216,6 @@ pub(crate) fn settings_actions(
             // destructive button (musicindex ADR 0064 R-ACT-8).
             [button.into_any_element()]
         }))
-        .into_any_element()
-}
-
-pub(crate) fn settings_plain_page(
-    content: Vec<AnyElement>,
-    scroll: &ScrollHandle,
-    cx: &App,
-) -> AnyElement {
-    div()
-        .id("diagnostic-files")
-        .flex_1()
-        .min_h_0()
-        .min_w_0()
-        .overflow_y_scroll()
-        .track_scroll(scroll)
-        .child(
-            page_scroll_content(cx)
-                .gap(Spacing::SM.scaled(cx))
-                .children(content),
-        )
-        .vertical_scrollbar(scroll)
         .into_any_element()
 }
 

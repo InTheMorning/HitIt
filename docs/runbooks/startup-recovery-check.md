@@ -2106,8 +2106,8 @@ external service is required. Close each fixture app before starting the other.
 2. Open Settings. Use the group menu to select Diagnostics.
    Confirm that the Settings title remains, as it does in General and Library.
    Open the menu that shows the current tool.
-   Select Database, Configuration, Background tools,
-   App session and Cached files. Each selection must show one page. General and
+   Select Database, Configuration, Background tools
+   and App session. Each selection must show one page. General and
    Library must keep their existing fields. Returning to a page must retain its
    inputs. Page selection must not run a maintenance command.
 3. On Database, open the task menu and select Check.

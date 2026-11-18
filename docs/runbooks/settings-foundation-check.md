@@ -24,7 +24,7 @@ stubs. Close the normal app first.
 
 2. **V1 — grouping, keyboard and scroll.** Press Ctrl+Comma. Initial entry must
    show General. General has UI scale and Theme; Library has endpoint, music
-   directory and flac; Diagnostics has Background tools and cached files.
+   directory, flac and the audio cache; Diagnostics has Background tools.
    Walk the group buttons with mouse and Tab/Shift+Tab plus Enter/Space.
    Tab must show an outline on the focused button; moving focus alone must not
    select a group. Enter/Space activates that button and keeps focus there;
@@ -179,8 +179,8 @@ stubs. Close the normal app first.
    From Music's notice click Open report. One click must enter Settings with
    Diagnostics selected. Both issues, their actual recorded UTC times and
    locations must remain. Copy report and paste into a scratch editor; the full
-   report must match even at narrow width. Scroll to the cached files and their
-   actions without deleting anything. Walk General/Library and return to
+   report must match even at narrow width. In Library, scroll to the cached files
+   and their actions without deleting anything. Walk General/Library and return to
    Diagnostics; report identity and times must remain. In Library, enter a valid
    endpoint and click Save: the existing invalid on-disk configuration must
    still reject the save, with the error visible in Library. General's Save and

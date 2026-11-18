@@ -907,3 +907,17 @@ Task: [musicindex ADR 0083 task 001](tasks/musicindex-adr-0083-task-001-version-
 - Incorrect: no line on Diagnostics, a line that is not the first row, a line on General or Library, a line that overlaps "Copy", text that you cannot select, or a paste that is not the line.
 
 Agent check, 2026-11-18: an earlier layout put the line on each tab. V1 to V3 passed there in Dark and Light at 1440 px, and in Dark at 390 px, with a drag selection. A second agent check of the Diagnostics row passed V1, V3 and step 7 in Dark at 1440 px and at 390 px.
+
+## 36. ADR 0093 Task 003 The Audio Cache In Library - 2026-11-18
+
+Task: [ADR 0093 task 003](tasks/adr-0093-task-003-audio-cache-in-library.md).
+
+1. Compile HitIt with `cargo build --release --bin hitit`.
+2. Start HitIt with `target/release/hitit`.
+3. Open Settings and select Library. Scroll to the end. Make sure that the section "Audio cache" comes after "Files". It shows "Cached files (N)", a hint and "Delete All Cached" (V1).
+4. Make sure that the list of cached files is below that row, with "Delete" on each file. Do not select "Delete" on a file that you want to keep (V2).
+5. Select Diagnostics. Open the page menu. Make sure that it shows Database, Configuration, Background tools and App session, and no "Cached files" (V3).
+6. Do steps 3 to 5 in Light and Dark, at the usual width and at 390 px.
+- Incorrect: no "Audio cache" section in Library, a file list that is not below its row, or "Cached files" in the Diagnostics page menu.
+
+Agent check, 2026-11-18: V1 and V3 passed in Dark at 1440 px and at 390 px, with one scratch cache file. Light and "Delete" were not examined.
