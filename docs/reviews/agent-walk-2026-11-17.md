@@ -148,3 +148,24 @@ frame, so exiftool gives a warning. The main agent confirmed this on 14 files. T
   On a Releases tile, the walker saw no ring. One Tab stop between "Select all" and "Load more" showed no ring.
   This is a possible defect. It is not confirmed.
 - Section 25 V1 at 390 px, the dialog button ring and section 32 V3 were not walked.
+
+## Third Walk
+
+One walker (display :85) walked the last agent items, with a screenshot for each result.
+
+- **The confirmation dialog is cut at 390 px.** "Use Defaults…" in Settings opens a dialog that is wider than
+  the window, and its left edge is cut. The main agent confirmed it. Screenshot: `dialog-cut-390.png`.
+  At 940 px the dialog fits, and the ring of its button is complete.
+- **The result tabs of a saved search overlap at 390 px**, and the scope chips touch at 480 px. The main agent
+  confirmed the overlap. Screenshot: `result-tabs-overlap-390.png`.
+- At 390 px the toolbar title breaks as "Relea/ses", the field list touches both window edges with no scroll
+  bar, and the tab bar labels touch. At 480 px the toolbar title shows "..". The walker saw these in Light and
+  Dark. A group row that wraps word by word did not occur again.
+- **A Releases tile shows no focus ring** in Light and Dark, at 940 and 390 px, in the Tiles view and in Select
+  mode. The Rows view shows the ring. The screenshots do not prove where the focus is, so this is probable,
+  not confirmed. ADR 0102 task 001, the arrow keys of the tiles, waits. Screenshot: `tile-ring-light-940.png`.
+- Section 32 V3: a list row in High Contrast Light shows a thick blue ring. A person judges the contrast.
+- ADR 0090 task 002, the pinned list bar: the bar stays at the top, is opaque, shows Select with a selection
+  fill and Done, and hides at the top. The jump of the rows, "Add to playlist", a row action and the window
+  group page stay open.
+- Section 11 in Light at 1440 px and in Dark at 900 px was not walked. The walker reached its time limit.
