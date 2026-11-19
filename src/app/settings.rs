@@ -25,6 +25,9 @@ use crate::view_models::settings::{
 };
 use crate::view_models::startup::StartupAvailability;
 
+/// The mpv state text when the background worker cannot run the check.
+const MPV_CHECK_WORKER_ERROR: &str = "the background worker is not available.";
+
 use super::TopApp;
 
 impl TopApp {
@@ -182,7 +185,9 @@ impl TopApp {
 
     pub(super) fn check_mpv(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(worker) = self.maintenance_worker.clone() else {
-            self.mpv_status = crate::view_models::audio_setup::MpvStatus::Missing;
+            self.mpv_status = crate::view_models::audio_setup::MpvStatus::DidNotStart(
+                MPV_CHECK_WORKER_ERROR.into(),
+            );
             cx.notify();
             return;
         };
@@ -207,14 +212,16 @@ impl TopApp {
                 |this, result, _, cx| {
                     this.mpv_status =
                         crate::view_models::audio_setup::MpvStatus::from_ping(match result {
-                            Ok(Ok(version)) => Ok(version),
-                            _ => Err(()),
+                            Ok(ping) => ping,
+                            Err(error) => Err(format!("{error:#}")),
                         });
                     cx.notify();
                 },
             );
         } else {
-            self.mpv_status = crate::view_models::audio_setup::MpvStatus::Missing;
+            self.mpv_status = crate::view_models::audio_setup::MpvStatus::DidNotStart(
+                MPV_CHECK_WORKER_ERROR.into(),
+            );
             cx.notify();
         }
     }

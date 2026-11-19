@@ -85,4 +85,14 @@ Main session review, 2026-11-19:
 
 Open point: a save of the player while the Show plays makes the Show driver again through the capability check. The configuration editor has the same behavior. No decision covers it.
 
+Agent walk of section 44 on Xvfb, 2026-11-19. The walk found three defects. The main session corrected them:
+
+- The first start set the tab field directly. The Settings page stayed empty. Bootstrap now calls `select_tab`, which also opens Settings in the content frame.
+- `MpvDriver::ping_version` read the `data` field a second time. `command` already gives that field. Thus each real check failed, and the Playback capability check failed too. The test `ping_version_reads_the_version_from_the_reply_data` uses the reply form of mpv v0.41.0.
+- `MpvDriver::poll` failed when mpv had no open file. mpv answers "property unavailable" for `time-pos` before a file opens and after it ends. The test sound stopped with that error. `poll` now reads that answer as no value. The test `poll_treats_an_unavailable_property_as_no_value` covers it.
+
+Main session choice, 2026-11-19: each failed check of mpv showed "mpv is not installed". Only the error of a missing program now gives that text. Each other error gives "mpv did not start:" and the error, with "Check again". ADR 0104 Decision 3 gives the reason: a message names the cause. The test `a_failed_mpv_start_does_not_say_that_mpv_is_not_installed` covers it.
+
+After the corrections, the walk passed steps 1, 3 and 4, and step 2 without the sound. The sandbox has no audio device. The sound of step 2 waits for a person.
+
 The visual checks remain open in section 44 of `docs/pending-human-checks.md`.

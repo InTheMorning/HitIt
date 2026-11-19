@@ -305,7 +305,8 @@ pub(super) fn mount_normal<T: 'static>(
                     crate::view_models::settings::SettingsGroup::Audio,
                 ));
             app.first_start_audio = true;
-            app.tab = super::AppTab::Settings;
+            // `select_tab` also opens the Settings page in the content frame.
+            app.select_tab(super::AppTab::Settings, window, cx);
         }
         app.focus_active_tab(window, cx);
         app.install_capability_controls(capability_observations, worker, cx);

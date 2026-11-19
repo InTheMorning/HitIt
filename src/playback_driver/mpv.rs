@@ -20,6 +20,8 @@ const IPC_TIMEOUT: Duration = Duration::from_secs(2);
 /// The longest time that one command waits for its reply. A read timeout of
 /// `IPC_TIMEOUT` is not an error before this time ends (ADR 0068 task 001).
 const REPLY_DEADLINE: Duration = Duration::from_secs(10);
+/// The error of `command` when mpv has no value for a property now.
+const PROPERTY_UNAVAILABLE_ERROR: &str = "mpv command failed: property unavailable";
 
 #[derive(Debug)]
 pub(crate) struct MpvNotInstalled {
@@ -91,14 +93,11 @@ impl MpvDriver {
         let mut state = self.inner.lock().expect("mpv driver mutex");
         self.ensure_started(&mut state)?;
         self.command(&mut state, json!(["get_property", "mpv-version"]))
-            .and_then(|reply| {
-                reply
-                    .and_then(|reply| {
-                        reply
-                            .get("data")
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned)
-                    })
+            .and_then(|data| {
+                // `command` already gives the `data` field of the reply.
+                data.as_ref()
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
                     .ok_or_else(|| anyhow!("mpv did not return its version"))
             })
     }
@@ -156,6 +155,16 @@ impl MpvDriver {
     fn observe_property(&self, state: &mut MpvState, observer_id: u64, name: &str) -> Result<()> {
         self.command(state, json!(["observe_property", observer_id, name]))
             .map(|_| ())
+    }
+
+    /// Read a property that mpv gives only while a file is open. Before a
+    /// file opens and after it ends, mpv answers "property unavailable". That
+    /// answer is no value, not an error of the player.
+    fn available_property(&self, state: &mut MpvState, name: &str) -> Result<Option<Value>> {
+        match self.command(state, json!(["get_property", name])) {
+            Err(error) if error.to_string() == PROPERTY_UNAVAILABLE_ERROR => Ok(None),
+            result => result,
+        }
     }
 
     fn command(&self, state: &mut MpvState, command: Value) -> Result<Option<Value>> {
@@ -316,12 +325,12 @@ impl PlaybackDriver for MpvDriver {
         if state.stream.is_none() {
             return Ok(state.status.clone());
         }
-        if let Some(value) = self.command(&mut state, json!(["get_property", "time-pos"]))? {
+        if let Some(value) = self.available_property(&mut state, "time-pos")? {
             if let Some(seconds) = value.as_f64() {
                 state.status.position_ms = seconds_to_ms(seconds);
             }
         }
-        if let Some(value) = self.command(&mut state, json!(["get_property", "pause"]))? {
+        if let Some(value) = self.available_property(&mut state, "pause")? {
             if let Some(paused) = value.as_bool() {
                 state.status.paused = paused;
             }
@@ -569,6 +578,28 @@ mod tests {
     }
 
     #[test]
+    fn ping_version_reads_the_version_from_the_reply_data() -> Result<()> {
+        let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
+        let driver = test_driver();
+        *driver.inner.lock().expect("mpv driver mutex") = test_state(driver_stream);
+        let peer = run_fake_peer(peer_stream, |stream| {
+            let request = read_request(stream)?;
+            assert_eq!(request["command"], json!(["get_property", "mpv-version"]));
+            // The reply form of mpv v0.41.0.
+            write_message(
+                stream,
+                json!({"data": "mpv v0.41.0", "request_id": 1, "error": "success"}),
+            )
+        });
+
+        let version = driver.ping_version()?;
+        join_fake_peer(peer)?;
+
+        assert_eq!(version, "mpv v0.41.0");
+        Ok(())
+    }
+
+    #[test]
     fn load_clears_the_pause_of_the_file_before() -> Result<()> {
         let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
         let driver = test_driver();
@@ -771,6 +802,36 @@ mod tests {
         join_fake_peer(peer)?;
 
         assert!(error.to_string().contains("mpv gave no IPC reply"));
+        Ok(())
+    }
+
+    #[test]
+    fn poll_treats_an_unavailable_property_as_no_value() -> Result<()> {
+        let (driver_stream, peer_stream) = UnixStream::pair().context("create fake IPC pair")?;
+        let driver = test_driver();
+        *driver.inner.lock().expect("mpv driver mutex") = test_state(driver_stream);
+        let peer = run_fake_peer(peer_stream, |stream| {
+            let first = read_request(stream)?;
+            assert_eq!(first["command"], json!(["get_property", "time-pos"]));
+            // mpv ended the file and has no position.
+            write_message(stream, json!({"event": "end-file", "reason": "eof"}))?;
+            write_message(
+                stream,
+                json!({"request_id": 1, "error": "property unavailable"}),
+            )?;
+            let second = read_request(stream)?;
+            assert_eq!(second["command"], json!(["get_property", "pause"]));
+            write_message(
+                stream,
+                json!({"request_id": 2, "error": "success", "data": false}),
+            )
+        });
+
+        let status = driver.poll()?;
+        join_fake_peer(peer)?;
+
+        assert!(status.eof);
+        assert!(!status.paused);
         Ok(())
     }
 

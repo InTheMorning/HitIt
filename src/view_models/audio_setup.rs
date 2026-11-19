@@ -38,16 +38,24 @@ pub(crate) enum MpvStatus {
     Unchecked,
     /// `ping` gave this version.
     Installed(String),
-    /// `ping` failed.
+    /// The system has no mpv program at the configured path.
     Missing,
+    /// mpv did not start or did not answer `ping`. The text is the error.
+    DidNotStart(String),
 }
 
 impl MpvStatus {
-    /// The state from the result of `ping`.
-    pub(crate) fn from_ping(result: Result<Option<String>, ()>) -> Self {
+    /// The state from the result of `ping`. An error that starts with
+    /// `MPV_NOT_INSTALLED_PREFIX` is a missing program. Each other error is a
+    /// failed start, so that the row does not name a wrong cause.
+    pub(crate) fn from_ping(result: Result<Option<String>, String>) -> Self {
         match result {
             Ok(Some(version)) => Self::Installed(version),
-            Ok(None) | Err(()) => Self::Missing,
+            Ok(None) => Self::Missing,
+            Err(error) if error.contains(crate::playback_driver::MPV_NOT_INSTALLED_PREFIX) => {
+                Self::Missing
+            }
+            Err(error) => Self::DidNotStart(error),
         }
     }
 
@@ -57,12 +65,13 @@ impl MpvStatus {
             Self::Unchecked => "The app checks mpv.".into(),
             Self::Installed(version) => format!("mpv is installed: {version}"),
             Self::Missing => format!("mpv is not installed. {MPV_MISSING_HELP}"),
+            Self::DidNotStart(error) => format!("mpv did not start: {error}"),
         }
     }
 
     /// True when the row shows "Check again".
     pub(crate) const fn offers_check_again(&self) -> bool {
-        matches!(self, Self::Missing)
+        matches!(self, Self::Missing | Self::DidNotStart(_))
     }
 }
 
@@ -176,7 +185,10 @@ mod tests {
 
     #[test]
     fn failed_mpv_ping_gives_the_missing_state_and_help() {
-        let status = MpvStatus::from_ping(Err(()));
+        let status = MpvStatus::from_ping(Err(format!(
+            "{}/usr/bin/mpv",
+            crate::playback_driver::MPV_NOT_INSTALLED_PREFIX
+        )));
         assert_eq!(status, MpvStatus::Missing);
         assert!(status.label().starts_with("mpv is not installed. "));
         assert!(status.label().contains(MPV_MISSING_HELP));
@@ -184,6 +196,17 @@ mod tests {
         let found = MpvStatus::from_ping(Ok(Some("mpv 0.40.0".into())));
         assert_eq!(found.label(), "mpv is installed: mpv 0.40.0");
         assert!(!found.offers_check_again());
+    }
+
+    #[test]
+    fn a_failed_mpv_start_does_not_say_that_mpv_is_not_installed() {
+        let status = MpvStatus::from_ping(Err("connect mpv IPC socket before timeout".into()));
+        assert_eq!(
+            status.label(),
+            "mpv did not start: connect mpv IPC socket before timeout"
+        );
+        assert!(!status.label().contains("not installed"));
+        assert!(status.offers_check_again());
     }
 
     #[test]
