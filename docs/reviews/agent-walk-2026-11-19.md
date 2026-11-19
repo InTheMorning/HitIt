@@ -80,3 +80,32 @@ The main agent did this walk itself, with the release build of commit `3532954` 
 | Task 016 item 3 | The log has the line "App could not complete a Music Index search: ..." | - |
 
 Finding 4: **the Releases page shows raw request text in its message.** With the same endpoint, Releases shows "Recent music unavailable. GET /v1/feeds/recent: error sending request for url (...): client error (Connect): tcp connect error: Connection refused (os error 111)". musicindex ADR 0085 R-MSG-1 item 4 does not permit raw text from a server or a library in a message. Task 016 changed only the search notice. A subsequent task can put this text in a "Details" fold, as task 016 did.
+
+## Sections 44 To 46 Walk - 2026-11-19, Evening
+
+The main agent did this walk itself, with the debug build of commit `e362af2` on Xvfb display `:85`, at 1440 px and at 390 px. The Library had 11 audio files and the playlists Walk (10 tracks) and Mix (14 tracks). The sandbox has no sound device. For the cue steps, the scratch file `mpv/mpv.conf` had `ao=null`, so that mpv plays each file at its usual speed with no sound. The shots are in the scratch folder of the session and are not kept.
+
+The walk found these defects. Commits `04c24ee` and `e362af2` correct them.
+
+1. The first start opened an empty Settings page.
+2. Settings said "mpv is not installed" for each mpv error. Each mpv check gave an error, because HitIt read the version from an incorrect field.
+3. Between two files, the mpv poll gave the error "property unavailable".
+4. The on air band was tall, and the cards and "Go on air" were off the screen.
+5. Row 1 of the band said "mpv is not ready" after each start that was not the first.
+6. The band showed the stream sound and listener lines when the show was not on air.
+
+| Item | Pass | Fail or open |
+| --- | --- | --- |
+| Section 44 steps 1, 3 and 4 | The group "Audio" in Dark and Light. The first start opens "Set up sound", and "Continue" opens Music | Step 2: the tone needs a person |
+| Section 45 V1 | In Dark and Light at 1440 px, and in Dark at 390 px: the band is above the cards, with the four rows in order. Each row that is not ready has one action. "Play test sound" opens Settings, Audio. "Change" opens Settings, Diagnostics, Configuration. The switch "Show information" sets row 4 to "Off". "Go on air" is not available while a row is not ready | Steps 2 to 5 need a stream server and a listener |
+| Section 46 V1 | A drag of row 4 to position 3 moves it. The track plays on | - |
+| Section 46 V2 | "Play next" puts the row directly after the playing row. When the track ends, that row plays | - |
+| Section 46 V3 | A drag of the playing row and of a played row does not move them | - |
+| Section 46 V4 and V5 | "Load into Show Cue" on Mix opens Show with 14 tracks. After "Clear", Show lists the playlists, and a load from that list works. "Open playlists" on the band keeps that list | - |
+
+Open points:
+
+- In the cue list, rows 3 and after show "Play next" and "Actions" at all times. At 1440 px the title then shows only five letters, for example "Growi…".
+- After a click on Play, the tooltip "Start Show" stays on the button, which is then Pause.
+- At 740 px with an empty cue, the cards area gets almost no height.
+- In Settings, the status line "The player played the test sound." stays on the other groups.

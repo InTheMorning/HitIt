@@ -1040,6 +1040,8 @@ Task: [ADR 0104 task 002](tasks/adr-0104-task-002-the-audio-group-and-the-first-
 4. Do steps 1 and 2 in Light and Dark.
 - Incorrect: the group shows a typed value such as `null`, or the tone is silent and HitIt says nothing.
 
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#sections-44-to-46-walk---2026-11-19-evening) passed steps 1, 3 and 4 in Dark and Light. Step 2 needs a person, because the walk has no sound.
+
 ## 45. ADR 0105 Tasks 001 And 002 "Go On Air" And "End Show" - 2026-11-19
 
 Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](tasks/adr-0105-task-002-end-show-and-the-last-track.md). Both tasks are implemented. These checks stay open. They need a stream server and a second listening device.
@@ -1051,6 +1053,8 @@ Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](
 5. Go on air with a cue of one short track. At its end, make sure that the end band counts down. Click "Keep on air" and make sure that the stream stays on. Do it again with no click, and make sure that the show ends after 60 seconds (V5).
 6. Do steps 1, 2 and 4 in Light and Dark.
 - Incorrect: a part starts before the confirmation, or the band says that listeners hear the show.
+
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#sections-44-to-46-walk---2026-11-19-evening) passed V1 in Dark and Light at 1440 px and in Dark at 390 px. Steps 2 to 5 need a person.
 
 ## 46. ADR 0106 Tasks 001 And 002 The Cue Changes During A Show - 2026-11-19
 
@@ -1064,3 +1068,5 @@ Tasks: [ADR 0106 task 001](tasks/adr-0106-task-001-move-entries-during-a-show.md
 6. Do steps 1 and 5 in Light and Dark.
 7. Clear the cue. On the on air band, click "Open playlists" on the row Show cue. Make sure that Show shows the playlists of step 5 (V5).
 - Incorrect: a move stops or restarts the track, or a played row moves.
+
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#sections-44-to-46-walk---2026-11-19-evening) passed V1 to V5 and step 7 with a null audio output in Light, and V5 in Dark. The sound of a move needs a person.
