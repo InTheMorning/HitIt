@@ -112,17 +112,18 @@ pub struct PlaybackConfig {
 impl Default for PlaybackConfig {
     fn default() -> Self {
         Self {
-            driver: PlaybackDriver::Null,
+            driver: PlaybackDriver::Mpv,
             mpv_path: None,
         }
     }
 }
 
+/// The player of the Show cue. The default is `Mpv` (ADR 0104 Decision 1).
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PlaybackDriver {
-    #[default]
     Null,
+    #[default]
     Mpv,
 }
 
@@ -764,11 +765,16 @@ pub fn config_path() -> Result<PathBuf> {
     Ok(proj.config_dir().join("config.toml"))
 }
 
-/// Return the app audio-cache folder (ADR 0100).
-pub fn audio_cache_dir() -> Result<PathBuf> {
+/// Return the app cache folder.
+pub fn app_cache_dir() -> Result<PathBuf> {
     let proj = ProjectDirs::from("xyz", "HeyCitizen", APP_ID)
         .ok_or_else(|| anyhow!("could not determine user cache directory"))?;
-    Ok(audio_cache_path(proj.cache_dir()))
+    Ok(proj.cache_dir().to_path_buf())
+}
+
+/// Return the app audio-cache folder (ADR 0100).
+pub fn audio_cache_dir() -> Result<PathBuf> {
+    Ok(audio_cache_path(&app_cache_dir()?))
 }
 
 fn audio_cache_path(cache_dir: &Path) -> PathBuf {
@@ -1164,8 +1170,9 @@ theme_profile = "dark"
 # tagged.
 # flac_path = "/usr/bin/flac"
 
-# Playback backend. The default "null" driver disables playback.
-# Uncomment to use mpv; leave mpv_path unset to resolve `mpv` via $PATH.
+# Playback backend. The default is "mpv". The "null" driver plays no sound,
+# and the Show cannot start with it. Leave mpv_path unset to resolve `mpv`
+# via $PATH.
 # [playback]
 # driver = "mpv"
 # mpv_path = "/usr/bin/mpv"
@@ -1262,7 +1269,7 @@ mod tests {
     }
 
     #[test]
-    fn load_config_defaults_missing_playback_to_null_driver() {
+    fn load_config_defaults_missing_playback_to_mpv_driver() {
         let cfg = ConfigSnapshot::from_bytes(
             Path::new("config.toml"),
             r#"
@@ -1276,8 +1283,23 @@ db_path = "/tmp/hitit.sqlite"
         .playback()
         .expect("valid playback");
 
-        assert_eq!(cfg.driver, PlaybackDriver::Null);
+        assert_eq!(cfg.driver, PlaybackDriver::Mpv);
         assert_eq!(cfg.mpv_path, None);
+    }
+
+    #[test]
+    fn load_config_keeps_an_explicit_null_driver() {
+        let cfg = ConfigSnapshot::from_bytes(
+            Path::new("config.toml"),
+            "music_dir = \"/tmp/music\"\ndb_path = \"/tmp/hitit.sqlite\"\n[playback]\ndriver = \"null\"\n"
+                .as_bytes()
+                .to_vec(),
+        )
+        .expect("parse config snapshot")
+        .playback()
+        .expect("valid playback");
+
+        assert_eq!(cfg.driver, PlaybackDriver::Null);
     }
 
     #[test]
@@ -2199,7 +2221,7 @@ content_list_view_mode = "tiles"
             snapshot.musicindex_endpoint.as_deref().unwrap(),
             DEFAULT_BASE_URL
         );
-        assert_eq!(snapshot.playback_driver, Ok(PlaybackDriver::Null));
+        assert_eq!(snapshot.playback_driver, Ok(PlaybackDriver::Mpv));
         assert_eq!(snapshot.flac_path, Ok(None));
         assert_eq!(snapshot.drop_directory, Ok(None));
         assert_eq!(snapshot.encoder, Ok(None));

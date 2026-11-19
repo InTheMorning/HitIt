@@ -1,6 +1,8 @@
 //! Playback command family.
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use rusqlite::Connection;
 
@@ -9,10 +11,12 @@ use crate::application::command_context::CommandContext;
 use crate::application::errors::command::CommandError;
 use crate::application::events::playback::PlaybackEvent;
 use crate::application::events::ApplicationEvent;
+use crate::config::{PlaybackConfig, PlaybackDriver as PlaybackDriverConfig};
 use crate::db;
 use crate::playback::NowPlayingUpdate;
-use crate::playback_driver::PlaybackDriver;
+use crate::playback_driver::{test_sound, tone, PlaybackDriver};
 use crate::playback_owner::PlaybackOwner;
+use crate::view_models::audio_setup::NO_SOUND_REASON;
 
 type SharedConnection = Arc<Mutex<Connection>>;
 type SharedPlaybackOwner<D> = Arc<Mutex<PlaybackOwner<D>>>;
@@ -465,6 +469,56 @@ where
     ))
 }
 
+/// Plays the test sound through its own driver instance (ADR 0104 Decision 4).
+///
+/// The command has no database connection and no Show playback owner. It cannot change
+/// the Show session, the Show cue or the drop file.
+pub struct PlayTestSound<F> {
+    config: PlaybackConfig,
+    tone_directory: PathBuf,
+    make_driver: F,
+    timeout: Duration,
+}
+
+impl<F> PlayTestSound<F> {
+    /// Creates the command. `make_driver` makes the instance for `config`.
+    #[must_use]
+    pub fn new(config: PlaybackConfig, tone_directory: PathBuf, make_driver: F) -> Self {
+        Self {
+            config,
+            tone_directory,
+            make_driver,
+            timeout: test_sound::TEST_SOUND_TIMEOUT,
+        }
+    }
+}
+
+impl<F, D> ApplicationCommand for PlayTestSound<F>
+where
+    F: FnOnce(&PlaybackConfig) -> anyhow::Result<D> + Send + Sync + 'static,
+    D: PlaybackDriver + 'static,
+{
+    /// The player configuration that played the test sound.
+    type Output = PlaybackConfig;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        ensure_not_cancelled(context)?;
+        if self.config.driver == PlaybackDriverConfig::Null {
+            return Err(playback_error(NO_SOUND_REASON));
+        }
+        let tone = tone::write_test_tone(&self.tone_directory).map_err(playback_error)?;
+        let driver = (self.make_driver)(&self.config).map_err(playback_error)?;
+        test_sound::play(
+            &driver,
+            &tone,
+            self.timeout,
+            test_sound::TEST_SOUND_POLL_INTERVAL,
+        )
+        .map_err(playback_error)?;
+        Ok(CommandOutcome::without_events(self.config))
+    }
+}
+
 fn ensure_not_cancelled(context: &CommandContext) -> Result<(), CommandError> {
     if context.cancellation().is_cancelled() {
         return Err(CommandError::Cancelled);
@@ -565,6 +619,112 @@ mod tests {
         let playlist_id = db::playlist_create(conn, "Phase 2")?;
         db::playlist_append(conn, playlist_id, track_id)?;
         Ok((playlist_id, track_id))
+    }
+
+    #[derive(Default)]
+    struct RecordingDriver {
+        calls: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl PlaybackDriver for RecordingDriver {
+        fn load(&self, path: &std::path::Path, _: u64) -> anyhow::Result<()> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(format!("load {}", path.display()));
+            Ok(())
+        }
+        fn seek(&self, _: u64) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn pause(&self, _: bool) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn stop(&self) -> anyhow::Result<()> {
+            self.calls.lock().unwrap().push("stop".into());
+            Ok(())
+        }
+        fn poll(&self) -> anyhow::Result<crate::playback_driver::DriverStatus> {
+            Ok(crate::playback_driver::DriverStatus {
+                eof: true,
+                ..Default::default()
+            })
+        }
+    }
+
+    #[test]
+    fn test_sound_leaves_the_show_session_and_the_drop_file_unchanged() -> anyhow::Result<()> {
+        let conn = shared_conn()?;
+        let owner = shared_owner();
+        let track_id = {
+            let conn = conn.lock().expect("test database lock");
+            create_playlist_track(&conn)?.1
+        };
+        CommandBus::new().execute(
+            PlayTrack::new(Arc::clone(&conn), Arc::clone(&owner), track_id, 0),
+            &CommandContext::next(),
+        )?;
+        let session = |conn: &SharedConnection| {
+            format!(
+                "{:?}",
+                db::playback_session(&conn.lock().unwrap(), playback::DEFAULT_SESSION_ID)
+            )
+        };
+        let drop_dir = tempfile::tempdir()?;
+        let drop_file = drop_dir.path().join("nowplaying");
+        std::fs::write(&drop_file, b"drop file bytes")?;
+        let session_before = session(&conn);
+        let owner_before = owner.lock().unwrap().driver().snapshot();
+
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let driver_calls = Arc::clone(&calls);
+        let cache = tempfile::tempdir()?;
+        let config = PlaybackConfig {
+            driver: PlaybackDriverConfig::Mpv,
+            mpv_path: None,
+        };
+        let outcome = CommandBus::new().execute(
+            PlayTestSound::new(
+                config.clone(),
+                cache.path().to_path_buf(),
+                move |_: &PlaybackConfig| {
+                    Ok(RecordingDriver {
+                        calls: driver_calls,
+                    })
+                },
+            ),
+            &CommandContext::next(),
+        )?;
+
+        assert_eq!(outcome.value(), &config);
+        let calls = calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 2, "one load and one stop: {calls:?}");
+        assert!(calls[0].starts_with("load ") && calls[0].ends_with("test-sound.wav"));
+        assert_eq!(calls[1], "stop");
+        assert_eq!(session(&conn), session_before);
+        assert_eq!(owner.lock().unwrap().driver().snapshot(), owner_before);
+        assert_eq!(std::fs::read(&drop_file)?, b"drop file bytes");
+        Ok(())
+    }
+
+    #[test]
+    fn test_sound_with_the_null_driver_is_refused_before_any_driver_exists() {
+        let result = CommandBus::new().execute(
+            PlayTestSound::new(
+                PlaybackConfig {
+                    driver: PlaybackDriverConfig::Null,
+                    mpv_path: None,
+                },
+                PathBuf::from("/unused"),
+                |_: &PlaybackConfig| -> anyhow::Result<RecordingDriver> {
+                    panic!("no driver for the null player")
+                },
+            ),
+            &CommandContext::next(),
+        );
+        assert!(
+            matches!(result, Err(CommandError::Playback(message)) if message == NO_SOUND_REASON)
+        );
     }
 
     #[test]

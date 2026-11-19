@@ -628,7 +628,7 @@ mod tests {
             "[broadcast]\nselected_host = 12\n",
             "[broadcast]\ndrop_directory = false\n",
             "[broadcast]\nencoder = false\n",
-            "[playback]\nmpv_path = false\n",
+            "[playback]\ndriver = 'null'\nmpv_path = false\n",
         ];
         for case in cases {
             let temp = tempfile::tempdir().unwrap();

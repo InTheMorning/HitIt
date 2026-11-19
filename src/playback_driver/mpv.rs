@@ -60,6 +60,11 @@ impl MpvDriver {
         Self::with_runtime_dir(mpv_path, default_runtime_dir()?)
     }
 
+    /// Makes a driver whose runtime folder is `name` below the default runtime folder.
+    pub(crate) fn new_isolated(mpv_path: impl Into<PathBuf>, name: &str) -> Result<Self> {
+        Self::with_runtime_dir(mpv_path, default_runtime_dir()?.join(name))
+    }
+
     pub fn with_runtime_dir(mpv_path: impl Into<PathBuf>, runtime_dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&runtime_dir)
             .with_context(|| format!("create mpv runtime dir {}", runtime_dir.display()))?;

@@ -62,6 +62,7 @@
 pub(crate) mod musicindex_link;
 
 pub(crate) mod app_toolbar;
+pub mod audio_setup;
 pub(crate) mod cached_files;
 pub(crate) mod collection_art;
 pub(crate) mod header_glow;

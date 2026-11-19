@@ -32,6 +32,19 @@ pub(crate) use crate::application::capability_recovery::{
     PublisherServiceOperation, StreamEncoderOperation,
 };
 
+/// Gives the reason that a Show Play does not start, or `None` when it may start.
+///
+/// The `null` driver plays no sound, so the Show does not start with it (ADR 0104
+/// Decision 2). The Show state does not become "Starting" in that case.
+#[must_use]
+pub(crate) const fn show_play_refusal(driver_is_live: bool) -> Option<&'static str> {
+    if driver_is_live {
+        None
+    } else {
+        Some(crate::view_models::audio_setup::NO_SOUND_REASON)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum ShowCommandTarget {
     Service(PublisherServiceRole),
@@ -3027,6 +3040,15 @@ const fn transport_state_label(state: TransportState) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn show_play_with_the_null_driver_gives_the_no_sound_reason() {
+        assert_eq!(
+            show_play_refusal(false),
+            Some("No sound is selected. Select a player in Settings, Audio.")
+        );
+        assert_eq!(show_play_refusal(true), None);
+    }
 
     #[test]
     fn adr_0066_show_projects_paired_availability_and_retains_setup_reports() {

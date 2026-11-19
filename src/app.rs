@@ -220,6 +220,8 @@ pub struct TopApp {
     theme_profile: ThemeProfile,
     cfg_path: PathBuf,
     settings_status: String,
+    /// The last result of the test sound for the current player (ADR 0104 Decision 4).
+    test_sound: crate::view_models::audio_setup::TestSoundState,
     /// The state of "Copy Feed URL" of an Index track page, with the track
     /// that it is for (ADR 0101 task 008).
     index_track_copy: Option<(
@@ -570,6 +572,7 @@ impl TopApp {
             theme_profile,
             cfg_path,
             settings_status: String::new(),
+            test_sound: crate::view_models::audio_setup::TestSoundState::default(),
             index_track_copy: None,
             settings: SettingsVm::default(),
             settings_scroll: crate::ui::composites::settings::SettingsScrollHandles::default(),

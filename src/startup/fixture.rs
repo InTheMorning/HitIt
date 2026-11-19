@@ -322,24 +322,13 @@ fn seed_database_checks(root: &Path) -> Result<()> {
 fn seed_tracks(conn: &rusqlite::Connection, root: &Path) -> Result<()> {
     conn.execute("INSERT INTO feeds (id, feed_url, feed_guid, title) VALUES (1, 'fixture:rss', 'fixture-feed', 'Startup fixture')", [])?;
     // A quiet 30-second tone makes actual playback audible in a desktop session.
-    let sample_count = 8_000_u32 * 30;
-    let data_bytes = sample_count * 2;
-    let mut wav = b"RIFF".to_vec();
-    wav.extend((36 + data_bytes).to_le_bytes());
-    wav.extend(b"WAVEfmt ");
-    wav.extend(16_u32.to_le_bytes());
-    wav.extend(1_u16.to_le_bytes());
-    wav.extend(1_u16.to_le_bytes());
-    wav.extend(8_000_u32.to_le_bytes());
-    wav.extend(16_000_u32.to_le_bytes());
-    wav.extend(2_u16.to_le_bytes());
-    wav.extend(16_u16.to_le_bytes());
-    wav.extend(b"data");
-    wav.extend(data_bytes.to_le_bytes());
-    for sample in 0..sample_count {
-        let value: i16 = if sample % 40 < 20 { 300 } else { -300 };
-        wav.extend(value.to_le_bytes());
-    }
+    let wav = crate::playback_driver::tone::wav_bytes(&crate::playback_driver::tone::ToneSpec {
+        wave: crate::playback_driver::tone::Wave::Square,
+        frequency_hz: 200,
+        seconds: 30,
+        sample_rate: 8_000,
+        peak: 300,
+    });
     for (id, name) in [(1, "a.wav"), (2, "b.wav"), (3, "c.wav")] {
         fs::write(root.join("music").join(name), &wav)?;
         conn.execute("INSERT INTO tracks (id, feed_id, item_guid, track_title, duration_seconds, is_in_library) VALUES (?1, 1, ?2, ?2, 30, 1)", rusqlite::params![id, name])?;

@@ -510,7 +510,7 @@ mod tests {
         let null = ConfigSnapshot::from_bytes(
             &config_path,
             format!(
-                "music_dir = {:?}\ndb_path = {:?}\n[broadcast]\ndrop_directory = {:?}\n",
+                "music_dir = {:?}\ndb_path = {:?}\n[playback]\ndriver = \"null\"\n[broadcast]\ndrop_directory = {:?}\n",
                 temp.path(),
                 temp.path().join("db"),
                 blocked

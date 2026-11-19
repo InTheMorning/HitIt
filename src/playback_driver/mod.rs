@@ -17,6 +17,8 @@ pub(crate) const MPV_NOT_INSTALLED_PREFIX: &str = "mpv is not installed at ";
 #[cfg(unix)]
 pub mod mpv;
 pub mod null;
+pub(crate) mod test_sound;
+pub(crate) mod tone;
 
 #[cfg(unix)]
 pub use mpv::MpvDriver;
@@ -59,6 +61,28 @@ impl ConfiguredPlaybackDriver {
                 directory,
             )
             .map(Self::Mpv),
+        }
+    }
+
+    /// Makes a driver with its own runtime folder, so its mpv does not meet the mpv of
+    /// the Show driver (ADR 0104 Decision 4). The test sound uses it.
+    pub(crate) fn from_config_isolated(config: &PlaybackConfig, name: &str) -> Result<Self> {
+        match config.driver {
+            PlaybackDriverConfig::Null => Self::from_config(config),
+            PlaybackDriverConfig::Mpv => {
+                #[cfg(unix)]
+                {
+                    let mpv_path = config.mpv_path.clone().unwrap_or_else(|| "mpv".into());
+                    MpvDriver::new_isolated(mpv_path, name).map(Self::Mpv)
+                }
+                #[cfg(not(unix))]
+                {
+                    let _ = name;
+                    Err(anyhow::anyhow!(
+                        "mpv playback driver requires Unix-domain sockets"
+                    ))
+                }
+            }
         }
     }
 

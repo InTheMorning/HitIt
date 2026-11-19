@@ -161,8 +161,11 @@ mod tests {
             crate::broadcast::producer::DropFileProducer::new(temp.path().join("drop"), "default")
                 .unwrap();
         let owner = PlaybackOwner::new(
-            ConfiguredPlaybackDriver::from_config(&crate::config::PlaybackConfig::default())
-                .unwrap(),
+            ConfiguredPlaybackDriver::from_config(&crate::config::PlaybackConfig {
+                driver: crate::config::PlaybackDriver::Null,
+                mpv_path: None,
+            })
+            .unwrap(),
             crate::playback::DEFAULT_SESSION_ID,
             &music,
         )

@@ -7,8 +7,8 @@ use gpui::Context;
 use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{PlaybackOperation, RecoveryAction, RecoveryIntent};
 use crate::application::commands::playback::{
-    NextShowCueEntry, PauseShow, PreviousShowCueEntry, ResumeShow, SelectShowCueEntry, StartShow,
-    StopShow,
+    NextShowCueEntry, PauseShow, PlayTestSound, PreviousShowCueEntry, ResumeShow,
+    SelectShowCueEntry, StartShow, StopShow,
 };
 use crate::application::{ApplicationCommand, CommandContext};
 use crate::presentation::present_command;
@@ -88,6 +88,9 @@ impl TopApp {
         let conn = Arc::clone(&self.conn);
         match intent {
             ShowToggleIntent::Start => {
+                if self.refuse_show_play(&owner, cx).is_some() {
+                    return;
+                }
                 let entry_id = self.show_page.queue.selected_entry_id();
                 self.run_playback_command(StartShow::new(conn, owner, entry_id), action, None, cx);
             }
@@ -98,6 +101,102 @@ impl TopApp {
                 self.run_playback_command(ResumeShow::new(conn, owner), action, None, cx);
             }
         }
+    }
+
+    /// Refuses a Show Play when the player is the `null` driver (ADR 0104 Decision 2).
+    /// The refusal comes before the "Starting" override, so that state does not occur.
+    fn refuse_show_play(
+        &mut self,
+        owner: &Arc<
+            std::sync::Mutex<
+                crate::playback_owner::PlaybackOwner<
+                    crate::playback_driver::ConfiguredPlaybackDriver,
+                >,
+            >,
+        >,
+        cx: &mut Context<Self>,
+    ) -> Option<&'static str> {
+        let driver_is_live = match owner.lock() {
+            Ok(owner) => owner.driver().is_live_driver(),
+            Err(_) => true,
+        };
+        let reason = crate::view_models::show::show_play_refusal(driver_is_live)?;
+        self.playback_presentation_override = None;
+        reason.clone_into(&mut self.settings_status);
+        self.reproject_show_page_from_current_queue();
+        cx.notify();
+        Some(reason)
+    }
+
+    /// Plays the test sound through its own driver (ADR 0104 Decision 4).
+    pub fn play_test_sound(&mut self, cx: &mut Context<Self>) {
+        let state = self.show_page.queue.transport.play_pause_state;
+        if let Err(reason) = self.test_sound.begin(state) {
+            reason.clone_into(&mut self.settings_status);
+            self.reproject_show_page_from_current_queue();
+            cx.notify();
+            return;
+        }
+        let config = match crate::config::ConfigSnapshot::read_existing(&self.cfg_path)
+            .map_err(|error| format!("{error:#}"))
+            .and_then(|snapshot| snapshot.playback().map_err(|error| format!("{error:?}")))
+        {
+            Ok(config) => config,
+            Err(error) => {
+                self.test_sound.fail();
+                self.settings_status =
+                    format!("App could not read the player settings for the test sound: {error}");
+                cx.notify();
+                return;
+            }
+        };
+        let tone_directory = match crate::config::app_cache_dir() {
+            Ok(directory) => directory,
+            Err(error) => {
+                self.test_sound.fail();
+                self.settings_status = format!("Test sound error: {error:#}");
+                cx.notify();
+                return;
+            }
+        };
+        let command = PlayTestSound::new(
+            config,
+            tone_directory,
+            |config: &crate::config::PlaybackConfig| {
+                crate::playback_driver::ConfiguredPlaybackDriver::from_config_isolated(
+                    config,
+                    "test-sound",
+                )
+            },
+        );
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            |this, config, cx| {
+                this.test_sound.record_played(config);
+                "The player played the test sound.".clone_into(&mut this.settings_status);
+                cx.notify();
+            },
+            |this, error, cx| {
+                this.test_sound.fail();
+                this.settings_status = format!("Test sound error: {error:#}");
+                cx.notify();
+            },
+        );
+    }
+
+    /// Records the answer to "Did you hear the test sound?" (ADR 0104 Decision 4).
+    pub fn answer_test_sound(&mut self, heard: bool, cx: &mut Context<Self>) {
+        self.test_sound.answer(heard);
+        cx.notify();
+    }
+
+    /// Gives the last test sound result for the current player.
+    #[must_use]
+    pub fn test_sound_outcome(&self) -> crate::view_models::audio_setup::TestSoundOutcome {
+        self.test_sound.outcome()
     }
 
     fn playback_action(&self, operation: PlaybackOperation) -> RecoveryAction {
@@ -123,15 +222,21 @@ impl TopApp {
             PlaybackOperation::Pause => {
                 self.run_retained_playback(PauseShow::new(self.conn.clone(), owner), intent, cx);
             }
-            PlaybackOperation::Start => self.run_retained_playback(
-                StartShow::new(
-                    self.conn.clone(),
-                    owner,
-                    self.show_page.queue.selected_entry_id(),
-                ),
-                intent,
-                cx,
-            ),
+            PlaybackOperation::Start => {
+                if let Some(reason) = self.refuse_show_play(&owner, cx) {
+                    self.capability_vm.pending.finish(intent.id, reason.into());
+                    return;
+                }
+                self.run_retained_playback(
+                    StartShow::new(
+                        self.conn.clone(),
+                        owner,
+                        self.show_page.queue.selected_entry_id(),
+                    ),
+                    intent,
+                    cx,
+                );
+            }
             PlaybackOperation::Stop => {
                 self.run_retained_playback(StopShow::new(self.conn.clone(), owner), intent, cx);
             }

@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-19. It waits for no other task.
+Implemented - 2026-11-19. The mechanical criteria pass. The visual criteria have no section, because task 002 shows the rows.
 
 ## Goal
 
@@ -47,4 +47,37 @@ None. Task 002 shows the rows.
 
 ## Report
 
-Empty until the work is done.
+Changed files:
+
+- `src/config.rs`: the default driver is `Mpv`. The template says so. New `app_cache_dir()`.
+- `src/playback_driver/tone.rs` (new): the tone writer.
+- `src/playback_driver/test_sound.rs` (new): plays one file through a driver, then stops it.
+- `src/playback_driver/mod.rs` and `src/playback_driver/mpv.rs`: a driver with its own runtime folder.
+- `src/application/commands/playback.rs`: the command `PlayTestSound`.
+- `src/view_models/audio_setup.rs` (new, `src/view_models/mod.rs`): the test result state and the refusal reasons.
+- `src/view_models/show.rs`: `show_play_refusal`.
+- `src/app.rs`, `src/app/playback_bar.rs`, `src/app/capabilities.rs`: the Show Play refusal, the test sound methods and the state.
+- `src/startup/fixture.rs`: the fixture uses the tone writer with a square wave.
+- Tests changed for the new default: `src/startup.rs`, `src/app/bootstrap.rs`, `src/application/capability_recovery/setup.rs`.
+
+Tests, by mechanical criterion:
+
+1. `config::tests::load_config_defaults_missing_playback_to_mpv_driver`, `config::tests::load_config_keeps_an_explicit_null_driver`.
+2. `view_models::show::tests::show_play_with_the_null_driver_gives_the_no_sound_reason`. The test covers the reason at the view model. `refuse_show_play` returns before `run_playback_command`, the only code that sets "Starting". No test covers the app method. The app tests need a window.
+3. `application::commands::playback::tests::test_sound_leaves_the_show_session_and_the_drop_file_unchanged`, with `playback_driver::test_sound::tests::test_sound_loads_one_file_and_stops_its_instance`. The command has no database handle and no Show owner.
+4. `view_models::audio_setup::tests::test_sound_is_refused_while_the_show_plays_or_is_paused`. It also refuses "Starting".
+5. `view_models::audio_setup::tests::a_player_change_clears_the_test_result`. `install_checked_capability` calls `reconcile` after each Playback check.
+6. `playback_driver::tone::tests::test_tone_is_two_seconds_of_440_hz_at_minus_18_dbfs`, `square_wave_keeps_the_fixture_shape`.
+
+Other tests: the null command refusal, the refusal while a test runs, the timeout and load error paths of `play`, the answer rule.
+
+Item 6, driver rebuild after a player change: the app already does it. A saved change of `playback.driver` or `playback.mpv_path` runs `check_saved_capabilities`. The Playback check calls `replace_idle_driver` when the owner has no loaded track. No change to the playback owner was necessary.
+
+Decisions in the work:
+
+- The test sound uses `ConfiguredPlaybackDriver::from_config_isolated` and not `prepare_playback_driver`. The mpv socket name uses the process ID. A Show mpv that stays alive after Stop would block a second driver in the same folder. The test sound has its own runtime folder `test-sound`.
+- The tone goes to `<app cache>/test-sound.wav`, not into the `audio` folder.
+- `play_test_sound`, `answer_test_sound` and `test_sound_outcome` are `pub` methods of `TopApp`. They have no caller yet. The ADR 0060 guard forbids `dead_code` attributes. Task 002 binds them.
+- The Show page shows the refusal reason as its status message. The link to Settings, Audio waits for task 002.
+
+Checks: `cargo build` and `cargo test` Green (lib 3318 passed). `cargo clippy --all-targets -- -D warnings` Green. `cargo fmt -- --check` Green. `cargo test --test architecture_tests` Green (417 passed).

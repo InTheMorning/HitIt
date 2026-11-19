@@ -359,7 +359,13 @@ impl TopApp {
                     library.set_musicindex_endpoint(endpoint, cx);
                 });
             }
-            PreparedCapability::Playback(player) => self.playback_owner = Some(player),
+            PreparedCapability::Playback(player) => {
+                self.playback_owner = Some(player);
+                // A change of the player clears the test sound result (ADR 0104 Decision 4).
+                if let Ok(config) = snapshot.playback() {
+                    self.test_sound.reconcile(&config);
+                }
+            }
             PreparedCapability::Configuration => match dependency {
                 Dependency::Publisher => {
                     self.broadcast.hosts.clone_from(&snapshot.broadcast_hosts);
