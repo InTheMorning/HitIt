@@ -24,9 +24,9 @@ use crate::ui::shells::queue_now_playing::{render_queue_transport, QueueNowPlayi
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::queue_now_playing::CueMoveTarget;
 use crate::view_models::show::{
-    EventControlIntent, OnAirAction, OnAirBandDisplay, PublisherServiceRole, ShowCardDisplay,
-    ShowCardKind, ShowEmptyStateDisplay, ShowNowPlayingDisplay, ShowPageVm, ShowPanelMode,
-    ShowPlaylistRowDisplay, ShowWidthClass,
+    EndShowAction, EventControlIntent, OnAirAction, OnAirBandDisplay, PublisherServiceRole,
+    ShowCardDisplay, ShowCardKind, ShowEmptyStateDisplay, ShowNowPlayingDisplay, ShowPageVm,
+    ShowPanelMode, ShowPlaylistRowDisplay, ShowWidthClass,
 };
 
 /// Callback slots supplied by the application-owned Show screen.
@@ -40,6 +40,7 @@ pub(crate) struct ShowSlots {
     go_on_air: Option<ShowGoOnAirHandler>,
     on_air_action: Option<ShowOnAirActionHandler>,
     toggle_show_information: Option<ShowGoOnAirHandler>,
+    end_show: Option<ShowEndActionHandler>,
 }
 
 /// The handler of the row action "Load into Show cue". It gets the playlist id.
@@ -47,6 +48,7 @@ type ShowLoadPlaylistHandler = Rc<dyn Fn(i64, &mut Window, &mut App) + 'static>;
 type ShowGoOnAirHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 /// The handler of the one action of an on-air row.
 type ShowOnAirActionHandler = Rc<dyn Fn(OnAirAction, &mut Window, &mut App) + 'static>;
+type ShowEndActionHandler = Rc<dyn Fn(EndShowAction, &mut Window, &mut App) + 'static>;
 
 impl Default for ShowSlots {
     fn default() -> Self {
@@ -59,6 +61,7 @@ impl Default for ShowSlots {
             go_on_air: None,
             on_air_action: None,
             toggle_show_information: None,
+            end_show: None,
         }
     }
 }
@@ -153,6 +156,7 @@ impl ShowSlots {
             go: self.go_on_air.clone(),
             action: self.on_air_action.clone(),
             toggle_information: self.toggle_show_information.clone(),
+            end_show: self.end_show.clone(),
         }
     }
 
@@ -171,6 +175,15 @@ impl ShowSlots {
         handler: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
         self.toggle_show_information = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the End show and last-track actions.
+    pub(crate) fn on_end_show(
+        mut self,
+        handler: impl Fn(EndShowAction, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.end_show = Some(Rc::new(handler));
         self
     }
 
@@ -474,15 +487,34 @@ struct OnAirHandlers {
     go: Option<ShowGoOnAirHandler>,
     action: Option<ShowOnAirActionHandler>,
     toggle_information: Option<ShowGoOnAirHandler>,
+    end_show: Option<ShowEndActionHandler>,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "This function composes the rows and actions of one band."
+)]
 fn render_on_air_band(
     band: OnAirBandDisplay,
     handlers: OnAirHandlers,
     cx: &App,
 ) -> impl IntoElement {
+    let OnAirBandDisplay {
+        rows,
+        go_available,
+        go_label,
+        show_information_off,
+        signal,
+        listeners,
+        end_show_available,
+        end_band,
+        end_failures,
+        confirmation_title: _,
+        confirmation_message: _,
+        end_confirmation: _,
+    } = band;
     let action_handler = handlers.action;
-    let rows = band.rows.into_iter().map(|row| {
+    let rows = rows.into_iter().map(|row| {
         let mut line = div()
             .id(format!("on-air-row-{:?}", row.row))
             .flex()
@@ -521,7 +553,8 @@ fn render_on_air_band(
     });
     let callback = handlers.go;
     let toggle = handlers.toggle_information;
-    let information_label = if band.show_information_off {
+    let end_handler = handlers.end_show;
+    let information_label = if show_information_off {
         "Show information: off. Turn on"
     } else {
         "Show information: on. Turn off"
@@ -547,18 +580,79 @@ fn render_on_air_band(
         )
         .child(
             Button::filled("show-go-on-air")
-                .label(band.go_label)
-                .disabled(!band.go_available)
+                .label(go_label)
+                .disabled(!go_available)
                 .on_click(move |_, window, app| {
                     if let Some(callback) = &callback {
                         callback(window, app);
                     }
                 }),
         )
-        .when_some(band.signal, |el, signal| {
+        .when(end_show_available, |el| {
+            let handler = end_handler.clone();
+            el.child(Button::plain("show-end-show").label("End show").on_click(
+                move |_, window, app| {
+                    if let Some(handler) = &handler {
+                        handler(EndShowAction::Confirm, window, app);
+                    }
+                },
+            ))
+        })
+        .when_some(end_band, |el, end_band| {
+            let end_now = end_handler.clone();
+            let keep_on_air = end_handler.clone();
+            el.child(Label::new(end_band.message).variant(LabelVariant::Headline))
+                .child(
+                    Label::new(format!("{} seconds left", end_band.seconds_left))
+                        .variant(LabelVariant::Body),
+                )
+                .child(
+                    Button::plain("show-end-show-now")
+                        .label("End show now")
+                        .on_click(move |_, window, app| {
+                            if let Some(handler) = &end_now {
+                                handler(EndShowAction::EndNow, window, app);
+                            }
+                        }),
+                )
+                .child(
+                    Button::plain("show-keep-on-air")
+                        .label("Keep on air")
+                        .on_click(move |_, window, app| {
+                            if let Some(handler) = &keep_on_air {
+                                handler(EndShowAction::KeepOnAir, window, app);
+                            }
+                        }),
+                )
+        })
+        .children(
+            end_failures
+                .into_iter()
+                .enumerate()
+                .map(|(index, failure)| {
+                    let part = match failure.part {
+                        crate::view_models::show::EndShowPart::Music => "The music",
+                        crate::view_models::show::EndShowPart::Stream => "The stream",
+                        crate::view_models::show::EndShowPart::ShowInformation => {
+                            "The track names to the relay"
+                        }
+                    };
+                    div()
+                        .id(format!("end-show-failure-{index}"))
+                        .flex()
+                        .flex_col()
+                        .child(Label::new(part).variant(LabelVariant::Headline))
+                        .child(
+                            Label::new(failure.error)
+                                .variant(LabelVariant::Caption)
+                                .color(SemanticColor::DangerLabel),
+                        )
+                }),
+        )
+        .when_some(signal, |el, signal| {
             el.child(Label::new(signal.label).variant(LabelVariant::Caption))
         })
-        .when_some(band.listeners, |el, listeners| {
+        .when_some(listeners, |el, listeners| {
             el.child(Label::new(listeners.label).variant(LabelVariant::Caption))
         })
 }

@@ -556,6 +556,7 @@ pub(crate) struct OnAirFacts<'a> {
     pub(crate) show_information: ShowInformationSwitch,
     pub(crate) sequence: Option<&'a OnAirSequence>,
     pub(crate) run_active: bool,
+    pub(crate) end: EndShowFacts<'a>,
 }
 
 /// Display state and actions for the on-air band (ADR 0105).
@@ -569,6 +570,43 @@ pub(crate) struct OnAirBandDisplay {
     pub(crate) show_information_off: bool,
     pub(crate) signal: Option<StreamSignalDisplay>,
     pub(crate) listeners: Option<StreamListenersDisplay>,
+    pub(crate) end_show_available: bool,
+    pub(crate) end_confirmation: EndShowConfirmation,
+    pub(crate) end_band: Option<EndBandDisplay>,
+    pub(crate) end_failures: Vec<EndShowFailure>,
+}
+
+/// Confirmation text and parts for End show (ADR 0105 Decision 5).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct EndShowConfirmation {
+    pub(crate) parts: Vec<&'static str>,
+    pub(crate) notes: [&'static str; 2],
+}
+
+/// Text and countdown state for the last-track end band (ADR 0105 Decision 6).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct EndBandDisplay {
+    pub(crate) message: &'static str,
+    pub(crate) seconds_left: u64,
+}
+
+/// One action in the End show flow (ADR 0105 Decisions 5 and 6).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum EndShowAction {
+    Confirm,
+    EndNow,
+    KeepOnAir,
+}
+
+/// Inputs from current playback and broadcast observations for the on-air band.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct EndShowFacts<'a> {
+    pub(crate) music_is_on: bool,
+    pub(crate) stream_is_on: bool,
+    pub(crate) services_that_are_on: &'a [PublisherServiceRole],
+    pub(crate) sequence: Option<&'a EndShowSequence>,
+    pub(crate) end_band: Option<EndBand>,
+    pub(crate) now: std::time::Instant,
 }
 
 /// Selects the Live Metadata services that Go on air starts. A service that
@@ -636,6 +674,116 @@ impl OnAirSequence {
             }
         }
     }
+}
+
+/// One command in the ordered End show sequence (ADR 0105 Decision 5).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum EndShowStep {
+    StopMusic,
+    DisconnectStream,
+    StopService(PublisherServiceRole),
+}
+
+/// A part that can fail while the app ends a show.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum EndShowPart {
+    Music,
+    Stream,
+    ShowInformation,
+}
+
+/// One failed End show command and its owning part.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct EndShowFailure {
+    pub(crate) part: EndShowPart,
+    pub(crate) error: String,
+}
+
+/// Pure ordering for the End show command sequence (ADR 0105 Decision 5).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct EndShowSequence {
+    steps: Vec<EndShowStep>,
+    next: usize,
+    pub(crate) failures: Vec<EndShowFailure>,
+}
+
+impl EndShowSequence {
+    /// Build the sequence from the parts that are on.
+    #[must_use]
+    pub(crate) fn new(
+        music_is_on: bool,
+        stream_is_on: bool,
+        services_that_are_on: Vec<PublisherServiceRole>,
+    ) -> Self {
+        let mut steps = Vec::new();
+        if music_is_on {
+            steps.push(EndShowStep::StopMusic);
+        }
+        if stream_is_on {
+            steps.push(EndShowStep::DisconnectStream);
+        }
+        steps.extend(
+            services_that_are_on
+                .into_iter()
+                .map(EndShowStep::StopService),
+        );
+        Self {
+            steps,
+            next: 0,
+            failures: Vec::new(),
+        }
+    }
+
+    /// Return the command that must run next.
+    #[must_use]
+    pub(crate) fn next_step(&self) -> Option<EndShowStep> {
+        self.steps.get(self.next).copied()
+    }
+
+    /// Record a result and continue after a failed command.
+    pub(crate) fn complete(&mut self, result: Result<(), String>) {
+        let Some(step) = self.next_step() else {
+            return;
+        };
+        if let Err(error) = result {
+            let part = match step {
+                EndShowStep::StopMusic => EndShowPart::Music,
+                EndShowStep::DisconnectStream => EndShowPart::Stream,
+                EndShowStep::StopService(_) => EndShowPart::ShowInformation,
+            };
+            self.failures.push(EndShowFailure { part, error });
+        }
+        self.next += 1;
+    }
+}
+
+/// The end band start time and its 60-second delay (ADR 0105 Decision 6).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct EndBand {
+    pub(crate) started_at: std::time::Instant,
+}
+
+pub(crate) const END_BAND_DELAY: std::time::Duration = std::time::Duration::from_mins(1);
+
+impl EndBand {
+    /// Return the seconds left, or `None` when the delay has ended.
+    #[must_use]
+    pub(crate) fn seconds_left(self, now: std::time::Instant) -> Option<u64> {
+        let elapsed = now.saturating_duration_since(self.started_at);
+        if elapsed >= END_BAND_DELAY {
+            return None;
+        }
+        END_BAND_DELAY.checked_sub(elapsed).map(|left| {
+            left.as_secs()
+                .saturating_add(u64::from(left.subsec_nanos() > 0))
+        })
+    }
+}
+
+/// Return whether a last-entry stop opens the end band while on air.
+#[must_use]
+pub(crate) const fn end_band_for_last_track(stopped_at_last_entry: bool, on_air: bool) -> bool {
+    stopped_at_last_entry && on_air
 }
 
 /// Display state for one publisher-side service.
@@ -2254,7 +2402,11 @@ impl ShowPageVm {
                 && cue_ready
                 && stream_ready
                 && (event_live || !facts.show_information.is_on())
-                && (!facts.run_active || failure.is_some()),
+                && (!facts.run_active || failure.is_some())
+                && facts
+                    .end
+                    .sequence
+                    .is_none_or(|sequence| sequence.next_step().is_none()),
             go_label: if failure.is_some() {
                 "Try again"
             } else {
@@ -2267,6 +2419,35 @@ impl ShowPageVm {
             show_information_off: !facts.show_information.is_on(),
             signal: self.stream.as_ref().map(|stream| stream.signal),
             listeners: self.stream.as_ref().map(|stream| stream.listeners.clone()),
+            end_show_available: facts.end.stream_is_on
+                && facts.end.sequence.is_none_or(|sequence| sequence.next_step().is_none())
+                && facts.sequence.is_none_or(|sequence| sequence.next_step().is_none()),
+            end_confirmation: EndShowConfirmation {
+                parts: [
+                    facts.end.music_is_on.then_some("The music"),
+                    facts.end.stream_is_on
+                        .then_some("The stream. Listeners hear nothing after this."),
+                    (!facts.end.services_that_are_on.is_empty())
+                        .then_some("The track names to the relay"),
+                ]
+                .into_iter()
+                .flatten()
+                .collect(),
+                notes: [
+                    "The show information stays until the relay removes it. Podcast apps can show the show as live for some time.",
+                    "The Show cue stays as it is.",
+                ],
+            },
+            end_band: facts.end.end_band.and_then(|band| {
+                band.seconds_left(facts.end.now).map(|seconds_left| EndBandDisplay {
+                    message: "The last track ended. The show ends in 60 seconds.",
+                    seconds_left,
+                })
+            }),
+            end_failures: facts
+                .end
+                .sequence
+                .map_or_else(Vec::new, |sequence| sequence.failures.clone()),
         });
         self
     }
@@ -3563,6 +3744,14 @@ mod tests {
             },
             sequence: None,
             run_active: false,
+            end: EndShowFacts {
+                music_is_on: false,
+                stream_is_on: false,
+                services_that_are_on: &[],
+                sequence: None,
+                end_band: None,
+                now: std::time::Instant::now(),
+            },
         }
     }
 
@@ -3771,6 +3960,91 @@ mod tests {
             sequence.failure.map(|failure| failure.row),
             Some(OnAirRow::Sound)
         );
+    }
+
+    #[test]
+    fn end_show_confirmation_lists_only_active_parts_and_keeps_both_notes() {
+        let services = [PublisherServiceRole::Publisher];
+        let facts = OnAirFacts {
+            end: EndShowFacts {
+                music_is_on: true,
+                stream_is_on: false,
+                services_that_are_on: &services,
+                sequence: None,
+                end_band: None,
+                now: std::time::Instant::now(),
+            },
+            ..on_air_facts(
+                crate::view_models::audio_setup::TestSoundOutcome::Heard,
+                true,
+            )
+        };
+        let band = ready_page(true, AudioSignalState::Absent)
+            .with_on_air_band(facts)
+            .on_air
+            .expect("on-air band");
+
+        assert_eq!(
+            band.end_confirmation.parts,
+            ["The music", "The track names to the relay"]
+        );
+        assert_eq!(
+            band.end_confirmation.notes,
+            [
+                "The show information stays until the relay removes it. Podcast apps can show the show as live for some time.",
+                "The Show cue stays as it is.",
+            ]
+        );
+    }
+
+    #[test]
+    fn end_show_sequence_keeps_order_and_continues_after_failure() {
+        let mut sequence = EndShowSequence::new(
+            true,
+            true,
+            vec![
+                PublisherServiceRole::Producer,
+                PublisherServiceRole::Publisher,
+            ],
+        );
+
+        assert_eq!(sequence.next_step(), Some(EndShowStep::StopMusic));
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), Some(EndShowStep::DisconnectStream));
+        sequence.complete(Err("disconnect failed".into()));
+        assert_eq!(
+            sequence.next_step(),
+            Some(EndShowStep::StopService(PublisherServiceRole::Producer))
+        );
+        sequence.complete(Ok(()));
+        assert_eq!(
+            sequence.next_step(),
+            Some(EndShowStep::StopService(PublisherServiceRole::Publisher))
+        );
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), None);
+        assert_eq!(sequence.failures.len(), 1);
+        assert_eq!(sequence.failures[0].part, EndShowPart::Stream);
+    }
+
+    #[test]
+    fn last_track_end_opens_band_only_while_on_air() {
+        assert!(end_band_for_last_track(true, true));
+        assert!(!end_band_for_last_track(true, false));
+        assert!(!end_band_for_last_track(false, true));
+    }
+
+    #[test]
+    fn end_band_counts_down_and_expires_at_sixty_seconds() {
+        let started_at = std::time::Instant::now();
+        let band = EndBand { started_at };
+
+        assert_eq!(band.seconds_left(started_at), Some(60));
+        assert_eq!(
+            band.seconds_left(started_at + std::time::Duration::from_secs(1)),
+            Some(59)
+        );
+        assert_eq!(band.seconds_left(started_at + END_BAND_DELAY), None);
     }
 
     /// Criterion 5: three stream texts, and no band text says "Listeners hear".

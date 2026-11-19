@@ -228,10 +228,15 @@ pub struct TopApp {
     show_commands: ShowCommandState,
     /// Active ordered Go on air run (ADR 0105).
     on_air_sequence: Option<crate::view_models::show::OnAirSequence>,
+    /// Active ordered End show run (ADR 0105).
+    end_show_sequence: Option<crate::view_models::show::EndShowSequence>,
+    end_band: Option<crate::view_models::show::EndBand>,
     on_air_step_id: Option<ShowCommandId>,
     on_air_connect_started: Option<std::time::Instant>,
     /// Set by `start_on_air_cue` only. `run_playback_command` takes it.
     on_air_play_pending: std::cell::Cell<bool>,
+    end_show_stop_pending: std::cell::Cell<bool>,
+    end_show_stop_started: std::cell::Cell<bool>,
     /// The host switch "Show information" (ADR 0105 Decision 2). It is on by default.
     show_information: crate::view_models::show::ShowInformationSwitch,
     broadcast: config::BroadcastCapabilities,
@@ -608,9 +613,13 @@ impl TopApp {
             playback_presentation_override: None,
             show_commands: ShowCommandState::default(),
             on_air_sequence: None,
+            end_show_sequence: None,
+            end_band: None,
             on_air_step_id: None,
             on_air_connect_started: None,
             on_air_play_pending: std::cell::Cell::new(false),
+            end_show_stop_pending: std::cell::Cell::new(false),
+            end_show_stop_started: std::cell::Cell::new(false),
             show_information: crate::view_models::show::ShowInformationSwitch::default(),
             broadcast,
             music_dir,
@@ -1193,7 +1202,26 @@ impl TopApp {
                     self.refresh_show_page(cx);
                 }
             }
+            PlaybackTickOutcome::LastEntryEnded => {
+                self.playback_presentation_override =
+                    Some(crate::view_models::queue_now_playing::TransportState::Stopped);
+                self.refresh_show_page(cx);
+                // The session also stopped, as for `SessionStopped`.
+                self.release_show_files(cx);
+                if crate::view_models::show::end_band_for_last_track(
+                    true,
+                    self.stream_is_connected(),
+                ) {
+                    self.end_band = Some(crate::view_models::show::EndBand {
+                        started_at: snapshot.at,
+                    });
+                    self.reproject_show_page_from_current_queue();
+                    cx.notify();
+                }
+            }
             PlaybackTickOutcome::Advanced => {
+                // The host plays again, so the end band does not end the show.
+                self.end_band = None;
                 self.settings_status.clear();
                 self.refresh_show_page(cx);
             }
@@ -1203,15 +1231,30 @@ impl TopApp {
                 // show" are current.
                 // ADR 0068 task 002: Replace Show Cue is available again.
                 self.refresh_show_page(cx);
-                self.library.update(cx, |library, cx| {
-                    library.scan_tag_updates();
-                    library.reload_playlists(cx);
-                });
+                self.release_show_files(cx);
             }
             PlaybackTickOutcome::Error(error) => {
                 self.settings_status = format!("Playback error: {error}");
             }
         }
+        if let Some(end_band) = self.end_band {
+            if end_band.seconds_left(std::time::Instant::now()).is_none() {
+                self.end_band = None;
+                self.start_end_show_sequence(cx);
+            } else {
+                self.reproject_show_page_from_current_queue();
+                cx.notify();
+            }
+        }
+    }
+
+    /// Run one tag update scan and reload the playlists after the Show
+    /// session stops (ADR 0076 packet 005, ADR 0068 task 002).
+    fn release_show_files(&mut self, cx: &mut Context<Self>) {
+        self.library.update(cx, |library, cx| {
+            library.scan_tag_updates();
+            library.reload_playlists(cx);
+        });
     }
 
     fn set_ui_scale(

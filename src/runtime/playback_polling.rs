@@ -59,6 +59,8 @@ pub enum PlaybackTickOutcome {
     /// refreshes Show and requests one tag update scan (ADR 0076 packet
     /// 005). The next tick of the same stopped session is `Idle`.
     SessionStopped,
+    /// The last Show cue entry ended (ADR 0105 Decision 6).
+    LastEntryEnded,
     /// Polling failed; the screen should show the playback error.
     Error(String),
 }
@@ -164,6 +166,7 @@ where
             PlaybackTickOutcome::Advanced
         }
         Ok(PollOutcome::Stopped) => PlaybackTickOutcome::SessionStopped,
+        Ok(PollOutcome::LastEntryEnded) => PlaybackTickOutcome::LastEntryEnded,
         Err(error) => PlaybackTickOutcome::Error(format!("{error:#}")),
     };
     (
@@ -320,17 +323,26 @@ mod tests {
             ]
         );
 
-        // `TopApp` maps `SessionStopped` to one scan request. No GPUI test
-        // drives `TopApp`, so the test reads the reducer arm.
+        // `TopApp` maps `SessionStopped` and `LastEntryEnded` to one scan
+        // request through `release_show_files`. No GPUI test drives `TopApp`,
+        // so the test reads the reducer arms and the helper.
         let app = std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/app.rs"),
         )?;
-        let arm = app
-            .split("PlaybackTickOutcome::SessionStopped =>")
+        for outcome in ["SessionStopped", "LastEntryEnded"] {
+            let arm = app
+                .split(&format!("PlaybackTickOutcome::{outcome} =>"))
+                .nth(1)
+                .and_then(|rest| rest.split("PlaybackTickOutcome::").next())
+                .expect("apply_playback_tick has the arm");
+            assert_eq!(arm.matches("release_show_files(cx)").count(), 1, "{arm}");
+        }
+        let helper = app
+            .split("fn release_show_files(")
             .nth(1)
-            .and_then(|rest| rest.split("PlaybackTickOutcome::").next())
-            .expect("apply_playback_tick has a SessionStopped arm");
-        assert_eq!(arm.matches("scan_tag_updates()").count(), 1, "{arm}");
+            .and_then(|rest| rest.split("\n    fn ").next())
+            .expect("TopApp has release_show_files");
+        assert_eq!(helper.matches("scan_tag_updates()").count(), 1, "{helper}");
         assert_eq!(app.matches("scan_tag_updates()").count(), 1);
         Ok(())
     }

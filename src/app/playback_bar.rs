@@ -26,6 +26,9 @@ impl TopApp {
             return;
         };
         let command = StopShow::new(Arc::clone(&self.conn), owner);
+        if self.end_show_stop_pending.get() {
+            self.end_show_stop_started.set(true);
+        }
         self.run_playback_command(command, action, None, cx);
     }
 
@@ -399,8 +402,13 @@ impl TopApp {
             CommandContext::next(),
             cx,
             move |this, result, cx| {
+                let end_show_stop = this.end_show_stop_pending.take();
+                this.end_show_stop_started.set(false);
                 if on_air_play {
                     this.finish_on_air_play(Ok(()), cx);
+                }
+                if end_show_stop {
+                    this.advance_on_air(None, Ok(()), cx);
                 }
                 this.playback_presentation_override = presentation_after_command(is_start, true);
                 if let Some(id) = retry_id {
@@ -416,6 +424,8 @@ impl TopApp {
                 });
             },
             move |this, error, cx| {
+                let end_show_stop = this.end_show_stop_pending.take();
+                this.end_show_stop_started.set(false);
                 let missing_mpv_path = match &error {
                     crate::application::CommandError::Playback(message) => message
                         .strip_prefix(crate::playback_driver::MPV_NOT_INSTALLED_PREFIX)
@@ -430,6 +440,9 @@ impl TopApp {
                         crate::view_models::show::OnAirRow::ShowCue
                     };
                     this.fail_on_air_play(row, error.to_string(), cx);
+                }
+                if end_show_stop {
+                    this.advance_on_air(None, Err(error.to_string()), cx);
                 }
                 if let Some(path) = missing_mpv_path {
                     this.capability_observations.record(

@@ -23,6 +23,8 @@ pub enum PollOutcome {
     /// stopped session gives `Reconciled(None)`. ADR 0076 packet 005 starts
     /// the tag update scan on this outcome.
     Stopped,
+    /// The owner stopped playback after the last cue entry ended (ADR 0105).
+    LastEntryEnded,
 }
 
 /// The reason why a Show cue entry cannot play (ADR 0068).
@@ -518,7 +520,7 @@ impl<D: PlaybackDriver> PlaybackOwner<D> {
                 self.active_cue_entry_id = None;
                 playback::stop(conn, &self.session_id)?;
                 self.clear_drop_file()?;
-                return Ok(PollOutcome::Stopped);
+                return Ok(PollOutcome::LastEntryEnded);
             };
             let path = target
                 .track
@@ -836,7 +838,7 @@ mod tests {
             PlaybackOwner::new(EndOfTrackDriver, playback::DEFAULT_SESSION_ID, temp.path());
         owner.start_show_entry(&conn, None)?;
 
-        assert!(matches!(owner.poll(&conn)?, PollOutcome::Stopped));
+        assert!(matches!(owner.poll(&conn)?, PollOutcome::LastEntryEnded));
         let stopped = db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.expect("session");
         let generation = owner.generation();
         assert_eq!(stopped.state, "stopped");

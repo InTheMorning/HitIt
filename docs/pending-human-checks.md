@@ -1042,7 +1042,7 @@ Task: [ADR 0104 task 002](tasks/adr-0104-task-002-the-audio-group-and-the-first-
 
 ## 45. ADR 0105 Tasks 001 And 002 "Go On Air" And "End Show" - 2026-11-19
 
-Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](tasks/adr-0105-task-002-end-show-and-the-last-track.md). Task 001 is implemented. Task 002 is Ready. These checks need a stream server and a second device that listens.
+Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](tasks/adr-0105-task-002-end-show-and-the-last-track.md). Both tasks are implemented. These checks stay open. They need a stream server and a second listening device.
 
 1. Open Show. Make sure that the band is above the cards, with the rows Sound plays, Show cue, Stream and Show information in this order, at 1440 px and at 390 px (V1).
 2. Click "Go on air". Make sure that the confirmation names the first track. Confirm, and make sure that the second device plays the show from the start of the first track (V2).

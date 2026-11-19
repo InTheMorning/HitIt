@@ -95,13 +95,180 @@ impl TopApp {
         );
     }
 
+    fn end_show_action(
+        &mut self,
+        action: crate::view_models::show::EndShowAction,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::view_models::show::EndShowAction;
+        match action {
+            EndShowAction::Confirm => self.confirm_end_show(window, cx),
+            EndShowAction::EndNow => {
+                self.end_band = None;
+                self.start_end_show_sequence(cx);
+            }
+            EndShowAction::KeepOnAir => {
+                self.end_band = None;
+                self.reproject_show_page_from_current_queue();
+                cx.notify();
+            }
+        }
+    }
+
+    fn confirm_end_show(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        use crate::ui::composites::{ConfirmationDialogDisplay, ConfirmationDialogItem};
+        let Some(band) = self.show_page.on_air.as_ref() else {
+            return;
+        };
+        if !band.end_show_available {
+            return;
+        }
+        let parts = band
+            .end_confirmation
+            .parts
+            .iter()
+            .map(|part| ConfirmationDialogItem {
+                title: (*part).into(),
+                subtitle: None,
+                mark: None,
+                lines: Vec::new(),
+            })
+            .collect();
+        let notes = band.end_confirmation.notes.join("\n");
+        let entity = cx.weak_entity();
+        open_confirmation_dialog(
+            window,
+            cx,
+            ConfirmationDialogDisplay {
+                title: "End show?".into(),
+                message: notes.into(),
+                cancel_button_id: "show-end-show-cancel".into(),
+                cancel_label: "Cancel".into(),
+                cancel_a11y_label: "Keep the show on air".into(),
+                confirm_button_id: "show-end-show-confirm".into(),
+                confirm_label: "End show".into(),
+                confirm_a11y_label: "End the show".into(),
+                destructive: false,
+                items: parts,
+            },
+            ConfirmationDialogHandlers::new(
+                |_, _: &mut gpui::App| {},
+                move |_, cx: &mut gpui::App| {
+                    let _ = entity.update(cx, TopApp::start_end_show_sequence);
+                },
+            ),
+        );
+    }
+
+    pub(super) fn start_end_show_sequence(&mut self, cx: &mut Context<Self>) {
+        if self
+            .end_show_sequence
+            .as_ref()
+            .is_some_and(|sequence| sequence.next_step().is_some())
+            || self
+                .on_air_sequence
+                .as_ref()
+                .is_some_and(|sequence| sequence.next_step().is_some())
+        {
+            return;
+        }
+        self.end_band = None;
+        let music_is_on = self.show_page.queue.transport.play_pause_state.is_active();
+        let stream_is_on = self.stream_is_connected();
+        let services_that_are_on = self
+            .publisher_service_snapshot
+            .as_ref()
+            .map(|snapshot| {
+                snapshot
+                    .units
+                    .iter()
+                    .filter(|unit| unit.state == ServiceState::Active)
+                    .map(|unit| unit.role)
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.end_show_sequence = Some(crate::view_models::show::EndShowSequence::new(
+            music_is_on,
+            stream_is_on,
+            services_that_are_on,
+        ));
+        self.dispatch_next_end_show_step(cx);
+    }
+
+    fn dispatch_next_end_show_step(&mut self, cx: &mut Context<Self>) {
+        use crate::view_models::show::EndShowStep;
+        let Some(step) = self
+            .end_show_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::EndShowSequence::next_step)
+        else {
+            self.reproject_show_page_from_current_queue();
+            cx.notify();
+            return;
+        };
+        match step {
+            EndShowStep::StopMusic => {
+                self.end_show_stop_started.set(false);
+                self.end_show_stop_pending.set(true);
+                self.stop_show(cx);
+                if !self.end_show_stop_started.get() {
+                    self.end_show_stop_pending.set(false);
+                    self.advance_on_air(None, Err("Show playback could not stop.".into()), cx);
+                }
+            }
+            EndShowStep::DisconnectStream => {
+                self.run_stream_encoder_command(StreamEncoderOperation::Disconnect, cx);
+            }
+            EndShowStep::StopService(role) => {
+                self.run_publisher_service_command(role, PublisherServiceOperation::Stop, cx);
+            }
+        }
+        let waiting_for_command = self
+            .end_show_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::EndShowSequence::next_step)
+            == Some(step)
+            && (self.on_air_step_id.is_some() || self.end_show_stop_pending.get());
+        if self
+            .end_show_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::EndShowSequence::next_step)
+            == Some(step)
+            && !waiting_for_command
+        {
+            let reason = if self.settings_status.is_empty() {
+                "This step could not start.".to_owned()
+            } else {
+                self.settings_status.clone()
+            };
+            self.advance_on_air(None, Err(reason), cx);
+        }
+    }
+
+    pub(super) fn stream_is_connected(&self) -> bool {
+        self.publisher_service_snapshot
+            .as_ref()
+            .is_some_and(|snapshot| {
+                snapshot.encoder.status.state == crate::broadcast::encoder::EncoderState::Connected
+            })
+    }
+
     fn start_on_air_sequence(&mut self, cx: &mut Context<Self>) {
+        if self
+            .end_show_sequence
+            .as_ref()
+            .is_some_and(|sequence| sequence.next_step().is_some())
+        {
+            return;
+        }
         if let Some(sequence) = self.on_air_sequence.as_ref() {
             if sequence.failure.is_none() {
                 return;
             }
             self.on_air_sequence = None;
         }
+        self.end_show_sequence = None;
         let running = self
             .publisher_service_snapshot
             .as_ref()
@@ -307,6 +474,27 @@ impl TopApp {
         result: Result<(), String>,
         cx: &mut Context<Self>,
     ) {
+        if self
+            .end_show_sequence
+            .as_ref()
+            .is_some_and(|sequence| sequence.next_step().is_some())
+        {
+            if let Some(expected) = self.on_air_step_id {
+                if command_id != Some(expected) {
+                    return;
+                }
+            } else if command_id.is_some() {
+                return;
+            }
+            if let Some(sequence) = self.end_show_sequence.as_mut() {
+                sequence.complete(result);
+            }
+            self.on_air_step_id = None;
+            self.on_air_connect_started = None;
+            self.reproject_show_page_from_current_queue();
+            self.dispatch_next_end_show_step(cx);
+            return;
+        }
         if let Some(expected) = self.on_air_step_id {
             if command_id != Some(expected) {
                 return;
@@ -436,6 +624,7 @@ pub(super) fn build_show_screen(
     let readiness_entity = entity.clone();
     let load_playlist_entity = entity.clone();
     let on_air_entity = entity.clone();
+    let end_show_entity = entity.clone();
     let on_air_action_entity = entity.clone();
     let information_entity = entity.clone();
     let slots = with_log_slots(ShowSlots::new().log_frames(app.log_frames.clone()), &entity);
@@ -480,6 +669,9 @@ pub(super) fn build_show_screen(
             })
             .on_toggle_show_information(move |_, cx| {
                 information_entity.update(cx, TopApp::toggle_show_information);
+            })
+            .on_end_show(move |action, window, cx| {
+                end_show_entity.update(cx, |this, cx| this.end_show_action(action, window, cx));
             })
             .on_open_broadcast_readiness(move |_, _, cx| {
                 readiness_entity.update(cx, |this, cx| {
@@ -796,6 +988,19 @@ impl TopApp {
         }
         let panel_mode = self.show_page.panel_mode;
         let panel_open = self.show_page.panel_open;
+        let music_is_on = queue.transport.play_pause_state.is_active();
+        let services_that_are_on = self
+            .publisher_service_snapshot
+            .as_ref()
+            .map(|snapshot| {
+                snapshot
+                    .units
+                    .iter()
+                    .filter(|unit| unit.state == ServiceState::Active)
+                    .map(|unit| unit.role)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
         self.show_page = ShowPageVm::from_queue_publisher_readiness_and_event(
             queue,
             self.publisher_service_snapshot.as_ref(),
@@ -833,7 +1038,19 @@ impl TopApp {
             run_active: self
                 .on_air_sequence
                 .as_ref()
-                .is_some_and(|sequence| sequence.next_step().is_some()),
+                .is_some_and(|sequence| sequence.next_step().is_some())
+                || self
+                    .end_show_sequence
+                    .as_ref()
+                    .is_some_and(|sequence| sequence.next_step().is_some()),
+            end: crate::view_models::show::EndShowFacts {
+                music_is_on,
+                stream_is_on: self.stream_is_connected(),
+                services_that_are_on: &services_that_are_on,
+                sequence: self.end_show_sequence.as_ref(),
+                end_band: self.end_band,
+                now: std::time::Instant::now(),
+            },
         });
     }
 
@@ -920,12 +1137,18 @@ impl TopApp {
             }
             return;
         };
-        if self
+        let on_air_start = self
             .on_air_sequence
             .as_ref()
             .and_then(crate::view_models::show::OnAirSequence::next_step)
-            == Some(crate::view_models::show::OnAirStep::StartService(role))
-        {
+            == Some(crate::view_models::show::OnAirStep::StartService(role));
+        let end_show_stop = operation == PublisherServiceOperation::Stop
+            && self
+                .end_show_sequence
+                .as_ref()
+                .and_then(crate::view_models::show::EndShowSequence::next_step)
+                == Some(crate::view_models::show::EndShowStep::StopService(role));
+        if on_air_start || end_show_stop {
             self.on_air_step_id = Some(command_id);
         }
         self.dispatch_show_command(command, command_id, action, retry_id, cx);
@@ -1516,13 +1739,19 @@ impl TopApp {
         let Some(command_id) = self.show_commands.begin_stream(operation) else {
             return;
         };
-        if operation == StreamEncoderOperation::Connect
+        let on_air_connect = operation == StreamEncoderOperation::Connect
             && self
                 .on_air_sequence
                 .as_ref()
                 .and_then(crate::view_models::show::OnAirSequence::next_step)
-                == Some(crate::view_models::show::OnAirStep::ConnectStream)
-        {
+                == Some(crate::view_models::show::OnAirStep::ConnectStream);
+        let end_show_disconnect = operation == StreamEncoderOperation::Disconnect
+            && self
+                .end_show_sequence
+                .as_ref()
+                .and_then(crate::view_models::show::EndShowSequence::next_step)
+                == Some(crate::view_models::show::EndShowStep::DisconnectStream);
+        if on_air_connect || end_show_disconnect {
             self.on_air_step_id = Some(command_id);
         }
         self.dispatch_show_command(command, command_id, action, None, cx);
