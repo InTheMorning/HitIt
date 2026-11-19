@@ -619,6 +619,8 @@ The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) p
 
 The [third agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-third.md) passed V2 on the publisher page "Ph@fe": "Label · Host" with the label color on the dot. A Sir Libre release can enter the Library when `cdn.kolomona.com` is reachable. V3 stays open for a person: Inspect Sources opens only from a track and shows no role word. Question 1 of the walk record asks if the check text or the sheet changes.
 
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V3 on the page of Sir Libre Records: the "Role not confirmed" rows show `rel="recordLabel"`. V1 to V3 stay open for a person.
+
 ## 17. ADR 0092 Task 001 Artists Takes The List Focus - 2026-11-14
 
 [ADR 0092 task 001](tasks/adr-0092-task-001-artists-list-focus.md) gives the procedure. Open Artists in the scope All.
@@ -780,6 +782,8 @@ The [agent walk of 2026-11-18](reviews/agent-walk-2026-11-18.md) passed V1 for t
 The [second agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-second.md) passed a list row in Light at 1120 px. A tile stays open: no ring showed. **At 390 px, the Releases list is not a Tab stop**, so a row at 390 px stays open.
 
 The [third agent walk of 2026-11-18](reviews/agent-walk-2026-11-18-third.md) passed V1 for a tile in Dark and Light at 940 px, after an arrow key. In Light at 390 px, the page buttons and the dialog buttons passed. A list row at 390 px waits for [ADR 0092 task 004](tasks/adr-0092-task-004-the-list-comes-before-the-tab-bar.md), section 38.
+
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V1 for a list row at 390 px in Dark and Light. Each agent item of V1 is now walked. V1 to V5 stay open for a person.
 
 ## 26. ADR 0101 Task 003 The Art Radius And The Art Shadow - 2026-11-16
 
@@ -944,6 +948,8 @@ Task: [ADR 0074 task 001](tasks/adr-0074-task-001-the-restore-band-scrolls-at-39
 7. Do steps 3 to 6 in Light and Dark.
 - Incorrect: a button that is cut and does not come into view, or a band that is higher than before at 480 px.
 
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed step 3, V1 and V3 in Dark and Light. **V2 fails:** Tab goes to "Upgrade backup" and "Copy database report" below the edge of the band, and the band does not scroll. The walk record gives the preparation that enables the buttons.
+
 ## 38. ADR 0092 Task 004 The List Comes Before The Tab Bar - 2026-11-18
 
 Task: [ADR 0092 task 004](tasks/adr-0092-task-004-the-list-comes-before-the-tab-bar.md).
@@ -957,6 +963,8 @@ Task: [ADR 0092 task 004](tasks/adr-0092-task-004-the-list-comes-before-the-tab-
 7. Do steps 3 to 6 in Light and Dark.
 - Incorrect: the list does not take the focus after "In Library", or a tab of the tab bar comes before the list.
 
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V1 to V4 in Dark and Light. At 390 px the status bar has no Tab stop, so Tab goes from the list to Search in the tab bar.
+
 ## 39. ADR 0097 Task 008 The List Page Title Fits At 390 px - 2026-11-18
 
 Task: [ADR 0097 task 008](tasks/adr-0097-task-008-the-list-page-title-fits-at-390-px.md).
@@ -969,3 +977,40 @@ Task: [ADR 0097 task 008](tasks/adr-0097-task-008-the-list-page-title-fits-at-39
 6. At 390 px, search for `Searchqueryofonelongwordwithnospace0123456789`. Make sure that the query title is on a line of its own and breaks inside the word, and that the controls are below it. Then search for one short word, for example `jazz`. Make sure that the title and the controls are on one line (V4).
 7. Do steps 3 to 6 in Light and Dark.
 - Incorrect: a title that is not a query breaks inside a word, a control is cut, or the head is higher at 940 px than before.
+
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V1 to V4 in Dark and Light.
+
+## 40. ADR 0098 Task 001 Each Named Feed Keeps Its Own Title - 2026-11-19
+
+Task: [ADR 0098 task 001](tasks/adr-0098-task-001-each-named-feed-keeps-its-own-title.md). The download needs a network that reaches `cdn.kolomona.com` and `sirlibre.com`.
+
+1. Start HitIt with `target/release/hitit`.
+2. Search for `Motive to Kill` and open the release. Download it.
+3. After the download, make sure that the release page shows "Label: Sir Libre Records" (V1).
+4. Click "Sir Libre Records". Make sure that the page title is "Sir Libre Records" (V2).
+- Incorrect: a role row shows a GUID, or a feed page shows the title of a different feed.
+
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V1 and V2 in Dark.
+
+## 41. ADR 0098 Task 002 A Role Row Dot Has The Color Of Its First Role - 2026-11-19
+
+Task: [ADR 0098 task 002](tasks/adr-0098-task-002-a-role-row-dot-has-the-color-of-its-first-role.md).
+
+1. Search for `Ph@fe`. Make sure that the dot of the "Label · Host" row and the dot on the page of "Ph@fe" have the same purple label color (V1).
+2. Search for `Thrash Forward` and open the Artists tab. Make sure that a "Feed" row and an "Artist" row keep their colors (V2).
+3. Do steps 1 and 2 in Light and Dark.
+- Incorrect: one feed shows two dot colors, or a "Feed" row changes its color.
+
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V1 and V2 in Dark and Light.
+
+## 42. ADR 0101 Task 015 "Load More" Shows The Focus Ring - 2026-11-19
+
+Task: [ADR 0101 task 015](tasks/adr-0101-task-015-load-more-shows-the-focus-ring.md).
+
+1. Open Releases in the Tiles view. Tab to "Load more". Make sure that it shows the focus ring, does not look dimmed, and that no load starts (V1).
+2. Click the Tiles button, then push Tab. Make sure that the focus goes to Select and that the grid does not move to its end (V2).
+3. Tab to "Load more" and push Enter. Make sure that more tiles load and that a new tile takes the focus ring (V3).
+4. Do steps 1 to 3 in Light and Dark.
+- Incorrect: a focused control shows no ring, or Tab moves the grid to its end.
+
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V1 and V2 in Dark and Light. V3 is open: the walk cannot prove that the tile with the ring is the first new tile, because new tiles can sort between old tiles.
