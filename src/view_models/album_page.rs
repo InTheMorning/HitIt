@@ -49,7 +49,7 @@ impl AlbumPageAction {
     /// The visible label. A label that opens a confirmation ends with "…".
     /// `kind` names the release (ADR 0084 Decision 5) for "Download …" and
     /// "Remove …", for example "Download Single". The kind is in title
-    /// case (musicindex ADR 0023 R-CASE-1).
+    /// case (musicindex ADR 0085 R-CASE-1).
     #[must_use]
     pub(crate) fn label(self, kind: ReleaseKind) -> String {
         match self {

@@ -1,4 +1,6 @@
-//! Readable Index failures and diagnostic disclosure (ADR 0066).
+//! Readable Index failures and diagnostic disclosure (ADR 0066). The
+//! report shows in one fold with the label "Details", closed at the start
+//! (musicindex ADR 0085 R-MSG-1 item 4).
 
 #![warn(clippy::pedantic)]
 
@@ -26,6 +28,9 @@ pub(crate) struct SearchFailureActionDisplay {
     pub label: &'static str,
     pub a11y_label: &'static str,
     pub availability: SearchFailureAvailability,
+    /// The open condition of the "Details" fold. `None` for an action
+    /// that is not a fold.
+    pub fold_open: Option<bool>,
 }
 
 /// The title of the Index part when `MusicIndex` did not accept the query
@@ -107,12 +112,8 @@ impl SearchFailureDisplay {
 
     pub(crate) fn action(&self, action: SearchFailureAction) -> SearchFailureActionDisplay {
         let (label, a11y_label) = match action {
-            SearchFailureAction::ToggleDetails if self.expanded => {
-                ("Hide details", "Hide the Music Index search failure report")
-            }
-            SearchFailureAction::ToggleDetails => {
-                ("Show details", "Show the Music Index search failure report")
-            }
+            SearchFailureAction::ToggleDetails if self.expanded => ("Details", "Details, open"),
+            SearchFailureAction::ToggleDetails => ("Details", "Details, closed"),
             SearchFailureAction::CopyReport => (
                 "Copy report",
                 "Copy the complete Music Index search failure report",
@@ -127,6 +128,7 @@ impl SearchFailureDisplay {
             } else {
                 SearchFailureAvailability::Available
             },
+            fold_open: (action == SearchFailureAction::ToggleDetails).then_some(self.expanded),
         }
     }
 
@@ -244,15 +246,41 @@ mod tests {
         }
         failure.activate(SearchFailureAction::ToggleDetails);
         assert_eq!(failure.visible_report(), Some(report.as_str()));
-        assert_eq!(
-            failure.action(SearchFailureAction::ToggleDetails).label,
-            "Hide details"
-        );
         failure.activate(SearchFailureAction::ToggleDetails);
         assert!(failure.visible_report().is_none());
         assert_eq!(
             failure.activate(SearchFailureAction::CopyReport),
             Some(report)
+        );
+    }
+
+    /// musicindex ADR 0085 R-MSG-1 item 4: the report is in one fold with
+    /// the label "Details". The fold is closed at the start.
+    #[test]
+    fn musicindex_adr_0085_r_msg_1_report_is_a_closed_details_fold() {
+        let mut failure = SearchFailureDisplay::new(
+            &CommandError::Query("response could not be decoded".into()),
+            "https://index.test",
+            SystemTime::UNIX_EPOCH,
+        );
+        let closed = failure.action(SearchFailureAction::ToggleDetails);
+        assert_eq!(closed.label, "Details");
+        assert_eq!(closed.a11y_label, "Details, closed");
+        assert_eq!(closed.fold_open, Some(false));
+        assert!(failure.visible_report().is_none());
+
+        failure.activate(SearchFailureAction::ToggleDetails);
+        let open = failure.action(SearchFailureAction::ToggleDetails);
+        assert_eq!(open.label, "Details");
+        assert_eq!(open.a11y_label, "Details, open");
+        assert_eq!(open.fold_open, Some(true));
+        assert!(failure
+            .visible_report()
+            .is_some_and(|report| report.contains("response could not be decoded")));
+
+        assert_eq!(
+            failure.action(SearchFailureAction::CopyReport).fold_open,
+            None
         );
     }
 }

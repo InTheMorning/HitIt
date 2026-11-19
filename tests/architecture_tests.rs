@@ -25170,7 +25170,7 @@ then run `python3 {} --bar-from 0100 .` again.\n{}{}",
     );
 }
 
-/// Situational: owner: musicindex ADR 0023 R-DATE-1, applied to HitIt by ADR
+/// Situational: owner: musicindex ADR 0085 R-DATE-1, applied to HitIt by ADR
 /// 0101 Decision 11. Dates are in the language of the system. A view model
 /// that formats a month name with a chrono pattern gives English text. The
 /// formatters of `src/view_models/format.rs` are the one owner of each date
@@ -25192,7 +25192,7 @@ fn adr_0101_dates_guard_no_view_model_formats_a_month_name_outside_format_rs() {
     }
     assert!(
         violations.is_empty(),
-        "musicindex ADR 0023 R-DATE-1 (HitIt ADR 0101 Decision 11): a view model must not \
+        "musicindex ADR 0085 R-DATE-1 (HitIt ADR 0101 Decision 11): a view model must not \
 call format(\"%b ...) on a date. That pattern gives English month names. \
 Call fmt_date, fmt_month_day or fmt_date_time_zone of src/view_models/format.rs. \
 Add a formatter there when none fits. Violations:\n{}",

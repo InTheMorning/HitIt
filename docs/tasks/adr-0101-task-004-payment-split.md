@@ -32,7 +32,7 @@ A track page and a release page show the payment split of the item in one sectio
 - musicindex ADR 0075 R-VALUE-4 puts the split code in the musicindex-lib folder `value/`, the crate `musicindex-value`.
 - [ADR 0099](../adr/0099-the-rss-path-keeps-only-lightning-payment-routes.md) keeps only Lightning routes on the RSS path. Read its Decision before the first edit.
 - [ADR 0075](../adr/0075-metadata-ownership-and-completeness.md) Decision I: RSS is the source of truth.
-- musicindex ADR 0023 R-DATE-1 item 4: a percentage has one decimal place.
+- musicindex ADR 0085 R-DATE-1 item 4: a percentage has one decimal place.
 - The `rust-dev` skill applies to each Rust change.
 
 ## Recorded Facts

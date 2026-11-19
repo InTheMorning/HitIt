@@ -1,4 +1,4 @@
-//! The text that counts the releases of an artist row (musicindex ADR 0023
+//! The text that counts the releases of an artist row (musicindex ADR 0085
 //! R-WORD-9). The view model picks the words. The UI composes no text.
 
 use std::collections::BTreeMap;
@@ -117,7 +117,7 @@ fn kinds_text(kinds: [i64; 4]) -> String {
 mod tests {
     use super::*;
 
-    const RULE: &str = "musicindex ADR 0023 R-WORD-9";
+    const RULE: &str = "musicindex ADR 0085 R-WORD-9";
 
     fn counts(pairs: &[(&str, i64)]) -> BTreeMap<String, i64> {
         pairs.iter().map(|&(k, v)| (k.to_owned(), v)).collect()

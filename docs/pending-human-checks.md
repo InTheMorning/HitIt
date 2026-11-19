@@ -102,7 +102,7 @@ The agent checks run on an Xvfb display with scratch `XDG_CONFIG_HOME`, `XDG_DAT
 
 Each item gives the recommendation of the agent. The operator decides.
 
-1. **The badge of Sir Libre Records.** Must the header badge ignore a role word that it does not know, such as `recordLabel`? Recommendation: yes, and the orchestrator agrees. Then the badge reads "Label", and the section heading is "Artists on these releases". musicindex ADR 0023 R-WORD-3, as musicindex ADR 0033 changed it, owns this rule. A change needs a record in `../musicindex` first.
+1. **The badge of Sir Libre Records.** Must the header badge ignore a role word that it does not know, such as `recordLabel`? Recommendation: yes, and the orchestrator agrees. Then the badge reads "Label", and the section heading is "Artists on these releases". musicindex ADR 0085 R-WORD-3, as musicindex ADR 0033 changed it, owns this rule. A change needs a record in `../musicindex` first.
    Answer, 2026-11-14: yes. The operator accepted the recommendation. musicindex ADR 0066 (commit `df500dc`) records the rule. [ADR 0085 task 001](tasks/adr-0085-task-001-type-label-of-known-roles.md) builds it.
 2. **The tiles icon at 300 px (section 12, packet 4).** Is the cut tiles icon a fault? Recommendation: yes. A control that a person cannot see is not available. Let the bar go on two lines when one line cannot hold the two ends.
 3. **The cut second line of an artist tile (section 12, musicindex ADR 0057).** Is "2 albu…" satisfactory? Recommendation: accept it in tiles, because the rows view gives the full text.
@@ -546,13 +546,13 @@ target/debug/hitit &
 - The pin at `e84bab5` (musicindex ADR 0058 R-QUERY-11 and R-QUERY-12): click the empty search field. The rows `artist:`, `title:` and `release:` show a muted placeholder such as `artist:"artist name"`. `artist:` and `release:` also show a darker example from the Library.
 - The pin at `e84bab5`, the clicks: click the placeholder. The field shows `artist:"artist name"` with "artist name" selected, and no search runs. When you type a name, the search runs. When you click a darker example, the search runs.
 - The pin at `e84bab5`, the visits: close and open the list again. The darker examples can change. The agent screenshots of 2026-11-08 show these in Light and Dark. A person checks that the placeholder and the example are easy to tell apart.
-- musicindex ADR 0023 R-WORD-10: open the feed pages of Sir Libre Records and Crash Landing. Each page has a shared releases section below the releases.
+- musicindex ADR 0085 R-WORD-10: open the feed pages of Sir Libre Records and Crash Landing. Each page has a shared releases section below the releases.
   - Agent Xvfb run of 2026-11-08, Light and Dark: Crash Landing (badge "Artist") shows "Labels and other feeds" and the note. Its row reads "1 shared release · releases give rel="label"". This part agrees.
   - Fault found by the same run: Sir Libre Records lists "Roles: label" and "As label", but its header badge reads "Publisher". So the section has the heading "Shares releases with", not "Artists on these releases".
   - Cause: the badge joins the agreed role words with the words of one side (musicindex ADR 0033 R-WORD-3 item 3). Three albums of this feed give `rel="recordLabel"` on the album side, so the badge sees two roles. The orchestrator decides if the badge uses a role word that it does not know.
 - R-WORD-10, the words: a label page has the heading "Artists on these releases". An artist page has "Labels and other feeds". A page of a different type has "Shares releases with".
 - R-WORD-10, the note and the rows: the note below the heading is "The same release names each feed here and this feed. The two feeds of each link confirm it." A row reads "1 shared release · releases give rel="…"". Examine the section in Light and Dark.
-- musicindex ADR 0023 R-WORD-9: open Artists, select All, and go to the letter #. The agent Xvfb run of 2026-11-08 shows these two rows with the text below in Dark. The row "$2 Holla" reads "Not in Library · by name · 1 album · 2 singles". The row "0$" reads "Not in Library · 1 album · 18 singles".
+- musicindex ADR 0085 R-WORD-9: open Artists, select All, and go to the letter #. The agent Xvfb run of 2026-11-08 shows these two rows with the text below in Dark. The row "$2 Holla" reads "Not in Library · by name · 1 album · 2 singles". The row "0$" reads "Not in Library · 1 album · 18 singles".
 - R-WORD-9, search: search `olamide` and open the Artists tab. The feed row of OLAMIDE reads "14 albums · 38 singles". Search `jsmovie`. Its feed row reads "17 singles". Make sure that the text does not overflow in a narrow window, in Light and Dark.
   - The agent Xvfb run of 2026-11-08 shows the two rows with this text in Dark. It shows OLAMIDE in Light. Each row is correct at full width and at 700 px.
 - [musicindex ADR 0057](adr/archive/0085-artists-by-confirmation.md) R-ARTIST-1: Artists in All, its tiles and the Artists tab of a search show three groups with a note each. The groups are "Stated artists · n", "Inferred artists" and "Artist names with no feed", in this sequence.
@@ -1016,3 +1016,14 @@ Task: [ADR 0101 task 015](tasks/adr-0101-task-015-load-more-shows-the-focus-ring
 - Incorrect: a focused control shows no ring, or Tab moves the grid to its end.
 
 The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed V1 and V2 in Dark and Light. V3 is open: the walk cannot prove that the tile with the ring is the first new tile, because new tiles can sort between old tiles.
+
+## 43. ADR 0101 Task 016 The Search Error Has A "Details" Fold - 2026-11-19
+
+Task: [ADR 0101 task 016](tasks/adr-0101-task-016-the-search-error-details-fold.md).
+
+1. In Settings, set `musicindex_endpoint` to `http://127.0.0.1:9` and save. Search for `hey`.
+2. Make sure that the notice shows "Copy report" and below it the closed fold "Details" with a chevron that points right. The report does not show (V1).
+3. Click "Details". Make sure that the report shows below the fold and that the chevron points down. Click "Details" again, and make sure that the report closes (V2).
+4. Tab to "Details" and push Enter. Make sure that the fold opens, as in step 3.
+5. Do steps 2 to 4 in Light and Dark. Then set `musicindex_endpoint` back to its value before step 1.
+- Incorrect: the report shows at the start, or a label says "Show details" or "Hide details".

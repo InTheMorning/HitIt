@@ -1065,7 +1065,7 @@ fn index_error_surfaces_when_the_tab_has_no_rows() {
 
 /// Walk of 2026-10-21: an HTTP `400` reply to the search is a query error.
 /// The Library rows stay, and the Index part shows a note that names the
-/// query. The note names no endpoint and no connection. "Show details"
+/// query. The note names no endpoint and no connection. The "Details" fold
 /// keeps the redacted reply of the server. Packet 028 D5 gives a note for
 /// a connection error too: see
 /// `adr_0084_search_open_defects_r28_06_unavailable_index_gives_a_note_after_the_library_rows`.
@@ -1124,7 +1124,7 @@ fn adr_0084_search_list_rejected_query_shows_a_note_with_the_library_rows() {
 
 /// R28-06 (packet 028 D5): with Library rows and an unavailable
 /// `MusicIndex`, the view model gives the rows and a failure note after
-/// them. The note names `MusicIndex` and keeps "Show details". With no
+/// them. The note names `MusicIndex` and keeps the "Details" fold. With no
 /// Library rows, the view model gives the present empty state and no note.
 #[test]
 fn adr_0084_search_open_defects_r28_06_unavailable_index_gives_a_note_after_the_library_rows() {
@@ -1153,7 +1153,7 @@ fn adr_0084_search_open_defects_r28_06_unavailable_index_gives_a_note_after_the_
     let failure = notice.failure.as_ref().expect("the note keeps its report");
     assert_eq!(
         failure.action(SearchFailureAction::ToggleDetails).label,
-        "Show details"
+        "Details"
     );
 
     let mut no_rows = SearchResultsInspectorPageVm::new("hey");

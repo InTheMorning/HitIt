@@ -94,9 +94,9 @@ The renderer gets the header art from a view-model fact, for example a prepared 
 | Rare, technical or destructive action | The "⋯" menu and the right-click menu | MusicBrainz lookup, download again, remove |
 
 - A download action is a button of the role Secondary, because a download changes stored data (R-ACT-4 item 3, `ControlStyle::by_result` in `src/ui/control_styles.rs:139`). Until a track page has an audio action, it has no primary button. The download state icon of Decision 6 shows the download step.
-- Buttons and menu items use title case (musicindex ADR 0023 R-CASE-1), for example "Add to Playlist" and "Download Album". A label names a release by its kind ([ADR 0098](0098-the-music-shell-pages-lists-and-search.md) item map, ADR 0084 Decision 5).
+- Buttons and menu items use title case (musicindex ADR 0085 R-CASE-1), for example "Add to Playlist" and "Download Album". A label names a release by its kind ([ADR 0098](0098-the-music-shell-pages-lists-and-search.md) item map, ADR 0084 Decision 5).
 - A destructive item is last in its menu, after a divider. Its label ends with "…" (musicindex ADR 0026 R-ELLIPSIS-1 item 2). It has a red label on a red tint and is never filled. Its label names the result (musicindex ADR 0080 R-ACT-3).
-- A destructive item asks for a confirmation, except when the person can undo in the same view (R-ACT-3). The confirmation is a sheet with "Cancel" (musicindex ADR 0023 R-CONFIRM-1).
+- A destructive item asks for a confirmation, except when the person can undo in the same view (R-ACT-3). The confirmation is a sheet with "Cancel" (musicindex ADR 0085 R-CONFIRM-1).
 - In a horizontal row of buttons, musicindex ADR 0064 R-ACT-8 applies. This includes a dialog, a bar and the buttons of a list entry. The destructive button is the leftmost button, a larger space follows it, and the safe action is the rightmost button. When a row has two destructive buttons and other buttons, the two destructive buttons are at the left end.
 - A row with only destructive buttons shows one button "Remove…" with a menu (R-ACT-10), for example the playlist row of a removed track.
 - The action column of a maintenance page ([ADR 0066](0066-configuration-and-startup-failure-recovery.md)) puts its destructive controls last, after a divider. When the page is narrow, the column wraps into a band, and the band puts them first (R-ACT-11).
@@ -162,7 +162,7 @@ HitIt adopts the rules in this table, at musicindex commit `3baa6f0`. musicindex
 | 0069, the interface rules and the shell | R-WORD-1, R-VALUE-1 items 2 and 3, R-VALUE-2, R-ACT-1, R-ACT-2, R-ACT-3, R-TOKEN-1, R-SHELL-1, R-NAV-1, R-NAV-2, R-NAV-4, R-LIST-1, R-TOOLBAR-1, R-FIT-1 | R-SHELL-2, the editor outline. R-NAV-3, the touch back control |
 | 0021, the artwork | R-ART-1 to R-ART-5 | None |
 | 0022, the shared assets | Decision items 1 to 7. HitIt copies the fonts and `tokens.json` from musicindex-assets | None |
-| 0023, the words, links and messages | R-LINK-1, R-CASE-1, R-SCOPE-1, R-DATE-1, R-MSG-1, R-CONFIRM-1, R-WORD-2, R-WORD-8 (the product name), R-WORD-9, R-WORD-10 | None |
+| 0085, the words, links and messages, at musicindex commit `4025eba` | R-LINK-1, R-CASE-1, R-SCOPE-1, R-DATE-1, R-MSG-1, R-CONFIRM-1, R-WORD-2, R-WORD-8 (the product name), R-WORD-9, R-WORD-10 | None |
 | 0028, the item pages | R-PAGE-1, R-PAGE-2, R-ART-6. ADR 0098 applies the sections and the header actions | None |
 | 0032, the type dot | R-DOT-1, R-DOT-2 | None |
 | 0042, a button with a label has a fill | R-ACT-4, R-ACT-5, R-ACT-6 | None |

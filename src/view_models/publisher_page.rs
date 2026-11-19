@@ -360,20 +360,20 @@ impl CoCreditedFeedVm {
     const NO_ROLES_LABEL: &'static str = "No stated role";
     /// The word after the count when it is exactly one. The count holds
     /// releases of each kind, and the response gives no track counts, so
-    /// the text gives the total (musicindex ADR 0023 R-WORD-9 item 5,
+    /// the text gives the total (musicindex ADR 0085 R-WORD-9 item 5,
     /// R-SCOPE-1 item 2).
     const SHARED_RELEASE_LABEL: &'static str = "shared release";
     /// The word after the count when it is zero or more than one.
     const SHARED_RELEASES_LABEL: &'static str = "shared releases";
     /// The text before the roles of the shared releases (musicindex ADR
-    /// 0023 R-WORD-10 item 3).
+    /// 0085 R-WORD-10 item 3).
     const ROLES_PREFIX: &'static str = "releases give rel=";
-    /// The text between the count and the roles (musicindex ADR 0023
+    /// The text between the count and the roles (musicindex ADR 0085
     /// R-WORD-10 item 3). It is a middle dot with a space on each side.
     const PART_SEPARATOR: &'static str = " \u{b7} ";
 
     /// The count and the roles of the shared releases, ready to view
-    /// (musicindex ADR 0023 R-WORD-10 item 3). The screen composes no text
+    /// (musicindex ADR 0085 R-WORD-10 item 3). The screen composes no text
     /// of its own. An absent count shows the roles alone: this method
     /// invents no count. A row with no count and no role shows the
     /// "No stated role" text.
@@ -645,20 +645,20 @@ impl PublisherPageVm {
     pub(crate) const UNCONFIRMED_ARTISTS_LABEL: &'static str =
         "Artists this feed lists without a link back";
     /// Heading of the shared releases section on a label page (musicindex
-    /// ADR 0023 R-WORD-10 item 1).
+    /// ADR 0085 R-WORD-10 item 1).
     pub(crate) const SHARED_RELEASES_HEADING_LABEL: &'static str = "Artists on these releases";
     /// Heading of the shared releases section on an artist page (musicindex
-    /// ADR 0023 R-WORD-10 item 1).
+    /// ADR 0085 R-WORD-10 item 1).
     pub(crate) const SHARED_RELEASES_HEADING_ARTIST: &'static str = "Labels and other feeds";
     /// Heading of the shared releases section on a page of each other kind
-    /// (musicindex ADR 0023 R-WORD-10 item 1).
+    /// (musicindex ADR 0085 R-WORD-10 item 1).
     pub(crate) const SHARED_RELEASES_HEADING_OTHER: &'static str = "Shares releases with";
-    /// The note below the shared releases heading (musicindex ADR 0023
+    /// The note below the shared releases heading (musicindex ADR 0085
     /// R-WORD-10 item 2).
     pub(crate) const SHARED_RELEASES_NOTE: &'static str = "The same release names each feed here and this feed. The two feeds of each link confirm it.";
 
     /// The heading of the shared releases section. It follows the kind of
-    /// the page, which the header badge gives (musicindex ADR 0023
+    /// the page, which the header badge gives (musicindex ADR 0085
     /// R-WORD-10 item 1).
     #[must_use]
     pub(crate) fn shared_releases_heading(&self) -> &'static str {
@@ -2530,10 +2530,10 @@ mod tests {
             .remove(0)
     }
 
-    /// musicindex ADR 0023 R-WORD-10 item 1: the heading follows the kind
+    /// musicindex ADR 0085 R-WORD-10 item 1: the heading follows the kind
     /// of the page.
     #[test]
-    fn musicindex_adr_0023_r_word_10_heading_follows_page_kind() {
+    fn musicindex_adr_0085_r_word_10_heading_follows_page_kind() {
         let label = album_with_guid(
             "w1",
             Some(AlbumNamesAs::Publisher),
@@ -2551,14 +2551,14 @@ mod tests {
         assert_eq!(
             label_vm.shared_releases_heading(),
             "Artists on these releases",
-            "musicindex ADR 0023 R-WORD-10 item 1: a label page names the artists"
+            "musicindex ADR 0085 R-WORD-10 item 1: a label page names the artists"
         );
         let artist_vm = PublisherPageVm::new(facts(vec![artist]));
         assert_eq!(artist_vm.header_badge().role, HeaderRole::Artist);
         assert_eq!(
             artist_vm.shared_releases_heading(),
             "Labels and other feeds",
-            "musicindex ADR 0023 R-WORD-10 item 1: an artist page names labels"
+            "musicindex ADR 0085 R-WORD-10 item 1: an artist page names labels"
         );
         let other_vm = PublisherPageVm::new(facts(vec![]));
         assert!(!matches!(
@@ -2568,42 +2568,42 @@ mod tests {
         assert_eq!(
             other_vm.shared_releases_heading(),
             "Shares releases with",
-            "musicindex ADR 0023 R-WORD-10 item 1: each other page keeps the old heading"
+            "musicindex ADR 0085 R-WORD-10 item 1: each other page keeps the old heading"
         );
     }
 
-    /// musicindex ADR 0023 R-WORD-10 item 2: the note below the heading.
+    /// musicindex ADR 0085 R-WORD-10 item 2: the note below the heading.
     #[test]
-    fn musicindex_adr_0023_r_word_10_note_text() {
+    fn musicindex_adr_0085_r_word_10_note_text() {
         assert_eq!(
             PublisherPageVm::SHARED_RELEASES_NOTE,
             "The same release names each feed here and this feed. The two feeds of each link confirm it.",
-            "musicindex ADR 0023 R-WORD-10 item 2"
+            "musicindex ADR 0085 R-WORD-10 item 2"
         );
     }
 
-    /// musicindex ADR 0023 R-WORD-10 item 3: the four row text cases.
+    /// musicindex ADR 0085 R-WORD-10 item 3: the four row text cases.
     #[test]
-    fn musicindex_adr_0023_r_word_10_row_text_cases() {
+    fn musicindex_adr_0085_r_word_10_row_text_cases() {
         assert_eq!(
             co_credited(&["artist", "label"], Some(3)).count_and_roles_text(),
             "3 shared releases \u{b7} releases give rel=\"artist label\"",
-            "musicindex ADR 0023 R-WORD-10 item 3: a count and roles"
+            "musicindex ADR 0085 R-WORD-10 item 3: a count and roles"
         );
         assert_eq!(
             co_credited(&[], Some(1)).count_and_roles_text(),
             "1 shared release",
-            "musicindex ADR 0023 R-WORD-10 item 3: a count and no roles"
+            "musicindex ADR 0085 R-WORD-10 item 3: a count and no roles"
         );
         assert_eq!(
             co_credited(&["artist"], None).count_and_roles_text(),
             "releases give rel=\"artist\"",
-            "musicindex ADR 0023 R-WORD-10 item 3: roles and no count"
+            "musicindex ADR 0085 R-WORD-10 item 3: roles and no count"
         );
         assert_eq!(
             co_credited(&[], None).count_and_roles_text(),
             "No stated role",
-            "musicindex ADR 0023 R-WORD-10 item 3: neither keeps the old text"
+            "musicindex ADR 0085 R-WORD-10 item 3: neither keeps the old text"
         );
     }
 

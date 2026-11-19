@@ -18,7 +18,7 @@ use icu_locale_core::Locale;
 use crate::view_models::name_order::system_locale;
 
 /// The text of a total time: `"41 min"` under one hour and `"1 h 12 min"`
-/// from one hour (musicindex ADR 0023 R-DATE-1 item 3).
+/// from one hour (musicindex ADR 0085 R-DATE-1 item 3).
 fn total_time_text(total_secs: i64) -> String {
     let hours = total_secs / 3600;
     let minutes = (total_secs % 3600) / 60;
@@ -178,7 +178,7 @@ pub fn fmt_date_time_zone_in(ts: i64, locale: &Locale, offset_secs: i32) -> Opti
 /// `offset_secs`. For example `"7:12:48 AM"` in `en-US` and `"07:12:48"` in
 /// `de-DE`. Returns `None` when the timestamp is out of range.
 ///
-/// musicindex ADR 0023 R-DATE-1 has no rule for a time of day yet. The
+/// musicindex ADR 0085 R-DATE-1 has no rule for a time of day yet. The
 /// orchestrator choice of ADR 0101 task 008 applies the idea of item 1.
 #[must_use]
 pub fn fmt_time_in(ts: i64, locale: &Locale, offset_secs: i32) -> Option<String> {

@@ -244,6 +244,17 @@ fn index_failure_retains_action(
     index_search_error_retains_action(error)
 }
 
+/// musicindex ADR 0085 R-MSG-1 item 4: the log keeps the raw error text
+/// that the "Details" fold of the search notice shows.
+fn log_index_search_error(error: &crate::application::CommandError) {
+    eprintln!(
+        "{}",
+        crate::diagnostics::redact_endpoint_details(&format!(
+            "App could not complete a Music Index search: {error}"
+        ))
+    );
+}
+
 /// Tells if a failed `MusicIndex` search shows its error on the search
 /// page. A newer run canceled the request, so a canceled request shows no
 /// error (ADR 0087 packet 003 decision D14).
@@ -636,6 +647,7 @@ impl TopApp {
                     }
                     return;
                 }
+                log_index_search_error(&error);
                 // ADR 0087 Decision 4, packet 009: the step of the result
                 // decides the retain, so it comes first.
                 let step = index_result_step(

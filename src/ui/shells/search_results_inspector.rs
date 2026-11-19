@@ -26,6 +26,7 @@ use crate::ui::composites::{
     TagBadgeDisplay, Thumbnail, ThumbnailSize,
 };
 use crate::ui::control_styles::ControlStyle;
+use crate::ui::icons::IconName;
 use crate::ui::layouts::OVERLAY_SCROLLBAR_WIDTH;
 use crate::ui::primitives::{Button as UiButton, Label, LabelVariant, MultilineText};
 use crate::ui::shells::search_result_rows::{
@@ -727,25 +728,45 @@ fn empty_state_content(
 
     if let Some(failure) = &empty.failure {
         if let Some(handler) = on_failure {
-            let mut actions = div().flex().flex_wrap().gap(Spacing::SM.scaled(cx));
+            // "Copy report" comes before the "Details" fold, so that it
+            // keeps its place when the fold opens (musicindex ADR 0085
+            // R-MSG-1 item 4).
             for intent in [
-                SearchFailureAction::ToggleDetails,
                 SearchFailureAction::CopyReport,
+                SearchFailureAction::ToggleDetails,
             ] {
                 let display = failure.action(intent);
                 let handler = handler.clone();
-                actions = actions.child(
-                    UiButton::styled(
-                        SharedString::from(format!("search-failure-{intent:?}")),
-                        ControlStyle::Neutral,
-                    )
-                    .label(display.label)
-                    .a11y_label(display.a11y_label)
-                    .disabled(display.availability != SearchFailureAvailability::Available)
-                    .on_activate(move |window, cx| handler(display.action, window, cx)),
+                let style = if display.fold_open.is_some() {
+                    ControlStyle::RowAction
+                } else {
+                    ControlStyle::Neutral
+                };
+                let mut button = UiButton::styled(
+                    SharedString::from(format!("search-failure-{intent:?}")),
+                    style,
+                )
+                .label(display.label)
+                .a11y_label(display.a11y_label)
+                .disabled(display.availability != SearchFailureAvailability::Available)
+                .on_activate(move |window, cx| handler(display.action, window, cx));
+                if let Some(open) = display.fold_open {
+                    // R-FOLD-3 item 1: the chevron points right when the
+                    // fold is closed and down when it is open.
+                    button = button.leading_icon(if open {
+                        IconName::ChevronDown
+                    } else {
+                        IconName::ChevronRight
+                    });
+                }
+                content = content.child(
+                    div()
+                        .flex()
+                        .flex_wrap()
+                        .gap(Spacing::SM.scaled(cx))
+                        .child(button),
                 );
             }
-            content = content.child(actions);
         }
         if let Some(report) = failure.visible_report() {
             content = content.child(

@@ -2531,7 +2531,7 @@ mod adr_0084_name_level_query_tests {
         }
     }
 
-    /// Musicindex ADR 0023 R-WORD-9: a `type=publisher` row with
+    /// Musicindex ADR 0085 R-WORD-9: a `type=publisher` row with
     /// `two_way_link_count` shows the count of its releases by kind. A row
     /// with no count shows no text.
     #[test]
@@ -2557,7 +2557,7 @@ mod adr_0084_name_level_query_tests {
         assert_eq!(
             texts,
             ["1 album \u{b7} 18 singles", "0 releases", "", "2 playlists"],
-            "musicindex ADR 0023 R-WORD-9 and ADR 0081 R-CURATOR-6: the count is the secondary text"
+            "musicindex ADR 0085 R-WORD-9 and ADR 0081 R-CURATOR-6: the count is the secondary text"
         );
         // Musicindex ADR 0081 R-CURATOR-3, orchestrator choice of
         // 2026-11-17 in task 002: only a feed with playlist links and no

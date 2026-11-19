@@ -100,7 +100,7 @@ pub struct MusicIndexLinkDisplay {
     pub unavailable_text: &'static str,
 }
 
-/// The musicindex.org link of a page header (musicindex ADR 0023 R-LINK-1).
+/// The musicindex.org link of a page header (musicindex ADR 0085 R-LINK-1).
 ///
 /// With an address, the link is the shared identity button. It opens the
 /// address in the system browser. With no address, the header shows the

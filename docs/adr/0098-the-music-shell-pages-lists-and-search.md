@@ -293,7 +293,7 @@ The page of a feed has no type. It shows the level of Decision 11.2 in its heade
 
 - An "As <roles>" section of Decision 11.3 shows only when a feed states a known role other than `artist`.
 - The header lists the agreed roles, as ADR 0082 Decision 4 gives.
-- "Shares releases with" stays as ADR 0082 Decision 5 gives. Each row shows the feed title, its roles and the count of shared releases, with no source text. The count holds releases of each kind, so the words are "release" and "releases" (musicindex ADR 0023 R-SCOPE-1 item 2 and R-WORD-9 item 5). The `releases give rel="…"` text of "Shares releases with" is RSS text and keeps each word.
+- "Shares releases with" stays as ADR 0082 Decision 5 gives. Each row shows the feed title, its roles and the count of shared releases, with no source text. The count holds releases of each kind, so the words are "release" and "releases" (musicindex ADR 0085 R-SCOPE-1 item 2 and R-WORD-9 item 5). The `releases give rel="…"` text of "Shares releases with" is RSS text and keeps each word.
 - A Labels destination is a subsequent decision. The operator makes it when many feeds have a label role.
 
 #### 11.5 The Release Page Names Its Artist, And A Role Row Only For Another Role

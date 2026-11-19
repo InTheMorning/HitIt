@@ -199,7 +199,7 @@ fn unavailable_notice(report: &'static str, detail: &str, cx: &App) -> AnyElemen
 
 /// The shared releases section (ADR 0082 Decision 5): one row for each
 /// entry, with its title, its count and its roles. The heading and the
-/// note come from the view model (musicindex ADR 0023 R-WORD-10). A click
+/// note come from the view model (musicindex ADR 0085 R-WORD-10). A click
 /// opens the entry's feed page through `on_open_publisher`. `None` when
 /// the page has no entry: the section is then absent.
 fn render_shares_albums_with(

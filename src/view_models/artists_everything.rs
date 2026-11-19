@@ -826,7 +826,7 @@ mod tests {
         ));
     }
 
-    /// Musicindex ADR 0023 R-WORD-9: the count text is the last part of the
+    /// Musicindex ADR 0085 R-WORD-9: the count text is the last part of the
     /// secondary text. A name row counts `release_count`. A publisher row
     /// counts `two_way_link_count`. A row with no total adds no part.
     #[test]
@@ -846,17 +846,17 @@ mod tests {
         assert_eq!(
             index_artist_row(&rows[0]).secondary_text,
             "Not in Library \u{b7} by name \u{b7} 1 album \u{b7} 2 singles",
-            "musicindex ADR 0023 R-WORD-9: a name row"
+            "musicindex ADR 0085 R-WORD-9: a name row"
         );
         assert_eq!(
             index_artist_row(&rows[1]).secondary_text,
             "Not in Library \u{b7} 1 album \u{b7} 18 singles",
-            "musicindex ADR 0023 R-WORD-9: a publisher row"
+            "musicindex ADR 0085 R-WORD-9: a publisher row"
         );
         assert_eq!(
             index_artist_row(&rows[2]).secondary_text,
             "Not in Library",
-            "musicindex ADR 0023 R-WORD-9: no total gives no count part"
+            "musicindex ADR 0085 R-WORD-9: no total gives no count part"
         );
         assert_eq!(
             index_artist_row(&rows[3]).secondary_text,
