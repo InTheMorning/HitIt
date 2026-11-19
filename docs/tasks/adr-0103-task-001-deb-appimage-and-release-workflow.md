@@ -15,7 +15,7 @@ Make the `.deb` and the AppImage of ADR 0103, and the release workflow that make
 - `.github/workflows/ci.yml` installs the Linux build packages and runs `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets -- -D warnings` and `cargo test`.
 - `appimagetool` 1.9.1: `https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage`, SHA-256 `ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0`.
 - type2 runtime `20251108`: `https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64`, SHA-256 `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d`.
-- The Studio workflow `desktop-release.yml` (musicindex-studio commit `22971ee`) is the model for the tag check, the artifacts, the checksums and the draft Release.
+- The Studio workflow `desktop-release.yml` (musicindex-studio commit `cf4fc1e`) is the model for the tag check, the artifacts, the checksums and the draft Release.
 
 ## Base components
 

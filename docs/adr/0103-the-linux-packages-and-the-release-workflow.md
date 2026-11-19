@@ -6,7 +6,7 @@ Accepted - 2026-11-18. The orchestrator session relayed the operator request of 
 
 - Bar: crosses repositories. musicindex ADR 0084 binds HitIt, Studio and the three services. It is also difficult to change later, because a user who installs a package depends on its name, its folders and its dependencies.
 
-Uses: musicindex ADR 0084 R-PACKAGE-1, R-PACKAGE-4 and R-PACKAGE-5 (musicindex commit `2518515`). This session did not read a musicindex file. The orchestrator session sent the text of ADR 0084 and of the Studio workflow `desktop-release.yml` (musicindex-studio commit `22971ee`).
+Uses: musicindex ADR 0084 R-PACKAGE-1, R-PACKAGE-4 and R-PACKAGE-5 (musicindex commit `2518515`). This session did not read a musicindex file. The orchestrator session sent the text of ADR 0084 and of the Studio workflow `desktop-release.yml` (musicindex-studio commit `cf4fc1e`).
 
 Terms:
 

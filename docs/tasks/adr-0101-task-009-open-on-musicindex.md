@@ -39,7 +39,7 @@ Operator choice, 2026-11-15: a Library page shows the link when it has the feed 
 |---|---|---|---|
 | Identity actions | extend | `src/ui/composites/identity_action.rs` | It draws each link out of a header. Add the kind `MusicIndex`. |
 | Button tooltip | extend | `src/ui/primitives/button.rs` | Set the tooltip show delay for the instant link tooltip. |
-| Page address | new | `src/view_models/musicindex_link.rs` | Searched `src/view_models/`, `src/api.rs` and `src/ui/composites/` in HitIt. No code builds a musicindex.org page address. Searched musicindex-lib 953e464 and Studio 44d1895 through the orchestrator on 2026-11-15: no link builder. Keep it in one file with no HitIt type, so that it can move to musicindex-lib. |
+| Page address | new | `src/view_models/musicindex_link.rs` | Searched `src/view_models/`, `src/api.rs` and `src/ui/composites/` in HitIt. No code builds a musicindex.org page address. Searched musicindex-lib 953e464 and Studio 3cbb5bd through the orchestrator on 2026-11-15: no link builder. Keep it in one file with no HitIt type, so that it can move to musicindex-lib. |
 | Track page actions | extend | `src/view_models/track_detail.rs` | It gives the identity actions of a track. |
 | Release page actions | extend | `src/ui/shells/entity.rs` | It gives the identity actions of a release. |
 | Artist feed page header | extend | `src/ui/shells/publisher.rs` | It draws the header of an artist feed page. Give it the link. |

@@ -39,7 +39,7 @@ Main session choice, 2026-11-15: on Linux, Reduce Transparency stays `false` whe
 | Environment | extend | `src/ui/tokens.rs` | `Environment` holds `reduce_motion`. Add `increase_contrast` and `reduce_transparency` there. |
 | Profile selection | extend | `src/ui/theme_profiles.rs` | `effective_profile` maps System. Give it the contrast setting. |
 | Theme install | extend | `src/ui/theme_bridge.rs` | It builds the `Environment`. Give it the read settings. |
-| Settings source | new | `src/ui/system_settings.rs` | Searched `src/ui/`, `src/app.rs` and `src/runtime/` in HitIt. No code reads a system accessibility setting. Searched musicindex-lib 953e464 and Studio 44d1895 through the orchestrator on 2026-11-15 for ashpd and org.freedesktop.appearance: no match. Keep the reader in one file with no HitIt type, so that it can move to musicindex-lib when Studio needs it. |
+| Settings source | new | `src/ui/system_settings.rs` | Searched `src/ui/`, `src/app.rs` and `src/runtime/` in HitIt. No code reads a system accessibility setting. Searched musicindex-lib 953e464 and Studio 3cbb5bd through the orchestrator on 2026-11-15 for ashpd and org.freedesktop.appearance: no match. Keep the reader in one file with no HitIt type, so that it can move to musicindex-lib when Studio needs it. |
 | Appearance observer | extend | `src/app.rs` | It installs the theme again after a change. Do the same after a change of a setting. |
 
 ## Required Changes
