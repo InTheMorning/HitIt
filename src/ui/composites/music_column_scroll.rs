@@ -16,7 +16,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, point, prelude::*, AnyElement, App, Entity, List, ListAlignment, ListState,
+    canvas, div, point, prelude::*, AnyElement, App, Div, Entity, List, ListAlignment, ListState,
     Pixels, ScrollHandle, Window,
 };
 use gpui_component::scroll::ScrollableElement;
@@ -52,12 +52,43 @@ pub(crate) fn music_column_tracked_scrollbar<E>(
 where
     E: StatefulInteractiveElement + Styled + IntoElement + 'static,
 {
+    reveal_scrollbar(container.size_full(), scroll, probe, |wrapper| {
+        wrapper.flex_1()
+    })
+}
+
+/// Like [`music_column_tracked_scrollbar`], for a scroll area that is not a
+/// Music column and that takes its height from its content up to a limit of
+/// its parent. The band of actions of a maintenance page is one. The parent
+/// is a flex column with a height limit. The area shrinks below the height of
+/// its content and scrolls to a control that takes the focus from a key.
+pub(crate) fn content_height_tracked_scrollbar<E>(container: E, scroll: &ScrollHandle) -> AnyElement
+where
+    E: StatefulInteractiveElement + Styled + IntoElement + 'static,
+{
+    reveal_scrollbar(
+        container.w_full().flex_shrink_1().min_h_0(),
+        scroll,
+        None,
+        |wrapper| wrapper.flex().flex_col().flex_shrink_1(),
+    )
+}
+
+/// The shared body of the scroll areas above. `size` gives the wrapper its
+/// size in the parent. The caller gives `container` its size in the wrapper.
+fn reveal_scrollbar<E>(
+    container: E,
+    scroll: &ScrollHandle,
+    probe: Option<AnyElement>,
+    size: impl FnOnce(Div) -> Div,
+) -> AnyElement
+where
+    E: StatefulInteractiveElement + Styled + IntoElement + 'static,
+{
     // GPUI prepaints children in order, so only a control in `container`
     // gives its bounds between these two layers (ADR 0090 invariant "keyboard
     // reach").
-    let mut wrapper = div()
-        .relative()
-        .flex_1()
+    let mut wrapper = size(div().relative())
         .min_h_0()
         .min_w_0()
         .child(
@@ -67,12 +98,7 @@ where
             )
             .absolute(),
         )
-        .child(
-            container
-                .size_full()
-                .overflow_y_scroll()
-                .track_scroll(scroll),
-        )
+        .child(container.overflow_y_scroll().track_scroll(scroll))
         .child(focus_reveal_layer(scroll));
     if let Some(probe) = probe {
         wrapper = wrapper.child(probe);

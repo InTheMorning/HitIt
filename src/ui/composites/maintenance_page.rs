@@ -10,6 +10,7 @@ use gpui::{
 use gpui_component::scroll::ScrollableElement;
 
 use crate::ui::composites::confirmation_dialog::destructive_button_space;
+use crate::ui::composites::music_column_scroll::content_height_tracked_scrollbar;
 use crate::ui::composites::page_scroll_content::page_scroll_content;
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
@@ -259,7 +260,7 @@ impl RenderOnce for MaintenancePage {
         // CHROME domain.
         let width =
             f32::from(window.viewport_size().width) / ScaleFactor::current(cx).chrome_multiplier();
-        self.render_layout(MaintenanceLayout::for_width(width), cx)
+        self.render_layout(MaintenanceLayout::for_width(width), window, cx)
     }
 }
 
@@ -296,6 +297,7 @@ fn ordered_controls(
 fn maintenance_actions(
     controls: Vec<MaintenanceControl>,
     layout: MaintenanceLayout,
+    scroll: &ScrollHandle,
     cx: &App,
 ) -> AnyElement {
     let stacked = layout == MaintenanceLayout::Stacked;
@@ -314,14 +316,17 @@ fn maintenance_actions(
             .min_h(Size::MinHitTarget.scaled(cx) + Spacing::SM.scaled(cx) * 2.)
             .max_h(gpui::relative(layouts::MAINTENANCE_ACTION_BAND_FRACTION))
             .overflow_hidden()
+            .flex()
+            .flex_col()
             .bg(color(cx, SemanticColor::GroupBackground))
-            .child(
+            // The shared reveal scrolls the band to a button that takes the
+            // focus from a key (ADR 0090 invariant "keyboard reach").
+            .child(content_height_tracked_scrollbar(
                 div()
-                    .size_full()
-                    .min_h_0()
-                    .overflow_y_scrollbar()
+                    .id("maintenance-actions-scroll")
                     .child(action_content.children(controls)),
-            )
+                scroll,
+            ))
             .debug_selector(|| "maintenance-actions".to_owned())
             .into_any_element()
     } else {
@@ -343,10 +348,19 @@ fn maintenance_actions(
 }
 
 impl MaintenancePage {
-    fn render_layout(self, layout: MaintenanceLayout, cx: &App) -> impl IntoElement {
+    fn render_layout(
+        self,
+        layout: MaintenanceLayout,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> impl IntoElement {
         let has_actions = !self.actions.is_empty();
         let stacked = layout == MaintenanceLayout::Stacked;
-        let actions = maintenance_actions(self.actions, layout, cx);
+        let band_scroll = window
+            .use_keyed_state("maintenance-actions-scroll", cx, |_, _| ScrollHandle::new())
+            .read(cx)
+            .clone();
+        let actions = maintenance_actions(self.actions, layout, &band_scroll, cx);
 
         let content = match self.navigation.view {
             MaintenanceView::Instructions => div()
@@ -500,10 +514,14 @@ mod tests {
         logs: LogFrames,
     }
 
-    struct RestoreBandTest;
+    gpui::actions!(restore_band_test, [FocusNextControl]);
+
+    struct RestoreBandTest {
+        focus: gpui::FocusHandle,
+    }
 
     impl Render for RestoreBandTest {
-        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
             let labels = [
                 "Review restore",
                 "Upgrade backup",
@@ -515,6 +533,7 @@ mod tests {
                 Button::styled(label, ControlStyle::Secondary)
                     .label(label)
                     .a11y_label(label)
+                    .on_click(|_, _, _| {})
                     .into_any_element()
             });
             let page = MaintenancePage::new(
@@ -529,11 +548,14 @@ mod tests {
                 div().into_any_element(),
             );
             div()
+                .key_context("RestoreBandTest")
+                .track_focus(&self.focus)
+                .on_action(|_: &FocusNextControl, window, cx| window.focus_next(cx))
                 .w(gpui::px(390.))
                 .h(gpui::px(520.))
                 .flex()
                 .flex_col()
-                .child(page.render_layout(MaintenanceLayout::Stacked, cx))
+                .child(page.render_layout(MaintenanceLayout::Stacked, window, cx))
         }
     }
 
@@ -541,7 +563,9 @@ mod tests {
     #[gpui::test]
     fn adr_0074_task_001_the_restore_band_scrolls_at_390_px(cx: &mut TestAppContext) {
         cx.update(gpui_component::init);
-        let (_, cx) = cx.add_window_view(|_, _| RestoreBandTest);
+        let (_, cx) = cx.add_window_view(|_, cx| RestoreBandTest {
+            focus: cx.focus_handle(),
+        });
         cx.update(|window, cx| {
             let _ = window.draw(cx);
         });
@@ -563,8 +587,55 @@ mod tests {
         assert!(last_button.bottom() <= band.bottom());
     }
 
+    /// Situational ADR 0074, walk of 2026-11-19: at 390 px, Tab moved the
+    /// focus to a band button below the band edge and the band did not
+    /// scroll. Tab now shows each focused button inside the band.
+    #[gpui::test]
+    fn adr_0074_task_001_tab_reveals_each_band_button_at_390_px(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+            cx.bind_keys([gpui::KeyBinding::new(
+                "tab",
+                FocusNextControl,
+                Some("RestoreBandTest"),
+            )]);
+        });
+        let (root, cx) = cx.add_window_view(|_, cx| RestoreBandTest {
+            focus: cx.focus_handle(),
+        });
+        let focus = cx.update(|_, cx| root.read(cx).focus.clone());
+        let draw = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+        };
+        cx.update(|window, cx| {
+            window.activate_window();
+            window.focus(&focus, cx);
+        });
+        draw(cx);
+        for label in [
+            "Review restore",
+            "Upgrade backup",
+            "Restore database",
+            "Cancel",
+            "Copy database report",
+        ] {
+            cx.simulate_keystrokes("tab");
+            draw(cx);
+            let band = cx.debug_bounds("maintenance-actions").unwrap();
+            let button = cx.debug_bounds(label).unwrap();
+            assert!(button.top() >= band.top(), "{label} top is above the band");
+            assert!(
+                button.bottom() <= band.bottom(),
+                "{label} bottom is below the band"
+            );
+        }
+    }
+
     impl Render for PageTest {
-        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
             let content = instructions(cx).children((0..30).map(|index| {
                 div()
                     .h(gpui::px(60.))
@@ -613,7 +684,7 @@ mod tests {
                 .h(gpui::px(520.))
                 .flex()
                 .flex_col()
-                .child(page.render_layout(MaintenanceLayout::for_width(self.width), cx))
+                .child(page.render_layout(MaintenanceLayout::for_width(self.width), window, cx))
         }
     }
 

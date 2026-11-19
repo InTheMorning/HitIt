@@ -950,6 +950,8 @@ Task: [ADR 0074 task 001](tasks/adr-0074-task-001-the-restore-band-scrolls-at-39
 
 The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md) passed step 3, V1 and V3 in Dark and Light. **V2 fails:** Tab goes to "Upgrade backup" and "Copy database report" below the edge of the band, and the band does not scroll. The walk record gives the preparation that enables the buttons.
 
+A second agent walk on 2026-11-19, after the fix of defect 2, passed V1 and V2 in Dark and Light. At 480 px the band now shows two rows with all five buttons, and it is higher than before. Before the fix, two buttons were hidden at 480 px. The task file records this as an open operator choice for V3.
+
 ## 38. ADR 0092 Task 004 The List Comes Before The Tab Bar - 2026-11-18
 
 Task: [ADR 0092 task 004](tasks/adr-0092-task-004-the-list-comes-before-the-tab-bar.md).
