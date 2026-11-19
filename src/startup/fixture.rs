@@ -323,7 +323,6 @@ fn seed_tracks(conn: &rusqlite::Connection, root: &Path) -> Result<()> {
     conn.execute("INSERT INTO feeds (id, feed_url, feed_guid, title) VALUES (1, 'fixture:rss', 'fixture-feed', 'Startup fixture')", [])?;
     // A quiet 30-second tone makes actual playback audible in a desktop session.
     let wav = crate::playback_driver::tone::wav_bytes(&crate::playback_driver::tone::ToneSpec {
-        wave: crate::playback_driver::tone::Wave::Square,
         frequency_hz: 200,
         seconds: 30,
         sample_rate: 8_000,

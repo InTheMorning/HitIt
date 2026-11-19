@@ -1,24 +1,16 @@
 //! Tone writer for WAV files that the app and the debug fixture play.
 //!
 //! The test sound of ADR 0104 Decision 4 and the debug fixture use this writer.
-//! The file is 16-bit mono PCM. Each caller gives its own wave, length and level.
+//! The file is 16-bit mono PCM. Each caller gives its own frequency, length and level.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
-/// The wave shape of a tone.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Wave {
-    Sine,
-    Square,
-}
-
-/// The parameters of one tone.
+/// The parameters of one sine tone.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ToneSpec {
-    pub(crate) wave: Wave,
     pub(crate) frequency_hz: u32,
     pub(crate) seconds: u32,
     pub(crate) sample_rate: u32,
@@ -35,7 +27,6 @@ pub(crate) const TEST_TONE_FILE_NAME: &str = "test-sound.wav";
 /// The test sound: 440 Hz sine, 2 s, -18 dBFS.
 pub(crate) fn test_tone() -> ToneSpec {
     ToneSpec {
-        wave: Wave::Sine,
         frequency_hz: 440,
         seconds: 2,
         sample_rate: 44_100,
@@ -81,24 +72,10 @@ pub(crate) fn wav_bytes(spec: &ToneSpec) -> Vec<u8> {
 )]
 fn sample(spec: &ToneSpec, index: u64) -> i16 {
     let peak = f64::from(spec.peak);
-    match spec.wave {
-        Wave::Sine => {
-            // Reduce the phase with integers, so a long tone keeps its accuracy.
-            let cycle_position =
-                (index * u64::from(spec.frequency_hz)) % u64::from(spec.sample_rate);
-            let phase = cycle_position as f64 / f64::from(spec.sample_rate);
-            (peak * (std::f64::consts::TAU * phase).sin()).round() as i16
-        }
-        Wave::Square => {
-            let cycle_position =
-                (index * u64::from(spec.frequency_hz)) % u64::from(spec.sample_rate);
-            if cycle_position < u64::from(spec.sample_rate) / 2 {
-                spec.peak
-            } else {
-                -spec.peak
-            }
-        }
-    }
+    // Reduce the phase with integers, so a long tone keeps its accuracy.
+    let cycle_position = (index * u64::from(spec.frequency_hz)) % u64::from(spec.sample_rate);
+    let phase = cycle_position as f64 / f64::from(spec.sample_rate);
+    (peak * (std::f64::consts::TAU * phase).sin()).round() as i16
 }
 
 /// Writes the tone to a WAV file at `path`.
@@ -161,21 +138,6 @@ mod tests {
             (crossings as i64 - 1760).abs() <= 2,
             "{crossings} zero crossings"
         );
-    }
-
-    #[test]
-    fn square_wave_keeps_the_fixture_shape() {
-        let spec = ToneSpec {
-            wave: Wave::Square,
-            frequency_hz: 200,
-            seconds: 1,
-            sample_rate: 8_000,
-            peak: 300,
-        };
-        let samples = samples(&wav_bytes(&spec));
-        for (index, value) in samples.iter().enumerate() {
-            assert_eq!(*value, if index % 40 < 20 { 300 } else { -300 });
-        }
     }
 
     #[test]
