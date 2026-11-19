@@ -24,6 +24,8 @@ and [first packet](../tasks/archive/adr-0069-task-001-grouped-settings-foundatio
 separate the existing-field foundation from guarded editing, new configuration
 and playback integration.
 
+- Changed by: [ADR 0104](0104-the-show-player-and-the-sound-setup.md), 2026-11-19. The group "Audio" opens before the output selectors. It holds the Show player choice, the state of mpv and the test sound.
+- Changed by: [ADR 0105](0105-go-on-air-and-end-show.md), 2026-11-19. "Go on air" and "End show" run Start, Stop, Attach, Connect and Disconnect in a fixed order after a confirmation. The separate controls stay.
 - Changed by: [ADR 0093](0093-settings-has-a-tab-row-and-one-save-bar.md), 2026-11-10. ADR 0093
   applies musicindex ADR 0059. A segmented control selects the group.
   One Save bar in the page bar holds Save and Discard for all groups.

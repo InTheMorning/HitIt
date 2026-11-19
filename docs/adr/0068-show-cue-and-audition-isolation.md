@@ -21,6 +21,8 @@ The packets of this record are not written yet.
 
 Revised 2026-11-11 for the shell of [ADR 0089](archive/0089-the-shell-destinations-and-list-pages.md).
 
+- Changed by: [ADR 0105](0105-go-on-air-and-end-show.md), 2026-11-19. After the last entry ends while the stream is connected, the Show page shows the end band of ADR 0105 Decision 6. The Show still stops and keeps the cue.
+- Changed by: [ADR 0106](0106-the-cue-changes-during-a-show.md), 2026-11-19. The host can move an entry after the current entry while the Show plays or is paused. After a load, the app opens Show.
 - Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
 
 The section [Revision For The ADR 0089 Shell](#revision-for-the-adr-0089-shell---2026-11-11) changes the text of this record where the two records do not agree.

@@ -85,6 +85,8 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 [ADR 0100](docs/adr/0100-a-removal-moves-the-audio-file-to-the-audio-cache.md), Accepted on 2026-11-15, moves the audio file of a removed track from the music folder to the audio cache, `~/.cache/hitit/audio`. The music folder holds only Library tracks. The table `cached_files` holds the cache files, and a `local_files` row is a file below `music_dir`. [ADR 0100 task 001](docs/tasks/adr-0100-task-001-removal-moves-the-file-to-the-audio-cache.md) implements it on 2026-11-15, and the operator passed its visual checks on 2026-11-15.
 
+The show host analysis of 2026-11-19 gives three ADRs, Accepted on 2026-11-19. [ADR 0104](docs/adr/0104-the-show-player-and-the-sound-setup.md) makes mpv the default Show player, adds the Settings group "Audio" with a test sound, and opens it at the first start. [ADR 0105](docs/adr/0105-go-on-air-and-end-show.md) gives the Show page one on air band with "Go on air" and "End show". [ADR 0106](docs/adr/0106-the-cue-changes-during-a-show.md) lets the host move cue entries after the current entry during a show, and a load opens Show. Their six tasks are Ready: [ADR 0104 task 001](docs/tasks/adr-0104-task-001-mpv-default-and-test-sound.md) comes first, and each task names the tasks that it waits for. The operator decides their priority.
+
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for

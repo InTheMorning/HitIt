@@ -18,6 +18,7 @@ monospace typography, and per-source following now precede ADR 0066 task 007.
 bounded change and records its completed acceptance. Earlier dashboard and task 017
 acceptance remain closed for their shipped scope.
 
+- Changed by: [ADR 0105](0105-go-on-air-and-end-show.md), 2026-11-19. The Show page has the on air band above the cards. The cards keep their order and their controls.
 - Changed by: [ADR 0070](archive/0070-show-log-space-priority.md), 2026-09-13. ADR 0070 supersedes the
   simultaneous card-visibility requirement while a log is open, at the operator's
   request during task 005. It gives logs priority over a scrolling card viewport

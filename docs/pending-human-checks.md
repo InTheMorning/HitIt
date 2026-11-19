@@ -1027,3 +1027,37 @@ Task: [ADR 0101 task 016](tasks/adr-0101-task-016-the-search-error-details-fold.
 4. Tab to "Details" and push Enter. Make sure that the fold opens, as in step 3.
 5. Do steps 2 to 4 in Light and Dark. Then set `musicindex_endpoint` back to its value before step 1.
 - Incorrect: the report shows at the start, or a label says "Show details" or "Hide details".
+
+## 44. ADR 0104 Task 002 The Group "Audio" And The First Start - 2026-11-19
+
+Task: [ADR 0104 task 002](tasks/adr-0104-task-002-the-audio-group-and-the-first-start.md). The task is Ready. Do these checks after its build.
+
+1. Open Settings, Audio. Make sure that the group shows "Speakers of this computer (mpv)", "No sound", the mpv state and "Play test sound" (V1).
+2. Click "Play test sound". Make sure that you hear a tone for 2 seconds and that the question "Did you hear the test sound?" then shows (V2).
+3. Start HitIt with an empty configuration folder. Make sure that it opens "Set up sound", and that "Continue" opens Music (V3).
+4. Do steps 1 and 2 in Light and Dark.
+- Incorrect: the group shows a typed value such as `null`, or the tone is silent and HitIt says nothing.
+
+## 45. ADR 0105 Tasks 001 And 002 "Go On Air" And "End Show" - 2026-11-19
+
+Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](tasks/adr-0105-task-002-end-show-and-the-last-track.md). The tasks are Ready. These checks need a stream server and a second device that listens.
+
+1. Open Show. Make sure that the band is above the cards, with the rows Sound plays, Show cue, Stream and Show information in this order, at 1440 px and at 390 px (V1).
+2. Click "Go on air". Make sure that the confirmation names the first track. Confirm, and make sure that the second device plays the show from the start of the first track (V2).
+3. Mute the input of the stream. Make sure that the band shows "The stream gets silence" (V3).
+4. Click "End show". Make sure that the confirmation lists the parts and the two notes. Confirm, and make sure that the second device stops (V4).
+5. Go on air with a cue of one short track. At its end, make sure that the end band counts down. Click "Keep on air" and make sure that the stream stays on. Do it again with no click, and make sure that the show ends after 60 seconds (V5).
+6. Do steps 1, 2 and 4 in Light and Dark.
+- Incorrect: a part starts before the confirmation, or the band says that listeners hear the show.
+
+## 46. ADR 0106 Tasks 001 And 002 The Cue Changes During A Show - 2026-11-19
+
+Tasks: [ADR 0106 task 001](tasks/adr-0106-task-001-move-entries-during-a-show.md) and [task 002](tasks/adr-0106-task-002-a-load-opens-the-show.md). The tasks are Ready.
+
+1. Play a cue of four tracks. Drag the fourth row to the third position. Make sure that the track does not stop (V1).
+2. Click "Play next" on the fourth row. Make sure that it goes directly after the playing row, and that it plays when the playing track ends (V2).
+3. Try to drag a played row and the playing row. Make sure that they do not move (V3).
+4. In Music, click "Load into Show cue" on a playlist. Make sure that Show opens with that cue (V4).
+5. Clear the cue. Make sure that Show lists the playlists, and that "Load into Show cue" on a row loads it (V5).
+6. Do steps 1 and 5 in Light and Dark.
+- Incorrect: a move stops or restarts the track, or a played row moves.
