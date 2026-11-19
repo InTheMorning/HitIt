@@ -1054,7 +1054,7 @@ Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](
 
 ## 46. ADR 0106 Tasks 001 And 002 The Cue Changes During A Show - 2026-11-19
 
-Tasks: [ADR 0106 task 001](tasks/adr-0106-task-001-move-entries-during-a-show.md) and [task 002](tasks/adr-0106-task-002-a-load-opens-the-show.md). The tasks are Ready.
+Tasks: [ADR 0106 task 001](tasks/adr-0106-task-001-move-entries-during-a-show.md) and [task 002](tasks/adr-0106-task-002-a-load-opens-the-show.md). The two tasks are implemented. These checks stay open.
 
 1. Play a cue of four tracks. Drag the fourth row to the third position. Make sure that the track does not stop (V1).
 2. Click "Play next" on the fourth row. Make sure that it goes directly after the playing row, and that it plays when the playing track ends (V2).
@@ -1062,4 +1062,5 @@ Tasks: [ADR 0106 task 001](tasks/adr-0106-task-001-move-entries-during-a-show.md
 4. In Music, click "Load into Show cue" on a playlist. Make sure that Show opens with that cue (V4).
 5. Clear the cue. Make sure that Show lists the playlists, and that "Load into Show cue" on a row loads it (V5).
 6. Do steps 1 and 5 in Light and Dark.
+7. Clear the cue. On the on air band, click "Open playlists" on the row Show cue. Make sure that Show shows the playlists of step 5 (V5).
 - Incorrect: a move stops or restarts the track, or a played row moves.

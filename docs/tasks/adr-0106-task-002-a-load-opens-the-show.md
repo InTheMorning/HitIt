@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented - 2026-11-19. Items 1 and 2 are built. Item 3 waits for ADR 0105 task 001. The visual criteria wait for a person, in section 46 of the pending human checks.
+Implemented - 2026-11-19. The mechanical criteria pass. The visual criteria wait for a person, in section 46 of the pending human checks.
 
 ## Goal
 
@@ -43,7 +43,7 @@ These are in section 46 of [pending human checks](../pending-human-checks.md).
 
 ## Report
 
-Items 1 and 2 are built. Item 3 is not built. It waits for ADR 0105 task 001.
+Items 1, 2 and 3 are built. ADR 0105 task 001 (commit d7e85a2) built item 3.
 
 Changed files:
 
@@ -79,3 +79,8 @@ Main session review:
 - The empty state now uses the full cue, not the rows after the text filter. A filter that hides each row does not show the playlist list. The test `adr_0106_a_cue_with_entries_gives_no_playlist_rows` covers it.
 - Open: the Music menu says "Load into Show Cue" and "Replace Show Cue". ADR 0106 and the Show row say "Load into Show cue". The operator decides the case.
 - Open: a stopped Show with cue entries has no empty state. The status bar still says "No active show".
+
+Item 3, main session check after ADR 0105 task 001:
+
+- The on air row "Show cue" gives "Open playlists" when the cue is empty or an entry is not ready (`src/view_models/show.rs`, the test of `with_on_air_band`). `TopApp::on_air_row_action` in `src/app/show.rs` selects Show and opens the cue panel. With an empty cue, the Show page lists My playlists below the band. No code change is necessary.
+- No unit test covers this app link. Step 7 of section 46 examines it.
