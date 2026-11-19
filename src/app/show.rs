@@ -18,7 +18,7 @@ use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{RecoveryAction, RecoveryIntent};
 use crate::application::commands::playlist::ClearShowCue;
 use crate::application::{ApplicationCommand, CommandContext, CommandError, CommandOutcome};
-use crate::broadcast::control::{self, UnitRef};
+use crate::broadcast::control::{self, ServiceState, UnitRef};
 use crate::broadcast::encoder::{self, EncoderTarget};
 use crate::broadcast::publisher_targets::{self, PublisherTargetCommandError, PublisherTargetList};
 use crate::broadcast::registry::BroadcastRegistry;
@@ -55,6 +55,299 @@ use super::{AppTab, TopApp};
 const PRODUCER_UNIT: &str = "mixxx-now-playing.service";
 
 impl TopApp {
+    fn confirm_go_on_air(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        let Some(band) = self.show_page.on_air.as_ref() else {
+            return;
+        };
+        if !band.go_available {
+            return;
+        }
+        let message = if band.show_information_off {
+            format!(
+                "{}\nShow information: off. Podcast apps do not show this show.",
+                band.confirmation_message
+            )
+        } else {
+            band.confirmation_message.clone()
+        };
+        let entity = cx.weak_entity();
+        open_confirmation_dialog(
+            window,
+            cx,
+            ConfirmationDialogDisplay {
+                title: band.confirmation_title.into(),
+                message: message.into(),
+                cancel_button_id: "show-go-on-air-cancel".into(),
+                cancel_label: "Cancel".into(),
+                cancel_a11y_label: "Cancel going on air".into(),
+                confirm_button_id: "show-go-on-air-confirm".into(),
+                confirm_label: "Go on air".into(),
+                confirm_a11y_label: "Start the show stream".into(),
+                destructive: false,
+                items: Vec::new(),
+            },
+            ConfirmationDialogHandlers::new(
+                |_, _: &mut gpui::App| {},
+                move |_, cx: &mut gpui::App| {
+                    let _ = entity.update(cx, TopApp::start_on_air_sequence);
+                },
+            ),
+        );
+    }
+
+    fn start_on_air_sequence(&mut self, cx: &mut Context<Self>) {
+        if let Some(sequence) = self.on_air_sequence.as_ref() {
+            if sequence.failure.is_none() {
+                return;
+            }
+            self.on_air_sequence = None;
+        }
+        let running = self
+            .publisher_service_snapshot
+            .as_ref()
+            .map(|snapshot| {
+                snapshot
+                    .units
+                    .iter()
+                    .filter(|unit| unit.state == ServiceState::Active)
+                    .map(|unit| unit.role)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        self.on_air_sequence = Some(crate::view_models::show::OnAirSequence::new(
+            crate::view_models::show::services_to_start(&running),
+            self.show_information.is_on(),
+        ));
+        self.dispatch_next_on_air_step(cx);
+    }
+
+    fn dispatch_next_on_air_step(&mut self, cx: &mut Context<Self>) {
+        use crate::view_models::show::OnAirStep;
+        let Some(step) = self
+            .on_air_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::OnAirSequence::next_step)
+        else {
+            if self
+                .on_air_sequence
+                .as_ref()
+                .is_some_and(|sequence| sequence.failure.is_none())
+            {
+                self.on_air_sequence = None;
+            }
+            self.reproject_show_page_from_current_queue();
+            cx.notify();
+            return;
+        };
+        match step {
+            OnAirStep::StartService(role) => {
+                self.run_publisher_service_command(role, PublisherServiceOperation::Start, cx);
+            }
+            OnAirStep::AttachEvent => {
+                self.dispatch_event_target_command(EventTargetOperation::Attach, None, cx);
+            }
+            OnAirStep::ConnectStream => {
+                self.run_stream_encoder_command(StreamEncoderOperation::Connect, cx);
+            }
+            OnAirStep::PlayCue => {
+                self.start_on_air_cue(cx);
+                return;
+            }
+        }
+        // A dispatch that returned before it set a step id did not start the
+        // command. Without this, the sequence would wait for all time.
+        let still_waiting = self
+            .on_air_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::OnAirSequence::next_step)
+            == Some(step)
+            && self.on_air_step_id.is_none();
+        if still_waiting {
+            let reason = if self.settings_status.is_empty() {
+                "This step could not start.".to_owned()
+            } else {
+                self.settings_status.clone()
+            };
+            self.advance_on_air(None, Err(reason), cx);
+        }
+    }
+
+    fn start_on_air_cue(&mut self, cx: &mut Context<Self>) {
+        use crate::view_models::show::OnAirRow;
+        let action =
+            self.playback_action(crate::application::capability_recovery::PlaybackOperation::Start);
+        let Some(owner) = self.available_playback_owner(&action, cx) else {
+            self.fail_on_air_play(
+                OnAirRow::Sound,
+                "Show playback is not available.".into(),
+                cx,
+            );
+            return;
+        };
+        let Some(entry_id) = self.show_page.queue.selected_entry_id() else {
+            self.fail_on_air_play(
+                OnAirRow::ShowCue,
+                "The Show cue has no selected entry.".into(),
+                cx,
+            );
+            return;
+        };
+        if let Some(reason) = self.refuse_show_play(&owner, cx) {
+            self.fail_on_air_play(OnAirRow::Sound, reason.into(), cx);
+            return;
+        }
+        self.on_air_play_pending.set(true);
+        self.run_playback_command(
+            crate::application::commands::playback::StartShow::new(
+                Arc::clone(&self.conn),
+                owner,
+                Some(entry_id),
+            ),
+            action,
+            None,
+            cx,
+        );
+    }
+
+    /// The play step ended well. Only the play command of the run calls this.
+    pub(super) fn finish_on_air_play(
+        &mut self,
+        result: Result<(), String>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.on_air_play_step_is_next() {
+            self.advance_on_air(None, result, cx);
+        }
+    }
+
+    /// The play step failed. The error goes to the row that the caller names.
+    pub(super) fn fail_on_air_play(
+        &mut self,
+        row: crate::view_models::show::OnAirRow,
+        error: String,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.on_air_play_step_is_next() {
+            return;
+        }
+        if let Some(sequence) = self.on_air_sequence.as_mut() {
+            sequence.fail(row, error);
+        }
+        self.on_air_step_id = None;
+        self.on_air_connect_started = None;
+        self.reproject_show_page_from_current_queue();
+        cx.notify();
+    }
+
+    fn on_air_play_step_is_next(&self) -> bool {
+        self.on_air_step_id.is_none()
+            && self
+                .on_air_sequence
+                .as_ref()
+                .and_then(crate::view_models::show::OnAirSequence::next_step)
+                == Some(crate::view_models::show::OnAirStep::PlayCue)
+    }
+
+    /// Runs the one action of an on-air row (ADR 0105 Decision 2).
+    fn on_air_row_action(
+        &mut self,
+        action: crate::view_models::show::OnAirAction,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::view_models::settings::{SettingsAction, SettingsGroup};
+        use crate::view_models::show::OnAirAction;
+        match action {
+            OnAirAction::PlayTestSound => {
+                self.settings_action(
+                    SettingsAction::SelectGroup(SettingsGroup::Audio),
+                    window,
+                    cx,
+                );
+                self.select_tab(AppTab::Settings, window, cx);
+            }
+            OnAirAction::OpenPlaylists => {
+                if self.tab != AppTab::Show {
+                    self.select_tab(AppTab::Show, window, cx);
+                }
+                self.show_cuelist_panel(cx);
+            }
+            OnAirAction::ChangeStream => {
+                self.settings_action(SettingsAction::OpenRepair, window, cx);
+                self.select_tab(AppTab::Settings, window, cx);
+            }
+            OnAirAction::AddEvent => {
+                self.show_page = self
+                    .show_page
+                    .clone()
+                    .show_card_detail(ShowCardKind::LiveMetadata);
+                cx.notify();
+            }
+            OnAirAction::TryAgain => self.start_on_air_sequence(cx),
+        }
+    }
+
+    fn toggle_show_information(&mut self, cx: &mut Context<Self>) {
+        // A failed run permits the switch, so that the host can try again without the attach.
+        if self
+            .on_air_sequence
+            .as_ref()
+            .is_some_and(|sequence| sequence.failure.is_none())
+        {
+            return;
+        }
+        self.show_information = self.show_information.toggled();
+        self.reproject_show_page_from_current_queue();
+        cx.notify();
+    }
+
+    pub(super) fn advance_on_air(
+        &mut self,
+        command_id: Option<ShowCommandId>,
+        result: Result<(), String>,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(expected) = self.on_air_step_id {
+            if command_id != Some(expected) {
+                return;
+            }
+        } else if command_id.is_some() {
+            return;
+        }
+        let Some(sequence) = self.on_air_sequence.as_mut() else {
+            return;
+        };
+        sequence.complete(result);
+        self.on_air_step_id = None;
+        self.on_air_connect_started = None;
+        self.reproject_show_page_from_current_queue();
+        self.dispatch_next_on_air_step(cx);
+    }
+
+    fn check_on_air_connection(&mut self, cx: &mut Context<Self>) {
+        let Some(command_id) = self.on_air_step_id else {
+            return;
+        };
+        let Some(started_at) = self.on_air_connect_started else {
+            return;
+        };
+        let connected = self
+            .publisher_service_snapshot
+            .as_ref()
+            .is_some_and(|snapshot| {
+                snapshot.encoder.status.state == crate::broadcast::encoder::EncoderState::Connected
+            });
+        if connected {
+            self.advance_on_air(Some(command_id), Ok(()), cx);
+        } else if started_at.elapsed() >= std::time::Duration::from_secs(15) {
+            self.advance_on_air(
+                Some(command_id),
+                Err("The stream did not connect.".into()),
+                cx,
+            );
+        }
+    }
+
     fn confirm_clear_show_cue(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
         if !self.show_page.queue.can_clear_show_cue() {
             return;
@@ -119,6 +412,10 @@ impl TopApp {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the Show slot builder binds each callback to its existing app command"
+)]
 pub(super) fn build_show_screen(
     app: &TopApp,
     window_width: f32,
@@ -138,6 +435,9 @@ pub(super) fn build_show_screen(
     let disconnect_stream_entity = entity.clone();
     let readiness_entity = entity.clone();
     let load_playlist_entity = entity.clone();
+    let on_air_entity = entity.clone();
+    let on_air_action_entity = entity.clone();
+    let information_entity = entity.clone();
     let slots = with_log_slots(ShowSlots::new().log_frames(app.log_frames.clone()), &entity);
     let slots = with_event_registry_slots(slots, &entity);
     render_show(
@@ -169,6 +469,17 @@ pub(super) fn build_show_screen(
                 load_playlist_entity.update(cx, |this, cx| {
                     this.load_playlist_into_show_cue(playlist_id, cx);
                 });
+            })
+            .on_go_on_air(move |window, cx| {
+                on_air_entity.update(cx, |this, cx| this.confirm_go_on_air(window, cx));
+            })
+            .on_on_air_action(move |action, window, cx| {
+                on_air_action_entity.update(cx, |this, cx| {
+                    this.on_air_row_action(action, window, cx);
+                });
+            })
+            .on_toggle_show_information(move |_, cx| {
+                information_entity.update(cx, TopApp::toggle_show_information);
             })
             .on_open_broadcast_readiness(move |_, _, cx| {
                 readiness_entity.update(cx, |this, cx| {
@@ -429,6 +740,7 @@ impl TopApp {
         let command_progress_changed = self.show_commands.observe(&snapshot);
         self.sync_broadcast_service_watch_pace();
         let previous_snapshot = self.publisher_service_snapshot.replace(snapshot);
+        self.check_on_air_connection(cx);
         self.reproject_show_page_from_current_queue();
         let mut log_read_started = false;
         if self.tab == AppTab::Show {
@@ -501,7 +813,28 @@ impl TopApp {
         .with_panel_state(panel_mode, panel_open)
         .with_cue_playlists(crate::view_models::playlist_curation::show_playlist_rows(
             &self.show_playlists,
-        ));
+        ))
+        .with_on_air_band(crate::view_models::show::OnAirFacts {
+            player_is_mpv: self.audio_driver == config::PlaybackDriver::Mpv,
+            mpv_ping_succeeded: matches!(
+                self.mpv_status,
+                crate::view_models::audio_setup::MpvStatus::Installed(_)
+            ),
+            test_sound: self.test_sound.outcome(),
+            stream_address: self
+                .broadcast
+                .encoder
+                .as_ref()
+                .ok()
+                .and_then(Option::as_ref)
+                .and_then(|encoder| encoder.address.as_deref()),
+            show_information: self.show_information,
+            sequence: self.on_air_sequence.as_ref(),
+            run_active: self
+                .on_air_sequence
+                .as_ref()
+                .is_some_and(|sequence| sequence.next_step().is_some()),
+        });
     }
 
     pub(super) fn reproject_show_page_from_current_queue(&mut self) {
@@ -587,6 +920,14 @@ impl TopApp {
             }
             return;
         };
+        if self
+            .on_air_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::OnAirSequence::next_step)
+            == Some(crate::view_models::show::OnAirStep::StartService(role))
+        {
+            self.on_air_step_id = Some(command_id);
+        }
         self.dispatch_show_command(command, command_id, action, retry_id, cx);
     }
 
@@ -724,6 +1065,10 @@ impl TopApp {
         }
     }
 
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "the async completion callback owns the command result"
+    )]
     fn finish_show_command(
         &mut self,
         command_id: ShowCommandId,
@@ -739,10 +1084,31 @@ impl TopApp {
         }
         self.settings_status = completion
             .result
+            .as_ref()
             .err()
-            .map_or_else(String::new, |error| error.to_string());
+            .map_or_else(String::new, ToString::to_string);
         self.reproject_show_page_from_current_queue();
         self.invalidate_publisher_service_snapshot();
+        let is_on_air_connect = self
+            .on_air_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::OnAirSequence::next_step)
+            == Some(crate::view_models::show::OnAirStep::ConnectStream)
+            && self.on_air_step_id == Some(command_id);
+        if is_on_air_connect && completion.result.is_ok() {
+            self.on_air_connect_started = Some(std::time::Instant::now());
+            self.check_on_air_connection(cx);
+        } else {
+            self.advance_on_air(
+                Some(command_id),
+                completion
+                    .result
+                    .as_ref()
+                    .copied()
+                    .map_err(ToString::to_string),
+                cx,
+            );
+        }
         cx.notify();
     }
 
@@ -1064,6 +1430,15 @@ impl TopApp {
             }
             return;
         };
+        if operation == EventTargetOperation::Attach
+            && self
+                .on_air_sequence
+                .as_ref()
+                .and_then(crate::view_models::show::OnAirSequence::next_step)
+                == Some(crate::view_models::show::OnAirStep::AttachEvent)
+        {
+            self.on_air_step_id = Some(command_id);
+        }
         // ADR 0059: the waiting command needs the Viewed pace at once.
         self.sync_broadcast_service_watch_pace();
         self.event_session.next_request += 1;
@@ -1141,6 +1516,15 @@ impl TopApp {
         let Some(command_id) = self.show_commands.begin_stream(operation) else {
             return;
         };
+        if operation == StreamEncoderOperation::Connect
+            && self
+                .on_air_sequence
+                .as_ref()
+                .and_then(crate::view_models::show::OnAirSequence::next_step)
+                == Some(crate::view_models::show::OnAirStep::ConnectStream)
+        {
+            self.on_air_step_id = Some(command_id);
+        }
         self.dispatch_show_command(command, command_id, action, None, cx);
     }
 
@@ -3085,6 +3469,11 @@ impl TopApp {
         if !self.event_request_is_current(request, context) {
             return;
         }
+        let on_air_result = completion
+            .result
+            .as_ref()
+            .copied()
+            .map_err(ToString::to_string);
         if let Some(input) = &mut self.event_section_input {
             if let Err(error) = completion.result {
                 input.feedback.target_mutation = EventCommandState::Failed {
@@ -3093,6 +3482,7 @@ impl TopApp {
                 input.record_event_report(EventReportOperation::TargetMutation, chrono::Utc::now());
             }
         }
+        self.advance_on_air(Some(command_id), on_air_result, cx);
         self.read_event_targets(request, cx);
     }
 }

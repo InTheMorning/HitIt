@@ -47,7 +47,7 @@ use crate::view_models::publisher_page::PublisherPageContext;
 use crate::view_models::search_page::SearchPageAction;
 use crate::view_models::search_results::{SearchResultsInspectorPageVm, SearchResultsTab};
 use crate::view_models::settings::{SettingsAction, SettingsVm};
-use crate::view_models::show::{EventSectionInput, ShowCommandState, ShowPageVm};
+use crate::view_models::show::{EventSectionInput, ShowCommandId, ShowCommandState, ShowPageVm};
 use crate::view_models::sidebar::{ShellForm, SidebarDestination};
 use crate::view_models::workspace::{
     music_focus_moves, music_focus_target, music_page_content, FrameNavigationEntry,
@@ -226,6 +226,14 @@ pub struct TopApp {
     show_playlists: Vec<crate::db::Playlist>,
     playback_presentation_override: Option<crate::view_models::queue_now_playing::TransportState>,
     show_commands: ShowCommandState,
+    /// Active ordered Go on air run (ADR 0105).
+    on_air_sequence: Option<crate::view_models::show::OnAirSequence>,
+    on_air_step_id: Option<ShowCommandId>,
+    on_air_connect_started: Option<std::time::Instant>,
+    /// Set by `start_on_air_cue` only. `run_playback_command` takes it.
+    on_air_play_pending: std::cell::Cell<bool>,
+    /// The host switch "Show information" (ADR 0105 Decision 2). It is on by default.
+    show_information: crate::view_models::show::ShowInformationSwitch,
     broadcast: config::BroadcastCapabilities,
     music_dir: PathBuf,
     audio_cache_dir: PathBuf,
@@ -599,6 +607,11 @@ impl TopApp {
             show_page,
             playback_presentation_override: None,
             show_commands: ShowCommandState::default(),
+            on_air_sequence: None,
+            on_air_step_id: None,
+            on_air_connect_started: None,
+            on_air_play_pending: std::cell::Cell::new(false),
+            show_information: crate::view_models::show::ShowInformationSwitch::default(),
             broadcast,
             music_dir,
             audio_cache_dir,

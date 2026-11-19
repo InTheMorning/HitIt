@@ -167,7 +167,7 @@ impl TopApp {
 
     /// Refuses a Show Play when the player is the `null` driver (ADR 0104 Decision 2).
     /// The refusal comes before the "Starting" override, so that state does not occur.
-    fn refuse_show_play(
+    pub(super) fn refuse_show_play(
         &mut self,
         owner: &Arc<
             std::sync::Mutex<
@@ -261,7 +261,7 @@ impl TopApp {
         self.test_sound.outcome()
     }
 
-    fn playback_action(&self, operation: PlaybackOperation) -> RecoveryAction {
+    pub(super) fn playback_action(&self, operation: PlaybackOperation) -> RecoveryAction {
         RecoveryAction::Playback {
             operation,
             track_id: self.show_page.queue.current_track_id(),
@@ -349,7 +349,7 @@ impl TopApp {
         .with_checking(self.capability_vm.running_dependency())
     }
 
-    fn available_playback_owner(
+    pub(super) fn available_playback_owner(
         &mut self,
         action: &RecoveryAction,
         cx: &mut Context<Self>,
@@ -372,7 +372,7 @@ impl TopApp {
         self.playback_owner.clone()
     }
 
-    fn run_playback_command<C>(
+    pub(super) fn run_playback_command<C>(
         &self,
         command: C,
         action: RecoveryAction,
@@ -390,12 +390,18 @@ impl TopApp {
                 ..
             }
         );
+        // Only `start_on_air_cue` sets this flag. A playback command of the host
+        // during a run does not advance the Go on air sequence.
+        let on_air_play = self.on_air_play_pending.take();
         present_command(
             &self.command_runner,
             command,
             CommandContext::next(),
             cx,
             move |this, result, cx| {
+                if on_air_play {
+                    this.finish_on_air_play(Ok(()), cx);
+                }
                 this.playback_presentation_override = presentation_after_command(is_start, true);
                 if let Some(id) = retry_id {
                     this.capability_vm
@@ -416,6 +422,15 @@ impl TopApp {
                         .map(std::path::PathBuf::from),
                     _ => None,
                 };
+                if on_air_play {
+                    // A missing player belongs to row 1, Sound plays (ADR 0105).
+                    let row = if missing_mpv_path.is_some() {
+                        crate::view_models::show::OnAirRow::Sound
+                    } else {
+                        crate::view_models::show::OnAirRow::ShowCue
+                    };
+                    this.fail_on_air_play(row, error.to_string(), cx);
+                }
                 if let Some(path) = missing_mpv_path {
                     this.capability_observations.record(
                         crate::application::capability::CapabilityObservation::new(

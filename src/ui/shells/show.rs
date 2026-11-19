@@ -24,8 +24,9 @@ use crate::ui::shells::queue_now_playing::{render_queue_transport, QueueNowPlayi
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::queue_now_playing::CueMoveTarget;
 use crate::view_models::show::{
-    EventControlIntent, PublisherServiceRole, ShowCardDisplay, ShowCardKind, ShowEmptyStateDisplay,
-    ShowNowPlayingDisplay, ShowPageVm, ShowPanelMode, ShowPlaylistRowDisplay, ShowWidthClass,
+    EventControlIntent, OnAirAction, OnAirBandDisplay, PublisherServiceRole, ShowCardDisplay,
+    ShowCardKind, ShowEmptyStateDisplay, ShowNowPlayingDisplay, ShowPageVm, ShowPanelMode,
+    ShowPlaylistRowDisplay, ShowWidthClass,
 };
 
 /// Callback slots supplied by the application-owned Show screen.
@@ -36,10 +37,16 @@ pub(crate) struct ShowSlots {
     panel: ShowDetailPanelSlots,
     log: ShowLogPaneSlots,
     load_playlist: Option<ShowLoadPlaylistHandler>,
+    go_on_air: Option<ShowGoOnAirHandler>,
+    on_air_action: Option<ShowOnAirActionHandler>,
+    toggle_show_information: Option<ShowGoOnAirHandler>,
 }
 
 /// The handler of the row action "Load into Show cue". It gets the playlist id.
 type ShowLoadPlaylistHandler = Rc<dyn Fn(i64, &mut Window, &mut App) + 'static>;
+type ShowGoOnAirHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
+/// The handler of the one action of an on-air row.
+type ShowOnAirActionHandler = Rc<dyn Fn(OnAirAction, &mut Window, &mut App) + 'static>;
 
 impl Default for ShowSlots {
     fn default() -> Self {
@@ -49,6 +56,9 @@ impl Default for ShowSlots {
             panel: ShowDetailPanelSlots::new(),
             log: ShowLogPaneSlots::default(),
             load_playlist: None,
+            go_on_air: None,
+            on_air_action: None,
+            toggle_show_information: None,
         }
     }
 }
@@ -126,6 +136,41 @@ impl ShowSlots {
         handler: impl Fn(i64, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.load_playlist = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the Go on air action.
+    pub(crate) fn on_go_on_air(
+        mut self,
+        handler: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.go_on_air = Some(Rc::new(handler));
+        self
+    }
+
+    fn on_air_handlers(&self) -> OnAirHandlers {
+        OnAirHandlers {
+            go: self.go_on_air.clone(),
+            action: self.on_air_action.clone(),
+            toggle_information: self.toggle_show_information.clone(),
+        }
+    }
+
+    /// Supplies the action of an on-air row.
+    pub(crate) fn on_on_air_action(
+        mut self,
+        handler: impl Fn(OnAirAction, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_air_action = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the switch "Show information".
+    pub(crate) fn on_toggle_show_information(
+        mut self,
+        handler: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.toggle_show_information = Some(Rc::new(handler));
         self
     }
 
@@ -336,6 +381,7 @@ impl RenderOnce for ShowShell {
             log_pane,
             queue,
             status_message,
+            on_air,
         } = self.vm;
         let transport = queue.transport.clone();
 
@@ -357,16 +403,12 @@ impl RenderOnce for ShowShell {
                 self.slots.load_playlist.clone(),
                 cx,
             ))
+            .when_some(on_air, |el, band| {
+                el.child(render_on_air_band(band, self.slots.on_air_handlers(), cx))
+            })
             // A command that fails on this screen says so on this screen.
             .when_some(status_message, |el, message| {
-                el.child(
-                    div()
-                        .px(Spacing::LG.scaled(cx))
-                        .pb(Spacing::SM.scaled(cx))
-                        .text_size(FontSize::Caption.scaled(cx))
-                        .text_color(color(cx, SemanticColor::DangerLabel))
-                        .child(SharedString::from(message)),
-                )
+                el.child(render_status_message(message, cx))
             })
             .child(
                 div()
@@ -417,6 +459,108 @@ impl RenderOnce for ShowShell {
                     )),
             )
     }
+}
+
+fn render_status_message(message: String, cx: &App) -> impl IntoElement {
+    div()
+        .px(Spacing::LG.scaled(cx))
+        .pb(Spacing::SM.scaled(cx))
+        .text_size(FontSize::Caption.scaled(cx))
+        .text_color(color(cx, SemanticColor::DangerLabel))
+        .child(SharedString::from(message))
+}
+
+struct OnAirHandlers {
+    go: Option<ShowGoOnAirHandler>,
+    action: Option<ShowOnAirActionHandler>,
+    toggle_information: Option<ShowGoOnAirHandler>,
+}
+
+fn render_on_air_band(
+    band: OnAirBandDisplay,
+    handlers: OnAirHandlers,
+    cx: &App,
+) -> impl IntoElement {
+    let action_handler = handlers.action;
+    let rows = band.rows.into_iter().map(|row| {
+        let mut line = div()
+            .id(format!("on-air-row-{:?}", row.row))
+            .flex()
+            .flex_col()
+            .min_w_0()
+            .gap(Spacing::XS.scaled(cx))
+            .child(Label::new(row.title).variant(LabelVariant::Headline))
+            .child(Label::new(row.state).variant(LabelVariant::Body));
+        if row.warning {
+            line = line.child(
+                Label::new("Check this before you go on air.")
+                    .variant(LabelVariant::Caption)
+                    .color(SemanticColor::WarningLabel),
+            );
+        }
+        if let Some(error) = row.error {
+            line = line.child(
+                Label::new(error)
+                    .variant(LabelVariant::Caption)
+                    .color(SemanticColor::DangerLabel),
+            );
+        }
+        if let Some(action) = row.action {
+            let handler = action_handler.clone();
+            line = line.child(
+                Button::plain(format!("on-air-action-{:?}", row.row))
+                    .label(action.label())
+                    .on_click(move |_, window, app| {
+                        if let Some(handler) = &handler {
+                            handler(action, window, app);
+                        }
+                    }),
+            );
+        }
+        line
+    });
+    let callback = handlers.go;
+    let toggle = handlers.toggle_information;
+    let information_label = if band.show_information_off {
+        "Show information: off. Turn on"
+    } else {
+        "Show information: on. Turn off"
+    };
+    div()
+        .id("show-on-air-band")
+        .flex()
+        .flex_col()
+        .gap(Spacing::MD.scaled(cx))
+        .px(Spacing::XL.scaled(cx))
+        .py(Spacing::MD.scaled(cx))
+        .border_b_1()
+        .border_color(color(cx, SemanticColor::Separator))
+        .children(rows)
+        .child(
+            Button::plain("show-information-switch")
+                .label(information_label)
+                .on_click(move |_, window, app| {
+                    if let Some(toggle) = &toggle {
+                        toggle(window, app);
+                    }
+                }),
+        )
+        .child(
+            Button::filled("show-go-on-air")
+                .label(band.go_label)
+                .disabled(!band.go_available)
+                .on_click(move |_, window, app| {
+                    if let Some(callback) = &callback {
+                        callback(window, app);
+                    }
+                }),
+        )
+        .when_some(band.signal, |el, signal| {
+            el.child(Label::new(signal.label).variant(LabelVariant::Caption))
+        })
+        .when_some(band.listeners, |el, listeners| {
+            el.child(Label::new(listeners.label).variant(LabelVariant::Caption))
+        })
 }
 
 fn render_show_summary(

@@ -447,6 +447,197 @@ impl SourceReachabilityState {
 /// Role of one publisher-side service in the show surface.
 pub(crate) type PublisherServiceRole = broadcast_service_watch::BroadcastServiceRole;
 
+/// One command in the ordered Go on air sequence (ADR 0105).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OnAirStep {
+    StartService(PublisherServiceRole),
+    AttachEvent,
+    ConnectStream,
+    PlayCue,
+}
+
+/// A failed Go on air step and the row that owns its error (ADR 0105).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct OnAirFailure {
+    pub(crate) row: OnAirRow,
+    pub(crate) error: String,
+}
+
+/// A checklist row that owns an on-air failure (ADR 0105).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OnAirRow {
+    Sound,
+    ShowCue,
+    Stream,
+    ShowInformation,
+}
+
+/// Pure ordering for the Go on air command sequence (ADR 0105).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct OnAirSequence {
+    steps: Vec<OnAirStep>,
+    next: usize,
+    pub(crate) failure: Option<OnAirFailure>,
+}
+
+/// Display state for one row of the on-air checklist (ADR 0105).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct OnAirRowDisplay {
+    pub(crate) row: OnAirRow,
+    pub(crate) title: &'static str,
+    pub(crate) state: String,
+    /// True when the row is ready but the host should check one thing.
+    pub(crate) warning: bool,
+    pub(crate) action: Option<OnAirAction>,
+    pub(crate) error: Option<String>,
+}
+
+/// The one action of a checklist row (ADR 0105 Decision 2).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OnAirAction {
+    /// Opens Settings, Audio.
+    PlayTestSound,
+    /// Opens the Show tab with the cue panel.
+    OpenPlaylists,
+    /// Opens Settings, Diagnostics, Configuration.
+    ChangeStream,
+    /// Opens the event detail of the Show page.
+    AddEvent,
+    /// Starts the sequence again.
+    TryAgain,
+}
+
+impl OnAirAction {
+    /// The button text of the action.
+    #[must_use]
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::PlayTestSound => "Play test sound",
+            Self::OpenPlaylists => "Open playlists",
+            Self::ChangeStream => "Change",
+            Self::AddEvent => "Add",
+            Self::TryAgain => "Try again",
+        }
+    }
+}
+
+/// The host switch "Show information" (ADR 0105 Decision 2). It is on by default.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum ShowInformationSwitch {
+    #[default]
+    On,
+    Off,
+}
+
+impl ShowInformationSwitch {
+    /// Whether the sequence attaches the event.
+    #[must_use]
+    pub(crate) const fn is_on(self) -> bool {
+        matches!(self, Self::On)
+    }
+
+    /// The other state.
+    #[must_use]
+    pub(crate) const fn toggled(self) -> Self {
+        match self {
+            Self::On => Self::Off,
+            Self::Off => Self::On,
+        }
+    }
+}
+
+/// Host facts that the on-air band reads (ADR 0105).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct OnAirFacts<'a> {
+    pub(crate) player_is_mpv: bool,
+    pub(crate) mpv_ping_succeeded: bool,
+    pub(crate) test_sound: crate::view_models::audio_setup::TestSoundOutcome,
+    pub(crate) stream_address: Option<&'a str>,
+    pub(crate) show_information: ShowInformationSwitch,
+    pub(crate) sequence: Option<&'a OnAirSequence>,
+    pub(crate) run_active: bool,
+}
+
+/// Display state and actions for the on-air band (ADR 0105).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct OnAirBandDisplay {
+    pub(crate) rows: Vec<OnAirRowDisplay>,
+    pub(crate) go_available: bool,
+    pub(crate) go_label: &'static str,
+    pub(crate) confirmation_title: &'static str,
+    pub(crate) confirmation_message: String,
+    pub(crate) show_information_off: bool,
+    pub(crate) signal: Option<StreamSignalDisplay>,
+    pub(crate) listeners: Option<StreamListenersDisplay>,
+}
+
+/// Selects the Live Metadata services that Go on air starts. A service that
+/// already runs is not in the list (ADR 0105 Decision 3).
+#[must_use]
+pub(crate) fn services_to_start(running: &[PublisherServiceRole]) -> Vec<PublisherServiceRole> {
+    [
+        PublisherServiceRole::Producer,
+        PublisherServiceRole::Publisher,
+    ]
+    .into_iter()
+    .filter(|role| !running.contains(role))
+    .collect()
+}
+
+impl OnAirSequence {
+    /// Build the sequence from services that need a start and the event switch.
+    #[must_use]
+    pub(crate) fn new(services_to_start: Vec<PublisherServiceRole>, event_is_on: bool) -> Self {
+        let mut steps = services_to_start
+            .into_iter()
+            .map(OnAirStep::StartService)
+            .collect::<Vec<_>>();
+        if event_is_on {
+            steps.push(OnAirStep::AttachEvent);
+        }
+        steps.extend([OnAirStep::ConnectStream, OnAirStep::PlayCue]);
+        Self {
+            steps,
+            next: 0,
+            failure: None,
+        }
+    }
+
+    /// Return the command that must run next.
+    #[must_use]
+    pub(crate) fn next_step(&self) -> Option<OnAirStep> {
+        self.failure
+            .is_none()
+            .then(|| self.steps.get(self.next).copied())
+            .flatten()
+    }
+
+    /// Stop the sequence with an error on a chosen row. The next step does not run.
+    pub(crate) fn fail(&mut self, row: OnAirRow, error: String) {
+        if self.next_step().is_some() {
+            self.failure = Some(OnAirFailure { row, error });
+        }
+    }
+
+    /// Record one result and stop on its first error.
+    pub(crate) fn complete(&mut self, result: Result<(), String>) {
+        let Some(step) = self.next_step() else { return };
+        match result {
+            Ok(()) => self.next += 1,
+            Err(error) => {
+                let row = match step {
+                    OnAirStep::StartService(_) | OnAirStep::AttachEvent => {
+                        OnAirRow::ShowInformation
+                    }
+                    OnAirStep::ConnectStream => OnAirRow::Stream,
+                    OnAirStep::PlayCue => OnAirRow::ShowCue,
+                };
+                self.failure = Some(OnAirFailure { row, error });
+            }
+        }
+    }
+}
+
 /// Display state for one publisher-side service.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PublisherServiceStateDisplay {
@@ -1332,20 +1523,20 @@ impl StreamSignalState {
         match self {
             Self::Present => StreamSignalDisplay {
                 state: self,
-                label: "Audio present",
-                detail: "Input signal is reaching the encoder.",
+                label: "Sound reaches the stream",
+                detail: "butt reports an audio signal at its input.",
                 icon_role: StreamStateIconRole::Success,
             },
             Self::Absent => StreamSignalDisplay {
                 state: self,
-                label: "No audio signal",
-                detail: "Connected stream would carry silence.",
+                label: "The stream gets silence",
+                detail: "butt reports no audio signal at its input.",
                 icon_role: StreamStateIconRole::Warning,
             },
             Self::Unknown => StreamSignalDisplay {
                 state: self,
-                label: "Signal unknown",
-                detail: "Encoder did not report input signal.",
+                label: "Sound at the stream is not known",
+                detail: "butt did not report its input signal.",
                 icon_role: StreamStateIconRole::Info,
             },
         }
@@ -1689,6 +1880,8 @@ pub(crate) struct ShowPageVm {
     pub(crate) stream: Option<StreamSectionDisplay>,
     /// Dashboard card summaries in `ShowCardKind` order.
     pub(crate) cards: Vec<ShowCardDisplay>,
+    /// Checklist and controls above the cards (ADR 0105).
+    pub(crate) on_air: Option<OnAirBandDisplay>,
     /// Dashboard width class.
     pub(crate) width_class: ShowWidthClass,
     /// Current side-panel mode.
@@ -1706,6 +1899,105 @@ pub(crate) struct ShowPageVm {
     /// Every broadcast command wrote its error to a field that only `Settings`
     /// rendered, so a failed action on `Show` looked like no action at all.
     pub(crate) status_message: Option<String>,
+}
+
+fn failure_on(failure: Option<&OnAirFailure>, row: OnAirRow) -> Option<&OnAirFailure> {
+    failure.filter(|failure| failure.row == row)
+}
+
+fn sound_row(facts: &OnAirFacts<'_>, failure: Option<&OnAirFailure>) -> OnAirRowDisplay {
+    use crate::view_models::audio_setup::TestSoundOutcome;
+    let own = failure_on(failure, OnAirRow::Sound);
+    let ready = facts.player_is_mpv && facts.mpv_ping_succeeded;
+    let state = if !facts.player_is_mpv {
+        "Select mpv in Settings, Audio.".to_owned()
+    } else if !facts.mpv_ping_succeeded {
+        "mpv is not ready.".to_owned()
+    } else {
+        match facts.test_sound {
+            TestSoundOutcome::Heard => "The test sound played and you heard it.".into(),
+            TestSoundOutcome::NotHeard => "The test sound played, but you did not hear it.".into(),
+            TestSoundOutcome::Played => "The test sound played. Confirm that you heard it.".into(),
+            TestSoundOutcome::NotTested => "The test sound was not checked.".into(),
+        }
+    };
+    let warning = ready && facts.test_sound != TestSoundOutcome::Heard;
+    OnAirRowDisplay {
+        row: OnAirRow::Sound,
+        title: "Sound plays",
+        state,
+        warning,
+        action: own
+            .map(|_| OnAirAction::TryAgain)
+            .or((!ready || warning).then_some(OnAirAction::PlayTestSound)),
+        error: own.map(|failure| failure.error.clone()),
+    }
+}
+
+fn cue_row(
+    queue: &QueueNowPlayingPageVm,
+    ready: bool,
+    failure: Option<&OnAirFailure>,
+) -> OnAirRowDisplay {
+    let own = failure_on(failure, OnAirRow::ShowCue);
+    OnAirRowDisplay {
+        row: OnAirRow::ShowCue,
+        title: "Show cue",
+        state: if ready {
+            format!("{} tracks ready.", queue.cue_len())
+        } else {
+            "The Show cue is not ready.".into()
+        },
+        warning: false,
+        action: own
+            .map(|_| OnAirAction::TryAgain)
+            .or((!ready).then_some(OnAirAction::OpenPlaylists)),
+        error: own.map(|failure| failure.error.clone()),
+    }
+}
+
+fn stream_row(
+    facts: &OnAirFacts<'_>,
+    ready: bool,
+    failure: Option<&OnAirFailure>,
+) -> OnAirRowDisplay {
+    let own = failure_on(failure, OnAirRow::Stream);
+    OnAirRowDisplay {
+        row: OnAirRow::Stream,
+        title: "Stream",
+        state: facts.stream_address.map_or_else(
+            || "Stream address is not available.".into(),
+            |address| format!("Listeners use this address: {address}"),
+        ),
+        warning: false,
+        action: own
+            .map(|_| OnAirAction::TryAgain)
+            .or((!ready).then_some(OnAirAction::ChangeStream)),
+        error: own.map(|failure| failure.error.clone()),
+    }
+}
+
+fn information_row(
+    facts: &OnAirFacts<'_>,
+    event_live: bool,
+    failure: Option<&OnAirFailure>,
+) -> OnAirRowDisplay {
+    let own = failure_on(failure, OnAirRow::ShowInformation);
+    let (state, action) = if !facts.show_information.is_on() {
+        ("Off", None)
+    } else if event_live {
+        ("Podcast apps show your show and the track names.", None)
+    } else {
+        ("No live event is selected.", Some(OnAirAction::AddEvent))
+    };
+    OnAirRowDisplay {
+        row: OnAirRow::ShowInformation,
+        title: "Show information",
+        state: state.into(),
+        warning: false,
+        action: own.map(|_| OnAirAction::TryAgain).or(action),
+        error: own.map(|failure| failure.error.clone()),
+    }
 }
 
 impl ShowPageVm {
@@ -1915,6 +2207,7 @@ impl ShowPageVm {
             publisher,
             stream,
             cards,
+            on_air: None,
             width_class: ShowWidthClass::default(),
             panel_mode: ShowPanelMode::default(),
             panel_open: true,
@@ -1923,6 +2216,59 @@ impl ShowPageVm {
             log_pane,
             queue,
         }
+    }
+
+    /// Projects the on-air checklist from current page readiness and host facts.
+    #[must_use]
+    pub(crate) fn with_on_air_band(mut self, facts: OnAirFacts<'_>) -> Self {
+        let cue_ready = !self.queue.cue_is_empty() && self.queue.cue_all_available();
+        let stream_ready = self.stream.as_ref().is_some_and(|stream| {
+            stream.actions.is_some()
+                && !matches!(
+                    stream.connection.state,
+                    StreamConnectionState::NotInstalled | StreamConnectionState::NotReachable
+                )
+        });
+        let event_live = self
+            .publisher
+            .as_ref()
+            .and_then(|publisher| publisher.event.as_ref())
+            .is_some_and(|event| event.event.state.state == EventState::Live);
+        let sound_ready = facts.player_is_mpv && facts.mpv_ping_succeeded;
+        let failure = facts
+            .sequence
+            .and_then(|sequence| sequence.failure.as_ref());
+        let rows = vec![
+            sound_row(&facts, failure),
+            cue_row(&self.queue, cue_ready, failure),
+            stream_row(&facts, stream_ready, failure),
+            information_row(&facts, event_live, failure),
+        ];
+        let selected_title = self
+            .queue
+            .selected_cue_title()
+            .unwrap_or("the selected track");
+        self.on_air = Some(OnAirBandDisplay {
+            rows,
+            go_available: sound_ready
+                && cue_ready
+                && stream_ready
+                && (event_live || !facts.show_information.is_on())
+                && (!facts.run_active || failure.is_some()),
+            go_label: if failure.is_some() {
+                "Try again"
+            } else {
+                "Go on air"
+            },
+            confirmation_title: "Go on air now?",
+            confirmation_message: format!(
+                "Listeners hear \"{selected_title}\" after the stream connects."
+            ),
+            show_information_off: !facts.show_information.is_on(),
+            signal: self.stream.as_ref().map(|stream| stream.signal),
+            listeners: self.stream.as_ref().map(|stream| stream.listeners.clone()),
+        });
+        self
     }
 
     /// Cycles the Logs action and returns an identifier only when a read is needed.
@@ -3200,6 +3546,261 @@ mod tests {
     use crate::view_models::queue_now_playing::{QueueTrackInput, TransportState};
 
     use super::*;
+
+    fn on_air_facts(
+        test_sound: crate::view_models::audio_setup::TestSoundOutcome,
+        show_information_on: bool,
+    ) -> OnAirFacts<'static> {
+        OnAirFacts {
+            player_is_mpv: true,
+            mpv_ping_succeeded: true,
+            test_sound,
+            stream_address: Some("stream.example:8000"),
+            show_information: if show_information_on {
+                ShowInformationSwitch::On
+            } else {
+                ShowInformationSwitch::Off
+            },
+            sequence: None,
+            run_active: false,
+        }
+    }
+
+    fn encoder_snapshot(
+        signal: AudioSignalState,
+    ) -> broadcast_service_watch::BroadcastServiceWatchSnapshot {
+        snapshot_with_encoder(
+            Vec::new(),
+            broadcast_service_watch::BroadcastEncoderSnapshot {
+                server_name: "Main".to_owned(),
+                configured: true,
+                status: EncoderStatus {
+                    state: EncoderState::Disconnected,
+                    recording: RecordingState::Stopped {
+                        seconds: Some(0),
+                        path: None,
+                    },
+                    signal,
+                    listeners: ListenerCount::Known(3),
+                    song: None,
+                    stream_seconds: None,
+                },
+            },
+        )
+    }
+
+    /// A page with a ready cue and stream. The event is Live when `with_event` is true.
+    fn ready_page(with_event: bool, signal: AudioSignalState) -> ShowPageVm {
+        let snapshot = encoder_snapshot(signal);
+        let input = ready_event_input();
+        ShowPageVm::from_queue_publisher_readiness_and_event(
+            QueueNowPlayingPageVm::builder()
+                .tracks([track(7, "Opening", false)])
+                .build(),
+            Some(&snapshot),
+            ShowLogPaneDisplay::closed(),
+            None,
+            with_event.then_some(&input),
+        )
+    }
+
+    /// ADR 0105 task 001 criterion 1: the rows come in order.
+    #[test]
+    fn on_air_rows_come_in_order_with_state_text_and_action() {
+        use crate::view_models::audio_setup::TestSoundOutcome;
+        let page =
+            ShowPageVm::idle().with_on_air_band(on_air_facts(TestSoundOutcome::NotTested, true));
+        let band = page.on_air.expect("on-air band");
+        assert_eq!(
+            band.rows.iter().map(|row| row.title).collect::<Vec<_>>(),
+            ["Sound plays", "Show cue", "Stream", "Show information"]
+        );
+        assert_eq!(band.rows[1].action, Some(OnAirAction::OpenPlaylists));
+        assert_eq!(band.rows[3].action, Some(OnAirAction::AddEvent));
+        assert!(band.rows.iter().all(|row| !row.state.is_empty()));
+        assert!(!band.go_available);
+    }
+
+    /// Criterion 2: a missing test result warns and does not block.
+    #[test]
+    fn on_air_missing_test_result_warns_and_does_not_block_go() {
+        use crate::view_models::audio_setup::TestSoundOutcome;
+        let band = ready_page(true, AudioSignalState::Absent)
+            .with_on_air_band(on_air_facts(TestSoundOutcome::NotTested, true))
+            .on_air
+            .expect("band");
+        assert!(band.go_available);
+        assert!(band.rows[0].warning);
+        assert_eq!(band.rows[0].action, Some(OnAirAction::PlayTestSound));
+        let heard = ready_page(true, AudioSignalState::Absent)
+            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+            .on_air
+            .expect("band");
+        assert!(!heard.rows[0].warning);
+        assert_eq!(heard.rows[0].action, None);
+    }
+
+    /// Criterion 2: row 4 on and not ready blocks Go. Row 4 off does not.
+    #[test]
+    fn on_air_show_information_row_blocks_go_only_when_on_and_not_ready() {
+        use crate::view_models::audio_setup::TestSoundOutcome;
+        let on = ready_page(false, AudioSignalState::Absent)
+            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+            .on_air
+            .expect("band");
+        assert!(!on.go_available);
+        assert_eq!(on.rows[3].action, Some(OnAirAction::AddEvent));
+        let off = ready_page(false, AudioSignalState::Absent)
+            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, false))
+            .on_air
+            .expect("band");
+        assert!(off.go_available);
+        assert!(off.show_information_off);
+        assert_eq!(off.rows[3].state, "Off");
+        assert_eq!(off.rows[3].action, None);
+        let ready = ready_page(true, AudioSignalState::Absent)
+            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+            .on_air
+            .expect("band");
+        assert!(ready.go_available);
+        assert_eq!(ready.rows[3].action, None);
+    }
+
+    /// Finding 5: the cue row counts all cue rows, not the filtered rows.
+    #[test]
+    fn on_air_cue_row_counts_rows_that_a_text_filter_hides() {
+        use crate::view_models::audio_setup::TestSoundOutcome;
+        let mut queue = QueueNowPlayingPageVm::builder()
+            .tracks([track(7, "Opening", false), track(8, "Closing", false)])
+            .build();
+        queue.set_text_filter(Some("zzz".to_owned()));
+        let mut page = ready_page(true, AudioSignalState::Absent);
+        page.queue = queue;
+        let band = page
+            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+            .on_air
+            .expect("band");
+        assert_eq!(band.rows[1].state, "2 tracks ready.");
+    }
+
+    /// Criterion 3: a running service is not in the list.
+    #[test]
+    fn on_air_services_to_start_leave_out_a_running_service() {
+        assert_eq!(
+            services_to_start(&[PublisherServiceRole::Producer]),
+            [PublisherServiceRole::Publisher]
+        );
+        assert!(services_to_start(&[
+            PublisherServiceRole::Producer,
+            PublisherServiceRole::Publisher
+        ])
+        .is_empty());
+        assert_eq!(services_to_start(&[]).len(), 2);
+    }
+
+    /// Criterion 3: the order is service start, attach, connect, play.
+    #[test]
+    fn on_air_sequence_runs_only_requested_parts_in_order() {
+        let mut sequence = OnAirSequence::new(
+            vec![
+                PublisherServiceRole::Producer,
+                PublisherServiceRole::Publisher,
+            ],
+            true,
+        );
+        for expected in [
+            OnAirStep::StartService(PublisherServiceRole::Producer),
+            OnAirStep::StartService(PublisherServiceRole::Publisher),
+            OnAirStep::AttachEvent,
+            OnAirStep::ConnectStream,
+            OnAirStep::PlayCue,
+        ] {
+            assert_eq!(sequence.next_step(), Some(expected));
+            sequence.complete(Ok(()));
+        }
+        assert_eq!(sequence.next_step(), None);
+
+        let no_event = OnAirSequence::new(Vec::new(), false);
+        assert_eq!(no_event.next_step(), Some(OnAirStep::ConnectStream));
+    }
+
+    /// Criterion 4: play does not come after a connect failure.
+    #[test]
+    fn on_air_sequence_stops_on_connect_failure_and_does_not_play() {
+        let mut sequence = OnAirSequence::new(vec![PublisherServiceRole::Publisher], true);
+        sequence.complete(Ok(()));
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), Some(OnAirStep::ConnectStream));
+        sequence.complete(Err("The stream did not connect.".to_owned()));
+        assert_eq!(sequence.next_step(), None);
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), None);
+        assert_eq!(
+            sequence.failure,
+            Some(OnAirFailure {
+                row: OnAirRow::Stream,
+                error: "The stream did not connect.".to_owned(),
+            })
+        );
+        let page = ready_page(true, AudioSignalState::Absent).with_on_air_band(OnAirFacts {
+            sequence: Some(&sequence),
+            run_active: true,
+            ..on_air_facts(
+                crate::view_models::audio_setup::TestSoundOutcome::Heard,
+                true,
+            )
+        });
+        let band = page.on_air.expect("band");
+        assert_eq!(band.rows[2].action, Some(OnAirAction::TryAgain));
+        assert_eq!(
+            band.rows[2].error.as_deref(),
+            Some("The stream did not connect.")
+        );
+        assert!(band.go_available);
+    }
+
+    /// A refusal of the play step puts the error on a chosen row.
+    #[test]
+    fn on_air_sequence_fail_names_the_row() {
+        let mut sequence = OnAirSequence::new(Vec::new(), false);
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), Some(OnAirStep::PlayCue));
+        sequence.fail(OnAirRow::Sound, "mpv is not installed.".to_owned());
+        assert_eq!(sequence.next_step(), None);
+        assert_eq!(
+            sequence.failure.map(|failure| failure.row),
+            Some(OnAirRow::Sound)
+        );
+    }
+
+    /// Criterion 5: three stream texts, and no band text says "Listeners hear".
+    #[test]
+    fn on_air_stream_texts_follow_decision_four() {
+        use crate::view_models::audio_setup::TestSoundOutcome;
+        for (signal, text) in [
+            (AudioSignalState::Present, "Sound reaches the stream"),
+            (AudioSignalState::Absent, "The stream gets silence"),
+            (
+                AudioSignalState::Unknown,
+                "Sound at the stream is not known",
+            ),
+        ] {
+            let band = ready_page(true, signal)
+                .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+                .on_air
+                .expect("band");
+            let shown = band.signal.expect("signal");
+            assert_eq!(shown.label, text);
+            let mut texts = vec![shown.label.to_owned(), shown.detail.to_owned()];
+            texts.push(band.listeners.expect("listeners").label.clone());
+            for row in &band.rows {
+                texts.push(row.state.clone());
+            }
+            for text in texts {
+                assert!(!text.contains("Listeners hear"), "{text}");
+            }
+        }
+    }
 
     fn command_snapshot(
         state: ServiceState,
@@ -4708,7 +5309,7 @@ mod tests {
 
         assert_eq!(stream.connection.state, StreamConnectionState::Connected);
         assert_eq!(stream.signal.state, StreamSignalState::Absent);
-        assert_eq!(stream.signal.label, "No audio signal");
+        assert_eq!(stream.signal.label, "The stream gets silence");
         assert_eq!(stream.signal.icon_role, StreamStateIconRole::Warning);
     }
 

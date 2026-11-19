@@ -525,6 +525,29 @@ impl QueueNowPlayingPageVm {
         self.all_rows.is_empty()
     }
 
+    /// The number of cue entries. A text filter does not change it.
+    #[must_use]
+    pub(crate) fn cue_len(&self) -> usize {
+        self.all_rows.len()
+    }
+
+    /// Whether each cue entry is ready to play. A text filter does not change it.
+    #[must_use]
+    pub(crate) fn cue_all_available(&self) -> bool {
+        self.all_rows
+            .iter()
+            .all(|row| row.unavailable_label.is_none())
+    }
+
+    /// The title of the selected cue entry. A text filter does not change it.
+    #[must_use]
+    pub(crate) fn selected_cue_title(&self) -> Option<&str> {
+        self.all_rows
+            .iter()
+            .find(|row| row.selected)
+            .map(|row| row.title.as_str())
+    }
+
     pub(crate) fn selected_entry_id(&self) -> Option<i64> {
         self.all_rows
             .iter()
