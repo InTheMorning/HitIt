@@ -134,6 +134,7 @@ pub struct Button {
     on_activate: Option<ActivateHandler>,
     on_key_activate: Option<ActivateHandler>,
     focus_handle: Option<gpui::FocusHandle>,
+    disabled_focus_target: Option<gpui::FocusHandle>,
     appearance: Option<Appearance>,
     font_size: Option<FontSize>,
     foreground: Option<SemanticColor>,
@@ -168,6 +169,7 @@ impl Button {
             on_activate: None,
             on_key_activate: None,
             focus_handle: None,
+            disabled_focus_target: None,
             appearance: None,
             font_size: None,
             foreground: None,
@@ -364,6 +366,14 @@ impl Button {
         F: Fn(&mut Window, &mut App) + 'static,
     {
         self.on_activate = Some(Rc::new(handler));
+        self
+    }
+
+    /// Names the handle that takes the keyboard focus when this button has
+    /// it while it is disabled or busy. A disabled button is not a Tab stop,
+    /// so the focus must not stay on it (ADR 0101 task 015).
+    pub fn focus_target_when_disabled(mut self, target: &gpui::FocusHandle) -> Self {
+        self.disabled_focus_target = Some(target.clone());
         self
     }
 
@@ -741,6 +751,15 @@ impl RenderOnce for Button {
         let on_key_activate = self.on_key_activate.clone();
         let (focus, reveal_probe) = self.focus_for_reveal(window, cx);
         let disabled = self.disabled || self.busy;
+        if let (true, Some(own), Some(target)) = (
+            disabled,
+            focus.as_ref(),
+            self.disabled_focus_target.as_ref(),
+        ) {
+            if own.is_focused(window) {
+                window.focus(target, cx);
+            }
+        }
         // The probe exists only while the keyboard focus shows the ring.
         let ring = (reveal_probe.is_some() && !disabled)
             .then(|| RingPlacement::for_fill(bg, appearance, cx));

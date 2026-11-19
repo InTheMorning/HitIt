@@ -41,6 +41,7 @@ use crate::view_models::letter_bar::{first_letter_index, LetterKey};
 use crate::view_models::library::{AlbumNode, ArtistsListItemVm, ReleasesListItemVm};
 use crate::view_models::list_page::{needs_first_page, ListPageKey, ListScope, ListSort, ListView};
 use crate::view_models::list_selection::{ListSelection, SelectionMode};
+use crate::view_models::releases_everything::LoadMoreFocus;
 use crate::view_models::releases_everything::{reset_selection_on_scope_change, ReleasesListRows};
 use crate::view_models::singles_group::{
     group_page_feed_to_read, index_page_feed_to_read, library_page_feed_to_read, SinglesGroupKey,
@@ -527,12 +528,16 @@ impl LibraryApp {
                 ArtistGroup::Names => Self::show_more_artist_names,
             }),
             in_list_tab_stop: true,
+            focus_when_disabled: None,
         }
     }
 
     /// "Load more" at the end of the Releases list (packet 016 decision
     /// D7). The sort Newest loads the next recent page.
     pub(crate) fn load_more_release_names(&mut self, cx: &mut Context<Self>) {
+        // The focus goes to the first new row when the next draw has it
+        // (ADR 0101 task 015, as ADR 0092 task 001 gives for "Show more").
+        self.releases_load_more_focus = Some(LoadMoreFocus::begin(&self.releases_rows()));
         if self.releases_sort() == ListSort::Newest {
             self.start_recent_music_load(true, cx);
             return;

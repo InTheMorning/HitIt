@@ -612,7 +612,7 @@ impl LibraryApp {
             item.clone(),
             art,
             row_menu,
-            Self::public_playlist_actions(),
+            &Self::public_playlist_actions(),
             cx,
         )
     }
@@ -624,6 +624,7 @@ impl LibraryApp {
             retry: Self::retry_public_playlists,
             load_more: Some(Self::load_more_public_playlists),
             in_list_tab_stop: false,
+            focus_when_disabled: None,
         }
     }
 
@@ -657,7 +658,7 @@ impl LibraryApp {
                 PublicPlaylistListItemVm::Status(status) => {
                     let element = render_index_list_status_row(
                         status.clone(),
-                        Self::public_playlist_actions(),
+                        &Self::public_playlist_actions(),
                         cx,
                     );
                     if seen_row {

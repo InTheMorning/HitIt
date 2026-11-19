@@ -45,6 +45,7 @@ use crate::view_models::library_removal::{
 use crate::view_models::list_selection::{ListSelection, SelectionMode};
 use crate::view_models::public_playlists::PublicPlaylistPages;
 use crate::view_models::recent_feeds::RecentFeedsPageVm;
+use crate::view_models::releases_everything::LoadMoreFocus;
 use crate::view_models::releases_everything::ReleasesListCache;
 use crate::view_models::selection_action_bar::ListBarCommand;
 use crate::view_models::singles_group::SinglesGroupKey;
@@ -310,6 +311,9 @@ pub struct LibraryApp {
     /// A press of "Show more" that waits to move the cursor to the first new
     /// row of its group (musicindex ADR 0057 R-SITE-15 item 4).
     artists_show_more_focus: Option<ShowMoreFocus>,
+    /// A press of "Load more" of the Releases list that waits to move the
+    /// cursor to the first new row (ADR 0101 task 015).
+    releases_load_more_focus: Option<LoadMoreFocus>,
     /// The loaded MusicIndex artist name pages of the Artists scope
     /// "Everything", one for each group (packet 016 decision D9, musicindex
     /// ADR 0057 R-ARTIST-1). They stay until the app stops.

@@ -374,7 +374,7 @@ pub(crate) fn render_public_playlist_list_item(
     item: PublicPlaylistListItemVm,
     art: Option<CollectionArtImage>,
     row_menu: Option<RowMenu>,
-    actions: IndexListActions,
+    actions: &IndexListActions,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     match item {

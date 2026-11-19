@@ -10,6 +10,7 @@ use gpui::{canvas, prelude::*, AnyElement, Context, ScrollHandle, StatefulIntera
 
 use crate::library::LibraryApp;
 use crate::ui::composites::music_column_scroll::music_column_tracked_scrollbar;
+use crate::ui::focus_ring::scroll_was_revealed;
 use crate::view_models::pagination::should_load_more_near_scroll_end;
 
 /// Makes `container` the Music list column's scrolling area, with the
@@ -61,13 +62,18 @@ where
             let viewport_height = f32::from(probe_scroll.bounds().size.height);
             let scroll_offset_y = f32::from(probe_scroll.offset().y);
             let content_height = viewport_height + f32::from(probe_scroll.max_offset().y);
-            if should_load_more_near_scroll_end(
-                scroll_offset_y,
-                viewport_height,
-                content_height,
-                has_more,
-                is_loading,
-            ) {
+            // A key press that moved the focus to "Load more" scrolled the
+            // list to its end. That scroll does not start the load, so
+            // the button stays available while it has the focus.
+            if !scroll_was_revealed(scroll_offset_y, cx)
+                && should_load_more_near_scroll_end(
+                    scroll_offset_y,
+                    viewport_height,
+                    content_height,
+                    has_more,
+                    is_loading,
+                )
+            {
                 let _ = owner.update(cx, load_more);
             }
         },

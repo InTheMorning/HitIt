@@ -149,7 +149,9 @@ use crate::view_models::release_page::{library_album_header_glow, TrackRowMenuAc
 use crate::view_models::release_row_actions::{
     ReleaseRowCommand, ReleaseRowMenuVm, ReleaseRowTarget,
 };
-use crate::view_models::releases_everything::{ReleasesDownloadPlan, ReleasesListRows};
+use crate::view_models::releases_everything::{
+    LoadMoreFocusStep, ReleasesDownloadPlan, ReleasesListRows,
+};
 use crate::view_models::row_keys::{content_list_row_keys, releases_row_keys, RowKeysVm};
 use crate::view_models::search_field_values::LibraryFieldValues;
 use crate::view_models::search_page::SearchPageAction;
@@ -1214,6 +1216,7 @@ impl LibraryApp {
             playlists_reveal: ScrollReveal::new(playlists_scroll),
             artists_selection: ListSelection::new(),
             artists_show_more_focus: None,
+            releases_load_more_focus: None,
             expanded_singles_groups: BTreeSet::new(),
             download_queue: super::DownloadQueue::default(),
             releases_selection: ListSelection::new(),
@@ -3042,6 +3045,7 @@ impl LibraryApp {
         self.playlists_selection = ListSelection::new();
         self.artists_selection = ListSelection::new();
         self.artists_show_more_focus = None;
+        self.releases_load_more_focus = None;
         self.releases_selection_mode = SelectionMode::Normal;
         self.track_selection_mode = SelectionMode::Normal;
         match destination {
@@ -4896,6 +4900,36 @@ impl LibraryApp {
         }
     }
 
+    /// Moves the cursor after "Load more" to the first new row of the
+    /// Releases list, when the rows are here (ADR 0101 task 015, ADR 0092
+    /// task 001 V3). The button is disabled while the page loads. It gives
+    /// the focus to the list column at once (`focus_when_disabled`).
+    fn settle_releases_load_more_focus(
+        &mut self,
+        rows: &ReleasesListRows,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(press) = self.releases_load_more_focus.as_ref() else {
+            return;
+        };
+        let LoadMoreFocusStep::Focus(row) = press.resolve(rows) else {
+            return;
+        };
+        self.releases_load_more_focus = None;
+        window.focus(&self.list_column_focus.clone(), cx);
+        let Some(id) = row else {
+            return;
+        };
+        self.releases_selection.focus_row(id.clone());
+        if matches!(self.vm.list_view(ListPageKey::Releases), ListView::Tiles) {
+            self.reveal_releases_tile(rows.item_element_of_selection(&id));
+        } else if let Some(index) = rows.selection_rows().iter().position(|row| row.id == id) {
+            self.releases_list_state
+                .scroll_to_reveal_item(index + rows.leading());
+        }
+    }
+
     /// The rows of the My playlists list that take the keyboard cursor, in
     /// the shown order (ADR 0092 Decision 1). The Tiles view has no row.
     fn playlist_selection_rows(&self) -> Vec<SelectionRow<i64, i64>> {
@@ -6116,6 +6150,7 @@ impl LibraryApp {
                 // and its menu in `render_releases_item`.
                 page_head = Some(self.render_releases_page_head(cx));
                 let rows = self.releases_rows();
+                self.settle_releases_load_more_focus(&rows, window, cx);
                 let pane = match self.vm.list_view(ListPageKey::Releases) {
                     ListView::Rows => {
                         self.releases_list_state.sync(rows.item_ids(), window);
@@ -6342,7 +6377,6 @@ impl LibraryApp {
             }
         };
         let scope_refocus = refocus_list.clone();
-        let view_refocus = refocus_list.clone();
         let on_scope: ListScopeHandler = Rc::new(move |scope, window, cx| {
             let scope = *scope;
             scope_entity.update(cx, |this, cx| this.set_music_list_scope(scope, cx));
@@ -6363,12 +6397,11 @@ impl LibraryApp {
             });
         });
         let view_entity = entity.clone();
-        let on_view: ListViewHandler = Rc::new(move |view, window, cx| {
+        let on_view: ListViewHandler = Rc::new(move |view, _window, cx| {
             let view = *view;
             view_entity.update(cx, |this, cx| {
                 this.set_list_view(ListPageKey::Releases, view, cx);
             });
-            view_refocus(window, cx);
         });
         let on_select: ListHeadButtonHandler = Rc::new(move |window, cx| {
             entity.update(cx, Self::toggle_list_column_selection_mode);
@@ -6495,13 +6528,13 @@ impl LibraryApp {
         let (item, thumbnail, art) = self.releases_item_parts(item, cx);
         // ADR 0084 packet 016 decision D8: the loading row, the error row
         // or "Load more" of the scope "Everything".
-        let actions = Self::releases_status_actions();
+        let actions = self.releases_status_actions();
         let release_column = if self.releases_sort() == ListSort::Newest {
             LeadingDisclosure::None
         } else {
             LeadingDisclosure::Empty
         };
-        render_releases_list_item(item, thumbnail, art, actions, menu, release_column, cx)
+        render_releases_list_item(item, thumbnail, art, &actions, menu, release_column, cx)
     }
 
     /// The item of the Releases list with its selection facts and its
@@ -6550,11 +6583,12 @@ impl LibraryApp {
 
     /// The actions of a status row of the Releases list (ADR 0084 packet
     /// 016 decision D8).
-    fn releases_status_actions() -> IndexListActions {
+    fn releases_status_actions(&self) -> IndexListActions {
         IndexListActions {
             retry: Self::retry_release_names,
             load_more: Some(Self::load_more_release_names),
             in_list_tab_stop: true,
+            focus_when_disabled: Some(self.list_column_focus.clone()),
         }
     }
 
@@ -6577,7 +6611,7 @@ impl LibraryApp {
                 item,
                 thumbnail,
                 art,
-                Self::releases_status_actions(),
+                &self.releases_status_actions(),
                 cx,
             );
             // The reveal target carries the probe, so the grid scrolls to it.
@@ -6632,7 +6666,7 @@ impl LibraryApp {
                     ArtistsListItemVm::Status(group, row) => {
                         tiles.push(render_full_line(render_index_list_status_row(
                             row,
-                            Self::artist_group_actions(group),
+                            &Self::artist_group_actions(group),
                             cx,
                         )));
                     }
@@ -6685,7 +6719,7 @@ impl LibraryApp {
                 Self::artist_group_actions(ArtistGroup::Stated)
             }
         };
-        render_artists_list_item(item, art, actions, cx)
+        render_artists_list_item(item, art, &actions, cx)
     }
 
     /// Builds the action bar composite of a selection (ADR 0084 Decision
@@ -8236,5 +8270,344 @@ mod tests {
                     > 0
             );
         });
+    }
+
+    /// The window for the "Load more" tests of the Releases Tiles view. The
+    /// recent page has 60 rows, so the grid is longer than the window, and
+    /// it has one more page, so "Load more" shows at the end of the grid.
+    /// `loading` starts the next page request in the pager, so "Load more"
+    /// is not available.
+    fn releases_tiles_load_more_window(
+        cx: &mut gpui::TestAppContext,
+        loading: bool,
+    ) -> (gpui::Entity<LibraryApp>, &mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::ui::focus_ring::init(cx);
+        });
+        let (root, cx) = cx.add_window_view(move |window, cx| {
+            let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+            crate::db::init_schema(&conn).expect("the schema");
+            crate::db::migrate_schema(&conn).expect("the migrations");
+            let dir = std::env::temp_dir().join("hitit-load-more-ring-test");
+            let services = crate::application::ApplicationServices::local_with_service_adapters()
+                .expect("the local services");
+            let library = cx.new(|cx| {
+                let mut library = LibraryApp::new(
+                    std::sync::Arc::new(std::sync::Mutex::new(conn)),
+                    crate::media::ImageCache::new(dir.join("cache")),
+                    "http://127.0.0.1:9".into(),
+                    dir,
+                    std::sync::Arc::new(services),
+                    None,
+                    window,
+                    cx,
+                );
+                let rows = (1..=60)
+                    .map(|id: usize| {
+                        let result = crate::view_models::search_results::FeedResultDisplay::new(
+                            format!("load-more-feed-{id}"),
+                            format!("Release {id}"),
+                            crate::view_models::search_results::SearchResultOrigin::Index,
+                        );
+                        (
+                            crate::view_models::search_results::SearchResultItemId::try_from(id)
+                                .expect("small id"),
+                            result,
+                        )
+                    })
+                    .collect();
+                library.recent_music_page.load_recorded_page(
+                    crate::view_models::recent_feeds::RecentFeedsPageBatch {
+                        rows,
+                        cursor: Some("next".to_owned()),
+                        has_more: true,
+                    },
+                    false,
+                );
+                if loading {
+                    let _ = library.recent_music_page.begin_load(true);
+                }
+                library
+                    .vm
+                    .set_active_destination(MusicDestination::Releases);
+                library
+                    .vm
+                    .set_list_view(ListPageKey::Releases, ListView::Tiles);
+                library
+            });
+            ListColumnRoot { library }
+        });
+        let library = cx.update(|_, cx| root.read(cx).library.clone());
+        cx.update(|window, _| window.activate_window());
+        draw_twice(cx);
+        (library, cx)
+    }
+
+    fn draw_twice(cx: &mut gpui::VisualTestContext) {
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+    }
+
+    /// The element id of the "Load more" button of the Releases list.
+    const LOAD_MORE_ID: &str = "music-index-recent-load-more";
+
+    /// Moves the focus one Tab stop on, as the Tab key does, and draws.
+    fn tab_once(cx: &mut gpui::VisualTestContext) {
+        cx.update(gpui::Window::focus_next);
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+
+    /// Gives the keyboard focus to the list column and shows the focus ring,
+    /// as a key press does.
+    fn focus_list_by_keyboard(
+        library: &gpui::Entity<LibraryApp>,
+        cx: &mut gpui::VisualTestContext,
+    ) {
+        let list = cx.update(|_, cx| library.read(cx).list_column_focus.clone());
+        cx.update(|window, cx| window.focus(&list, cx));
+        cx.simulate_keystrokes("shift");
+        draw_twice(cx);
+    }
+
+    /// Tells if the focus ring of a button lies inside the "Load more" button.
+    fn load_more_has_ring(cx: &mut gpui::VisualTestContext) -> bool {
+        match (
+            cx.debug_bounds("button-focus-ring"),
+            cx.debug_bounds(LOAD_MORE_ID),
+        ) {
+            (Some(ring), Some(button)) => button.contains(&ring.center()),
+            _ => false,
+        }
+    }
+
+    /// The count of Tab stops from the list column back to the list column.
+    fn tab_cycle_length(
+        library: &gpui::Entity<LibraryApp>,
+        cx: &mut gpui::VisualTestContext,
+    ) -> usize {
+        let list = cx.update(|_, cx| library.read(cx).list_column_focus.clone());
+        for steps in 1..=40 {
+            tab_once(cx);
+            if cx.update(|window, _| list.is_focused(window)) {
+                return steps;
+            }
+        }
+        panic!("the Tab cycle does not return to the list column");
+    }
+
+    /// ADR 0101 Decision 1, musicindex ADR 0073 R-FOCUS-2, walk of
+    /// 2026-11-18 defect 3: "Load more" had the keyboard focus and showed no
+    /// ring. The key press that moved the focus scrolled the grid to its
+    /// end, and the scroll started the next page load, so the button was
+    /// disabled and dimmed. Tab reaches the button, and the focus ring of
+    /// the Button primitive is inside its bounds.
+    #[gpui::test]
+    fn adr_0101_load_more_shows_the_focus_ring(cx: &mut gpui::TestAppContext) {
+        let (library, cx) = releases_tiles_load_more_window(cx, false);
+        assert!(
+            cx.debug_bounds(LOAD_MORE_ID).is_some(),
+            "the Releases Tiles view shows \"Load more\""
+        );
+        focus_list_by_keyboard(&library, cx);
+        let mut reached = false;
+        for _ in 0..40 {
+            tab_once(cx);
+            if load_more_has_ring(cx) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(
+            reached,
+            "musicindex ADR 0073 R-FOCUS-2: Tab must reach \"Load more\" and show its ring"
+        );
+        assert!(
+            !cx.update(|_, cx| library.read(cx).recent_music_page.is_loading()),
+            "ADR 0101 task 015: the reveal scroll to \"Load more\" must not start the page load"
+        );
+    }
+
+    /// Starts the next page request, as the scroll end or a click does, and
+    /// draws. "Load more" is not available then.
+    fn start_recent_page_load(
+        library: &gpui::Entity<LibraryApp>,
+        cx: &mut gpui::VisualTestContext,
+    ) {
+        cx.update(|_, cx| {
+            library.update(cx, |library, cx| {
+                let _ = library.recent_music_page.begin_load(true);
+                cx.notify();
+            });
+        });
+        draw_twice(cx);
+    }
+
+    /// ADR 0101 task 015: a disabled "Load more" is not a Tab stop. The Tab
+    /// cycle of a page that loads has one stop less than the cycle of a page
+    /// that shows an available button.
+    #[gpui::test]
+    fn adr_0101_disabled_load_more_is_not_a_tab_stop(cx: &mut gpui::TestAppContext) {
+        let (library, cx) = releases_tiles_load_more_window(cx, false);
+        focus_list_by_keyboard(&library, cx);
+        let with_button = tab_cycle_length(&library, cx);
+        start_recent_page_load(&library, cx);
+        focus_list_by_keyboard(&library, cx);
+        let loading = tab_cycle_length(&library, cx);
+        assert_eq!(
+            loading + 1,
+            with_button,
+            "ADR 0101 task 015: a disabled \"Load more\" must not be a Tab stop"
+        );
+    }
+
+    /// ADR 0101 task 015: the focus is on "Load more" and the button becomes
+    /// disabled. The focus goes to the list column.
+    #[gpui::test]
+    fn adr_0101_load_more_that_becomes_disabled_gives_the_focus_to_the_list(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (library, cx) = releases_tiles_load_more_window(cx, false);
+        focus_list_by_keyboard(&library, cx);
+        for _ in 0..40 {
+            tab_once(cx);
+            if load_more_has_ring(cx) {
+                break;
+            }
+        }
+        assert!(load_more_has_ring(cx), "Tab reaches \"Load more\"");
+        start_recent_page_load(&library, cx);
+        let list = cx.update(|_, cx| library.read(cx).list_column_focus.clone());
+        assert!(
+            cx.update(|window, _| list.is_focused(window)),
+            "ADR 0101 task 015: the focus goes to the list when \"Load more\" becomes disabled"
+        );
+    }
+
+    /// The recorded page of "Release {first}" to "Release {last}".
+    fn recorded_recent_page(
+        first: usize,
+        last: usize,
+        has_more: bool,
+    ) -> crate::view_models::recent_feeds::RecentFeedsPageBatch {
+        let rows = (first..=last)
+            .map(|id| {
+                let result = crate::view_models::search_results::FeedResultDisplay::new(
+                    format!("load-more-feed-{id}"),
+                    format!("Release {id}"),
+                    crate::view_models::search_results::SearchResultOrigin::Index,
+                );
+                (
+                    crate::view_models::search_results::SearchResultItemId::try_from(id)
+                        .expect("small id"),
+                    result,
+                )
+            })
+            .collect();
+        crate::view_models::recent_feeds::RecentFeedsPageBatch {
+            rows,
+            cursor: has_more.then(|| "next".to_owned()),
+            has_more,
+        }
+    }
+
+    /// ADR 0101 task 015, V3: "Load more" loads more rows, and the focus
+    /// goes to the first new row. The test runs the click handler that
+    /// Enter and Space run. It does not press the key.
+    #[gpui::test]
+    fn adr_0101_load_more_focuses_the_first_new_row(cx: &mut gpui::TestAppContext) {
+        let (library, cx) = releases_tiles_load_more_window(cx, false);
+        focus_list_by_keyboard(&library, cx);
+        for _ in 0..40 {
+            tab_once(cx);
+            if load_more_has_ring(cx) {
+                break;
+            }
+        }
+        assert!(load_more_has_ring(cx), "Tab reaches \"Load more\"");
+        // GPUI gives a key release on a focused button to its click
+        // handler, and `simulate_keystrokes` parks the executor, so the
+        // request to the closed port would fail at once. This runs the
+        // click handler of the button and parks nothing.
+        cx.update(|_, cx| {
+            library.update(cx, LibraryApp::load_more_release_names);
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(
+            cx.update(|_, cx| library.read(cx).recent_music_page.is_loading()),
+            "\"Load more\" starts the page load"
+        );
+        cx.update(|_, cx| {
+            library.update(cx, |library, cx| {
+                library
+                    .recent_music_page
+                    .finish_recorded_page(recorded_recent_page(61, 70, false));
+                cx.notify();
+            });
+        });
+        draw_twice(cx);
+        let list = cx.update(|_, cx| library.read(cx).list_column_focus.clone());
+        assert!(
+            cx.update(|window, _| list.is_focused(window)),
+            "ADR 0101 task 015 V3: the list column has the focus after \"Load more\""
+        );
+        let (focused, first_new) = cx.update(|_, cx| {
+            let library = library.read(cx);
+            let rows = library.releases_rows();
+            (
+                library.releases_selection.focused().cloned(),
+                rows.selection_rows().get(60).map(|row| row.id.clone()),
+            )
+        });
+        assert!(first_new.is_some(), "the list shows the new rows");
+        assert_eq!(
+            focused, first_new,
+            "ADR 0101 task 015 V3: the cursor goes to the first new row"
+        );
+    }
+
+    /// ADR 0101 task 015: after a pointer click on the Tiles button, Tab
+    /// does not go to "Load more" before the list. The click leaves the
+    /// focus on a control of the page header, as the keyboard does.
+    #[gpui::test]
+    fn adr_0101_a_click_on_a_view_button_keeps_tab_off_load_more(cx: &mut gpui::TestAppContext) {
+        let (library, cx) = releases_tiles_load_more_window(cx, false);
+        // The list has the Rows view, so Tiles is a button to press.
+        cx.update(|_, cx| {
+            library.update(cx, |library, cx| {
+                library
+                    .vm
+                    .set_list_view(ListPageKey::Releases, ListView::Rows);
+                cx.notify();
+            });
+        });
+        draw_twice(cx);
+        let tiles = cx
+            .debug_bounds("music-list-view-tiles")
+            .expect("the view buttons show the Tiles button");
+        cx.simulate_click(tiles.center(), gpui::Modifiers::none());
+        draw_twice(cx);
+        assert!(
+            matches!(
+                cx.update(|_, cx| library.read(cx).vm.list_view(ListPageKey::Releases)),
+                ListView::Tiles
+            ),
+            "the click shows the Tiles view"
+        );
+        // A key press shows the focus ring. Then Tab moves the focus.
+        cx.simulate_keystrokes("shift");
+        tab_once(cx);
+        assert!(
+            !load_more_has_ring(cx),
+            "ADR 0101 task 015: Tab after a click on a view button must not go to \"Load more\""
+        );
+        let list = cx.update(|_, cx| library.read(cx).list_column_focus.clone());
+        assert!(
+            !cx.update(|window, _| list.is_focused(window)),
+            "Tab goes to the next control of the header, not to the list"
+        );
     }
 }

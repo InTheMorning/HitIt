@@ -1,6 +1,6 @@
 # ADR 0101 Task 015: "Load More" Shows The Focus Ring
 
-Status: Ready - 2026-11-18. The orchestrator asked for this packet on 2026-11-18, with the approval of the operator.
+Status: Implemented - operator visual checks V1 to V3 open, 2026-11-18.
 
 ## Goal
 
@@ -75,3 +75,40 @@ Candidate causes, not confirmed:
 - Stop if the cause is in GPUI or in `gpui-component`.
 
 A delegate does not commit. It leaves the change in the working tree and reports it. Apply the STE skill at `/home/citizen/.agents/skills/asd-ste100/SKILL.md` to each comment and report.
+
+## Report
+
+Cause of the missing ring and the dimmed look:
+
+- A key press that moves the focus to "Load more" scrolls the grid to its end.
+- The scroll probe of the list sees the end of the grid and starts the next page load.
+- "Load more" is then disabled, so it has opacity 0.4, no ring and no Tab stop.
+- The cause is in the HitIt code of the scroll probe. It is not in the Button primitive, in GPUI or in `gpui-component`.
+
+Cause of the Tab stop after a pointer click:
+
+- The Releases view buttons gave the focus back to the list column. Artists, Playlists and Public playlists do not.
+- The next Tab then went from the list to "Load more". The Releases code that was different from the other pages is removed. All list pages use the shared `list_page_head` code.
+
+Change:
+
+- `src/ui/focus_ring.rs` records the scroll offset of a key reveal. The probe in `content_list_scroll.rs` does not start a page load for that offset.
+- `Button` has the method `focus_target_when_disabled`. A disabled button that has the focus gives it to that handle. Only the Releases status row sets it. It is the list column.
+- `LoadMoreFocus` (`releases_everything.rs`) finds the first new row after "Load more". `settle_releases_load_more_focus` moves the focus and the cursor to that row.
+
+Mechanical criteria:
+
+- M1: `adr_0101_load_more_shows_the_focus_ring`. It did not pass before the change. The message was "Tab must reach "Load more" and show its ring".
+- M2: `adr_0101_disabled_load_more_is_not_a_tab_stop` and `adr_0101_load_more_that_becomes_disabled_gives_the_focus_to_the_list`.
+- M3: `adr_0101_a_click_on_a_view_button_keeps_tab_off_load_more`. It did not pass with the Releases refocus that the change removes.
+- Focus after "Load more": `adr_0101_load_more_focuses_the_first_new_row` and two tests of `LoadMoreFocus`. The test runs the click handler of the button. It does not push Enter.
+- M4: the assembly, the tests, clippy, the format check and the architecture tests pass.
+
+A key reveal of a row near the end of a list does not start the next page load. "Load more" stays available when a key reveal scrolls to the end.
+
+Visual criteria V1 to V3 stay open for the operator.
+
+Open points, recorded by the main session on 2026-11-18:
+
+- Operator choice, open: on each list with `attach_list_scroll_with`, a key that moves the cursor to a row near the end no longer loads the next page. The user presses "Load more". The packet did not ask for this change. The main session accepted it, because a load at that time disables the focused button. The operator can ask for a narrower rule.
+- Operator choice, open: the refocus of commit `f894cab` gave the arrow keys to the list after a pointer click. The view buttons no longer do this. The scope buttons and Select still give the focus to the list, so a Tab after a click on them goes to "Load more". The packet named only the view buttons.

@@ -640,6 +640,68 @@ fn item_selection_id(item: &ReleasesListItemVm) -> Option<ReleasesRowId> {
     }
 }
 
+/// A press of "Load more" of the Releases list that waits for the focus to
+/// move. It holds the rows that the list showed before the press (ADR 0101
+/// task 015, ADR 0092 task 001 V3).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct LoadMoreFocus {
+    rows_before: Vec<ReleasesRowId>,
+}
+
+/// The result of [`LoadMoreFocus::resolve`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum LoadMoreFocusStep {
+    /// The next rows are not here yet. The list column keeps the focus, and
+    /// the next draw asks again.
+    Wait,
+    /// The list column takes the focus. `Some` names the row that takes the
+    /// cursor. `None` means that no new row came.
+    Focus(Option<ReleasesRowId>),
+}
+
+impl LoadMoreFocus {
+    /// Records the press of "Load more", before the list loads more rows.
+    #[must_use]
+    pub(crate) fn begin(rows: &ReleasesListRows) -> Self {
+        Self {
+            rows_before: rows
+                .selection_rows
+                .iter()
+                .map(|row| row.id.clone())
+                .collect(),
+        }
+    }
+
+    /// Finds the row that takes the focus: the first row that the list did
+    /// not show before the press. With no new row, the step waits while the
+    /// list loads, else it gives `Focus(None)`.
+    #[must_use]
+    pub(crate) fn resolve(&self, rows: &ReleasesListRows) -> LoadMoreFocusStep {
+        let first_new = rows
+            .selection_rows
+            .iter()
+            .map(|row| &row.id)
+            .find(|id| !self.rows_before.contains(id));
+        if let Some(id) = first_new {
+            return LoadMoreFocusStep::Focus(Some(id.clone()));
+        }
+        let loading = rows.items.iter().any(|item| match item {
+            ReleasesListItemVm::LeadingStatus(status)
+            | ReleasesListItemVm::TrailingStatus(status) => match status {
+                IndexListStatusRowVm::Loading { .. } => true,
+                IndexListStatusRowVm::LoadMore(action) => !action.available,
+                IndexListStatusRowVm::Failed { .. } => false,
+            },
+            _ => false,
+        });
+        if loading {
+            LoadMoreFocusStep::Wait
+        } else {
+            LoadMoreFocusStep::Focus(None)
+        }
+    }
+}
+
 /// The last build of the Releases list and its key (ADR 0084 task 037,
 /// Design step 3). One frame can read the list more than one time, for
 /// the header action and for the rows. Only a new key builds the list
@@ -1489,5 +1551,55 @@ pub(crate) mod tests {
         assert_eq!(LetterKey::of_name("Zēmar Red"), LetterKey::Letter('Z'));
         assert_eq!(LetterKey::of_name("Øystein"), LetterKey::Letter('O'));
         assert_eq!(LetterKey::of_name("1point3"), LetterKey::Other);
+    }
+
+    fn rows_with_status(ids: &[&str], status: Option<IndexListStatusRowVm>) -> ReleasesListRows {
+        let selection_rows = ids
+            .iter()
+            .map(|id| {
+                let key = ReleaseKey::FeedGuid((*id).to_owned());
+                SelectionRow::new(ReleasesRowId::Release(key.clone()), vec![key])
+            })
+            .collect();
+        ReleasesListRows::from_parts(Vec::new(), selection_rows, status, |_| None)
+    }
+
+    fn load_more_status(available: bool) -> IndexListStatusRowVm {
+        IndexListStatusRowVm::LoadMore(
+            crate::view_models::index_name_list::IndexListActionDisplay {
+                id: "load-more".to_owned(),
+                label: "Load more",
+                a11y_label: "Load more".to_owned(),
+                available,
+            },
+        )
+    }
+
+    fn release_id(id: &str) -> ReleasesRowId {
+        ReleasesRowId::Release(ReleaseKey::FeedGuid(id.to_owned()))
+    }
+
+    /// ADR 0101 task 015: the focus goes to the first row that the list did
+    /// not show before the press, also when the new row is not the last.
+    #[test]
+    fn adr_0101_load_more_focus_takes_the_first_new_row() {
+        let press =
+            LoadMoreFocus::begin(&rows_with_status(&["a", "c"], Some(load_more_status(true))));
+        let after = rows_with_status(&["a", "b", "c", "d"], Some(load_more_status(true)));
+        assert_eq!(
+            press.resolve(&after),
+            LoadMoreFocusStep::Focus(Some(release_id("b")))
+        );
+    }
+
+    /// ADR 0101 task 015: the focus waits while the page loads, and it
+    /// goes to the list with no row when no new row comes.
+    #[test]
+    fn adr_0101_load_more_focus_waits_while_the_page_loads() {
+        let press = LoadMoreFocus::begin(&rows_with_status(&["a"], Some(load_more_status(true))));
+        let loading = rows_with_status(&["a"], Some(load_more_status(false)));
+        assert_eq!(press.resolve(&loading), LoadMoreFocusStep::Wait);
+        let done = rows_with_status(&["a"], Some(load_more_status(true)));
+        assert_eq!(press.resolve(&done), LoadMoreFocusStep::Focus(None));
     }
 }

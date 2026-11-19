@@ -151,7 +151,7 @@ impl LibraryApp {
                 .map(|art| collection_art_image(self, art, ThumbnailSize::Sm, cx)),
             LiveListItemVm::Status(_) => None,
         };
-        render_live_list_item(item.clone(), art, Self::live_actions(), cx)
+        render_live_list_item(item.clone(), art, &Self::live_actions(), cx)
     }
 
     /// The "Try again" and "Load more" actions of the Live status rows.
@@ -160,6 +160,7 @@ impl LibraryApp {
             retry: Self::retry_live,
             load_more: Some(Self::load_more_live),
             in_list_tab_stop: false,
+            focus_when_disabled: None,
         }
     }
 }

@@ -48,7 +48,7 @@ pub(crate) fn render_live_empty(title: &str) -> AnyElement {
 pub(crate) fn render_live_list_item(
     item: LiveListItemVm,
     art: Option<CollectionArtImage>,
-    actions: IndexListActions,
+    actions: &IndexListActions,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     match item {

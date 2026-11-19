@@ -122,7 +122,7 @@ pub(crate) enum DestinationRowMenu<'a> {
 pub(crate) fn render_artists_list_item(
     item: ArtistsListItemVm,
     art: Option<CollectionArtImage>,
-    actions: IndexListActions,
+    actions: &IndexListActions,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     match item {
@@ -169,7 +169,7 @@ pub(crate) fn render_releases_list_item(
     item: ReleasesListItemVm,
     thumbnail: Option<Arc<Image>>,
     art: Option<CollectionArtImage>,
-    actions: IndexListActions,
+    actions: &IndexListActions,
     menu: &ReleaseRowMenuContext,
     release_column: LeadingDisclosure,
     cx: &mut Context<LibraryApp>,

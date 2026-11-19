@@ -21,7 +21,7 @@ use gpui::{
 };
 use gpui_component::scroll::ScrollableElement;
 
-use crate::ui::focus_ring::{begin_focus_reveal, take_focus_reveal};
+use crate::ui::focus_ring::{begin_focus_reveal, note_revealed_scroll, take_focus_reveal};
 use crate::ui::tokens::{Size, Spacing};
 use crate::view_models::detail_selection::list_bar_is_pinned;
 use crate::view_models::list_selection::FocusStep;
@@ -100,6 +100,7 @@ fn focus_reveal_layer(scroll: &ScrollHandle) -> impl IntoElement {
                 f32::from(scroll.max_offset().y),
             ) {
                 scroll.set_offset(point(offset.x, Pixels::from(offset_y)));
+                note_revealed_scroll(f32::from(scroll.offset().y), cx);
                 window.on_next_frame(|window, _cx| window.refresh());
             }
         },

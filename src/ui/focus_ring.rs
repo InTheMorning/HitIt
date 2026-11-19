@@ -35,6 +35,16 @@ struct FocusReveal {
 
 impl Global for FocusReveal {}
 
+/// The vertical scroll offset that a focus reveal gave to a scroll column.
+/// A column that loads more rows near its end reads it. A reveal that
+/// scrolls to a focused "Load more" button must not start that load, or the
+/// button becomes disabled when it takes the focus (walk of 2026-11-18,
+/// defect 3).
+#[derive(Clone, Copy, Debug, Default)]
+struct RevealedScrollOffset(Option<f32>);
+
+impl Global for RevealedScrollOffset {}
+
 /// Tells if the focused control or row shows its focus ring now.
 #[must_use]
 pub(crate) fn focus_ring_shows(cx: &App) -> bool {
@@ -98,11 +108,27 @@ pub(crate) fn take_focus_reveal(cx: &mut App) -> Option<Bounds<Pixels>> {
     Some(bounds)
 }
 
+/// Records the offset that a focus reveal gave to a scroll column.
+pub(crate) fn note_revealed_scroll(offset_y: f32, cx: &mut App) {
+    cx.set_global(RevealedScrollOffset(Some(offset_y)));
+}
+
+/// Tells if the key press that moved the focus gave `offset_y` to a scroll
+/// column. A wheel scroll or a scrollbar drag gives another offset. A mouse
+/// button press ends the record.
+#[must_use]
+pub(crate) fn scroll_was_revealed(offset_y: f32, cx: &App) -> bool {
+    cx.try_global::<RevealedScrollOffset>()
+        .and_then(|revealed| revealed.0)
+        .is_some_and(|revealed| (revealed - offset_y).abs() < 1.0)
+}
+
 /// Puts the mouse button listener on the root element of the window.
 pub(crate) fn track_focus_ring_mouse<E: InteractiveElement>(root: E) -> E {
     root.capture_any_mouse_down(|_, window, cx| {
         set_focus_ring_shows(false, window, cx);
         cx.set_global(FocusReveal::default());
+        cx.set_global(RevealedScrollOffset::default());
     })
 }
 

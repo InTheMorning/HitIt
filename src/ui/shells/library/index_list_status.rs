@@ -23,19 +23,22 @@ pub(crate) type IndexListAction = fn(&mut LibraryApp, &mut Context<LibraryApp>);
 /// with no "Load more" row, for example the group page of packet 026
 /// decision D11, gives `None` for `load_more` instead of a closure that
 /// does nothing.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct IndexListActions {
     pub(crate) retry: IndexListAction,
     pub(crate) load_more: Option<IndexListAction>,
     /// `true` when the row is in a list that is one Tab stop (ADR 0092
     /// Decision 1). Its buttons then follow the list in the Tab sequence.
     pub(crate) in_list_tab_stop: bool,
+    /// The handle that takes the keyboard focus when a button of the row
+    /// has it and becomes disabled. `None` leaves the focus on the button.
+    pub(crate) focus_when_disabled: Option<gpui::FocusHandle>,
 }
 
 /// Renders one status row.
 pub(crate) fn render_index_list_status_row(
     status: IndexListStatusRowVm,
-    actions: IndexListActions,
+    actions: &IndexListActions,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     match status {
@@ -75,6 +78,7 @@ pub(crate) fn render_index_list_status_row(
                 retry,
                 actions.retry,
                 actions.in_list_tab_stop,
+                actions.focus_when_disabled.as_ref(),
                 cx,
             ))
             .into_any_element(),
@@ -88,6 +92,7 @@ pub(crate) fn render_index_list_status_row(
                     load_more,
                     action,
                     actions.in_list_tab_stop,
+                    actions.focus_when_disabled.as_ref(),
                     cx,
                 ))
                 .into_any_element(),
@@ -100,19 +105,23 @@ fn action_button(
     display: IndexListActionDisplay,
     action: IndexListAction,
     in_list_tab_stop: bool,
+    focus_when_disabled: Option<&gpui::FocusHandle>,
     cx: &mut Context<LibraryApp>,
 ) -> AnyElement {
     // The list column of a list with row focus has Tab index 1, so the
     // header controls come first. A button inside that list uses the same
     // index, so Tab reaches it after the list, in screen order.
     let tab_index = isize::from(in_list_tab_stop);
-    UiButton::styled(SharedString::from(display.id), ControlStyle::Neutral)
+    let mut button = UiButton::styled(SharedString::from(display.id), ControlStyle::Neutral)
         .label(display.label)
         .tab_index(tab_index)
         .a11y_label(display.a11y_label)
         .disabled(!display.available)
         .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
             action(this, cx);
-        }))
-        .into_any_element()
+        }));
+    if let Some(target) = focus_when_disabled {
+        button = button.focus_target_when_disabled(target);
+    }
+    button.into_any_element()
 }

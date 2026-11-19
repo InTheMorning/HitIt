@@ -331,6 +331,14 @@ impl RecentFeedsPageVm {
         assert!(self.receive_page(intent.generation(), batch));
         assert_eq!(self.next_step(false), RecentFeedsPageStep::Finished);
     }
+
+    /// Ends the page request that is in flight with one recorded page, for
+    /// a test.
+    #[cfg(test)]
+    pub(crate) fn finish_recorded_page(&mut self, batch: RecentFeedsPageBatch) {
+        assert!(self.receive_page(self.generation, batch));
+        assert_eq!(self.next_step(false), RecentFeedsPageStep::Finished);
+    }
 }
 
 #[cfg(test)]
