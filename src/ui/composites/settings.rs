@@ -29,6 +29,7 @@ pub(crate) type SettingsCallback = Rc<dyn Fn(SettingsAction, &mut Window, &mut A
 #[derive(Default)]
 pub(crate) struct SettingsScrollHandles {
     general: ScrollHandle,
+    audio: ScrollHandle,
     library: ScrollHandle,
     diagnostics: ScrollHandle,
     pages: [ScrollHandle; 4],
@@ -49,6 +50,7 @@ impl SettingsScrollHandles {
     pub(crate) const fn handle(&self, group: SettingsGroup) -> &ScrollHandle {
         match group {
             SettingsGroup::General => &self.general,
+            SettingsGroup::Audio => &self.audio,
             SettingsGroup::Library => &self.library,
             SettingsGroup::Diagnostics => &self.diagnostics,
         }

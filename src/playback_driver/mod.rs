@@ -121,6 +121,14 @@ impl ConfiguredPlaybackDriver {
         }
     }
 
+    pub fn ping_version(&self) -> Result<Option<String>> {
+        match self {
+            Self::Null(_) => Ok(None),
+            #[cfg(unix)]
+            Self::Mpv(driver) => driver.ping_version().map(Some),
+        }
+    }
+
     pub fn is_live_driver(&self) -> bool {
         match self {
             Self::Null(_) => false,

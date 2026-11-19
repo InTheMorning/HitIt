@@ -151,6 +151,7 @@ pub struct PreparedCore {
     pub connection: Connection,
     pub preparation_receipt: database::PreparationReceipt,
     pub notices: Vec<StartupIssue>,
+    pub created_defaults: bool,
 }
 
 pub enum CoreResult {
@@ -278,7 +279,7 @@ impl StartupBackend {
         if !prepare || !outcome.can_open() {
             return CoreResult::Checked(outcome);
         }
-        self.prepare(path, snapshot, outcome)
+        self.prepare(path, snapshot, outcome, first_run)
     }
 
     fn prepare(
@@ -286,6 +287,7 @@ impl StartupBackend {
         path: PathBuf,
         snapshot: ConfigSnapshot,
         mut outcome: CoreCheckOutcome,
+        created_defaults: bool,
     ) -> CoreResult {
         let db_path = snapshot
             .db_path
@@ -320,6 +322,7 @@ impl StartupBackend {
             connection: prepared.connection,
             preparation_receipt: prepared.receipt,
             notices: outcome.issues,
+            created_defaults,
         }))
     }
 }

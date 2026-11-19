@@ -238,6 +238,11 @@ pub struct TopApp {
     settings_status: String,
     /// The last result of the test sound for the current player (ADR 0104 Decision 4).
     test_sound: crate::view_models::audio_setup::TestSoundState,
+    audio_driver: crate::config::PlaybackDriver,
+    /// The error of the last failed save of the Show player.
+    audio_save_error: Option<String>,
+    /// The state of mpv in Settings, Audio (ADR 0104 Decision 3).
+    mpv_status: crate::view_models::audio_setup::MpvStatus,
     /// The state of "Copy Feed URL" of an Index track page, with the track
     /// that it is for (ADR 0101 task 008).
     index_track_copy: Option<(
@@ -245,6 +250,8 @@ pub struct TopApp {
         crate::view_models::track_page::IndexFeedCopy,
     )>,
     settings: SettingsVm,
+    /// True until "Continue" in the first start of ADR 0104 Decision 5.
+    first_start_audio: bool,
     settings_scroll: crate::ui::composites::settings::SettingsScrollHandles,
     _global_search_sub: gpui::Subscription,
     _library_sub: gpui::Subscription,
@@ -361,6 +368,7 @@ impl TopApp {
         workspace_layout_prefs: Option<&config::WorkspaceLayoutPrefs>,
         ui_scale: crate::config::UiScale,
         theme_profile: ThemeProfile,
+        audio_driver: crate::config::PlaybackDriver,
         playback_owner: Option<Arc<Mutex<PlaybackOwner<ConfiguredPlaybackDriver>>>>,
         runtime_host: Option<Arc<crate::presentation::RuntimeHost>>,
         session: crate::application::session_lifecycle::SessionLifecycle,
@@ -602,8 +610,12 @@ impl TopApp {
             cfg_path,
             settings_status: String::new(),
             test_sound: crate::view_models::audio_setup::TestSoundState::default(),
+            audio_driver,
+            audio_save_error: None,
+            mpv_status: crate::view_models::audio_setup::MpvStatus::default(),
             index_track_copy: None,
             settings: SettingsVm::default(),
+            first_start_audio: false,
             settings_scroll: crate::ui::composites::settings::SettingsScrollHandles::default(),
             _global_search_sub: global_search_sub,
             _library_sub: library_sub,

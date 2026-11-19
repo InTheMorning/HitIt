@@ -12,18 +12,21 @@ use super::startup::StartupAvailability;
 pub(crate) enum SettingsGroup {
     #[default]
     General,
+    Audio,
     Library,
     Diagnostics,
 }
 
 impl SettingsGroup {
-    pub(crate) const ALL: [Self; 3] = [Self::General, Self::Library, Self::Diagnostics];
+    pub(crate) const ALL: [Self; 4] =
+        [Self::General, Self::Audio, Self::Library, Self::Diagnostics];
     /// The most groups that the tab row can hold (ADR 0093 Decision 2).
     pub(crate) const MAX_GROUPS: usize = 5;
 
     const fn id(self) -> &'static str {
         match self {
             Self::General => "settings-group-general",
+            Self::Audio => "settings-group-audio",
             Self::Library => "settings-group-library",
             Self::Diagnostics => "settings-group-diagnostics",
         }
@@ -32,6 +35,7 @@ impl SettingsGroup {
     const fn a11y_label(self) -> &'static str {
         match self {
             Self::General => "Show General settings",
+            Self::Audio => "Show Audio settings",
             Self::Library => "Show Library settings",
             Self::Diagnostics => "Show Diagnostics tools",
         }
@@ -40,6 +44,7 @@ impl SettingsGroup {
     pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::General => "General",
+            Self::Audio => "Audio",
             Self::Library => "Library",
             Self::Diagnostics => "Diagnostics",
         }
@@ -62,6 +67,14 @@ impl SettingsGroup {
                     rows: &[Defaults],
                 },
             ],
+            Self::Audio => &[SettingsSection {
+                heading: "Show player",
+                rows: &[
+                    SettingsContent::ShowPlayer,
+                    SettingsContent::MpvStatus,
+                    SettingsContent::TestSound,
+                ],
+            }],
             Self::Library => &[
                 SettingsSection {
                     heading: "Music Index",
@@ -129,6 +142,9 @@ impl DiagnosticPage {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SettingsContent {
+    ShowPlayer,
+    MpvStatus,
+    TestSound,
     Scale,
     Theme,
     Endpoint,
@@ -165,17 +181,25 @@ impl SettingsContent {
     /// The control type of a setting row, or `None` for a Diagnostics item.
     pub(crate) const fn control(self) -> Option<SettingsRowControl> {
         match self {
-            Self::Scale | Self::Theme => Some(SettingsRowControl::Choices),
-            Self::Defaults | Self::CachedFiles => Some(SettingsRowControl::Action),
+            Self::Scale | Self::Theme | Self::ShowPlayer => Some(SettingsRowControl::Choices),
+            Self::Defaults | Self::CachedFiles | Self::TestSound => {
+                Some(SettingsRowControl::Action)
+            }
             Self::Endpoint => Some(SettingsRowControl::TextField),
             Self::MusicDirectory | Self::FlacPath => Some(SettingsRowControl::ValueAndAction),
-            Self::BackgroundReports | Self::SessionMaintenance | Self::DatabaseTools => None,
+            Self::MpvStatus
+            | Self::BackgroundReports
+            | Self::SessionMaintenance
+            | Self::DatabaseTools => None,
         }
     }
 
     pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::Scale => "UI scale",
+            Self::ShowPlayer => "Show player",
+            Self::MpvStatus => "mpv status",
+            Self::TestSound => "Test sound",
             Self::Theme => "Theme",
             Self::Endpoint => "Music Index endpoint",
             Self::MusicDirectory => "Music directory",
@@ -191,13 +215,18 @@ impl SettingsContent {
     pub(crate) const fn help(self) -> &'static str {
         match self {
             Self::Scale => "Scales the interface. Applies immediately; click Save to persist.",
+            Self::ShowPlayer => "\"No sound\" is for tests only. Nothing plays, and the Show cannot start.",
+            Self::TestSound => "Play a tone to check the speakers.",
             Self::Theme => "Applies immediately. Click Save to persist.",
             Self::Endpoint => "Use api.musicindex.org or a full http/https URL.",
             Self::MusicDirectory => "Current session folder. Open Configuration repair to test and save a different existing folder after ending this session.",
             Self::FlacPath => "Test FLAC and ffmpeg availability, edit the FLAC executable path, and save it with an original-file backup in Converter setup.",
             Self::Defaults => "Resets the General and Library settings to the defaults and saves them.",
             Self::CachedFiles => "Files that a Library removal moved out of the music folder. Delete removes a file for good.",
-            Self::BackgroundReports | Self::SessionMaintenance | Self::DatabaseTools => "",
+            Self::MpvStatus
+            | Self::BackgroundReports
+            | Self::SessionMaintenance
+            | Self::DatabaseTools => "",
         }
     }
 }
@@ -216,6 +245,11 @@ pub(crate) enum SettingsAction {
     UseDefaults,
     SetScale(UiScale),
     SetTheme(ThemeProfile),
+    SelectDriver(crate::config::PlaybackDriver),
+    PlayTestSound,
+    ContinueFirstStart,
+    AnswerTestSound(bool),
+    CheckMpv,
 }
 
 impl SettingsAction {
@@ -270,6 +304,9 @@ pub(crate) enum SettingsEffect {
     CopyVersion,
     SetScale(UiScale),
     SetTheme(ThemeProfile),
+    ContinueFirstStart,
+    AnswerTestSound(bool),
+    CheckMpv,
 }
 
 #[derive(Clone, Debug)]
@@ -402,6 +439,12 @@ impl SettingsVm {
             SettingsAction::UseDefaults => SettingsEffect::ConfirmUseDefaults,
             SettingsAction::SetScale(scale) => SettingsEffect::SetScale(scale),
             SettingsAction::SetTheme(profile) => SettingsEffect::SetTheme(profile),
+            SettingsAction::SelectDriver(_) | SettingsAction::PlayTestSound => {
+                SettingsEffect::Navigate
+            }
+            SettingsAction::ContinueFirstStart => SettingsEffect::ContinueFirstStart,
+            SettingsAction::AnswerTestSound(heard) => SettingsEffect::AnswerTestSound(heard),
+            SettingsAction::CheckMpv => SettingsEffect::CheckMpv,
         }
     }
 
@@ -531,6 +574,44 @@ impl SettingsVm {
             })
             .collect()
     }
+
+    pub(crate) fn player_choices(
+        current: crate::config::PlaybackDriver,
+    ) -> Vec<SettingsActionDisplay> {
+        [
+            (
+                crate::config::PlaybackDriver::Mpv,
+                "Speakers of this computer (mpv)",
+                "Play the Show through mpv on this computer.",
+            ),
+            (
+                crate::config::PlaybackDriver::Null,
+                "No sound",
+                "For tests only. Nothing plays, and the Show cannot start.",
+            ),
+        ]
+        .into_iter()
+        .map(|(driver, label, description)| SettingsActionDisplay {
+            action: SettingsAction::SelectDriver(driver),
+            id: format!("audio-driver-{}", driver.as_str()),
+            label: label.into(),
+            a11y_label: format!("{label}. {description}"),
+            availability: StartupAvailability::Available,
+            selected: driver == current,
+        })
+        .collect()
+    }
+
+    pub(crate) fn first_start_continue() -> Vec<SettingsActionDisplay> {
+        vec![SettingsActionDisplay {
+            action: SettingsAction::ContinueFirstStart,
+            id: "audio-first-start-continue".into(),
+            label: "Continue".into(),
+            a11y_label: "Continue to Music".into(),
+            availability: StartupAvailability::Available,
+            selected: false,
+        }]
+    }
 }
 
 #[cfg(test)]
@@ -615,7 +696,7 @@ mod tests {
                     .iter()
                     .map(|segment| segment.label)
                     .collect::<Vec<_>>(),
-                ["General", "Library", "Diagnostics"]
+                ["General", "Audio", "Library", "Diagnostics"]
             );
             assert_eq!(
                 control
@@ -653,6 +734,28 @@ mod tests {
                 ("Defaults", vec![SettingsContent::Defaults]),
             ]
         );
+        assert_eq!(
+            rows(SettingsGroup::Audio),
+            [(
+                "Show player",
+                vec![
+                    SettingsContent::ShowPlayer,
+                    SettingsContent::MpvStatus,
+                    SettingsContent::TestSound
+                ]
+            )]
+        );
+        let choices = SettingsVm::player_choices(crate::config::PlaybackDriver::Mpv);
+        assert_eq!(
+            choices
+                .iter()
+                .map(|choice| choice.label.as_str())
+                .collect::<Vec<_>>(),
+            ["Speakers of this computer (mpv)", "No sound"]
+        );
+        assert!(choices
+            .iter()
+            .all(|choice| !choice.a11y_label.contains("PlaybackDriver")));
         assert_eq!(
             rows(SettingsGroup::Library),
             [

@@ -92,6 +92,7 @@ fn top_app(window: &mut Window, cx: &mut Context<TopApp>) -> TopApp {
         None,
         crate::config::UiScale::Medium,
         ThemeProfile::default(),
+        crate::config::PlaybackDriver::Mpv,
         None,
         None,
         crate::application::session_lifecycle::SessionLifecycle::new(),
@@ -132,6 +133,48 @@ fn draw_and_read(window: &mut gpui::VisualTestContext) -> (usize, Vec<String>) {
         let _ = window.draw(cx);
     });
     (fit_probe::count(), fit_probe::faults())
+}
+
+fn audio_group_faults(width: Pixels) -> (usize, Vec<String>) {
+    let mut cx = fit_probe::figtree_test_context();
+    cx.update(init);
+    let app: Rc<RefCell<Option<Entity<TopApp>>>> = Rc::default();
+    let slot = Rc::clone(&app);
+    let (_, window) = cx.add_window_view(move |window, cx| {
+        let entity = cx.new(|cx| top_app(window, cx));
+        *slot.borrow_mut() = Some(entity.clone());
+        gpui_component::Root::new(entity, window, cx)
+    });
+    window.simulate_resize(size(width, WINDOW_HEIGHT));
+    window.run_until_parked();
+    let entity = app.borrow().clone().expect("window creates the app");
+    window.update(|_, cx| {
+        entity.update(cx, |app, cx| {
+            app.settings
+                .dispatch(crate::view_models::settings::SettingsAction::SelectGroup(
+                    crate::view_models::settings::SettingsGroup::Audio,
+                ));
+            cx.notify();
+        });
+    });
+    window.run_until_parked();
+    let found = draw_and_read(window);
+    cx.quit();
+    found
+}
+
+#[test]
+fn adr_0097_audio_settings_fit_at_the_two_widths() {
+    for width in WIDTHS {
+        let (count, faults) = audio_group_faults(width);
+        assert!(count > 0, "Audio Settings recorded no fit probes.");
+        assert!(
+            faults.is_empty(),
+            "{} px:\n{}",
+            f32::from(width),
+            faults.join("\n")
+        );
+    }
 }
 
 fn single_row(id: i64) -> SinglesGroupPageEntryVm {

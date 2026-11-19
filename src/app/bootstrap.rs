@@ -140,6 +140,7 @@ pub(super) struct NormalStartup {
     audio_cache_dir: std::path::PathBuf,
     capability_observations: CapabilityObservations,
     notices: Vec<StartupIssue>,
+    created_defaults: bool,
 }
 
 /// Runs on the independent worker after core admission, never in a UI callback.
@@ -150,6 +151,7 @@ pub(super) fn prepare_normal(core: PreparedCore) -> Result<NormalStartup, CoreCh
         connection,
         preparation_receipt,
         notices,
+        created_defaults,
     } = core;
     let cfg = snapshot;
     let audio_cache_dir = config::audio_cache_dir().map_err(|error| {
@@ -236,6 +238,7 @@ pub(super) fn prepare_normal(core: PreparedCore) -> Result<NormalStartup, CoreCh
         audio_cache_dir,
         capability_observations,
         notices,
+        created_defaults,
     })
 }
 
@@ -258,11 +261,17 @@ pub(super) fn mount_normal<T: 'static>(
         audio_cache_dir,
         capability_observations,
         notices,
+        created_defaults,
     } = prepared;
     let workspace_layout_prefs = cfg
         .workspace_preferences()
         .and_then(|workspace| workspace.layout);
     let broadcast = cfg.broadcast();
+    let audio_driver = cfg
+        .playback()
+        .map_or(crate::config::PlaybackDriver::Mpv, |playback| {
+            playback.driver
+        });
     let theme_profile = cfg.theme_profile.unwrap_or_default();
     let ui_scale = cfg.ui_scale.unwrap_or_default();
     crate::ui::theme_bridge::install_theme_for_window(theme_profile, ui_scale.into(), window, cx);
@@ -280,6 +289,7 @@ pub(super) fn mount_normal<T: 'static>(
             workspace_layout_prefs.as_ref(),
             ui_scale,
             theme_profile,
+            audio_driver,
             playback_owner,
             runtime_host,
             session,
@@ -288,8 +298,20 @@ pub(super) fn mount_normal<T: 'static>(
         );
         app.previous_session_report =
             crate::view_models::startup::preparation_report(&preparation_receipt);
+        let start_page = crate::view_models::audio_setup::StartPage::for_start(created_defaults);
+        if start_page == crate::view_models::audio_setup::StartPage::SetUpSound {
+            app.settings
+                .dispatch(crate::view_models::settings::SettingsAction::SelectGroup(
+                    crate::view_models::settings::SettingsGroup::Audio,
+                ));
+            app.first_start_audio = true;
+            app.tab = super::AppTab::Settings;
+        }
         app.focus_active_tab(window, cx);
         app.install_capability_controls(capability_observations, worker, cx);
+        if start_page == crate::view_models::audio_setup::StartPage::SetUpSound {
+            app.check_mpv(window, cx);
+        }
         app.maybe_start_broadcast_readiness_watch(cx);
         app.maybe_start_broadcast_service_watch(cx);
         app.refresh_show_page(cx);

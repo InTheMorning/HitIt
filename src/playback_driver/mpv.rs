@@ -84,10 +84,23 @@ impl MpvDriver {
     }
 
     pub fn ping(&self) -> Result<()> {
+        self.ping_version().map(|_| ())
+    }
+
+    pub fn ping_version(&self) -> Result<String> {
         let mut state = self.inner.lock().expect("mpv driver mutex");
         self.ensure_started(&mut state)?;
         self.command(&mut state, json!(["get_property", "mpv-version"]))
-            .map(|_| ())
+            .and_then(|reply| {
+                reply
+                    .and_then(|reply| {
+                        reply
+                            .get("data")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    })
+                    .ok_or_else(|| anyhow!("mpv did not return its version"))
+            })
     }
 
     fn ensure_started(&self, state: &mut MpvState) -> Result<()> {

@@ -1032,7 +1032,7 @@ The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#section-43-walk-
 
 ## 44. ADR 0104 Task 002 The Group "Audio" And The First Start - 2026-11-19
 
-Task: [ADR 0104 task 002](tasks/adr-0104-task-002-the-audio-group-and-the-first-start.md). The task is Ready. Do these checks after its build.
+Task: [ADR 0104 task 002](tasks/adr-0104-task-002-the-audio-group-and-the-first-start.md). The task is implemented. These checks wait for a person.
 
 1. Open Settings, Audio. Make sure that the group shows "Speakers of this computer (mpv)", "No sound", the mpv state and "Play test sound" (V1).
 2. Click "Play test sound". Make sure that you hear a tone for 2 seconds and that the question "Did you hear the test sound?" then shows (V2).

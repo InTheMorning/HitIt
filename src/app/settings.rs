@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use gpui::{AnyElement, ClipboardItem, Context, Empty, IntoElement, Window};
+use gpui::{AnyElement, ClipboardItem, Context, Empty, IntoElement, ParentElement, Styled, Window};
 
 use crate::config;
 use crate::theme_profile::ThemeProfile;
@@ -50,9 +50,27 @@ impl TopApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let check_audio = action == SettingsAction::SelectGroup(SettingsGroup::Audio);
+        match action {
+            SettingsAction::SelectDriver(driver) => {
+                self.save_audio_driver(driver, window, cx);
+                return;
+            }
+            SettingsAction::PlayTestSound => {
+                self.play_test_sound(cx);
+                return;
+            }
+            _ => {}
+        }
         match self.settings.dispatch(action) {
             // Group buttons stay mounted and retain their own keyboard/mouse focus.
             SettingsEffect::Navigate => {}
+            SettingsEffect::CheckMpv => self.check_mpv(window, cx),
+            SettingsEffect::ContinueFirstStart => {
+                self.first_start_audio = false;
+                self.select_tab(super::AppTab::Music, window, cx);
+            }
+            SettingsEffect::AnswerTestSound(heard) => self.answer_test_sound(heard, cx),
             SettingsEffect::ConfigureConverter => self.capability_action(
                 crate::view_models::startup::capabilities::CapabilityAction::Configure(
                     crate::application::capability::Dependency::Converter,
@@ -75,7 +93,130 @@ impl TopApp {
             SettingsEffect::SetScale(scale) => self.set_ui_scale(scale, window, cx),
             SettingsEffect::SetTheme(profile) => self.set_theme_profile(profile, window, cx),
         }
+        if check_audio {
+            self.check_mpv(window, cx);
+        }
         cx.notify();
+    }
+
+    fn save_audio_driver(
+        &mut self,
+        driver: crate::config::PlaybackDriver,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let path = self.cfg_path.clone();
+        let Some(worker) = self.maintenance_worker.clone() else {
+            self.settings_status = "App could not save the player settings.".into();
+            self.audio_save_error = Some(self.settings_status.clone());
+            cx.notify();
+            return;
+        };
+        if let Ok(receiver) = worker.submit(move || {
+            let source = match crate::config::correction::CorrectionSource::read(&path) {
+                Ok(source) => source,
+                Err(error) => {
+                    return crate::application::commands::maintenance::CorrectionResult::Failed(
+                        format!("App could not load the player settings: {error:#}"),
+                    );
+                }
+            };
+            let command = crate::application::commands::maintenance::CorrectionCommand {
+                path,
+                source: Some(std::sync::Arc::new(source)),
+                draft: crate::config::correction::CorrectionDraft {
+                    raw: None,
+                    fields: vec![(
+                        crate::config::correction::CorrectionField("playback.driver"),
+                        driver.as_str().into(),
+                    )],
+                },
+                access: crate::application::commands::maintenance::CorrectionAccess::OptionalOnly,
+                operation: crate::application::commands::maintenance::CorrectionOperation::Save,
+            };
+            command.execute()
+        }) {
+            crate::presentation::startup_presenter::present_startup(
+                receiver,
+                worker,
+                window,
+                cx,
+                move |this, result, window, cx| {
+                    match result {
+                        Ok(crate::application::commands::maintenance::CorrectionResult::Saved(
+                            receipt,
+                        )) => {
+                            let snapshot = std::sync::Arc::new(receipt.fresh);
+                            this.audio_driver = driver;
+                            this.audio_save_error = None;
+                            this.refresh_corrected_settings(&snapshot, window, cx);
+                            this.check_saved_capabilities(
+                                vec![crate::application::capability::Dependency::Playback],
+                                window,
+                                cx,
+                            );
+                            this.settings_status.clear();
+                        }
+                        Ok(
+                            crate::application::commands::maintenance::CorrectionResult::Failed(
+                                error,
+                            ),
+                        ) => {
+                            this.audio_save_error = Some(error.clone());
+                            this.settings_status = error;
+                        }
+                        _ => {
+                            this.settings_status = "App could not save the player settings.".into();
+                            this.audio_save_error = Some(this.settings_status.clone());
+                        }
+                    }
+                    cx.notify();
+                },
+            );
+        } else {
+            self.settings_status = "App could not save the player settings. Try again.".into();
+            self.audio_save_error = Some(self.settings_status.clone());
+            cx.notify();
+        }
+    }
+
+    pub(super) fn check_mpv(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(worker) = self.maintenance_worker.clone() else {
+            self.mpv_status = crate::view_models::audio_setup::MpvStatus::Missing;
+            cx.notify();
+            return;
+        };
+        let path = self.cfg_path.clone();
+        if let Ok(receiver) = worker.submit(move || {
+            let snapshot = crate::config::ConfigSnapshot::read_existing(&path)
+                .map_err(|error| format!("{error:#}"))?;
+            let mut config = snapshot.playback().map_err(|error| format!("{error:?}"))?;
+            config.driver = crate::config::PlaybackDriver::Mpv;
+            crate::playback_driver::ConfiguredPlaybackDriver::from_config_isolated(
+                &config,
+                "audio-status",
+            )
+            .and_then(|driver| driver.ping_version())
+            .map_err(|error| format!("{error:#}"))
+        }) {
+            crate::presentation::startup_presenter::present_startup(
+                receiver,
+                worker,
+                window,
+                cx,
+                |this, result, _, cx| {
+                    this.mpv_status =
+                        crate::view_models::audio_setup::MpvStatus::from_ping(match result {
+                            Ok(Ok(version)) => Ok(version),
+                            _ => Err(()),
+                        });
+                    cx.notify();
+                },
+            );
+        } else {
+            self.mpv_status = crate::view_models::audio_setup::MpvStatus::Missing;
+            cx.notify();
+        }
     }
 
     fn use_default_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -164,11 +305,7 @@ pub(super) fn render_settings(app: &mut TopApp, cx: &mut Context<TopApp>) -> Any
             .into_any_element(),
         );
     }
-    let mut content = if workspace {
-        Vec::new()
-    } else {
-        vec![settings_heading(app.settings.selected().label(), cx)]
-    };
+    let mut content = settings_top_rows(app, workspace, &callback, cx);
     // musicindex ADR 0083 R-VERSION-4 and ADR 0093 Decision 2: the version
     // line is the first row of Diagnostics.
     if app.settings.shows_version() {
@@ -245,6 +382,9 @@ fn settings_content_row(
         SettingsContent::Theme => {
             settings_actions(SettingsVm::theme_choices(app.theme_profile), &callback, cx)
         }
+        SettingsContent::ShowPlayer | SettingsContent::MpvStatus | SettingsContent::TestSound => {
+            return audio_settings_control(app, field, &callback, cx);
+        }
         SettingsContent::Defaults => {
             settings_actions(app.settings.defaults_action(correction_idle), &callback, cx)
         }
@@ -283,6 +423,128 @@ fn settings_content_row(
         control,
         cx,
     )
+}
+
+/// The heading of the group, and the first start rows of ADR 0104 Decision 5.
+/// The first start text shows only on the group "Audio".
+fn settings_top_rows(
+    app: &TopApp,
+    workspace: bool,
+    callback: &SettingsCallback,
+    cx: &mut Context<TopApp>,
+) -> Vec<AnyElement> {
+    if workspace {
+        return Vec::new();
+    }
+    let first_start = app.first_start_audio && app.settings.selected() == SettingsGroup::Audio;
+    if !first_start {
+        return vec![settings_heading(app.settings.selected().label(), cx)];
+    }
+    vec![
+        settings_heading(crate::view_models::audio_setup::FIRST_START_TITLE, cx),
+        settings_message(crate::view_models::audio_setup::FIRST_START_TEXT, cx),
+        settings_actions(SettingsVm::first_start_continue(), callback, cx),
+    ]
+}
+
+fn audio_settings_control(
+    app: &TopApp,
+    field: SettingsContent,
+    callback: &SettingsCallback,
+    cx: &mut Context<TopApp>,
+) -> AnyElement {
+    match field {
+        SettingsContent::ShowPlayer => {
+            let choices =
+                settings_actions(SettingsVm::player_choices(app.audio_driver), callback, cx);
+            if let Some(error) = app.audio_save_error.as_ref() {
+                gpui::div()
+                    .flex()
+                    .flex_col()
+                    .child(choices)
+                    .child(settings_message(error.clone(), cx))
+                    .into_any_element()
+            } else {
+                choices
+            }
+        }
+        SettingsContent::MpvStatus if app.mpv_status.offers_check_again() => {
+            settings_value_and_action(
+                settings_message(app.mpv_status.label(), cx),
+                settings_actions(
+                    vec![crate::view_models::settings::SettingsActionDisplay {
+                        action: SettingsAction::CheckMpv,
+                        id: "audio-check-mpv".into(),
+                        label: "Check again".into(),
+                        a11y_label: "Check again whether mpv is installed".into(),
+                        availability: StartupAvailability::Available,
+                        selected: false,
+                    }],
+                    callback,
+                    cx,
+                ),
+                cx,
+            )
+        }
+        SettingsContent::MpvStatus => settings_message(app.mpv_status.label(), cx),
+        SettingsContent::TestSound => audio_test_sound_control(app, callback, cx),
+        _ => Empty.into_any_element(),
+    }
+}
+
+fn audio_test_sound_control(
+    app: &TopApp,
+    callback: &SettingsCallback,
+    cx: &mut Context<TopApp>,
+) -> AnyElement {
+    use crate::view_models::audio_setup::TestSoundOutcome;
+    let outcome = app.test_sound_outcome();
+    if outcome == TestSoundOutcome::NotTested {
+        return settings_actions(
+            vec![crate::view_models::settings::SettingsActionDisplay {
+                action: SettingsAction::PlayTestSound,
+                id: "audio-test-sound".into(),
+                label: "Play test sound".into(),
+                a11y_label: "Play test sound".into(),
+                availability: StartupAvailability::Available,
+                selected: false,
+            }],
+            callback,
+            cx,
+        );
+    }
+    let answers = [true, false].map(
+        |heard| crate::view_models::settings::SettingsActionDisplay {
+            action: SettingsAction::AnswerTestSound(heard),
+            id: if heard {
+                "audio-test-yes"
+            } else {
+                "audio-test-no"
+            }
+            .into(),
+            label: if heard { "Yes" } else { "No" }.into(),
+            a11y_label: if heard {
+                "Yes, I heard the test sound"
+            } else {
+                "No, I did not hear the test sound"
+            }
+            .into(),
+            availability: StartupAvailability::Available,
+            selected: false,
+        },
+    );
+    let mut row = gpui::div()
+        .flex()
+        .flex_col()
+        .child(settings_message("Did you hear the test sound?", cx))
+        .child(settings_actions(answers.to_vec(), callback, cx));
+    if outcome == TestSoundOutcome::NotHeard {
+        row = row.child(settings_message(
+            crate::view_models::audio_setup::NOT_HEARD_HELP,
+            cx,
+        ));
+    }
+    row.into_any_element()
 }
 
 fn render_session_tools(
