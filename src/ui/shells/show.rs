@@ -515,28 +515,42 @@ fn render_on_air_band(
     } = band;
     let action_handler = handlers.action;
     let rows = rows.into_iter().map(|row| {
-        let mut line = div()
-            .id(format!("on-air-row-{:?}", row.row))
-            .flex()
-            .flex_col()
-            .min_w_0()
-            .gap(Spacing::XS.scaled(cx))
-            .child(Label::new(row.title).variant(LabelVariant::Headline))
-            .child(Label::new(row.state).variant(LabelVariant::Body));
+        // One line for each row: the words at the left, the action at the right.
+        let mut text = div().flex().flex_col().flex_1().min_w_0().child(
+            div()
+                .flex()
+                .flex_row()
+                .flex_wrap()
+                .gap_x(Spacing::SM.scaled(cx))
+                .child(Label::new(row.title).variant(LabelVariant::Body))
+                .child(
+                    Label::new(row.state)
+                        .variant(LabelVariant::Body)
+                        .color(SemanticColor::SecondaryLabel),
+                ),
+        );
         if row.warning {
-            line = line.child(
+            text = text.child(
                 Label::new("Check this before you go on air.")
                     .variant(LabelVariant::Caption)
                     .color(SemanticColor::WarningLabel),
             );
         }
         if let Some(error) = row.error {
-            line = line.child(
+            text = text.child(
                 Label::new(error)
                     .variant(LabelVariant::Caption)
                     .color(SemanticColor::DangerLabel),
             );
         }
+        let mut line = div()
+            .id(format!("on-air-row-{:?}", row.row))
+            .flex()
+            .flex_row()
+            .items_center()
+            .min_w_0()
+            .gap(Spacing::MD.scaled(cx))
+            .child(text);
         if let Some(action) = row.action {
             let handler = action_handler.clone();
             line = line.child(
@@ -563,41 +577,26 @@ fn render_on_air_band(
         .id("show-on-air-band")
         .flex()
         .flex_col()
-        .gap(Spacing::MD.scaled(cx))
+        .flex_shrink_0()
+        .gap(Spacing::XS.scaled(cx))
         .px(Spacing::XL.scaled(cx))
-        .py(Spacing::MD.scaled(cx))
+        .py(Spacing::SM.scaled(cx))
         .border_b_1()
         .border_color(color(cx, SemanticColor::Separator))
         .children(rows)
-        .child(
-            Button::plain("show-information-switch")
-                .label(information_label)
-                .on_click(move |_, window, app| {
-                    if let Some(toggle) = &toggle {
-                        toggle(window, app);
-                    }
-                }),
-        )
-        .child(
-            Button::filled("show-go-on-air")
-                .label(go_label)
-                .disabled(!go_available)
-                .on_click(move |_, window, app| {
-                    if let Some(callback) = &callback {
-                        callback(window, app);
-                    }
-                }),
-        )
-        .when(end_show_available, |el| {
-            let handler = end_handler.clone();
-            el.child(Button::plain("show-end-show").label("End show").on_click(
-                move |_, window, app| {
-                    if let Some(handler) = &handler {
-                        handler(EndShowAction::Confirm, window, app);
-                    }
-                },
-            ))
-        })
+        .child(render_on_air_buttons(
+            information_label,
+            go_label,
+            go_available,
+            end_show_available,
+            OnAirHandlers {
+                go: callback,
+                action: None,
+                toggle_information: toggle,
+                end_show: end_handler.clone(),
+            },
+            cx,
+        ))
         .when_some(end_band, |el, end_band| {
             let end_now = end_handler.clone();
             let keep_on_air = end_handler.clone();
@@ -655,6 +654,58 @@ fn render_on_air_band(
         .when_some(listeners, |el, listeners| {
             el.child(Label::new(listeners.label).variant(LabelVariant::Caption))
         })
+}
+
+/// The switch of the show information, "Go on air" and "End show" on one line.
+fn render_on_air_buttons(
+    information_label: &'static str,
+    go_label: &'static str,
+    go_available: bool,
+    end_show_available: bool,
+    handlers: OnAirHandlers,
+    cx: &App,
+) -> impl IntoElement {
+    let OnAirHandlers {
+        go,
+        toggle_information,
+        end_show,
+        action: _,
+    } = handlers;
+    div()
+        .flex()
+        .flex_row()
+        .flex_wrap()
+        .items_center()
+        .gap(Spacing::SM.scaled(cx))
+        .pt(Spacing::XS.scaled(cx))
+        .child(
+            Button::filled("show-go-on-air")
+                .label(go_label)
+                .disabled(!go_available)
+                .on_click(move |_, window, app| {
+                    if let Some(callback) = &go {
+                        callback(window, app);
+                    }
+                }),
+        )
+        .when(end_show_available, |el| {
+            el.child(Button::plain("show-end-show").label("End show").on_click(
+                move |_, window, app| {
+                    if let Some(handler) = &end_show {
+                        handler(EndShowAction::Confirm, window, app);
+                    }
+                },
+            ))
+        })
+        .child(
+            Button::plain("show-information-switch")
+                .label(information_label)
+                .on_click(move |_, window, app| {
+                    if let Some(toggle) = &toggle_information {
+                        toggle(window, app);
+                    }
+                }),
+        )
 }
 
 fn render_show_summary(

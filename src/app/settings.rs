@@ -215,6 +215,7 @@ impl TopApp {
                             Ok(ping) => ping,
                             Err(error) => Err(format!("{error:#}")),
                         });
+                    this.reproject_show_page_from_current_queue();
                     cx.notify();
                 },
             );

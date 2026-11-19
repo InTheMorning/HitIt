@@ -1726,6 +1726,8 @@ pub(crate) struct StreamListenersDisplay {
     pub(crate) label: String,
     /// Curator-facing detail.
     pub(crate) detail: &'static str,
+    /// True when the encoder reported a count.
+    pub(crate) known: bool,
 }
 
 /// Stream state icon roles used by shells.
@@ -2417,8 +2419,21 @@ impl ShowPageVm {
                 "Listeners hear \"{selected_title}\" after the stream connects."
             ),
             show_information_off: !facts.show_information.is_on(),
-            signal: self.stream.as_ref().map(|stream| stream.signal),
-            listeners: self.stream.as_ref().map(|stream| stream.listeners.clone()),
+            // ADR 0105 Decision 4: the stream lines show only while on air.
+            signal: self
+                .stream
+                .as_ref()
+                .filter(|_| facts.end.stream_is_on)
+                .map(|stream| stream.signal),
+            listeners: self
+                .stream
+                .as_ref()
+                .filter(|stream| facts.end.stream_is_on && stream.listeners.known)
+                .map(|stream| StreamListenersDisplay {
+                    label: format!("{}. From the stream server.", stream.listeners.label),
+                    detail: "From the stream server.",
+                    known: true,
+                }),
             end_show_available: facts.end.stream_is_on
                 && facts.end.sequence.is_none_or(|sequence| sequence.next_step().is_none())
                 && facts.sequence.is_none_or(|sequence| sequence.next_step().is_none()),
@@ -3402,10 +3417,12 @@ fn stream_listeners_display(listeners: ListenerCount) -> StreamListenersDisplay 
         ListenerCount::Known(count) => StreamListenersDisplay {
             label: format!("{count} listeners"),
             detail: "Reported by the stream server.",
+            known: true,
         },
         ListenerCount::Unknown => StreamListenersDisplay {
             label: "Listeners unknown".to_owned(),
             detail: "Encoder did not report a useful count.",
+            known: false,
         },
     }
 }
@@ -4059,14 +4076,18 @@ mod tests {
                 "Sound at the stream is not known",
             ),
         ] {
+            let mut facts = on_air_facts(TestSoundOutcome::Heard, true);
+            facts.end.stream_is_on = true;
             let band = ready_page(true, signal)
-                .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+                .with_on_air_band(facts)
                 .on_air
                 .expect("band");
             let shown = band.signal.expect("signal");
             assert_eq!(shown.label, text);
             let mut texts = vec![shown.label.to_owned(), shown.detail.to_owned()];
-            texts.push(band.listeners.expect("listeners").label.clone());
+            let listeners = band.listeners.expect("listeners");
+            assert_eq!(listeners.label, "3 listeners. From the stream server.");
+            texts.push(listeners.label);
             for row in &band.rows {
                 texts.push(row.state.clone());
             }
@@ -4074,6 +4095,18 @@ mod tests {
                 assert!(!text.contains("Listeners hear"), "{text}");
             }
         }
+    }
+
+    /// ADR 0105 Decision 4: no stream line shows while the show is not on air.
+    #[test]
+    fn on_air_band_has_no_stream_lines_while_not_on_air() {
+        use crate::view_models::audio_setup::TestSoundOutcome;
+        let band = ready_page(true, AudioSignalState::Unknown)
+            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+            .on_air
+            .expect("band");
+        assert_eq!(band.signal, None);
+        assert_eq!(band.listeners, None);
     }
 
     fn command_snapshot(

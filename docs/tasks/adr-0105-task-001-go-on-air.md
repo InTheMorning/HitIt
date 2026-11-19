@@ -96,3 +96,13 @@ The first build passed the gate, but it had these defects against ADR 0105 or th
 7. The switch "Show information" stayed locked after a run with an error. The main session changed this. After an error, the host can change the switch and try again without the attach.
 
 Open point: the app-level links (the dispatch of each step, the play flag and the row actions) have no unit test. Only the view model and the sequence model have tests. The visual walk of section 45 examines the links.
+
+## Agent Walk Of Section 45 - 2026-11-19
+
+The agent walked section 45 on Xvfb at 1440 by 740 px. The walk found these defects. The main session corrected them and ran the gate.
+
+1. The band was tall, and the Show page does not scroll. The cards, the transport and "Go on air" were off the screen. After the correction, each row is one line, with the title and the state at the left and the action at the right. "Go on air", "End show" and the switch "Show information" are on one line.
+2. Row 1 said "mpv is not ready" after a start with a known player. The app checked mpv only on the first start. After the correction, it checks mpv at each start when the player is mpv, and the Show page reads the result (ADR 0105 Decision 2 item 1).
+3. The band showed "Sound at the stream is not known" and "Listeners unknown" when the show was not on air. ADR 0105 Decision 4 gives these lines "While on air". After the correction, the signal line shows only while the stream is on. The listener line shows only while the stream is on and the encoder gives a count, with the text "N listeners. From the stream server." (Decision 4 item 4). The test `on_air_band_has_no_stream_lines_while_not_on_air` examines this.
+
+Open point: at 740 px with an empty cue, the cards area gets almost no height. ADR 0105 Decision 1 does not give a page scroll.

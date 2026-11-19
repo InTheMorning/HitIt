@@ -310,7 +310,11 @@ pub(super) fn mount_normal<T: 'static>(
         }
         app.focus_active_tab(window, cx);
         app.install_capability_controls(capability_observations, worker, cx);
-        if start_page == crate::view_models::audio_setup::StartPage::SetUpSound {
+        // The row "Sound plays" of the on air band reads this check (ADR 0105
+        // Decision 2 item 1), so each start with mpv runs it.
+        if start_page == crate::view_models::audio_setup::StartPage::SetUpSound
+            || app.audio_driver == crate::config::PlaybackDriver::Mpv
+        {
             app.check_mpv(window, cx);
         }
         app.maybe_start_broadcast_readiness_watch(cx);
