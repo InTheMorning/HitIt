@@ -505,10 +505,10 @@ fn audio_test_sound_control(
     callback: &SettingsCallback,
     cx: &mut Context<TopApp>,
 ) -> AnyElement {
-    use crate::view_models::audio_setup::TestSoundOutcome;
-    let outcome = app.test_sound_outcome();
-    if outcome == TestSoundOutcome::NotTested {
-        return settings_actions(
+    use crate::view_models::audio_setup::TestSoundDisplay;
+    let display = app.test_sound_outcome().display();
+    let play = || {
+        settings_actions(
             vec![crate::view_models::settings::SettingsActionDisplay {
                 action: SettingsAction::PlayTestSound,
                 id: "audio-test-sound".into(),
@@ -519,40 +519,47 @@ fn audio_test_sound_control(
             }],
             callback,
             cx,
-        );
-    }
-    let answers = [true, false].map(
-        |heard| crate::view_models::settings::SettingsActionDisplay {
-            action: SettingsAction::AnswerTestSound(heard),
-            id: if heard {
-                "audio-test-yes"
-            } else {
-                "audio-test-no"
-            }
-            .into(),
-            label: if heard { "Yes" } else { "No" }.into(),
-            a11y_label: if heard {
-                "Yes, I heard the test sound"
-            } else {
-                "No, I did not hear the test sound"
-            }
-            .into(),
-            availability: StartupAvailability::Available,
-            selected: false,
-        },
-    );
-    let mut row = gpui::div()
+        )
+    };
+    let result = match display {
+        TestSoundDisplay::Play => return play(),
+        TestSoundDisplay::ResultAndPlay(text) => text,
+        TestSoundDisplay::Question => {
+            let answers =
+                [true, false].map(
+                    |heard| crate::view_models::settings::SettingsActionDisplay {
+                        action: SettingsAction::AnswerTestSound(heard),
+                        id: if heard {
+                            "audio-test-yes"
+                        } else {
+                            "audio-test-no"
+                        }
+                        .into(),
+                        label: if heard { "Yes" } else { "No" }.into(),
+                        a11y_label: if heard {
+                            "Yes, I heard the test sound"
+                        } else {
+                            "No, I did not hear the test sound"
+                        }
+                        .into(),
+                        availability: StartupAvailability::Available,
+                        selected: false,
+                    },
+                );
+            return gpui::div()
+                .flex()
+                .flex_col()
+                .child(settings_message("Did you hear the test sound?", cx))
+                .child(settings_actions(answers.to_vec(), callback, cx))
+                .into_any_element();
+        }
+    };
+    gpui::div()
         .flex()
         .flex_col()
-        .child(settings_message("Did you hear the test sound?", cx))
-        .child(settings_actions(answers.to_vec(), callback, cx));
-    if outcome == TestSoundOutcome::NotHeard {
-        row = row.child(settings_message(
-            crate::view_models::audio_setup::NOT_HEARD_HELP,
-            cx,
-        ));
-    }
-    row.into_any_element()
+        .child(settings_message(result, cx))
+        .child(play())
+        .into_any_element()
 }
 
 fn render_session_tools(

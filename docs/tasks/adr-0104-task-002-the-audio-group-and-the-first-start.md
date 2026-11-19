@@ -96,3 +96,9 @@ Main session choice, 2026-11-19: each failed check of mpv showed "mpv is not ins
 After the corrections, the walk passed steps 1, 3 and 4, and step 2 without the sound. The sandbox has no audio device. The sound of step 2 waits for a person.
 
 The visual checks remain open in section 44 of `docs/pending-human-checks.md`.
+
+## Operator Check Of Step 2 - 2026-11-19
+
+The operator heard the test sound. After a click on "Yes", the group showed the same question again, and the group had no "Play test sound" button after the first test. ADR 0104 Decision 4 does not give the group after the answer.
+
+Main session choice, 2026-11-19: after "Yes", the group shows "You heard the test sound." and "Play test sound". After "No", it shows the checks of Decision 4 item 4 and "Play test sound". An answer clears the status line "The player played the test sound.", and the Show band reads the answer immediately. `TestSoundOutcome::display` owns this selection. The test `an_answer_shows_the_result_and_the_play_button_again` examines it. The agent walked "Yes" and "No" on Xvfb, with the band row "The test sound played and you heard it."

@@ -109,6 +109,30 @@ pub enum TestSoundOutcome {
     NotHeard,
 }
 
+/// What the test sound row of the group "Audio" shows (ADR 0104 Decision 4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TestSoundDisplay {
+    /// Only the button "Play test sound".
+    Play,
+    /// The question "Did you hear the test sound?" with "Yes" and "No".
+    Question,
+    /// The result text, then the button "Play test sound".
+    ResultAndPlay(&'static str),
+}
+
+impl TestSoundOutcome {
+    /// Gives what the test sound row shows for this result.
+    #[must_use]
+    pub(crate) const fn display(self) -> TestSoundDisplay {
+        match self {
+            Self::NotTested => TestSoundDisplay::Play,
+            Self::Played => TestSoundDisplay::Question,
+            Self::Heard => TestSoundDisplay::ResultAndPlay("You heard the test sound."),
+            Self::NotHeard => TestSoundDisplay::ResultAndPlay(NOT_HEARD_HELP),
+        }
+    }
+}
+
 /// The test sound result with the player configuration that it belongs to.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct TestSoundState {
@@ -181,6 +205,27 @@ mod tests {
             driver: PlaybackDriver::Mpv,
             mpv_path: path.map(PathBuf::from),
         }
+    }
+
+    /// A defect of 2026-11-19: after "Yes" the row showed the question again.
+    #[test]
+    fn an_answer_shows_the_result_and_the_play_button_again() {
+        assert_eq!(
+            TestSoundOutcome::NotTested.display(),
+            TestSoundDisplay::Play
+        );
+        assert_eq!(
+            TestSoundOutcome::Played.display(),
+            TestSoundDisplay::Question
+        );
+        assert_eq!(
+            TestSoundOutcome::Heard.display(),
+            TestSoundDisplay::ResultAndPlay("You heard the test sound.")
+        );
+        assert_eq!(
+            TestSoundOutcome::NotHeard.display(),
+            TestSoundDisplay::ResultAndPlay(NOT_HEARD_HELP)
+        );
     }
 
     #[test]

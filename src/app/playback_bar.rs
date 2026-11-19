@@ -242,6 +242,7 @@ impl TopApp {
             |this, config, cx| {
                 this.test_sound.record_played(config);
                 "The player played the test sound.".clone_into(&mut this.settings_status);
+                this.reproject_show_page_from_current_queue();
                 cx.notify();
             },
             |this, error, cx| {
@@ -255,6 +256,8 @@ impl TopApp {
     /// Records the answer to "Did you hear the test sound?" (ADR 0104 Decision 4).
     pub fn answer_test_sound(&mut self, heard: bool, cx: &mut Context<Self>) {
         self.test_sound.answer(heard);
+        self.settings_status.clear();
+        self.reproject_show_page_from_current_queue();
         cx.notify();
     }
 
