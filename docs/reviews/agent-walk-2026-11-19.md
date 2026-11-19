@@ -109,3 +109,12 @@ Open points:
 - After a click on Play, the tooltip "Start Show" stays on the button, which is then Pause.
 - At 740 px with an empty cue, the cards area gets almost no height.
 - In Settings, the status line "The player played the test sound." stays on the other groups.
+
+## Operator Requests - 2026-11-19
+
+The operator gave these requests during the check of section 44. Each item changes an accepted ADR, so a new ADR must come before the code.
+
+1. "Play test sound" has no "Yes" and "No" question after the tone. While the tone plays, the button shows an animation. A click on the button during the tone stops it. This changes ADR 0104 Decision 4 items 4 and 5.
+
+   ADR 0105 Decision 2 item 1 reads the answer: row 1 of the band warns until the host clicks "Yes". The new ADR must give the condition that clears that warning.
+2. The Show player items are "mpv", "Mixxx" and "No sound". The label "Speakers of this computer (mpv)" is removed, because the operator finds it incorrect and not necessary. This changes ADR 0104 Decision 2 item 2. At this time, "Mixxx" is not a Show player. ADR 0059 gives Mixxx only as a type of stream source. The new ADR must say what HitIt does when the host selects "Mixxx".
