@@ -144,23 +144,30 @@ mod portal {
         }
     }
 
+    /// Joins the two key reads. A portal can have one key and not the other,
+    /// so a missing key gives no preference for that setting only. The read
+    /// fails only when the portal gives neither key.
+    fn combine(
+        contrast: ashpd::Result<Contrast>,
+        motion: ashpd::Result<ReducedMotion>,
+    ) -> Result<AccessibilitySettings> {
+        if let (Err(contrast_error), Err(_)) = (&contrast, &motion) {
+            return Err(anyhow::anyhow!("{contrast_error}"))
+                .context("the portal gives no contrast key and no reduced-motion key");
+        }
+        Ok(AccessibilitySettings {
+            reduce_motion: motion.is_ok_and(|motion| motion == ReducedMotion::ReducedMotion),
+            increase_contrast: contrast.is_ok_and(|contrast| contrast == Contrast::High),
+            reduce_transparency: false,
+        })
+    }
+
     impl AccessibilitySource for PortalSource {
         async fn read(&self) -> Result<AccessibilitySettings> {
-            let contrast = self
-                .settings
-                .contrast()
-                .await
-                .context("the portal gives no contrast key")?;
-            let motion = self
-                .settings
-                .reduced_motion()
-                .await
-                .context("the portal gives no reduced-motion key")?;
-            Ok(AccessibilitySettings {
-                reduce_motion: motion == ReducedMotion::ReducedMotion,
-                increase_contrast: contrast == Contrast::High,
-                reduce_transparency: false,
-            })
+            combine(
+                self.settings.contrast().await,
+                self.settings.reduced_motion().await,
+            )
         }
 
         async fn changed(&mut self) -> Result<()> {
@@ -186,6 +193,34 @@ mod portal {
                 anyhow::bail!("the portal change signals ended");
             }
             Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn missing() -> ashpd::Error {
+            ashpd::Error::Portal(ashpd::PortalError::NotFound(
+                "Requested setting not found".to_owned(),
+            ))
+        }
+
+        /// A defect of 2026-11-19: a portal with no reduced-motion key also
+        /// lost the contrast setting.
+        #[test]
+        fn a_missing_key_keeps_the_other_setting() {
+            let settings = combine(Ok(Contrast::High), Err(missing())).unwrap();
+            assert!(settings.increase_contrast);
+            assert!(!settings.reduce_motion);
+            let settings = combine(Err(missing()), Ok(ReducedMotion::ReducedMotion)).unwrap();
+            assert!(settings.reduce_motion);
+            assert!(!settings.increase_contrast);
+        }
+
+        #[test]
+        fn the_read_fails_when_both_keys_are_missing() {
+            assert!(combine(Err(missing()), Err(missing())).is_err());
         }
     }
 }

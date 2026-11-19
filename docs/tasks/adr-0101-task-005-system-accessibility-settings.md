@@ -131,3 +131,9 @@ Notes: the guard `animation_paths_route_through_reduce_motion_environment` requi
 - The guard `animation_paths_route_through_reduce_motion_environment` now requires `reduce_motion: accessibility.reduce_motion`. The guard keeps its function: the environment sets Reduce Motion. The primary agent accepts this change.
 - On the Xvfb display with no session bus, the app writes one log line ("The system accessibility settings are not available") and runs with no preference.
 - V1 to V3 need a change of a desktop setting. The agent cannot do them on the Xvfb display.
+
+## Operator Report - 2026-11-19
+
+The operator saw this line at the start: "the portal gives no reduced-motion key: Portal request failed: org.freedesktop.portal.Error.NotFound". The portal of that desktop has the contrast key and no reduced-motion key. Thus the read gave an error, and HitIt did not use the contrast key.
+
+Main session choice, 2026-11-19: HitIt reads each key alone. A missing key gives no preference for that key only. The read gives an error and the log line only when the portal gives no key. The tests `a_missing_key_keeps_the_other_setting` and `the_read_fails_when_both_keys_are_missing` examine this.
