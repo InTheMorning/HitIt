@@ -99,6 +99,16 @@ const WORKSPACE_CONTENT_FRAME_ID: WorkspaceFrameId = WorkspaceFrameId::new(2);
 // AppTab
 // ---------------------------------------------------------------------------
 
+/// The tab after a Show cue load event (ADR 0106 Decision 4). A load that
+/// succeeds gives Show, from Music or from Show. A load that fails keeps the
+/// tab, so a failed load from Music stays in Music with its error.
+fn tab_after_show_cue_event(event: &LibraryAppEvent, current: AppTab) -> AppTab {
+    match event {
+        LibraryAppEvent::ShowCueLoaded => AppTab::Show,
+        _ => current,
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AppTab {
     Music,
@@ -211,6 +221,9 @@ pub struct TopApp {
     /// (ADR 0106 Decision 2).
     cue_key_entry: Option<i64>,
     show_page: ShowPageVm,
+    /// The playlists of the empty Show page, in the Curator Order (ADR 0106
+    /// Decision 4).
+    show_playlists: Vec<crate::db::Playlist>,
     playback_presentation_override: Option<crate::view_models::queue_now_playing::TransportState>,
     show_commands: ShowCommandState,
     broadcast: config::BroadcastCapabilities,
@@ -442,7 +455,19 @@ impl TopApp {
                     cx.notify();
                 }
                 LibraryAppEvent::ShowCueLoaded => {
-                    this.refresh_show_page(cx);
+                    // ADR 0106 Decision 4: a load that succeeds opens Show.
+                    // From Show, this keeps Show. `select_tab` also
+                    // refreshes the Show page.
+                    let tab = tab_after_show_cue_event(event, this.tab);
+                    this.select_tab(tab, window, cx);
+                }
+                LibraryAppEvent::ShowCueLoadFailed(message) => {
+                    // A load from Music keeps its error in Music. A load
+                    // from Show shows the error on Show.
+                    if this.tab == AppTab::Show {
+                        this.settings_status.clone_from(message);
+                        this.refresh_show_page(cx);
+                    }
                 }
                 LibraryAppEvent::OpenIndexFeedDetail { feed_guid, label } => {
                     this.open_index_feed_detail_from_music(feed_guid, label.clone(), cx);
@@ -594,6 +619,7 @@ impl TopApp {
             broadcast_service_watch_pace: BroadcastServiceWatchPace::Background,
             show_log_resize: None,
             event_section_input: None,
+            show_playlists: Vec::new(),
             event_session: show::EventSession::default(),
             conn,
             image_cache,
@@ -2320,9 +2346,34 @@ mod fit_check;
 #[cfg(test)]
 mod tests {
     use super::{
-        TopApp, WorkspaceFrameId, WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout,
-        WorkspaceScreenMount,
+        tab_after_show_cue_event, AppTab, LibraryAppEvent, TopApp, WorkspaceFrameId,
+        WorkspaceFrameKind, WorkspaceFrameState, WorkspaceLayout, WorkspaceScreenMount,
     };
+
+    /// ADR 0106 Decision 4: a load that succeeds selects Show, from Music or
+    /// from Show. A load that fails keeps the tab.
+    #[test]
+    fn adr_0106_a_successful_load_selects_show_and_a_failed_load_keeps_the_tab() {
+        let loaded = LibraryAppEvent::ShowCueLoaded;
+        let failed = LibraryAppEvent::ShowCueLoadFailed("The Show cue did not change.".to_owned());
+
+        assert_eq!(
+            tab_after_show_cue_event(&loaded, AppTab::Music),
+            AppTab::Show
+        );
+        assert_eq!(
+            tab_after_show_cue_event(&loaded, AppTab::Show),
+            AppTab::Show
+        );
+        assert_eq!(
+            tab_after_show_cue_event(&failed, AppTab::Music),
+            AppTab::Music
+        );
+        assert_eq!(
+            tab_after_show_cue_event(&failed, AppTab::Show),
+            AppTab::Show
+        );
+    }
 
     /// ADR 0089 Decision 1: the Music visible layout has the content-list
     /// frame and the detail frame, in that order. The sidebar is not a frame.

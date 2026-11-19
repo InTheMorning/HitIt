@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-19. It waits for no other task.
+Implemented - 2026-11-19. Items 1 and 2 are built. Item 3 waits for ADR 0105 task 001. The visual criteria wait for a person, in section 46 of the pending human checks.
 
 ## Goal
 
@@ -43,4 +43,39 @@ These are in section 46 of [pending human checks](../pending-human-checks.md).
 
 ## Report
 
-Empty until the work is done.
+Items 1 and 2 are built. Item 3 is not built. It waits for ADR 0105 task 001.
+
+Changed files:
+
+- `src/library.rs`: the new event `LibraryAppEvent::ShowCueLoadFailed(String)`.
+- `src/library/app_impl.rs`: the new method `LibraryApp::load_show_cue`. The Music row menu and the Show page both call it. It uses the same commands as before. A failed load emits `ShowCueLoadFailed`.
+- `src/view_models/library.rs`: the method `status_text` of the Library view model.
+- `src/app.rs`: `ShowCueLoaded` selects Show through `tab_after_show_cue_event`. `ShowCueLoadFailed` shows its message on Show only when Show is open. The new field `show_playlists`.
+- `src/app/show.rs`: `RefreshShowPage` reads `db::playlists_list`. This is the read of My playlists. The Show page calls `load_show_cue` through the new slot.
+- `src/view_models/show.rs`: the empty state gives "Select a playlist for your show." when the cue has no entry. The text "No active show" and the text "Show playback is idle." are removed from this view model. The new type `ShowPlaylistRowDisplay`. The new field `cue_playlists`.
+- `src/view_models/playlist_curation.rs`: `show_playlist_rows` uses `ordered_playlists` in the Curator Order.
+- `src/ui/shells/show.rs`: the new slot `on_load_playlist`. The rows are `ListRow` with a "Load into Show cue" button.
+
+Tests for the mechanical criteria:
+
+1. `app::tests::adr_0106_a_successful_load_selects_show_and_a_failed_load_keeps_the_tab` proves the select of Show from Music and from Show, and the kept tab after a failure. `view_models::library::tests::adr_0106_a_failed_show_cue_load_gives_the_error` proves the error text.
+2. `view_models::playlist_curation::tests::adr_0106_show_playlist_rows_follow_the_curator_order` proves the order and the action label. `view_models::show::tests::adr_0106_empty_cue_gives_the_text_and_the_playlist_rows` proves the text. `view_models::show::tests::adr_0106_a_cue_with_entries_gives_no_playlist_rows` proves that a cue with entries gives no rows.
+3. A search of `src` and `tests` finds no "Show playback is idle.".
+4. The commit checks pass (see the report to the main session).
+
+Deviations and open points:
+
+- The ADR 0060 guard forbids `crate::db` in the Show view model. The row projection is in `playlist_curation.rs`, and the Show view model takes the finished rows.
+- `ShowEmptyStateDisplay.subtitle` is now `Option<&'static str>`.
+- `ShowPageVm::is_active` uses the new field `active`. It did use `empty_state.is_none()`.
+- A stopped Show with cue entries has no empty state now. Before, it showed "No active show". The task does not say what to show. This is an open point for the operator.
+- The row action of the Show page says "Load into Show cue". The Music menu item says "Load into Show Cue". The task text gives the first form. The two labels differ in case.
+- The status bar still says "No active show" (`src/view_models/live_status.rs`). It is a separate text.
+- A failed load from the Show page shows its error in the status line of Show (`settings_status`).
+- No test covers the render of the rows or the click. V4 and V5 stay visual checks.
+
+Main session review:
+
+- The empty state now uses the full cue, not the rows after the text filter. A filter that hides each row does not show the playlist list. The test `adr_0106_a_cue_with_entries_gives_no_playlist_rows` covers it.
+- Open: the Music menu says "Load into Show Cue" and "Replace Show Cue". ADR 0106 and the Show row say "Load into Show cue". The operator decides the case.
+- Open: a stopped Show with cue entries has no empty state. The status bar still says "No active show".

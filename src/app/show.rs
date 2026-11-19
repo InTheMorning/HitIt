@@ -85,6 +85,13 @@ impl TopApp {
         );
     }
 
+    /// The row action "Load into Show cue" of the empty Show page. It calls
+    /// the load command of the Music page (ADR 0106 Decision 4).
+    fn load_playlist_into_show_cue(&mut self, playlist_id: i64, cx: &mut Context<Self>) {
+        self.library
+            .update(cx, |library, cx| library.load_show_cue(playlist_id, cx));
+    }
+
     fn clear_show_cue(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) {
         if !self.show_page.queue.can_clear_show_cue() {
             return;
@@ -130,6 +137,7 @@ pub(super) fn build_show_screen(
     let connect_stream_entity = entity.clone();
     let disconnect_stream_entity = entity.clone();
     let readiness_entity = entity.clone();
+    let load_playlist_entity = entity.clone();
     let slots = with_log_slots(ShowSlots::new().log_frames(app.log_frames.clone()), &entity);
     let slots = with_event_registry_slots(slots, &entity);
     render_show(
@@ -155,6 +163,11 @@ pub(super) fn build_show_screen(
             .on_move_cue_entry(move |entry_id, target, _, cx| {
                 move_entity.update(cx, |this, cx| {
                     this.move_show_cue_entry(entry_id, target, cx);
+                });
+            })
+            .on_load_playlist(move |playlist_id, _, cx| {
+                load_playlist_entity.update(cx, |this, cx| {
+                    this.load_playlist_into_show_cue(playlist_id, cx);
                 });
             })
             .on_open_broadcast_readiness(move |_, _, cx| {
@@ -384,6 +397,7 @@ impl TopApp {
                     requested_event_input.as_ref(),
                     projection.event_section_input,
                 );
+                this.show_playlists = projection.playlists;
                 this.reproject_show_page(projection.queue);
                 let selection_changed = requested_event_input.as_ref().map(event_input_identity)
                     != this.event_section_input.as_ref().map(event_input_identity);
@@ -484,7 +498,10 @@ impl TopApp {
             self.feature_availability(),
             &self.capability_observations.snapshot(),
         )
-        .with_panel_state(panel_mode, panel_open);
+        .with_panel_state(panel_mode, panel_open)
+        .with_cue_playlists(crate::view_models::playlist_curation::show_playlist_rows(
+            &self.show_playlists,
+        ));
     }
 
     pub(super) fn reproject_show_page_from_current_queue(&mut self) {
@@ -1505,19 +1522,23 @@ impl ApplicationCommand for RefreshShowPage {
             return Err(CommandError::Cancelled);
         }
 
-        let (queue_input, event_section_input) = {
+        let (queue_input, event_section_input, playlists) = {
             let conn = self
                 .conn
                 .lock()
                 .map_err(|_| CommandError::Query("database lock poisoned".to_string()))?;
             let queue = queue_now_playing_input(&conn, self.queue_text_filter);
             let input = load_event_section(&conn, &self.broadcast);
-            (queue, Some(input))
+            // ADR 0106 Decision 4: the same read as My playlists, in the
+            // Curator Order. A failed read shows no rows.
+            let playlists = db::playlists_list(&conn).unwrap_or_default();
+            (queue, Some(input), playlists)
         };
         let queue = queue_now_playing_vm(queue_input, &self.music_dir);
         Ok(CommandOutcome::without_events(ShowPageProjection {
             queue,
             event_section_input,
+            playlists,
         }))
     }
 }
@@ -1525,6 +1546,7 @@ impl ApplicationCommand for RefreshShowPage {
 struct ShowPageProjection {
     queue: QueueNowPlayingPageVm,
     event_section_input: Option<EventSectionInput>,
+    playlists: Vec<db::Playlist>,
 }
 
 /// Capture completion in the worker, before presentation callback scheduling (ADR 0059).

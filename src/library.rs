@@ -89,7 +89,12 @@ pub(crate) enum LibraryAppEvent {
     /// A click on the list bar above the rows of a group page (ADR 0090).
     /// The top app runs the command through its selection path.
     ListBar(ListBarCommand),
+    /// A load into the Show cue succeeded. The top app opens Show (ADR 0106
+    /// Decision 4).
     ShowCueLoaded,
+    /// A load into the Show cue failed or loaded no track. The message is
+    /// the Library status. The top app shows it on Show, when Show is open.
+    ShowCueLoadFailed(String),
     OpenIndexFeedDetail {
         feed_guid: String,
         label: String,

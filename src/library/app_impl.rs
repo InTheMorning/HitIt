@@ -2186,36 +2186,7 @@ impl LibraryApp {
                 });
             }
             TrackRowMenuAction::LoadShowCue => {
-                let loaded_at_us = chrono::Utc::now().timestamp_micros();
-                if self.vm.show_cue_exists() {
-                    let command =
-                        ReplaceShowCue::new(Arc::clone(&self.conn), playlist_id, loaded_at_us);
-                    present_command(
-                        &self.command_runner,
-                        command,
-                        CommandContext::next(),
-                        cx,
-                        move |this, loaded, cx| this.finish_show_cue_load(playlist_id, loaded, cx),
-                        |this, error, cx| {
-                            this.vm.fail_show_cue_change(error);
-                            this.reload_playlists(cx);
-                        },
-                    );
-                } else {
-                    let command =
-                        LoadShowCue::new(Arc::clone(&self.conn), playlist_id, loaded_at_us);
-                    present_command(
-                        &self.command_runner,
-                        command,
-                        CommandContext::next(),
-                        cx,
-                        move |this, loaded, cx| this.finish_show_cue_load(playlist_id, loaded, cx),
-                        |this, error, cx| {
-                            this.vm.fail_show_cue_change(error);
-                            this.reload_playlists(cx);
-                        },
-                    );
-                }
+                self.load_show_cue(playlist_id, cx);
             }
             // ADR 0089 amendment of 2026-11-08: the keyboard way to move a
             // playlist. The view model offers these two items only in the
@@ -2242,6 +2213,43 @@ impl LibraryApp {
         cx.notify();
     }
 
+    /// Loads the playlist `playlist_id` into the Show cue, or replaces the
+    /// cue with it (ADR 0068). The Music row menu and the empty Show page
+    /// both call this command. A load that succeeds emits
+    /// `ShowCueLoaded`, and the top app then opens Show (ADR 0106 Decision
+    /// 4). A load that fails emits `ShowCueLoadFailed` and keeps the error in
+    /// the Library status.
+    pub(crate) fn load_show_cue(&mut self, playlist_id: i64, cx: &mut Context<Self>) {
+        let loaded_at_us = chrono::Utc::now().timestamp_micros();
+        let on_error = |this: &mut Self, error: CommandError, cx: &mut Context<Self>| {
+            this.vm.fail_show_cue_change(error);
+            let message = this.vm.status_text().to_owned();
+            this.reload_playlists(cx);
+            cx.emit(crate::library::LibraryAppEvent::ShowCueLoadFailed(message));
+        };
+        if self.vm.show_cue_exists() {
+            let command = ReplaceShowCue::new(Arc::clone(&self.conn), playlist_id, loaded_at_us);
+            present_command(
+                &self.command_runner,
+                command,
+                CommandContext::next(),
+                cx,
+                move |this, loaded, cx| this.finish_show_cue_load(playlist_id, loaded, cx),
+                move |this, error, cx| on_error(this, error, cx),
+            );
+        } else {
+            let command = LoadShowCue::new(Arc::clone(&self.conn), playlist_id, loaded_at_us);
+            present_command(
+                &self.command_runner,
+                command,
+                CommandContext::next(),
+                cx,
+                move |this, loaded, cx| this.finish_show_cue_load(playlist_id, loaded, cx),
+                move |this, error, cx| on_error(this, error, cx),
+            );
+        }
+    }
+
     fn finish_show_cue_load(&mut self, playlist_id: i64, loaded: bool, cx: &mut Context<Self>) {
         if let Some(trigger) =
             crate::application::commands::playlist::cue_load_rss_check_trigger(loaded)
@@ -2252,6 +2260,8 @@ impl LibraryApp {
             cx.notify();
         } else {
             self.vm.report_empty_show_cue_load();
+            let message = self.vm.status_text().to_owned();
+            cx.emit(crate::library::LibraryAppEvent::ShowCueLoadFailed(message));
             cx.notify();
         }
     }

@@ -278,8 +278,32 @@ pub(crate) struct ShowEmptyStateDisplay {
     pub(crate) id: &'static str,
     /// Primary empty-state label.
     pub(crate) title: &'static str,
-    /// Secondary empty-state label.
-    pub(crate) subtitle: &'static str,
+    /// Secondary empty-state label. `None` gives no second line.
+    pub(crate) subtitle: Option<&'static str>,
+}
+
+/// The label of the row action that loads a playlist into the Show cue.
+pub(crate) const LOAD_INTO_SHOW_CUE_LABEL: &str = "Load into Show cue";
+
+/// The text of the Show page when the cue is empty (ADR 0106 Decision 4).
+pub(crate) const SELECT_PLAYLIST_TEXT: &str = "Select a playlist for your show.";
+
+/// One playlist row of the empty Show page (ADR 0106 Decision 4). The rows
+/// come in the Curator Order of My playlists.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ShowPlaylistRowDisplay {
+    /// The playlist that the row action loads.
+    pub(crate) playlist_id: i64,
+    /// Stable element identifier of the row.
+    pub(crate) element_id: String,
+    /// The playlist name.
+    pub(crate) name: String,
+    /// The track count line, for example "3 tracks".
+    pub(crate) track_count_label: String,
+    /// The label of the row action.
+    pub(crate) action_label: &'static str,
+    /// The accessible label of the row action.
+    pub(crate) action_a11y_label: String,
 }
 
 /// Display-ready now-playing summary for the show header.
@@ -1649,8 +1673,14 @@ pub(crate) struct ShowPageVm {
     pub(crate) state_label: &'static str,
     /// Now-playing summary, present only while show playback is active.
     pub(crate) now_playing: Option<ShowNowPlayingDisplay>,
-    /// Empty state shown when there is no active show playback.
+    /// Whether show playback is active (playing or paused).
+    pub(crate) active: bool,
+    /// Empty state shown when the cue is empty (ADR 0106 Decision 4).
     pub(crate) empty_state: Option<ShowEmptyStateDisplay>,
+    /// The playlists of My playlists in the Curator Order. They show only
+    /// with an empty cue (ADR 0106 Decision 4). The caller gives the rows
+    /// from `playlist_curation::show_playlist_rows`.
+    pub(crate) cue_playlists: Vec<ShowPlaylistRowDisplay>,
     /// Optional Source section; absent sections render nothing.
     pub(crate) source: Option<SourceSectionDisplay>,
     /// Optional Publisher section; absent sections render nothing.
@@ -1792,8 +1822,10 @@ impl ShowPageVm {
             self.empty_state = Some(ShowEmptyStateDisplay {
                 id: "show-unavailable-state",
                 title: "Show status unavailable",
-                subtitle: "App needs its background runtime to read show status. Use Check again in Background tools.",
+                subtitle: Some("App needs its background runtime to read show status. Use Check again in Background tools."),
             });
+            self.active = false;
+            self.cue_playlists.clear();
             self.status_message = Some(reason.to_string());
         }
         self
@@ -1872,11 +1904,13 @@ impl ShowPageVm {
             title: "Show",
             state_label,
             now_playing,
-            empty_state: (!active).then_some(ShowEmptyStateDisplay {
+            active,
+            empty_state: queue.cue_is_empty().then_some(ShowEmptyStateDisplay {
                 id: "show-empty-state",
-                title: "No active show",
-                subtitle: "Show playback is idle.",
+                title: SELECT_PLAYLIST_TEXT,
+                subtitle: None,
             }),
+            cue_playlists: Vec::new(),
             source,
             publisher,
             stream,
@@ -2093,7 +2127,21 @@ impl ShowPageVm {
     /// Returns whether the page represents active show playback.
     #[must_use]
     pub(crate) const fn is_active(&self) -> bool {
-        self.empty_state.is_none()
+        self.active
+    }
+
+    /// Gives the empty page the playlists to list. The rows show only with
+    /// an empty cue (ADR 0106 Decision 4). The rows come from
+    /// `playlist_curation::show_playlist_rows`.
+    #[must_use]
+    pub(crate) fn with_cue_playlists(mut self, rows: Vec<ShowPlaylistRowDisplay>) -> Self {
+        if self
+            .empty_state
+            .is_some_and(|empty| empty.id == "show-empty-state")
+        {
+            self.cue_playlists = rows;
+        }
+        self
     }
 
     fn set_panel_mode(&mut self, panel_mode: ShowPanelMode) {
@@ -3622,8 +3670,8 @@ mod tests {
             vm.empty_state,
             Some(ShowEmptyStateDisplay {
                 id: "show-empty-state",
-                title: "No active show",
-                subtitle: "Show playback is idle.",
+                title: "Select a playlist for your show.",
+                subtitle: None,
             })
         );
         assert!(vm.now_playing.is_none());
@@ -3635,6 +3683,59 @@ mod tests {
         assert_eq!(vm.panel_mode, ShowPanelMode::default());
         assert!(vm.panel_open);
         assert!(vm.queue.rows.is_empty());
+    }
+
+    fn playlist_row(id: i64, name: &str) -> ShowPlaylistRowDisplay {
+        ShowPlaylistRowDisplay {
+            playlist_id: id,
+            element_id: format!("show-playlist-{id}"),
+            name: name.to_owned(),
+            track_count_label: "3 tracks".to_owned(),
+            action_label: LOAD_INTO_SHOW_CUE_LABEL,
+            action_a11y_label: format!("Load the playlist \"{name}\" into the Show cue"),
+        }
+    }
+
+    /// ADR 0106 Decision 4: an empty cue gives the text and the playlist
+    /// rows. The rows keep the order that the caller gives.
+    #[test]
+    fn adr_0106_empty_cue_gives_the_text_and_the_playlist_rows() {
+        let vm = ShowPageVm::idle()
+            .with_cue_playlists(vec![playlist_row(2, "Zulu"), playlist_row(1, "Alpha")]);
+
+        let empty = vm.empty_state.expect("an empty cue gives the empty state");
+        assert_eq!(empty.title, "Select a playlist for your show.");
+        assert_eq!(empty.subtitle, None);
+        let ids: Vec<i64> = vm.cue_playlists.iter().map(|row| row.playlist_id).collect();
+        assert_eq!(ids, [2, 1]);
+        assert!(vm
+            .cue_playlists
+            .iter()
+            .all(|row| row.action_label == "Load into Show cue"));
+    }
+
+    /// ADR 0106 Decision 4: a cue that has entries gives no playlist rows.
+    #[test]
+    fn adr_0106_a_cue_with_entries_gives_no_playlist_rows() {
+        let vm = ShowPageVm::from_queue(
+            QueueNowPlayingPageVm::builder()
+                .tracks([track(7, "Opening", false)])
+                .build(),
+        )
+        .with_cue_playlists(vec![playlist_row(1, "Alpha")]);
+
+        assert!(vm.empty_state.is_none());
+        assert!(vm.cue_playlists.is_empty());
+        assert!(!vm.is_active());
+
+        // A text filter that hides each row does not make the cue empty.
+        let mut queue = QueueNowPlayingPageVm::builder()
+            .tracks([track(7, "Opening", false)])
+            .build();
+        queue.set_text_filter(Some("no match".to_owned()));
+        let vm = ShowPageVm::from_queue(queue).with_cue_playlists(vec![playlist_row(1, "Alpha")]);
+        assert!(vm.empty_state.is_none());
+        assert!(vm.cue_playlists.is_empty());
     }
 
     #[test]

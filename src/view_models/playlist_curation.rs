@@ -20,6 +20,7 @@ use crate::view_models::library::{PlaylistSidebarRowVm, PlaylistSidebarVm, RowTy
 use crate::view_models::list_page::{ListSort, ListView};
 use crate::view_models::name_order::compare_names;
 use crate::view_models::row_keys::RowKeysVm;
+use crate::view_models::show::{ShowPlaylistRowDisplay, LOAD_INTO_SHOW_CUE_LABEL};
 use crate::view_models::workspace::FrameNavigationEntry;
 
 /// The word between the first and the second part of a tile line.
@@ -47,6 +48,28 @@ pub(crate) fn ordered_playlists(
         ordered.reverse();
     }
     ordered
+}
+
+/// The playlist rows of the empty Show page, in the Curator Order of My
+/// playlists (ADR 0106 Decision 4). `playlists` is the read of
+/// `db::playlists_list`, which My playlists also uses. Each row has the
+/// action "Load into Show cue".
+#[must_use]
+pub(crate) fn show_playlist_rows(playlists: &[db::Playlist]) -> Vec<ShowPlaylistRowDisplay> {
+    ordered_playlists(playlists, ListSort::CuratorOrder, false)
+        .into_iter()
+        .map(|playlist| ShowPlaylistRowDisplay {
+            playlist_id: playlist.id,
+            element_id: format!("show-playlist-{}", playlist.id),
+            name: playlist.name.clone(),
+            track_count_label: match playlist.track_count {
+                1 => "1 track".to_owned(),
+                count => format!("{count} tracks"),
+            },
+            action_label: LOAD_INTO_SHOW_CUE_LABEL,
+            action_a11y_label: format!("Load the playlist \"{}\" into the Show cue", playlist.name),
+        })
+        .collect()
 }
 
 /// Whether a playlist row can be dragged or moved: only with the sort
@@ -215,6 +238,26 @@ mod tests {
             playlist(3, "zebra", 1, 20),
             playlist(4, "banana", 3, 30),
         ]
+    }
+
+    /// ADR 0106 Decision 4: the rows of the empty Show page follow the
+    /// Curator Order, and each has "Load into Show cue".
+    #[test]
+    fn adr_0106_show_playlist_rows_follow_the_curator_order() {
+        let rows = show_playlist_rows(&sample());
+
+        let shown: Vec<(i64, &str)> = rows
+            .iter()
+            .map(|row| (row.playlist_id, row.name.as_str()))
+            .collect();
+        assert_eq!(
+            shown,
+            [(2, "Apple"), (3, "zebra"), (1, "mango"), (4, "banana")]
+        );
+        assert!(rows
+            .iter()
+            .all(|row| row.action_label == "Load into Show cue"));
+        assert_eq!(rows[0].track_count_label, "0 tracks");
     }
 
     /// ADR 0089 amendment of 2026-11-08: Curator Order follows `position`.

@@ -518,6 +518,13 @@ impl QueueNowPlayingPageVm {
             .map(|target| target.cue_index)
     }
 
+    /// Whether the cue has no entry. A text filter does not change it
+    /// (ADR 0106 Decision 4).
+    #[must_use]
+    pub(crate) fn cue_is_empty(&self) -> bool {
+        self.all_rows.is_empty()
+    }
+
     pub(crate) fn selected_entry_id(&self) -> Option<i64> {
         self.all_rows
             .iter()

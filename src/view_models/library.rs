@@ -3963,6 +3963,12 @@ impl LibraryViewModel {
         self.status = format!("The Show cue did not change: {error:#}");
     }
 
+    /// The status line of the Library.
+    #[must_use]
+    pub(crate) fn status_text(&self) -> &str {
+        &self.status
+    }
+
     pub(crate) fn report_empty_show_cue_load(&mut self) {
         self.status = "The playlist has no tracks. The Show cue did not change.".to_string();
     }
@@ -9721,6 +9727,24 @@ mod tests {
         assert!(
             open.rows[0].selected,
             "without a mark, the open playlist keeps its selected fill"
+        );
+    }
+
+    /// ADR 0106 Decision 4: a load that fails keeps its error in the Library
+    /// status, so Music shows it.
+    #[test]
+    fn adr_0106_a_failed_show_cue_load_gives_the_error() {
+        let mut vm = LibraryViewModel::new();
+        vm.fail_show_cue_change("The Show plays.");
+        assert_eq!(
+            vm.status_text(),
+            "The Show cue did not change: The Show plays."
+        );
+
+        vm.report_empty_show_cue_load();
+        assert_eq!(
+            vm.status_text(),
+            "The playlist has no tracks. The Show cue did not change."
         );
     }
 

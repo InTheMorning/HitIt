@@ -14,16 +14,18 @@ use gpui::{
     MouseUpEvent, ParentElement, RenderOnce, SharedString, Styled, Window,
 };
 
+use crate::ui::composites::{ListRow, ListRowA11yLabel};
 use crate::ui::composites::{
     ShowCard, ShowDetailPanel, ShowDetailPanelDisplay, ShowDetailPanelSlots, ShowLogPane,
     ShowLogPaneSlots,
 };
+use crate::ui::primitives::{Button, Label, LabelVariant};
 use crate::ui::shells::queue_now_playing::{render_queue_transport, QueueNowPlayingSlots};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::queue_now_playing::CueMoveTarget;
 use crate::view_models::show::{
     EventControlIntent, PublisherServiceRole, ShowCardDisplay, ShowCardKind, ShowEmptyStateDisplay,
-    ShowNowPlayingDisplay, ShowPageVm, ShowPanelMode, ShowWidthClass,
+    ShowNowPlayingDisplay, ShowPageVm, ShowPanelMode, ShowPlaylistRowDisplay, ShowWidthClass,
 };
 
 /// Callback slots supplied by the application-owned Show screen.
@@ -33,7 +35,11 @@ pub(crate) struct ShowSlots {
     card: ShowCardSlots,
     panel: ShowDetailPanelSlots,
     log: ShowLogPaneSlots,
+    load_playlist: Option<ShowLoadPlaylistHandler>,
 }
+
+/// The handler of the row action "Load into Show cue". It gets the playlist id.
+type ShowLoadPlaylistHandler = Rc<dyn Fn(i64, &mut Window, &mut App) + 'static>;
 
 impl Default for ShowSlots {
     fn default() -> Self {
@@ -42,6 +48,7 @@ impl Default for ShowSlots {
             card: ShowCardSlots::default(),
             panel: ShowDetailPanelSlots::new(),
             log: ShowLogPaneSlots::default(),
+            load_playlist: None,
         }
     }
 }
@@ -109,6 +116,16 @@ impl ShowSlots {
         handler: impl Fn(EventControlIntent, &ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.panel = self.panel.on_event_control(handler);
+        self
+    }
+
+    /// Supplies the callback of the row action "Load into Show cue" of the
+    /// empty Show page (ADR 0106 Decision 4).
+    pub(crate) fn on_load_playlist(
+        mut self,
+        handler: impl Fn(i64, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.load_playlist = Some(Rc::new(handler));
         self
     }
 
@@ -305,7 +322,9 @@ impl RenderOnce for ShowShell {
             title,
             state_label,
             now_playing,
+            active: _,
             empty_state,
+            cue_playlists,
             source,
             publisher,
             stream,
@@ -334,6 +353,8 @@ impl RenderOnce for ShowShell {
                 state_label,
                 now_playing,
                 empty_state,
+                cue_playlists,
+                self.slots.load_playlist.clone(),
                 cx,
             ))
             // A command that fails on this screen says so on this screen.
@@ -403,6 +424,8 @@ fn render_show_summary(
     state_label: &'static str,
     now_playing: Option<ShowNowPlayingDisplay>,
     empty_state: Option<ShowEmptyStateDisplay>,
+    cue_playlists: Vec<ShowPlaylistRowDisplay>,
+    load_playlist: Option<ShowLoadPlaylistHandler>,
     cx: &App,
 ) -> impl IntoElement {
     let secondary_label = color(cx, SemanticColor::SecondaryLabel);
@@ -440,9 +463,64 @@ fn render_show_summary(
             tertiary_label,
             cx,
         ));
+        if !cue_playlists.is_empty() {
+            summary = summary.child(render_cue_playlists(cue_playlists, load_playlist, cx));
+        }
     }
 
     summary
+}
+
+/// The playlists of the empty Show page. Each row is a `ListRow` with the
+/// row action "Load into Show cue" (ADR 0106 Decision 4).
+fn render_cue_playlists(
+    rows: Vec<ShowPlaylistRowDisplay>,
+    load_playlist: Option<ShowLoadPlaylistHandler>,
+    cx: &App,
+) -> impl IntoElement {
+    div()
+        .id("show-cue-playlists")
+        .flex()
+        .flex_col()
+        .gap(Spacing::XXS.scaled(cx))
+        .children(rows.into_iter().map(move |row| {
+            let ShowPlaylistRowDisplay {
+                playlist_id,
+                element_id,
+                name,
+                track_count_label,
+                action_label,
+                action_a11y_label,
+            } = row;
+            let handler = load_playlist.clone();
+            ListRow::new(SharedString::from(element_id.clone()))
+                .a11y_label(ListRowA11yLabel {
+                    label: format!("Playlist: {name}").into(),
+                })
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_w_0()
+                        .child(Label::new(name).truncated())
+                        .child(
+                            Label::new(track_count_label)
+                                .variant(LabelVariant::Caption)
+                                .color(SemanticColor::SecondaryLabel),
+                        ),
+                )
+                .child(
+                    Button::tinted(SharedString::from(format!("{element_id}-load")))
+                        .label(action_label)
+                        .a11y_label(action_a11y_label)
+                        .on_click(move |_event, window, cx| {
+                            if let Some(handler) = &handler {
+                                handler(playlist_id, window, cx);
+                            }
+                        }),
+                )
+        }))
 }
 
 fn render_now_playing_summary(
@@ -498,12 +576,14 @@ fn render_empty_summary(
                 .text_color(color(cx, SemanticColor::Label))
                 .child(SharedString::from(empty_state.title)),
         )
-        .child(
-            div()
-                .text_size(FontSize::Headline.scaled(cx))
-                .text_color(secondary_label)
-                .child(SharedString::from(empty_state.subtitle)),
-        )
+        .when_some(empty_state.subtitle, |el, subtitle| {
+            el.child(
+                div()
+                    .text_size(FontSize::Headline.scaled(cx))
+                    .text_color(secondary_label)
+                    .child(SharedString::from(subtitle)),
+            )
+        })
         .child(
             div()
                 .text_size(FontSize::Caption.scaled(cx))
