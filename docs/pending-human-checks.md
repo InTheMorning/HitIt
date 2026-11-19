@@ -1028,6 +1028,8 @@ Task: [ADR 0101 task 016](tasks/adr-0101-task-016-the-search-error-details-fold.
 5. Do steps 2 to 4 in Light and Dark. Then set `musicindex_endpoint` back to its value before step 1.
 - Incorrect: the report shows at the start, or a label says "Show details" or "Hide details".
 
+The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#section-43-walk---2026-11-19-afternoon) passed V1 and V2 in Dark and Light, and step 4 in Dark.
+
 ## 44. ADR 0104 Task 002 The Group "Audio" And The First Start - 2026-11-19
 
 Task: [ADR 0104 task 002](tasks/adr-0104-task-002-the-audio-group-and-the-first-start.md). The task is Ready. Do these checks after its build.

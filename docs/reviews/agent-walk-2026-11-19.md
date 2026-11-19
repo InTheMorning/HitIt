@@ -67,3 +67,16 @@ Status: record of an agent walk. This walk closes no gate. Each visual gate stay
 
 Only a walker saw the Pass results that the main agent did not examine. The Method section names the results that the
 main agent examined.
+
+## Section 43 Walk - 2026-11-19, Afternoon
+
+The main agent did this walk itself, with the release build of commit `3532954` on Xvfb display `:85` at 1440 px. The configuration had `musicindex_endpoint = "http://127.0.0.1:9"`. The shots are in the scratch folder of the session and are not kept.
+
+| Item | Pass | Fail or open |
+| --- | --- | --- |
+| Section 43 V1 | In Dark and Light: "Copy report", then the closed fold "Details" with a chevron that points right. The report does not show | - |
+| Section 43 V2 | In Dark and Light: a click opens the report below the fold, and the chevron points down. A second click closes it. In Dark, Enter on the focused fold opens it, with the focus ring | - |
+| Tab order | Shift+Tab from "Details" goes to "Copy report", and Tab goes back | - |
+| Task 016 item 3 | The log has the line "App could not complete a Music Index search: ..." | - |
+
+Finding 4: **the Releases page shows raw request text in its message.** With the same endpoint, Releases shows "Recent music unavailable. GET /v1/feeds/recent: error sending request for url (...): client error (Connect): tcp connect error: Connection refused (os error 111)". musicindex ADR 0085 R-MSG-1 item 4 does not permit raw text from a server or a library in a message. Task 016 changed only the search notice. A subsequent task can put this text in a "Details" fold, as task 016 did.
