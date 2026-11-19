@@ -108,7 +108,7 @@ A key reveal of a row near the end of a list does not start the next page load. 
 
 Visual criteria V1 to V3 stay open for the operator.
 
-Open points, recorded by the main session on 2026-11-18:
+Operator choices. The main session recorded them on 2026-11-18, and the operator accepted them on 2026-11-19:
 
-- Operator choice, open: on each list with `attach_list_scroll_with`, a key that moves the cursor to a row near the end no longer loads the next page. The user presses "Load more". The packet did not ask for this change. The main session accepted it, because a load at that time disables the focused button. The operator can ask for a narrower rule.
-- Operator choice, open: the refocus of commit `f894cab` gave the arrow keys to the list after a pointer click. The view buttons no longer do this. The scope buttons and Select still give the focus to the list, so a Tab after a click on them goes to "Load more". The packet named only the view buttons.
+- Operator choice, accepted 2026-11-19: on each list with `attach_list_scroll_with`, a key that moves the cursor to a row near the end no longer loads the next page. The user presses "Load more". The packet did not ask for this change. The main session accepted it, because a load at that time disables the focused button.
+- Operator choice, accepted 2026-11-19: the refocus of commit `f894cab` gave the arrow keys to the list after a pointer click. The view buttons no longer do this. The scope buttons and Select still give the focus to the list, so a Tab after a click on them goes to "Load more". The packet named only the view buttons.
