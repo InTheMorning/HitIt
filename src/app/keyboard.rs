@@ -605,10 +605,14 @@ impl TopApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.tab == AppTab::Music {
-            self.library.update(cx, |library, cx| {
-                library.move_focused_playlist(true, window, cx);
-            });
+        match self.tab {
+            AppTab::Music => {
+                self.library.update(cx, |library, cx| {
+                    library.move_focused_playlist(true, window, cx);
+                });
+            }
+            AppTab::Show => self.move_marked_cue_entry(true, cx),
+            AppTab::Settings => {}
         }
     }
 
@@ -619,10 +623,14 @@ impl TopApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.tab == AppTab::Music {
-            self.library.update(cx, |library, cx| {
-                library.move_focused_playlist(false, window, cx);
-            });
+        match self.tab {
+            AppTab::Music => {
+                self.library.update(cx, |library, cx| {
+                    library.move_focused_playlist(false, window, cx);
+                });
+            }
+            AppTab::Show => self.move_marked_cue_entry(false, cx),
+            AppTab::Settings => {}
         }
     }
 

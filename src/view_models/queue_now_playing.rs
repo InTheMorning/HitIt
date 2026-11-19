@@ -176,6 +176,8 @@ pub(crate) struct QueueTrackInput {
     pub(crate) duration_seconds: Option<i64>,
     /// Whether this row represents the active playback item.
     pub(crate) now_playing: bool,
+    /// Play position of the active entry in milliseconds, from the session.
+    pub(crate) position_ms: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -221,9 +223,44 @@ pub(crate) struct QueueRowDisplay {
     pub(crate) unavailable_label: Option<&'static str>,
     /// Accessibility label summarizing the row.
     pub(crate) a11y_label: String,
+    /// Place of the entry in the whole cue, from 0 (ADR 0106 Decision 2).
+    /// A text filter does not change it.
+    pub(crate) cue_index: usize,
+    /// "Played", or "Playing" with the time left, while the Show plays or is
+    /// paused (ADR 0106 Decision 1).
+    pub(crate) state_label: Option<String>,
+    /// Whether a drag, Alt+Up and Alt+Down or "Play next" can move this entry
+    /// now (ADR 0106 Decisions 1 and 2).
+    pub(crate) cue_move: CueRowMove,
+    /// Track duration in seconds, for the time left of the playing entry.
+    pub(crate) duration_seconds: Option<i64>,
+}
+
+/// The move availability of one cue row (ADR 0106 Decisions 1 and 2).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum CueRowMove {
+    /// The row does not move: it played, it plays, or it has no cue entry.
+    Locked,
+    /// The row moves. It is the next row, so "Play next" does not show.
+    Movable,
+    /// The row moves, and "Play next" shows on it.
+    MovableWithPlayNext,
 }
 
 impl QueueRowDisplay {
+    /// Whether a drag or Alt+Up and Alt+Down can move this entry now.
+    #[must_use]
+    pub(crate) const fn can_move(&self) -> bool {
+        !matches!(self.cue_move, CueRowMove::Locked)
+    }
+
+    /// Whether "Play next" shows on this row: a row after the next row,
+    /// while the Show plays or is paused.
+    #[must_use]
+    pub(crate) const fn play_next(&self) -> bool {
+        matches!(self.cue_move, CueRowMove::MovableWithPlayNext)
+    }
+
     /// Projects a queue-track input into display-ready row data.
     #[must_use]
     pub(crate) fn from_track(input: QueueTrackInput) -> Self {
@@ -261,7 +298,68 @@ impl QueueRowDisplay {
             now_playing: input.now_playing,
             unavailable_label,
             a11y_label,
+            cue_index: 0,
+            state_label: None,
+            cue_move: CueRowMove::Locked,
+            duration_seconds: input.duration_seconds,
         }
+    }
+}
+
+/// The text below the cue while the Show plays or is paused (ADR 0106
+/// Decision 2).
+pub(crate) const CUE_MOVE_HINT: &str =
+    "Drag a row that did not play, or select \"Play next\". The playing track does not stop.";
+
+/// Where a moved cue entry goes (ADR 0106 Decision 2).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum CueMoveTarget {
+    /// The place of the row with this cue index.
+    Index(usize),
+    /// The place directly after the current entry ("Play next").
+    AfterCurrent,
+}
+
+/// Gives each cue row its place, its play state and its move availability
+/// (ADR 0106 Decisions 1 and 2). `position_ms` is the play position of the
+/// current entry.
+fn mark_cue_rows(rows: &mut [QueueRowDisplay], state: TransportState, position_ms: Option<i64>) {
+    let current = rows.iter().position(|row| row.now_playing);
+    let active = matches!(state, TransportState::Playing | TransportState::Paused);
+    for (index, row) in rows.iter_mut().enumerate() {
+        row.cue_index = index;
+        if row.entry_id.is_none() {
+            continue;
+        }
+        if !active {
+            if matches!(state, TransportState::Stopped) {
+                row.cue_move = CueRowMove::Movable;
+            }
+            continue;
+        }
+        let Some(current) = current else {
+            continue;
+        };
+        row.cue_move = match index.checked_sub(current) {
+            Some(0) | None => CueRowMove::Locked,
+            Some(1) => CueRowMove::Movable,
+            Some(_) => CueRowMove::MovableWithPlayNext,
+        };
+        if index < current {
+            row.state_label = Some("Played".to_owned());
+        } else if index == current {
+            row.state_label = Some(playing_label(row.duration_seconds, position_ms));
+        }
+    }
+}
+
+fn playing_label(duration_seconds: Option<i64>, position_ms: Option<i64>) -> String {
+    match (duration_seconds.filter(|seconds| *seconds > 0), position_ms) {
+        (Some(duration), Some(position)) => {
+            let left = (duration - position / 1000).max(0);
+            format!("Playing, {} left", fmt_duration(left))
+        }
+        _ => "Playing".to_owned(),
     }
 }
 
@@ -344,6 +442,9 @@ pub(crate) struct QueueNowPlayingPageVm {
     /// A cue is stored, and the stored session is stopped. The store permits a Clear
     /// only then. A state that the app shows in place of the stored state does not change it.
     cue_can_clear: bool,
+    /// The text below the cue while the Show plays or is paused (ADR 0106
+    /// Decision 2).
+    pub(crate) cue_move_hint: Option<&'static str>,
     /// Empty-state label for the queue list.
     pub(crate) empty_label: &'static str,
 }
@@ -396,6 +497,25 @@ impl QueueNowPlayingPageVm {
 
     pub(crate) fn can_skip_next(&self) -> bool {
         self.can_skip_next
+    }
+
+    /// Gives the cue index that Alt+Up or Alt+Down moves the entry to. It gives
+    /// `None` when the entry cannot move now or the move leaves the movable
+    /// rows (ADR 0106 Decision 1).
+    pub(crate) fn key_move_index(&self, entry_id: i64, up: bool) -> Option<usize> {
+        let row = self
+            .all_rows
+            .iter()
+            .find(|row| row.entry_id == Some(entry_id) && row.can_move())?;
+        let to = if up {
+            row.cue_index.checked_sub(1)?
+        } else {
+            row.cue_index + 1
+        };
+        self.all_rows
+            .get(to)
+            .filter(|target| target.can_move())
+            .map(|target| target.cue_index)
     }
 
     pub(crate) fn selected_entry_id(&self) -> Option<i64> {
@@ -502,11 +622,23 @@ impl QueueNowPlayingPageVmBuilder {
     /// Projects the builder input into a display-ready page.
     #[must_use]
     pub(crate) fn build(self) -> QueueNowPlayingPageVm {
-        let rows = self
+        let position_ms = self
+            .tracks
+            .iter()
+            .find(|track| track.now_playing)
+            .and_then(|track| track.position_ms);
+        let mut rows = self
             .tracks
             .into_iter()
             .map(QueueRowDisplay::from_track)
             .collect::<Vec<_>>();
+        mark_cue_rows(&mut rows, self.transport_state, position_ms);
+        let cue_move_hint = (self.has_cue
+            && matches!(
+                self.transport_state,
+                TransportState::Playing | TransportState::Paused
+            ))
+        .then_some(CUE_MOVE_HINT);
         let cue_can_clear = self.has_cue && matches!(self.transport_state, TransportState::Stopped);
         QueueNowPlayingPageVm {
             all_rows: rows.clone(),
@@ -521,6 +653,7 @@ impl QueueNowPlayingPageVmBuilder {
             ),
             actions: ShowActionsDisplay::for_state(self.transport_state, cue_can_clear),
             cue_can_clear,
+            cue_move_hint,
             empty_label: "Queue is empty",
         }
     }
@@ -585,6 +718,7 @@ mod tests {
             artist: Some("Artist".to_string()),
             duration_seconds: Some(245),
             now_playing,
+            position_ms: None,
         }
     }
 
@@ -814,5 +948,76 @@ mod tests {
 
         assert_eq!(vm.text_filter(), None);
         assert_eq!(vm.rows.len(), 2);
+    }
+    /// A cue of five entries. `current` is the playing entry.
+    fn cue_vm(state: TransportState, current: usize) -> QueueNowPlayingPageVm {
+        QueueNowPlayingPageVm::builder()
+            .tracks((0..5).map(|index| QueueTrackInput {
+                entry_id: Some(100 + i64::try_from(index).unwrap()),
+                now_playing: index == current && state != TransportState::Stopped,
+                position_ms: Some(65_000),
+                ..track(1, "Cue track", false)
+            }))
+            .transport_state(state)
+            .has_cue(true)
+            .build()
+    }
+
+    // ADR 0106 task 001, criterion 6.
+    #[test]
+    fn play_next_shows_after_the_next_row_and_on_no_other_row() {
+        for state in [TransportState::Playing, TransportState::Paused] {
+            let vm = cue_vm(state, 1);
+            let shown = vm
+                .rows
+                .iter()
+                .map(QueueRowDisplay::play_next)
+                .collect::<Vec<_>>();
+            assert_eq!(shown, [false, false, false, true, true]);
+        }
+        let stopped = cue_vm(TransportState::Stopped, 0);
+        assert!(stopped.rows.iter().all(|row| !row.play_next()));
+    }
+
+    #[test]
+    fn rows_give_played_playing_and_move_availability() {
+        let vm = cue_vm(TransportState::Playing, 2);
+        let labels = vm
+            .rows
+            .iter()
+            .map(|row| row.state_label.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            [
+                Some("Played"),
+                Some("Played"),
+                Some("Playing, 3:00 left"),
+                None,
+                None
+            ]
+        );
+        let movable = vm
+            .rows
+            .iter()
+            .map(QueueRowDisplay::can_move)
+            .collect::<Vec<_>>();
+        assert_eq!(movable, [false, false, false, true, true]);
+        assert_eq!(vm.cue_move_hint, Some(CUE_MOVE_HINT));
+        assert_eq!(vm.key_move_index(103, true), None);
+        assert_eq!(vm.key_move_index(103, false), Some(4));
+        assert_eq!(vm.key_move_index(104, true), Some(3));
+        assert_eq!(vm.key_move_index(104, false), None);
+        assert_eq!(vm.key_move_index(102, false), None);
+    }
+
+    #[test]
+    fn a_stopped_cue_moves_each_row_and_shows_no_hint() {
+        let vm = cue_vm(TransportState::Stopped, 0);
+        assert!(vm.rows.iter().all(QueueRowDisplay::can_move));
+        assert!(vm.rows.iter().all(|row| row.state_label.is_none()));
+        assert_eq!(vm.cue_move_hint, None);
+        assert_eq!(vm.key_move_index(100, true), None);
+        assert_eq!(vm.key_move_index(100, false), Some(1));
     }
 }

@@ -87,6 +87,7 @@ mod tests {
             artist: Some("Artist".to_string()),
             duration_seconds: Some(125),
             now_playing,
+            position_ms: None,
         }
     }
 

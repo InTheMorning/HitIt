@@ -22,7 +22,7 @@ use crate::ui::primitives::{
 };
 use crate::ui::shells::queue_now_playing::{render_queue_cuelist, QueueNowPlayingSlots};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Size, Spacing};
-use crate::view_models::queue_now_playing::QueueNowPlayingPageVm;
+use crate::view_models::queue_now_playing::{CueMoveTarget, QueueNowPlayingPageVm};
 use crate::view_models::show::{
     EventActionDisplay, EventControlDisplay, EventControlIntent, EventSectionDisplay,
     PublisherActionDisplay, PublisherSectionDisplay, PublisherServiceDisplay, PublisherServiceRole,
@@ -82,6 +82,13 @@ impl ShowDetailPanelSlots {
         handler: impl Fn(i64, &ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.queue = self.queue.on_select_entry(handler);
+        self
+    }
+    pub(crate) fn on_move_cue_entry(
+        mut self,
+        handler: impl Fn(i64, CueMoveTarget, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.queue = self.queue.on_move_entry(handler);
         self
     }
     pub(crate) fn on_clear_cue(

@@ -121,6 +121,7 @@ pub(super) fn build_show_screen(
     let service_entity = entity.clone();
     let stop_entity = entity.clone();
     let clear_entity = entity.clone();
+    let move_entity = entity.clone();
     let reset_entity = entity.clone();
     let select_card_entity = entity.clone();
     let open_panel_entity = entity.clone();
@@ -150,7 +151,12 @@ pub(super) fn build_show_screen(
                 entity.clone(),
                 TopApp::skip_playback_next,
             ))
-            .on_select_cue_entry(queue_select_entry_action(entity))
+            .on_select_cue_entry(queue_select_entry_action(entity.clone()))
+            .on_move_cue_entry(move |entry_id, target, _, cx| {
+                move_entity.update(cx, |this, cx| {
+                    this.move_show_cue_entry(entry_id, target, cx);
+                });
+            })
             .on_open_broadcast_readiness(move |_, _, cx| {
                 readiness_entity.update(cx, |this, cx| {
                     this.open_broadcast_readiness_in_music(cx);

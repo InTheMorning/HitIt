@@ -49,6 +49,9 @@ pub(super) fn queue_now_playing_input(
     let queue = queue_tracks_for_stored_cue(
         conn,
         session.as_ref().and_then(|row| row.cue_entry_id),
+        session
+            .as_ref()
+            .and_then(|row| i64::try_from(row.position_ms).ok()),
         session.is_none(),
     );
 
@@ -111,6 +114,7 @@ pub(super) fn queue_now_playing_vm(
 fn queue_tracks_for_stored_cue(
     conn: &rusqlite::Connection,
     active_entry_id: Option<i64>,
+    position_ms: Option<i64>,
     can_select: bool,
 ) -> QueueProjection {
     let Ok(Some(cue)) = db::show_cue(conn) else {
@@ -133,6 +137,9 @@ fn queue_tracks_for_stored_cue(
                 Some(entry.id),
                 can_select,
             );
+            if input.now_playing {
+                input.position_ms = position_ms;
+            }
             input.unavailable_reason = entry.unavailable_reason.map(|reason| match reason {
                 db::CueUnavailableReason::NotInLibrary => QueueUnavailableReason::NotInLibrary,
                 db::CueUnavailableReason::NotDownloaded => QueueUnavailableReason::NotDownloaded,
@@ -174,6 +181,7 @@ fn queue_track_input(
         now_playing: entry_id.is_some() && entry_id == active_entry_id,
         selected: entry_id.is_some() && entry_id == selected_entry_id,
         selectable,
+        position_ms: None,
     }
 }
 

@@ -20,6 +20,7 @@ use crate::ui::composites::{
 };
 use crate::ui::shells::queue_now_playing::{render_queue_transport, QueueNowPlayingSlots};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
+use crate::view_models::queue_now_playing::CueMoveTarget;
 use crate::view_models::show::{
     EventControlIntent, PublisherServiceRole, ShowCardDisplay, ShowCardKind, ShowEmptyStateDisplay,
     ShowNowPlayingDisplay, ShowPageVm, ShowPanelMode, ShowWidthClass,
@@ -73,6 +74,13 @@ impl ShowSlots {
         handler: impl Fn(i64, &ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.panel = self.panel.on_select_cue_entry(handler);
+        self
+    }
+    pub(crate) fn on_move_cue_entry(
+        mut self,
+        handler: impl Fn(i64, CueMoveTarget, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.panel = self.panel.on_move_cue_entry(handler);
         self
     }
     pub(crate) fn on_clear_cue(

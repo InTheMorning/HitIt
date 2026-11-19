@@ -7,12 +7,12 @@ use gpui::Context;
 use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{PlaybackOperation, RecoveryAction, RecoveryIntent};
 use crate::application::commands::playback::{
-    NextShowCueEntry, PauseShow, PlayTestSound, PreviousShowCueEntry, ResumeShow,
-    SelectShowCueEntry, StartShow, StopShow,
+    CueEntryPlacement, MoveShowCueEntry, NextShowCueEntry, PauseShow, PlayTestSound,
+    PreviousShowCueEntry, ResumeShow, SelectShowCueEntry, StartShow, StopShow,
 };
 use crate::application::{ApplicationCommand, CommandContext};
 use crate::presentation::present_command;
-use crate::view_models::queue_now_playing::{ShowToggleIntent, TransportState};
+use crate::view_models::queue_now_playing::{CueMoveTarget, ShowToggleIntent, TransportState};
 
 use super::TopApp;
 
@@ -30,6 +30,19 @@ impl TopApp {
     }
 
     pub(super) fn select_show_cue_entry(&mut self, entry_id: i64, cx: &mut Context<Self>) {
+        self.cue_key_entry = Some(entry_id);
+        // While the Show plays or is paused, a click on a row that can move
+        // only marks it for Alt+Up and Alt+Down. The selection stays locked.
+        let selectable = self
+            .show_page
+            .queue
+            .rows
+            .iter()
+            .any(|row| row.entry_id == Some(entry_id) && row.selectable);
+        if !selectable {
+            cx.notify();
+            return;
+        }
         let command = SelectShowCueEntry::new(Arc::clone(&self.conn), entry_id);
         present_command(
             &self.command_runner,
@@ -46,6 +59,55 @@ impl TopApp {
                 this.refresh_show_page(cx);
             },
         );
+    }
+
+    /// Moves a cue entry by a drag, by "Play next" or by a key (ADR 0106
+    /// Decisions 1 and 2). The current track does not stop.
+    pub(super) fn move_show_cue_entry(
+        &mut self,
+        entry_id: i64,
+        target: CueMoveTarget,
+        cx: &mut Context<Self>,
+    ) {
+        let placement = match target {
+            CueMoveTarget::AfterCurrent => CueEntryPlacement::AfterCurrent,
+            CueMoveTarget::Index(index) => match i64::try_from(index) {
+                Ok(position) => CueEntryPlacement::At(position),
+                Err(_) => return,
+            },
+        };
+        self.cue_key_entry = Some(entry_id);
+        let command = MoveShowCueEntry::new(Arc::clone(&self.conn), entry_id, placement);
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            |this, _result, cx| {
+                this.refresh_show_page(cx);
+            },
+            |this, error, cx| {
+                this.settings_status = format!("Show cue move error: {error:#}");
+                this.refresh_show_page(cx);
+            },
+        );
+    }
+
+    /// Alt+Up and Alt+Down on the Show page (ADR 0106 Decision 2). The key
+    /// moves the row that the host clicked last, or the selected row of a
+    /// stopped Show. A key with no row that can move does nothing.
+    pub(super) fn move_marked_cue_entry(&mut self, up: bool, cx: &mut Context<Self>) {
+        let queue = &self.show_page.queue;
+        let entry_id = self
+            .cue_key_entry
+            .filter(|id| queue.rows.iter().any(|row| row.entry_id == Some(*id)))
+            .or_else(|| queue.selected_entry_id());
+        let Some(entry_id) = entry_id else {
+            return;
+        };
+        if let Some(index) = queue.key_move_index(entry_id, up) {
+            self.move_show_cue_entry(entry_id, CueMoveTarget::Index(index), cx);
+        }
     }
 
     pub(super) fn skip_playback_next(&mut self, cx: &mut Context<Self>) {

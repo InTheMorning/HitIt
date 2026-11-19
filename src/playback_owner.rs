@@ -887,6 +887,85 @@ mod tests {
         Ok(())
     }
 
+    /// ADR 0106 task 001, criterion 4: a cue move during play does not call the
+    /// driver, and the next EOF plays the entry that was moved.
+    #[test]
+    fn a_cue_move_during_play_does_not_call_the_driver_and_eof_plays_the_moved_entry() -> Result<()>
+    {
+        let temp = tempfile::tempdir()?;
+        let audio_path = temp.path().join("show.mp3");
+        fs::write(&audio_path, b"audio")?;
+        let mut conn = setup_test_db()?;
+        let feed_id = create_feed(&conn)?;
+        let track_id = create_track(&conn, feed_id, "move-three", temp.path(), &audio_path)?;
+        let playlist_id = db::playlist_create(&conn, "Three entry cue")?;
+        for _ in 0..3 {
+            db::playlist_append(&conn, playlist_id, track_id)?;
+        }
+        db::load_show_cue(&mut conn, playlist_id, 1, false)?;
+        let entries = db::show_cue(&conn)?.expect("cue").entries;
+        let driver = CountingDriver::default();
+        let mut owner =
+            PlaybackOwner::new(driver.clone(), playback::DEFAULT_SESSION_ID, temp.path());
+        owner.start_show_entry(&conn, Some(entries[0].id))?;
+        assert!(matches!(owner.poll(&conn)?, PollOutcome::Reconciled(_)));
+        let calls_before_move = driver.calls();
+
+        db::move_show_cue_entry(&conn, entries[2].id, 1)?;
+
+        assert_eq!(driver.calls(), calls_before_move);
+        let session = db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.expect("session");
+        assert_eq!(session.cue_entry_id, Some(entries[0].id));
+        driver.set_eof();
+        assert!(matches!(owner.poll(&conn)?, PollOutcome::Advanced(_)));
+        let session = db::playback_session(&conn, playback::DEFAULT_SESSION_ID)?.expect("session");
+        assert_eq!(session.cue_entry_id, Some(entries[2].id));
+        Ok(())
+    }
+
+    /// A driver that counts each command and reports EOF on request.
+    #[derive(Clone, Default)]
+    struct CountingDriver {
+        state: Arc<Mutex<(usize, bool)>>,
+    }
+
+    impl CountingDriver {
+        fn calls(&self) -> usize {
+            self.state.lock().expect("driver state").0
+        }
+        fn set_eof(&self) {
+            self.state.lock().expect("driver state").1 = true;
+        }
+        fn count(&self) {
+            self.state.lock().expect("driver state").0 += 1;
+        }
+    }
+
+    impl PlaybackDriver for CountingDriver {
+        fn load(&self, _path: &Path, _start_ms: u64) -> Result<()> {
+            self.count();
+            Ok(())
+        }
+        fn seek(&self, _position_ms: u64) -> Result<()> {
+            self.count();
+            Ok(())
+        }
+        fn pause(&self, _paused: bool) -> Result<()> {
+            self.count();
+            Ok(())
+        }
+        fn stop(&self) -> Result<()> {
+            self.count();
+            Ok(())
+        }
+        fn poll(&self) -> Result<DriverStatus> {
+            Ok(DriverStatus {
+                eof: self.state.lock().expect("driver state").1,
+                ..DriverStatus::default()
+            })
+        }
+    }
+
     struct EndOfTrackDriver;
 
     impl PlaybackDriver for EndOfTrackDriver {

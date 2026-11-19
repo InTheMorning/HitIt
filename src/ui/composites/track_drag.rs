@@ -84,6 +84,14 @@ impl PlaylistRowDragPayload {
     }
 }
 
+/// The drag of one Show cue row, to move its entry (ADR 0106 Decision 2).
+/// Only a row that `can_move` starts it.
+#[derive(Clone, Debug)]
+pub(crate) struct CueRowDragPayload {
+    pub(crate) entry_id: i64,
+    pub(crate) label: SharedString,
+}
+
 /// One drop of a playlist row on another playlist row. The host moves the
 /// playlist to `to_index`, the place of the row that took the drop.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -167,6 +175,22 @@ pub(crate) fn attach_playlist_row_drag(
     .on_drag(
         payload,
         |payload: &PlaylistRowDragPayload, _: Point<Pixels>, _: &mut Window, cx: &mut App| {
+            TrackDragPreview::build(&payload.label, cx)
+        },
+    )
+}
+
+/// Attaches the drag of a Show cue row to `el`, the row element. It follows
+/// the rules of [`attach_track_drag`].
+pub(crate) fn attach_cue_row_drag(el: Stateful<Div>, payload: CueRowDragPayload) -> Stateful<Div> {
+    el.on_mouse_down(MouseButton::Left, |_, _, cx| {
+        if cx.has_global::<GlobalState>() {
+            GlobalState::suppress_text_selection(cx);
+        }
+    })
+    .on_drag(
+        payload,
+        |payload: &CueRowDragPayload, _: Point<Pixels>, _: &mut Window, cx: &mut App| {
             TrackDragPreview::build(&payload.label, cx)
         },
     )

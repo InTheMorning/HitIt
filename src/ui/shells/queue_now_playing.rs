@@ -8,21 +8,27 @@
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, App, ClickEvent, FontWeight, IntoElement, ParentElement, RenderOnce,
-    SharedString, Styled, Window,
+    div, prelude::*, App, ClickEvent, Div, FontWeight, IntoElement, ParentElement, RenderOnce,
+    SharedString, Stateful, Styled, Window,
 };
 
+use crate::ui::composites::track_drag::{attach_cue_row_drag, CueRowDragPayload};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::{Icon, IconName, IconSize};
-use crate::ui::primitives::{Button, Tooltip};
+use crate::ui::primitives::{
+    Button, ContextMenu, ContextMenuItem, ContextMenuItemDisplay, ContextMenuScope, Tooltip,
+};
 use crate::ui::tokens::{color, FontSize, Radius, SemanticColor, Size, Spacing};
 use crate::view_models::queue_now_playing::{
-    QueueNowPlayingPageVm, QueueRowDisplay, TransportDisplay, TransportState,
+    CueMoveTarget, QueueNowPlayingPageVm, QueueRowDisplay, TransportDisplay, TransportState,
 };
 use crate::view_models::workspace::FrameChromeButtonDisplay;
 
 type QueueClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 type QueueSelectHandler = Rc<dyn Fn(i64, &ClickEvent, &mut Window, &mut App) + 'static>;
+/// Moves a cue entry (ADR 0106 Decision 2). It gets the entry id and where
+/// the entry goes.
+type QueueMoveHandler = Rc<dyn Fn(i64, CueMoveTarget, &mut Window, &mut App) + 'static>;
 
 /// Callback slots supplied by the application-owned queue frame.
 #[derive(Clone, Default)]
@@ -32,6 +38,7 @@ pub(crate) struct QueueNowPlayingSlots {
     play_pause: Option<QueueClickHandler>,
     skip_next: Option<QueueClickHandler>,
     select_entry: Option<QueueSelectHandler>,
+    move_entry: Option<QueueMoveHandler>,
     stop: Option<QueueClickHandler>,
     clear: Option<QueueClickHandler>,
 }
@@ -74,6 +81,15 @@ impl QueueNowPlayingSlots {
         handler: impl Fn(i64, &ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.select_entry = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the callback that moves a cue entry (ADR 0106).
+    pub(crate) fn on_move_entry(
+        mut self,
+        handler: impl Fn(i64, CueMoveTarget, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.move_entry = Some(Rc::new(handler));
         self
     }
 
@@ -132,6 +148,7 @@ impl RenderOnce for QueueCuelistShell {
             rows,
             empty_label,
             actions,
+            cue_move_hint,
             ..
         } = self.vm;
         let clear = if actions.clear.availability
@@ -157,9 +174,19 @@ impl RenderOnce for QueueCuelistShell {
             .child(render_queue_list(
                 rows,
                 empty_label,
-                self.slots.select_entry.as_ref(),
+                (
+                    self.slots.select_entry.as_ref(),
+                    self.slots.move_entry.as_ref(),
+                ),
                 cx,
             ))
+            .children(cue_move_hint.map(|hint| {
+                div()
+                    .px(Spacing::MD.scaled(cx))
+                    .text_size(FontSize::Caption.scaled(cx))
+                    .text_color(color(cx, SemanticColor::TertiaryLabel))
+                    .child(SharedString::from(hint))
+            }))
     }
 }
 
@@ -172,9 +199,10 @@ impl RenderOnce for QueueTransportShell {
 fn render_queue_list(
     rows: Vec<QueueRowDisplay>,
     empty_label: &'static str,
-    select_entry: Option<&QueueSelectHandler>,
+    handlers: (Option<&QueueSelectHandler>, Option<&QueueMoveHandler>),
     cx: &App,
 ) -> impl IntoElement {
+    let (select_entry, move_entry) = handlers;
     let row_gap = Spacing::XXS.scaled(cx);
 
     if rows.is_empty() {
@@ -202,18 +230,18 @@ fn render_queue_list(
         .gap(row_gap)
         .children(
             rows.into_iter()
-                .map(|row| render_queue_row(row, select_entry.cloned(), cx)),
+                .map(|row| render_queue_row(row, (select_entry.cloned(), move_entry.cloned()), cx)),
         )
         .into_any_element()
 }
 
 fn render_queue_row(
     row: QueueRowDisplay,
-    select_entry: Option<QueueSelectHandler>,
+    handlers: (Option<QueueSelectHandler>, Option<QueueMoveHandler>),
     cx: &App,
 ) -> impl IntoElement {
-    let label_color = color(cx, SemanticColor::Label);
-    let secondary_label = color(cx, SemanticColor::SecondaryLabel);
+    let (select_entry, move_entry) = handlers;
+    let show_play_next = row.play_next();
     let tertiary_label = color(cx, SemanticColor::TertiaryLabel);
     let accent = color(cx, SemanticColor::Accent);
     let fill = color(cx, SemanticColor::TertiaryFill);
@@ -232,9 +260,28 @@ fn render_queue_row(
         .when(row.now_playing, |el| el.bg(fill))
         .when(row.selected, |el| el.border_1().border_color(accent))
         .when_some(
-            row.entry_id.filter(|_| row.selectable).zip(select_entry),
+            row.entry_id
+                .filter(|_| row.selectable || row.can_move())
+                .zip(select_entry),
             |el, (entry_id, handler)| {
                 el.on_click(move |event, window, cx| handler(entry_id, event, window, cx))
+            },
+        )
+        .when_some(
+            row.entry_id
+                .filter(|_| row.can_move())
+                .zip(move_entry.clone()),
+            |el, (entry_id, handler)| {
+                let drag = CueRowDragPayload {
+                    entry_id,
+                    label: SharedString::from(row.title.clone()),
+                };
+                let to_index = row.cue_index;
+                let drop: CueRowDropHandler =
+                    Rc::new(move |dragged: i64, window: &mut Window, cx: &mut App| {
+                        handler(dragged, CueMoveTarget::Index(to_index), window, cx);
+                    });
+                cue_row_drop_target(attach_cue_row_drag(el, drag), entry_id, true, accent, drop)
             },
         )
         .tooltip({
@@ -255,34 +302,7 @@ fn render_queue_row(
                     )
                 }),
         )
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_w_0()
-                .child(
-                    div()
-                        .text_size(FontSize::Body.scaled(cx))
-                        .text_color(label_color)
-                        .font_weight(if row.now_playing {
-                            FontWeight::MEDIUM
-                        } else {
-                            FontWeight::NORMAL
-                        })
-                        .truncate()
-                        .child(SharedString::from(row.title)),
-                )
-                .when_some(row.artist, |el, artist| {
-                    el.child(
-                        div()
-                            .text_size(FontSize::Micro.scaled(cx))
-                            .text_color(secondary_label)
-                            .truncate()
-                            .child(SharedString::from(artist)),
-                    )
-                }),
-        )
+        .child(row_text(row.title, row.artist, row.now_playing, cx))
         .when_some(row.duration_label, |el, duration| {
             el.child(
                 div()
@@ -291,14 +311,132 @@ fn render_queue_row(
                     .child(SharedString::from(duration)),
             )
         })
-        .when_some(row.unavailable_label, |el, reason| {
+        .children(
+            [row.unavailable_label.map(str::to_owned), row.state_label]
+                .into_iter()
+                .flatten()
+                .map(|text| {
+                    div()
+                        .text_size(FontSize::Micro.scaled(cx))
+                        .text_color(tertiary_label)
+                        .child(SharedString::from(text))
+                }),
+        )
+        .when_some(
+            row.entry_id.filter(|_| show_play_next).zip(move_entry),
+            |el, (entry_id, handler)| el.child(play_next_controls(entry_id, &handler)),
+        )
+}
+
+/// The handler of a drop of a cue row. It gets the entry id of the dragged row.
+type CueRowDropHandler = Rc<dyn Fn(i64, &mut Window, &mut App)>;
+
+/// Makes `el` a drop target of a dragged cue row (ADR 0106 Decision 2).
+/// A row that cannot take the entry (`accepts` is false) takes no drop. A row
+/// does not take its own drag. An accepting row shows a 2 px accent border
+/// while the pointer is on it. `on_drop` gets the entry id of the dragged row.
+fn cue_row_drop_target(
+    el: Stateful<Div>,
+    own_entry_id: i64,
+    accepts: bool,
+    accent: gpui::Rgba,
+    on_drop: CueRowDropHandler,
+) -> Stateful<Div> {
+    el.can_drop(move |drag, _window, _cx| {
+        accepts
+            && drag
+                .downcast_ref::<CueRowDragPayload>()
+                .is_some_and(|payload| payload.entry_id != own_entry_id)
+    })
+    .drag_over::<CueRowDragPayload>(move |el, _, _, _| {
+        if accepts {
+            el.border_2().border_color(accent)
+        } else {
+            el
+        }
+    })
+    .on_drop(
+        move |payload: &CueRowDragPayload, window: &mut Window, cx: &mut App| {
+            if payload.entry_id != own_entry_id {
+                on_drop(payload.entry_id, window, cx);
+            }
+        },
+    )
+}
+
+/// The title and the artist of a queue row.
+fn row_text(
+    title: String,
+    artist: Option<String>,
+    now_playing: bool,
+    cx: &App,
+) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_col()
+        .flex_1()
+        .min_w_0()
+        .child(
+            div()
+                .text_size(FontSize::Body.scaled(cx))
+                .text_color(color(cx, SemanticColor::Label))
+                .font_weight(if now_playing {
+                    FontWeight::MEDIUM
+                } else {
+                    FontWeight::NORMAL
+                })
+                .truncate()
+                .child(SharedString::from(title)),
+        )
+        .when_some(artist, |el, artist| {
             el.child(
                 div()
                     .text_size(FontSize::Micro.scaled(cx))
-                    .text_color(tertiary_label)
-                    .child(SharedString::from(reason)),
+                    .text_color(color(cx, SemanticColor::SecondaryLabel))
+                    .truncate()
+                    .child(SharedString::from(artist)),
             )
         })
+}
+
+/// The "Play next" button and the row menu with the same item (ADR 0106
+/// Decision 2).
+fn play_next_controls(entry_id: i64, handler: &QueueMoveHandler) -> impl IntoElement {
+    let button_handler = Rc::clone(handler);
+    let menu_handler = Rc::clone(handler);
+    let button = Button::styled(
+        SharedString::from(format!("queue-play-next-{entry_id}")),
+        ControlStyle::RowAction,
+    )
+    .label("Play next")
+    .a11y_label("Play next")
+    .on_click(move |_, window, cx| {
+        button_handler(entry_id, CueMoveTarget::AfterCurrent, window, cx);
+    });
+    let menu = ContextMenu::new(
+        SharedString::from(format!("queue-row-menu-{entry_id}")),
+        ContextMenuScope::TrackList,
+        "Cue row actions",
+    )
+    .trigger_icon(IconName::More)
+    .item(
+        ContextMenuItem::new(ContextMenuItemDisplay {
+            id: SharedString::from(format!("queue-row-menu-play-next-{entry_id}")),
+            label: "Play next".into(),
+            a11y_label: "Play next".into(),
+            destructive: false,
+            disabled: false,
+        })
+        .on_select(move |window, cx| {
+            menu_handler(entry_id, CueMoveTarget::AfterCurrent, window, cx);
+        }),
+    );
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .child(button)
+        .child(menu)
 }
 
 fn render_control_deck(
@@ -413,6 +551,10 @@ mod tests {
             now_playing,
             unavailable_label: None,
             a11y_label: title.to_owned(),
+            cue_index: 0,
+            state_label: None,
+            cue_move: crate::view_models::queue_now_playing::CueRowMove::Locked,
+            duration_seconds: None,
         }
     }
 
@@ -428,7 +570,7 @@ mod tests {
         ) -> impl gpui::IntoElement {
             div()
                 .w(px(320.0))
-                .child(render_queue_row(self.display.clone(), None, cx))
+                .child(render_queue_row(self.display.clone(), (None, None), cx))
         }
     }
 

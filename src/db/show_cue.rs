@@ -280,6 +280,125 @@ pub fn show_cue_can_change(conn: &Connection) -> Result<bool> {
     Ok(session_state.is_none_or(|state| state == "stopped"))
 }
 
+/// The play state that limits a cue move (ADR 0106 Decision 1).
+enum CueMoveLimit {
+    /// The session is stopped. Each entry can move.
+    None,
+    /// The session plays or is paused. The entry with this id is the current
+    /// entry. Only an entry after it can move, and only to a place after it.
+    After(i64),
+}
+
+fn cue_move_limit(conn: &Connection) -> Result<CueMoveLimit> {
+    if show_cue_can_change(conn)? {
+        return Ok(CueMoveLimit::None);
+    }
+    let current: Option<i64> = conn
+        .query_row(
+            "SELECT e.id
+             FROM playback_sessions s
+             JOIN show_cue_entries e ON e.id = s.cue_entry_id
+             WHERE s.session_id = 'default'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .context("Read the current Show cue entry")?;
+    let current = current.context("The Show has no current cue entry, so no entry can move")?;
+    Ok(CueMoveLimit::After(current))
+}
+
+/// Moves one cue entry to `to_position`, in one transaction (ADR 0106
+/// Decision 1). The other entries keep their relative order. The positions
+/// become 0, 1, 2 and so on. A position past the last one moves the entry
+/// last.
+///
+/// While the session plays or is paused, the function refuses a move of the
+/// current entry, a move of an earlier entry and a move to a place at or
+/// before the current entry. A refused move writes nothing. The function
+/// does not touch the playback session, so the current track does not stop.
+///
+/// # Errors
+///
+/// Returns an error when the entry does not exist, when ADR 0106 refuses
+/// the move, or when the database write fails.
+pub fn move_show_cue_entry(conn: &Connection, entry_id: i64, to_position: i64) -> Result<()> {
+    let tx = conn
+        .unchecked_transaction()
+        .context("Begin the Show cue move")?;
+    write_cue_move(&tx, entry_id, to_position)?;
+    tx.commit().context("Commit the Show cue move")
+}
+
+/// The body of a move. The caller holds the transaction.
+fn write_cue_move(tx: &Connection, entry_id: i64, to_position: i64) -> Result<()> {
+    let limit = cue_move_limit(tx)?;
+    let mut ids = {
+        let mut statement = tx.prepare("SELECT id FROM show_cue_entries ORDER BY position")?;
+        let ids = statement
+            .query_map([], |row| row.get::<_, i64>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        ids
+    };
+    let from = ids
+        .iter()
+        .position(|id| *id == entry_id)
+        .context("The Show cue entry to move does not exist")?;
+    let last = i64::try_from(ids.len() - 1)?;
+    let to = to_position.clamp(0, last);
+    if let CueMoveLimit::After(current_id) = limit {
+        let current = ids
+            .iter()
+            .position(|id| *id == current_id)
+            .context("The current Show cue entry is not in the cue")?;
+        let current = i64::try_from(current)?;
+        anyhow::ensure!(
+            i64::try_from(from)? > current,
+            "ADR 0106: the Show cue entry is the current entry or played before it, so it cannot move"
+        );
+        anyhow::ensure!(
+            to > current,
+            "ADR 0106: a Show cue entry cannot move to the current entry or before it"
+        );
+    }
+    ids.remove(from);
+    ids.insert(usize::try_from(to)?, entry_id);
+    // The positions are unique. Move them out of the way, then write each one.
+    tx.execute("UPDATE show_cue_entries SET position = -position - 1", [])?;
+    {
+        let mut update = tx.prepare("UPDATE show_cue_entries SET position = ?1 WHERE id = ?2")?;
+        for (index, id) in ids.iter().enumerate() {
+            update.execute(params![i64::try_from(index)?, id])?;
+        }
+    }
+    Ok(())
+}
+
+/// Moves one cue entry to the place directly after the current entry
+/// ("Play next", ADR 0106 Decision 2). It needs a playing or paused session.
+///
+/// # Errors
+///
+/// Returns an error when the Show is stopped, when the entry is the current
+/// entry or played before it, or when the database write fails.
+pub fn play_show_cue_entry_next(conn: &Connection, entry_id: i64) -> Result<()> {
+    let tx = conn
+        .unchecked_transaction()
+        .context("Begin the Show cue Play next")?;
+    let CueMoveLimit::After(current_id) = cue_move_limit(&tx)? else {
+        anyhow::bail!("ADR 0106: Play next needs a Show that plays or is paused");
+    };
+    let current: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM show_cue_entries WHERE position < (SELECT position FROM show_cue_entries WHERE id = ?1)",
+            [current_id],
+            |row| row.get(0),
+        )
+        .context("Read the place of the current Show cue entry")?;
+    write_cue_move(&tx, entry_id, current + 1)?;
+    tx.commit().context("Commit the Show cue Play next")
+}
+
 pub fn load_show_cue(
     conn: &mut Connection,
     playlist_id: i64,
@@ -498,6 +617,108 @@ mod tests {
             assert!(clear_show_cue(&mut conn).is_err());
             assert!(show_cue(&conn)?.is_some());
         }
+        Ok(())
+    }
+
+    /// A cue of five entries. The session plays the entry at `current`, or
+    /// is stopped when `state` is `None`. Returns the entry ids by position.
+    fn five_entry_cue(state: Option<&str>, current: usize) -> Result<(Connection, Vec<i64>)> {
+        let mut conn = setup()?;
+        let (playlist_id, track_id) = playlist_with_repeated_track(&conn)?;
+        for _ in 0..3 {
+            db::playlist_append(&conn, playlist_id, track_id)?;
+        }
+        load_show_cue(&mut conn, playlist_id, 1, false)?;
+        let ids = entry_ids(&conn)?;
+        if let Some(state) = state {
+            db::set_playback_session_track(
+                &conn,
+                crate::playback::DEFAULT_SESSION_ID,
+                track_id,
+                None,
+                None,
+                "started",
+                0,
+            )?;
+            conn.execute(
+                "UPDATE playback_sessions SET state = ?1, cue_entry_id = ?2 WHERE session_id = ?3",
+                params![state, ids[current], crate::playback::DEFAULT_SESSION_ID],
+            )?;
+        }
+        Ok((conn, ids))
+    }
+
+    fn entry_ids(conn: &Connection) -> Result<Vec<i64>> {
+        Ok(show_cue(conn)?
+            .context("cue")?
+            .entries
+            .iter()
+            .map(|entry| entry.id)
+            .collect())
+    }
+
+    // ADR 0106 task 001, criterion 1.
+    #[test]
+    fn a_move_after_the_current_entry_succeeds_while_playing() -> Result<()> {
+        let (conn, ids) = five_entry_cue(Some("playing"), 1)?;
+        move_show_cue_entry(&conn, ids[4], 2)?;
+        assert_eq!(entry_ids(&conn)?, [ids[0], ids[1], ids[4], ids[2], ids[3]]);
+        move_show_cue_entry(&conn, ids[2], 4)?;
+        assert_eq!(entry_ids(&conn)?, [ids[0], ids[1], ids[4], ids[3], ids[2]]);
+        let positions: Vec<i64> = show_cue(&conn)?
+            .context("cue")?
+            .entries
+            .iter()
+            .map(|entry| entry.position)
+            .collect();
+        assert_eq!(positions, [0, 1, 2, 3, 4]);
+        // The session keeps its current entry and its state.
+        let session =
+            db::playback_session(&conn, crate::playback::DEFAULT_SESSION_ID)?.context("session")?;
+        assert_eq!(session.cue_entry_id, Some(ids[1]));
+        assert_eq!(session.state, "playing");
+        Ok(())
+    }
+
+    // ADR 0106 task 001, criterion 2.
+    #[test]
+    fn active_playback_refuses_a_move_that_touches_the_current_entry_or_before() -> Result<()> {
+        for state in ["playing", "paused"] {
+            let (conn, ids) = five_entry_cue(Some(state), 2)?;
+            // The current entry.
+            assert!(move_show_cue_entry(&conn, ids[2], 4).is_err());
+            // An earlier entry, to a later place.
+            assert!(move_show_cue_entry(&conn, ids[0], 4).is_err());
+            // A later entry, to the place of the current entry or before it.
+            assert!(move_show_cue_entry(&conn, ids[4], 2).is_err());
+            assert!(move_show_cue_entry(&conn, ids[4], 0).is_err());
+            assert!(play_show_cue_entry_next(&conn, ids[2]).is_err());
+            assert!(play_show_cue_entry_next(&conn, ids[1]).is_err());
+            assert_eq!(entry_ids(&conn)?, ids);
+        }
+        Ok(())
+    }
+
+    // ADR 0106 task 001, criterion 3.
+    #[test]
+    fn stopped_session_moves_each_entry() -> Result<()> {
+        let (conn, ids) = five_entry_cue(None, 0)?;
+        move_show_cue_entry(&conn, ids[0], 4)?;
+        assert_eq!(entry_ids(&conn)?, [ids[1], ids[2], ids[3], ids[4], ids[0]]);
+        move_show_cue_entry(&conn, ids[0], 0)?;
+        assert_eq!(entry_ids(&conn)?, ids);
+        let (conn, ids) = five_entry_cue(Some("stopped"), 3)?;
+        move_show_cue_entry(&conn, ids[3], 0)?;
+        assert_eq!(entry_ids(&conn)?, [ids[3], ids[0], ids[1], ids[2], ids[4]]);
+        assert!(play_show_cue_entry_next(&conn, ids[4]).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn play_next_puts_the_entry_directly_after_the_current_entry() -> Result<()> {
+        let (conn, ids) = five_entry_cue(Some("paused"), 1)?;
+        play_show_cue_entry_next(&conn, ids[4])?;
+        assert_eq!(entry_ids(&conn)?, [ids[0], ids[1], ids[4], ids[2], ids[3]]);
         Ok(())
     }
 

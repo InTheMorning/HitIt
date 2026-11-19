@@ -397,6 +397,57 @@ impl ApplicationCommand for SelectShowCueEntry {
     }
 }
 
+/// Moves a cue entry to a new place (ADR 0106 Decision 1). The current track
+/// does not stop.
+pub struct MoveShowCueEntry {
+    conn: SharedConnection,
+    entry_id: i64,
+    placement: CueEntryPlacement,
+}
+
+/// Where a cue entry goes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CueEntryPlacement {
+    /// A position in the cue, from 0.
+    At(i64),
+    /// The place directly after the current entry ("Play next").
+    AfterCurrent,
+}
+
+impl MoveShowCueEntry {
+    #[must_use]
+    pub fn new(conn: SharedConnection, entry_id: i64, placement: CueEntryPlacement) -> Self {
+        Self {
+            conn,
+            entry_id,
+            placement,
+        }
+    }
+}
+
+impl ApplicationCommand for MoveShowCueEntry {
+    type Output = PlaybackCommandResult;
+
+    fn execute(self, context: &CommandContext) -> CommandResult<Self::Output> {
+        ensure_not_cancelled(context)?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| playback_error("database lock poisoned"))?;
+        match self.placement {
+            CueEntryPlacement::At(position) => {
+                db::move_show_cue_entry(&conn, self.entry_id, position)
+            }
+            CueEntryPlacement::AfterCurrent => db::play_show_cue_entry_next(&conn, self.entry_id),
+        }
+        .map_err(playback_error)?;
+        Ok(CommandOutcome::new(
+            PlaybackCommandResult::without_update("Show cue entry moved"),
+            playback_changed_events(),
+        ))
+    }
+}
+
 impl<D> StopPlayback<D> {
     /// Creates a stop command.
     #[must_use]

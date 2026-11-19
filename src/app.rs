@@ -207,6 +207,9 @@ pub struct TopApp {
     /// Invariants).
     saved_search_notice_scroll: gpui::ScrollHandle,
     queue_text_filter: Option<String>,
+    /// The cue entry that the host last clicked. Alt+Up and Alt+Down move it
+    /// (ADR 0106 Decision 2).
+    cue_key_entry: Option<i64>,
     show_page: ShowPageVm,
     playback_presentation_override: Option<crate::view_models::queue_now_playing::TransportState>,
     show_commands: ShowCommandState,
@@ -559,6 +562,7 @@ impl TopApp {
             saved_search_scroll: gpui::ScrollHandle::new(),
             saved_search_notice_scroll: gpui::ScrollHandle::new(),
             queue_text_filter: None,
+            cue_key_entry: None,
             show_page,
             playback_presentation_override: None,
             show_commands: ShowCommandState::default(),

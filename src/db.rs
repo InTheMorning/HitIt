@@ -3017,9 +3017,9 @@ mod playlist_order;
 mod show_cue;
 pub use playlist_order::{move_playlist, set_playlist_order};
 pub use show_cue::{
-    clear_show_cue, load_show_cue, select_show_cue_entry, show_cue, show_cue_can_change,
-    show_cue_entry_after, show_cue_entry_before, show_cue_exists, CueEntry, CueUnavailableReason,
-    ShowCue,
+    clear_show_cue, load_show_cue, move_show_cue_entry, play_show_cue_entry_next,
+    select_show_cue_entry, show_cue, show_cue_can_change, show_cue_entry_after,
+    show_cue_entry_before, show_cue_exists, CueEntry, CueUnavailableReason, ShowCue,
 };
 pub(crate) mod cached_files;
 pub mod provider_observations;

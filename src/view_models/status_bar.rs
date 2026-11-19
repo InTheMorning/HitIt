@@ -268,6 +268,7 @@ mod tests {
                     artist: Some("Artist".to_string()),
                     duration_seconds: Some(125),
                     now_playing: true,
+                    position_ms: None,
                 }])
                 .transport_state(TransportState::Playing)
                 .build(),
