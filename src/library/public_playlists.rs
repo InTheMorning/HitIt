@@ -141,7 +141,7 @@ impl LibraryApp {
             ListSort::AToZ => from,
             ListSort::Newest
             | ListSort::Relevance
-            | ListSort::FeedOrder
+            | ListSort::TrackOrder
             | ListSort::PlaylistOrder
             | ListSort::CuratorOrder => None,
         };
@@ -234,7 +234,7 @@ impl LibraryApp {
             },
             ListSort::Newest
             | ListSort::Relevance
-            | ListSort::FeedOrder
+            | ListSort::TrackOrder
             | ListSort::PlaylistOrder
             | ListSort::CuratorOrder => PlaylistGroupOrder::RowSequence,
         }

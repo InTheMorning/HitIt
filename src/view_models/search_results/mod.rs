@@ -302,10 +302,10 @@ impl SearchResultsInspectorPageVm {
         }
         let reverse = self.reversed();
         match self.effective_sort() {
-            // No search page offers Feed Order, Playlist Order or Curator
+            // No search page offers Track Order, Playlist Order or Curator
             // Order.
             ListSort::Relevance
-            | ListSort::FeedOrder
+            | ListSort::TrackOrder
             | ListSort::PlaylistOrder
             | ListSort::CuratorOrder => IndexOrder::Relevance,
             ListSort::Newest => IndexOrder::Date { reverse },

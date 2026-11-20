@@ -50,7 +50,7 @@ pub(crate) enum ListPageKey {
     WindowGroup,
     /// The tracks of a release page, outside an editor (musicindex ADR 0053
     /// R-LIST-9 row "The tracks of a release, outside an editor"). All
-    /// release pages share one state. It has one sort, Feed Order, and it
+    /// release pages share one state. It has one sort, Track Order, and it
     /// reverses locally.
     ReleaseTracks,
     /// The entries of a public playlist page, outside an editor (musicindex
@@ -179,7 +179,7 @@ impl ListPageKey {
                 &[ListSort::Relevance, ListSort::AToZ, ListSort::Newest]
             }
             Self::Artists => &[ListSort::AToZ, ListSort::Newest],
-            Self::ReleaseTracks => &[ListSort::FeedOrder],
+            Self::ReleaseTracks => &[ListSort::TrackOrder],
             Self::PublicPlaylistItems => &[ListSort::PlaylistOrder],
             // ADR 0089 amendment of 2026-11-08, musicindex ADR 0053 R-LIST-9
             // row "Playlists that a person curates".
@@ -247,8 +247,10 @@ pub(crate) enum ListSort {
     /// The items by name, A to Z.
     AToZ,
     /// The tracks of a release in the order of the feed. Only the key
-    /// `ReleaseTracks` offers it (musicindex ADR 0053 R-LIST-9).
-    FeedOrder,
+    /// `ReleaseTracks` offers it (musicindex ADR 0053 R-LIST-9). Its name is
+    /// "Track Order" (musicindex ADR 0054 R-LIST-14 item 3): the label of a
+    /// user action does not use the word "feed".
+    TrackOrder,
     /// The entries of a playlist in the order of the playlist. Only the key
     /// `PublicPlaylistItems` offers it (musicindex ADR 0053 R-LIST-9).
     PlaylistOrder,
@@ -269,8 +271,8 @@ impl ListSort {
             (Self::Newest, true) => "Oldest",
             (Self::AToZ, false) => "A to Z",
             (Self::AToZ, true) => "Z to A",
-            (Self::FeedOrder, false) => "Feed Order",
-            (Self::FeedOrder, true) => "Feed Order, Reversed",
+            (Self::TrackOrder, false) => "Track Order",
+            (Self::TrackOrder, true) => "Track Order, Reversed",
             (Self::PlaylistOrder, false) => "Playlist Order",
             (Self::PlaylistOrder, true) => "Playlist Order, Reversed",
             (Self::CuratorOrder, false) => "Curator Order",
@@ -290,8 +292,8 @@ impl ListSort {
             (Self::Newest, true) => "music-list-sort-newest-reversed",
             (Self::AToZ, false) => "music-list-sort-a-to-z",
             (Self::AToZ, true) => "music-list-sort-a-to-z-reversed",
-            (Self::FeedOrder, false) => "music-list-sort-feed-order",
-            (Self::FeedOrder, true) => "music-list-sort-feed-order-reversed",
+            (Self::TrackOrder, false) => "music-list-sort-track-order",
+            (Self::TrackOrder, true) => "music-list-sort-track-order-reversed",
             (Self::PlaylistOrder, false) => "music-list-sort-playlist-order",
             (Self::PlaylistOrder, true) => "music-list-sort-playlist-order-reversed",
             (Self::CuratorOrder, false) => "music-list-sort-curator-order",
@@ -574,7 +576,7 @@ impl ListPageState {
             // Musicindex ADR 0053 R-LIST-9: one sort that keeps the order
             // of the source, rows only, no scope.
             ListPageKey::ReleaseTracks => Self {
-                sort: Some(ListSort::FeedOrder),
+                sort: Some(ListSort::TrackOrder),
                 view: ListView::Rows,
                 scope: None,
                 letter: None,
@@ -874,7 +876,7 @@ pub(crate) struct ReverseToggleVm {
     /// The visible label, "Reverse".
     pub(crate) label: &'static str,
     /// The accessibility label. It names the current order, for example
-    /// "Reverse, now Feed Order, Reversed".
+    /// "Reverse, now Track Order, Reversed".
     pub(crate) a11y_label: String,
     /// Whether the order is reversed. Assistive technology reads it.
     pub(crate) pressed: bool,
@@ -2523,7 +2525,7 @@ mod tests {
     #[test]
     fn adr_0054_reverse_toggle_shows_from_eight_rows() {
         for (key, now) in [
-            (ListPageKey::ReleaseTracks, "Feed Order"),
+            (ListPageKey::ReleaseTracks, "Track Order"),
             (ListPageKey::PublicPlaylistItems, "Playlist Order"),
         ] {
             let state = ListPageState {
@@ -2555,9 +2557,9 @@ mod tests {
         let cases = [
             (
                 ListPageKey::ReleaseTracks,
-                ListSort::FeedOrder,
-                "Feed Order",
-                "Feed Order, Reversed",
+                ListSort::TrackOrder,
+                "Track Order",
+                "Track Order, Reversed",
             ),
             (
                 ListPageKey::PublicPlaylistItems,

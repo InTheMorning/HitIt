@@ -23,10 +23,10 @@ pub(super) fn sort_rows<Row>(
 ) {
     match sort {
         // Relevance keeps the order of the run (musicindex ADR 0053 R-LIST-9).
-        // Feed Order, Playlist Order and Curator Order are the order of the
+        // Track Order, Playlist Order and Curator Order are the order of the
         // source. No search page offers them.
         ListSort::Relevance
-        | ListSort::FeedOrder
+        | ListSort::TrackOrder
         | ListSort::PlaylistOrder
         | ListSort::CuratorOrder => {}
         ListSort::Newest => rows.sort_by(|a, b| newest_first(date(a), date(b))),
