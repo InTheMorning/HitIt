@@ -230,6 +230,7 @@ pub struct TopApp {
     on_air_sequence: Option<crate::view_models::show::OnAirSequence>,
     /// Active ordered End show run (ADR 0105).
     end_show_sequence: Option<crate::view_models::show::EndShowSequence>,
+    started_parts: crate::view_models::show::StartedParts,
     end_band: Option<crate::view_models::show::EndBand>,
     on_air_step_id: Option<ShowCommandId>,
     on_air_connect_started: Option<std::time::Instant>,
@@ -614,6 +615,7 @@ impl TopApp {
             show_commands: ShowCommandState::default(),
             on_air_sequence: None,
             end_show_sequence: None,
+            started_parts: crate::view_models::show::StartedParts::default(),
             end_band: None,
             on_air_step_id: None,
             on_air_connect_started: None,
@@ -1208,9 +1210,18 @@ impl TopApp {
                 self.refresh_show_page(cx);
                 // The session also stopped, as for `SessionStopped`.
                 self.release_show_files(cx);
+                let service_is_on =
+                    self.publisher_service_snapshot
+                        .as_ref()
+                        .is_some_and(|snapshot| {
+                            snapshot.units.iter().any(|unit| {
+                                unit.state == crate::broadcast::control::ServiceState::Active
+                                    && self.started_parts.services.contains(&unit.role)
+                            })
+                        });
                 if crate::view_models::show::end_band_for_last_track(
                     true,
-                    self.stream_is_connected(),
+                    (self.stream_is_connected() && self.started_parts.stream) || service_is_on,
                 ) {
                     self.end_band = Some(crate::view_models::show::EndBand {
                         started_at: snapshot.at,

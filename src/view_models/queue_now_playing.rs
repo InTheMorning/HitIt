@@ -525,12 +525,6 @@ impl QueueNowPlayingPageVm {
         self.all_rows.is_empty()
     }
 
-    /// The number of cue entries. A text filter does not change it.
-    #[must_use]
-    pub(crate) fn cue_len(&self) -> usize {
-        self.all_rows.len()
-    }
-
     /// Whether each cue entry is ready to play. A text filter does not change it.
     #[must_use]
     pub(crate) fn cue_all_available(&self) -> bool {

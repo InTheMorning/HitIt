@@ -175,7 +175,7 @@ impl TopApp {
         }
         self.end_band = None;
         let music_is_on = self.show_page.queue.transport.play_pause_state.is_active();
-        let stream_is_on = self.stream_is_connected();
+        let stream_is_on = self.stream_is_connected() && self.started_parts.stream;
         let services_that_are_on = self
             .publisher_service_snapshot
             .as_ref()
@@ -183,7 +183,10 @@ impl TopApp {
                 snapshot
                     .units
                     .iter()
-                    .filter(|unit| unit.state == ServiceState::Active)
+                    .filter(|unit| {
+                        unit.state == ServiceState::Active
+                            && self.started_parts.services.contains(&unit.role)
+                    })
                     .map(|unit| unit.role)
                     .collect()
             })
@@ -314,6 +317,13 @@ impl TopApp {
                 self.dispatch_event_target_command(EventTargetOperation::Attach, None, cx);
             }
             OnAirStep::ConnectStream => {
+                if self.stream_is_connected() {
+                    if let Some(sequence) = self.on_air_sequence.as_mut() {
+                        sequence.complete(Ok(()));
+                    }
+                    self.dispatch_next_on_air_step(cx);
+                    return;
+                }
                 self.run_stream_encoder_command(StreamEncoderOperation::Connect, cx);
             }
             OnAirStep::PlayCue => {
@@ -415,45 +425,6 @@ impl TopApp {
                 == Some(crate::view_models::show::OnAirStep::PlayCue)
     }
 
-    /// Runs the one action of an on-air row (ADR 0105 Decision 2).
-    fn on_air_row_action(
-        &mut self,
-        action: crate::view_models::show::OnAirAction,
-        window: &mut gpui::Window,
-        cx: &mut Context<Self>,
-    ) {
-        use crate::view_models::settings::{SettingsAction, SettingsGroup};
-        use crate::view_models::show::OnAirAction;
-        match action {
-            OnAirAction::PlayTestSound => {
-                self.settings_action(
-                    SettingsAction::SelectGroup(SettingsGroup::Audio),
-                    window,
-                    cx,
-                );
-                self.select_tab(AppTab::Settings, window, cx);
-            }
-            OnAirAction::OpenPlaylists => {
-                if self.tab != AppTab::Show {
-                    self.select_tab(AppTab::Show, window, cx);
-                }
-                self.show_cuelist_panel(cx);
-            }
-            OnAirAction::ChangeStream => {
-                self.settings_action(SettingsAction::OpenRepair, window, cx);
-                self.select_tab(AppTab::Settings, window, cx);
-            }
-            OnAirAction::AddEvent => {
-                self.show_page = self
-                    .show_page
-                    .clone()
-                    .show_card_detail(ShowCardKind::LiveMetadata);
-                cx.notify();
-            }
-            OnAirAction::TryAgain => self.start_on_air_sequence(cx),
-        }
-    }
-
     fn toggle_show_information(&mut self, cx: &mut Context<Self>) {
         // A failed run permits the switch, so that the host can try again without the attach.
         if self
@@ -527,7 +498,10 @@ impl TopApp {
             });
         if connected {
             self.advance_on_air(Some(command_id), Ok(()), cx);
-        } else if started_at.elapsed() >= std::time::Duration::from_secs(15) {
+        } else if started_at.elapsed() >= crate::view_models::show::STREAM_CONNECT_LIMIT {
+            // The stream did not connect, so HitIt does not own a later connection.
+            self.started_parts
+                .record_stream(false, std::time::Instant::now());
             self.advance_on_air(
                 Some(command_id),
                 Err("The stream did not connect.".into()),
@@ -625,8 +599,8 @@ pub(super) fn build_show_screen(
     let load_playlist_entity = entity.clone();
     let on_air_entity = entity.clone();
     let end_show_entity = entity.clone();
-    let on_air_action_entity = entity.clone();
     let information_entity = entity.clone();
+    let retry_entity = entity.clone();
     let slots = with_log_slots(ShowSlots::new().log_frames(app.log_frames.clone()), &entity);
     let slots = with_event_registry_slots(slots, &entity);
     render_show(
@@ -662,13 +636,21 @@ pub(super) fn build_show_screen(
             .on_go_on_air(move |window, cx| {
                 on_air_entity.update(cx, |this, cx| this.confirm_go_on_air(window, cx));
             })
-            .on_on_air_action(move |action, window, cx| {
-                on_air_action_entity.update(cx, |this, cx| {
-                    this.on_air_row_action(action, window, cx);
-                });
-            })
             .on_toggle_show_information(move |_, cx| {
                 information_entity.update(cx, TopApp::toggle_show_information);
+            })
+            .on_retry_show(move |_, _, cx| {
+                retry_entity.update(cx, |this, cx| {
+                    if this
+                        .on_air_sequence
+                        .as_ref()
+                        .is_some_and(|sequence| sequence.failure.is_some())
+                    {
+                        this.start_on_air_sequence(cx);
+                    } else {
+                        this.start_end_show_sequence(cx);
+                    }
+                });
             })
             .on_end_show(move |action, window, cx| {
                 end_show_entity.update(cx, |this, cx| this.end_show_action(action, window, cx));
@@ -932,6 +914,21 @@ impl TopApp {
         let command_progress_changed = self.show_commands.observe(&snapshot);
         self.sync_broadcast_service_watch_pace();
         let previous_snapshot = self.publisher_service_snapshot.replace(snapshot);
+        let stream_on = self.stream_is_connected();
+        let services_on = self
+            .publisher_service_snapshot
+            .as_ref()
+            .map(|snapshot| {
+                snapshot
+                    .units
+                    .iter()
+                    .filter(|unit| unit.state == ServiceState::Active)
+                    .map(|unit| unit.role)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        self.started_parts
+            .reconcile(stream_on, &services_on, std::time::Instant::now());
         self.check_on_air_connection(cx);
         self.reproject_show_page_from_current_queue();
         let mut log_read_started = false;
@@ -1025,14 +1022,6 @@ impl TopApp {
                 self.mpv_status,
                 crate::view_models::audio_setup::MpvStatus::Installed(_)
             ),
-            test_sound: self.test_sound.outcome(),
-            stream_address: self
-                .broadcast
-                .encoder
-                .as_ref()
-                .ok()
-                .and_then(Option::as_ref)
-                .and_then(|encoder| encoder.address.as_deref()),
             show_information: self.show_information,
             sequence: self.on_air_sequence.as_ref(),
             run_active: self
@@ -1047,10 +1036,12 @@ impl TopApp {
                 music_is_on,
                 stream_is_on: self.stream_is_connected(),
                 services_that_are_on: &services_that_are_on,
+                started: &self.started_parts,
                 sequence: self.end_show_sequence.as_ref(),
                 end_band: self.end_band,
                 now: std::time::Instant::now(),
             },
+            started: &self.started_parts,
         });
     }
 
@@ -1298,6 +1289,16 @@ impl TopApp {
         completion: ShowCommandCompletion,
         cx: &mut Context<Self>,
     ) {
+        if completion.result.is_ok() {
+            if let Some((role, started)) = self.show_commands.intent(command_id) {
+                if let Some(role) = role {
+                    self.started_parts.record_service(role, started);
+                } else {
+                    self.started_parts
+                        .record_stream(started, std::time::Instant::now());
+                }
+            }
+        }
         if !self.show_commands.complete(
             command_id,
             completion.returned_at,

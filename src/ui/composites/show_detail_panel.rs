@@ -18,7 +18,7 @@ use crate::ui::control_styles::ControlStyle;
 use crate::ui::icons::IconName;
 use crate::ui::primitives::{
     status_badge::render_state_badge, Button, ContextMenu, ContextMenuItem, ContextMenuItemDisplay,
-    ContextMenuScope,
+    ContextMenuScope, Label, LabelVariant,
 };
 use crate::ui::shells::queue_now_playing::{render_queue_cuelist, QueueNowPlayingSlots};
 use crate::ui::tokens::{color, FontSize, SemanticColor, Size, Spacing};
@@ -26,8 +26,9 @@ use crate::view_models::queue_now_playing::{CueMoveTarget, QueueNowPlayingPageVm
 use crate::view_models::show::{
     EventActionDisplay, EventControlDisplay, EventControlIntent, EventSectionDisplay,
     PublisherActionDisplay, PublisherSectionDisplay, PublisherServiceDisplay, PublisherServiceRole,
-    ShowCardKind, ShowItemBadge, ShowPanelActionDisplay, ShowPanelChromeDisplay, ShowPanelMode,
-    SourceReadinessActionDisplay, SourceSectionDisplay, StreamActionDisplay, StreamSectionDisplay,
+    ShowCardDisplay, ShowCardKind, ShowItemBadge, ShowPanelActionDisplay, ShowPanelChromeDisplay,
+    ShowPanelMode, SourceReadinessActionDisplay, SourceSectionDisplay, StreamActionDisplay,
+    StreamSectionDisplay,
 };
 
 type EventSelectHandler = Rc<dyn Fn(String, &mut Window, &mut App)>;
@@ -54,6 +55,10 @@ pub(crate) struct ShowDetailPanelDisplay {
     pub(crate) publisher: Option<PublisherSectionDisplay>,
     /// Stream detail display, when available.
     pub(crate) stream: Option<StreamSectionDisplay>,
+    pub(crate) show_information_on: bool,
+    pub(crate) failure_card: Option<ShowCardKind>,
+    pub(crate) failure_text: Option<String>,
+    pub(crate) card_status: Option<ShowCardDisplay>,
 }
 
 /// Callback slots for the Show side panel.
@@ -74,6 +79,8 @@ pub(crate) struct ShowDetailPanelSlots {
     event_control: Option<EventControlHandler>,
     stream_connect: Option<PanelClickHandler>,
     stream_disconnect: Option<PanelClickHandler>,
+    toggle_show_information: Option<PanelClickHandler>,
+    retry_show: Option<PanelClickHandler>,
 }
 
 impl ShowDetailPanelSlots {
@@ -214,6 +221,22 @@ impl ShowDetailPanelSlots {
         self.stream_disconnect = Some(Rc::new(handler));
         self
     }
+
+    pub(crate) fn on_toggle_show_information(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.toggle_show_information = Some(Rc::new(handler));
+        self
+    }
+
+    pub(crate) fn on_retry_show(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.retry_show = Some(Rc::new(handler));
+        self
+    }
 }
 
 /// Collapsible trailing panel for Show cuelist and card detail.
@@ -228,6 +251,14 @@ struct ShowDetailSections {
     source: Option<SourceSectionDisplay>,
     publisher: Option<PublisherSectionDisplay>,
     stream: Option<StreamSectionDisplay>,
+}
+
+#[derive(Clone)]
+struct ShowDetailStatus {
+    show_information_on: bool,
+    failure_card: Option<ShowCardKind>,
+    failure_text: Option<String>,
+    card_status: Option<ShowCardDisplay>,
 }
 
 impl ShowDetailPanel {
@@ -248,6 +279,10 @@ impl RenderOnce for ShowDetailPanel {
             source,
             publisher,
             stream,
+            show_information_on,
+            failure_card,
+            failure_text,
+            card_status,
         } = self.display;
         let sections = ShowDetailSections {
             source,
@@ -272,7 +307,19 @@ impl RenderOnce for ShowDetailPanel {
             .border_color(color(cx, SemanticColor::Separator))
             .bg(color(cx, SemanticColor::GroupBackground))
             .child(render_panel_header(panel_mode, panel_chrome, &slots, cx))
-            .child(render_panel_body(panel_mode, queue, sections, &slots, cx))
+            .child(render_panel_body(
+                panel_mode,
+                queue,
+                sections,
+                ShowDetailStatus {
+                    show_information_on,
+                    failure_card,
+                    failure_text,
+                    card_status,
+                },
+                &slots,
+                cx,
+            ))
             .into_any_element()
     }
 }
@@ -355,6 +402,7 @@ fn render_panel_body(
     panel_mode: ShowPanelMode,
     queue: QueueNowPlayingPageVm,
     sections: ShowDetailSections,
+    status: ShowDetailStatus,
     slots: &ShowDetailPanelSlots,
     cx: &App,
 ) -> AnyElement {
@@ -376,7 +424,7 @@ fn render_panel_body(
             .min_h_0()
             .min_w_0()
             .overflow_y_scroll()
-            .child(render_card_detail(kind, sections, slots, cx))
+            .child(render_card_detail(kind, sections, status, slots, cx))
             .into_any_element(),
     }
 }
@@ -384,23 +432,73 @@ fn render_panel_body(
 fn render_card_detail(
     kind: ShowCardKind,
     sections: ShowDetailSections,
+    status: ShowDetailStatus,
     slots: &ShowDetailPanelSlots,
     cx: &App,
 ) -> AnyElement {
-    match kind {
+    let mut detail = match kind {
         ShowCardKind::Source => sections.source.map_or_else(
             || render_missing_detail(kind, cx),
             |section| render_source_detail(section, slots, cx).into_any_element(),
         ),
         ShowCardKind::LiveMetadata => sections.publisher.map_or_else(
             || render_missing_detail(kind, cx),
-            |section| render_publisher_detail(section, slots, cx).into_any_element(),
+            |section| {
+                render_publisher_detail(section, status.show_information_on, slots, cx)
+                    .into_any_element()
+            },
         ),
         ShowCardKind::Stream => sections.stream.map_or_else(
             || render_missing_detail(kind, cx),
             |section| render_stream_detail(section, slots, cx).into_any_element(),
         ),
+    };
+    if let Some(card_status) = status
+        .card_status
+        .filter(|card_status| card_status.kind == kind)
+    {
+        let summary = [card_status.primary, card_status.secondary]
+            .into_iter()
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join(" · ");
+        detail = div()
+            .flex()
+            .flex_col()
+            .gap(Spacing::SM.scaled(cx))
+            .child(render_detail_row(
+                "Status",
+                card_status.state_label,
+                Some(summary),
+                cx,
+            ))
+            .child(detail)
+            .into_any_element();
     }
+    if status.failure_card == Some(kind) {
+        if let Some(message) = status.failure_text {
+            let handler = slots.retry_show.clone();
+            detail = div()
+                .flex()
+                .flex_col()
+                .gap(Spacing::SM.scaled(cx))
+                .child(
+                    Label::new(message)
+                        .variant(LabelVariant::Caption)
+                        .color(SemanticColor::DangerLabel),
+                )
+                .child(Button::plain("show-try-again").label("Try again").on_click(
+                    move |event, window, app| {
+                        if let Some(handler) = &handler {
+                            handler(event, window, app);
+                        }
+                    },
+                ))
+                .child(detail)
+                .into_any_element();
+        }
+    }
+    detail
 }
 
 fn render_source_detail(
@@ -421,6 +519,16 @@ fn render_source_detail(
             Some(section.reachability.detail.to_owned()),
             cx,
         ));
+    let cuelist = slots.show_cuelist.clone();
+    detail = detail.child(
+        Button::plain("show-open-playlists")
+            .label("Open playlists")
+            .on_click(move |event, window, app| {
+                if let Some(handler) = &cuelist {
+                    handler(event, window, app);
+                }
+            }),
+    );
 
     detail = if let Some(readiness) = section.readiness {
         detail
@@ -451,10 +559,25 @@ fn render_source_detail(
 
 fn render_publisher_detail(
     section: PublisherSectionDisplay,
+    show_information_on: bool,
     slots: &ShowDetailPanelSlots,
     cx: &App,
 ) -> impl IntoElement {
     let mut detail = detail_stack(cx);
+    let handler = slots.toggle_show_information.clone();
+    detail = detail.child(
+        Button::plain("show-information-switch")
+            .label(if show_information_on {
+                "Show information: on. Turn off"
+            } else {
+                "Show information: off. Turn on"
+            })
+            .on_click(move |event, window, app| {
+                if let Some(handler) = &handler {
+                    handler(event, window, app);
+                }
+            }),
+    );
     if let Some(event) = section.event {
         detail = detail.child(render_event_detail(event, slots, cx));
     }
@@ -741,17 +864,27 @@ fn render_stream_detail(
     if let Some(elapsed) = section.stream_elapsed_label {
         detail = detail.child(render_detail_row("Stream elapsed", elapsed, None, cx));
     }
+    let mut controls = vec![Button::plain("show-stream-change")
+        .label("Change")
+        .on_click({
+            let handler = slots.open_readiness.clone();
+            move |event, window, app| {
+                if let Some(handler) = &handler {
+                    handler(event, window, app);
+                }
+            }
+        })
+        .into_any_element()];
     if let Some(actions) = section.actions {
-        detail = detail.child(render_controls(
-            vec![
-                stream_action_button(actions.connect, slots.stream_connect.clone())
-                    .into_any_element(),
-                stream_action_button(actions.disconnect, slots.stream_disconnect.clone())
-                    .into_any_element(),
-            ],
-            cx,
-        ));
+        controls.push(
+            stream_action_button(actions.connect, slots.stream_connect.clone()).into_any_element(),
+        );
+        controls.push(
+            stream_action_button(actions.disconnect, slots.stream_disconnect.clone())
+                .into_any_element(),
+        );
     }
+    detail = detail.child(render_controls(controls, cx));
 
     detail
 }

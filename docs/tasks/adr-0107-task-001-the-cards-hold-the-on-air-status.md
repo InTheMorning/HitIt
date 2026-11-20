@@ -2,7 +2,7 @@
 
 ## Status
 
-Not started - 2026-11-19.
+Implemented - 2026-11-19. Mechanical criteria are Green. The operator must examine the result in section 47 of [human checks](../pending-human-checks.md).
 
 ## Goal
 
@@ -84,4 +84,19 @@ These go in section 47 of [pending human checks](../pending-human-checks.md).
 
 ## Report
 
-Not started.
+The band shows one button row. Cards and inspectors show readiness, signal status, and command errors.
+
+StartedParts records each part after HitIt starts or connects it. It records a part only after a command returns no error.
+End show stops only the parts that HitIt recorded. It stops a part only when it remains on.
+
+All requested mechanical criteria are Green. The operator must examine the result in section 47 of [human checks](../pending-human-checks.md).
+
+The main session review made these changes:
+
+- A Connect or a Start returns before the watch shows the part on. The first version removed the record at the next watch snapshot, so "End show" did not stop a stream that HitIt connected. Now `StartedParts` removes a record only after the watch showed the part on and then off. `adr_0107_started_parts_record_and_reconcile_commands` tests it.
+- A stream record that the watch does not show as connected in `STREAM_CONNECT_LIMIT` (15 s) goes. This applies to "Go on air" and to the Connect control of the card. Thus a later connection from a different program is not a HitIt part. `adr_0107_stream_record_goes_when_the_stream_does_not_connect_in_time` tests it.
+
+Open points for the visual checks:
+
+- The Stream inspector shows "The stream gets silence" in the status row, with the Attention badge. It does not use the warning color for the text.
+- When more than one step of "End show" fails, the cards show only the first error.

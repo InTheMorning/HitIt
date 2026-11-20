@@ -70,4 +70,4 @@ Limit: the record is for one run of the app. After a restart of HitIt during a s
 
 ## Tasks
 
-- [Task 001](../tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md): Decisions 1 to 3. Not started.
+- [Task 001](../tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md): Decisions 1 to 3. The agent completed it on 2026-11-19. The operator must examine the result in section 47 of [human checks](../pending-human-checks.md).

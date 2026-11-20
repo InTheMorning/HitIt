@@ -1048,7 +1048,7 @@ Operator check, 2026-11-19: step 2 passes for the tone. The question after the t
 
 Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](tasks/adr-0105-task-002-end-show-and-the-last-track.md). Both tasks are implemented. These checks stay open. They need a stream server and a second listening device.
 
-1. Open Show. Make sure that the band is above the cards, with the rows Sound plays, Show cue, Stream and Show information in this order, at 1440 px and at 390 px (V1).
+1. Replaced by section 47 on 2026-11-19.
 2. Click "Go on air". Make sure that the confirmation names the first track. Confirm, and make sure that the second device plays the show from the start of the first track (V2).
 3. Mute the input of the stream. Make sure that the band shows "The stream gets silence" (V3).
 4. Click "End show". Make sure that the confirmation lists the parts and the two notes. Confirm, and make sure that the second device stops (V4).
@@ -1076,3 +1076,21 @@ Tasks: [ADR 0106 task 001](tasks/adr-0106-task-001-move-entries-during-a-show.md
 The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#sections-44-to-46-walk---2026-11-19-evening) passed V1 to V5 and step 7 with a null audio output in Light, and V5 in Dark. The sound of a move needs a person.
 
 Operator check, 2026-11-19: step 1 passes with sound.
+
+## 47. ADR 0107 Task 001 The Cards Hold The On Air Status - 2026-11-19
+
+Task: [ADR 0107 task 001](tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md). Use Mixxx, butt, a stream server, and a second device for V4 and V5.
+
+1. Use `cargo build --bin hitit`, then start `target/debug/hitit`.
+2. Open Show. Use Light and Dark at 1440 px and 390 px. The band must show only its button row (V1).
+3. With no encoder set up, the Stream card must show Attention. Its inspector must show the cause and Change. The band must say "Stream is not ready" (V2).
+4. Open Live Metadata. Its inspector must show the "Show information" switch (V3).
+5. Use Mixxx and butt to connect a stream without HitIt. Make sure the Stream card says "Connected outside HitIt". End show must be unavailable (V4).
+6. Connect a stream through HitIt. Select "End show" and confirm. The second device must play no audio after this (V5).
+7. Disconnect each stream that HitIt connected. Stop Mixxx and butt if you started them for this test.
+
+Look for these errors:
+
+- HitIt disconnects the Mixxx stream.
+- The band shows text above the cards.
+- The inspector does not show its cause.

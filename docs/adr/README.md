@@ -75,7 +75,7 @@ Status values are the ADR 0057 vocabulary: `Proposed`, `Accepted`,
 | [0104](0104-the-show-player-and-the-sound-setup.md) | The default Show player is mpv. "No sound" refuses a Show Play. Settings has the group "Audio" with the player, the mpv state and a test sound. The first start opens it. Changes ADR 0069 | Accepted |
 | [0105](0105-go-on-air-and-end-show.md) | One on air band on the Show page: a checklist in order, "Go on air" and "End show" with confirmations, the signal state and the listener count of butt, and an end band after the last track. Changes ADRs 0063, 0068 and 0069. ADR 0107 changes Decisions 1, 2, 4 and 5 | Accepted |
 | [0106](0106-the-cue-changes-during-a-show.md) | Cue entries after the current entry move during a show, by a drag, Alt+Up and Alt+Down, or "Play next". A load opens Show, and the empty Show lists the playlists. Changes ADR 0068 | Accepted |
-| [0107](0107-the-cards-hold-the-on-air-status.md) | The on air band has no status text. The Show cards and their inspectors show each status and warning. "End show" stops only the parts that HitIt started in this run of the app. Changes ADR 0105 | Accepted |
+| [0107](0107-the-cards-hold-the-on-air-status.md) | The band has one button row. Cards and inspectors show status. "End show" stops only parts recorded during this HitIt session. Changes ADR 0105 | Accepted |
 
 ## UI Architecture
 

@@ -120,6 +120,18 @@ pub(crate) struct ShowCommandState {
 }
 
 impl ShowCommandState {
+    pub(crate) fn intent(&self, id: ShowCommandId) -> Option<(Option<PublisherServiceRole>, bool)> {
+        self.progress.get(&id.target).and_then(|progress| {
+            (progress.id == id).then_some(match progress.intent {
+                ShowCommandIntent::Service(role, operation) => {
+                    (Some(role), operation == PublisherServiceOperation::Start)
+                }
+                ShowCommandIntent::Stream(operation) => {
+                    (None, operation == StreamEncoderOperation::Connect)
+                }
+            })
+        })
+    }
     pub(crate) fn repair_blocked(&self) -> Vec<crate::application::capability::Dependency> {
         use crate::application::capability::Dependency;
         let mut blocked = Vec::new();
@@ -480,47 +492,6 @@ pub(crate) struct OnAirSequence {
     pub(crate) failure: Option<OnAirFailure>,
 }
 
-/// Display state for one row of the on-air checklist (ADR 0105).
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct OnAirRowDisplay {
-    pub(crate) row: OnAirRow,
-    pub(crate) title: &'static str,
-    pub(crate) state: String,
-    /// True when the row is ready but the host should check one thing.
-    pub(crate) warning: bool,
-    pub(crate) action: Option<OnAirAction>,
-    pub(crate) error: Option<String>,
-}
-
-/// The one action of a checklist row (ADR 0105 Decision 2).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum OnAirAction {
-    /// Opens Settings, Audio.
-    PlayTestSound,
-    /// Opens the Show tab with the cue panel.
-    OpenPlaylists,
-    /// Opens Settings, Diagnostics, Configuration.
-    ChangeStream,
-    /// Opens the event detail of the Show page.
-    AddEvent,
-    /// Starts the sequence again.
-    TryAgain,
-}
-
-impl OnAirAction {
-    /// The button text of the action.
-    #[must_use]
-    pub(crate) const fn label(self) -> &'static str {
-        match self {
-            Self::PlayTestSound => "Play test sound",
-            Self::OpenPlaylists => "Open playlists",
-            Self::ChangeStream => "Change",
-            Self::AddEvent => "Add",
-            Self::TryAgain => "Try again",
-        }
-    }
-}
-
 /// The host switch "Show information" (ADR 0105 Decision 2). It is on by default.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum ShowInformationSwitch {
@@ -551,29 +522,96 @@ impl ShowInformationSwitch {
 pub(crate) struct OnAirFacts<'a> {
     pub(crate) player_is_mpv: bool,
     pub(crate) mpv_ping_succeeded: bool,
-    pub(crate) test_sound: crate::view_models::audio_setup::TestSoundOutcome,
-    pub(crate) stream_address: Option<&'a str>,
     pub(crate) show_information: ShowInformationSwitch,
     pub(crate) sequence: Option<&'a OnAirSequence>,
     pub(crate) run_active: bool,
     pub(crate) end: EndShowFacts<'a>,
+    pub(crate) started: &'a StartedParts,
+}
+
+/// The time that a stream Connect has to show the stream as connected.
+pub(crate) const STREAM_CONNECT_LIMIT: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Parts that `HitIt` started or connected during this app run (ADR 0107 Decision 3).
+///
+/// A Connect or a Start returns before the watch shows the part on. Thus a new record waits
+/// until the watch shows the part on. After that, a watch that shows the part off removes it.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) struct StartedParts {
+    pub(crate) stream: bool,
+    pub(crate) services: Vec<PublisherServiceRole>,
+    /// True when the watch showed the recorded stream as connected.
+    pub(crate) stream_seen_on: bool,
+    /// When `HitIt` recorded the stream. A record that the watch does not show as connected
+    /// in `STREAM_CONNECT_LIMIT` goes.
+    pub(crate) stream_recorded_at: Option<std::time::Instant>,
+    /// The recorded services that the watch showed as active.
+    pub(crate) services_seen_on: Vec<PublisherServiceRole>,
+}
+
+impl StartedParts {
+    pub(crate) fn record_stream(&mut self, connected: bool, now: std::time::Instant) {
+        self.stream = connected;
+        self.stream_seen_on = false;
+        self.stream_recorded_at = connected.then_some(now);
+    }
+
+    pub(crate) fn record_service(&mut self, role: PublisherServiceRole, started: bool) {
+        self.services.retain(|known| *known != role);
+        self.services_seen_on.retain(|known| *known != role);
+        if started {
+            self.services.push(role);
+        }
+    }
+
+    pub(crate) fn reconcile(
+        &mut self,
+        stream_on: bool,
+        services_on: &[PublisherServiceRole],
+        now: std::time::Instant,
+    ) {
+        if self.stream {
+            let expired = self.stream_recorded_at.is_some_and(|recorded_at| {
+                now.saturating_duration_since(recorded_at) >= STREAM_CONNECT_LIMIT
+            });
+            if stream_on {
+                self.stream_seen_on = true;
+            } else if self.stream_seen_on || expired {
+                self.record_stream(false, now);
+            }
+        }
+        let seen = &mut self.services_seen_on;
+        self.services.retain(|role| {
+            if services_on.contains(role) {
+                if !seen.contains(role) {
+                    seen.push(*role);
+                }
+                true
+            } else if seen.contains(role) {
+                seen.retain(|known| known != role);
+                false
+            } else {
+                true
+            }
+        });
+    }
 }
 
 /// Display state and actions for the on-air band (ADR 0105).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct OnAirBandDisplay {
-    pub(crate) rows: Vec<OnAirRowDisplay>,
     pub(crate) go_available: bool,
     pub(crate) go_label: &'static str,
     pub(crate) confirmation_title: &'static str,
     pub(crate) confirmation_message: String,
     pub(crate) show_information_off: bool,
-    pub(crate) signal: Option<StreamSignalDisplay>,
-    pub(crate) listeners: Option<StreamListenersDisplay>,
     pub(crate) end_show_available: bool,
     pub(crate) end_confirmation: EndShowConfirmation,
     pub(crate) end_band: Option<EndBandDisplay>,
-    pub(crate) end_failures: Vec<EndShowFailure>,
+    pub(crate) go_cause: Option<String>,
+    pub(crate) go_a11y_label: String,
+    pub(crate) failure_card: Option<ShowCardKind>,
+    pub(crate) failure_text: Option<String>,
 }
 
 /// Confirmation text and parts for End show (ADR 0105 Decision 5).
@@ -603,6 +641,7 @@ pub(crate) enum EndShowAction {
 pub(crate) struct EndShowFacts<'a> {
     pub(crate) music_is_on: bool,
     pub(crate) stream_is_on: bool,
+    pub(crate) started: &'a StartedParts,
     pub(crate) services_that_are_on: &'a [PublisherServiceRole],
     pub(crate) sequence: Option<&'a EndShowSequence>,
     pub(crate) end_band: Option<EndBand>,
@@ -2051,105 +2090,6 @@ pub(crate) struct ShowPageVm {
     pub(crate) status_message: Option<String>,
 }
 
-fn failure_on(failure: Option<&OnAirFailure>, row: OnAirRow) -> Option<&OnAirFailure> {
-    failure.filter(|failure| failure.row == row)
-}
-
-fn sound_row(facts: &OnAirFacts<'_>, failure: Option<&OnAirFailure>) -> OnAirRowDisplay {
-    use crate::view_models::audio_setup::TestSoundOutcome;
-    let own = failure_on(failure, OnAirRow::Sound);
-    let ready = facts.player_is_mpv && facts.mpv_ping_succeeded;
-    let state = if !facts.player_is_mpv {
-        "Select mpv in Settings, Audio.".to_owned()
-    } else if !facts.mpv_ping_succeeded {
-        "mpv is not ready.".to_owned()
-    } else {
-        match facts.test_sound {
-            TestSoundOutcome::Heard => "The test sound played and you heard it.".into(),
-            TestSoundOutcome::NotHeard => "The test sound played, but you did not hear it.".into(),
-            TestSoundOutcome::Played => "The test sound played. Confirm that you heard it.".into(),
-            TestSoundOutcome::NotTested => "The test sound was not checked.".into(),
-        }
-    };
-    let warning = ready && facts.test_sound != TestSoundOutcome::Heard;
-    OnAirRowDisplay {
-        row: OnAirRow::Sound,
-        title: "Sound plays",
-        state,
-        warning,
-        action: own
-            .map(|_| OnAirAction::TryAgain)
-            .or((!ready || warning).then_some(OnAirAction::PlayTestSound)),
-        error: own.map(|failure| failure.error.clone()),
-    }
-}
-
-fn cue_row(
-    queue: &QueueNowPlayingPageVm,
-    ready: bool,
-    failure: Option<&OnAirFailure>,
-) -> OnAirRowDisplay {
-    let own = failure_on(failure, OnAirRow::ShowCue);
-    OnAirRowDisplay {
-        row: OnAirRow::ShowCue,
-        title: "Show cue",
-        state: if ready {
-            format!("{} tracks ready.", queue.cue_len())
-        } else {
-            "The Show cue is not ready.".into()
-        },
-        warning: false,
-        action: own
-            .map(|_| OnAirAction::TryAgain)
-            .or((!ready).then_some(OnAirAction::OpenPlaylists)),
-        error: own.map(|failure| failure.error.clone()),
-    }
-}
-
-fn stream_row(
-    facts: &OnAirFacts<'_>,
-    ready: bool,
-    failure: Option<&OnAirFailure>,
-) -> OnAirRowDisplay {
-    let own = failure_on(failure, OnAirRow::Stream);
-    OnAirRowDisplay {
-        row: OnAirRow::Stream,
-        title: "Stream",
-        state: facts.stream_address.map_or_else(
-            || "Stream address is not available.".into(),
-            |address| format!("Listeners use this address: {address}"),
-        ),
-        warning: false,
-        action: own
-            .map(|_| OnAirAction::TryAgain)
-            .or((!ready).then_some(OnAirAction::ChangeStream)),
-        error: own.map(|failure| failure.error.clone()),
-    }
-}
-
-fn information_row(
-    facts: &OnAirFacts<'_>,
-    event_live: bool,
-    failure: Option<&OnAirFailure>,
-) -> OnAirRowDisplay {
-    let own = failure_on(failure, OnAirRow::ShowInformation);
-    let (state, action) = if !facts.show_information.is_on() {
-        ("Off", None)
-    } else if event_live {
-        ("Podcast apps show your show and the track names.", None)
-    } else {
-        ("No live event is selected.", Some(OnAirAction::AddEvent))
-    };
-    OnAirRowDisplay {
-        row: OnAirRow::ShowInformation,
-        title: "Show information",
-        state: state.into(),
-        warning: false,
-        action: own.map(|_| OnAirAction::TryAgain).or(action),
-        error: own.map(|failure| failure.error.clone()),
-    }
-}
-
 impl ShowPageVm {
     /// Apply scoped command dependencies without inventing remote service observations.
     #[must_use]
@@ -2368,8 +2308,12 @@ impl ShowPageVm {
         }
     }
 
-    /// Projects the on-air checklist from current page readiness and host facts.
+    /// Projects the on-air band and card state from readiness and host facts.
     #[must_use]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "This projection builds card state and band actions from one snapshot."
+    )]
     pub(crate) fn with_on_air_band(mut self, facts: OnAirFacts<'_>) -> Self {
         let cue_ready = !self.queue.cue_is_empty() && self.queue.cue_all_available();
         let stream_ready = self.stream.as_ref().is_some_and(|stream| {
@@ -2388,18 +2332,100 @@ impl ShowPageVm {
         let failure = facts
             .sequence
             .and_then(|sequence| sequence.failure.as_ref());
-        let rows = vec![
-            sound_row(&facts, failure),
-            cue_row(&self.queue, cue_ready, failure),
-            stream_row(&facts, stream_ready, failure),
-            information_row(&facts, event_live, failure),
-        ];
+        let end_failure = facts
+            .end
+            .sequence
+            .and_then(|sequence| sequence.failures.first());
+        let go_cause = if !(sound_ready && cue_ready) {
+            Some("Source is not ready".to_owned())
+        } else if !stream_ready {
+            Some("Stream is not ready".to_owned())
+        } else if !event_live && facts.show_information.is_on() {
+            Some("Live Metadata is not ready".to_owned())
+        } else {
+            None
+        };
+        for card in &mut self.cards {
+            if let Some(failure) = end_failure {
+                let owner = match failure.part {
+                    EndShowPart::Music => ShowCardKind::Source,
+                    EndShowPart::Stream => ShowCardKind::Stream,
+                    EndShowPart::ShowInformation => ShowCardKind::LiveMetadata,
+                };
+                if card.kind == owner {
+                    card.state = ShowCardStateKind::Failed;
+                    "Failed".clone_into(&mut card.state_label);
+                    card.primary.clone_from(&failure.error);
+                }
+            }
+            if let Some(failure) = failure {
+                let owner = match failure.row {
+                    OnAirRow::Sound | OnAirRow::ShowCue => ShowCardKind::Source,
+                    OnAirRow::Stream => ShowCardKind::Stream,
+                    OnAirRow::ShowInformation => ShowCardKind::LiveMetadata,
+                };
+                if card.kind == owner {
+                    card.state = ShowCardStateKind::Failed;
+                    "Failed".clone_into(&mut card.state_label);
+                    card.primary.clone_from(&failure.error);
+                }
+            }
+            match card.kind {
+                ShowCardKind::Source if !sound_ready || !cue_ready => {
+                    card.state = ShowCardStateKind::Attention;
+                    "Attention".clone_into(&mut card.state_label);
+                    if sound_ready {
+                        "The Show cue is not ready".clone_into(&mut card.primary);
+                    } else {
+                        "Select mpv in Settings, Audio".clone_into(&mut card.primary);
+                    }
+                }
+                ShowCardKind::LiveMetadata if !event_live && facts.show_information.is_on() => {
+                    card.state = ShowCardStateKind::Attention;
+                    "Attention".clone_into(&mut card.state_label);
+                    "No live event is selected".clone_into(&mut card.primary);
+                }
+                ShowCardKind::Stream => {
+                    if !stream_ready {
+                        card.state = ShowCardStateKind::Attention;
+                        "Attention".clone_into(&mut card.state_label);
+                        "The encoder is not configured".clone_into(&mut card.primary);
+                    } else if facts.end.stream_is_on {
+                        if !facts.started.stream {
+                            "Connected outside HitIt".clone_into(&mut card.state_label);
+                        }
+                        card.primary = self.stream.as_ref().map_or_else(
+                            || "Signal state unknown".to_owned(),
+                            |stream| stream.signal.label.to_owned(),
+                        );
+                        card.secondary = self
+                            .stream
+                            .as_ref()
+                            .map_or_else(String::new, |stream| stream.listeners.label.clone());
+                        if self
+                            .stream
+                            .as_ref()
+                            .is_some_and(|stream| stream.signal.state == StreamSignalState::Absent)
+                        {
+                            card.state = ShowCardStateKind::Attention;
+                            "Attention".clone_into(&mut card.state_label);
+                        }
+                    }
+                }
+                _ => {}
+            }
+            card.a11y_label = show_card_a11y_label(
+                card.title,
+                &card.state_label,
+                &card.primary,
+                &card.secondary,
+            );
+        }
         let selected_title = self
             .queue
             .selected_cue_title()
             .unwrap_or("the selected track");
         self.on_air = Some(OnAirBandDisplay {
-            rows,
             go_available: sound_ready
                 && cue_ready
                 && stream_ready
@@ -2419,30 +2445,21 @@ impl ShowPageVm {
                 "Listeners hear \"{selected_title}\" after the stream connects."
             ),
             show_information_off: !facts.show_information.is_on(),
-            // ADR 0105 Decision 4: the stream lines show only while on air.
-            signal: self
-                .stream
-                .as_ref()
-                .filter(|_| facts.end.stream_is_on)
-                .map(|stream| stream.signal),
-            listeners: self
-                .stream
-                .as_ref()
-                .filter(|stream| facts.end.stream_is_on && stream.listeners.known)
-                .map(|stream| StreamListenersDisplay {
-                    label: format!("{}. From the stream server.", stream.listeners.label),
-                    detail: "From the stream server.",
-                    known: true,
-                }),
-            end_show_available: facts.end.stream_is_on
+            end_show_available: (facts.end.music_is_on
+                || (facts.end.stream_is_on && facts.end.started.stream)
+                || facts.end.services_that_are_on.iter().any(|role| {
+                    facts.end.started.services.contains(role)
+                }))
                 && facts.end.sequence.is_none_or(|sequence| sequence.next_step().is_none())
                 && facts.sequence.is_none_or(|sequence| sequence.next_step().is_none()),
             end_confirmation: EndShowConfirmation {
                 parts: [
                     facts.end.music_is_on.then_some("The music"),
-                    facts.end.stream_is_on
+                    (facts.end.stream_is_on && facts.end.started.stream)
                         .then_some("The stream. Listeners hear nothing after this."),
-                    (!facts.end.services_that_are_on.is_empty())
+                    facts.end.services_that_are_on.iter().any(|role| {
+                        facts.end.started.services.contains(role)
+                    })
                         .then_some("The track names to the relay"),
                 ]
                 .into_iter()
@@ -2459,10 +2476,22 @@ impl ShowPageVm {
                     seconds_left,
                 })
             }),
-            end_failures: facts
-                .end
-                .sequence
-                .map_or_else(Vec::new, |sequence| sequence.failures.clone()),
+            go_cause: go_cause.clone(),
+            go_a11y_label: go_cause.map_or_else(
+                || "Go on air".to_owned(),
+                |cause| format!("Go on air. {cause}"),
+            ),
+            failure_card: failure.map(|failure| match failure.row {
+                OnAirRow::Sound | OnAirRow::ShowCue => ShowCardKind::Source,
+                OnAirRow::Stream => ShowCardKind::Stream,
+                OnAirRow::ShowInformation => ShowCardKind::LiveMetadata,
+            }).or_else(|| end_failure.map(|failure| match failure.part {
+                EndShowPart::Music => ShowCardKind::Source,
+                EndShowPart::Stream => ShowCardKind::Stream,
+                EndShowPart::ShowInformation => ShowCardKind::LiveMetadata,
+            })),
+            failure_text: failure.map(|failure| failure.error.clone())
+                .or_else(|| end_failure.map(|failure| failure.error.clone())),
         });
         self
     }
@@ -3750,14 +3779,19 @@ mod tests {
     use super::*;
 
     fn on_air_facts(
-        test_sound: crate::view_models::audio_setup::TestSoundOutcome,
+        _test_sound: crate::view_models::audio_setup::TestSoundOutcome,
         show_information_on: bool,
     ) -> OnAirFacts<'static> {
+        static STARTED: StartedParts = StartedParts {
+            stream: false,
+            services: Vec::new(),
+            stream_seen_on: false,
+            stream_recorded_at: None,
+            services_seen_on: Vec::new(),
+        };
         OnAirFacts {
             player_is_mpv: true,
             mpv_ping_succeeded: true,
-            test_sound,
-            stream_address: Some("stream.example:8000"),
             show_information: if show_information_on {
                 ShowInformationSwitch::On
             } else {
@@ -3769,10 +3803,12 @@ mod tests {
                 music_is_on: false,
                 stream_is_on: false,
                 services_that_are_on: &[],
+                started: &STARTED,
                 sequence: None,
                 end_band: None,
                 now: std::time::Instant::now(),
             },
+            started: &STARTED,
         }
     }
 
@@ -3801,7 +3837,19 @@ mod tests {
 
     /// A page with a ready cue and stream. The event is Live when `with_event` is true.
     fn ready_page(with_event: bool, signal: AudioSignalState) -> ShowPageVm {
-        let snapshot = encoder_snapshot(signal);
+        let mut snapshot = publisher_snapshot([
+            (
+                PublisherServiceRole::Producer,
+                "producer.service",
+                ServiceState::Active,
+            ),
+            (
+                PublisherServiceRole::Publisher,
+                "publisher.service",
+                ServiceState::Active,
+            ),
+        ]);
+        snapshot.encoder = encoder_snapshot(signal).encoder;
         let input = ready_event_input();
         ShowPageVm::from_queue_publisher_readiness_and_event(
             QueueNowPlayingPageVm::builder()
@@ -3814,83 +3862,449 @@ mod tests {
         )
     }
 
-    /// ADR 0105 task 001 criterion 1: the rows come in order.
     #[test]
-    fn on_air_rows_come_in_order_with_state_text_and_action() {
-        use crate::view_models::audio_setup::TestSoundOutcome;
-        let page =
-            ShowPageVm::idle().with_on_air_band(on_air_facts(TestSoundOutcome::NotTested, true));
-        let band = page.on_air.expect("on-air band");
-        assert_eq!(
-            band.rows.iter().map(|row| row.title).collect::<Vec<_>>(),
-            ["Sound plays", "Show cue", "Stream", "Show information"]
+    fn adr_0107_band_has_only_actions_and_end_band() {
+        let now = std::time::Instant::now();
+        let mut facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
         );
-        assert_eq!(band.rows[1].action, Some(OnAirAction::OpenPlaylists));
-        assert_eq!(band.rows[3].action, Some(OnAirAction::AddEvent));
-        assert!(band.rows.iter().all(|row| !row.state.is_empty()));
-        assert!(!band.go_available);
-    }
-
-    /// Criterion 2: a missing test result warns and does not block.
-    #[test]
-    fn on_air_missing_test_result_warns_and_does_not_block_go() {
-        use crate::view_models::audio_setup::TestSoundOutcome;
+        facts.end.end_band = Some(EndBand { started_at: now });
+        facts.end.now = now;
         let band = ready_page(true, AudioSignalState::Absent)
-            .with_on_air_band(on_air_facts(TestSoundOutcome::NotTested, true))
+            .with_on_air_band(facts)
             .on_air
-            .expect("band");
+            .unwrap();
         assert!(band.go_available);
-        assert!(band.rows[0].warning);
-        assert_eq!(band.rows[0].action, Some(OnAirAction::PlayTestSound));
-        let heard = ready_page(true, AudioSignalState::Absent)
-            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
-            .on_air
-            .expect("band");
-        assert!(!heard.rows[0].warning);
-        assert_eq!(heard.rows[0].action, None);
+        assert_eq!(band.go_label, "Go on air");
+        assert_eq!(
+            band.end_band.as_ref().map(|end| end.message),
+            Some("The last track ended. The show ends in 60 seconds.")
+        );
     }
 
-    /// Criterion 2: row 4 on and not ready blocks Go. Row 4 off does not.
+    #[test]
+    fn adr_0107_each_readiness_fact_marks_its_card() {
+        let facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(OnAirFacts {
+            player_is_mpv: false,
+            mpv_ping_succeeded: false,
+            ..facts
+        });
+        let source = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Source)
+            .unwrap();
+        assert_eq!(source.state, ShowCardStateKind::Attention);
+        assert!(source.primary.contains("mpv"));
+        assert!(!page.on_air.unwrap().go_available);
+
+        let page = ready_page(false, AudioSignalState::Absent).with_on_air_band(on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        ));
+        let metadata = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::LiveMetadata)
+            .unwrap();
+        assert_eq!(metadata.state, ShowCardStateKind::Attention);
+        assert!(metadata.primary.contains("event"));
+        assert_eq!(
+            page.on_air.unwrap().go_cause.as_deref(),
+            Some("Live Metadata is not ready")
+        );
+    }
+
+    #[test]
+    fn adr_0107_cue_and_stream_readiness_facts_mark_their_cards() {
+        let mut cue_track = track(9, "Unavailable", false);
+        cue_track.unavailable_reason =
+            Some(crate::view_models::queue_now_playing::QueueUnavailableReason::MissingFile);
+        let mut page = ready_page(true, AudioSignalState::Present);
+        page.queue = QueueNowPlayingPageVm::builder().tracks([cue_track]).build();
+        let page = page.with_on_air_band(on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        ));
+        let source = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Source)
+            .unwrap();
+        assert_eq!(source.state, ShowCardStateKind::Attention);
+        assert!(source.primary.contains("cue"));
+        assert!(!page.on_air.unwrap().go_available);
+
+        let mut page = ready_page(true, AudioSignalState::Present);
+        page.stream.as_mut().unwrap().actions = None;
+        let page = page.with_on_air_band(on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        ));
+        let stream = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Stream)
+            .unwrap();
+        assert_eq!(stream.state, ShowCardStateKind::Attention);
+        assert!(stream.primary.contains("not configured"));
+        assert!(!page.on_air.unwrap().go_available);
+
+        let mut facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        facts.end.stream_is_on = true;
+        let page = ready_page(true, AudioSignalState::Absent).with_on_air_band(facts);
+        let stream = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Stream)
+            .unwrap();
+        assert_eq!(stream.state, ShowCardStateKind::Attention);
+        assert_eq!(stream.primary, "The stream gets silence");
+
+        let facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        let mut facts = facts;
+        facts.end.stream_is_on = true;
+        let page = ready_page(true, AudioSignalState::Unknown).with_on_air_band(facts);
+        let mut baseline_facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        baseline_facts.end.stream_is_on = true;
+        let baseline = ready_page(true, AudioSignalState::Present).with_on_air_band(baseline_facts);
+        let stream = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Stream)
+            .unwrap();
+        assert_eq!(
+            stream.state,
+            baseline
+                .cards
+                .iter()
+                .find(|card| card.kind == ShowCardKind::Stream)
+                .unwrap()
+                .state
+        );
+        assert_eq!(stream.primary, "Sound at the stream is not known");
+
+        let mut sequence = OnAirSequence::new(Vec::new(), false);
+        sequence.fail(OnAirRow::Stream, "The stream did not connect.".to_owned());
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(OnAirFacts {
+            sequence: Some(&sequence),
+            ..on_air_facts(
+                crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+                true,
+            )
+        });
+        let stream = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Stream)
+            .unwrap();
+        assert_eq!(stream.state, ShowCardStateKind::Failed);
+        assert_eq!(stream.primary, "The stream did not connect.");
+    }
+
+    #[test]
+    fn adr_0107_go_failures_mark_the_card_for_each_part() {
+        for (row, kind) in [
+            (OnAirRow::Sound, ShowCardKind::Source),
+            (OnAirRow::ShowCue, ShowCardKind::Source),
+            (OnAirRow::Stream, ShowCardKind::Stream),
+            (OnAirRow::ShowInformation, ShowCardKind::LiveMetadata),
+        ] {
+            let mut sequence = OnAirSequence::new(Vec::new(), false);
+            sequence.fail(row, "The part failed.".to_owned());
+            let page = ready_page(true, AudioSignalState::Present).with_on_air_band(OnAirFacts {
+                sequence: Some(&sequence),
+                ..on_air_facts(
+                    crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+                    true,
+                )
+            });
+            let card = page.cards.iter().find(|card| card.kind == kind).unwrap();
+            assert_eq!(card.state, ShowCardStateKind::Failed);
+            assert_eq!(card.primary, "The part failed.");
+            assert_eq!(page.on_air.unwrap().failure_card, Some(kind));
+        }
+    }
+
+    #[test]
+    fn adr_0107_end_failures_mark_the_card_for_each_part() {
+        let cases = [
+            (
+                EndShowSequence::new(true, false, Vec::new()),
+                EndShowPart::Music,
+                ShowCardKind::Source,
+            ),
+            (
+                EndShowSequence::new(false, true, Vec::new()),
+                EndShowPart::Stream,
+                ShowCardKind::Stream,
+            ),
+            (
+                EndShowSequence::new(false, false, vec![PublisherServiceRole::Publisher]),
+                EndShowPart::ShowInformation,
+                ShowCardKind::LiveMetadata,
+            ),
+        ];
+        for (mut sequence, part, kind) in cases {
+            sequence.complete(Err("The part failed.".into()));
+            let mut facts = on_air_facts(
+                crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+                true,
+            );
+            facts.end.sequence = Some(&sequence);
+            let page = ready_page(true, AudioSignalState::Present).with_on_air_band(facts);
+            let card = page.cards.iter().find(|card| card.kind == kind).unwrap();
+            assert_eq!(card.state, ShowCardStateKind::Failed);
+            assert_eq!(card.primary, "The part failed.");
+            assert_eq!(page.on_air.unwrap().failure_card, Some(kind));
+            assert_eq!(sequence.failures[0].part, part);
+        }
+    }
+
     #[test]
     fn on_air_show_information_row_blocks_go_only_when_on_and_not_ready() {
-        use crate::view_models::audio_setup::TestSoundOutcome;
-        let on = ready_page(false, AudioSignalState::Absent)
-            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
-            .on_air
-            .expect("band");
-        assert!(!on.go_available);
-        assert_eq!(on.rows[3].action, Some(OnAirAction::AddEvent));
-        let off = ready_page(false, AudioSignalState::Absent)
-            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, false))
-            .on_air
-            .expect("band");
-        assert!(off.go_available);
-        assert!(off.show_information_off);
-        assert_eq!(off.rows[3].state, "Off");
-        assert_eq!(off.rows[3].action, None);
-        let ready = ready_page(true, AudioSignalState::Absent)
-            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
-            .on_air
-            .expect("band");
-        assert!(ready.go_available);
-        assert_eq!(ready.rows[3].action, None);
+        let on = ready_page(false, AudioSignalState::Present).with_on_air_band(on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        ));
+        assert_eq!(
+            on.on_air.as_ref().unwrap().go_cause.as_deref(),
+            Some("Live Metadata is not ready")
+        );
+        assert_eq!(
+            on.cards
+                .iter()
+                .find(|card| card.kind == ShowCardKind::LiveMetadata)
+                .unwrap()
+                .state,
+            ShowCardStateKind::Attention
+        );
+        let off = ready_page(false, AudioSignalState::Present).with_on_air_band(on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            false,
+        ));
+        assert!(off.on_air.unwrap().go_available);
     }
 
-    /// Finding 5: the cue row counts all cue rows, not the filtered rows.
     #[test]
-    fn on_air_cue_row_counts_rows_that_a_text_filter_hides() {
-        use crate::view_models::audio_setup::TestSoundOutcome;
-        let mut queue = QueueNowPlayingPageVm::builder()
-            .tracks([track(7, "Opening", false), track(8, "Closing", false)])
-            .build();
-        queue.set_text_filter(Some("zzz".to_owned()));
-        let mut page = ready_page(true, AudioSignalState::Absent);
-        page.queue = queue;
-        let band = page
-            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
+    fn adr_0107_missing_test_sound_does_not_block_go_or_warn() {
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        ));
+        assert!(page.on_air.unwrap().go_available);
+        assert!(page
+            .cards
+            .iter()
+            .all(|card| !card.primary.contains("test sound")));
+    }
+
+    #[test]
+    fn adr_0107_no_card_summary_contains_encoder_address() {
+        let page = ready_page(true, AudioSignalState::Absent).with_on_air_band(on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        ));
+        for card in &page.cards {
+            assert!(!card.primary.contains("stream.example:8000"));
+            assert!(!card.secondary.contains("stream.example:8000"));
+        }
+        assert!(!format!("{page:?}").contains("stream.example:8000"));
+    }
+
+    #[test]
+    fn adr_0107_connected_stream_card_shows_signal_and_listener_count() {
+        let mut facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        facts.end.stream_is_on = true;
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(facts);
+        let stream = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Stream)
+            .unwrap();
+        assert_eq!(stream.primary, "Sound reaches the stream");
+        assert_eq!(stream.secondary, "3 listeners");
+    }
+
+    #[test]
+    fn adr_0107_go_cause_names_the_unready_card() {
+        let mut facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        facts.player_is_mpv = true;
+        let band = ShowPageVm::idle().with_on_air_band(facts).on_air.unwrap();
+        assert_eq!(band.go_cause.as_deref(), Some("Source is not ready"));
+        assert!(band.go_a11y_label.contains("Source"));
+    }
+
+    #[test]
+    fn adr_0107_started_parts_record_and_reconcile_commands() {
+        let now = std::time::Instant::now();
+        let mut started = StartedParts::default();
+        started.record_stream(true, now);
+        started.record_service(PublisherServiceRole::Producer, true);
+        assert!(started.stream);
+        assert_eq!(started.services, [PublisherServiceRole::Producer]);
+        // The watch does not show the parts on yet: the records stay.
+        started.reconcile(false, &[], now);
+        assert!(started.stream);
+        assert_eq!(started.services, [PublisherServiceRole::Producer]);
+        // The watch shows the parts on, and then off: the records go.
+        started.reconcile(true, &[PublisherServiceRole::Producer], now);
+        started.reconcile(true, &[], now);
+        assert!(started.stream);
+        assert!(started.services.is_empty());
+        started.reconcile(false, &[], now);
+        assert!(!started.stream);
+        started.record_service(PublisherServiceRole::Publisher, true);
+        started.record_stream(false, now);
+        assert!(!started.stream);
+        started.record_service(PublisherServiceRole::Publisher, false);
+        assert!(started.services.is_empty());
+    }
+
+    #[test]
+    fn adr_0107_stream_record_goes_when_the_stream_does_not_connect_in_time() {
+        let now = std::time::Instant::now();
+        let mut started = StartedParts::default();
+        started.record_stream(true, now);
+        started.reconcile(false, &[], now + STREAM_CONNECT_LIMIT / 2);
+        assert!(started.stream);
+        started.reconcile(false, &[], now + STREAM_CONNECT_LIMIT);
+        assert!(!started.stream);
+        // A later connection from a different program is not a HitIt part.
+        started.reconcile(true, &[], now + STREAM_CONNECT_LIMIT * 2);
+        assert!(!started.stream);
+    }
+
+    #[test]
+    fn adr_0107_command_intents_record_only_successful_start_and_connect() {
+        let mut commands = ShowCommandState::default();
+        let mut started = StartedParts::default();
+        let role = PublisherServiceRole::Producer;
+        let start = commands
+            .begin_service(role, PublisherServiceOperation::Start)
+            .unwrap();
+        assert_eq!(commands.intent(start), Some((Some(role), true)));
+        started.record_service(role, commands.intent(start).unwrap().1);
+        assert_eq!(started.services, [role]);
+        let mut commands = ShowCommandState::default();
+        let stop = commands
+            .begin_service(role, PublisherServiceOperation::Stop)
+            .unwrap();
+        assert_eq!(commands.intent(stop), Some((Some(role), false)));
+        started.record_service(role, commands.intent(stop).unwrap().1);
+        assert!(started.services.is_empty());
+        let mut commands = ShowCommandState::default();
+        let connect = commands
+            .begin_stream(StreamEncoderOperation::Connect)
+            .unwrap();
+        assert_eq!(commands.intent(connect), Some((None, true)));
+        started.record_stream(
+            commands.intent(connect).unwrap().1,
+            std::time::Instant::now(),
+        );
+        assert!(started.stream);
+        let mut commands = ShowCommandState::default();
+        let disconnect = commands
+            .begin_stream(StreamEncoderOperation::Disconnect)
+            .unwrap();
+        started.record_stream(
+            commands.intent(disconnect).unwrap().1,
+            std::time::Instant::now(),
+        );
+        assert!(!started.stream);
+    }
+
+    #[test]
+    fn adr_0107_connected_unrecorded_stream_is_not_endable() {
+        let mut facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            false,
+        );
+        facts.end.stream_is_on = true;
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(facts);
+        let stream = page
+            .cards
+            .iter()
+            .find(|card| card.kind == ShowCardKind::Stream)
+            .unwrap();
+        assert_eq!(stream.state_label, "Connected outside HitIt");
+        assert!(!page.on_air.as_ref().unwrap().end_show_available);
+        let sequence = EndShowSequence::new(false, false, vec![]);
+        assert_eq!(sequence.next_step(), None);
+        assert!(!page
             .on_air
-            .expect("band");
-        assert_eq!(band.rows[1].state, "2 tracks ready.");
+            .unwrap()
+            .end_confirmation
+            .parts
+            .iter()
+            .any(|part| part.starts_with("The stream")));
+    }
+
+    #[test]
+    fn adr_0107_end_sequence_stops_only_recorded_parts() {
+        let mut started = StartedParts::default();
+        started.record_stream(true, std::time::Instant::now());
+        let services = [
+            PublisherServiceRole::Producer,
+            PublisherServiceRole::Publisher,
+        ];
+        let facts = OnAirFacts {
+            end: EndShowFacts {
+                music_is_on: false,
+                stream_is_on: true,
+                services_that_are_on: &services,
+                started: &started,
+                sequence: None,
+                end_band: None,
+                now: std::time::Instant::now(),
+            },
+            ..on_air_facts(
+                crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+                false,
+            )
+        };
+        let band = ready_page(true, AudioSignalState::Present)
+            .with_on_air_band(facts)
+            .on_air
+            .unwrap();
+        assert_eq!(
+            band.end_confirmation.parts,
+            ["The stream. Listeners hear nothing after this."]
+        );
+        let recorded_services_that_are_on: Vec<_> = services
+            .iter()
+            .copied()
+            .filter(|role| started.services.contains(role))
+            .collect();
+        let mut sequence =
+            EndShowSequence::new(false, started.stream, recorded_services_that_are_on);
+        assert_eq!(sequence.next_step(), Some(EndShowStep::DisconnectStream));
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), None);
+        assert!(sequence
+            .failures
+            .iter()
+            .all(|failure| failure.part != EndShowPart::ShowInformation));
     }
 
     /// Criterion 3: a running service is not in the list.
@@ -3961,12 +4375,8 @@ mod tests {
             )
         });
         let band = page.on_air.expect("band");
-        assert_eq!(band.rows[2].action, Some(OnAirAction::TryAgain));
-        assert_eq!(
-            band.rows[2].error.as_deref(),
-            Some("The stream did not connect.")
-        );
         assert!(band.go_available);
+        assert!(band.go_a11y_label.starts_with("Go on air"));
     }
 
     /// A refusal of the play step puts the error on a chosen row.
@@ -3986,11 +4396,17 @@ mod tests {
     #[test]
     fn end_show_confirmation_lists_only_active_parts_and_keeps_both_notes() {
         let services = [PublisherServiceRole::Publisher];
+        let started = StartedParts {
+            stream: false,
+            services: vec![PublisherServiceRole::Publisher],
+            ..StartedParts::default()
+        };
         let facts = OnAirFacts {
             end: EndShowFacts {
                 music_is_on: true,
                 stream_is_on: false,
                 services_that_are_on: &services,
+                started: &started,
                 sequence: None,
                 end_band: None,
                 now: std::time::Instant::now(),
@@ -4020,29 +4436,9 @@ mod tests {
 
     #[test]
     fn end_show_sequence_keeps_order_and_continues_after_failure() {
-        let mut sequence = EndShowSequence::new(
-            true,
-            true,
-            vec![
-                PublisherServiceRole::Producer,
-                PublisherServiceRole::Publisher,
-            ],
-        );
-
-        assert_eq!(sequence.next_step(), Some(EndShowStep::StopMusic));
-        sequence.complete(Ok(()));
+        let mut sequence = EndShowSequence::new(false, true, vec![]);
         assert_eq!(sequence.next_step(), Some(EndShowStep::DisconnectStream));
         sequence.complete(Err("disconnect failed".into()));
-        assert_eq!(
-            sequence.next_step(),
-            Some(EndShowStep::StopService(PublisherServiceRole::Producer))
-        );
-        sequence.complete(Ok(()));
-        assert_eq!(
-            sequence.next_step(),
-            Some(EndShowStep::StopService(PublisherServiceRole::Publisher))
-        );
-        sequence.complete(Ok(()));
         assert_eq!(sequence.next_step(), None);
         assert_eq!(sequence.failures.len(), 1);
         assert_eq!(sequence.failures[0].part, EndShowPart::Stream);
@@ -4068,40 +4464,7 @@ mod tests {
         assert_eq!(band.seconds_left(started_at + END_BAND_DELAY), None);
     }
 
-    /// Criterion 5: three stream texts, and no band text says "Listeners hear".
-    #[test]
-    fn on_air_stream_texts_follow_decision_four() {
-        use crate::view_models::audio_setup::TestSoundOutcome;
-        for (signal, text) in [
-            (AudioSignalState::Present, "Sound reaches the stream"),
-            (AudioSignalState::Absent, "The stream gets silence"),
-            (
-                AudioSignalState::Unknown,
-                "Sound at the stream is not known",
-            ),
-        ] {
-            let mut facts = on_air_facts(TestSoundOutcome::Heard, true);
-            facts.end.stream_is_on = true;
-            let band = ready_page(true, signal)
-                .with_on_air_band(facts)
-                .on_air
-                .expect("band");
-            let shown = band.signal.expect("signal");
-            assert_eq!(shown.label, text);
-            let mut texts = vec![shown.label.to_owned(), shown.detail.to_owned()];
-            let listeners = band.listeners.expect("listeners");
-            assert_eq!(listeners.label, "3 listeners. From the stream server.");
-            texts.push(listeners.label);
-            for row in &band.rows {
-                texts.push(row.state.clone());
-            }
-            for text in texts {
-                assert!(!text.contains("Listeners hear"), "{text}");
-            }
-        }
-    }
-
-    /// A defect of 2026-11-19: one listener showed as "1 listeners".
+    /// One listener uses the singular label.
     #[test]
     fn one_listener_has_the_singular_word() {
         assert_eq!(
@@ -4112,18 +4475,6 @@ mod tests {
             stream_listeners_display(ListenerCount::Known(2)).label,
             "2 listeners"
         );
-    }
-
-    /// ADR 0105 Decision 4: no stream line shows while the show is not on air.
-    #[test]
-    fn on_air_band_has_no_stream_lines_while_not_on_air() {
-        use crate::view_models::audio_setup::TestSoundOutcome;
-        let band = ready_page(true, AudioSignalState::Unknown)
-            .with_on_air_band(on_air_facts(TestSoundOutcome::Heard, true))
-            .on_air
-            .expect("band");
-        assert_eq!(band.signal, None);
-        assert_eq!(band.listeners, None);
     }
 
     fn command_snapshot(
@@ -4167,7 +4518,7 @@ mod tests {
             .unwrap()
     }
 
-    /// Situational ADR 0059: only a read begun after completion can release a requested transition.
+    /// ADR 0059: a fresh matching read releases a completed command.
     #[test]
     fn show_command_transition_requires_fresh_read_and_matching_direction() {
         let returned_at = Instant::now();

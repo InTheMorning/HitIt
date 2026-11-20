@@ -24,9 +24,9 @@ use crate::ui::shells::queue_now_playing::{render_queue_transport, QueueNowPlayi
 use crate::ui::tokens::{color, FontSize, SemanticColor, Spacing};
 use crate::view_models::queue_now_playing::CueMoveTarget;
 use crate::view_models::show::{
-    EndShowAction, EventControlIntent, OnAirAction, OnAirBandDisplay, PublisherServiceRole,
-    ShowCardDisplay, ShowCardKind, ShowEmptyStateDisplay, ShowNowPlayingDisplay, ShowPageVm,
-    ShowPanelMode, ShowPlaylistRowDisplay, ShowWidthClass,
+    EndShowAction, EventControlIntent, OnAirBandDisplay, PublisherServiceRole, ShowCardDisplay,
+    ShowCardKind, ShowEmptyStateDisplay, ShowNowPlayingDisplay, ShowPageVm, ShowPanelMode,
+    ShowPlaylistRowDisplay, ShowWidthClass,
 };
 
 /// Callback slots supplied by the application-owned Show screen.
@@ -38,8 +38,6 @@ pub(crate) struct ShowSlots {
     log: ShowLogPaneSlots,
     load_playlist: Option<ShowLoadPlaylistHandler>,
     go_on_air: Option<ShowGoOnAirHandler>,
-    on_air_action: Option<ShowOnAirActionHandler>,
-    toggle_show_information: Option<ShowGoOnAirHandler>,
     end_show: Option<ShowEndActionHandler>,
 }
 
@@ -47,7 +45,6 @@ pub(crate) struct ShowSlots {
 type ShowLoadPlaylistHandler = Rc<dyn Fn(i64, &mut Window, &mut App) + 'static>;
 type ShowGoOnAirHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 /// The handler of the one action of an on-air row.
-type ShowOnAirActionHandler = Rc<dyn Fn(OnAirAction, &mut Window, &mut App) + 'static>;
 type ShowEndActionHandler = Rc<dyn Fn(EndShowAction, &mut Window, &mut App) + 'static>;
 
 impl Default for ShowSlots {
@@ -59,8 +56,6 @@ impl Default for ShowSlots {
             log: ShowLogPaneSlots::default(),
             load_playlist: None,
             go_on_air: None,
-            on_air_action: None,
-            toggle_show_information: None,
             end_show: None,
         }
     }
@@ -154,19 +149,8 @@ impl ShowSlots {
     fn on_air_handlers(&self) -> OnAirHandlers {
         OnAirHandlers {
             go: self.go_on_air.clone(),
-            action: self.on_air_action.clone(),
-            toggle_information: self.toggle_show_information.clone(),
             end_show: self.end_show.clone(),
         }
-    }
-
-    /// Supplies the action of an on-air row.
-    pub(crate) fn on_on_air_action(
-        mut self,
-        handler: impl Fn(OnAirAction, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_air_action = Some(Rc::new(handler));
-        self
     }
 
     /// Supplies the switch "Show information".
@@ -174,7 +158,21 @@ impl ShowSlots {
         mut self,
         handler: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
-        self.toggle_show_information = Some(Rc::new(handler));
+        let handler = Rc::new(handler);
+        let callback = handler.clone();
+        self.panel = self
+            .panel
+            .on_toggle_show_information(move |_, window, app| {
+                callback(window, app);
+            });
+        self
+    }
+
+    pub(crate) fn on_retry_show(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.panel = self.panel.on_retry_show(handler);
         self
     }
 
@@ -375,6 +373,10 @@ pub(crate) fn render_show(vm: ShowPageVm, slots: ShowSlots) -> ShowShell {
 }
 
 impl RenderOnce for ShowShell {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "This render composes the Show page and its detail panel."
+    )]
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let ShowPageVm {
             title,
@@ -397,6 +399,18 @@ impl RenderOnce for ShowShell {
             on_air,
         } = self.vm;
         let transport = queue.transport.clone();
+        let show_information_off = on_air
+            .as_ref()
+            .is_some_and(|band| band.show_information_off);
+        let failure_card = on_air.as_ref().and_then(|band| band.failure_card);
+        let failure_text = on_air.as_ref().and_then(|band| band.failure_text.clone());
+        let has_failure = failure_text.is_some();
+        let card_status = match panel_mode {
+            crate::view_models::show::ShowPanelMode::Detail(kind) => {
+                cards.iter().find(|card| card.kind == kind).cloned()
+            }
+            crate::view_models::show::ShowPanelMode::Cuelist => None,
+        };
 
         div()
             .id("show-screen")
@@ -420,7 +434,7 @@ impl RenderOnce for ShowShell {
                 el.child(render_on_air_band(band, self.slots.on_air_handlers(), cx))
             })
             // A command that fails on this screen says so on this screen.
-            .when_some(status_message, |el, message| {
+            .when_some(status_message.filter(|_| !has_failure), |el, message| {
                 el.child(render_status_message(message, cx))
             })
             .child(
@@ -467,6 +481,10 @@ impl RenderOnce for ShowShell {
                             source,
                             publisher,
                             stream,
+                            show_information_on: !show_information_off,
+                            failure_card,
+                            failure_text,
+                            card_status,
                         },
                         self.slots.panel,
                     )),
@@ -485,94 +503,30 @@ fn render_status_message(message: String, cx: &App) -> impl IntoElement {
 
 struct OnAirHandlers {
     go: Option<ShowGoOnAirHandler>,
-    action: Option<ShowOnAirActionHandler>,
-    toggle_information: Option<ShowGoOnAirHandler>,
     end_show: Option<ShowEndActionHandler>,
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "This function composes the rows and actions of one band."
-)]
 fn render_on_air_band(
     band: OnAirBandDisplay,
     handlers: OnAirHandlers,
     cx: &App,
 ) -> impl IntoElement {
     let OnAirBandDisplay {
-        rows,
         go_available,
         go_label,
-        show_information_off,
-        signal,
-        listeners,
-        end_show_available,
-        end_band,
-        end_failures,
         confirmation_title: _,
         confirmation_message: _,
+        show_information_off: _,
+        end_show_available,
         end_confirmation: _,
+        end_band,
+        go_cause,
+        go_a11y_label,
+        failure_card: _,
+        failure_text: _,
     } = band;
-    let action_handler = handlers.action;
-    let rows = rows.into_iter().map(|row| {
-        // One line for each row: the words at the left, the action at the right.
-        let mut text = div().flex().flex_col().flex_1().min_w_0().child(
-            div()
-                .flex()
-                .flex_row()
-                .flex_wrap()
-                .gap_x(Spacing::SM.scaled(cx))
-                .child(Label::new(row.title).variant(LabelVariant::Body))
-                .child(
-                    Label::new(row.state)
-                        .variant(LabelVariant::Body)
-                        .color(SemanticColor::SecondaryLabel),
-                ),
-        );
-        if row.warning {
-            text = text.child(
-                Label::new("Check this before you go on air.")
-                    .variant(LabelVariant::Caption)
-                    .color(SemanticColor::WarningLabel),
-            );
-        }
-        if let Some(error) = row.error {
-            text = text.child(
-                Label::new(error)
-                    .variant(LabelVariant::Caption)
-                    .color(SemanticColor::DangerLabel),
-            );
-        }
-        let mut line = div()
-            .id(format!("on-air-row-{:?}", row.row))
-            .flex()
-            .flex_row()
-            .items_center()
-            .min_w_0()
-            .gap(Spacing::MD.scaled(cx))
-            .child(text);
-        if let Some(action) = row.action {
-            let handler = action_handler.clone();
-            line = line.child(
-                Button::plain(format!("on-air-action-{:?}", row.row))
-                    .label(action.label())
-                    .on_click(move |_, window, app| {
-                        if let Some(handler) = &handler {
-                            handler(action, window, app);
-                        }
-                    }),
-            );
-        }
-        line
-    });
     let callback = handlers.go;
-    let toggle = handlers.toggle_information;
     let end_handler = handlers.end_show;
-    let information_label = if show_information_off {
-        "Show information: off. Turn on"
-    } else {
-        "Show information: on. Turn off"
-    };
     div()
         .id("show-on-air-band")
         .flex()
@@ -583,16 +537,14 @@ fn render_on_air_band(
         .py(Spacing::SM.scaled(cx))
         .border_b_1()
         .border_color(color(cx, SemanticColor::Separator))
-        .children(rows)
         .child(render_on_air_buttons(
-            information_label,
             go_label,
             go_available,
+            go_cause,
+            go_a11y_label,
             end_show_available,
             OnAirHandlers {
                 go: callback,
-                action: None,
-                toggle_information: toggle,
                 end_show: end_handler.clone(),
             },
             cx,
@@ -624,53 +576,19 @@ fn render_on_air_band(
                         }),
                 )
         })
-        .children(
-            end_failures
-                .into_iter()
-                .enumerate()
-                .map(|(index, failure)| {
-                    let part = match failure.part {
-                        crate::view_models::show::EndShowPart::Music => "The music",
-                        crate::view_models::show::EndShowPart::Stream => "The stream",
-                        crate::view_models::show::EndShowPart::ShowInformation => {
-                            "The track names to the relay"
-                        }
-                    };
-                    div()
-                        .id(format!("end-show-failure-{index}"))
-                        .flex()
-                        .flex_col()
-                        .child(Label::new(part).variant(LabelVariant::Headline))
-                        .child(
-                            Label::new(failure.error)
-                                .variant(LabelVariant::Caption)
-                                .color(SemanticColor::DangerLabel),
-                        )
-                }),
-        )
-        .when_some(signal, |el, signal| {
-            el.child(Label::new(signal.label).variant(LabelVariant::Caption))
-        })
-        .when_some(listeners, |el, listeners| {
-            el.child(Label::new(listeners.label).variant(LabelVariant::Caption))
-        })
 }
 
 /// The switch of the show information, "Go on air" and "End show" on one line.
 fn render_on_air_buttons(
-    information_label: &'static str,
     go_label: &'static str,
     go_available: bool,
+    go_cause: Option<String>,
+    go_a11y_label: String,
     end_show_available: bool,
     handlers: OnAirHandlers,
     cx: &App,
 ) -> impl IntoElement {
-    let OnAirHandlers {
-        go,
-        toggle_information,
-        end_show,
-        action: _,
-    } = handlers;
+    let OnAirHandlers { go, end_show } = handlers;
     div()
         .flex()
         .flex_row()
@@ -681,6 +599,7 @@ fn render_on_air_buttons(
         .child(
             Button::filled("show-go-on-air")
                 .label(go_label)
+                .a11y_label(go_a11y_label)
                 .disabled(!go_available)
                 .on_click(move |_, window, app| {
                     if let Some(callback) = &go {
@@ -688,6 +607,9 @@ fn render_on_air_buttons(
                     }
                 }),
         )
+        .when_some(go_cause, |el, cause| {
+            el.child(Label::new(cause).variant(LabelVariant::Caption))
+        })
         .when(end_show_available, |el| {
             el.child(Button::plain("show-end-show").label("End show").on_click(
                 move |_, window, app| {
@@ -697,15 +619,6 @@ fn render_on_air_buttons(
                 },
             ))
         })
-        .child(
-            Button::plain("show-information-switch")
-                .label(information_label)
-                .on_click(move |_, window, app| {
-                    if let Some(toggle) = &toggle_information {
-                        toggle(window, app);
-                    }
-                }),
-        )
 }
 
 fn render_show_summary(
