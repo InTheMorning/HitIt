@@ -8,6 +8,7 @@ Accepted - 2026-11-19. The orchestrator session relayed the operator choice of 2
 - Changes: [ADR 0069](0069-grouped-settings-and-selective-presets.md) §Settings Configures Resources; Show Operates Them. One "Go on air" and one "End show" run Start, Stop, Attach, Connect and Disconnect in a fixed order after a confirmation. The separate controls stay.
 - Changes: [ADR 0063](0063-show-dashboard-layout.md). The Show page has the on air band above the cards.
 - Changes: [ADR 0068](0068-show-cue-and-audition-isolation.md) §Show Owns Its Transport. After the last entry ends while the stream is connected, the Show page shows the end band of Decision 6.
+- Changed by: [ADR 0107](0107-the-cards-hold-the-on-air-status.md), 2026-11-19. Decisions 1, 2, 4 and 5: the band has no status text, the cards and their inspectors show the status, and "End show" stops only the parts that HitIt started.
 
 Uses:
 
