@@ -87,7 +87,7 @@ The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented
 
 The show host analysis of 2026-11-19 gives three ADRs, Accepted on 2026-11-19. [ADR 0104](docs/adr/0104-the-show-player-and-the-sound-setup.md) makes mpv the default Show player, adds the Settings group "Audio" with a test sound, and opens it at the first start. [ADR 0105](docs/adr/0105-go-on-air-and-end-show.md) gives the Show page one on air band with "Go on air" and "End show". [ADR 0106](docs/adr/0106-the-cue-changes-during-a-show.md) lets the host move cue entries after the current entry during a show, and a load opens Show. Their six tasks are implemented, and the agent walked sections 44 to 46 of [pending human checks](docs/pending-human-checks.md). Some operator checks of those sections stay open.
 
-[ADR 0107](docs/adr/0107-the-cards-hold-the-on-air-status.md), Accepted on 2026-11-19, changes ADR 0105. The band has no status text, and the cards and their inspectors show the status. "End show" stops only the parts that HitIt started. Its task is not written. A second ADR for a list of shows, each with its own source and stream, comes after it.
+[ADR 0107](docs/adr/0107-the-cards-hold-the-on-air-status.md), Accepted on 2026-11-19, changes ADR 0105. The band has no status text, and the cards and their inspectors show the status. "End show" stops only the parts that HitIt started. [Its task 001](docs/tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md) is written and not started. A second ADR for a list of shows, each with its own source and stream, comes after it.
 
 Known open defects:
 

@@ -70,4 +70,4 @@ Limit: the record is for one run of the app. After a restart of HitIt during a s
 
 ## Tasks
 
-- Task 001 (to write): Decisions 1 to 3.
+- [Task 001](../tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md): Decisions 1 to 3. Not started.
