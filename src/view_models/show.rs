@@ -3415,7 +3415,11 @@ fn stream_recording_display(recording: &RecordingState) -> StreamRecordingDispla
 fn stream_listeners_display(listeners: ListenerCount) -> StreamListenersDisplay {
     match listeners {
         ListenerCount::Known(count) => StreamListenersDisplay {
-            label: format!("{count} listeners"),
+            label: if count == 1 {
+                "1 listener".to_owned()
+            } else {
+                format!("{count} listeners")
+            },
             detail: "Reported by the stream server.",
             known: true,
         },
@@ -4095,6 +4099,19 @@ mod tests {
                 assert!(!text.contains("Listeners hear"), "{text}");
             }
         }
+    }
+
+    /// A defect of 2026-11-19: one listener showed as "1 listeners".
+    #[test]
+    fn one_listener_has_the_singular_word() {
+        assert_eq!(
+            stream_listeners_display(ListenerCount::Known(1)).label,
+            "1 listener"
+        );
+        assert_eq!(
+            stream_listeners_display(ListenerCount::Known(2)).label,
+            "2 listeners"
+        );
     }
 
     /// ADR 0105 Decision 4: no stream line shows while the show is not on air.

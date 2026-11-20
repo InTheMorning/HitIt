@@ -1042,6 +1042,8 @@ Task: [ADR 0104 task 002](tasks/adr-0104-task-002-the-audio-group-and-the-first-
 
 The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#sections-44-to-46-walk---2026-11-19-evening) passed steps 1, 3 and 4 in Dark and Light. Step 2 needs a person, because the walk has no sound.
 
+Operator check, 2026-11-19: step 2 passes for the tone. The question after the tone goes away, item 1 of the operator requests in the [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#operator-requests---2026-11-19).
+
 ## 45. ADR 0105 Tasks 001 And 002 "Go On Air" And "End Show" - 2026-11-19
 
 Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](tasks/adr-0105-task-002-end-show-and-the-last-track.md). Both tasks are implemented. These checks stay open. They need a stream server and a second listening device.
@@ -1055,6 +1057,8 @@ Tasks: [ADR 0105 task 001](tasks/adr-0105-task-001-go-on-air.md) and [task 002](
 - Incorrect: a part starts before the confirmation, or the band says that listeners hear the show.
 
 The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#sections-44-to-46-walk---2026-11-19-evening) passed V1 in Dark and Light at 1440 px and in Dark at 390 px. Steps 2 to 5 need a person.
+
+Operator check, 2026-11-19: step 3 passes. Steps 4 and 5 close as replaced, as an operator choice in the [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#operator-requests---2026-11-19). Step 2 stays open.
 
 ## 46. ADR 0106 Tasks 001 And 002 The Cue Changes During A Show - 2026-11-19
 
@@ -1070,3 +1074,5 @@ Tasks: [ADR 0106 task 001](tasks/adr-0106-task-001-move-entries-during-a-show.md
 - Incorrect: a move stops or restarts the track, or a played row moves.
 
 The [agent walk of 2026-11-19](reviews/agent-walk-2026-11-19.md#sections-44-to-46-walk---2026-11-19-evening) passed V1 to V5 and step 7 with a null audio output in Light, and V5 in Dark. The sound of a move needs a person.
+
+Operator check, 2026-11-19: step 1 passes with sound.

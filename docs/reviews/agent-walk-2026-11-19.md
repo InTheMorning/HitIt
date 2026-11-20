@@ -118,3 +118,29 @@ The operator gave these requests during the check of section 44. Each item chang
 
    ADR 0105 Decision 2 item 1 reads the answer: row 1 of the band warns until the host clicks "Yes". The new ADR must give the condition that clears that warning.
 2. The Show player items are "mpv", "Mixxx" and "No sound". The label "Speakers of this computer (mpv)" is removed, because the operator finds it incorrect and not necessary. This changes ADR 0104 Decision 2 item 2. At this time, "Mixxx" is not a Show player. ADR 0059 gives Mixxx only as a type of stream source. The new ADR must say what HitIt does when the host selects "Mixxx".
+3. Each row of the Show cue list shows the album art of its track. Before the code, find the ADR that owns the cue row, and the musicindex ADR that owns the art of a list row.
+4. The Show page does not use its space correctly. The cue list shows which track plays and the total time of the cue.
+5. The transport has a seek bar and the album art, as a usual music player. Subsequently, a mood bar can replace the seek bar. The played time and the time left are larger.
+6. While a show plays, the transport shows on each page, not only on Show. The operator asks to examine small status icons for Source, Live Metadata and Stream in the transport.
+
+Items 4 to 6 change the layout of ADR 0105 Decision 1 and the Show page of ADR 0063. One ADR for the Show page and the transport is necessary.
+
+7. The text lines above the cards are removed. The cards and their inspectors hold each warning and each status. For example, when the stream gets silence, the Stream card shows a warning icon, and its inspector shows "The stream gets silence" in the warning color.
+8. HitIt has a list of shows in a root window, and the host selects one show. Each show has its own source and its own stream. Examples: a Mixxx show through butt, an mpv show of HitIt, and liquidsoap shows on a remote computer. In principle, one Mixxx show, one mpv show and a number of liquidsoap shows can operate at the same time.
+
+   At the time of the check, the operator had a 24-hour stream through Mixxx and butt. HitIt took mpv as the source of that stream, and that is incorrect. "End show" disconnects butt, so it can stop a stream that HitIt did not start.
+
+Items 7 and 8 change ADR 0105 Decisions 1 to 6, and the source model of ADR 0059. Item 8 is a decision that crosses modules, and a subsequent change is hard. It needs an ADR before the code.
+
+The operator check of section 46 step 1 on 2026-11-19 passed. On that screen, the agent found these defects:
+
+- The listener line said "1 listeners". Corrected: one listener gives "1 listener".
+- Row 3 said "Stream address is not available." while the stream was on. The row reads the field `address` of the encoder configuration. That field is the control address of butt, not the address of the listeners. HitIt has no field for the address of the listeners. The operator must say where this address comes from, or if the row gives a different text.
+- The status bar showed "Relay https://api.musicindex.org reported event ribQc9QzWWD5BvAw6aC17A missing (HTTP 404). App saved event ribQc9QzWWD5BvAw6aC17A as Dead." The message gives a URL and the key of a live event to the host. Compare it with musicindex ADR 0085 R-MSG-1 before a change.
+
+Operator choices of 2026-11-19 for items 7 and 8:
+
+- Section 45 steps 4 and 5 close as replaced. The new ADR gives its own checks.
+- The sequence: first a short ADR for item 7, and for an "End show" that does not disconnect an encoder that HitIt did not connect. Then a second ADR for the list of shows.
+- A Mixxx show: HitIt shows the status of butt, and it can also connect and disconnect butt for that show.
+- The list of shows: the host adds each show with a form. The form gives a name, the source type, the control address of butt or of the remote source, and an optional live event. HitIt keeps the shows in its configuration.
