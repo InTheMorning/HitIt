@@ -144,3 +144,4 @@ Operator choices of 2026-11-19 for items 7 and 8:
 - The sequence: first a short ADR for item 7, and for an "End show" that does not disconnect an encoder that HitIt did not connect. Then a second ADR for the list of shows.
 - A Mixxx show: HitIt shows the status of butt, and it can also connect and disconnect butt for that show.
 - The list of shows: the host adds each show with a form. The form gives a name, the source type, the control address of butt or of the remote source, and an optional live event. HitIt keeps the shows in its configuration.
+- Operator choice, 2026-11-19, after ADR 0107: in the root window, the host selects a show and configures it. The on air band, the cards and their inspectors show the selected show.

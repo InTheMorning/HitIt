@@ -43,6 +43,7 @@ Main session choices, 2026-11-19:
   - The Show information and service steps go to Live Metadata.
 - The inspector of that card shows the error and "Try again".
 - `OnAirRow` can stay as the key of a failure, but no band row uses it. If a type has no user after the change, delete it.
+- The second ADR, for the list of shows, makes the band and the cards show the selected show. This task has one show. Keep one `StartedParts` value in `TopApp`. Do not add a show key. The second ADR gives the key.
 - If a step needs a decision that this task file and ADR 0107 do not give, the implementer stops and reports.
 
 ## Base components
