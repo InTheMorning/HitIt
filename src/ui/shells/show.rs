@@ -226,6 +226,15 @@ impl ShowSlots {
         self
     }
 
+    /// Supplies the Stream "Change" callback.
+    pub(crate) fn on_change_stream(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.panel = self.panel.on_change_stream(handler);
+        self
+    }
+
     /// Supplies the dashboard card selection callback.
     pub(crate) fn on_select_card(
         mut self,

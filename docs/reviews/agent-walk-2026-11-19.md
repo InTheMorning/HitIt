@@ -145,3 +145,8 @@ Operator choices of 2026-11-19 for items 7 and 8:
 - A Mixxx show: HitIt shows the status of butt, and it can also connect and disconnect butt for that show.
 - The list of shows: the host adds each show with a form. The form gives a name, the source type, the control address of butt or of the remote source, and an optional live event. HitIt keeps the shows in its configuration.
 - Operator choice, 2026-11-19, after ADR 0107: in the root window, the host selects a show and configures it. The on air band, the cards and their inspectors show the selected show.
+
+Agent walk of section 47 of the human checks, 2026-11-20. The results are in that section. These points stay open:
+
+- "Open playlists" shows in the Source inspector at all times. ADR 0107 Decision 2 gives it only for a Source cause.
+- The cause "Select mpv in Settings, Audio" has no action button. ADR 0107 Decision 2 gives each cause its action.

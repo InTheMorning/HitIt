@@ -596,6 +596,7 @@ pub(super) fn build_show_screen(
     let connect_stream_entity = entity.clone();
     let disconnect_stream_entity = entity.clone();
     let readiness_entity = entity.clone();
+    let change_stream_entity = entity.clone();
     let load_playlist_entity = entity.clone();
     let on_air_entity = entity.clone();
     let end_show_entity = entity.clone();
@@ -658,6 +659,16 @@ pub(super) fn build_show_screen(
             .on_open_broadcast_readiness(move |_, _, cx| {
                 readiness_entity.update(cx, |this, cx| {
                     this.open_broadcast_readiness_in_music(cx);
+                });
+            })
+            .on_change_stream(move |_, window, cx| {
+                change_stream_entity.update(cx, |this, cx| {
+                    this.settings_action(
+                        crate::view_models::settings::SettingsAction::OpenRepair,
+                        window,
+                        cx,
+                    );
+                    this.select_tab(AppTab::Settings, window, cx);
                 });
             })
             .on_select_card(move |kind, _, _, cx| {

@@ -1094,3 +1094,13 @@ Look for these errors:
 - HitIt disconnects the Mixxx stream.
 - The band shows text above the cards.
 - The inspector does not show its cause.
+
+Agent walk on Xvfb, 2026-11-20, debug build of 3979f91 with the two corrections below. The Library and the cue were empty.
+
+- V1 passed in Dark and Light at 1440 px, and in Dark at 390 px. At 390 px the inspector covers the cards. The panel did this before this task.
+- V3 passed. The switch changes the Live Metadata card from Attention to Not ready.
+- V2 passed for the card and the inspector. With an empty cue, the band says "Source is not ready". The operator must examine "Stream is not ready" with a ready cue.
+- Corrected: "Change" in the Stream inspector opened Music. Now it opens Settings, Diagnostics, Configuration repair.
+- Corrected: the Status row of each inspector did not align with the other rows.
+
+Open for the operator: V4, V5, and step 3 with a ready cue.

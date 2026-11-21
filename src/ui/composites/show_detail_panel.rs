@@ -70,6 +70,7 @@ pub(crate) struct ShowDetailPanelSlots {
     close_panel: Option<PanelClickHandler>,
     show_cuelist: Option<PanelClickHandler>,
     open_readiness: Option<PanelClickHandler>,
+    change_stream: Option<PanelClickHandler>,
     publisher_start: Option<PublisherClickHandler>,
     publisher_stop: Option<PublisherClickHandler>,
     publisher_reset: Option<PublisherClickHandler>,
@@ -165,6 +166,15 @@ impl ShowDetailPanelSlots {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.open_readiness = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the Stream "Change" callback.
+    pub(crate) fn on_change_stream(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.change_stream = Some(Rc::new(handler));
         self
     }
 
@@ -465,13 +475,18 @@ fn render_card_detail(
         detail = div()
             .flex()
             .flex_col()
-            .gap(Spacing::SM.scaled(cx))
-            .child(render_detail_row(
-                "Status",
-                card_status.state_label,
-                Some(summary),
-                cx,
-            ))
+            .min_w_0()
+            .child(
+                div()
+                    .px(Spacing::MD.scaled(cx))
+                    .pt(Spacing::MD.scaled(cx))
+                    .child(render_detail_row(
+                        "Status",
+                        card_status.state_label,
+                        Some(summary),
+                        cx,
+                    )),
+            )
             .child(detail)
             .into_any_element();
     }
@@ -867,7 +882,7 @@ fn render_stream_detail(
     let mut controls = vec![Button::plain("show-stream-change")
         .label("Change")
         .on_click({
-            let handler = slots.open_readiness.clone();
+            let handler = slots.change_stream.clone();
             move |event, window, app| {
                 if let Some(handler) = &handler {
                     handler(event, window, app);
