@@ -98,13 +98,11 @@ hold the admin token. The operator reserves the event with the relay tool,
 and HitIt enters it with its event ID and token file (item 4 of the reserved
 event safety request). This needs no relay change.
 
-- Operator choice of 2026-11-21: not decided. The operator prefers that the
-  operator reserves the event and HitIt enters it. But the operator does not
-  want to run Compose commands by hand. The operator also needs an easy way
-  to approve friends for events.
-- The relay `AGENTS.md` says that only the operator reserves events until a
-  subsequent identity decision. The orchestrator takes the item to the
-  operator and the relay. HitIt writes no code for item 1 until the decision.
+- Operator choice of 2026-11-21: the operator reserves each event with one
+  relay command, also the events of friends. HitIt does not reserve events
+  and does not hold the admin token. HitIt enters a reserved event from its
+  event ID and its token file (item 4 of the reserved event safety request).
+  The relay session writes the relay command.
 
 ### 2. Keep Each Show Stream Apart From The Private Stream (G8)
 
@@ -265,7 +263,7 @@ starts the recording (item 5).
 
 ## Proposed Order
 
-1. Item 2: the operator selects publisher option A or option B. Items 1, 3
+1. Item 2: the operator selects publisher option A or option B. Items 3
    and 5 depend on the selection.
 2. Item 1: enter a reserved event, and the safety requests.
 3. Item 3: configuration, after the publisher package update.
@@ -277,10 +275,8 @@ Item 4 can start first, because it has no dependency.
 
 ## What The Operator Decides
 
-1. Item 1: HitIt enters a reserved event that the operator made, or HitIt
-   reserves events itself. Open. The orchestrator takes it to the relay.
-2. Item 2: publisher option A or option B. Open.
+1. Item 2: publisher option A or option B. Open.
 
-The operator approved this request and selected Mixxx for item 4 on
-2026-11-21. The other open points wait for an answer from the publisher, the
+The operator approved this request on 2026-11-21. The operator also selected
+Mixxx for item 4, and one relay command for item 1. The other open points wait for an answer from the publisher, the
 relay or Studio.

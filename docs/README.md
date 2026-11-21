@@ -194,7 +194,7 @@ Current plans:
   orchestrator asks HitIt to own six steps of the mock live show rehearsal.
   They are reserved events, a private stream apart from each show, the
   configuration, the export to Mixxx, one start and stop, and the episode.
-  Approved. Items 1 and 2 wait for operator choices
+  Approved. Item 2 waits for an operator choice
 - [MusicIndex Image tag request](plans/musicindex-image-tag-request.md):
   the publisher asks HitIt to write `TXXX:MusicIndex Image`, the artwork URL
   of a track. Decided as ADR 0080 Decision 9
