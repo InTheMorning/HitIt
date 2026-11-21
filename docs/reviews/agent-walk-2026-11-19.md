@@ -154,3 +154,5 @@ Agent walk of section 47 of the human checks, 2026-11-20. The results are in tha
 - "Recording elapsed 0:00" shows while the recording is stopped.
 - A Connect to a server name that butt does not know fails with no error text.
 - Settings has no field for the encoder server name. The list of shows must own this setting.
+
+Operator choice, 2026-11-21: a tag date is the day in UTC, in the form `YYYY-MM-DD`. Commit 221171e of 2026-11-16 made the display date follow the local time zone (R-DATE-1). The TDRC value used that display date, so in UTC-5 the "Update files" scan wanted each file one day earlier. `metadata::fmt_tag_date` now gives the release date value. The test `tdrc_is_the_utc_day_in_each_time_zone` guards it. The "Release date" row of the metadata comparison table now shows the same form as the file value.

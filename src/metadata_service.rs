@@ -581,6 +581,27 @@ mod tests {
         assert!(edits.contains(&edit("TDRC", "2024-01-01")));
     }
 
+    /// The `TDRC` value is the day in UTC, so it does not change with the time zone or the
+    /// language of the computer. The display date of R-DATE-1 broke this on 2026-11-16: in
+    /// UTC-5 the tag scan wanted each file one day earlier. Unit tests format the display date
+    /// in UTC, so this test finds the display formatter by its form: the release date value
+    /// must be `YYYY-MM-DD`, not a date in words.
+    #[test]
+    fn tdrc_is_the_utc_day_in_each_time_zone() {
+        for pub_date in [1_724_632_200, 1_724_715_000] {
+            let mut context = track_context_without_own_identity();
+            context.track.pub_date = Some(pub_date);
+            assert_eq!(
+                crate::metadata::musicindex_release_date(&context).as_deref(),
+                Some("2024-08-26"),
+                "A tag date is the day in UTC. Format it with metadata::fmt_tag_date, not with \
+                 the display date fmt_date (R-DATE-1 applies only to the screen)."
+            );
+            let edits = id3_edits_for_track_context(&context);
+            assert!(edits.contains(&edit("TDRC", "2024-08-26")));
+        }
+    }
+
     /// R49-05 (ADR 0075 packet 049): a track without its own date gets no
     /// `TDRC` edit from a feed release date or an oldest item date.
     #[test]

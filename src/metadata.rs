@@ -508,7 +508,7 @@ pub fn track_release_pubdate(track: &Track) -> Option<String> {
         track.source_release_claims.as_deref(),
         TRACK_RELEASE_DATE_PROVEN_PATHS,
     )
-    .or_else(|| track.pub_date.and_then(fmt_date))
+    .or_else(|| track.pub_date.and_then(fmt_tag_date))
 }
 
 /// The feed's own release date, proven by a `release_date` claim with a
@@ -617,7 +617,13 @@ pub fn release_pubdate_from_claims(
     claims: Option<&[SourceReleaseClaim]>,
     proven_paths: &[&str],
 ) -> Option<String> {
-    find_release_date_claim(claims, proven_paths).map(format_release_claim_value)
+    find_release_date_claim(claims, proven_paths).map(|value| {
+        value
+            .parse::<i64>()
+            .ok()
+            .and_then(fmt_tag_date)
+            .unwrap_or_else(|| value.to_string())
+    })
 }
 
 pub fn normalized_compare_value(value: Option<&str>) -> Option<String> {
@@ -4033,6 +4039,15 @@ pub fn fmt_date(ts: i64) -> Option<String> {
     crate::view_models::format::fmt_date(ts)
 }
 
+/// Formats a Unix timestamp as the date of a tag value, `YYYY-MM-DD`, for the day in UTC.
+///
+/// A tag value is data, not a display date: it must not change with the time zone or the
+/// language of the computer. Do not use [`fmt_date`] for a value that a file receives
+/// (R-DATE-1 applies only to dates on screen).
+pub fn fmt_tag_date(ts: i64) -> Option<String> {
+    chrono::DateTime::from_timestamp(ts, 0).map(|date| date.format("%Y-%m-%d").to_string())
+}
+
 pub fn id3_frame_version(frame_id: &str) -> Id3FrameVersion {
     let frame_id = id3_frame_base(frame_id);
     if frame_id.len() == 3 {
@@ -4644,7 +4659,7 @@ mod tests {
 
         assert_eq!(
             data_row(&rows, "Release date").and_then(|row| row.rss_value.as_deref()),
-            Some("Apr 5, 2024")
+            Some("2024-04-05")
         );
         assert_eq!(
             data_row(&rows, "Explicit").and_then(|row| row.rss_value.as_deref()),
@@ -4745,7 +4760,7 @@ mod tests {
         let rows = track_metadata_rows(&track_context, None, false);
         assert_eq!(
             data_row(&rows, "Release date").and_then(|row| row.rss_value.as_deref()),
-            Some("Jan 1, 2024")
+            Some("2024-01-01")
         );
     }
 
