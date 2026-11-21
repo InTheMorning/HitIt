@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed - 2026-11-21. The operator gave the direction on 2026-11-21: keep RSS current when musicindex signals a change, and make the requests fast and efficient.
+Accepted - 2026-11-21. The operator gave the direction on 2026-11-21: keep RSS current when musicindex signals a change, and make the requests fast and efficient. The operator accepted the ADR on 2026-11-21.
 
 - Bar: crosses modules, and opposite choice by mistake. The change touches the feed commands, the feed service, the RSS check of ADR 0076 and the ADR 0075 observation guards. [ADR 0075 task 039](../tasks/adr-0075-task-039-feed-check-and-update-observation-retention.md) and its guard tell an agent that the feed update merges RSS for each track.
 - Changes: the scope of ADR 0075 task 039. The RSS read of the feed update moves to the RSS check of [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md).
@@ -55,4 +55,4 @@ Proposed - 2026-11-21. The operator gave the direction on 2026-11-21: keep RSS c
 
 ## Tasks
 
-- None. A task file follows when the operator accepts this ADR.
+- [Task 001](../tasks/adr-0109-task-001-changed-feeds-get-one-rss-check.md): the RSS check of changed feeds and the parallel requests.

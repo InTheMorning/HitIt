@@ -7,6 +7,7 @@ Amended 2026-09-19 with Decisions D to G, and 2026-09-20 with Decision H.
 
 - Changes: [ADR 0028](0028-local-identity-source-fact-persistence.md), the replacement key of a source-fact collection.
 - Changes: [ADR 0054](0054-local-metadata-source-fact-persistence.md), the replacement key of a metadata source-fact collection.
+- Changed by: [ADR 0109](0109-check-all-feeds-reads-rss-of-changed-feeds.md), the scope of task 039. The feed update records no RSS observation. A changed feed gets one RSS check of ADR 0076.
 
 Amended 2026-09-21. The operator recorded Decision I: MusicIndex is a cache of RSS, and
 RSS is the only provenance. The operator also reduced the field scope in Decision A and
