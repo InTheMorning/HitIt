@@ -77,6 +77,7 @@ Status values are the ADR 0057 vocabulary: `Proposed`, `Accepted`,
 | [0106](0106-the-cue-changes-during-a-show.md) | Cue entries after the current entry move during a show, by a drag, Alt+Up and Alt+Down, or "Play next". A load opens Show, and the empty Show lists the playlists. Changes ADR 0068 | Accepted |
 | [0107](0107-the-cards-hold-the-on-air-status.md) | The band has one button row. Cards and inspectors show status. "End show" stops only parts recorded during this HitIt session. Changes ADR 0105 | Accepted |
 | [0108](0108-the-tag-update-selects-each-change.md) | The "Update n files" popup has a check box for each file and each change. A cleared change becomes a skip until its stored value changes. Skips stay in a folded section. Changes ADR 0076 Decision 8 | Accepted |
+| [0109](0109-check-all-feeds-reads-no-rss.md) | "Check all feeds" reads no RSS. The feed update keeps its musicindex requests and drops the RSS merge. The staleness check sends up to four requests at the same time, in the input order. Changes the scope of ADR 0075 task 039 | Proposed |
 
 ## UI Architecture
 
