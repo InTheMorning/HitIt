@@ -9,5 +9,6 @@ pub mod live_value;
 pub mod producer;
 pub mod publisher_targets;
 pub mod registry;
+pub mod setup_helper;
 pub mod tokens;
 pub mod transport;

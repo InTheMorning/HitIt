@@ -5268,7 +5268,7 @@ mod tests {
             ),
             (
                 PublisherServiceRole::Producer,
-                "mixxx-now-playing.service",
+                "mixxx-now-playing@mixxx.service",
                 ServiceState::Active,
             ),
         ]);
@@ -5398,7 +5398,7 @@ mod tests {
             ),
             (
                 PublisherServiceRole::Producer,
-                "mixxx-now-playing.service",
+                "mixxx-now-playing@mixxx.service",
                 ServiceState::Failed {
                     reason: "exit-code".to_owned(),
                 },
@@ -5431,7 +5431,7 @@ mod tests {
             ),
             (
                 PublisherServiceRole::Producer,
-                "mixxx-now-playing.service",
+                "mixxx-now-playing@mixxx.service",
                 ServiceState::Inactive,
             ),
         ]);
@@ -5462,7 +5462,7 @@ mod tests {
             ),
             (
                 PublisherServiceRole::Producer,
-                "mixxx-now-playing.service",
+                "mixxx-now-playing@mixxx.service",
                 ServiceState::Inactive,
             ),
         ]);
@@ -6176,7 +6176,7 @@ mod tests {
         let snapshot = publisher_snapshot([
             (
                 PublisherServiceRole::Producer,
-                "mixxx-now-playing.service",
+                "mixxx-now-playing@mixxx.service",
                 ServiceState::Active,
             ),
             (

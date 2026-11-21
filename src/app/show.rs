@@ -54,8 +54,6 @@ use super::queue_now_playing::{
 };
 use super::{AppTab, TopApp};
 
-const PRODUCER_UNIT: &str = "mixxx-now-playing.service";
-
 impl TopApp {
     fn confirm_go_on_air(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
         let Some(band) = self.show_page.on_air.as_ref() else {
@@ -2726,7 +2724,7 @@ fn broadcast_service_unit(
 ) -> anyhow::Result<UnitRef> {
     match role {
         PublisherServiceRole::Publisher => UnitRef::publisher(&host.instance_name),
-        PublisherServiceRole::Producer => UnitRef::new(PRODUCER_UNIT),
+        PublisherServiceRole::Producer => UnitRef::producer(&host.instance_name),
     }
 }
 

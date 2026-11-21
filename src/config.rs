@@ -144,8 +144,31 @@ pub struct BroadcastHostConfig {
     /// Local or SSH command transport.
     #[serde(flatten)]
     pub transport: Transport,
-    /// Publisher instance name used in the user service unit.
+    /// Publisher instance name used in the user service unit. This is the
+    /// private instance (ADR 0111 Decision 4).
     pub instance_name: String,
+    /// Publisher instances that `HitIt` made for shows (ADR 0111 Decision 2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub show_instances: Vec<ShowInstanceConfig>,
+}
+
+/// One publisher instance that `HitIt` made for shows (ADR 0111 Decision 2).
+///
+/// `HitIt` writes an entry only after the publisher setup helper succeeds. The
+/// last three fields come from the JSON output of the helper.
+#[derive(Debug, Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ShowInstanceConfig {
+    /// Publisher instance name.
+    pub name: String,
+    /// Publisher target name.
+    #[serde(default = "default_drop_file_target")]
+    pub target: String,
+    /// Publisher configuration file of the instance.
+    pub config_file: String,
+    /// Publisher unit name of the instance.
+    pub publisher_unit: String,
+    /// Mixxx producer unit name of the instance.
+    pub producer_unit: String,
 }
 
 impl BroadcastHostConfig {
@@ -156,6 +179,7 @@ impl BroadcastHostConfig {
             name: "Local".to_owned(),
             transport: Transport::local(),
             instance_name: default_broadcast_instance_name(),
+            show_instances: Vec::new(),
         }
     }
 
@@ -174,7 +198,33 @@ impl BroadcastHostConfig {
                 self.name
             ));
         }
+        self.validate_show_instances()?;
         self.transport.validate()
+    }
+
+    fn validate_show_instances(&self) -> Result<()> {
+        for (index, instance) in self.show_instances.iter().enumerate() {
+            crate::broadcast::control::validate_instance_name(&instance.name)
+                .with_context(|| format!("config: broadcast host {} show instance", self.name))?;
+            if instance.name == self.instance_name {
+                return Err(anyhow!(
+                    "config: broadcast host {} show instance {} is the private instance (ADR 0111 Decision 4)",
+                    self.name,
+                    instance.name
+                ));
+            }
+            if self.show_instances[..index]
+                .iter()
+                .any(|earlier| earlier.name == instance.name)
+            {
+                return Err(anyhow!(
+                    "config: broadcast host {} show instance {} appears twice",
+                    self.name,
+                    instance.name
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1369,6 +1419,72 @@ instance_name = "remote-mixxx"
             }
         );
         assert_eq!(host.instance_name, "remote-mixxx");
+    }
+
+    /// ADR 0111 criterion 2: a host with show instances reads and writes. A
+    /// host with no show instances reads and writes as before.
+    #[test]
+    fn adr_0111_host_reads_and_writes_show_instances() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let cfg_path = temp.path().join("config.toml");
+        fs::write(
+            &cfg_path,
+            r#"
+music_dir = "/tmp/music"
+db_path = "/tmp/hitit.sqlite"
+
+[[broadcast.hosts]]
+name = "Local"
+transport = "local"
+instance_name = "mixxx"
+
+[[broadcast.hosts.show_instances]]
+name = "show-1"
+config_file = "/fixture/show-1/config.toml"
+publisher_unit = "musicindex-live-publisher@show-1.service"
+producer_unit = "mixxx-now-playing@show-1.service"
+"#,
+        )
+        .expect("write config");
+        let cfg = ConfigSnapshot::read_existing(&cfg_path).expect("load config");
+        let broadcast = cfg.broadcast();
+        let host = broadcast.selected_host().expect("selected host");
+        assert_eq!(host.show_instances.len(), 1);
+        assert_eq!(host.show_instances[0].name, "show-1");
+        assert_eq!(host.show_instances[0].target, "default");
+        host.validate().expect("valid host");
+
+        let written = toml::to_string(host).expect("write host");
+        let again: BroadcastHostConfig = toml::from_str(&written).expect("read host again");
+        assert_eq!(&again, host);
+
+        let plain = BroadcastHostConfig::default_local();
+        assert!(plain.show_instances.is_empty());
+        assert!(!toml::to_string(&plain)
+            .expect("write plain host")
+            .contains("show_instances"));
+        let read: BroadcastHostConfig =
+            toml::from_str("name = \"Local\"\ntransport = \"local\"\ninstance_name = \"mixxx\"\n")
+                .expect("read plain host");
+        assert_eq!(read, plain);
+    }
+
+    /// ADR 0111 Decisions 2 and 4: a show instance cannot take the name of the
+    /// private instance, and the name follows the instance name pattern.
+    #[test]
+    fn adr_0111_host_refuses_a_bad_show_instance() {
+        let entry = |name: &str| ShowInstanceConfig {
+            name: name.to_owned(),
+            target: "default".to_owned(),
+            config_file: "/fixture/config.toml".to_owned(),
+            publisher_unit: "unit".to_owned(),
+            producer_unit: "unit".to_owned(),
+        };
+        for names in [vec!["mixxx"], vec!["Show"], vec!["show-1", "show-1"]] {
+            let mut host = BroadcastHostConfig::default_local();
+            host.show_instances = names.iter().map(|name| entry(name)).collect();
+            assert!(host.validate().is_err(), "{names:?}");
+        }
     }
 
     #[test]

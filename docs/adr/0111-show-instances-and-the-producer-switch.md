@@ -6,6 +6,9 @@ Accepted - 2026-11-21. The operator accepted it with one change: HitIt
 stores on disk that the switch of a show stopped the private producer, so
 "End show" starts it again also after a restart (Decision 7).
 
+- Revised: 2026-11-21. Operator choice: a show that HitIt plays also uses a
+  selected show instance (Decision 6). Decision 4 states what Replace is.
+
 - Bar: crosses repositories. HitIt runs the units and the setup helper of
   publisher ADR 0021. It also crosses modules: the configuration, the unit
   control, the service watch and the Show page change together.
@@ -102,7 +105,9 @@ HitIt refuses these actions on the private instance, in the GUI and in the
 CLI:
 
 - Make show instance, and each run of the setup helper.
-- Attach, Detach and Replace.
+- Attach, Detach and Replace. Replace is Attach with a replacement of the
+  event on a target. The Replace of the event registry makes a new event,
+  changes no target and is not refused.
 
 HitIt does not stop or start the publisher unit of the private instance. HitIt
 stops and starts the producer unit of the private instance only in a producer
@@ -125,8 +130,15 @@ again if step 1 recorded it as active. It then shows the error.
 
 ### 6. "Go on air" for a show that Mixxx plays
 
-The Show page has a player setting: HitIt or Mixxx. The default is HitIt. With
-HitIt, ADR 0105 Decision 3 applies with no change.
+The Show page has a player setting: HitIt or Mixxx. The default is HitIt.
+
+Operator choice of 2026-11-21: no show, with either player, changes the
+private instance. The Show page has a selected show instance for both
+players. Attach and Detach use the selected show instance. With HitIt, ADR
+0105 Decision 3 applies, and its step Attach attaches the event to the target
+of the selected show instance. When no show instance is selected, "Go on air"
+is not available and the Show page tells the operator to make or select a
+show instance.
 
 With Mixxx, "Go on air" has these steps, in this order:
 
@@ -241,6 +253,9 @@ Each criterion is proved by a test.
 11. An "End show" model that HitIt makes again from the stored state after a
     restart still gives step 5 of Decision 7. After step 5, the stored fact
     is clear.
+12. With the player HitIt and a selected show instance, the step Attach of
+    "Go on air" attaches to the target of the selected show instance. With no
+    selected show instance, "Go on air" is not available.
 
 ### Visual
 
@@ -257,9 +272,13 @@ A person must judge each criterion. An agent walk on Xvfb comes first.
 ## Tasks
 
 - [Task 001](../tasks/adr-0111-task-001-instance-units-and-the-setup-helper.md):
-  Decisions 1 to 4, mechanical criteria 1 to 5 and 10.
+  Decisions 1 to 4, mechanical criteria 1 to 5 and 10. The refusal of
+  Attach and Detach goes to task 003, so that it lands with the selection of
+  a show instance.
 - [Task 002](../tasks/adr-0111-task-002-the-producer-switch-and-the-watch.md):
   Decisions 5 and 8, mechanical criteria 6 and 9.
 - [Task 003](../tasks/adr-0111-task-003-a-show-that-mixxx-plays.md):
   Decisions 6 and 7, the stored fact, the GUI of Decisions 3 and 4,
-  mechanical criteria 7, 8 and 11, and the visual criteria.
+  the selected show instance for both players, the refusal of Attach and
+  Detach on the private instance, mechanical criteria 5 (Attach and Detach),
+  7, 8, 11 and 12, and the visual criteria.

@@ -25258,3 +25258,25 @@ src/ui/primitives/selected_look.rs for a selected item. Violations:\n{}",
         violations.join("\n")
     );
 }
+
+/// ADR 0111 Decision 1: each Mixxx producer unit has an instance. Only
+/// `UnitRef::producer` makes the unit name, so no source file may hold the
+/// name of the producer unit without an instance.
+#[test]
+fn adr_0111_no_producer_unit_name_without_an_instance() {
+    let mut violations = Vec::new();
+    for path in rust_files_under("src") {
+        for (line_number, line) in code_lines(&read_source(&path)) {
+            if line.contains("mixxx-now-playing.service") {
+                violations.push(format!("{}:{line_number}: `{line}`", rel_path(&path)));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ADR 0111 Decision 1: a source file must not hold the unit name \
+`mixxx-now-playing.service`. The producer unit is `mixxx-now-playing@INSTANCE.service`. \
+Build the name with `UnitRef::producer(instance)` in src/broadcast/control.rs. Violations:\n{}",
+        violations.join("\n")
+    );
+}

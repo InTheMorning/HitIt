@@ -2,14 +2,13 @@
 
 ## Status
 
-Ready after ADR 0110 task 001 - 2026-11-21. Implementation has not started.
+Implemented - 2026-11-21. Mechanical criteria are Green. The main session reviewed the diff and ran the checks. This task has no visual criteria. The refusal of Attach and Detach moved to [task 003](adr-0111-task-003-a-show-that-mixxx-plays.md).
 
 ## Goal
 
 Each Mixxx producer unit has an instance name. The configuration holds the
 show instances. HitIt makes a show instance with the publisher setup helper.
-HitIt refuses the setup helper, Attach, Detach and Replace on the private
-instance.
+HitIt refuses the setup helper on the private instance.
 
 ## Authority
 
@@ -41,12 +40,12 @@ the setup helper flags and output.
      line.
    - A function that adds the `ShowInstanceConfig` to the host only after the
      helper succeeds.
-5. Protection (Decision 4). The setup helper function, and `attach_event`
-   and `detach_target` of `src/broadcast/publisher_targets.rs`, refuse the
-   private instance (`host.instance_name`) with an error that names ADR 0111
-   Decision 4. They run no command. The Replace path of the event registry
-   refuses when the target that it changes is on the private instance. Each
-   CLI command that reaches these functions gives the same error.
+5. Protection (Decision 4). The setup helper function refuses the private
+   instance (`host.instance_name`) with an error that names ADR 0111
+   Decision 4. It runs no command. Operator choice of 2026-11-21 (option B):
+   the refusal of Attach and Detach goes to task 003, with the selection of a
+   show instance. Then no commit makes "Go on air" of a show that HitIt plays
+   fail.
 6. Change these documents in the same change: the AGENTS.md paragraph of
    ADR 0111, and this Status line.
 
@@ -84,8 +83,8 @@ Main session choices, 2026-11-21:
    no `--force`. With the confirmation, they also have `--force`.
 4. ADR 0111 criterion 4: the parser reads the last stdout line. It refuses an
    output with no JSON object on the last line.
-5. ADR 0111 criterion 5: the setup helper, Attach, Detach and Replace on the
-   private instance give an error. A recording `CommandRunner` proves that no
+5. ADR 0111 criterion 5, the setup helper part: the setup helper on the
+   private instance gives an error. A recording `CommandRunner` proves that no
    command ran.
 6. ADR 0111 criterion 10: an architecture test finds no constant with the
    text `mixxx-now-playing.service` in `src/`. Its failure message names
@@ -98,4 +97,36 @@ None. Task 003 has the visual criteria of ADR 0111.
 
 ## Report
 
-Not started.
+Each mechanical criterion and its test:
+
+1. Criterion 1: `adr_0111_producer_unit_has_an_instance_and_the_name_is_checked`
+   in `src/broadcast/control.rs`.
+2. Criterion 2: `adr_0111_host_reads_and_writes_show_instances` in
+   `src/config.rs`. The test `adr_0111_host_refuses_a_bad_show_instance` covers
+   the host check of show instance names.
+3. Criterion 3: `adr_0111_setup_arguments_follow_decision_3_and_force_needs_confirmation`
+   in `src/broadcast/setup_helper.rs`.
+4. Criterion 4: `adr_0111_parser_reads_the_last_line_and_refuses_other_output`
+   in `src/broadcast/setup_helper.rs`.
+5. Criterion 5: these tests use a recording command runner or refuse before a
+   command can run.
+   - `adr_0111_setup_helper_refuses_the_private_instance` in
+     `src/broadcast/setup_helper.rs`.
+   - Test `adr_0111_host_changes_only_after_the_helper_succeeds` proves that
+     the host gets a show instance only after the helper succeeds.
+6. Criterion 6: `adr_0111_no_producer_unit_name_without_an_instance` in
+   `tests/architecture_tests.rs`.
+7. Criterion 7: see the check results in the report of the main session.
+
+Choices that this task file did not give:
+
+- The registry Replace action makes a new created event and changes no
+  publisher target. It has no instance, so it has no refusal. The orchestrator
+  accepted this reading on 2026-11-21 (ADR 0111 Decision 4).
+- `--force` is the last argument.
+- `BroadcastHostConfig::validate` refuses a show instance with a bad name, with
+  the name of the private instance, or with a name that occurs twice.
+- `UnitRef::publisher` no longer trims the instance name. It refuses a name
+  with spaces.
+- Test literals of `mixxx-now-playing.service` in `src/` changed to
+  `mixxx-now-playing@mixxx.service`.

@@ -20,6 +20,31 @@ const CAT: &str = "cat";
 const SHOW_PROPERTIES: &str = "--property=LoadState,ActiveState,SubState,Result";
 const PUBLISHER_UNIT_PREFIX: &str = "musicindex-live-publisher@";
 const PUBLISHER_UNIT_SUFFIX: &str = ".service";
+const PRODUCER_UNIT_PREFIX: &str = "mixxx-now-playing@";
+const INSTANCE_NAME_MAX_LEN: usize = 32;
+
+/// Check an instance name against `^[a-z0-9][a-z0-9-]{0,31}$`.
+///
+/// ADR 0111 Decision 1 gives the pattern. Publisher ADR 0021 owns it. This
+/// is the one check for each unit name and each setup helper input.
+///
+/// # Errors
+///
+/// Returns an error when the name does not match the pattern.
+pub fn validate_instance_name(instance: &str) -> Result<()> {
+    let mut chars = instance.chars();
+    let first_ok = chars
+        .next()
+        .is_some_and(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit());
+    let rest_ok = chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-');
+    if first_ok && rest_ok && instance.len() <= INSTANCE_NAME_MAX_LEN {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "ADR 0111 Decision 1: instance name {instance:?} does not match ^[a-z0-9][a-z0-9-]{{0,31}}$"
+        ))
+    }
+}
 
 /// Reference to one systemd user unit.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -48,14 +73,25 @@ impl UnitRef {
     ///
     /// # Errors
     ///
-    /// Returns an error when the instance name is empty.
+    /// Returns an error when the instance name does not match the pattern of
+    /// ADR 0111 Decision 1.
     pub fn publisher(instance: &str) -> Result<Self> {
-        let instance = instance.trim();
-        if instance.is_empty() {
-            return Err(anyhow!("publisher instance name cannot be empty"));
-        }
+        validate_instance_name(instance)?;
         Self::new(format!(
             "{PUBLISHER_UNIT_PREFIX}{instance}{PUBLISHER_UNIT_SUFFIX}"
+        ))
+    }
+
+    /// Create the Mixxx producer instance unit name (ADR 0111 Decision 1).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the instance name does not match the pattern of
+    /// ADR 0111 Decision 1.
+    pub fn producer(instance: &str) -> Result<Self> {
+        validate_instance_name(instance)?;
+        Self::new(format!(
+            "{PRODUCER_UNIT_PREFIX}{instance}{PUBLISHER_UNIT_SUFFIX}"
         ))
     }
 
@@ -535,6 +571,28 @@ mod tests {
     use std::cell::RefCell;
 
     use super::*;
+
+    /// ADR 0111 criterion 1: the producer unit has an instance name and both
+    /// unit constructors refuse a name outside the pattern.
+    #[test]
+    fn adr_0111_producer_unit_has_an_instance_and_the_name_is_checked() -> Result<()> {
+        assert_eq!(
+            UnitRef::producer("show-1")?.unit(),
+            "mixxx-now-playing@show-1.service"
+        );
+        assert_eq!(
+            UnitRef::publisher("show-1")?.unit(),
+            "musicindex-live-publisher@show-1.service"
+        );
+        let too_long = "a".repeat(33);
+        assert!(UnitRef::producer(&"a".repeat(32)).is_ok());
+        for bad in ["Show", "-show", "", "show_1", "show 1", too_long.as_str()] {
+            let producer = UnitRef::producer(bad).expect_err(bad);
+            assert!(producer.to_string().contains("ADR 0111 Decision 1"));
+            assert!(UnitRef::publisher(bad).is_err(), "{bad:?}");
+        }
+        Ok(())
+    }
 
     #[derive(Debug)]
     struct MissingProgramRunner;

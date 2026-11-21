@@ -15,7 +15,7 @@ action "Make show instance" and shows the state of each instance.
 ## Authority
 
 [ADR 0111](../adr/0111-show-instances-and-the-producer-switch.md) Decisions
-3, 4 (GUI), 6, 7 and 8 (render), and the stored fact of Decision 7. It
+3 (GUI), 4 (Attach, Detach and the GUI), 6, 7 and 8 (render), and the stored fact of Decision 7. It
 changes [ADR 0105](../adr/0105-go-on-air-and-end-show.md) Decisions 3 and 5
 and [ADR 0107](../adr/0107-the-cards-hold-the-on-air-status.md) Decision 3.
 
@@ -50,12 +50,26 @@ and [ADR 0107](../adr/0107-the-cards-hold-the-on-air-status.md) Decision 3.
    setup helper function of task 001. A second dialog asks for `--force` when
    the helper reports that the instance exists. It names the instance and the
    event.
-6. Protection (Decision 4, GUI). An action that task 001 refuses on the
-   private instance is not available in the GUI. Its tooltip or its
-   inspector text says why, with the name of the private instance.
-7. State (Decision 8, render). The Live Metadata card and its inspector
+6. Selected show instance (Decision 6, operator choice of 2026-11-21). The
+   Show page has a selected show instance for both players. Attach and
+   Detach, in the inspector and in the step Attach of "Go on air" with
+   HitIt, use the target of the selected show instance. With no selected show
+   instance, "Go on air" is not available, and the Show page tells the
+   operator to make or select a show instance. The CLI command `attach` gets
+   an option for the show instance and has no default to the private
+   instance.
+7. Protection (Decision 4). `attach_event` and `detach_target` of
+   `src/broadcast/publisher_targets.rs` refuse the private instance
+   (`host.instance_name`) with an error that names ADR 0111 Decision 4. They
+   run no command. `EventTargetCommand` in `src/app/show.rs` and the CLI
+   command `attach` give the same error. The registry Replace makes a new
+   event, changes no target and is not refused. In the GUI, a refused action
+   on the private instance is not available. Its tooltip or its inspector
+   text says why, with the name of the private instance. These parts land in
+   the same commit as item 6.
+8. State (Decision 8, render). The Live Metadata card and its inspector
    render the instance lines of task 002.
-8. Change these documents in the same change: the AGENTS.md paragraph of
+9. Change these documents in the same change: the AGENTS.md paragraph of
    ADR 0111, this Status line, the ADR 0111 row of `docs/adr/README.md` if
    its text changes, and a new section in `docs/pending-human-checks.md` with
    the visual criteria below.
@@ -87,6 +101,8 @@ Main session choices, 2026-11-21:
 | Encoder control | reuse | src/broadcast/encoder.rs | `start_recording` and `stop_recording` exist and have no caller. |
 | Producer switch | reuse | src/broadcast/mod.rs | Task 002 adds the module `producer_switch` with the switch. |
 | Setup helper client | reuse | src/broadcast/mod.rs | Task 001 adds the module `setup_helper` with the helper call. |
+| Publisher targets | extend | src/broadcast/publisher_targets.rs | `attach_event` and `detach_target` refuse the private instance. |
+| CLI parser | extend | src/cli.rs | `attach` takes the show instance and refuses the private instance. |
 | Database migrations | extend | src/db.rs | A new migration for the stored fact. |
 | Show inspector | extend | src/ui/composites/show_detail_panel.rs | The Source and Live Metadata inspectors get the setting, the action and the instance lines. |
 
@@ -103,7 +119,15 @@ Main session choices, 2026-11-21:
 4. A test: a failed switch with a start of the private producer clears the
    stored fact.
 5. A view model test: with HitIt as player, the sequences are as before.
-6. The commit checks of AGENTS.md pass.
+   The step Attach uses the selected show instance.
+6. ADR 0111 criterion 12: with HitIt and a selected show instance, Attach
+   goes to the target of the show instance. With no selected show instance,
+   "Go on air" is not available.
+7. ADR 0111 criterion 5, the Attach and Detach part: Attach, Detach and
+   Attach with a replacement on the private instance give an error that
+   names ADR 0111 Decision 4. A recording `CommandRunner` proves that no
+   command ran. The app command and the CLI give the same error.
+8. The commit checks of AGENTS.md pass.
 
 ## Visual Criteria
 
@@ -118,6 +142,8 @@ The agent walks each one on Xvfb first.
   "Go on air" shows the Mixxx steps when Mixxx is selected.
 - V4 (ADR 0111 visual 4): a refused action on the private instance shows why
   it is refused.
+- V5: with no selected show instance, "Go on air" is not available and the
+  Show page tells the operator to make or select a show instance.
 
 ## Report
 

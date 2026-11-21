@@ -574,7 +574,7 @@ mod tests {
                 BroadcastServiceUnitSnapshot {
                     role: BroadcastServiceRole::Producer,
                     host_name: "Local".to_owned(),
-                    unit_name: "mixxx-now-playing.service".to_owned(),
+                    unit_name: "mixxx-now-playing@mixxx.service".to_owned(),
                     state: ServiceState::Inactive,
                 },
             ]
@@ -583,7 +583,7 @@ mod tests {
             reader.calls(),
             vec![
                 "musicindex-live-publisher@mixxx.service",
-                "mixxx-now-playing.service",
+                "mixxx-now-playing@mixxx.service",
             ]
         );
         assert_eq!(
@@ -860,7 +860,7 @@ mod tests {
                 BroadcastServiceRole::Producer,
                 "Local",
                 Transport::local(),
-                UnitRef::new("mixxx-now-playing.service").expect("producer unit"),
+                UnitRef::new("mixxx-now-playing@mixxx.service").expect("producer unit"),
             ),
         ]
     }
