@@ -36,6 +36,7 @@ pub(crate) fn open_saved_search_delete_dialog<T>(
 fn confirmation_display(display: SavedSearchDeleteConfirmation) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
         confirm_enabled: true,
+        form: None,
         section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(display.message),

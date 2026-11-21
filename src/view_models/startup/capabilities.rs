@@ -789,6 +789,7 @@ fn run_label(action: &RecoveryAction) -> &'static str {
             EventControlIntent::ReadTargets => "Read event targets",
             EventControlIntent::Refresh => "Refresh event",
             EventControlIntent::CopyFeedTag => "Copy feed tag",
+            EventControlIntent::AddReserved => "Add reserved event",
         },
         RecoveryAction::Encoder { operation, .. } => match operation {
             StreamEncoderOperation::Connect => "Connect stream",

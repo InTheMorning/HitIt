@@ -710,7 +710,8 @@ fn event_control_style(intent: EventControlIntent) -> ControlStyle {
         | EventControlIntent::Replace
         | EventControlIntent::Attach
         | EventControlIntent::Detach => ControlStyle::CompactAction,
-        EventControlIntent::Check
+        EventControlIntent::AddReserved
+        | EventControlIntent::Check
         | EventControlIntent::ReadTargets
         | EventControlIntent::Refresh
         | EventControlIntent::CopyFeedTag => ControlStyle::RowAction,
@@ -818,6 +819,14 @@ fn render_event_detail(
         )
         .into_any_element(),
     );
+    controls.push(
+        event_action_button(
+            section.actions.add_reserved,
+            ControlStyle::RowAction,
+            event_handler(EventControlIntent::AddReserved, slots),
+        )
+        .into_any_element(),
+    );
     controls.push(overflow.into_any_element());
     div()
         .flex()
@@ -831,6 +840,12 @@ fn render_event_detail(
             cx,
         ))
         .child(picker)
+        .children(
+            section
+                .event
+                .kind
+                .map(|kind| compact_detail(format!("Kind: {}", kind.label()), cx)),
+        )
         .child(render_controls(controls, cx))
         .children(section.hint.map(|hint| compact_detail(hint, cx)))
 }

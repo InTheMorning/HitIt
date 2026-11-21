@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use gpui::{Context, Entity};
+use gpui::{AppContext as _, Context, Entity};
+use gpui_component::input::{InputEvent, InputState};
 use rusqlite::Connection;
 
 use crate::application::capability::Dependency;
@@ -32,16 +33,17 @@ use crate::runtime::{
     BroadcastServiceWatchSnapshot, BroadcastServiceWatchUnit,
 };
 use crate::ui::composites::{
-    open_confirmation_dialog, ConfirmationDialogDisplay, ConfirmationDialogHandlers,
+    open_confirmation_dialog, open_confirmation_dialog_from, ConfirmationDialogDisplay,
+    ConfirmationDialogHandlers,
 };
 use crate::ui::shells::show::{render_show, ShowShell, ShowSlots};
 use crate::view_models::queue_now_playing::QueueNowPlayingPageVm;
 use crate::view_models::show::{
-    EventCheckResponse, EventCommandFeedback, EventCommandState, EventControlIntent,
+    EventCheckResponse, EventCommandFeedback, EventCommandState, EventControlIntent, EventKind,
     EventRegistryAction, EventRegistryInput, EventRegistryStatus, EventReportOperation,
     EventSectionInput, EventSelectionInput, EventState, EventTargetInput, EventTargetListInput,
-    PublisherServiceOperation, PublisherServiceRole, ShowCardKind, ShowCommandId, ShowLogRequestId,
-    ShowPageVm, StreamEncoderOperation, PUBLISHER_LOG_LINE_COUNT,
+    PublisherServiceOperation, PublisherServiceRole, ReservedAddOutcome, ShowCardKind,
+    ShowCommandId, ShowLogRequestId, ShowPageVm, StreamEncoderOperation, PUBLISHER_LOG_LINE_COUNT,
 };
 use crate::view_models::workspace::{FrameNavigationEntry, MusicDestination};
 use crate::{config, db};
@@ -76,6 +78,7 @@ impl TopApp {
             cx,
             ConfirmationDialogDisplay {
                 confirm_enabled: true,
+                form: None,
                 section: None,
                 title: band.confirmation_title.into(),
                 message: message.into(),
@@ -146,6 +149,7 @@ impl TopApp {
             cx,
             ConfirmationDialogDisplay {
                 confirm_enabled: true,
+                form: None,
                 section: None,
                 title: "End show?".into(),
                 message: notes.into(),
@@ -320,6 +324,24 @@ impl TopApp {
                 self.run_publisher_service_command(role, PublisherServiceOperation::Start, cx);
             }
             OnAirStep::AttachEvent => {
+                // ADR 0110 Decision 7: this step must not replace a different event.
+                if let Some(message) = self
+                    .event_section_input
+                    .as_ref()
+                    .and_then(on_air_attach_refusal)
+                {
+                    if let Some(input) = &mut self.event_section_input {
+                        input.feedback.target_mutation = EventCommandState::Failed {
+                            detail: message.clone(),
+                        };
+                        input.record_event_report(
+                            EventReportOperation::TargetMutation,
+                            chrono::Utc::now(),
+                        );
+                    }
+                    self.advance_on_air(None, Err(message), cx);
+                    return;
+                }
                 self.dispatch_event_target_command(EventTargetOperation::Attach, None, cx);
             }
             OnAirStep::ConnectStream => {
@@ -532,6 +554,7 @@ impl TopApp {
             cx,
             ConfirmationDialogDisplay {
                 confirm_enabled: true,
+                form: None,
                 section: None,
                 title: "Clear the Show cue?".into(),
                 message: "This removes the stored cue.".into(),
@@ -747,8 +770,12 @@ fn with_event_registry_slots(slots: ShowSlots, entity: &Entity<TopApp>) -> ShowS
                 }
             });
         })
-        .on_event_control(move |intent, _, _, cx| {
-            event_control_entity.update(cx, |this, cx| this.run_event_control(intent, cx));
+        .on_event_control(move |intent, _, window, cx| {
+            event_control_entity.update(cx, |this, cx| match intent {
+                EventControlIntent::AddReserved => this.open_add_reserved_dialog(window, cx),
+                EventControlIntent::Attach => this.attach_event_after_question(window, cx),
+                _ => this.run_event_control(intent, cx),
+            });
         })
 }
 
@@ -1877,9 +1904,9 @@ impl ApplicationCommand for EventRegistryCommand {
                         .map_err(event_registry_error)?
                         .is_empty()
             }
-            EventRegistryAction::Replace => selected
-                .as_ref()
-                .is_some_and(|event| event.state == EventState::Dead),
+            EventRegistryAction::Replace => selected.as_ref().is_some_and(|event| {
+                event.state == EventState::Dead && event.kind == EventKind::Created
+            }),
             EventRegistryAction::Check => selected.is_some(),
         };
         if !allowed {
@@ -2511,8 +2538,16 @@ fn selected_event_input(conn: &Connection) -> anyhow::Result<Option<EventSelecti
         .map(|event| event.flatten().map(event_selection_input))
 }
 
+const fn event_kind(kind: db::BroadcastEventKind) -> EventKind {
+    match kind {
+        db::BroadcastEventKind::Created => EventKind::Created,
+        db::BroadcastEventKind::Reserved => EventKind::Reserved,
+    }
+}
+
 fn event_selection_input(event: db::BroadcastEventRow) -> EventSelectionInput {
     EventSelectionInput {
+        kind: event_kind(event.kind),
         created_at: event.created_at,
         last_checked_at: event.last_checked_at,
         label: event.label,
@@ -3445,6 +3480,7 @@ mod tests {
         input.registry.selected_id = Some("a".to_owned());
         input.registry.revision = 3;
         input.selected_event = Some(EventSelectionInput {
+            kind: EventKind::Created,
             created_at: 1,
             last_checked_at: Some(2),
             label: None,
@@ -3490,6 +3526,555 @@ mod tests {
         current = Some(input.clone());
         apply_event_refresh(&mut current, Some(&input), Some(new_context.clone()));
         assert_eq!(current, Some(new_context));
+    }
+
+    /// ADR 0110 Decision 2: the dialog command stores a Reserved row, selects it and keeps the file.
+    #[cfg(unix)]
+    #[test]
+    fn adr_0110_add_reserved_command_stores_selects_and_keeps_the_token_file() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let temp = tempfile::tempdir().unwrap();
+        let conn = Arc::new(Mutex::new(show_event_db(&temp)));
+        let (endpoint, relay) = show_event_relay(vec![200]);
+        let cfg_path = temp.path().join("config.toml");
+        fs::write(&cfg_path, format!("musicindex_endpoint = {endpoint:?}\n")).unwrap();
+        let token = temp.path().join("show.token");
+        fs::write(&token, "fixture-token\n").unwrap();
+        fs::set_permissions(&token, fs::Permissions::from_mode(0o600)).unwrap();
+        let command = |event_id: &str, path: &Path| AddReservedEventCommand {
+            conn: Arc::clone(&conn),
+            cfg_path: cfg_path.clone(),
+            event_id: event_id.to_owned(),
+            token_path: path.to_path_buf(),
+            label: Some("Friday".to_owned()),
+        };
+
+        let refused = command("event-one", &temp.path().join("missing.token"))
+            .execute(&CommandContext::next())
+            .map(|_| ())
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("check 3"), "{refused}");
+        assert!(db::broadcast_events(&conn.lock().unwrap())
+            .unwrap()
+            .is_empty());
+
+        let added = command("event-one", &token)
+            .execute(&CommandContext::next())
+            .unwrap()
+            .into_parts()
+            .0;
+        assert_eq!(added.event_id, "event-one");
+        assert_eq!(added.check_failure, None);
+        assert_eq!(added.selection_error, None);
+        let conn = conn.lock().unwrap();
+        let row = db::broadcast_event_by_event_id(&conn, "event-one")
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.kind, db::BroadcastEventKind::Reserved);
+        assert_eq!(row.token_path, token.to_string_lossy());
+        assert_eq!(
+            db::broadcast_event_selection(&conn)
+                .unwrap()
+                .event_id
+                .as_deref(),
+            Some("event-one")
+        );
+        assert_eq!(fs::read_to_string(&token).unwrap(), "fixture-token\n");
+        assert_eq!(
+            fs::metadata(&token).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        let loaded = event_selection_input(row);
+        assert_eq!(loaded.kind, EventKind::Reserved);
+        relay.join().unwrap();
+    }
+
+    /// ADR 0110 Decision 5: the command refuses Replace for a Dead reserved row.
+    #[test]
+    fn adr_0110_replace_command_refuses_a_dead_reserved_row() {
+        let temp = tempfile::tempdir().unwrap();
+        let conn = Arc::new(Mutex::new(show_event_db(&temp)));
+        let cfg_path = temp.path().join("config.toml");
+        fs::write(&cfg_path, "musicindex_endpoint = \"http://127.0.0.1:9\"\n").unwrap();
+        {
+            let conn = conn.lock().unwrap();
+            db::insert_broadcast_event(
+                &conn,
+                &db::BroadcastEventInput {
+                    event_id: "event-old".to_owned(),
+                    label: None,
+                    endpoint: "http://127.0.0.1:9".to_owned(),
+                    token_path: temp.path().join("old.token").to_string_lossy().into_owned(),
+                    created_at: 1,
+                    last_checked_at: Some(2),
+                    last_status: Some(db::BroadcastEventStatus::Dead),
+                    kind: db::BroadcastEventKind::Reserved,
+                },
+            )
+            .unwrap();
+            db::select_broadcast_event(&conn, "event-old").unwrap();
+        }
+        let (selected, revision) = {
+            let conn = conn.lock().unwrap();
+            (
+                selected_event_input(&conn).unwrap(),
+                db::broadcast_event_selection(&conn).unwrap().revision,
+            )
+        };
+        let error = EventRegistryCommand {
+            conn: Arc::clone(&conn),
+            cfg_path,
+            action: EventRegistryAction::Replace,
+            selected_event: selected,
+            selection_revision: revision,
+        }
+        .execute(&CommandContext::next())
+        .map(|_| ())
+        .unwrap_err();
+        assert!(error.to_string().contains("unavailable"), "{error}");
+        assert_eq!(
+            db::broadcast_events(&conn.lock().unwrap()).unwrap().len(),
+            1
+        );
+    }
+
+    /// ADR 0110 Decision 7: the Go on air step refuses to replace a different event, and runs for the same event.
+    #[test]
+    fn adr_0110_go_on_air_attach_step_refuses_a_different_event() {
+        let input = |target_event: &str, targets: Option<EventTargetListInput>| {
+            let mut input = EventSectionInput {
+                liveness_confirmed: true,
+                registry: EventRegistryInput::default(),
+                context: String::new(),
+                request: 0,
+                feedback: EventCommandFeedback::default(),
+                selected_event: Some(EventSelectionInput {
+                    kind: EventKind::Created,
+                    created_at: 0,
+                    last_checked_at: None,
+                    label: None,
+                    event_id: "event-one".to_owned(),
+                    endpoint: "https://relay.example".to_owned(),
+                    token_path: "/fixture/one.token".to_owned(),
+                    state: EventState::Live,
+                    token_file_missing: false,
+                }),
+                targets: EventTargetListInput::Loaded {
+                    targets: vec![EventTargetInput {
+                        name: "default".to_owned(),
+                        event_id: target_event.to_owned(),
+                    }],
+                },
+                attach_target_name: "default".to_owned(),
+                remote_host: false,
+            };
+            if let Some(targets) = targets {
+                input.targets = targets;
+            }
+            input
+        };
+        let message = on_air_attach_refusal(&input("event-other", None)).expect("refusal");
+        assert!(message.contains("event-other") && message.contains("event-one"));
+        assert!(message.contains("Attach in the Live Metadata inspector"));
+        assert_eq!(on_air_attach_refusal(&input("event-one", None)), None);
+        assert_eq!(on_air_attach_refusal(&input("", None)), None);
+        let unread = input("event-other", Some(EventTargetListInput::Unknown));
+        assert_eq!(on_air_attach_refusal(&unread), None);
+    }
+}
+
+/// The dialog "Add reserved event" (ADR 0110 Decision 2). The screen owns the
+/// inputs. The dialog composite owns only the layout.
+pub(super) struct AddReservedDialog {
+    show_name: Entity<InputState>,
+    event_id: Entity<InputState>,
+    token_path: Entity<InputState>,
+    label: Entity<InputState>,
+    state: Entity<ReservedDialogState>,
+    _subscriptions: Vec<gpui::Subscription>,
+}
+
+/// What the dialog shows besides its inputs.
+struct ReservedDialogState {
+    /// The token folder of `HitIt`. `None` when the config folder is unknown.
+    token_folder: Option<PathBuf>,
+    /// The path that `HitIt` last put in the token file field.
+    suggested: String,
+    outcome: ReservedAddOutcome,
+}
+
+/// The display of the dialog at each render. It reads only the dialog entities.
+fn add_reserved_display(
+    inputs: &[Entity<InputState>; 4],
+    state: &Entity<ReservedDialogState>,
+    cx: &gpui::App,
+) -> ConfirmationDialogDisplay {
+    use crate::ui::composites::{
+        ConfirmationDialogCopyText, ConfirmationDialogField, ConfirmationDialogForm,
+    };
+    let [show_name, event_id, token_path, label] = inputs;
+    let state = state.read(cx);
+    let name = show_name.read(cx).value().trim().to_owned();
+    let command = state
+        .token_folder
+        .as_deref()
+        .and_then(|folder| crate::view_models::show::suggested_token_path(folder, &name))
+        .and_then(|path| crate::view_models::show::relay_command(&name, &path.to_string_lossy()));
+    let command_text = command.clone().unwrap_or_else(|| {
+        if name.is_empty() {
+            "Type a show name to see the relay command.".to_owned()
+        } else if state.token_folder.is_none() {
+            "The token folder of HitIt is not known.".to_owned()
+        } else {
+            "Use only letters, digits, - and _ in the show name. Do not start it with a dot."
+                .to_owned()
+        }
+    });
+    let field = |label: &str, input: &Entity<InputState>| ConfirmationDialogField {
+        label: label.to_owned().into(),
+        input: input.clone(),
+    };
+    let finished = matches!(
+        state.outcome,
+        ReservedAddOutcome::Working | ReservedAddOutcome::Added { .. }
+    );
+    ConfirmationDialogDisplay {
+        title: "Add reserved event".into(),
+        message: "Reserve the event with the relay command. Then enter its event ID and the token file here. HitIt does not copy or change the token file.".into(),
+        cancel_button_id: "show-add-reserved-close".into(),
+        cancel_label: "Close".into(),
+        cancel_a11y_label: "Close the dialog without adding a reserved event".into(),
+        confirm_button_id: "show-add-reserved-add".into(),
+        confirm_label: "Add".into(),
+        confirm_a11y_label: "Add the reserved event to the event list".into(),
+        destructive: false,
+        confirm_enabled: !finished,
+        items: Vec::new(),
+        section: None,
+        form: Some(ConfirmationDialogForm {
+            fields: vec![
+                field("Show name", show_name),
+                field("Event ID", event_id),
+                field("Token file path", token_path),
+                field("Label (optional)", label),
+            ],
+            copy_text: Some(ConfirmationDialogCopyText {
+                label: "Relay command".into(),
+                text: command_text.into(),
+                button_id: "show-add-reserved-copy".into(),
+                button_label: "Copy".into(),
+                button_a11y_label: "Copy the relay command".into(),
+                enabled: command.is_some(),
+            }),
+            result: state
+                .outcome
+                .message()
+                .map(|(text, failure)| (text.into(), failure)),
+            keeps_open: true,
+        }),
+    }
+}
+
+impl TopApp {
+    /// Opens the dialog "Add reserved event" (ADR 0110 Decision 2).
+    pub(super) fn open_add_reserved_dialog(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        let available = self
+            .show_page
+            .publisher
+            .as_ref()
+            .and_then(|section| section.event.as_ref())
+            .is_some_and(|event| !event.actions.add_reserved.disabled());
+        if !available || self.add_reserved_dialog.is_some() {
+            return;
+        }
+        let new_input =
+            |placeholder: &'static str, window: &mut gpui::Window, cx: &mut Context<Self>| {
+                cx.new(|cx: &mut Context<InputState>| {
+                    InputState::new(window, cx).placeholder(placeholder)
+                })
+            };
+        let show_name = new_input("Show name", window, cx);
+        let event_id = new_input("Event ID", window, cx);
+        let token_path = new_input("Absolute path of the token file", window, cx);
+        let label = new_input("Label", window, cx);
+        let state = cx.new(|_| ReservedDialogState {
+            token_folder: crate::broadcast::tokens::default_token_directory().ok(),
+            suggested: String::new(),
+            outcome: ReservedAddOutcome::Idle,
+        });
+        let subscriptions = vec![
+            cx.subscribe_in(&show_name, window, Self::on_reserved_show_name_event),
+            cx.subscribe_in(&event_id, window, Self::on_reserved_field_event),
+            cx.subscribe_in(&token_path, window, Self::on_reserved_field_event),
+            cx.subscribe_in(&label, window, Self::on_reserved_field_event),
+        ];
+        let inputs = [
+            show_name.clone(),
+            event_id.clone(),
+            token_path.clone(),
+            label.clone(),
+        ];
+        let display_state = state.clone();
+        self.add_reserved_dialog = Some(AddReservedDialog {
+            show_name,
+            event_id,
+            token_path,
+            label,
+            state,
+            _subscriptions: subscriptions,
+        });
+        let cancel_entity = cx.weak_entity();
+        let confirm_entity = cx.weak_entity();
+        open_confirmation_dialog_from(
+            window,
+            cx,
+            false,
+            move |cx| add_reserved_display(&inputs, &display_state, cx),
+            ConfirmationDialogHandlers::new(
+                move |_, cx: &mut gpui::App| {
+                    let _ = cancel_entity.update(cx, |this, _| this.add_reserved_dialog = None);
+                },
+                move |_, cx: &mut gpui::App| {
+                    let _ = confirm_entity.update(cx, TopApp::submit_add_reserved);
+                },
+            ),
+        );
+    }
+
+    /// A change of the show name puts the suggested path in the token file
+    /// field while the operator has not changed that field (ADR 0110 Decision 3).
+    fn on_reserved_show_name_event(
+        &mut self,
+        _input: &Entity<InputState>,
+        event: &InputEvent,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(event, InputEvent::Change) {
+            return;
+        }
+        let Some(dialog) = &self.add_reserved_dialog else {
+            return;
+        };
+        let name = dialog.show_name.read(cx).value().trim().to_owned();
+        let current = dialog.token_path.read(cx).value().to_string();
+        let (folder, suggested) = {
+            let state = dialog.state.read(cx);
+            (state.token_folder.clone(), state.suggested.clone())
+        };
+        let next = folder
+            .as_deref()
+            .and_then(|folder| crate::view_models::show::suggested_token_path(folder, &name))
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if current.is_empty() || current == suggested {
+            dialog
+                .token_path
+                .update(cx, |input, cx| input.set_value(next.clone(), window, cx));
+            dialog.state.update(cx, |state, _| state.suggested = next);
+        }
+        cx.refresh_windows();
+    }
+
+    /// A change in another field clears an old result and redraws the dialog.
+    fn on_reserved_field_event(
+        &mut self,
+        _input: &Entity<InputState>,
+        event: &InputEvent,
+        _window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(event, InputEvent::Change) {
+            return;
+        }
+        if let Some(dialog) = &self.add_reserved_dialog {
+            dialog.state.update(cx, |state, _| {
+                if matches!(state.outcome, ReservedAddOutcome::Failed(_)) {
+                    state.outcome = ReservedAddOutcome::Idle;
+                }
+            });
+        }
+        cx.refresh_windows();
+    }
+
+    /// The button "Add" of the dialog.
+    fn submit_add_reserved(&mut self, cx: &mut Context<Self>) {
+        let Some(dialog) = &self.add_reserved_dialog else {
+            return;
+        };
+        let event_id = dialog.event_id.read(cx).value().trim().to_owned();
+        let token_path = dialog.token_path.read(cx).value().trim().to_owned();
+        let label = dialog.label.read(cx).value().trim().to_owned();
+        let state = dialog.state.clone();
+        state.update(cx, |state, _| state.outcome = ReservedAddOutcome::Working);
+        cx.refresh_windows();
+        let command = AddReservedEventCommand {
+            conn: Arc::clone(&self.conn),
+            cfg_path: self.cfg_path.clone(),
+            event_id,
+            token_path: PathBuf::from(token_path),
+            label: (!label.is_empty()).then_some(label),
+        };
+        let error_state = state.clone();
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            move |this, result, cx| {
+                state.update(cx, |state, _| {
+                    state.outcome = ReservedAddOutcome::Added {
+                        event_id: result.event_id,
+                        check_failure: result.check_failure,
+                        selection_error: result.selection_error,
+                    };
+                });
+                cx.refresh_windows();
+                this.refresh_show_page(cx);
+            },
+            move |_, error, cx| {
+                error_state.update(cx, |state, _| {
+                    state.outcome = ReservedAddOutcome::Failed(error.to_string());
+                });
+                cx.refresh_windows();
+            },
+        );
+    }
+
+    /// Attach asks before it replaces a different event on the target
+    /// (ADR 0110 Decision 7). With no different event it runs at once.
+    pub(super) fn attach_event_after_question(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::ui::composites::ConfirmationDialogItem;
+        let event = self
+            .show_page
+            .publisher
+            .as_ref()
+            .and_then(|section| section.event.as_ref());
+        if event.is_none_or(|event| event.actions.attach.disabled()) {
+            return;
+        }
+        let Some(question) = event.and_then(|event| event.attach_confirmation.clone()) else {
+            self.run_event_control(EventControlIntent::Attach, cx);
+            return;
+        };
+        let item = |title: &str, id: String| ConfirmationDialogItem {
+            check: None,
+            checked_lines: Vec::new(),
+            title: title.to_owned().into(),
+            subtitle: None,
+            mark: None,
+            lines: vec![id.into()],
+        };
+        let entity = cx.weak_entity();
+        open_confirmation_dialog(
+            window,
+            cx,
+            ConfirmationDialogDisplay {
+                confirm_enabled: true,
+                form: None,
+                section: None,
+                title: "Replace the event on the target?".into(),
+                message: format!(
+                    "Target {} carries a different event. Attach replaces it with the selected event and restarts the relay sender.",
+                    question.target_name
+                )
+                .into(),
+                cancel_button_id: "show-attach-replace-cancel".into(),
+                cancel_label: "Cancel".into(),
+                cancel_a11y_label: "Keep the event on the target".into(),
+                confirm_button_id: "show-attach-replace-confirm".into(),
+                confirm_label: "Replace event".into(),
+                confirm_a11y_label: format!(
+                    "Replace the event on target {} with the selected event",
+                    question.target_name
+                )
+                .into(),
+                destructive: true,
+                items: vec![
+                    item("Event on the target", question.target_event_id),
+                    item("Selected event", question.selected_event_id),
+                ],
+            },
+            ConfirmationDialogHandlers::new(
+                |_, _: &mut gpui::App| {},
+                move |_, cx: &mut gpui::App| {
+                    let _ = entity.update(cx, |this, cx| {
+                        this.run_event_control(EventControlIntent::Attach, cx);
+                    });
+                },
+            ),
+        );
+    }
+}
+
+/// The error of the Go on air step "Attach" when the configured target carries a
+/// different event (ADR 0110 Decision 7). `None` when the step can run. It also
+/// runs when `HitIt` could not read the target list.
+fn on_air_attach_refusal(input: &EventSectionInput) -> Option<String> {
+    let question = crate::view_models::show::attach_confirmation(input)?;
+    Some(format!(
+        "Go on air stopped. Target {} carries event {}, and the selected event is {}. Use Attach in the Live Metadata inspector to replace it.",
+        question.target_name, question.target_event_id, question.selected_event_id
+    ))
+}
+
+/// Adds a reserved event and selects it (ADR 0110 Decision 2).
+struct AddReservedEventCommand {
+    conn: Arc<Mutex<Connection>>,
+    cfg_path: PathBuf,
+    event_id: String,
+    token_path: PathBuf,
+    label: Option<String>,
+}
+
+struct AddedReservedEventResult {
+    event_id: String,
+    check_failure: Option<String>,
+    selection_error: Option<String>,
+}
+
+impl ApplicationCommand for AddReservedEventCommand {
+    type Output = AddedReservedEventResult;
+
+    fn execute(self, context: &CommandContext) -> crate::application::CommandResult<Self::Output> {
+        if context.cancellation().is_cancelled() {
+            return Err(CommandError::Cancelled);
+        }
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| CommandError::Query("database lock poisoned".to_owned()))?;
+        let endpoint =
+            config::load_musicindex_endpoint(&self.cfg_path).map_err(event_registry_error)?;
+        let directory = self
+            .cfg_path
+            .parent()
+            .ok_or_else(|| CommandError::Other("Config path has no directory".to_owned()))?
+            .join("broadcast")
+            .join("tokens");
+        let registry = BroadcastRegistry::with_token_directory(&conn, &endpoint, directory)
+            .map_err(event_registry_error)?;
+        let added = registry
+            .add_reserved_event(&self.event_id, &self.token_path, self.label.as_deref())
+            .map_err(event_registry_error)?;
+        let selection_error = db::select_broadcast_event(&conn, &added.event.event_id)
+            .err()
+            .map(|error| format!("{error:#}"));
+        Ok(CommandOutcome::without_events(AddedReservedEventResult {
+            event_id: added.event.event_id,
+            check_failure: added.check_failure,
+            selection_error,
+        }))
     }
 }
 
@@ -3553,7 +4138,8 @@ impl TopApp {
                 }
                 self.read_event_targets(self.event_session.next_request, cx);
             }
-            EventControlIntent::CopyFeedTag => {}
+            // The dialog needs the window. `with_event_registry_slots` opens it.
+            EventControlIntent::CopyFeedTag | EventControlIntent::AddReserved => {}
         }
     }
 

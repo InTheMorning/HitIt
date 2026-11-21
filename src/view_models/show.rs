@@ -1293,6 +1293,8 @@ pub(crate) struct EventSectionDisplay {
     pub(crate) check_message: Option<String>,
     /// Event setup and target action state.
     pub(crate) actions: EventActionsDisplay,
+    /// Attach asks first when the target carries a different event (ADR 0110 Decision 7).
+    pub(crate) attach_confirmation: Option<AttachConfirmationDisplay>,
 }
 
 /// Display-ready selected broadcast event facts.
@@ -1308,6 +1310,8 @@ pub(crate) struct EventSelectionDisplay {
     pub(crate) token_path: Option<String>,
     /// Stored event liveness state.
     pub(crate) state: EventStateDisplay,
+    /// Kind of the selected row, when one is selected (ADR 0110 Decision 1).
+    pub(crate) kind: Option<EventKind>,
 }
 
 /// Display-ready event liveness state.
@@ -1319,6 +1323,25 @@ pub(crate) struct EventStateDisplay {
     pub(crate) label: &'static str,
     /// Curator-facing state detail.
     pub(crate) detail: &'static str,
+}
+
+/// How a registry row came to exist (ADR 0110 Decision 1).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum EventKind {
+    /// `HitIt` made the event with `Create` or `Replace`.
+    Created,
+    /// The operator reserved the event with the relay command.
+    Reserved,
+}
+
+impl EventKind {
+    /// Operator-facing name of the kind.
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::Created => "Created",
+            Self::Reserved => "Reserved",
+        }
+    }
 }
 
 /// Stable event liveness states.
@@ -1442,6 +1465,8 @@ pub(crate) struct EventActionsDisplay {
     pub(crate) attach: EventActionDisplay,
     /// Detach action.
     pub(crate) detach: EventActionDisplay,
+    /// Add a reserved event (ADR 0110 Decision 2).
+    pub(crate) add_reserved: EventActionDisplay,
 }
 
 /// Operator intent for registry commands (ADR 0059).
@@ -1552,6 +1577,8 @@ pub(crate) struct EventSelectionInput {
     pub(crate) state: EventState,
     /// Whether the local token path is missing.
     pub(crate) token_file_missing: bool,
+    /// Kind of the row (ADR 0110 Decision 1).
+    pub(crate) kind: EventKind,
 }
 
 /// Input target list state.
@@ -2977,7 +3004,9 @@ impl EventSectionDisplay {
         let event = EventSelectionDisplay::from_input(input.selected_event.as_ref());
         let target = EventTargetAttachmentDisplay::from_input(input);
         let feed_tag = input.selected_event.as_ref().and_then(feed_tag_for_event);
-        let hint = event_hint(input).or_else(|| event_result_hint(input));
+        let hint = event_hint(input)
+            .or_else(|| dead_reserved_hint(input))
+            .or_else(|| event_result_hint(input));
         let mut actions = EventActionsDisplay::from_state(
             &event,
             &target,
@@ -2991,6 +3020,9 @@ impl EventSectionDisplay {
             || !input.registry.events.is_empty()
         {
             actions.create.availability = EventActionAvailability::Unavailable;
+        }
+        if input.registry.status != EventRegistryStatus::Loaded {
+            actions.add_reserved.availability = EventActionAvailability::Unavailable;
         }
         if input.feedback.verification_failure.is_some() {
             actions.attach.availability = EventActionAvailability::Unavailable;
@@ -3033,6 +3065,7 @@ impl EventSectionDisplay {
             feed_tag,
             hint,
             actions,
+            attach_confirmation: attach_confirmation(input),
         }
     }
 }
@@ -3046,6 +3079,7 @@ impl EventSelectionDisplay {
                 endpoint: None,
                 token_path: None,
                 state: EventState::None.display(),
+                kind: None,
             };
         };
 
@@ -3061,6 +3095,7 @@ impl EventSelectionDisplay {
             endpoint: Some(input.endpoint.clone()),
             token_path: Some(input.token_path.clone()),
             state: input.state.display(),
+            kind: Some(input.kind),
         }
     }
 }
@@ -3176,7 +3211,10 @@ impl EventActionsDisplay {
                 "event-replace",
                 "Replace",
                 "Replace dead broadcast event",
-                event.state.state == EventState::Dead && !feedback.working(),
+                // ADR 0110 Decision 5: a reserved row has no Replace.
+                event.state.state == EventState::Dead
+                    && event.kind == Some(EventKind::Created)
+                    && !feedback.working(),
             ),
             check: registry_action_display(
                 "event-check",
@@ -3219,6 +3257,12 @@ impl EventActionsDisplay {
                 ),
                 availability: event_action_availability(detach_available),
             },
+            add_reserved: registry_action_display(
+                "event-add-reserved",
+                "Add reserved event",
+                "Add a reserved relay event from its event ID and token file",
+                !feedback.working(),
+            ),
         }
     }
 }
@@ -5132,6 +5176,7 @@ mod tests {
         ] {
             let selected_event =
                 (!matches!(state, EventState::None)).then(|| EventSelectionInput {
+                    kind: EventKind::Created,
                     created_at: 0,
                     last_checked_at: None,
                     label: None,
@@ -5229,6 +5274,7 @@ mod tests {
         ]);
         let input = event_input(
             Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 0,
                 last_checked_at: None,
                 label: Some("Late Night".to_owned()),
@@ -5683,6 +5729,7 @@ mod tests {
         )]);
         let mut input = event_input(
             Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 0,
                 last_checked_at: None,
                 label: Some("Late Night".to_owned()),
@@ -5739,6 +5786,7 @@ mod tests {
         )]);
         let input = event_input(
             Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 0,
                 last_checked_at: None,
                 label: None,
@@ -5794,6 +5842,7 @@ mod tests {
         );
         let input = event_input(
             Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 0,
                 last_checked_at: None,
                 label: None,
@@ -5817,6 +5866,7 @@ mod tests {
         );
         let live_input = EventSectionInput {
             selected_event: Some(EventSelectionInput {
+                kind: EventKind::Created,
                 state: EventState::Live,
                 ..input.selected_event.clone().expect("event")
             }),
@@ -5857,6 +5907,7 @@ mod tests {
         )]);
         let input = event_input(
             Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 0,
                 last_checked_at: None,
                 label: None,
@@ -5903,6 +5954,7 @@ mod tests {
         );
         let mut input = event_input(
             Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 0,
                 last_checked_at: None,
                 label: None,
@@ -6384,6 +6436,7 @@ mod tests {
     fn ready_event_input() -> EventSectionInput {
         event_input(
             Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 0,
                 last_checked_at: None,
                 label: None,
@@ -6400,6 +6453,200 @@ mod tests {
                 }],
             },
         )
+    }
+
+    fn adr_0110_event(kind: EventKind, state: EventState) -> EventSelectionInput {
+        EventSelectionInput {
+            kind,
+            state,
+            event_id: "event-one".to_owned(),
+            ..ready_event_input().selected_event.expect("event")
+        }
+    }
+
+    fn adr_0110_event_display(input: &EventSectionInput) -> EventSectionDisplay {
+        let snapshot = publisher_snapshot([(
+            PublisherServiceRole::Publisher,
+            "publisher.service",
+            ServiceState::Active,
+        )]);
+        ShowPageVm::from_queue_publisher_readiness_and_event(
+            QueueNowPlayingPageVm::builder().build(),
+            Some(&snapshot),
+            ShowLogPaneDisplay::closed(),
+            None,
+            Some(input),
+        )
+        .publisher
+        .and_then(|publisher| publisher.event)
+        .expect("event section")
+    }
+
+    fn adr_0110_targets(event_id: &str) -> EventTargetListInput {
+        EventTargetListInput::Loaded {
+            targets: vec![EventTargetInput {
+                name: "default".to_owned(),
+                event_id: event_id.to_owned(),
+            }],
+        }
+    }
+
+    /// ADR 0110 Decision 5: a Dead reserved row gives Check and no Replace. A Dead created row keeps Replace.
+    #[test]
+    fn adr_0110_dead_reserved_row_gives_check_and_no_replace() {
+        let reserved = adr_0110_event_display(&event_input(
+            Some(adr_0110_event(EventKind::Reserved, EventState::Dead)),
+            adr_0110_targets("event-one"),
+        ));
+        assert!(reserved.actions.replace.disabled());
+        assert!(!reserved.actions.check.disabled());
+        let primary = reserved.primary.expect("primary control");
+        assert_eq!(primary.intent, EventControlIntent::Check);
+        assert_ne!(primary.action.label, "Replace");
+        assert_eq!(reserved.hint.as_deref(), Some(DEAD_RESERVED_HINT));
+        assert!(DEAD_RESERVED_HINT.contains("relay command"));
+        assert!(DEAD_RESERVED_HINT.contains("add it"));
+        assert_eq!(reserved.event.kind, Some(EventKind::Reserved));
+
+        let created = adr_0110_event_display(&event_input(
+            Some(adr_0110_event(EventKind::Created, EventState::Dead)),
+            adr_0110_targets("event-one"),
+        ));
+        assert!(!created.actions.replace.disabled());
+        assert_eq!(
+            created.primary.expect("primary control").intent,
+            EventControlIntent::Replace
+        );
+        assert_eq!(created.hint, None);
+    }
+
+    /// ADR 0110 Decision 1: the event list and the inspector name the kind.
+    #[test]
+    fn adr_0110_the_picker_and_the_selection_name_the_kind() {
+        let mut input = event_input(
+            Some(adr_0110_event(EventKind::Reserved, EventState::Live)),
+            adr_0110_targets("event-one"),
+        );
+        input.registry.events = vec![
+            adr_0110_event(EventKind::Reserved, EventState::Live),
+            EventSelectionInput {
+                event_id: "event-two".to_owned(),
+                ..adr_0110_event(EventKind::Created, EventState::Live)
+            },
+        ];
+        let display = adr_0110_event_display(&input);
+        assert!(display.picker.entries[0].detail.contains("Reserved"));
+        assert!(display.picker.entries[1].detail.contains("Created"));
+        assert_eq!(display.event.kind.map(EventKind::label), Some("Reserved"));
+    }
+
+    /// ADR 0110 Decision 3: the suggested path and the command text.
+    #[test]
+    fn adr_0110_suggested_path_and_relay_command() {
+        let folder = std::path::Path::new("/fixture/tokens");
+        let path = suggested_token_path(folder, "friday-show").expect("path");
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/fixture/tokens/reserved/friday-show.token")
+        );
+        let command = relay_command("friday-show", &path.to_string_lossy()).expect("command");
+        assert_eq!(
+            command,
+            "tools/relay-event reserve friday-show /fixture/tokens/reserved/friday-show.token"
+        );
+        assert!(command.contains(&*path.to_string_lossy()));
+        // A path with a space gets quotes. A single quote is escaped.
+        assert_eq!(
+            relay_command("show", "/a b/it's.token").as_deref(),
+            Some("tools/relay-event reserve show '/a b/it'\\''s.token'")
+        );
+        // An empty or unsafe name gives no path and no command.
+        for name in ["", ".hidden", "a/b", "a b", "../x"] {
+            assert_eq!(suggested_token_path(folder, name), None, "{name:?}");
+            assert_eq!(relay_command(name, "/x"), None, "{name:?}");
+        }
+    }
+
+    /// ADR 0110 Decision 2: the dialog shows the stored row or the failed check.
+    #[test]
+    fn adr_0110_add_reserved_outcome_lines() {
+        assert_eq!(ReservedAddOutcome::Idle.message(), None);
+        let (stored, failure) = ReservedAddOutcome::Added {
+            event_id: "event-one".to_owned(),
+            check_failure: None,
+            selection_error: None,
+        }
+        .message()
+        .expect("line");
+        assert!(stored.contains("event-one") && !failure);
+        let (unknown, failure) = ReservedAddOutcome::Added {
+            event_id: "event-one".to_owned(),
+            check_failure: Some("no answer".to_owned()),
+            selection_error: None,
+        }
+        .message()
+        .expect("line");
+        assert!(unknown.contains("Unknown") && unknown.contains("no answer") && failure);
+        let (refused, failure) =
+            ReservedAddOutcome::Failed("add reserved event check 4 (mode): bad".to_owned())
+                .message()
+                .expect("line");
+        assert!(refused.contains("check 4") && refused.contains("No row stored") && failure);
+    }
+
+    /// ADR 0110 Decision 2: "Add reserved event" is available unless a command runs or the registry is not loaded.
+    #[test]
+    fn adr_0110_add_reserved_action_availability() {
+        let mut input = event_input(None, EventTargetListInput::Unknown);
+        assert!(!adr_0110_event_display(&input)
+            .actions
+            .add_reserved
+            .disabled());
+        assert_eq!(
+            adr_0110_event_display(&input).actions.add_reserved.label,
+            "Add reserved event"
+        );
+        input.feedback.check = EventCommandState::Working;
+        assert!(adr_0110_event_display(&input)
+            .actions
+            .add_reserved
+            .disabled());
+        input.feedback.check = EventCommandState::Idle;
+        input.registry.status = EventRegistryStatus::Loading;
+        assert!(adr_0110_event_display(&input)
+            .actions
+            .add_reserved
+            .disabled());
+    }
+
+    /// ADR 0110 Decision 7: Attach asks only when the target carries a different event.
+    #[test]
+    fn adr_0110_attach_asks_only_for_a_different_event_on_the_target() {
+        let event = Some(adr_0110_event(EventKind::Created, EventState::Live));
+        let different =
+            adr_0110_event_display(&event_input(event.clone(), adr_0110_targets("event-other")));
+        assert_eq!(
+            different.attach_confirmation,
+            Some(AttachConfirmationDisplay {
+                target_name: "default".to_owned(),
+                target_event_id: "event-other".to_owned(),
+                selected_event_id: "event-one".to_owned(),
+            })
+        );
+        let same =
+            adr_0110_event_display(&event_input(event.clone(), adr_0110_targets("event-one")));
+        assert_eq!(same.attach_confirmation, None);
+        let empty = adr_0110_event_display(&event_input(event.clone(), adr_0110_targets("")));
+        assert_eq!(empty.attach_confirmation, None);
+        let no_target = adr_0110_event_display(&event_input(
+            event.clone(),
+            EventTargetListInput::Loaded {
+                targets: Vec::new(),
+            },
+        ));
+        assert_eq!(no_target.attach_confirmation, None);
+        let unread = adr_0110_event_display(&event_input(event, EventTargetListInput::Unknown));
+        assert_eq!(unread.attach_confirmation, None);
     }
 
     /// Situational ADR 0059: event liveness and attachment precede running services.
@@ -7175,6 +7422,8 @@ pub(crate) enum EventControlIntent {
     Detach,
     Refresh,
     CopyFeedTag,
+    /// Open the dialog that adds a reserved event (ADR 0110 Decision 2).
+    AddReserved,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -7319,6 +7568,7 @@ fn event_primary(
             ReadTargets => event_control("event-read-targets", label, false),
             Refresh => event_control("event-refresh", label, false),
             EventControlIntent::CopyFeedTag => actions.copy_feed_tag.clone(),
+            EventControlIntent::AddReserved => actions.add_reserved.clone(),
         };
         action.label = label;
         action.a11y_label =
@@ -7346,6 +7596,10 @@ fn event_primary(
             Some(event) => match event.state {
                 EventState::None => return None,
                 EventState::Unknown => (Check, actions.check.clone()),
+                // ADR 0110 Decision 5: a Dead reserved row gives Check and no Replace.
+                EventState::Dead if event.kind == EventKind::Reserved => {
+                    (Check, actions.check.clone())
+                }
                 EventState::Dead => (Replace, actions.replace.clone()),
                 EventState::Live => match &input.targets {
                     EventTargetListInput::Loaded { .. } if actions.attach.disabled() => {
@@ -7415,9 +7669,10 @@ fn event_picker(input: &EventSectionInput, event: &EventSelectionDisplay) -> Eve
                 if configured { " · Configured" } else { "" }
             );
             let detail = format!(
-                "{} · {} · {id}",
+                "{} · {} · {} · {id}",
                 event_date(entry.created_at),
-                entry.state.display().label
+                entry.state.display().label,
+                entry.kind.label()
             );
             EventPickerEntry {
                 event_id: entry.event_id.clone(),
@@ -7549,6 +7804,143 @@ fn event_result_hint(input: &EventSectionInput) -> Option<String> {
             })
     } else {
         None
+    }
+}
+
+/// The text of a Dead reserved row (ADR 0110 Decision 5).
+const DEAD_RESERVED_HINT: &str =
+    "The relay no longer has this reserved event. Reserve a new event with the relay command, then add it.";
+
+fn dead_reserved_hint(input: &EventSectionInput) -> Option<String> {
+    let event = input.selected_event.as_ref()?;
+    (event.kind == EventKind::Reserved && event.state == EventState::Dead)
+        .then(|| DEAD_RESERVED_HINT.to_owned())
+}
+
+/// The question of Attach when the target carries a different event (ADR 0110 Decision 7).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AttachConfirmationDisplay {
+    /// The configured target.
+    pub(crate) target_name: String,
+    /// The event on the target.
+    pub(crate) target_event_id: String,
+    /// The selected event.
+    pub(crate) selected_event_id: String,
+}
+
+/// Attach asks only when the configured target carries a different event.
+///
+/// No question follows when the target list is unread, the target carries
+/// no event, or it carries the selected event.
+pub(crate) fn attach_confirmation(input: &EventSectionInput) -> Option<AttachConfirmationDisplay> {
+    let selected = input.selected_event.as_ref()?;
+    let EventTargetListInput::Loaded { targets } = &input.targets else {
+        return None;
+    };
+    let name = input.attach_target_name.trim();
+    let target = targets.iter().find(|target| target.name == name)?;
+    (!name.is_empty() && !target.event_id.trim().is_empty() && target.event_id != selected.event_id)
+        .then(|| AttachConfirmationDisplay {
+            target_name: target.name.clone(),
+            target_event_id: target.event_id.clone(),
+            selected_event_id: selected.event_id.clone(),
+        })
+}
+
+/// The relay command that reserves an event (ADR 0110 Decision 3).
+const RELAY_RESERVE_COMMAND: &str = "tools/relay-event reserve";
+
+/// A show name is one file name part. It has letters, digits, `-`, `_` and `.`,
+/// and does not start with a dot. Thus the suggested path stays in the
+/// folder `reserved` and the command needs no quotes for the name.
+pub(crate) fn show_name_is_valid(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+}
+
+/// `TOKEN_FOLDER/reserved/SHOW_NAME.token` (ADR 0110 Decision 3).
+///
+/// Returns `None` when the show name is empty or not valid.
+pub(crate) fn suggested_token_path(
+    token_folder: &std::path::Path,
+    show_name: &str,
+) -> Option<std::path::PathBuf> {
+    show_name_is_valid(show_name).then(|| {
+        token_folder
+            .join("reserved")
+            .join(format!("{show_name}.token"))
+    })
+}
+
+/// `tools/relay-event reserve SHOW_NAME TOKEN_PATH`, with the path quoted for a shell
+/// when it has a character outside the safe set.
+///
+/// Returns `None` when the show name is empty or not valid.
+pub(crate) fn relay_command(show_name: &str, token_path: &str) -> Option<String> {
+    show_name_is_valid(show_name).then(|| {
+        format!(
+            "{RELAY_RESERVE_COMMAND} {show_name} {}",
+            shell_word(token_path)
+        )
+    })
+}
+
+fn shell_word(text: &str) -> String {
+    let safe = !text.is_empty()
+        && text
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '.' | '_' | '-' | ':' | '='));
+    if safe {
+        text.to_owned()
+    } else {
+        format!("'{}'", text.replace('\'', "'\\''"))
+    }
+}
+
+/// The result line of the dialog "Add reserved event" (ADR 0110 Decision 2).
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) enum ReservedAddOutcome {
+    #[default]
+    Idle,
+    Working,
+    /// The row is stored. The relay check can have failed.
+    Added {
+        event_id: String,
+        check_failure: Option<String>,
+        selection_error: Option<String>,
+    },
+    /// A check failed, and no row is stored. The text names the check.
+    Failed(String),
+}
+
+impl ReservedAddOutcome {
+    /// The line for the operator and whether it reports a failure.
+    pub(crate) fn message(&self) -> Option<(String, bool)> {
+        match self {
+            Self::Idle => None,
+            Self::Working => Some(("Checking the event and the token file…".to_owned(), false)),
+            Self::Added {
+                event_id,
+                check_failure,
+                selection_error,
+            } => {
+                let mut text = match check_failure {
+                    None => format!("Added reserved event {event_id}. The relay has it."),
+                    Some(failure) => format!(
+                        "Added reserved event {event_id} with the status Unknown. The relay check failed: {failure}"
+                    ),
+                };
+                if let Some(error) = selection_error {
+                    text.push_str(" HitIt could not select the event: ");
+                    text.push_str(error);
+                }
+                Some((text, check_failure.is_some() || selection_error.is_some()))
+            }
+            Self::Failed(text) => Some((format!("No row stored. {text}"), true)),
+        }
     }
 }
 

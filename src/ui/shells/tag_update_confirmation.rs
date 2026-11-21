@@ -208,6 +208,7 @@ fn confirmation_display(display: TagUpdatePopupDisplay) -> ConfirmationDialogDis
         confirm_a11y_label: SharedString::from(display.confirm_a11y_label),
         destructive: false,
         confirm_enabled: display.confirm_enabled,
+        form: None,
         items: display.files.into_iter().map(dialog_item).collect(),
         section: display.skipped.map(|skipped| ConfirmationDialogSection {
             id: SharedString::from(skipped.id),

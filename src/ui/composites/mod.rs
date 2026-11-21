@@ -77,7 +77,8 @@ pub use action_row::{
 pub use collection_art::{CollectionArt, CollectionArtImage};
 pub use confirmation_dialog::{
     destructive_button_space, open_confirmation_dialog, open_confirmation_dialog_from,
-    ConfirmationDialogCheck, ConfirmationDialogCheckedLine, ConfirmationDialogDisplay,
+    ConfirmationDialogCheck, ConfirmationDialogCheckedLine, ConfirmationDialogCopyText,
+    ConfirmationDialogDisplay, ConfirmationDialogField, ConfirmationDialogForm,
     ConfirmationDialogHandlers, ConfirmationDialogItem, ConfirmationDialogSection,
 };
 pub use cover_backdrop::CoverBackdrop;

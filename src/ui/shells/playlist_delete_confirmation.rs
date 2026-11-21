@@ -38,6 +38,7 @@ pub(crate) fn open_playlist_delete_dialog<T>(
 fn confirmation_display(display: PlaylistDeleteConfirmation) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
         confirm_enabled: true,
+        form: None,
         section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(display.message),

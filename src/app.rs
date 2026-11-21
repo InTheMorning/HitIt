@@ -283,6 +283,8 @@ pub struct TopApp {
     show_log_resize: Option<(f32, f32)>,
     event_section_input: Option<EventSectionInput>,
     event_session: show::EventSession,
+    /// The open dialog "Add reserved event", if any (ADR 0110 Decision 2).
+    add_reserved_dialog: Option<show::AddReservedDialog>,
     conn: Arc<Mutex<Connection>>,
     image_cache: Arc<ImageCache>,
     remote_detail_thumbnails: BTreeMap<String, RemoteDetailThumbnailState>,
@@ -657,6 +659,7 @@ impl TopApp {
             event_section_input: None,
             show_playlists: Vec::new(),
             event_session: show::EventSession::default(),
+            add_reserved_dialog: None,
             conn,
             image_cache,
             remote_detail_thumbnails: BTreeMap::new(),

@@ -328,7 +328,9 @@ impl EventReportEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::view_models::show::{EventCommandFeedback, EventRegistryInput, EventTargetInput};
+    use crate::view_models::show::{
+        EventCommandFeedback, EventKind, EventRegistryInput, EventTargetInput,
+    };
 
     fn example() -> EventSectionInput {
         EventSectionInput {
@@ -338,6 +340,7 @@ mod tests {
             request: 0,
             feedback: EventCommandFeedback::default(),
             selected_event: Some(EventSelectionInput {
+                kind: EventKind::Created,
                 created_at: 1,
                 last_checked_at: Some(2),
                 label: None,

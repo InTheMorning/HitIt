@@ -11,9 +11,12 @@
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, App, FocusHandle, FontWeight, SharedString, Window};
-use gpui_component::{dialog::Dialog, WindowExt};
+use gpui::{
+    div, prelude::*, App, ClipboardItem, Entity, FocusHandle, FontWeight, SharedString, Window,
+};
+use gpui_component::{dialog::Dialog, input::InputState, WindowExt};
 
+use crate::ui::composites::settings::settings_text_input;
 use crate::ui::composites::{DisclosureGroup, DisclosureGroupDisplay};
 use crate::ui::control_styles::ControlStyle;
 use crate::ui::focus_ring::focus_ring_shows;
@@ -44,6 +47,44 @@ pub struct ConfirmationDialogDisplay {
     pub items: Vec<ConfirmationDialogItem>,
     /// A folded section below the items, or `None` for no section.
     pub section: Option<ConfirmationDialogSection>,
+    /// Text fields, a text with a Copy button and a result line, or `None`
+    /// for a dialog that only asks.
+    pub form: Option<ConfirmationDialogForm>,
+}
+
+/// The parts of a dialog that also takes text. The screen owns each input
+/// and the result. The dialog owns only the layout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfirmationDialogForm {
+    /// The text fields, from top to bottom. Each has a label above it.
+    pub fields: Vec<ConfirmationDialogField>,
+    /// A text that the operator can copy, or `None`.
+    pub copy_text: Option<ConfirmationDialogCopyText>,
+    /// A result line below the fields. `true` marks a failure. The text
+    /// states its meaning, so its color is never the only signal.
+    pub result: Option<(SharedString, bool)>,
+    /// `true` keeps the dialog open after a click on the confirm button, so
+    /// that the result stays visible. Enter in a field then does nothing.
+    pub keeps_open: bool,
+}
+
+/// A text field with its label.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfirmationDialogField {
+    pub label: SharedString,
+    pub input: Entity<InputState>,
+}
+
+/// A text with a Copy button that puts the text on the clipboard.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfirmationDialogCopyText {
+    pub label: SharedString,
+    pub text: SharedString,
+    pub button_id: SharedString,
+    pub button_label: SharedString,
+    pub button_a11y_label: SharedString,
+    /// `false` disables the button, for a text that is not ready.
+    pub enabled: bool,
 }
 
 /// A check box of an item or of a line. The screen supplies the state and
@@ -259,6 +300,7 @@ fn confirmation_dialog(
     } = handlers;
     let escape_cancel = on_cancel.clone();
     let enter_cancel = on_cancel.clone();
+    let keeps_open = display.form.as_ref().is_some_and(|form| form.keeps_open);
     let row = confirmation_button_row(display.destructive);
     let confirm_style = if display.destructive {
         ControlStyle::Destructive
@@ -285,7 +327,9 @@ fn confirmation_dialog(
             .disabled(!display.confirm_enabled)
             .on_click(move |_, window, cx| {
                 on_confirm(window, cx);
-                window.close_dialog(cx);
+                if !keeps_open {
+                    window.close_dialog(cx);
+                }
             }),
     );
     let mut buttons = div()
@@ -315,6 +359,10 @@ fn confirmation_dialog(
         // Enter with no focused button runs the safe action (musicindex ADR
         // 0064 R-ACT-9 item 2). A focused button takes Enter first.
         .on_ok(move |_, window, cx| {
+            // Enter in a text field of a form must not close the dialog.
+            if keeps_open {
+                return false;
+            }
             enter_cancel(window, cx);
             true
         })
@@ -342,8 +390,92 @@ fn confirmation_dialog(
                         ))
                     },
                 )
+                .when_some(display.form, |el, form| {
+                    el.child(confirmation_form(form, cx))
+                })
                 .child(buttons),
         )
+}
+
+/// The text fields, the copy text and the result line of a form dialog.
+fn confirmation_form(form: ConfirmationDialogForm, cx: &App) -> impl IntoElement {
+    let ConfirmationDialogForm {
+        fields,
+        copy_text,
+        result,
+        keeps_open: _,
+    } = form;
+    div()
+        .flex()
+        .flex_col()
+        .gap(Spacing::SM.scaled(cx))
+        .min_w_0()
+        .children(fields.into_iter().map(|field| {
+            div()
+                .flex()
+                .flex_col()
+                .gap(Spacing::XXS.scaled(cx))
+                .min_w_0()
+                .child(
+                    Label::new(field.label)
+                        .variant(LabelVariant::Caption)
+                        .color(SemanticColor::SecondaryLabel),
+                )
+                .child(settings_text_input(&field.input, cx))
+        }))
+        .when_some(copy_text, |el, copy| {
+            let text = copy.text.clone();
+            el.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(Spacing::XXS.scaled(cx))
+                    .min_w_0()
+                    .child(
+                        Label::new(copy.label)
+                            .variant(LabelVariant::Caption)
+                            .color(SemanticColor::SecondaryLabel),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap(Spacing::SM.scaled(cx))
+                            .min_w_0()
+                            .child(
+                                div().flex_1().min_w_0().child(
+                                    Label::new(copy.text)
+                                        .variant(LabelVariant::Caption)
+                                        .color(SemanticColor::Label),
+                                ),
+                            )
+                            .child(
+                                Button::styled(copy.button_id, ControlStyle::Neutral)
+                                    .size(ButtonSize::Md)
+                                    .label(copy.button_label)
+                                    .a11y_label(copy.button_a11y_label)
+                                    .disabled(!copy.enabled)
+                                    .on_click(move |_, _, cx| {
+                                        cx.write_to_clipboard(ClipboardItem::new_string(
+                                            text.to_string(),
+                                        ));
+                                    }),
+                            ),
+                    ),
+            )
+        })
+        .when_some(result, |el, (text, failure)| {
+            el.child(
+                Label::new(text)
+                    .variant(LabelVariant::Caption)
+                    .color(if failure {
+                        SemanticColor::DangerLabel
+                    } else {
+                        SemanticColor::SuccessLabel
+                    }),
+            )
+        })
 }
 
 /// The space after the destructive button of a button row. With the gap of
@@ -559,6 +691,7 @@ mod tests {
             destructive: true,
             items: Vec::new(),
             confirm_enabled: true,
+            form: None,
             section: None,
         };
 
@@ -614,6 +747,7 @@ mod tests {
             confirm_a11y_label: SharedString::from("Remove track from library"),
             destructive: true,
             confirm_enabled: true,
+            form: None,
             section: None,
             items: Vec::new(),
         }

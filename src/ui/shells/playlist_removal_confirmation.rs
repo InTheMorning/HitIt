@@ -40,6 +40,7 @@ fn confirmation_display(
 ) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
         confirm_enabled: true,
+        form: None,
         section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(display.message),

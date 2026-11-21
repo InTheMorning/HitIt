@@ -74,6 +74,7 @@ fn selection_confirmation_display(
 ) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
         confirm_enabled: true,
+        form: None,
         section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(
@@ -119,6 +120,7 @@ fn selection_removal_item(item: SelectionRemovalItemDisplay) -> ConfirmationDial
 fn confirmation_display(display: LibraryRemovalConfirmationDisplay) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
         confirm_enabled: true,
+        form: None,
         section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(display.message),

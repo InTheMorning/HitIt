@@ -1141,3 +1141,26 @@ Task: [ADR 0109 task 001](tasks/adr-0109-task-001-changed-feeds-get-one-rss-chec
 - Incorrect: the check takes 8.8 s or more when no feed changes. The feed updates, but its differences do not show in the playlist.
 
 The agent cannot do these steps. The data of the operator is not available to the agent.
+
+## 50. ADR 0110 Task 002 Reserved Rows On The Show Page - 2026-11-21
+
+Task: [ADR 0110 task 002](tasks/adr-0110-task-002-reserved-rows-on-the-show-page.md). The task is implemented. The mechanical criteria pass. These visual checks are open.
+
+Agent walk on Xvfb, 2026-11-21, with a scratch configuration and no publisher host. Steps 1 and 3 passed. Step 9 passed: the dialog showed "No row stored" and named check 3 (regular file). Step 10 passed with two Dead fixture rows: the Reserved row showed "Kind: Reserved", "Check", no "Replace" and the text of Decision 5. The Created row showed "Kind: Created" and "Replace". The event picker showed "Reserved" and "Created" on the two rows (the kind part of step 8). The agent did not select "Copy" and did not walk steps 2, 4 to 7 and 11 to 13. Steps 4, 7 and 11 to 13 need your relay and a publisher target, so the operator does them.
+
+Use the Show page with the Event section open in the side panel. The steps use the show name `check-show`. Choose a different name if you prefer.
+
+1. Select the Event card. In the inspector, make sure that the button "Add reserved event" shows next to "Logs" and "More" (V1).
+2. Select "Add reserved event". Make sure that the dialog has the fields "Show name", "Event ID", "Token file path" and "Label (optional)". The "Show name" field must be empty. The text "Type a show name to see the relay command." must show, and "Copy" must be unavailable (V1).
+3. Type `check-show` in "Show name". Make sure that the "Token file path" field shows a path that ends in `/reserved/check-show.token`. Make sure that the relay command shows `tools/relay-event reserve check-show` and the same path (V1).
+4. Select "Copy". Paste the text in a terminal prompt. Do not run it. Make sure that it is the same command as in the dialog (V1).
+5. Type `.x` in "Show name". Make sure that the dialog gives a hint about the allowed characters, that "Copy" is unavailable, and that the path field is empty (V1).
+6. Type `check-show` again. Change the path field to a different path. Type `check-show2` in "Show name". Make sure that the path field keeps the different path (V1).
+7. Run the command from step 4 in a terminal, with your own relay. Type the event ID that the command prints in "Event ID". Type its token file path in "Token file path". Select "Add". Make sure that the dialog shows "Added reserved event" with the event ID, and that "Add" is then unavailable (V1, V2).
+8. Select "Close". In the inspector, make sure that the line "Kind: Reserved" shows. Open the event picker. Make sure that the line of the new event ends in "Reserved" before the ID, and that the other events show "Created" (V2).
+9. Open the dialog again. Enter an event ID and a path that does not exist. Select "Add". Make sure that the dialog shows "No row stored" and names the failed check, and that the event picker has no new row (V1).
+10. When the reserved event is Dead, make sure that the inspector shows "Check" and no "Replace" (V2). Make sure that its text tells you to reserve a new event with the relay command, and then to add it. Skip this step when you cannot make the relay report `event_not_found`.
+11. Configure a target that carries a different event than the selected one. Select the selected event, then "Attach". Make sure that a dialog "Replace the event on the target?" shows the event ID on the target and the selected event ID. Select "Cancel". Make sure that the target keeps its event (V3).
+12. Select "Attach" again, then "Replace event". Make sure that the target now carries the selected event (V3).
+13. Select "Attach" on a target that carries no event or the selected event. Make sure that no dialog shows (V3).
+- Incorrect: a button or field is missing, or the command and the path differ. Also incorrect: "Copy" copies other text, a Dead reserved row shows "Replace", or Attach changes the target with no question.
