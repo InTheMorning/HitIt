@@ -189,14 +189,14 @@ mod tests {
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
         assert_eq!(
-            CURRENT_VERSION, 30,
-            "ADR 0109 adds the rss_check_feed_runs migration"
+            CURRENT_VERSION, 31,
+            "ADR 0110 adds the broadcast_event_kind migration"
         );
         assert_eq!(
             inspect_schema(&conn).unwrap(),
             SchemaCompatibility::UpgradeRequired {
                 applied: 24,
-                current: 30,
+                current: 31,
             }
         );
         upgrades::verify_target(&conn, 24).unwrap();

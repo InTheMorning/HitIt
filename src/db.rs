@@ -307,6 +307,39 @@ impl BroadcastEventStatus {
     }
 }
 
+/// Who made the relay event of a registry row (ADR 0110 Decision 1).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BroadcastEventKind {
+    /// HitIt made the event with `Create` or `Replace`.
+    #[default]
+    Created,
+    /// The operator reserved the event with the relay command.
+    Reserved,
+}
+
+impl BroadcastEventKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Reserved => "reserved",
+        }
+    }
+
+    fn from_sql(value: &str, column: usize) -> rusqlite::Result<Self> {
+        match value {
+            "created" => Ok(Self::Created),
+            "reserved" => Ok(Self::Reserved),
+            _ => Err(rusqlite::Error::InvalidColumnType(
+                column,
+                "kind".to_owned(),
+                rusqlite::types::Type::Text,
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BroadcastEventInput {
     pub event_id: String,
@@ -316,6 +349,7 @@ pub struct BroadcastEventInput {
     pub created_at: i64,
     pub last_checked_at: Option<i64>,
     pub last_status: Option<BroadcastEventStatus>,
+    pub kind: BroadcastEventKind,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -328,6 +362,7 @@ pub struct BroadcastEventRow {
     pub created_at: i64,
     pub last_checked_at: Option<i64>,
     pub last_status: Option<BroadcastEventStatus>,
+    pub kind: BroadcastEventKind,
 }
 
 pub fn subscribed_feeds_for_stale_check(conn: &Connection) -> Result<Vec<FeedStaleCheckRow>> {
@@ -2001,9 +2036,9 @@ pub fn insert_broadcast_event(conn: &Connection, event: &BroadcastEventInput) ->
     conn.execute(
         "INSERT INTO broadcast_events (
              event_id, label, endpoint, token_path, created_at,
-             last_checked_at, last_status
+             last_checked_at, last_status, kind
          )
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         rusqlite::params![
             event_id,
             event.label.as_deref(),
@@ -2012,6 +2047,7 @@ pub fn insert_broadcast_event(conn: &Connection, event: &BroadcastEventInput) ->
             event.created_at,
             event.last_checked_at,
             last_status,
+            event.kind.as_str(),
         ],
     )
     .context("insert broadcast event")?;
@@ -2023,7 +2059,7 @@ pub fn broadcast_events(conn: &Connection) -> Result<Vec<BroadcastEventRow>> {
     let mut stmt = conn
         .prepare(
             "SELECT id, event_id, label, endpoint, token_path, created_at,
-                    last_checked_at, last_status
+                    last_checked_at, last_status, kind
              FROM broadcast_events
              ORDER BY created_at DESC, id DESC",
         )
@@ -2091,7 +2127,7 @@ pub fn broadcast_event_by_id(
 ) -> Result<Option<BroadcastEventRow>> {
     conn.query_row(
         "SELECT id, event_id, label, endpoint, token_path, created_at,
-                last_checked_at, last_status
+                last_checked_at, last_status, kind
          FROM broadcast_events
          WHERE id = ?1",
         [event_record_id],
@@ -2108,7 +2144,7 @@ pub fn broadcast_event_by_event_id(
     let event_id = explicit_broadcast_event_id(event_id)?;
     conn.query_row(
         "SELECT id, event_id, label, endpoint, token_path, created_at,
-                last_checked_at, last_status
+                last_checked_at, last_status, kind
          FROM broadcast_events
          WHERE event_id = ?1",
         [event_id],
@@ -2172,6 +2208,7 @@ fn broadcast_event_row_from_sql(row: &rusqlite::Row) -> rusqlite::Result<Broadca
         .as_deref()
         .map(|value| BroadcastEventStatus::from_sql(value, 7))
         .transpose()?;
+    let kind = BroadcastEventKind::from_sql(&row.get::<_, String>(8)?, 8)?;
 
     Ok(BroadcastEventRow {
         id: row.get(0)?,
@@ -2182,6 +2219,7 @@ fn broadcast_event_row_from_sql(row: &rusqlite::Row) -> rusqlite::Result<Broadca
         created_at: row.get(5)?,
         last_checked_at: row.get(6)?,
         last_status,
+        kind,
     })
 }
 
@@ -3046,7 +3084,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 30;
+pub(crate) const CURRENT_VERSION: i64 = 31;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -3199,6 +3237,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "rss_check_feed_runs",
         apply: rss_check_runs::apply_feed_runs,
     },
+    Migration {
+        version: 31,
+        name: "broadcast_event_kind",
+        apply: migration_broadcast_event_kind,
+    },
 ];
 
 /// Read compatibility facts share the migration authority (ADRs 0016, 0066).
@@ -3324,6 +3367,22 @@ fn matches_contract(conn: &Connection, version: i64) -> rusqlite::Result<bool> {
 /// migration 23 names each saved search and makes the name unique (operator
 /// decision of 2026-11-06), and migration 24 adds the stored curator order of
 /// the playlists (ADR 0089 amendment of 2026-11-08).
+/// Columns of `broadcast_events` from migration 31 (ADR 0110 Decision 1).
+const BROADCAST_EVENT_COLUMNS_V31: &(&str, &[&str]) = &(
+    "broadcast_events",
+    &[
+        "id",
+        "event_id",
+        "label",
+        "endpoint",
+        "token_path",
+        "created_at",
+        "last_checked_at",
+        "last_status",
+        "kind",
+    ],
+);
+
 pub(crate) fn schema_contract(
     version: i64,
 ) -> impl Iterator<Item = &'static (&'static str, &'static [&'static str])> {
@@ -3331,6 +3390,9 @@ pub(crate) fn schema_contract(
         .iter()
         .filter(move |(table, _)| version < 13 || !ARTIST_STORAGE_TABLES.contains(table))
         .map(move |entry| {
+            if version >= 31 && entry.0 == "broadcast_events" {
+                return BROADCAST_EVENT_COLUMNS_V31;
+            }
             if version >= 24 && entry.0 == "playlists" {
                 return playlist_order::COLUMNS;
             }
@@ -3946,6 +4008,16 @@ fn migration_metadata_source_facts(conn: &Connection) -> Result<()> {
 
 fn migration_broadcast_events(conn: &Connection) -> Result<()> {
     create_broadcast_event_tables(conn)
+}
+
+/// ADR 0110 Decision 1: each row that exists before the migration is Created.
+fn migration_broadcast_event_kind(conn: &Connection) -> Result<()> {
+    add_column_if_missing(
+        conn,
+        "broadcast_events",
+        "kind",
+        "TEXT NOT NULL DEFAULT 'created' CHECK (kind IN ('created', 'reserved'))",
+    )
 }
 
 fn migration_local_path_repairs(conn: &Connection) -> Result<()> {
@@ -4612,6 +4684,7 @@ mod tests {
                     created_at: created,
                     last_checked_at: None,
                     last_status: Some(BroadcastEventStatus::Unknown),
+                    kind: BroadcastEventKind::Created,
                 },
             )?;
         }
@@ -4643,6 +4716,25 @@ mod tests {
         Ok(())
     }
 
+    /// ADR 0110 Decision 1: a row from before migration 31 is Created.
+    #[test]
+    fn adr_0110_broadcast_event_kind_defaults_to_created_and_stores_reserved() -> Result<()> {
+        let conn = Connection::open_in_memory()?;
+        upgrades::create_fixture(&conn, 30)?;
+        conn.execute_batch(
+            "INSERT INTO broadcast_events(event_id,endpoint,token_path,created_at) VALUES('old','http://localhost','/fixture/token',1)",
+        )?;
+        migrate_schema(&conn)?;
+        let old = broadcast_event_by_event_id(&conn, "old")?.unwrap();
+        assert_eq!(old.kind, BroadcastEventKind::Created);
+        let mut input = test_broadcast_event("fixture-reserved");
+        input.kind = BroadcastEventKind::Reserved;
+        insert_broadcast_event(&conn, &input)?;
+        let reserved = broadcast_event_by_event_id(&conn, "fixture-reserved")?.unwrap();
+        assert_eq!(reserved.kind, BroadcastEventKind::Reserved);
+        Ok(())
+    }
+
     fn applied_migration_versions(conn: &Connection) -> Result<Vec<i64>> {
         let mut stmt = conn
             .prepare("SELECT version FROM schema_migrations ORDER BY version")
@@ -4664,6 +4756,7 @@ mod tests {
             created_at: 1_778_284_800,
             last_checked_at: Some(1_778_284_801),
             last_status: Some(BroadcastEventStatus::Unknown),
+            kind: BroadcastEventKind::Created,
         }
     }
 
@@ -5711,7 +5804,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26, 27, 28, 29, 30
+                24, 25, 26, 27, 28, 29, 30, 31
             ],
             "cleanup migration should be recorded exactly once"
         );

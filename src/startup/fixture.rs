@@ -464,17 +464,17 @@ fn seed_upgrade_checks(root: &Path) -> Result<()> {
     crate::db::upgrades::create_fixture(&conn, 10)?;
     conn.execute("INSERT INTO playlists(name, description) VALUES ('Startup fixture playlist',hex(zeroblob(524288)))", [])?;
     seed_tracks(&conn, root)?;
-    crate::db::insert_broadcast_event(
-        &conn,
-        &crate::db::BroadcastEventInput {
-            event_id: "upgrade-fixture-event".into(),
-            label: Some("Upgrade fixture saved event".into()),
-            created_at: chrono::Utc::now().timestamp(),
-            last_checked_at: None,
-            last_status: None,
-            endpoint: "http://127.0.0.1:9".into(),
-            token_path: root.join("broadcaster-token.fixture").display().to_string(),
-        },
+    // The fixture has schema version 10, before the column `kind` of migration 31.
+    conn.execute(
+        "INSERT INTO broadcast_events (event_id, label, endpoint, token_path, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![
+            "upgrade-fixture-event",
+            "Upgrade fixture saved event",
+            "http://127.0.0.1:9",
+            root.join("broadcaster-token.fixture").display().to_string(),
+            chrono::Utc::now().timestamp(),
+        ],
     )?;
     drop(conn);
     let budget = crate::db::maintenance::Budget::new(std::sync::Arc::new(
@@ -487,7 +487,12 @@ fn seed_upgrade_checks(root: &Path) -> Result<()> {
     let conn = rusqlite::Connection::open(&source)?;
     interrupt_fixture(&conn, MigrationBoundary::AfterApply)?;
     for _ in 0..7 {
-        crate::db::select_broadcast_event(&conn, "upgrade-fixture-event")?;
+        // The fixture stops before migration 31, so the registry read of `kind` cannot run.
+        conn.execute(
+            "INSERT INTO broadcast_event_selection (singleton, event_id, revision) VALUES (1, ?1, 1)
+             ON CONFLICT(singleton) DO UPDATE SET event_id = excluded.event_id, revision = revision + 1",
+            ["upgrade-fixture-event"],
+        )?;
     }
     drop(conn);
     println!(

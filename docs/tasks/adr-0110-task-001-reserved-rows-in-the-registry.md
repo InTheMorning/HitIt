@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-21. Implementation has not started.
+Implemented - 2026-11-21. Mechanical criteria are Green. The main session reviewed the diff and ran the checks. This task has no visual criteria.
 
 ## Goal
 
@@ -103,4 +103,21 @@ None. Task 002 has the visual criteria of ADR 0110.
 
 ## Report
 
-Not started.
+The registry has the kind column (migration 31), `add_reserved_event`, the
+`404` code table and the new `forget_local_event`. The CLI has `add-reserved`,
+`forget [--json]` and `attach --replace-event`. The GUI has no `Forget` caller,
+so `src/app/show.rs` changed only for the new `kind` field.
+
+| Criterion | Test |
+|---|---|
+| 1 | `db::tests::adr_0110_broadcast_event_kind_defaults_to_created_and_stores_reserved` |
+| 2 | `registry::tests::adr_0110_add_reserved_event_names_the_failed_check_and_stores_no_row` |
+| 3 | `registry::tests::adr_0110_add_reserved_event_stores_a_reserved_row_and_keeps_the_file` |
+| 4 | `registry::tests::adr_0110_check_event_tells_the_404_codes_apart` and `registry::tests::adr_0110_add_reserved_event_handles_the_relay_answers` |
+| 5 | `registry::tests::adr_0110_forget_keeps_a_token_file_that_hitit_must_not_remove` |
+| 6 | `cli::tests::adr_0110_attach_refuses_a_different_event_without_the_matching_replace_option` |
+
+Open points: `--replace-event` is also refused when the target carries no
+different event. `fetch_live_metadata_optional` keeps its signature. The new
+method `fetch_live_metadata_classified` gives the code, so the other callers
+keep their behavior.

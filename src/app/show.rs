@@ -2848,6 +2848,9 @@ mod tests {
                         "metadata_url": "/v1/liveitems/event-new/metadata", "events_url": "/events",
                     })
                     .to_string()
+                } else if status == 404 {
+                    // ADR 0110 Decision 4: only this code means Dead.
+                    r#"{"error":"event_not_found"}"#.to_owned()
                 } else {
                     serde_json::json!({
                         "event_id": "event-new", "seq": 1, "updated_at": "2026-09-09T00:00:00Z", "metadata": {},
@@ -2936,6 +2939,7 @@ mod tests {
                 created_at: 1,
                 last_checked_at: Some(2),
                 last_status: Some(db::BroadcastEventStatus::Dead),
+                kind: db::BroadcastEventKind::Created,
             },
         )
         .unwrap();
@@ -3265,6 +3269,7 @@ mod tests {
                 created_at: created,
                 last_checked_at: Some(created),
                 last_status: Some(db::BroadcastEventStatus::Dead),
+                kind: db::BroadcastEventKind::Created,
             },
         )
         .unwrap();

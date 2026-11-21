@@ -1024,6 +1024,19 @@ impl fmt::Debug for LiveItemCreateResponse {
     }
 }
 
+/// The answer of the relay metadata route (ADR 0110 Decision 4).
+#[derive(Debug, Clone)]
+pub enum LiveMetadataRead {
+    /// The relay gave a snapshot.
+    Snapshot(Box<LiveMetadataSnapshot>),
+    /// `404` with the code `metadata_not_found`. The event exists and has no snapshot.
+    MetadataNotFound,
+    /// `404` with the code `event_not_found`. The event does not exist.
+    EventNotFound,
+    /// `404` with a different code, or with no readable code.
+    OtherNotFound(Option<String>),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveMetadataSnapshot {
     pub event_id: String,
@@ -1394,6 +1407,21 @@ impl Client {
         &self,
         event_id: &str,
     ) -> Result<Option<LiveMetadataSnapshot>> {
+        match self.fetch_live_metadata_classified(event_id)? {
+            LiveMetadataRead::Snapshot(snapshot) => Ok(Some(*snapshot)),
+            LiveMetadataRead::MetadataNotFound
+            | LiveMetadataRead::EventNotFound
+            | LiveMetadataRead::OtherNotFound(_) => Ok(None),
+        }
+    }
+
+    /// Read the metadata route and tell the `404` codes apart (ADR 0110 Decision 4).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `LiveMetadataReadError` for a transport failure or a body
+    /// that is not a snapshot.
+    pub fn fetch_live_metadata_classified(&self, event_id: &str) -> Result<LiveMetadataRead> {
         validate_live_metadata_event_id("path event_id", event_id)?;
         let url = self.build_url(&["v1", "liveitems", event_id, "metadata"], &[])?;
         let response = self
@@ -1405,16 +1433,27 @@ impl Client {
                 detail: format!("{:#}", anyhow::Error::new(error)),
             })?;
         if response.status() == StatusCode::NOT_FOUND {
-            return Ok(None);
+            let code = response
+                .text()
+                .ok()
+                .and_then(|body| serde_json::from_str::<serde_json::Value>(&body).ok())
+                .and_then(|value| value.get("error")?.as_str().map(str::to_owned));
+            return Ok(match code.as_deref() {
+                Some("metadata_not_found") => LiveMetadataRead::MetadataNotFound,
+                Some("event_not_found") => LiveMetadataRead::EventNotFound,
+                _ => LiveMetadataRead::OtherNotFound(code),
+            });
         }
         let status = response.status().as_u16();
-        response_json(response, "GET").map(Some).map_err(|error| {
-            LiveMetadataReadError {
-                response_status: Some(status),
-                detail: format!("{error:#}"),
-            }
-            .into()
-        })
+        response_json(response, "GET")
+            .map(|snapshot| LiveMetadataRead::Snapshot(Box::new(snapshot)))
+            .map_err(|error| {
+                LiveMetadataReadError {
+                    response_status: Some(status),
+                    detail: format!("{error:#}"),
+                }
+                .into()
+            })
     }
 
     fn fetch_wrapped_with_query<T>(

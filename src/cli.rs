@@ -11,8 +11,8 @@ use crate::application::commands::payment_routes::{
     RepairMissingPaymentRouteTags, RepairPaymentRoutesForTrack,
 };
 use crate::application::{ApplicationQueryService, CommandBus, CommandContext};
-use crate::broadcast::publisher_targets;
-use crate::broadcast::registry::BroadcastRegistry;
+use crate::broadcast::publisher_targets::{self, PublisherTarget};
+use crate::broadcast::registry::{BroadcastRegistry, TargetListRead};
 use crate::playback_driver::ConfiguredPlaybackDriver;
 use crate::{api, config, db, debug_contracts, playback};
 
@@ -48,6 +48,11 @@ pub fn run(args: &[String]) -> Result<()> {
             if section == "broadcast" && area == "events" && command == "create" =>
         {
             create_broadcast_event(settings, rest)
+        }
+        [section, area, command, event_id, rest @ ..]
+            if section == "broadcast" && area == "events" && command == "add-reserved" =>
+        {
+            add_reserved_broadcast_event(settings, event_id, rest)
         }
         [section, area, command, event_id, rest @ ..]
             if section == "broadcast" && area == "events" && command == "forget" =>
@@ -280,15 +285,73 @@ fn create_broadcast_event(settings: &CliConfig, args: &[String]) -> Result<()> {
     print_json(&created)
 }
 
-fn forget_broadcast_event(settings: &CliConfig, event_id: &str, args: &[String]) -> Result<()> {
+fn add_reserved_broadcast_event(
+    settings: &CliConfig,
+    event_id: &str,
+    args: &[String],
+) -> Result<()> {
+    let options = parse_broadcast_event_add_reserved_options(args)?;
     anyhow::ensure!(
-        args.is_empty(),
-        "broadcast events forget does not accept extra arguments"
+        options.json,
+        "broadcast events add-reserved requires --json"
     );
+    let token_file = options
+        .token_file
+        .context("broadcast events add-reserved requires --token-file <path>")?;
+
     let conn = open_configured_db(settings)?;
-    let forgotten = crate::broadcast::registry::forget_local_event(&conn, event_id)?
+    let registry = configured_broadcast_registry(settings, &conn)?;
+    let added = registry.add_reserved_event(event_id, &token_file, options.label.as_deref())?;
+    print_json(&added)
+}
+
+fn forget_broadcast_event(settings: &CliConfig, event_id: &str, args: &[String]) -> Result<()> {
+    let json = match args {
+        [] => false,
+        [flag] if flag == "--json" => true,
+        _ => {
+            return Err(anyhow!(
+                "broadcast events forget accepts only --json as an extra argument"
+            ))
+        }
+    };
+    let conn = open_configured_db(settings)?;
+    let targets = configured_broadcast_host(settings)
+        .map_err(|error| format!("{error:#}"))
+        .and_then(|host| {
+            publisher_targets::list_targets(&host.transport, &host.instance_name)
+                .map_err(|error| format!("{error:#}"))
+        });
+    forget_with_target_list(&conn, event_id, &targets, json)
+}
+
+/// `Forget` with a target list that the caller read (ADR 0110 Decision 6).
+fn forget_with_target_list(
+    conn: &Connection,
+    event_id: &str,
+    targets: &std::result::Result<publisher_targets::PublisherTargetList, String>,
+    json: bool,
+) -> Result<()> {
+    let read = match targets {
+        Ok(list) => TargetListRead::Read(&list.targets),
+        Err(detail) => TargetListRead::Failed(detail),
+    };
+    let forgotten = crate::broadcast::registry::forget_local_event(conn, event_id, read)?
         .with_context(|| format!("broadcast event not found: {event_id}"))?;
-    println!("forgot broadcast event {}", forgotten.event_id);
+    if json {
+        return print_json(&forgotten);
+    }
+    println!("forgot broadcast event {}", forgotten.event.event_id);
+    if let Some(reason) = forgotten.token_file_kept_reason {
+        println!(
+            "kept token file {}: {}",
+            forgotten.event.token_path,
+            reason.text()
+        );
+        if let Err(detail) = targets {
+            eprintln!("target list read failed: {detail}");
+        }
+    }
     Ok(())
 }
 
@@ -315,6 +378,13 @@ fn attach_broadcast_target(settings: &CliConfig, event_id: &str, args: &[String]
     let event = db::broadcast_event_by_event_id(&conn, event_id)?
         .with_context(|| format!("broadcast event not found: {event_id}"))?;
     let host = configured_broadcast_host(settings)?;
+    let targets = publisher_targets::list_targets(&host.transport, &host.instance_name)?;
+    check_attach_replacement(
+        &targets.targets,
+        &options.target,
+        &event.event_id,
+        options.replace_event.as_deref(),
+    )?;
 
     publisher_targets::attach_event(
         &host.transport,
@@ -328,6 +398,35 @@ fn attach_broadcast_target(settings: &CliConfig, event_id: &str, args: &[String]
         "attached broadcast event {} to publisher target {}",
         event.event_id, options.target
     );
+    Ok(())
+}
+
+/// ADR 0110 Decision 7: attach replaces a different event only with `--replace-event`.
+fn check_attach_replacement(
+    targets: &[PublisherTarget],
+    target_name: &str,
+    event_id: &str,
+    replace_event: Option<&str>,
+) -> Result<()> {
+    let current = targets
+        .iter()
+        .find(|target| target.name == target_name)
+        .map(|target| target.event_id.as_str());
+    match (current, replace_event) {
+        (Some(current), replace) if current != event_id => {
+            anyhow::ensure!(
+                replace == Some(current),
+                "target {target_name} carries event {current}, not the selected event {event_id}. \
+                 To replace it, run the command again with --replace-event {current}"
+            );
+        }
+        (_, Some(replace)) => {
+            return Err(anyhow!(
+                "--replace-event {replace} does not match: target {target_name} carries no different event"
+            ));
+        }
+        _ => {}
+    }
     Ok(())
 }
 
@@ -489,9 +588,17 @@ struct BroadcastEventCreateOptions {
     label: Option<String>,
 }
 
+#[derive(Debug, Default)]
+struct BroadcastEventAddReservedOptions {
+    json: bool,
+    label: Option<String>,
+    token_file: Option<std::path::PathBuf>,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 struct BroadcastTargetAttachOptions {
     target: String,
+    replace_event: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -562,8 +669,43 @@ fn parse_broadcast_event_create_options(args: &[String]) -> Result<BroadcastEven
     Ok(options)
 }
 
+fn parse_broadcast_event_add_reserved_options(
+    args: &[String],
+) -> Result<BroadcastEventAddReservedOptions> {
+    let mut options = BroadcastEventAddReservedOptions::default();
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => {
+                anyhow::ensure!(!options.json, "duplicate --json");
+                options.json = true;
+                index += 1;
+            }
+            "--label" => {
+                let value = option_value(args, index, "--label")?;
+                anyhow::ensure!(options.label.is_none(), "duplicate --label");
+                options.label = Some(value.to_string());
+                index += 2;
+            }
+            "--token-file" => {
+                let value = option_value(args, index, "--token-file")?;
+                anyhow::ensure!(options.token_file.is_none(), "duplicate --token-file");
+                options.token_file = Some(std::path::PathBuf::from(value));
+                index += 2;
+            }
+            flag => {
+                return Err(anyhow!(
+                    "unsupported broadcast events add-reserved option {flag:?}"
+                ))
+            }
+        }
+    }
+    Ok(options)
+}
+
 fn parse_broadcast_target_attach_options(args: &[String]) -> Result<BroadcastTargetAttachOptions> {
     let mut target = None;
+    let mut replace_event = None;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
@@ -571,6 +713,12 @@ fn parse_broadcast_target_attach_options(args: &[String]) -> Result<BroadcastTar
                 let value = option_value(args, index, "--target")?;
                 anyhow::ensure!(target.is_none(), "duplicate --target");
                 target = Some(value.trim().to_owned());
+                index += 2;
+            }
+            "--replace-event" => {
+                let value = option_value(args, index, "--replace-event")?;
+                anyhow::ensure!(replace_event.is_none(), "duplicate --replace-event");
+                replace_event = Some(value.trim().to_owned());
                 index += 2;
             }
             flag => {
@@ -583,7 +731,10 @@ fn parse_broadcast_target_attach_options(args: &[String]) -> Result<BroadcastTar
 
     let target = target.context("broadcast targets attach requires --target <name>")?;
     anyhow::ensure!(!target.is_empty(), "broadcast target name cannot be empty");
-    Ok(BroadcastTargetAttachOptions { target })
+    Ok(BroadcastTargetAttachOptions {
+        target,
+        replace_event,
+    })
 }
 
 fn parse_json_only_options(command: &str, args: &[String]) -> Result<()> {
@@ -676,10 +827,11 @@ fn help_text() -> &'static str {
   hitit liveitem latest <event-id> --json [--endpoint <url>]
   hitit broadcast events list --json
   hitit broadcast events create --json [--label <text>]
-  hitit broadcast events forget <event-id>
+  hitit broadcast events add-reserved <event-id> --token-file <absolute-path> --json [--label <text>]
+  hitit broadcast events forget <event-id> [--json]
   hitit broadcast events check <event-id> --json
   hitit broadcast targets list --json
-  hitit broadcast targets attach <event-id> --target <name>
+  hitit broadcast targets attach <event-id> --target <name> [--replace-event <event-id>]
   hitit broadcast readiness --json
   hitit broadcast repair-routes --json
   hitit broadcast repair-routes <track-id> --json
@@ -748,6 +900,85 @@ mod tests {
     }
 
     use super::*;
+
+    fn target(name: &str, event_id: &str) -> PublisherTarget {
+        PublisherTarget {
+            name: name.to_owned(),
+            event_id: event_id.to_owned(),
+            token_file: std::path::PathBuf::from("/fixture/token"),
+            stream_delay_secs: 0.0,
+        }
+    }
+
+    /// ADR 0110 Decision 7: attach refuses a different event and names both IDs.
+    #[test]
+    fn adr_0110_attach_refuses_a_different_event_without_the_matching_replace_option() {
+        let targets = [target("default", "event-on-target")];
+
+        let error = check_attach_replacement(&targets, "default", "event-selected", None)
+            .expect_err("a different event needs --replace-event")
+            .to_string();
+        assert!(error.contains("event-on-target") && error.contains("event-selected"));
+
+        let error =
+            check_attach_replacement(&targets, "default", "event-selected", Some("event-wrong"))
+                .expect_err("a wrong --replace-event is refused")
+                .to_string();
+        assert!(error.contains("event-on-target"));
+
+        check_attach_replacement(
+            &targets,
+            "default",
+            "event-selected",
+            Some("event-on-target"),
+        )
+        .expect("the correct --replace-event continues");
+        check_attach_replacement(&targets, "default", "event-on-target", None)
+            .expect("the same event needs no option");
+        check_attach_replacement(&targets, "other", "event-selected", None)
+            .expect("a target without an event needs no option");
+        assert!(check_attach_replacement(
+            &targets,
+            "other",
+            "event-selected",
+            Some("event-on-target")
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn adr_0110_attach_options_parse_replace_event() {
+        let args = ["--target", "default", "--replace-event", "event-one"].map(str::to_owned);
+        let options = parse_broadcast_target_attach_options(&args).unwrap();
+        assert_eq!(options.replace_event.as_deref(), Some("event-one"));
+        let args = ["--target", "default"].map(str::to_owned);
+        assert_eq!(
+            parse_broadcast_target_attach_options(&args)
+                .unwrap()
+                .replace_event,
+            None
+        );
+    }
+
+    #[test]
+    fn adr_0110_add_reserved_options_parse_token_file_and_label() {
+        let args = [
+            "--token-file",
+            "/fixture/show.token",
+            "--label",
+            "Friday",
+            "--json",
+        ]
+        .map(str::to_owned);
+        let options = parse_broadcast_event_add_reserved_options(&args).unwrap();
+        assert!(options.json);
+        assert_eq!(options.label.as_deref(), Some("Friday"));
+        assert_eq!(
+            options.token_file,
+            Some(std::path::PathBuf::from("/fixture/show.token"))
+        );
+        assert!(parse_broadcast_event_add_reserved_options(&["--x".to_owned()]).is_err());
+    }
 
     #[test]
     fn help_lists_library_repair_paths_json_command() {

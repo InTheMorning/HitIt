@@ -12576,7 +12576,8 @@ fn adr_0059_hitit_does_not_publish_live_metadata() {
 
     let cli_source = read_source(&manifest_path("src/cli.rs"));
     for (line_number, line) in code_lines(&cli_source) {
-        if line.contains("--token")
+        // ADR 0110 Decision 2 allows `--token-file`: it names a path, not token text.
+        if line.replace("--token-file", "").contains("--token")
             || line.contains("MUSICINDEX_LIVEITEM_TOKEN")
             || line.contains("broadcaster_token")
             || line.contains("create_live_item")

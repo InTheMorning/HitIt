@@ -644,7 +644,8 @@ mod tests {
             0,
             "the result row follows its run"
         );
-        upgrades::verify_target(&conn, 30).unwrap();
+        crate::db::migrate_schema(&conn).unwrap();
+        upgrades::verify_target(&conn, crate::db::CURRENT_VERSION).unwrap();
         assert_eq!(inspect_schema(&conn).unwrap(), SchemaCompatibility::Current);
     }
 
