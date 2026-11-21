@@ -1304,9 +1304,11 @@ impl TopApp {
             if let Some((role, started)) = self.show_commands.intent(command_id) {
                 if let Some(role) = role {
                     self.started_parts.record_service(role, started);
-                } else {
+                } else if started {
                     self.started_parts
-                        .record_stream(started, std::time::Instant::now());
+                        .record_stream(true, std::time::Instant::now());
+                } else {
+                    self.started_parts.release_stream(std::time::Instant::now());
                 }
             }
         }

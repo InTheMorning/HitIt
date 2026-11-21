@@ -150,3 +150,7 @@ Agent walk of section 47 of the human checks, 2026-11-20. The results are in tha
 
 - "Open playlists" shows in the Source inspector at all times. ADR 0107 Decision 2 gives it only for a Source cause.
 - The cause "Select mpv in Settings, Audio" has no action button. ADR 0107 Decision 2 gives each cause its action.
+- The Signal row says "Sound reaches the stream" while the stream is disconnected. It shows the input signal of butt.
+- "Recording elapsed 0:00" shows while the recording is stopped.
+- A Connect to a server name that butt does not know fails with no error text.
+- Settings has no field for the encoder server name. The list of shows must own this setting.

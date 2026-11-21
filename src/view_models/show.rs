@@ -556,6 +556,15 @@ impl StartedParts {
         self.stream_recorded_at = connected.then_some(now);
     }
 
+    /// A successful Disconnect. The record stays until the watch shows the stream off, so the
+    /// Stream card does not show the outside state while the watch is late. A record that
+    /// the watch never showed on goes after `STREAM_CONNECT_LIMIT` from now.
+    pub(crate) fn release_stream(&mut self, now: std::time::Instant) {
+        if self.stream {
+            self.stream_recorded_at = Some(now);
+        }
+    }
+
     pub(crate) fn record_service(&mut self, role: PublisherServiceRole, started: bool) {
         self.services.retain(|known| *known != role);
         self.services_seen_on.retain(|known| *known != role);
@@ -4176,6 +4185,28 @@ mod tests {
         assert!(!started.stream);
         started.record_service(PublisherServiceRole::Publisher, true);
         started.record_stream(false, now);
+        assert!(!started.stream);
+        // A Disconnect keeps the record until the watch shows the stream off.
+        started.record_stream(true, now);
+        started.reconcile(true, &[], now);
+        started.release_stream(now);
+        started.reconcile(true, &[], now);
+        assert!(
+            started.stream,
+            "the watch is late: the stream is not outside HitIt"
+        );
+        started.reconcile(false, &[], now);
+        assert!(!started.stream);
+        // A Disconnect before the watch showed the stream on: the record goes at the limit.
+        started.record_stream(true, now);
+        started.release_stream(now + STREAM_CONNECT_LIMIT);
+        started.reconcile(
+            false,
+            &[],
+            now + STREAM_CONNECT_LIMIT + STREAM_CONNECT_LIMIT / 2,
+        );
+        assert!(started.stream);
+        started.reconcile(false, &[], now + STREAM_CONNECT_LIMIT * 2);
         assert!(!started.stream);
         started.record_service(PublisherServiceRole::Publisher, false);
         assert!(started.services.is_empty());

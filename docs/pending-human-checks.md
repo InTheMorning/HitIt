@@ -1104,3 +1104,12 @@ Agent walk on Xvfb, 2026-11-20, debug build of 3979f91 with the two corrections 
 - Corrected: the Status row of each inspector did not align with the other rows.
 
 Open for the operator: V4, V5, and step 3 with a ready cue.
+
+Operator check, 2026-11-21, debug build: V1, V4 and V5 passed. V4: with the Mixxx stream on, the Stream card showed "Connected outside HitIt", and the band showed "Go on air". V5: after a Connect from the Stream card, "End show" disconnected the stream. The "Stream is not ready" text of step 3 stays open.
+
+The check found these defects. Each one is corrected:
+
+- Connect did not connect, because the configuration had `default_server_name = "default"` and butt has no server with that name. The operator removed the line. Settings has no field for this setting. The list of shows must own it.
+- The band showed "Go on air" and "End show" together. Now it shows one of the two.
+- After "End show", the Stream card showed "Connected outside HitIt" for a short time, because the watch was late. Now the record stays until the watch shows the stream off.
+- The "End show" button was grey. Now it has the destructive style.

@@ -605,28 +605,33 @@ fn render_on_air_buttons(
         .items_center()
         .gap(Spacing::SM.scaled(cx))
         .pt(Spacing::XS.scaled(cx))
-        .child(
-            Button::filled("show-go-on-air")
-                .label(go_label)
-                .a11y_label(go_a11y_label)
-                .disabled(!go_available)
-                .on_click(move |_, window, app| {
-                    if let Some(callback) = &go {
-                        callback(window, app);
-                    }
-                }),
-        )
-        .when_some(go_cause, |el, cause| {
-            el.child(Label::new(cause).variant(LabelVariant::Caption))
+        // ADR 0107 Decision 1: the row shows "Go on air" or "End show", not both.
+        .when(!end_show_available, |el| {
+            el.child(
+                Button::filled("show-go-on-air")
+                    .label(go_label)
+                    .a11y_label(go_a11y_label)
+                    .disabled(!go_available)
+                    .on_click(move |_, window, app| {
+                        if let Some(callback) = &go {
+                            callback(window, app);
+                        }
+                    }),
+            )
+            .when_some(go_cause, |el, cause| {
+                el.child(Label::new(cause).variant(LabelVariant::Caption))
+            })
         })
         .when(end_show_available, |el| {
-            el.child(Button::plain("show-end-show").label("End show").on_click(
-                move |_, window, app| {
-                    if let Some(handler) = &end_show {
-                        handler(EndShowAction::Confirm, window, app);
-                    }
-                },
-            ))
+            el.child(
+                Button::destructive("show-end-show")
+                    .label("End show")
+                    .on_click(move |_, window, app| {
+                        if let Some(handler) = &end_show {
+                            handler(EndShowAction::Confirm, window, app);
+                        }
+                    }),
+            )
         })
 }
 
