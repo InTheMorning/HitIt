@@ -33,6 +33,7 @@ pub(crate) fn check(
     music_dir: &Path,
     conn: &Arc<Mutex<rusqlite::Connection>>,
     producer: Option<crate::broadcast::producer::DropFileProducer>,
+    selected_show_instance: Option<String>,
 ) -> Result<CapabilityCheck, &'static str> {
     let configuration = crate::config::ConfigWriteLease::acquire(path)
         .map_err(|_| "App could not reserve the configuration for a tool check. Wait for its current save or check, then check again.")?;
@@ -91,7 +92,11 @@ pub(crate) fn check(
             PreparedCapability::Configuration
         }
         Dependency::Producer => {
-            let producer = snapshot.broadcast().drop_file_producer().map_err(|_| "App could not validate drop-file settings. Correct the directory and target, then check again.")?;
+            // ADR 0111 Decision 6, operator choice of 2026-11-21: keep the drop folder of the
+            // selected show instance. The configuration file does not hold the selection.
+            let mut broadcast = snapshot.broadcast();
+            broadcast.selected_show_instance = selected_show_instance;
+            let producer = broadcast.drop_file_producer().map_err(|_| "App could not validate drop-file settings. Correct the directory and target, then check again.")?;
             if let Some(producer) = &producer {
                 producer.prepare_directory().map_err(|_| "App could not prepare the drop-file directory. Check the path and permissions, then check again.")?;
             }
@@ -184,6 +189,7 @@ mod tests {
             &music,
             &conn,
             None,
+            None,
         )
         .unwrap();
         assert!(matches!(checked.prepared, PreparedCapability::Endpoint(_)));
@@ -216,7 +222,7 @@ mod tests {
         let original =
             format!("music_dir = {music:?}\ndb_path = {database:?}\n[playback]\ndriver = 'null'\n");
         std::fs::write(&path, &original).unwrap();
-        let prepared = check(&path, Dependency::Playback, None, &music, &conn, None).unwrap();
+        let prepared = check(&path, Dependency::Playback, None, &music, &conn, None, None).unwrap();
         let PreparedCapability::Playback(player) = prepared.prepared else {
             panic!("player expected");
         };
@@ -227,6 +233,7 @@ mod tests {
             Some(player.clone()),
             &music,
             &conn,
+            None,
             None,
         )
         .unwrap();
@@ -248,11 +255,55 @@ mod tests {
             Some(player.clone()),
             &music,
             &conn,
+            None,
             None
         )
         .is_err());
         assert!(Arc::ptr_eq(&player, &same));
         assert!(!same.lock().unwrap().driver().is_live_driver());
+    }
+
+    /// ADR 0111 Decision 6, operator choice of 2026-11-21: a recovery check with a selected
+    /// show instance does not move the drop file back to the private drop folder.
+    #[test]
+    fn adr_0111_producer_check_keeps_the_selected_show_instance() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("config.toml");
+        let database = temp.path().join("library.sqlite");
+        let drop_dir = temp.path().join("private-drop");
+        let conn = Arc::new(Mutex::new(rusqlite::Connection::open(&database).unwrap()));
+        let source = format!(
+            "music_dir = {:?}\ndb_path = {database:?}\n[playback]\ndriver = false\n[broadcast]\ndrop_directory = {drop_dir:?}\n\n[[broadcast.hosts]]\nname = \"Remote\"\ntransport = \"ssh\"\ndestination = \"studio-box\"\ninstance_name = \"mixxx\"\n\n[[broadcast.hosts.show_instances]]\nname = \"show-1\"\nconfig_file = \"/fixture/show-1/config.toml\"\npublisher_unit = \"musicindex-live-publisher@show-1.service\"\nproducer_unit = \"mixxx-now-playing@show-1.service\"\n",
+            temp.path()
+        );
+        std::fs::write(&path, &source).unwrap();
+        // An SSH host gives the show instance no drop folder, so the check fails in each
+        // environment and writes nothing below XDG_RUNTIME_DIR. It must not fall back to the
+        // private drop folder.
+        let selected = check(
+            &path,
+            Dependency::Producer,
+            None,
+            temp.path(),
+            &conn,
+            None,
+            Some("show-1".to_owned()),
+        );
+        assert!(selected.is_err());
+        assert!(!drop_dir.exists(), "the private drop folder was prepared");
+        let _ = check(
+            &path,
+            Dependency::Producer,
+            None,
+            temp.path(),
+            &conn,
+            None,
+            None,
+        );
+        assert!(
+            drop_dir.exists(),
+            "with no selection the private drop folder is used"
+        );
     }
 
     #[test]
@@ -264,7 +315,16 @@ mod tests {
         let conn = Arc::new(Mutex::new(rusqlite::Connection::open(&database).unwrap()));
         let source = format!("music_dir = {:?}\ndb_path = {database:?}\n[playback]\ndriver = false\n[broadcast]\ndrop_directory = {drop_dir:?}\n", temp.path());
         std::fs::write(&path, &source).unwrap();
-        let result = check(&path, Dependency::Producer, None, temp.path(), &conn, None).unwrap();
+        let result = check(
+            &path,
+            Dependency::Producer,
+            None,
+            temp.path(),
+            &conn,
+            None,
+            None,
+        )
+        .unwrap();
         assert!(matches!(result.prepared, PreparedCapability::Configuration));
         assert_eq!(std::fs::read_dir(&drop_dir).unwrap().count(), 0);
         assert!(result.snapshot.playback().is_err());
@@ -286,6 +346,7 @@ mod tests {
             None,
             temp.path(),
             &conn,
+            None,
             None
         )
         .err()

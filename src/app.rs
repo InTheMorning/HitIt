@@ -80,6 +80,8 @@ mod search_field_list;
 mod search_live;
 mod search_selection;
 mod show;
+mod show_instance;
+mod show_mixxx;
 mod status_bar;
 mod tab_bar;
 mod toolbar;
@@ -151,6 +153,10 @@ impl CollectionArtHost for TopApp {
     }
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent UI or step state of the one app root"
+)]
 pub struct TopApp {
     tab: AppTab,
     library: Entity<LibraryApp>,
@@ -231,6 +237,13 @@ pub struct TopApp {
     /// Active ordered End show run (ADR 0105).
     end_show_sequence: Option<crate::view_models::show::EndShowSequence>,
     started_parts: crate::view_models::show::StartedParts,
+    /// Player of the show (ADR 0111 Decision 6). It is not saved, except through the stored
+    /// fact of a producer switch.
+    show_player: crate::view_models::show::ShowPlayer,
+    /// A step of a show that Mixxx plays runs (ADR 0111 Decisions 6 and 7).
+    mixxx_step_pending: bool,
+    /// The "Make show instance" form (ADR 0111 Decision 3).
+    make_instance_dialog: Option<show_instance::MakeInstanceDialog>,
     end_band: Option<crate::view_models::show::EndBand>,
     on_air_step_id: Option<ShowCommandId>,
     on_air_connect_started: Option<std::time::Instant>,
@@ -577,6 +590,19 @@ impl TopApp {
         });
         let show_page =
             ShowPageVm::idle().with_execution_availability(command_runner.availability());
+        // ADR 0111 Decision 7: a stored fact makes "End show" start the private producer again.
+        let restored_show = conn
+            .lock()
+            .ok()
+            .and_then(|conn| show_mixxx::started_parts_from_store(&conn));
+        let mut broadcast = broadcast;
+        if let Some(parts) = &restored_show {
+            broadcast
+                .selected_show_instance
+                .clone_from(&parts.show_instance);
+            // The first status text of the app is not set here. A failure leaves the producer off.
+            let _ = show_instance::apply_drop_producer(&broadcast, playback_owner.as_ref());
+        }
 
         Self {
             tab: AppTab::Music,
@@ -617,7 +643,14 @@ impl TopApp {
             show_commands: ShowCommandState::default(),
             on_air_sequence: None,
             end_show_sequence: None,
-            started_parts: crate::view_models::show::StartedParts::default(),
+            show_player: if restored_show.is_some() {
+                crate::view_models::show::ShowPlayer::Mixxx
+            } else {
+                crate::view_models::show::ShowPlayer::default()
+            },
+            started_parts: restored_show.unwrap_or_default(),
+            mixxx_step_pending: false,
+            make_instance_dialog: None,
             end_band: None,
             on_air_step_id: None,
             on_air_connect_started: None,

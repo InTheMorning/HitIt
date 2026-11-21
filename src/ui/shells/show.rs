@@ -168,6 +168,33 @@ impl ShowSlots {
         self
     }
 
+    /// Supplies the player selection (ADR 0111 Decision 6).
+    pub(crate) fn on_select_player(
+        mut self,
+        handler: impl Fn(crate::view_models::show::ShowPlayer, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.panel = self.panel.on_select_player(handler);
+        self
+    }
+
+    /// Supplies the show instance selection (ADR 0111 Decision 6).
+    pub(crate) fn on_select_show_instance(
+        mut self,
+        handler: impl Fn(String, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.panel = self.panel.on_select_show_instance(handler);
+        self
+    }
+
+    /// Supplies the action "Make show instance" (ADR 0111 Decision 3).
+    pub(crate) fn on_make_instance(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.panel = self.panel.on_make_instance(handler);
+        self
+    }
+
     pub(crate) fn on_retry_show(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,

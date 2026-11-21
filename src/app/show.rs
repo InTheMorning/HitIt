@@ -43,8 +43,9 @@ use crate::view_models::show::{
     EventCheckResponse, EventCommandFeedback, EventCommandState, EventControlIntent, EventKind,
     EventRegistryAction, EventRegistryInput, EventRegistryStatus, EventReportOperation,
     EventSectionInput, EventSelectionInput, EventState, EventTargetInput, EventTargetListInput,
-    PublisherServiceOperation, PublisherServiceRole, ReservedAddOutcome, ShowCardKind,
-    ShowCommandId, ShowLogRequestId, ShowPageVm, StreamEncoderOperation, PUBLISHER_LOG_LINE_COUNT,
+    PublisherServiceOperation, PublisherServiceRole, ReservedAddOutcome, SelectedInstance,
+    ShowCardKind, ShowCommandId, ShowLogRequestId, ShowPageVm, ShowPlayer, ShowPlayerFacts,
+    StreamEncoderOperation, PUBLISHER_LOG_LINE_COUNT,
 };
 use crate::view_models::workspace::{FrameNavigationEntry, MusicDestination};
 use crate::{config, db};
@@ -53,6 +54,7 @@ use super::queue_now_playing::{
     queue_now_playing_input, queue_now_playing_vm, queue_select_entry_action,
     queue_transport_action,
 };
+use super::show_mixxx::{self, MixxxStep, MixxxStepCommand, MixxxStepDone, ShowUnit};
 use super::{AppTab, TopApp};
 
 impl TopApp {
@@ -200,11 +202,21 @@ impl TopApp {
                     .collect()
             })
             .unwrap_or_default();
-        self.end_show_sequence = Some(crate::view_models::show::EndShowSequence::new(
-            music_is_on,
-            stream_is_on,
-            services_that_are_on,
-        ));
+        self.end_show_sequence = Some(
+            if self.show_player == ShowPlayer::Mixxx || self.started_parts.private_stopped.is_some()
+            {
+                crate::view_models::show::EndShowSequence::for_mixxx(
+                    &self.started_parts,
+                    stream_is_on,
+                )
+            } else {
+                crate::view_models::show::EndShowSequence::new(
+                    music_is_on,
+                    stream_is_on,
+                    services_that_are_on,
+                )
+            },
+        );
         self.dispatch_next_end_show_step(cx);
     }
 
@@ -235,13 +247,50 @@ impl TopApp {
             EndShowStep::StopService(role) => {
                 self.run_publisher_service_command(role, PublisherServiceOperation::Stop, cx);
             }
+            EndShowStep::StopRecording => {
+                if let Some(target) = self.mixxx_encoder_target() {
+                    self.run_mixxx_step(MixxxStep::StopRecording { target }, cx);
+                }
+            }
+            EndShowStep::StopShowProducer | EndShowStep::StopShowPublisher => {
+                let unit = if step == EndShowStep::StopShowProducer {
+                    ShowUnit::Producer
+                } else {
+                    ShowUnit::Publisher
+                };
+                if let (Some(private_instance), Some(show_instance)) = (
+                    self.private_instance_name(),
+                    self.started_parts.show_instance.clone(),
+                ) {
+                    self.run_mixxx_step(
+                        MixxxStep::StopShowUnit {
+                            private_instance,
+                            show_instance,
+                            unit,
+                        },
+                        cx,
+                    );
+                }
+            }
+            EndShowStep::StartPrivateProducer => {
+                let private_instance = self
+                    .started_parts
+                    .private_stopped
+                    .clone()
+                    .or_else(|| self.private_instance_name());
+                if let Some(private_instance) = private_instance {
+                    self.run_mixxx_step(MixxxStep::StartPrivateProducer { private_instance }, cx);
+                }
+            }
         }
         let waiting_for_command = self
             .end_show_sequence
             .as_ref()
             .and_then(crate::view_models::show::EndShowSequence::next_step)
             == Some(step)
-            && (self.on_air_step_id.is_some() || self.end_show_stop_pending.get());
+            && (self.on_air_step_id.is_some()
+                || self.end_show_stop_pending.get()
+                || self.mixxx_step_pending);
         if self
             .end_show_sequence
             .as_ref()
@@ -256,6 +305,135 @@ impl TopApp {
             };
             self.advance_on_air(None, Err(reason), cx);
         }
+    }
+
+    fn private_instance_name(&self) -> Option<String> {
+        self.broadcast
+            .selected_host()
+            .ok()
+            .map(|host| host.instance_name.clone())
+    }
+
+    fn mixxx_encoder_target(&self) -> Option<EncoderTarget> {
+        self.broadcast
+            .encoder
+            .as_ref()
+            .ok()?
+            .as_ref()?
+            .target()
+            .ok()
+    }
+
+    /// Run one step of a show that Mixxx plays. The result goes to `finish_mixxx_step`.
+    fn run_mixxx_step(&mut self, step: MixxxStep, cx: &mut Context<Self>) {
+        let transport = match selected_broadcast_host(&self.broadcast) {
+            Ok(host) => host.transport,
+            Err(error) => {
+                self.mixxx_step_pending = true;
+                self.finish_mixxx_step(MixxxStepDone::failed(format!("{error:#}")), cx);
+                return;
+            }
+        };
+        self.mixxx_step_pending = true;
+        let command = MixxxStepCommand {
+            conn: Arc::clone(&self.conn),
+            transport,
+            step,
+        };
+        present_command(
+            &self.command_runner,
+            command,
+            CommandContext::next(),
+            cx,
+            TopApp::finish_mixxx_step,
+            move |this, error, cx| {
+                this.finish_mixxx_step(MixxxStepDone::failed(error.to_string()), cx);
+            },
+        );
+    }
+
+    /// A Mixxx step ended. Update the started parts, then go to the next step.
+    fn finish_mixxx_step(&mut self, done: MixxxStepDone, cx: &mut Context<Self>) {
+        use crate::view_models::show::{EndShowStep, OnAirStep};
+        self.mixxx_step_pending = false;
+        let ok = done.result.is_ok();
+        let end_step = self
+            .end_show_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::EndShowSequence::next_step);
+        if let Some(step) = end_step {
+            match step {
+                EndShowStep::StopRecording if ok => self.started_parts.recording = false,
+                EndShowStep::StopShowPublisher if ok => self.started_parts.show_instance = None,
+                EndShowStep::StartPrivateProducer if ok => {
+                    self.started_parts.private_stopped = None;
+                }
+                _ => {}
+            }
+        } else if let Some(OnAirStep::SwitchProducer) = self
+            .on_air_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::OnAirSequence::next_step)
+        {
+            if ok {
+                self.started_parts.show_instance =
+                    selected_show_target(&self.broadcast).map(|(name, _)| name);
+            }
+            // A failed switch can leave the private producer stopped. The stored fact says so.
+            let stored = self
+                .conn
+                .lock()
+                .ok()
+                .and_then(|conn| show_mixxx::started_parts_from_store(&conn));
+            if let Some(stored) = stored {
+                self.started_parts.private_stopped = stored.private_stopped;
+                if self.started_parts.show_instance.is_none() {
+                    self.started_parts.show_instance = stored.show_instance;
+                }
+            }
+        } else if let Some(OnAirStep::StartRecording) = self
+            .on_air_sequence
+            .as_ref()
+            .and_then(crate::view_models::show::OnAirSequence::next_step)
+        {
+            if ok {
+                self.started_parts.recording = true;
+                self.started_parts.recording_started_at = done.recording_started_at;
+            }
+        }
+        self.advance_on_air(None, done.result, cx);
+        self.invalidate_publisher_service_snapshot();
+    }
+
+    /// The Check step of "Go on air" with Mixxx ended. Go on only when the event is Live.
+    fn finish_mixxx_check(&mut self, cx: &mut Context<Self>) {
+        if !self.mixxx_step_pending
+            || self
+                .on_air_sequence
+                .as_ref()
+                .and_then(crate::view_models::show::OnAirSequence::next_step)
+                != Some(crate::view_models::show::OnAirStep::CheckEvent)
+        {
+            return;
+        }
+        let Some(input) = self.event_section_input.as_ref() else {
+            return;
+        };
+        let result = match &input.feedback.check {
+            EventCommandState::Working => return,
+            EventCommandState::Failed { detail } => Err(detail.clone()),
+            _ if input.liveness_confirmed
+                && input
+                    .selected_event
+                    .as_ref()
+                    .is_some_and(|event| event.state == EventState::Live) =>
+            {
+                Ok(())
+            }
+            _ => Err("The event is not live.".to_owned()),
+        };
+        self.mixxx_step_pending = false;
+        self.advance_on_air(None, result, cx);
     }
 
     pub(super) fn stream_is_connected(&self) -> bool {
@@ -293,13 +471,21 @@ impl TopApp {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        self.on_air_sequence = Some(crate::view_models::show::OnAirSequence::new(
-            crate::view_models::show::services_to_start(&running),
-            self.show_information.is_on(),
-        ));
+        self.on_air_sequence = Some(if self.show_player == ShowPlayer::Mixxx {
+            crate::view_models::show::OnAirSequence::for_mixxx()
+        } else {
+            crate::view_models::show::OnAirSequence::new(
+                crate::view_models::show::services_to_start(&running),
+                self.show_information.is_on(),
+            )
+        });
         self.dispatch_next_on_air_step(cx);
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one match runs each step of both players and keeps the failure handling together"
+    )]
     fn dispatch_next_on_air_step(&mut self, cx: &mut Context<Self>) {
         use crate::view_models::show::OnAirStep;
         let Some(step) = self
@@ -357,6 +543,59 @@ impl TopApp {
                 self.start_on_air_cue(cx);
                 return;
             }
+            OnAirStep::SwitchProducer => {
+                let (Some((show_instance, _)), Some(private_instance)) = (
+                    selected_show_target(&self.broadcast),
+                    self.private_instance_name(),
+                ) else {
+                    self.advance_on_air(None, Err("Make or select a show instance.".into()), cx);
+                    return;
+                };
+                let private_was_active = show_mixxx::private_producer_was_active(
+                    self.publisher_service_snapshot.as_ref(),
+                    &private_instance,
+                );
+                self.run_mixxx_step(
+                    MixxxStep::Switch {
+                        private_instance,
+                        show_instance,
+                        private_was_active,
+                    },
+                    cx,
+                );
+            }
+            OnAirStep::CheckEvent => {
+                self.mixxx_step_pending = true;
+                self.dispatch_event_registry_command(EventRegistryAction::Check, None, cx);
+                let working = self.event_section_input.as_ref().is_some_and(|input| {
+                    matches!(input.feedback.check, EventCommandState::Working)
+                });
+                if !working {
+                    self.mixxx_step_pending = false;
+                }
+            }
+            OnAirStep::StartRecording => {
+                let (Some(target), Some((show_instance, _)), Some(private_instance)) = (
+                    self.mixxx_encoder_target(),
+                    selected_show_target(&self.broadcast),
+                    self.private_instance_name(),
+                ) else {
+                    self.advance_on_air(
+                        None,
+                        Err("The recording could not start: no encoder or show instance.".into()),
+                        cx,
+                    );
+                    return;
+                };
+                self.run_mixxx_step(
+                    MixxxStep::StartRecording {
+                        target,
+                        private_instance,
+                        show_instance,
+                    },
+                    cx,
+                );
+            }
         }
         // A dispatch that returned before it set a step id did not start the
         // command. Without this, the sequence would wait for all time.
@@ -365,7 +604,8 @@ impl TopApp {
             .as_ref()
             .and_then(crate::view_models::show::OnAirSequence::next_step)
             == Some(step)
-            && self.on_air_step_id.is_none();
+            && self.on_air_step_id.is_none()
+            && !self.mixxx_step_pending;
         if still_waiting {
             let reason = if self.settings_status.is_empty() {
                 "This step could not start.".to_owned()
@@ -754,7 +994,19 @@ fn with_event_registry_slots(slots: ShowSlots, entity: &Entity<TopApp>) -> ShowS
     let select_event_entity = entity.clone();
     let event_logs_entity = entity.clone();
     let event_control_entity = entity.clone();
+    let player_entity = entity.clone();
+    let instance_entity = entity.clone();
+    let make_instance_entity = entity.clone();
     slots
+        .on_select_player(move |player, _, cx| {
+            player_entity.update(cx, |this, cx| this.set_show_player(player, cx));
+        })
+        .on_select_show_instance(move |name, _, cx| {
+            instance_entity.update(cx, |this, cx| this.select_show_instance(name, cx));
+        })
+        .on_make_instance(move |_, window, cx| {
+            make_instance_entity.update(cx, |this, cx| this.open_make_instance_dialog(window, cx));
+        })
         .on_select_event(move |event_id, _, cx| {
             select_event_entity.update(cx, |this, cx| this.select_show_event(event_id, cx));
         })
@@ -1031,6 +1283,25 @@ impl TopApp {
         }
         let panel_mode = self.show_page.panel_mode;
         let panel_open = self.show_page.panel_open;
+        let private_instance = self.private_instance_name().unwrap_or_default();
+        let instance_names: Vec<String> = self
+            .broadcast
+            .selected_host()
+            .map(|host| {
+                host.show_instances
+                    .iter()
+                    .map(|instance| instance.name.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let show_selection = match self.broadcast.selected_show_instance.as_deref() {
+            None => SelectedInstance::None,
+            Some(name) if name == private_instance => SelectedInstance::Private(name),
+            Some(name) => SelectedInstance::Show(name),
+        };
+        let drop_problem = self
+            .broadcast
+            .show_drop_problem(config::runtime_dir_from_env().as_deref());
         let music_is_on = queue.transport.play_pause_state.is_active();
         let services_that_are_on = self
             .publisher_service_snapshot
@@ -1088,6 +1359,13 @@ impl TopApp {
                 now: std::time::Instant::now(),
             },
             started: &self.started_parts,
+            show_player: ShowPlayerFacts {
+                player: self.show_player,
+                selected: show_selection,
+                private_instance: &private_instance,
+                instances: &instance_names,
+                drop_folder_problem: drop_problem.as_deref(),
+            },
         });
     }
 
@@ -1146,7 +1424,12 @@ impl TopApp {
                 return;
             }
         };
-        let command = match PublisherServiceCommand::new(&selected_host, role, operation) {
+        let command = match PublisherServiceCommand::new(
+            &selected_host,
+            role,
+            operation,
+            self.broadcast.selected_show_instance.as_deref(),
+        ) {
             Ok(command) => command,
             Err(error) => {
                 self.settings_status = format!("Relay sender command error: {error}");
@@ -1253,7 +1536,14 @@ impl TopApp {
                     .broadcast
                     .selected_host()
                     .map_err(publisher_command_error)
-                    .and_then(|host| PublisherServiceCommand::new(host, role, operation));
+                    .and_then(|host| {
+                        PublisherServiceCommand::new(
+                            host,
+                            role,
+                            operation,
+                            self.broadcast.selected_show_instance.as_deref(),
+                        )
+                    });
                 match command {
                     Ok(command) => {
                         let action = intent.action.clone();
@@ -1412,7 +1702,11 @@ impl TopApp {
             }
         };
         self.show_page.log_pane.bind_service_source(&selected_host);
-        let command = match ReadPublisherLogs::new(&selected_host, role, request_id) {
+        let instance = service_instance(
+            &selected_host,
+            self.broadcast.selected_show_instance.as_deref(),
+        );
+        let command = match ReadPublisherLogs::new(&selected_host, role, request_id, &instance) {
             Ok(command) => command,
             Err(error) => {
                 self.show_page
@@ -1480,6 +1774,10 @@ impl TopApp {
         })
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one adapter keeps readiness, feedback, retry and the Mixxx check hook together"
+    )]
     fn dispatch_event_registry_command(
         &mut self,
         action: EventRegistryAction,
@@ -1563,6 +1861,8 @@ impl TopApp {
                 cx.notify();
                 if let Some(next) = next {
                     this.run_event_registry_command(next, cx);
+                } else {
+                    this.finish_mixxx_check(cx);
                 }
             },
             move |this, error, cx| {
@@ -1583,6 +1883,7 @@ impl TopApp {
                 }
                 this.reproject_show_page_from_current_queue();
                 cx.notify();
+                this.finish_mixxx_check(cx);
             },
         );
     }
@@ -1671,6 +1972,19 @@ impl TopApp {
                 return;
             }
         };
+        let Some(selected_instance) = self.broadcast.selected_show_instance.clone() else {
+            if let Some(id) = retry_id {
+                self.capability_vm.pending.finish(
+                    id,
+                    "App did not retry the event target because no show instance is selected."
+                        .into(),
+                );
+            }
+            "Event target command error: make or select a show instance"
+                .clone_into(&mut self.settings_status);
+            cx.notify();
+            return;
+        };
         let requested_target = match &retry {
             Some(intent) => intent
                 .action
@@ -1722,7 +2036,8 @@ impl TopApp {
             selection_revision: input.registry.revision,
             operation,
             transport: selected_host.transport,
-            instance_name: selected_host.instance_name,
+            private_instance_name: selected_host.instance_name,
+            instance_name: selected_instance,
             target_name,
             event_id: event.event_id,
             token_path: event.token_path,
@@ -2238,11 +2553,14 @@ impl PublisherServiceCommand {
         host: &BroadcastHostConfig,
         role: PublisherServiceRole,
         operation: PublisherServiceOperation,
+        selected: Option<&str>,
     ) -> Result<Self, CommandError> {
+        // ADR 0111 Decision 4: refuse before any command runs.
+        let instance = refuse_private_service_instance(host, selected)?;
         Ok(Self {
             role,
             transport: host.transport.clone(),
-            unit: broadcast_service_unit(host, role).map_err(publisher_command_error)?,
+            unit: broadcast_service_unit(&instance, role).map_err(publisher_command_error)?,
             operation,
         })
     }
@@ -2287,12 +2605,13 @@ impl ReadPublisherLogs {
         host: &BroadcastHostConfig,
         role: PublisherServiceRole,
         request_id: ShowLogRequestId,
+        instance: &str,
     ) -> Result<Self, CommandError> {
         Ok(Self {
             request_id,
             role,
             transport: host.transport.clone(),
-            unit: broadcast_service_unit(host, role).map_err(publisher_command_error)?,
+            unit: broadcast_service_unit(instance, role).map_err(publisher_command_error)?,
             line_count: PUBLISHER_LOG_LINE_COUNT,
         })
     }
@@ -2332,6 +2651,8 @@ struct EventTargetCommand {
     selection_revision: i64,
     operation: EventTargetOperation,
     transport: Transport,
+    /// The private instance of the host. ADR 0111 Decision 4 refuses it.
+    private_instance_name: String,
     instance_name: String,
     target_name: String,
     event_id: String,
@@ -2345,6 +2666,11 @@ impl ApplicationCommand for EventTargetCommand {
         if context.cancellation().is_cancelled() {
             return Err(CommandError::Cancelled);
         }
+        publisher_targets::refuse_private_instance(
+            &self.private_instance_name,
+            &self.instance_name,
+        )
+        .map_err(|error| event_target_command_error(error.to_string()))?;
         let conn = self
             .conn
             .lock()
@@ -2389,6 +2715,7 @@ impl ApplicationCommand for EventTargetCommand {
         let result = match self.operation {
             EventTargetOperation::Attach => publisher_targets::attach_event(
                 &self.transport,
+                &self.private_instance_name,
                 &self.instance_name,
                 &self.target_name,
                 &self.event_id,
@@ -2396,6 +2723,7 @@ impl ApplicationCommand for EventTargetCommand {
             ),
             EventTargetOperation::Detach => publisher_targets::detach_target(
                 &self.transport,
+                &self.private_instance_name,
                 &self.instance_name,
                 &self.target_name,
             ),
@@ -2593,12 +2921,9 @@ fn empty_event_section(broadcast: &config::BroadcastCapabilities) -> EventSectio
         feedback: EventCommandFeedback::default(),
         selected_event: None,
         targets: EventTargetListInput::Unknown,
-        attach_target_name: broadcast
-            .drop_file_target
-            .as_deref()
-            .unwrap_or_default()
-            .trim()
-            .to_owned(),
+        attach_target_name: selected_show_target(broadcast)
+            .map(|(_, target)| target)
+            .unwrap_or_default(),
         remote_host: broadcast
             .selected_host()
             .is_ok_and(|host| matches!(host.transport, Transport::Ssh { .. })),
@@ -2611,19 +2936,26 @@ fn event_context(broadcast: &config::BroadcastCapabilities) -> String {
     broadcast.selected_host().map_or_else(
         |error| error.to_string(),
         |host| {
+            let (instance, target) = selected_show_target(broadcast).unwrap_or_default();
             format!(
                 "{} / {} / {:?} / {}",
-                host.name,
-                host.instance_name,
-                host.transport,
-                broadcast
-                    .drop_file_target
-                    .as_deref()
-                    .unwrap_or_default()
-                    .trim()
+                host.name, instance, host.transport, target
             )
         },
     )
+}
+
+/// The selected show instance and its target name. The private instance is
+/// never a show instance (ADR 0111 Decision 4), so it gives `None`.
+pub(super) fn selected_show_target(
+    broadcast: &config::BroadcastCapabilities,
+) -> Option<(String, String)> {
+    let host = broadcast.selected_host().ok()?;
+    let name = broadcast.selected_show_instance.as_deref()?;
+    host.show_instances
+        .iter()
+        .find(|instance| instance.name == name && instance.name != host.instance_name)
+        .map(|instance| (instance.name.clone(), instance.target.clone()))
 }
 
 fn read_targets(broadcast: &config::BroadcastCapabilities) -> EventTargetListInput {
@@ -2635,7 +2967,11 @@ fn read_targets(broadcast: &config::BroadcastCapabilities) -> EventTargetListInp
             }
         }
     };
-    match publisher_targets::list_targets(&host.transport, &host.instance_name) {
+    // The list is read only, so the private instance may be listed.
+    let Some(instance) = broadcast.selected_show_instance.as_deref() else {
+        return EventTargetListInput::Unknown;
+    };
+    match publisher_targets::list_targets(&host.transport, instance) {
         Ok(targets) => event_targets_loaded(targets),
         Err(PublisherTargetCommandError::CommandsUnavailable) => {
             EventTargetListInput::CommandsUnavailable
@@ -2677,7 +3013,10 @@ fn broadcast_watch_inputs(
     broadcast: &config::BroadcastCapabilities,
 ) -> (Vec<BroadcastServiceWatchUnit>, BroadcastEncoderWatchTarget) {
     let units = selected_broadcast_host(broadcast)
-        .and_then(|host| broadcast_service_units(&host))
+        .and_then(|host| {
+            let instance = service_instance(&host, broadcast.selected_show_instance.as_deref());
+            broadcast_service_units(&host, &instance)
+        })
         .unwrap_or_default();
     let encoder = broadcast_encoder_watch_target(broadcast)
         .unwrap_or_else(|_| BroadcastEncoderWatchTarget::unavailable());
@@ -2729,6 +3068,7 @@ fn broadcast_encoder_watch_target(
 
 fn broadcast_service_units(
     host: &BroadcastHostConfig,
+    instance: &str,
 ) -> anyhow::Result<Vec<BroadcastServiceWatchUnit>> {
     let host_name = host.name.trim().to_owned();
     Ok(vec![
@@ -2736,24 +3076,52 @@ fn broadcast_service_units(
             BroadcastServiceRole::Publisher,
             host_name.clone(),
             host.transport.clone(),
-            broadcast_service_unit(host, BroadcastServiceRole::Publisher)?,
+            broadcast_service_unit(instance, BroadcastServiceRole::Publisher)?,
         ),
         BroadcastServiceWatchUnit::new(
             BroadcastServiceRole::Producer,
             host_name,
             host.transport.clone(),
-            broadcast_service_unit(host, BroadcastServiceRole::Producer)?,
+            broadcast_service_unit(instance, BroadcastServiceRole::Producer)?,
         ),
     ])
 }
 
-fn broadcast_service_unit(
-    host: &BroadcastHostConfig,
-    role: PublisherServiceRole,
-) -> anyhow::Result<UnitRef> {
+fn broadcast_service_unit(instance: &str, role: PublisherServiceRole) -> anyhow::Result<UnitRef> {
     match role {
-        PublisherServiceRole::Publisher => UnitRef::publisher(&host.instance_name),
-        PublisherServiceRole::Producer => UnitRef::producer(&host.instance_name),
+        PublisherServiceRole::Publisher => UnitRef::publisher(instance),
+        PublisherServiceRole::Producer => UnitRef::producer(instance),
+    }
+}
+
+/// The instance whose role units the Show page reads: the selected instance, or the private
+/// instance when none is selected. The private units are read for display only.
+fn service_instance(host: &BroadcastHostConfig, selected: Option<&str>) -> String {
+    selected
+        .filter(|name| {
+            *name == host.instance_name || host.show_instances.iter().any(|show| show.name == *name)
+        })
+        .unwrap_or(&host.instance_name)
+        .to_owned()
+}
+
+/// The instance that a Start, Stop or Reset command may act on.
+///
+/// ADR 0111 Decision 4: the private instance, and no selection, are refused. Only the producer
+/// switch and the End show step `StartPrivateProducer` start or stop the private producer.
+fn refuse_private_service_instance(
+    host: &BroadcastHostConfig,
+    selected: Option<&str>,
+) -> Result<String, CommandError> {
+    match selected {
+        None => Err(publisher_command_error(
+            "No show instance is selected. Make or select a show instance, then try again.",
+        )),
+        Some(name) if name == host.instance_name => Err(publisher_command_error(format!(
+            "ADR 0111 Decision 4: HitIt does not start, stop or reset a unit of the private \
+             instance {name}. Select a show instance."
+        ))),
+        Some(name) => Ok(name.to_owned()),
     }
 }
 
@@ -2800,6 +3168,185 @@ const fn event_target_operation_label(operation: EventTargetOperation) -> &'stat
 
 #[cfg(test)]
 mod tests {
+    fn adr_0111_broadcast() -> config::BroadcastCapabilities {
+        let temp = tempfile::tempdir().unwrap();
+        let cfg_path = temp.path().join("config.toml");
+        fs::write(
+            &cfg_path,
+            r#"
+music_dir = "/tmp/music"
+db_path = "/tmp/hitit.sqlite"
+
+[[broadcast.hosts]]
+name = "Local"
+transport = "local"
+instance_name = "mixxx"
+
+[[broadcast.hosts.show_instances]]
+name = "show-1"
+target = "show-target"
+config_file = "/fixture/show-1/config.toml"
+publisher_unit = "musicindex-live-publisher@show-1.service"
+producer_unit = "mixxx-now-playing@show-1.service"
+"#,
+        )
+        .unwrap();
+        config::ConfigSnapshot::read_existing(&cfg_path)
+            .unwrap()
+            .broadcast()
+    }
+
+    /// The path function takes the runtime folder as an argument.
+    #[test]
+    fn adr_0111_show_drop_directory_is_below_the_runtime_folder() {
+        let temp = tempfile::tempdir().unwrap();
+        assert_eq!(
+            config::show_drop_directory(temp.path(), "show-1"),
+            temp.path()
+                .join("musicindex-live-publisher")
+                .join("show-1")
+                .join("nowplaying")
+        );
+    }
+
+    /// The producer follows the selection: no selection keeps `broadcast.drop_directory`, a show
+    /// instance gives its folder and its target, and a missing runtime folder gives an error.
+    #[test]
+    fn adr_0111_producer_folder_follows_the_selection() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut broadcast = adr_0111_broadcast();
+        assert!(broadcast
+            .drop_file_producer_in(Some(temp.path()))
+            .unwrap()
+            .is_none());
+        broadcast.selected_show_instance = Some("show-1".to_owned());
+        let producer = broadcast
+            .drop_file_producer_in(Some(temp.path()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            producer.path(),
+            config::show_drop_directory(temp.path(), "show-1").join("show-target.nowplaying.json")
+        );
+        assert!(broadcast
+            .show_drop_problem(None)
+            .is_some_and(|text| text.contains("XDG_RUNTIME_DIR")));
+        assert!(broadcast.drop_file_producer_in(None).is_err());
+        assert_eq!(broadcast.show_drop_problem(Some(temp.path())), None);
+        broadcast.selected_show_instance = Some("mixxx".to_owned());
+        assert!(broadcast
+            .drop_file_producer_in(Some(temp.path()))
+            .unwrap()
+            .is_none());
+    }
+
+    /// A host that uses SSH has no local drop folder for a show instance.
+    #[test]
+    fn adr_0111_ssh_host_has_no_drop_folder() {
+        let mut broadcast = adr_0111_broadcast();
+        let host = &mut broadcast.hosts.as_mut().unwrap()[0];
+        host.transport =
+            crate::broadcast::transport::Transport::ssh("operator@example.test").unwrap();
+        broadcast.selected_show_instance = Some("show-1".to_owned());
+        let temp = tempfile::tempdir().unwrap();
+        let problem = broadcast.show_drop_problem(Some(temp.path())).unwrap();
+        assert!(problem.contains("local") && problem.contains("SSH"));
+        assert!(broadcast.drop_file_producer_in(Some(temp.path())).is_err());
+    }
+
+    /// Start, Stop and Reset and the watch act on the units of the selected show instance. The
+    /// private instance and no selection are refused when the command is made, before any
+    /// command can run.
+    #[test]
+    fn adr_0111_service_commands_target_the_show_instance_and_refuse_the_private_one() {
+        let broadcast = adr_0111_broadcast();
+        let host = broadcast.selected_host().unwrap().clone();
+        for role in [
+            PublisherServiceRole::Publisher,
+            PublisherServiceRole::Producer,
+        ] {
+            for operation in [
+                PublisherServiceOperation::Start,
+                PublisherServiceOperation::Stop,
+                PublisherServiceOperation::Reset,
+            ] {
+                let command =
+                    PublisherServiceCommand::new(&host, role, operation, Some("show-1")).unwrap();
+                assert!(command.unit.unit().contains("@show-1."));
+                let error = PublisherServiceCommand::new(&host, role, operation, Some("mixxx"))
+                    .err()
+                    .unwrap()
+                    .to_string();
+                assert!(error.contains("ADR 0111 Decision 4") && error.contains("mixxx"));
+                assert!(PublisherServiceCommand::new(&host, role, operation, None).is_err());
+            }
+        }
+        // The watch follows the selection and reads the private units when none is selected.
+        let names = |selected: Option<&str>| {
+            let mut broadcast = broadcast.clone();
+            broadcast.selected_show_instance = selected.map(str::to_owned);
+            broadcast_watch_inputs(&broadcast)
+                .0
+                .iter()
+                .map(|unit| unit.unit.unit().to_owned())
+                .collect::<Vec<_>>()
+        };
+        assert!(names(None).iter().all(|unit| unit.contains("@mixxx.")));
+        assert!(names(Some("show-1"))
+            .iter()
+            .all(|unit| unit.contains("@show-1.")));
+    }
+
+    /// ADR 0111 criterion 12: Attach goes to the target of the selected show
+    /// instance. With no selection, or with the private instance, the section has
+    /// no target name, so Attach and Detach are not available.
+    #[test]
+    fn adr_0111_attach_uses_the_target_of_the_selected_show_instance() {
+        let mut broadcast = adr_0111_broadcast();
+        assert_eq!(selected_show_target(&broadcast), None);
+        assert_eq!(empty_event_section(&broadcast).attach_target_name, "");
+        broadcast.selected_show_instance = Some("show-1".to_owned());
+        assert_eq!(
+            selected_show_target(&broadcast),
+            Some(("show-1".to_owned(), "show-target".to_owned()))
+        );
+        assert_eq!(
+            empty_event_section(&broadcast).attach_target_name,
+            "show-target"
+        );
+        broadcast.selected_show_instance = Some("mixxx".to_owned());
+        assert_eq!(selected_show_target(&broadcast), None);
+        assert_eq!(empty_event_section(&broadcast).attach_target_name, "");
+    }
+
+    /// ADR 0111 criterion 5 (Attach and Detach): the app command refuses the
+    /// private instance with an error that names Decision 4, before it reads the
+    /// database or runs a command.
+    #[test]
+    fn adr_0111_event_target_command_refuses_the_private_instance() {
+        let temp = tempfile::tempdir().unwrap();
+        let conn = Arc::new(Mutex::new(show_event_db(&temp)));
+        for operation in [EventTargetOperation::Attach, EventTargetOperation::Detach] {
+            let command = EventTargetCommand {
+                conn: Arc::clone(&conn),
+                selection_revision: 0,
+                operation,
+                transport: Transport::local(),
+                private_instance_name: "mixxx".to_owned(),
+                instance_name: "mixxx".to_owned(),
+                target_name: "default".to_owned(),
+                event_id: "event-one".to_owned(),
+                token_path: "/fixture/one.token".to_owned(),
+            };
+            let error = match command.execute(&CommandContext::next()) {
+                Ok(_) => panic!("the private instance must be refused"),
+                Err(error) => error.to_string(),
+            };
+            assert!(error.contains("ADR 0111 Decision 4"), "{error}");
+            assert!(error.contains("mixxx"), "{error}");
+        }
+    }
+
     #[test]
     fn adr_0066_failed_event_check_keeps_its_recovery_controls() {
         let mut pending = crate::application::capability_recovery::RecoveryIntents::default();

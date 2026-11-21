@@ -378,7 +378,9 @@ fn attach_broadcast_target(settings: &CliConfig, event_id: &str, args: &[String]
     let event = db::broadcast_event_by_event_id(&conn, event_id)?
         .with_context(|| format!("broadcast event not found: {event_id}"))?;
     let host = configured_broadcast_host(settings)?;
-    let targets = publisher_targets::list_targets(&host.transport, &host.instance_name)?;
+    // ADR 0111 Decision 4: the CLI refuses the private instance before it runs a command.
+    publisher_targets::refuse_private_instance(&host.instance_name, &options.instance)?;
+    let targets = publisher_targets::list_targets(&host.transport, &options.instance)?;
     check_attach_replacement(
         &targets.targets,
         &options.target,
@@ -389,6 +391,7 @@ fn attach_broadcast_target(settings: &CliConfig, event_id: &str, args: &[String]
     publisher_targets::attach_event(
         &host.transport,
         &host.instance_name,
+        &options.instance,
         &options.target,
         &event.event_id,
         Path::new(&event.token_path),
@@ -597,6 +600,7 @@ struct BroadcastEventAddReservedOptions {
 
 #[derive(Debug, Eq, PartialEq)]
 struct BroadcastTargetAttachOptions {
+    instance: String,
     target: String,
     replace_event: Option<String>,
 }
@@ -704,11 +708,18 @@ fn parse_broadcast_event_add_reserved_options(
 }
 
 fn parse_broadcast_target_attach_options(args: &[String]) -> Result<BroadcastTargetAttachOptions> {
+    let mut instance = None;
     let mut target = None;
     let mut replace_event = None;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
+            "--instance" => {
+                let value = option_value(args, index, "--instance")?;
+                anyhow::ensure!(instance.is_none(), "duplicate --instance");
+                instance = Some(value.trim().to_owned());
+                index += 2;
+            }
             "--target" => {
                 let value = option_value(args, index, "--target")?;
                 anyhow::ensure!(target.is_none(), "duplicate --target");
@@ -729,9 +740,17 @@ fn parse_broadcast_target_attach_options(args: &[String]) -> Result<BroadcastTar
         }
     }
 
+    let instance = instance.context(
+        "broadcast targets attach requires --instance <show instance> (ADR 0111 Decision 4)",
+    )?;
+    anyhow::ensure!(
+        !instance.is_empty(),
+        "broadcast instance name cannot be empty"
+    );
     let target = target.context("broadcast targets attach requires --target <name>")?;
     anyhow::ensure!(!target.is_empty(), "broadcast target name cannot be empty");
     Ok(BroadcastTargetAttachOptions {
+        instance,
         target,
         replace_event,
     })
@@ -831,7 +850,7 @@ fn help_text() -> &'static str {
   hitit broadcast events forget <event-id> [--json]
   hitit broadcast events check <event-id> --json
   hitit broadcast targets list --json
-  hitit broadcast targets attach <event-id> --target <name> [--replace-event <event-id>]
+  hitit broadcast targets attach <event-id> --instance <show instance> --target <name> [--replace-event <event-id>]
   hitit broadcast readiness --json
   hitit broadcast repair-routes --json
   hitit broadcast repair-routes <track-id> --json
@@ -948,16 +967,39 @@ mod tests {
 
     #[test]
     fn adr_0110_attach_options_parse_replace_event() {
-        let args = ["--target", "default", "--replace-event", "event-one"].map(str::to_owned);
+        let args = [
+            "--instance",
+            "show-1",
+            "--target",
+            "default",
+            "--replace-event",
+            "event-one",
+        ]
+        .map(str::to_owned);
         let options = parse_broadcast_target_attach_options(&args).unwrap();
         assert_eq!(options.replace_event.as_deref(), Some("event-one"));
-        let args = ["--target", "default"].map(str::to_owned);
+        assert_eq!(options.instance, "show-1");
+        let args = ["--instance", "show-1", "--target", "default"].map(str::to_owned);
         assert_eq!(
             parse_broadcast_target_attach_options(&args)
                 .unwrap()
                 .replace_event,
             None
         );
+    }
+
+    /// ADR 0111 Decision 4: `attach` has no default instance, and the private
+    /// instance gets the same error as the app command.
+    #[test]
+    fn adr_0111_attach_needs_a_show_instance_and_refuses_the_private_one() {
+        let args = ["--target", "default"].map(str::to_owned);
+        let error = parse_broadcast_target_attach_options(&args).unwrap_err();
+        assert!(error.to_string().contains("--instance"), "{error}");
+        let args = ["--instance", "mixxx", "--target", "default"].map(str::to_owned);
+        let options = parse_broadcast_target_attach_options(&args).unwrap();
+        let error =
+            publisher_targets::refuse_private_instance("mixxx", &options.instance).unwrap_err();
+        assert!(error.to_string().contains("ADR 0111 Decision 4"), "{error}");
     }
 
     #[test]

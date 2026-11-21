@@ -189,14 +189,14 @@ mod tests {
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
         assert_eq!(
-            CURRENT_VERSION, 31,
-            "ADR 0110 adds the broadcast_event_kind migration"
+            CURRENT_VERSION, 32,
+            "ADR 0111 adds the show_producer_switch migration"
         );
         assert_eq!(
             inspect_schema(&conn).unwrap(),
             SchemaCompatibility::UpgradeRequired {
                 applied: 24,
-                current: 31,
+                current: 32,
             }
         );
         upgrades::verify_target(&conn, 24).unwrap();

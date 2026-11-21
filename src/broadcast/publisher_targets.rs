@@ -68,6 +68,11 @@ pub enum PublisherTargetCommandError {
         /// Target name reported by the caller.
         name: String,
     },
+    /// The action targets the private instance (ADR 0111 Decision 4).
+    PrivateInstance {
+        /// Private instance name.
+        instance: String,
+    },
     /// A caller supplied an invalid command input.
     InvalidInput {
         /// Validation failure detail.
@@ -110,6 +115,10 @@ impl fmt::Display for PublisherTargetCommandError {
             Self::TargetNotFound { name } => {
                 write!(formatter, "publisher target {name} not found")
             }
+            Self::PrivateInstance { instance } => write!(
+                formatter,
+                "ADR 0111 Decision 4: HitIt does not attach or detach a target on the private instance {instance}. Use a show instance."
+            ),
             Self::InvalidInput { detail }
             | Self::CommandIo { detail }
             | Self::InvalidOutput { detail }
@@ -186,11 +195,13 @@ impl<R: CommandRunner + Clone> PublisherTargetControl<R> {
     pub fn attach_event(
         &self,
         transport: &Transport,
+        private_instance: &str,
         instance: &str,
         target_name: &str,
         event_id: &str,
         token_path: &Path,
     ) -> TargetResult<()> {
+        refuse_private_instance(private_instance, instance)?;
         let target_name = normalize_required("target name", target_name)?;
         let args = target_add_args(transport, instance, &target_name, event_id, token_path)?;
         let output = self.run_publisher_command(transport, "target add", &args)?;
@@ -208,9 +219,11 @@ impl<R: CommandRunner + Clone> PublisherTargetControl<R> {
     pub fn detach_target(
         &self,
         transport: &Transport,
+        private_instance: &str,
         instance: &str,
         target_name: &str,
     ) -> TargetResult<()> {
+        refuse_private_instance(private_instance, instance)?;
         let target_name = normalize_required("target name", target_name)?;
         let args = target_remove_args(transport, instance, &target_name)?;
         let output = self.run_publisher_command(transport, "target remove", &args)?;
@@ -273,6 +286,7 @@ pub fn list_targets(transport: &Transport, instance: &str) -> TargetResult<Publi
 /// Returns a stable target-command state when attach or restart fails.
 pub fn attach_event(
     transport: &Transport,
+    private_instance: &str,
     instance: &str,
     target_name: &str,
     event_id: &str,
@@ -280,6 +294,7 @@ pub fn attach_event(
 ) -> TargetResult<()> {
     PublisherTargetControl::default().attach_event(
         transport,
+        private_instance,
         instance,
         target_name,
         event_id,
@@ -292,8 +307,35 @@ pub fn attach_event(
 /// # Errors
 ///
 /// Returns a stable target-command state when detach or restart fails.
-pub fn detach_target(transport: &Transport, instance: &str, target_name: &str) -> TargetResult<()> {
-    PublisherTargetControl::default().detach_target(transport, instance, target_name)
+pub fn detach_target(
+    transport: &Transport,
+    private_instance: &str,
+    instance: &str,
+    target_name: &str,
+) -> TargetResult<()> {
+    PublisherTargetControl::default().detach_target(
+        transport,
+        private_instance,
+        instance,
+        target_name,
+    )
+}
+
+/// Refuse an action on the private instance (ADR 0111 Decision 4).
+///
+/// Attach, Detach and Replace on a target all run through the functions of
+/// this module. Each one calls this check before it runs a command.
+///
+/// # Errors
+///
+/// Returns `PrivateInstance` when `instance` is the private instance.
+pub fn refuse_private_instance(private_instance: &str, instance: &str) -> TargetResult<()> {
+    if private_instance.trim() == instance.trim() {
+        return Err(PublisherTargetCommandError::PrivateInstance {
+            instance: instance.trim().to_owned(),
+        });
+    }
+    Ok(())
 }
 
 fn target_list_args(transport: &Transport, instance: &str) -> TargetResult<Vec<String>> {
@@ -526,6 +568,7 @@ mod tests {
         control.attach_event(
             &Transport::local(),
             "mixxx",
+            "show-1",
             "late-night",
             "event-one",
             token_path,
@@ -555,7 +598,7 @@ mod tests {
             vec![
                 "--user".to_owned(),
                 "restart".to_owned(),
-                "musicindex-live-publisher@mixxx.service".to_owned(),
+                "musicindex-live-publisher@show-1.service".to_owned(),
             ]
         );
         Ok(())
@@ -569,7 +612,7 @@ mod tests {
         ]);
         let control = PublisherTargetControl::new(&runner);
 
-        control.detach_target(&Transport::local(), "mixxx", "late-night")?;
+        control.detach_target(&Transport::local(), "mixxx", "show-1", "late-night")?;
 
         let calls = runner.calls();
         assert_eq!(calls.len(), 2);
@@ -598,6 +641,7 @@ mod tests {
             .attach_event(
                 &Transport::local(),
                 "mixxx",
+                "show-1",
                 "default",
                 "event-one",
                 Path::new("/tmp/token"),
@@ -623,6 +667,7 @@ mod tests {
             .attach_event(
                 &Transport::local(),
                 "mixxx",
+                "show-1",
                 "default",
                 "event-one",
                 Path::new("/tmp/event-one.token"),
@@ -683,6 +728,7 @@ mod tests {
             .attach_event(
                 &Transport::local(),
                 "mixxx",
+                "show-1",
                 "default",
                 "event-one",
                 Path::new("/tmp/event-one.token"),
@@ -704,7 +750,7 @@ mod tests {
         let control = PublisherTargetControl::new(&runner);
 
         let error = control
-            .detach_target(&Transport::local(), "mixxx", "default")
+            .detach_target(&Transport::local(), "mixxx", "show-1", "default")
             .expect_err("missing target should stay distinct");
 
         assert_eq!(
@@ -728,6 +774,37 @@ mod tests {
             .args
             .contains(&"~/.config/musicindex-live-publisher/mixxx/config.toml".to_owned()));
         Ok(())
+    }
+
+    /// ADR 0111 criterion 5: Attach, Replace (Attach with a replacement) and
+    /// Detach on the private instance give an error and run no command.
+    #[test]
+    fn adr_0111_attach_and_detach_refuse_the_private_instance() {
+        let runner = StubRunner::new(vec![]);
+        let control = PublisherTargetControl::new(&runner);
+
+        let attach = control
+            .attach_event(
+                &Transport::local(),
+                "mixxx",
+                "mixxx",
+                "default",
+                "event-one",
+                Path::new("/tmp/event-one.token"),
+            )
+            .expect_err("attach on the private instance");
+        let detach = control
+            .detach_target(&Transport::local(), "mixxx", "mixxx", "default")
+            .expect_err("detach on the private instance");
+
+        for error in [attach, detach] {
+            assert!(
+                matches!(error, PublisherTargetCommandError::PrivateInstance { .. }),
+                "{error:?}"
+            );
+            assert!(error.to_string().contains("ADR 0111 Decision 4"));
+        }
+        assert!(runner.calls().is_empty(), "no command may run");
     }
 
     #[test]

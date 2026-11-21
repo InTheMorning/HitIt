@@ -78,6 +78,7 @@ fn top_app(window: &mut Window, cx: &mut Context<TopApp>) -> TopApp {
         drop_directory: Ok(None),
         drop_file_target: Err(not_set("broadcast.drop_file_target")),
         encoder: Ok(None),
+        selected_show_instance: None,
     };
     TopApp::new(
         Arc::new(Mutex::new(conn)),

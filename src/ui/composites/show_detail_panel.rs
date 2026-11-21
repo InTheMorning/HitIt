@@ -27,11 +27,12 @@ use crate::view_models::show::{
     EventActionDisplay, EventControlDisplay, EventControlIntent, EventSectionDisplay,
     PublisherActionDisplay, PublisherSectionDisplay, PublisherServiceDisplay, PublisherServiceRole,
     ShowCardDisplay, ShowCardKind, ShowItemBadge, ShowPanelActionDisplay, ShowPanelChromeDisplay,
-    ShowPanelMode, SourceReadinessActionDisplay, SourceSectionDisplay, StreamActionDisplay,
-    StreamSectionDisplay,
+    ShowPanelMode, ShowPlayer, ShowPlayerDisplay, SourceReadinessActionDisplay,
+    SourceSectionDisplay, StreamActionDisplay, StreamSectionDisplay,
 };
 
 type EventSelectHandler = Rc<dyn Fn(String, &mut Window, &mut App)>;
+type PlayerSelectHandler = Rc<dyn Fn(ShowPlayer, &mut Window, &mut App)>;
 type EventControlHandler = Rc<dyn Fn(EventControlIntent, &ClickEvent, &mut Window, &mut App)>;
 type PanelClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 type PublisherClickHandler =
@@ -81,6 +82,9 @@ pub(crate) struct ShowDetailPanelSlots {
     stream_connect: Option<PanelClickHandler>,
     stream_disconnect: Option<PanelClickHandler>,
     toggle_show_information: Option<PanelClickHandler>,
+    select_player: Option<PlayerSelectHandler>,
+    select_instance: Option<EventSelectHandler>,
+    make_instance: Option<PanelClickHandler>,
     retry_show: Option<PanelClickHandler>,
 }
 
@@ -237,6 +241,33 @@ impl ShowDetailPanelSlots {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.toggle_show_information = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the player selection (ADR 0111 Decision 6).
+    pub(crate) fn on_select_player(
+        mut self,
+        handler: impl Fn(ShowPlayer, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.select_player = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the show instance selection (ADR 0111 Decision 6).
+    pub(crate) fn on_select_show_instance(
+        mut self,
+        handler: impl Fn(String, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.select_instance = Some(Rc::new(handler));
+        self
+    }
+
+    /// Supplies the action "Make show instance" (ADR 0111 Decision 3).
+    pub(crate) fn on_make_instance(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.make_instance = Some(Rc::new(handler));
         self
     }
 
@@ -534,6 +565,9 @@ fn render_source_detail(
             Some(section.reachability.detail.to_owned()),
             cx,
         ));
+    if let Some(player) = section.player {
+        detail = detail.child(render_player_setting(player, slots, cx));
+    }
     let cuelist = slots.show_cuelist.clone();
     detail = detail.child(
         Button::plain("show-open-playlists")
@@ -572,6 +606,96 @@ fn render_source_detail(
     detail
 }
 
+/// The player setting and the show instance picker (ADR 0111 Decisions 4 and 6).
+fn render_player_setting(
+    player: ShowPlayerDisplay,
+    slots: &ShowDetailPanelSlots,
+    cx: &App,
+) -> impl IntoElement {
+    let mut player_menu = ContextMenu::new(
+        "show-player-picker",
+        ContextMenuScope::WorkspaceFrame,
+        "Select the player of the show",
+    )
+    .trigger_label(format!("Player: {}", player.player.label()))
+    .trigger_icon(IconName::ChevronDown);
+    for choice in [ShowPlayer::HitIt, ShowPlayer::Mixxx] {
+        let handler = slots.select_player.clone();
+        player_menu = player_menu.item(
+            ContextMenuItem::new(ContextMenuItemDisplay {
+                id: SharedString::from(format!("show-player-{}", choice.label())),
+                label: choice.label().into(),
+                a11y_label: format!("Play the show with {}", choice.label()).into(),
+                destructive: false,
+                disabled: false,
+            })
+            .on_select(move |window, cx| {
+                if let Some(handler) = &handler {
+                    handler(choice, window, cx);
+                }
+            }),
+        );
+    }
+    let selected_label = player
+        .options
+        .iter()
+        .find(|option| option.selected)
+        .map_or_else(|| "None".to_owned(), |option| option.name.clone());
+    let mut instance_menu = ContextMenu::new(
+        "show-instance-picker",
+        ContextMenuScope::WorkspaceFrame,
+        "Select the show instance",
+    )
+    .trigger_label(format!("Show instance: {selected_label}"))
+    .trigger_icon(IconName::ChevronDown);
+    for option in player.options {
+        let handler = slots.select_instance.clone();
+        let name = option.name.clone();
+        let label = if option.private {
+            format!("{} (private instance)", option.name)
+        } else {
+            option.name.clone()
+        };
+        instance_menu = instance_menu.item(
+            ContextMenuItem::new(ContextMenuItemDisplay {
+                id: SharedString::from(format!("show-instance-{}", option.name)),
+                a11y_label: format!("Select instance {label}").into(),
+                label: label.into(),
+                destructive: false,
+                disabled: false,
+            })
+            .on_select(move |window, cx| {
+                if let Some(handler) = &handler {
+                    handler(name.clone(), window, cx);
+                }
+            }),
+        );
+    }
+    div()
+        .flex()
+        .flex_col()
+        .min_w_0()
+        .gap(Spacing::XS.scaled(cx))
+        .child(render_controls(
+            vec![
+                player_menu.into_any_element(),
+                instance_menu.into_any_element(),
+            ],
+            cx,
+        ))
+        .child(compact_detail(player.instance_text, cx))
+        .children(
+            player
+                .mixxx_note
+                .map(|note| compact_detail(note.to_owned(), cx)),
+        )
+        .children(player.refusal.map(|text| {
+            Label::new(text)
+                .variant(LabelVariant::Caption)
+                .color(SemanticColor::DangerLabel)
+        }))
+}
+
 fn render_publisher_detail(
     section: PublisherSectionDisplay,
     show_information_on: bool,
@@ -593,6 +717,26 @@ fn render_publisher_detail(
                 }
             }),
     );
+    let make_instance = slots.make_instance.clone();
+    detail = detail.child(
+        Button::plain("show-make-instance")
+            .label("Make show instance")
+            .on_click(move |event, window, app| {
+                if let Some(handler) = &make_instance {
+                    handler(event, window, app);
+                }
+            }),
+    );
+    for line in &section.instances {
+        detail = detail.child(compact_detail(line.text(), cx));
+    }
+    if let Some(text) = section.service_refusal.clone() {
+        detail = detail.child(
+            Label::new(text)
+                .variant(LabelVariant::Caption)
+                .color(SemanticColor::DangerLabel),
+        );
+    }
     if let Some(event) = section.event {
         detail = detail.child(render_event_detail(event, slots, cx));
     }
@@ -848,6 +992,11 @@ fn render_event_detail(
         )
         .child(render_controls(controls, cx))
         .children(section.hint.map(|hint| compact_detail(hint, cx)))
+        .children(section.instance_notice.map(|text| {
+            Label::new(text)
+                .variant(LabelVariant::Caption)
+                .color(SemanticColor::DangerLabel)
+        }))
 }
 
 fn render_stream_detail(

@@ -344,6 +344,82 @@ pub(crate) struct SourceSectionDisplay {
     pub(crate) reachability: SourceReachabilityDisplay,
     /// Local library payment-route readiness display.
     pub(crate) readiness: Option<SourceReadinessDisplay>,
+    /// Player and show instance setting (ADR 0111 Decision 6). The on-air projection sets it.
+    pub(crate) player: Option<ShowPlayerDisplay>,
+}
+
+/// Display-ready player and show instance setting (ADR 0111 Decisions 4 and 6).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ShowPlayerDisplay {
+    /// Selected player.
+    pub(crate) player: ShowPlayer,
+    /// The private instance and each show instance, in config order.
+    pub(crate) options: Vec<ShowInstanceOption>,
+    /// One line about the selected instance.
+    pub(crate) instance_text: String,
+    /// Line for the Mixxx player about the track data.
+    pub(crate) mixxx_note: Option<&'static str>,
+    /// Why a refused action on the private instance is not available.
+    pub(crate) refusal: Option<String>,
+}
+
+/// One instance that the operator can select (ADR 0111 Decision 6).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ShowInstanceOption {
+    /// Instance name.
+    pub(crate) name: String,
+    /// The private instance. It is listed to show why it is refused.
+    pub(crate) private: bool,
+    /// The selected instance.
+    pub(crate) selected: bool,
+}
+
+impl ShowPlayerDisplay {
+    fn from_facts(facts: &ShowPlayerFacts<'_>) -> Self {
+        let selected_name = match facts.selected {
+            SelectedInstance::None => None,
+            SelectedInstance::Private(name) | SelectedInstance::Show(name) => Some(name),
+        };
+        let mut options = vec![ShowInstanceOption {
+            name: facts.private_instance.to_owned(),
+            private: true,
+            selected: matches!(facts.selected, SelectedInstance::Private(_)),
+        }];
+        options.extend(facts.instances.iter().map(|name| ShowInstanceOption {
+            name: name.clone(),
+            private: false,
+            selected: selected_name == Some(name.as_str()),
+        }));
+        let refusal = if matches!(facts.selected, SelectedInstance::Private(_)) {
+            Some(format!(
+                "ADR 0111 Decision 4: Attach, Detach, Start, Stop, Reset and Go on air are not \
+                 available on the private instance {}. Select a show instance.",
+                facts.private_instance
+            ))
+        } else if facts.player == ShowPlayer::HitIt {
+            facts.drop_folder_problem.map(str::to_owned)
+        } else {
+            None
+        };
+        let instance_text = match facts.selected {
+            SelectedInstance::None => {
+                "No show instance is selected. Make or select a show instance.".to_owned()
+            }
+            SelectedInstance::Private(name) => {
+                format!("Selected: {name}. It is the private instance.")
+            }
+            SelectedInstance::Show(name) => format!("Selected show instance: {name}"),
+        };
+        Self {
+            player: facts.player,
+            options,
+            instance_text,
+            mixxx_note: (facts.player == ShowPlayer::Mixxx).then_some(
+                "The show sends track data only from the next track that starts in Mixxx.",
+            ),
+            refusal,
+        }
+    }
 }
 
 /// Display-ready host reachability state.
@@ -466,6 +542,94 @@ pub(crate) enum OnAirStep {
     AttachEvent,
     ConnectStream,
     PlayCue,
+    /// Mixxx show: stop the private producer and start the show producer (ADR 0111 Decision 6).
+    SwitchProducer,
+    /// Mixxx show: check the event of the show instance (ADR 0111 Decision 6).
+    CheckEvent,
+    /// Mixxx show: start the recording of the encoder (ADR 0111 Decision 6).
+    StartRecording,
+}
+
+/// The player of a show (ADR 0111 Decision 6). `HitIt` is the default.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum ShowPlayer {
+    /// `HitIt` plays the Show cue.
+    #[default]
+    HitIt,
+    /// The operator plays the tracks in Mixxx.
+    Mixxx,
+}
+
+impl ShowPlayer {
+    /// Operator-facing name.
+    #[must_use]
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::HitIt => "HitIt",
+            Self::Mixxx => "Mixxx",
+        }
+    }
+}
+
+/// The show instance that the Show page uses (ADR 0111 Decision 6).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum SelectedInstance<'a> {
+    /// No instance is selected.
+    #[default]
+    None,
+    /// The private instance. Attach, Detach and the show are refused (ADR 0111 Decision 4).
+    Private(&'a str),
+    /// A show instance.
+    Show(&'a str),
+}
+
+/// Player and instance facts of the Show page (ADR 0111 Decision 6).
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ShowPlayerFacts<'a> {
+    pub(crate) player: ShowPlayer,
+    pub(crate) selected: SelectedInstance<'a>,
+    /// Name of the private instance, for the texts of the page.
+    pub(crate) private_instance: &'a str,
+    /// Names of the show instances of the host.
+    pub(crate) instances: &'a [String],
+    /// Why a show instance has no drop folder for the player `HitIt`, for example an SSH host.
+    pub(crate) drop_folder_problem: Option<&'a str>,
+}
+
+impl ShowPlayerFacts<'_> {
+    /// Why the selection cannot run a show, or `None` for a show instance.
+    #[must_use]
+    pub(crate) fn instance_cause(&self) -> Option<String> {
+        match self.selected {
+            SelectedInstance::None => Some("Make or select a show instance".to_owned()),
+            SelectedInstance::Private(name) => Some(format!(
+                "{name} is the private instance. Select a show instance"
+            )),
+            SelectedInstance::Show(_) => {
+                if self.player == ShowPlayer::HitIt {
+                    self.drop_folder_problem.map(str::to_owned)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Why Start, Stop and Reset of the role units are not available (ADR 0111 Decision 4).
+    #[must_use]
+    pub(crate) fn service_refusal(&self) -> Option<String> {
+        match self.selected {
+            SelectedInstance::None => Some(
+                "Start, Stop and Reset act on a show instance. Make or select a show instance."
+                    .to_owned(),
+            ),
+            SelectedInstance::Private(name) => Some(format!(
+                "ADR 0111 Decision 4: Start, Stop and Reset are not available on the private \
+                 instance {name}. Select a show instance."
+            )),
+            SelectedInstance::Show(_) => None,
+        }
+    }
 }
 
 /// A failed Go on air step and the row that owns its error (ADR 0105).
@@ -527,6 +691,7 @@ pub(crate) struct OnAirFacts<'a> {
     pub(crate) run_active: bool,
     pub(crate) end: EndShowFacts<'a>,
     pub(crate) started: &'a StartedParts,
+    pub(crate) show_player: ShowPlayerFacts<'a>,
 }
 
 /// The time that a stream Connect has to show the stream as connected.
@@ -547,9 +712,24 @@ pub(crate) struct StartedParts {
     pub(crate) stream_recorded_at: Option<std::time::Instant>,
     /// The recorded services that the watch showed as active.
     pub(crate) services_seen_on: Vec<PublisherServiceRole>,
+    /// `HitIt` started the recording of the encoder (ADR 0111 Decision 7).
+    pub(crate) recording: bool,
+    /// Wall clock start of the recording (ADR 0111 Decision 6).
+    pub(crate) recording_started_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Show instance whose producer and publisher `HitIt` started (ADR 0111 Decision 7).
+    pub(crate) show_instance: Option<String>,
+    /// The switch of this show stopped the private producer. The stored fact (ADR 0111
+    /// Decision 7). It holds the private instance name.
+    pub(crate) private_stopped: Option<String>,
 }
 
 impl StartedParts {
+    /// True when a Mixxx show has a part that "End show" stops or starts.
+    #[must_use]
+    pub(crate) fn has_mixxx_parts(&self) -> bool {
+        self.recording || self.show_instance.is_some() || self.private_stopped.is_some()
+    }
+
     pub(crate) fn record_stream(&mut self, connected: bool, now: std::time::Instant) {
         self.stream = connected;
         self.stream_seen_on = false;
@@ -689,6 +869,22 @@ impl OnAirSequence {
         }
     }
 
+    /// Build the sequence of a show that Mixxx plays (ADR 0111 Decision 6). It has no
+    /// `AttachEvent` and no `PlayCue`.
+    #[must_use]
+    pub(crate) fn for_mixxx() -> Self {
+        Self {
+            steps: vec![
+                OnAirStep::SwitchProducer,
+                OnAirStep::CheckEvent,
+                OnAirStep::ConnectStream,
+                OnAirStep::StartRecording,
+            ],
+            next: 0,
+            failure: None,
+        }
+    }
+
     /// Return the command that must run next.
     #[must_use]
     pub(crate) fn next_step(&self) -> Option<OnAirStep> {
@@ -712,10 +908,11 @@ impl OnAirSequence {
             Ok(()) => self.next += 1,
             Err(error) => {
                 let row = match step {
-                    OnAirStep::StartService(_) | OnAirStep::AttachEvent => {
-                        OnAirRow::ShowInformation
-                    }
-                    OnAirStep::ConnectStream => OnAirRow::Stream,
+                    OnAirStep::StartService(_)
+                    | OnAirStep::AttachEvent
+                    | OnAirStep::SwitchProducer
+                    | OnAirStep::CheckEvent => OnAirRow::ShowInformation,
+                    OnAirStep::ConnectStream | OnAirStep::StartRecording => OnAirRow::Stream,
                     OnAirStep::PlayCue => OnAirRow::ShowCue,
                 };
                 self.failure = Some(OnAirFailure { row, error });
@@ -730,6 +927,14 @@ pub(crate) enum EndShowStep {
     StopMusic,
     DisconnectStream,
     StopService(PublisherServiceRole),
+    /// Mixxx show: stop the recording of the encoder (ADR 0111 Decision 7).
+    StopRecording,
+    /// Mixxx show: stop the producer of the show instance.
+    StopShowProducer,
+    /// Mixxx show: stop the publisher of the show instance.
+    StopShowPublisher,
+    /// Mixxx show: start the producer of the private instance.
+    StartPrivateProducer,
 }
 
 /// A part that can fail while the app ends a show.
@@ -782,6 +987,31 @@ impl EndShowSequence {
         }
     }
 
+    /// Build the sequence of a show that Mixxx plays (ADR 0111 Decision 7). A step is in the
+    /// sequence only for a part that `HitIt` started.
+    #[must_use]
+    pub(crate) fn for_mixxx(started: &StartedParts, stream_is_on: bool) -> Self {
+        let mut steps = Vec::new();
+        if started.recording {
+            steps.push(EndShowStep::StopRecording);
+        }
+        if stream_is_on && started.stream {
+            steps.push(EndShowStep::DisconnectStream);
+        }
+        if started.show_instance.is_some() {
+            steps.push(EndShowStep::StopShowProducer);
+            steps.push(EndShowStep::StopShowPublisher);
+        }
+        if started.private_stopped.is_some() {
+            steps.push(EndShowStep::StartPrivateProducer);
+        }
+        Self {
+            steps,
+            next: 0,
+            failures: Vec::new(),
+        }
+    }
+
     /// Return the command that must run next.
     #[must_use]
     pub(crate) fn next_step(&self) -> Option<EndShowStep> {
@@ -796,8 +1026,11 @@ impl EndShowSequence {
         if let Err(error) = result {
             let part = match step {
                 EndShowStep::StopMusic => EndShowPart::Music,
-                EndShowStep::DisconnectStream => EndShowPart::Stream,
-                EndShowStep::StopService(_) => EndShowPart::ShowInformation,
+                EndShowStep::DisconnectStream | EndShowStep::StopRecording => EndShowPart::Stream,
+                EndShowStep::StopService(_)
+                | EndShowStep::StopShowProducer
+                | EndShowStep::StopShowPublisher
+                | EndShowStep::StartPrivateProducer => EndShowPart::ShowInformation,
             };
             self.failures.push(EndShowFailure { part, error });
         }
@@ -1266,6 +1499,8 @@ pub(crate) struct PublisherSectionDisplay {
     /// One line for the private instance and each show instance (ADR 0111
     /// Decision 8).
     pub(crate) instances: Vec<ShowInstanceLine>,
+    /// Why Start, Stop and Reset are not available for the selection (ADR 0111 Decision 4).
+    pub(crate) service_refusal: Option<String>,
 }
 
 /// State of one instance on the Live Metadata card (ADR 0111 Decision 8).
@@ -1282,6 +1517,22 @@ pub(crate) struct ShowInstanceLine {
 }
 
 impl ShowInstanceLine {
+    /// One line of text: the name, the two states and the mark for the holder of Mixxx.
+    #[must_use]
+    pub(crate) fn text(&self) -> String {
+        let holder = if self.holds_mixxx {
+            ". Holds Mixxx"
+        } else {
+            ""
+        };
+        format!(
+            "{}: relay sender {}, producer {}{holder}",
+            self.name,
+            self.publisher.label(),
+            self.producer.label()
+        )
+    }
+
     /// Build one line for each instance of the snapshot.
     fn from_snapshot(
         snapshot: Option<&broadcast_service_watch::BroadcastServiceWatchSnapshot>,
@@ -1332,6 +1583,8 @@ pub(crate) struct EventSectionDisplay {
     pub(crate) actions: EventActionsDisplay,
     /// Attach asks first when the target carries a different event (ADR 0110 Decision 7).
     pub(crate) attach_confirmation: Option<AttachConfirmationDisplay>,
+    /// Why Attach and Detach are not available on the private instance (ADR 0111 Decision 4).
+    pub(crate) instance_notice: Option<String>,
 }
 
 /// Display-ready selected broadcast event facts.
@@ -2401,6 +2654,12 @@ impl ShowPageVm {
             .as_ref()
             .and_then(|publisher| publisher.event.as_ref())
             .is_some_and(|event| event.event.state.state == EventState::Live);
+        let event_selected = self
+            .publisher
+            .as_ref()
+            .and_then(|publisher| publisher.event.as_ref())
+            .is_some_and(|event| event.event.event_id.is_some());
+        let mixxx = facts.show_player.player == ShowPlayer::Mixxx;
         let sound_ready = facts.player_is_mpv && facts.mpv_ping_succeeded;
         let failure = facts
             .sequence
@@ -2409,7 +2668,18 @@ impl ShowPageVm {
             .end
             .sequence
             .and_then(|sequence| sequence.failures.first());
-        let go_cause = if !(sound_ready && cue_ready) {
+        let instance_cause = facts.show_player.instance_cause();
+        let go_cause = if let Some(cause) = instance_cause.clone() {
+            Some(cause)
+        } else if mixxx {
+            if !stream_ready {
+                Some("Stream is not ready".to_owned())
+            } else if !event_selected {
+                Some("No event is selected".to_owned())
+            } else {
+                None
+            }
+        } else if !(sound_ready && cue_ready) {
             Some("Source is not ready".to_owned())
         } else if !stream_ready {
             Some("Stream is not ready".to_owned())
@@ -2444,7 +2714,7 @@ impl ShowPageVm {
                 }
             }
             match card.kind {
-                ShowCardKind::Source if !sound_ready || !cue_ready => {
+                ShowCardKind::Source if !mixxx && (!sound_ready || !cue_ready) => {
                     card.state = ShowCardStateKind::Attention;
                     "Attention".clone_into(&mut card.state_label);
                     if sound_ready {
@@ -2453,7 +2723,9 @@ impl ShowPageVm {
                         "Select mpv in Settings, Audio".clone_into(&mut card.primary);
                     }
                 }
-                ShowCardKind::LiveMetadata if !event_live && facts.show_information.is_on() => {
+                ShowCardKind::LiveMetadata
+                    if !mixxx && !event_live && facts.show_information.is_on() =>
+                {
                     card.state = ShowCardStateKind::Attention;
                     "Attention".clone_into(&mut card.state_label);
                     "No live event is selected".clone_into(&mut card.primary);
@@ -2494,15 +2766,71 @@ impl ShowPageVm {
                 &card.secondary,
             );
         }
+        let player_display = ShowPlayerDisplay::from_facts(&facts.show_player);
+        // ADR 0111 Decision 8: the Live Metadata card shows each instance.
+        if let Some(lines) = self
+            .publisher
+            .as_ref()
+            .map(|publisher| &publisher.instances)
+            .filter(|lines| !lines.is_empty())
+        {
+            let text = lines
+                .iter()
+                .map(ShowInstanceLine::text)
+                .collect::<Vec<_>>()
+                .join(". ");
+            if let Some(card) = self
+                .cards
+                .iter_mut()
+                .find(|card| card.kind == ShowCardKind::LiveMetadata)
+            {
+                card.secondary = if card.secondary.is_empty() {
+                    text
+                } else {
+                    format!("{} {text}", card.secondary)
+                };
+                card.a11y_label = show_card_a11y_label(
+                    card.title,
+                    &card.state_label,
+                    &card.primary,
+                    &card.secondary,
+                );
+            }
+        }
+        if let Some(source) = &mut self.source {
+            source.player = Some(player_display.clone());
+        }
+        if let Some(event) = self
+            .publisher
+            .as_mut()
+            .and_then(|publisher| publisher.event.as_mut())
+        {
+            event.instance_notice.clone_from(&player_display.refusal);
+        }
+        if let Some(publisher) = &mut self.publisher {
+            publisher.service_refusal = facts.show_player.service_refusal();
+            if publisher.service_refusal.is_some() {
+                for service in &mut publisher.services {
+                    service.actions.start.availability = PublisherActionAvailability::Unavailable;
+                    service.actions.stop.availability = PublisherActionAvailability::Unavailable;
+                    service.actions.reset.availability = PublisherActionAvailability::Unavailable;
+                }
+            }
+        }
         let selected_title = self
             .queue
             .selected_cue_title()
             .unwrap_or("the selected track");
         self.on_air = Some(OnAirBandDisplay {
-            go_available: sound_ready
-                && cue_ready
-                && stream_ready
-                && (event_live || !facts.show_information.is_on())
+            go_available: instance_cause.is_none()
+                && if mixxx {
+                    stream_ready && event_selected
+                } else {
+                    sound_ready
+                        && cue_ready
+                        && stream_ready
+                        && (event_live || !facts.show_information.is_on())
+                }
                 && (!facts.run_active || failure.is_some())
                 && facts
                     .end
@@ -2514,18 +2842,32 @@ impl ShowPageVm {
                 "Go on air"
             },
             confirmation_title: "Go on air now?",
-            confirmation_message: format!(
-                "Listeners hear \"{selected_title}\" after the stream connects."
-            ),
+            confirmation_message: if mixxx {
+                mixxx_go_confirmation(&facts.show_player)
+            } else {
+                format!("Listeners hear \"{selected_title}\" after the stream connects.")
+            },
             show_information_off: !facts.show_information.is_on(),
             end_show_available: (facts.end.music_is_on
+                || (mixxx && facts.end.started.has_mixxx_parts())
+                || (!mixxx && facts.end.started.private_stopped.is_some())
                 || (facts.end.stream_is_on && facts.end.started.stream)
-                || facts.end.services_that_are_on.iter().any(|role| {
-                    facts.end.started.services.contains(role)
-                }))
-                && facts.end.sequence.is_none_or(|sequence| sequence.next_step().is_none())
-                && facts.sequence.is_none_or(|sequence| sequence.next_step().is_none()),
-            end_confirmation: EndShowConfirmation {
+                || facts
+                    .end
+                    .services_that_are_on
+                    .iter()
+                    .any(|role| facts.end.started.services.contains(role)))
+                && facts
+                    .end
+                    .sequence
+                    .is_none_or(|sequence| sequence.next_step().is_none())
+                && facts
+                    .sequence
+                    .is_none_or(|sequence| sequence.next_step().is_none()),
+            end_confirmation: if mixxx || facts.end.started.private_stopped.is_some() {
+                mixxx_end_confirmation(&facts.end)
+            } else {
+                EndShowConfirmation {
                 parts: [
                     facts.end.music_is_on.then_some("The music"),
                     (facts.end.stream_is_on && facts.end.started.stream)
@@ -2542,28 +2884,35 @@ impl ShowPageVm {
                     "The show information stays until the relay removes it. Podcast apps can show the show as live for some time.",
                     "The Show cue stays as it is.",
                 ],
+            }
             },
             end_band: facts.end.end_band.and_then(|band| {
-                band.seconds_left(facts.end.now).map(|seconds_left| EndBandDisplay {
-                    message: "The last track ended. The show ends in 60 seconds.",
-                    seconds_left,
-                })
+                band.seconds_left(facts.end.now)
+                    .map(|seconds_left| EndBandDisplay {
+                        message: "The last track ended. The show ends in 60 seconds.",
+                        seconds_left,
+                    })
             }),
             go_cause: go_cause.clone(),
             go_a11y_label: go_cause.map_or_else(
                 || "Go on air".to_owned(),
                 |cause| format!("Go on air. {cause}"),
             ),
-            failure_card: failure.map(|failure| match failure.row {
-                OnAirRow::Sound | OnAirRow::ShowCue => ShowCardKind::Source,
-                OnAirRow::Stream => ShowCardKind::Stream,
-                OnAirRow::ShowInformation => ShowCardKind::LiveMetadata,
-            }).or_else(|| end_failure.map(|failure| match failure.part {
-                EndShowPart::Music => ShowCardKind::Source,
-                EndShowPart::Stream => ShowCardKind::Stream,
-                EndShowPart::ShowInformation => ShowCardKind::LiveMetadata,
-            })),
-            failure_text: failure.map(|failure| failure.error.clone())
+            failure_card: failure
+                .map(|failure| match failure.row {
+                    OnAirRow::Sound | OnAirRow::ShowCue => ShowCardKind::Source,
+                    OnAirRow::Stream => ShowCardKind::Stream,
+                    OnAirRow::ShowInformation => ShowCardKind::LiveMetadata,
+                })
+                .or_else(|| {
+                    end_failure.map(|failure| match failure.part {
+                        EndShowPart::Music => ShowCardKind::Source,
+                        EndShowPart::Stream => ShowCardKind::Stream,
+                        EndShowPart::ShowInformation => ShowCardKind::LiveMetadata,
+                    })
+                }),
+            failure_text: failure
+                .map(|failure| failure.error.clone())
                 .or_else(|| end_failure.map(|failure| failure.error.clone())),
         });
         self
@@ -2963,6 +3312,7 @@ impl SourceSectionDisplay {
             host_name,
             reachability,
             readiness: readiness_snapshot.map(SourceReadinessDisplay::from_snapshot),
+            player: None,
         })
     }
 }
@@ -3103,6 +3453,7 @@ impl EventSectionDisplay {
             hint,
             actions,
             attach_confirmation: attach_confirmation(input),
+            instance_notice: None,
         }
     }
 }
@@ -3361,6 +3712,50 @@ const fn event_action_availability(available: bool) -> EventActionAvailability {
     }
 }
 
+/// Confirmation text of "Go on air" for a show that Mixxx plays (ADR 0111 Decision 6).
+fn mixxx_go_confirmation(facts: &ShowPlayerFacts<'_>) -> String {
+    let SelectedInstance::Show(instance) = facts.selected else {
+        return String::new();
+    };
+    format!(
+        "HitIt stops the producer of {private} and starts the producer of {instance}. \
+         The show sends track data only from the next track that starts in Mixxx. \
+         A track that started before the switch gets no link.",
+        private = facts.private_instance
+    )
+}
+
+/// Confirmation text of "End show" for a show that Mixxx plays (ADR 0111 Decision 7).
+fn mixxx_end_confirmation(facts: &EndShowFacts<'_>) -> EndShowConfirmation {
+    EndShowConfirmation {
+        parts: [
+            facts
+                .started
+                .recording
+                .then_some("The recording of the stream"),
+            (facts.stream_is_on && facts.started.stream)
+                .then_some("The stream. Listeners hear nothing after this."),
+            facts
+                .started
+                .show_instance
+                .is_some()
+                .then_some("The producer and the relay sender of the show instance"),
+            facts
+                .started
+                .private_stopped
+                .is_some()
+                .then_some("The producer of the private instance starts again"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
+        notes: [
+            "The show information stays until the relay removes it. Podcast apps can show the show as live for some time.",
+            "Mixxx keeps running. HitIt does not stop it.",
+        ],
+    }
+}
+
 impl PublisherSectionDisplay {
     fn from_snapshot(
         snapshot: Option<&broadcast_service_watch::BroadcastServiceWatchSnapshot>,
@@ -3425,6 +3820,7 @@ impl PublisherSectionDisplay {
             event,
             services,
             instances: ShowInstanceLine::from_snapshot(snapshot),
+            service_refusal: None,
         };
         section.update_summary();
         Some(section)
@@ -3879,6 +4275,10 @@ mod tests {
             stream_seen_on: false,
             stream_recorded_at: None,
             services_seen_on: Vec::new(),
+            recording: false,
+            recording_started_at: None,
+            show_instance: None,
+            private_stopped: None,
         };
         OnAirFacts {
             player_is_mpv: true,
@@ -3900,6 +4300,13 @@ mod tests {
                 now: std::time::Instant::now(),
             },
             started: &STARTED,
+            show_player: ShowPlayerFacts {
+                player: ShowPlayer::HitIt,
+                selected: SelectedInstance::Show("show-1"),
+                private_instance: "mixxx",
+                instances: &[],
+                drop_folder_problem: None,
+            },
         }
     }
 
@@ -5180,6 +5587,7 @@ mod tests {
                 host_name: "Local".to_owned(),
                 reachability: state.display(),
                 readiness: None,
+                player: None,
             }));
         }
 
@@ -5189,6 +5597,7 @@ mod tests {
             host_name: "Local".to_owned(),
             reachability: SourceReachabilityState::Reachable.display(),
             readiness: Some(SourceReadinessDisplay::checking()),
+            player: None,
         }));
 
         for state in service_states() {
@@ -5523,6 +5932,7 @@ mod tests {
                     detail: "Host accepts broadcast control.",
                 },
                 readiness: None,
+                player: None,
             })
         );
         assert_eq!(publisher.title, "Live Metadata");
@@ -5644,6 +6054,7 @@ mod tests {
                     detail: "Host cannot be reached.",
                 },
                 readiness: None,
+                player: None,
             })
         );
         assert_eq!(
@@ -7472,6 +7883,216 @@ mod tests {
         pane.show_event(&input);
         assert_eq!(pane.feed_tag, None);
         assert!(pane.copy_feed_tag.is_none());
+    }
+
+    /// ADR 0111 criterion 7: the "Go on air" model for Mixxx gives the steps of
+    /// Decision 6 in order and stops at a failed step.
+    #[test]
+    fn adr_0111_go_on_air_for_mixxx_gives_the_steps_in_order_and_stops_at_a_failure() {
+        let mut sequence = OnAirSequence::for_mixxx();
+        assert_eq!(
+            sequence.steps,
+            [
+                OnAirStep::SwitchProducer,
+                OnAirStep::CheckEvent,
+                OnAirStep::ConnectStream,
+                OnAirStep::StartRecording,
+            ]
+        );
+        assert_eq!(sequence.next_step(), Some(OnAirStep::SwitchProducer));
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), Some(OnAirStep::CheckEvent));
+        sequence.complete(Ok(()));
+        assert_eq!(sequence.next_step(), Some(OnAirStep::ConnectStream));
+        sequence.complete(Err("The stream did not connect.".to_owned()));
+        assert_eq!(
+            sequence.next_step(),
+            None,
+            "a failed step stops the sequence"
+        );
+        assert_eq!(
+            sequence.failure.as_ref().map(|failure| failure.row),
+            Some(OnAirRow::Stream)
+        );
+        assert!(!sequence
+            .steps
+            .iter()
+            .any(|step| matches!(step, OnAirStep::AttachEvent | OnAirStep::PlayCue)));
+    }
+
+    /// ADR 0111 criterion 8: the "End show" model for Mixxx gives only the steps
+    /// for the parts that `HitIt` started, in the order of Decision 7, and
+    /// continues after a failed step.
+    #[test]
+    fn adr_0111_end_show_for_mixxx_gives_only_started_parts_and_continues_after_a_failure() {
+        let all = StartedParts {
+            stream: true,
+            recording: true,
+            show_instance: Some("show-1".to_owned()),
+            private_stopped: Some("mixxx".to_owned()),
+            ..StartedParts::default()
+        };
+        let mut sequence = EndShowSequence::for_mixxx(&all, true);
+        assert_eq!(
+            sequence.steps,
+            [
+                EndShowStep::StopRecording,
+                EndShowStep::DisconnectStream,
+                EndShowStep::StopShowProducer,
+                EndShowStep::StopShowPublisher,
+                EndShowStep::StartPrivateProducer,
+            ]
+        );
+        sequence.complete(Err("no encoder".to_owned()));
+        assert_eq!(
+            sequence.next_step(),
+            Some(EndShowStep::DisconnectStream),
+            "a failed step does not stop the sequence"
+        );
+        let started_show_only = StartedParts {
+            show_instance: Some("show-1".to_owned()),
+            ..StartedParts::default()
+        };
+        assert_eq!(
+            EndShowSequence::for_mixxx(&started_show_only, true).steps,
+            [
+                EndShowStep::StopShowProducer,
+                EndShowStep::StopShowPublisher
+            ]
+        );
+        assert!(EndShowSequence::for_mixxx(&StartedParts::default(), true)
+            .steps
+            .is_empty());
+    }
+
+    /// ADR 0111 criteria 5 and 12: with `HitIt` the sequences are as before. "Go
+    /// on air" needs a selected show instance.
+    #[test]
+    fn adr_0111_hitit_sequence_is_unchanged_and_go_needs_a_selected_show_instance() {
+        assert_eq!(
+            OnAirSequence::new(Vec::new(), true).steps,
+            [
+                OnAirStep::AttachEvent,
+                OnAirStep::ConnectStream,
+                OnAirStep::PlayCue
+            ]
+        );
+        let facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        let selected = ready_page(true, AudioSignalState::Present)
+            .with_on_air_band(facts)
+            .on_air
+            .unwrap();
+        assert!(selected.go_available);
+        let mut none = facts;
+        none.show_player.selected = SelectedInstance::None;
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(none);
+        let band = page.on_air.unwrap();
+        assert!(!band.go_available);
+        assert!(band
+            .go_cause
+            .as_deref()
+            .is_some_and(|cause| cause.contains("show instance")));
+        let mut private = facts;
+        private.show_player.selected = SelectedInstance::Private("mixxx");
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(private);
+        assert!(!page.on_air.unwrap().go_available);
+        let refusal = page
+            .source
+            .and_then(|source| source.player)
+            .unwrap()
+            .refusal;
+        assert!(refusal
+            .is_some_and(|text| text.contains("ADR 0111 Decision 4") && text.contains("mixxx")));
+    }
+
+    /// ADR 0111 Decision 6 (operator choice of 2026-11-21): a drop folder problem, for example
+    /// an SSH host, makes "Go on air" with `HitIt` unavailable and the Source inspector says why.
+    /// With Mixxx the problem does not apply.
+    #[test]
+    fn adr_0111_drop_folder_problem_blocks_go_on_air_with_hitit_only() {
+        let facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        let mut problem = facts;
+        problem.show_player.drop_folder_problem = Some("The drop folder is local.");
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(problem);
+        let band = page.on_air.clone().unwrap();
+        assert!(!band.go_available);
+        assert_eq!(band.go_cause.as_deref(), Some("The drop folder is local."));
+        let note = page
+            .source
+            .and_then(|source| source.player)
+            .unwrap()
+            .refusal;
+        assert_eq!(note.as_deref(), Some("The drop folder is local."));
+        let mut mixxx = problem;
+        mixxx.show_player.player = ShowPlayer::Mixxx;
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(mixxx);
+        assert!(page.on_air.unwrap().go_available);
+    }
+
+    /// ADR 0111 Decision 4: with no selection or the private instance, Start, Stop and Reset of
+    /// the role units are unavailable and the inspector says why. A show instance keeps them.
+    #[test]
+    fn adr_0111_service_controls_are_refused_on_the_private_instance() {
+        let facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(facts);
+        let section = page.publisher.unwrap();
+        assert_eq!(section.service_refusal, None);
+        assert!(section
+            .services
+            .iter()
+            .any(|service| !service.actions.stop.disabled()));
+        for selected in [SelectedInstance::Private("mixxx"), SelectedInstance::None] {
+            let mut refused = facts;
+            refused.show_player.selected = selected;
+            let page = ready_page(true, AudioSignalState::Present).with_on_air_band(refused);
+            let section = page.publisher.unwrap();
+            assert!(section.service_refusal.is_some());
+            assert!(section.services.iter().all(|service| {
+                service.actions.start.disabled()
+                    && service.actions.stop.disabled()
+                    && service.actions.reset.disabled()
+            }));
+        }
+        let mut private = facts;
+        private.show_player.selected = SelectedInstance::Private("mixxx");
+        let text = ready_page(true, AudioSignalState::Present)
+            .with_on_air_band(private)
+            .publisher
+            .unwrap()
+            .service_refusal
+            .unwrap();
+        assert!(text.contains("ADR 0111 Decision 4") && text.contains("mixxx"));
+    }
+
+    /// ADR 0111 Decision 6: with Mixxx, "Go on air" needs the stream and the event, not mpv or a cue.
+    #[test]
+    fn adr_0111_mixxx_go_needs_no_mpv_and_names_the_track_data_rule() {
+        let mut facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        facts.show_player.player = ShowPlayer::Mixxx;
+        facts.player_is_mpv = false;
+        facts.mpv_ping_succeeded = false;
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(facts);
+        let band = page.on_air.as_ref().unwrap();
+        assert!(band.go_available, "{:?}", band.go_cause);
+        assert!(band.confirmation_message.contains("next track"));
+        let note = page
+            .source
+            .and_then(|source| source.player)
+            .unwrap()
+            .mixxx_note;
+        assert!(note.is_some_and(|text| text.contains("next track")));
     }
 }
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready after task 002 - 2026-11-21. Implementation has not started.
+Implemented - 2026-11-21. The mechanical criteria pass. The main session reviewed the diff and ran the checks. The agent walked steps 1, 2, 4, 6, 7, 9 and 11 of section 51 of the pending human checks on Xvfb. The mark of step 1 and steps 3, 5, 8 and 10 are open for the operator.
 
 ## Goal
 
@@ -69,7 +69,27 @@ and [ADR 0107](../adr/0107-the-cards-hold-the-on-air-status.md) Decision 3.
    the same commit as item 6.
 8. State (Decision 8, render). The Live Metadata card and its inspector
    render the instance lines of task 002.
-9. Change these documents in the same change: the AGENTS.md paragraph of
+9. The drop folder and the units of a show that HitIt plays (operator
+   choice of 2026-11-21, option A, a small point in ADR 0111 Decision 6):
+   - While a show instance is selected, the HitIt drop file goes into the
+     drop folder of that instance: `$XDG_RUNTIME_DIR/musicindex-live-publisher/INSTANCE/nowplaying`,
+     with the file name `TARGET.json`. Publisher facts, verified by the
+     orchestrator in the publisher source: the template unit gives
+     `--watch-dir %t/musicindex-live-publisher/%i/nowplaying`, and the setup
+     helper JSON does not give the folder. HitIt makes the path from the
+     environment variable and the instance name. No `/run/user` path goes
+     into code, tests or configuration.
+   - With no selected show instance, the drop file goes to
+     `broadcast.drop_directory` as before. A show needs a selected show
+     instance, so no show writes to the private folder.
+   - The folder is local. When the configured host uses SSH, "Go on air"
+     with HitIt as player is not available, and the Show page says why.
+   - The step StartService of "Go on air", and Start, Stop and Reset of the
+     Live Metadata inspector, act on the units of the selected show
+     instance. On the private instance they are refused with an error that
+     names ADR 0111 Decision 4. Only the producer switch starts and stops
+     the private producer.
+10. Change these documents in the same change: the AGENTS.md paragraph of
    ADR 0111, this Status line, the ADR 0111 row of `docs/adr/README.md` if
    its text changes, and a new section in `docs/pending-human-checks.md` with
    the visual criteria below.
@@ -120,6 +140,8 @@ Main session choices, 2026-11-21:
    stored fact.
 5. A view model test: with HitIt as player, the sequences are as before.
    The step Attach uses the selected show instance.
+   The drop folder and the service units are those of the selected show
+   instance.
 6. ADR 0111 criterion 12: with HitIt and a selected show instance, Attach
    goes to the target of the show instance. With no selected show instance,
    "Go on air" is not available.
@@ -147,4 +169,44 @@ The agent walks each one on Xvfb first.
 
 ## Report
 
-Not started.
+Implemented on 2026-11-21. Test names:
+
+1. Criterion 1: `adr_0111_go_on_air_for_mixxx_gives_the_steps_in_order_and_stops_at_a_failure` (`src/view_models/show.rs`).
+2. Criterion 2: `adr_0111_end_show_for_mixxx_gives_only_started_parts_and_continues_after_a_failure` (`src/view_models/show.rs`).
+3. Criterion 3: the tests of `src/app/show_mixxx.rs` for `started_parts_from_store` and the clear after `StartPrivateProducer`, and the criterion 2 test.
+4. Criterion 4: `adr_0111_failed_switch_with_a_restart_clears_the_fact` (`src/app/show_mixxx.rs`).
+5. Criterion 5: `adr_0111_hitit_sequence_is_unchanged_and_go_needs_a_selected_show_instance` (`src/view_models/show.rs`).
+6. Criterion 6: `adr_0111_attach_uses_the_target_of_the_selected_show_instance` (`src/app/show.rs`) and the test of criterion 5.
+7. Criterion 7: `adr_0111_attach_and_detach_refuse_the_private_instance` (`src/broadcast/publisher_targets.rs`), `adr_0111_event_target_command_refuses_the_private_instance` (`src/app/show.rs`) and `adr_0111_attach_needs_a_show_instance_and_refuses_the_private_one` (`src/cli.rs`).
+8. Criterion 8: see the check results of the hand-back.
+
+Item 9 (the drop folder and the units), tests in `src/app/show.rs` and `src/view_models/show.rs`:
+
+- `adr_0111_show_drop_directory_is_below_the_runtime_folder`: the path function with a temp runtime folder.
+- `adr_0111_producer_folder_follows_the_selection`: no selection keeps `broadcast.drop_directory`. A show instance gives its folder and target. No runtime folder gives an error.
+- `adr_0111_ssh_host_has_no_drop_folder`.
+- `adr_0111_drop_folder_problem_blocks_go_on_air_with_hitit_only` (view model): an SSH host makes "Go on air" with HitIt unavailable and the Source inspector says why.
+- `adr_0111_service_commands_target_the_show_instance_and_refuse_the_private_one`: Start, Stop and Reset and the watch use the show instance units. The private instance and no selection are refused when the command is made, so no command object exists to run. The service commands call `control::start`, `control::stop` and `control::reset` directly, with no runner to record.
+- `adr_0111_service_controls_are_refused_on_the_private_instance` (view model): the controls are unavailable with the reason.
+
+Choices that this task file did not give:
+
+- The drop file name keeps the producer suffix, so the file is `TARGET.nowplaying.json`.
+- The role units follow the selected show instance for the watch, the logs and the commands. With none selected, the watch and the logs read the private units, and the commands are refused.
+- A missing `XDG_RUNTIME_DIR` or an SSH host leaves the producer off. Go on air with HitIt is not available and the Source inspector tells why.
+- The capability recovery of the producer rebuilds the producer from the configuration file, with no selection. A recovery of Producer while a show instance is selected resets the folder to `broadcast.drop_directory`. This is an open point.
+- No `.producer.lock` is added.
+
+- The private instance is selectable in the picker and has a mark. Then the refusal shows (V4).
+- No show instance is selected at start, except from the stored fact and after "Make show instance".
+- The CheckEvent step runs the registry Check on the selected event and needs the state Live.
+- With Mixxx, "Go on air" needs a selected show instance, a ready stream and a selected event. It needs no mpv and no cue.
+- "End show" never stops a unit of the private instance.
+- `CLI attach` has the required option `--instance`.
+- The dialog "Make show instance" lists the Reserved rows as check boxes.
+
+Open points:
+
+- The HitIt steps StartService and the Live Metadata controls Start, Stop and Reset still act on the units of the private instance. The task says that the HitIt sequence does not change.
+- The helper has no typed error for an existing instance. The app finds it from `show_instances` or from the text of the helper error.
+- A reload of the configuration drops the selected show instance.

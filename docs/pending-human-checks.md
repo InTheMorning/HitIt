@@ -1164,3 +1164,34 @@ Use the Show page with the Event section open in the side panel. The steps use t
 12. Select "Attach" again, then "Replace event". Make sure that the target now carries the selected event (V3).
 13. Select "Attach" on a target that carries no event or the selected event. Make sure that no dialog shows (V3).
 - Incorrect: a button or field is missing, or the command and the path differ. Also incorrect: "Copy" copies other text, a Dead reserved row shows "Replace", or Attach changes the target with no question.
+
+## 51. ADR 0111 Task 003 A Show That Mixxx Plays - 2026-11-21
+
+Task: [ADR 0111 task 003](tasks/adr-0111-task-003-a-show-that-mixxx-plays.md). The task is implemented. The mechanical criteria pass. These visual checks are open.
+
+Use a scratch configuration with one `[[broadcast.hosts]]` entry that has `instance_name = "mixxx"` and one `[[broadcast.hosts.show_instances]]` entry with the name `show-1`. Do not start or stop a unit of the private instance. Steps 8 to 11 use a show instance that you made.
+
+1. Open the Show page and select the Live Metadata card. Make sure that the card text and the inspector show one line for each instance, and a mark on the instance that holds Mixxx (V1).
+2. Select the button "Make show instance" in the Live Metadata inspector. Make sure that the dialog shows the fields for the instance name and the target name (default `default`), and a list of the Reserved rows (V2).
+3. Make an instance that exists. Make sure that the second dialog "Change the instance?" shows and names the instance and the event (V2).
+4. Select the Source card. Make sure that the inspector shows the settings "Player: HitIt" and "Show instance". Select "Player: Mixxx" and make sure that the text says that track data starts with the next track in Mixxx (V3).
+5. With Mixxx and a selected show instance, select "Go on air". Make sure that the confirmation lists the Mixxx steps: switch the producer, check the event, connect the stream, start the recording (V3).
+6. Select the private instance (`mixxx`) in "Show instance". Make sure that red text names ADR 0111 Decision 4 and the name of the private instance in the Source inspector and in the Live Metadata inspector, and that Attach and Detach are not available (V4).
+7. Clear the selection or start without a show instance. Make sure that "Go on air" is not available and the text says "Make or select a show instance" (V5).
+8. With a show instance selected and Player: HitIt, make sure that the Source inspector gives no drop folder problem and that "Go on air" is available when its other conditions are met. Make sure that the file `TARGET.nowplaying.json` shows in `$XDG_RUNTIME_DIR/musicindex-live-publisher/INSTANCE/nowplaying` after a track starts, with `INSTANCE` and `TARGET` of the selected show instance (V5).
+9. Start HitIt with `XDG_RUNTIME_DIR` not set, or with a host that uses `transport = "ssh"`, and select a show instance. Make sure that "Go on air" with Player: HitIt is not available, and that the Source inspector says that the drop folder is local or that `XDG_RUNTIME_DIR` is not set (V5).
+10. In the Live Metadata inspector, with a show instance selected, make sure that Start, Stop and Reset of the role units act on the units of that instance. With the private instance selected, make sure that they are unavailable and that the red text names ADR 0111 Decision 4 and the private instance (V4).
+11. With no selected show instance, make sure that the role units show the state of the private units, and that Start, Stop and Reset are unavailable with the text "Make or select a show instance" (V5).
+- Incorrect: a line or a button is missing, a refused action is available, or the refusal text gives no reason.
+
+Agent walk, 2026-11-21, on Xvfb with a scratch configuration, `XDG_RUNTIME_DIR` not set and no user bus. The agent did not select a control that starts or stops a unit, runs the setup helper or starts a show.
+
+- Step 1: the inspector shows the lines "mixxx: relay sender Unknown, producer Unknown" and "show-1: relay sender Unknown, producer Unknown". With no bus, no instance holds Mixxx, so no mark shows. The mark is open for the operator.
+- Step 2: passed. The dialog shows the instance name, the target name `default` and the Reserved row with its endpoint and event ID.
+- Step 4: passed. The Source inspector shows "Player: HitIt" and "Show instance". The player list has HitIt and Mixxx. With Mixxx and `show-1`, the text says that the show sends track data only from the next track that starts in Mixxx.
+- Step 6: passed. With `mixxx`, the red text names ADR 0111 Decision 4 and `mixxx` in the Source inspector and in the Live Metadata inspector. "Go on air" is not available with the text "mixxx is the private instance".
+- Step 7: passed. With no selection, "Go on air" is not available with the text "Make or select a show instance".
+- Step 9: with `show-1` selected and `XDG_RUNTIME_DIR` not set, the Show page shows the red text "XDG_RUNTIME_DIR is not set, so the show instance show-1 has no drop folder".
+- Step 11: the red text "Start, Stop and Reset act on a show instance. Make or select a show instance." shows. With no bus, the agent cannot see the unit buttons when they are available.
+
+These items are open for the operator: steps 1 (the mark), 3, 5, 8 and 10. The `systemctl` output of ADR 0111 task 002 on a system with a user bus is also open.

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use directories::{BaseDirs, ProjectDirs};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -396,6 +396,10 @@ pub struct BroadcastCapabilities {
     pub drop_directory: ConfigField<Option<PathBuf>>,
     pub drop_file_target: ConfigField<String>,
     pub encoder: ConfigField<Option<BroadcastEncoderConfig>>,
+    /// The instance that the Show page uses: a show instance, or the private instance when the
+    /// operator selected it to see why it is refused (ADR 0111 Decisions 4 and 6). It is not a
+    /// configuration key. The app sets it at run time.
+    pub selected_show_instance: Option<String>,
 }
 
 impl BroadcastCapabilities {
@@ -409,12 +413,94 @@ impl BroadcastCapabilities {
     }
 
     pub fn drop_file_producer(&self) -> Result<Option<DropFileProducer>> {
+        self.drop_file_producer_in(runtime_dir_from_env().as_deref())
+    }
+
+    /// The producer for the selection (ADR 0111 Decision 6, operator choice of 2026-11-21).
+    ///
+    /// With a selected show instance, the drop file goes into the drop folder of that instance.
+    /// Without one, it goes to `drop_directory`. `runtime_dir` is the runtime folder of the user.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the show instance has no local drop folder, or when a setting is
+    /// not valid.
+    pub fn drop_file_producer_in(
+        &self,
+        runtime_dir: Option<&Path>,
+    ) -> Result<Option<DropFileProducer>> {
+        if let Some((name, target)) = self.selected_show_target() {
+            let directory = self.show_drop_directory(runtime_dir, &name)?;
+            return DropFileProducer::new(directory, target).map(Some);
+        }
         let Some(directory) = self.drop_directory.as_ref().map_err(|issue| *issue)? else {
             return Ok(None);
         };
         let target = self.drop_file_target.as_ref().map_err(|issue| *issue)?;
         DropFileProducer::new(directory.clone(), target.clone()).map(Some)
     }
+
+    /// The name and the target of the selected show instance. The private instance is not one.
+    fn selected_show_target(&self) -> Option<(String, String)> {
+        let name = self.selected_show_instance.as_deref()?;
+        let host = self.selected_host().ok()?;
+        host.show_instances
+            .iter()
+            .find(|instance| instance.name == name)
+            .map(|instance| (instance.name.clone(), instance.target.clone()))
+    }
+
+    /// The drop folder of a show instance, or the reason why it has none.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the host uses SSH, or when `runtime_dir` is `None`.
+    pub fn show_drop_directory(
+        &self,
+        runtime_dir: Option<&Path>,
+        instance: &str,
+    ) -> Result<PathBuf> {
+        if let Ok(host) = self.selected_host() {
+            if matches!(host.transport, Transport::Ssh { .. }) {
+                bail!("The drop folder is local. The selected host uses SSH, so HitIt cannot write the drop file of a show instance there.");
+            }
+        }
+        let runtime_dir = runtime_dir.ok_or_else(|| {
+            anyhow!(
+                "XDG_RUNTIME_DIR is not set, so the show instance {instance} has no drop folder."
+            )
+        })?;
+        Ok(show_drop_directory(runtime_dir, instance))
+    }
+
+    /// Why the producer of the selected show instance cannot work, or `None`.
+    #[must_use]
+    pub fn show_drop_problem(&self, runtime_dir: Option<&Path>) -> Option<String> {
+        let (name, _) = self.selected_show_target()?;
+        self.show_drop_directory(runtime_dir, &name)
+            .err()
+            .map(|error| error.to_string())
+    }
+}
+
+/// The drop folder of a show instance below the runtime folder of the user.
+///
+/// The template unit of the publisher watches
+/// `<runtime folder>/musicindex-live-publisher/<instance>/nowplaying`.
+#[must_use]
+pub fn show_drop_directory(runtime_dir: &Path, instance: &str) -> PathBuf {
+    runtime_dir
+        .join("musicindex-live-publisher")
+        .join(instance)
+        .join("nowplaying")
+}
+
+/// The runtime folder of the user from the environment, when it is set and not empty.
+#[must_use]
+pub fn runtime_dir_from_env() -> Option<PathBuf> {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
 }
 
 /// One document observation, including independent validation results.
@@ -602,6 +688,7 @@ impl ConfigSnapshot {
             drop_directory: self.drop_directory.clone(),
             drop_file_target: self.drop_file_target.clone(),
             encoder: self.encoder.clone(),
+            selected_show_instance: None,
         }
     }
 
@@ -1061,6 +1148,75 @@ pub fn save_app_settings(
     Ok((endpoint, music_dir, flac_path, ui_scale, theme_profile))
 }
 
+/// Write one show instance entry into the configuration file (ADR 0111 Decision 2).
+///
+/// The caller runs this only after the setup helper succeeded. An entry of the
+/// same name is replaced. A file with no `broadcast.hosts` gets the default
+/// local host first.
+///
+/// # Errors
+///
+/// Returns an error when the file cannot be read or written, when `host_name`
+/// is not a configured host, or when the entry is not valid for the host.
+pub(crate) fn save_show_instance(
+    cfg_path: &Path,
+    host_name: &str,
+    instance: &ShowInstanceConfig,
+) -> Result<()> {
+    let _write = ConfigWriteLease::acquire(cfg_path)?;
+    let mut table = read_config_for_save(cfg_path)?.document;
+    if !table.get("broadcast").is_some_and(toml::Value::is_table) {
+        table.insert("broadcast".into(), toml::Value::Table(toml::Table::new()));
+    }
+    let broadcast = table
+        .get_mut("broadcast")
+        .and_then(toml::Value::as_table_mut)
+        .expect("broadcast was normalized to a table");
+    let has_hosts = broadcast
+        .get("hosts")
+        .and_then(toml::Value::as_array)
+        .is_some_and(|hosts| !hosts.is_empty());
+    if !has_hosts {
+        let host = toml::Value::try_from(BroadcastHostConfig::default_local())
+            .context("serialize the default broadcast host")?;
+        broadcast.insert("hosts".into(), toml::Value::Array(vec![host]));
+    }
+    let hosts = broadcast
+        .get_mut("hosts")
+        .and_then(toml::Value::as_array_mut)
+        .ok_or_else(|| anyhow!("App cannot read broadcast.hosts. Correct it in Settings."))?;
+    let host = hosts
+        .iter_mut()
+        .filter_map(toml::Value::as_table_mut)
+        .find(|host| {
+            host.get("name")
+                .and_then(toml::Value::as_str)
+                .is_some_and(|name| name.trim() == host_name.trim())
+        })
+        .ok_or_else(|| anyhow!("App cannot find the publisher host {host_name}"))?;
+    let value = toml::Value::try_from(instance).context("serialize the show instance")?;
+    if !host
+        .get("show_instances")
+        .is_some_and(toml::Value::is_array)
+    {
+        host.insert("show_instances".into(), toml::Value::Array(Vec::new()));
+    }
+    let entries = host
+        .get_mut("show_instances")
+        .and_then(toml::Value::as_array_mut)
+        .expect("show_instances was normalized to an array");
+    match entries.iter_mut().find(|entry| {
+        entry
+            .get("name")
+            .and_then(toml::Value::as_str)
+            .is_some_and(|name| name == instance.name)
+    }) {
+        Some(existing) => *existing = value,
+        None => entries.push(value),
+    }
+    write_existing_config(cfg_path, &table)
+}
+
 pub(crate) fn save_workspace_layout(
     cfg_path: &Path,
     workspace_layout: &WorkspaceLayoutConfig,
@@ -1467,6 +1623,35 @@ producer_unit = "mixxx-now-playing@show-1.service"
             toml::from_str("name = \"Local\"\ntransport = \"local\"\ninstance_name = \"mixxx\"\n")
                 .expect("read plain host");
         assert_eq!(read, plain);
+    }
+
+    /// ADR 0111 Decision 2: the entry is written only by `save_show_instance`, and
+    /// a file with no hosts gets the default local host.
+    #[test]
+    fn adr_0111_save_show_instance_writes_and_replaces_an_entry() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let cfg_path = temp.path().join("config.toml");
+        fs::write(
+            &cfg_path,
+            "music_dir = \"/tmp/music\"\ndb_path = \"/tmp/hitit.sqlite\"\n",
+        )
+        .expect("write config");
+        let entry = |config_file: &str| ShowInstanceConfig {
+            name: "show-1".to_owned(),
+            target: "default".to_owned(),
+            config_file: config_file.to_owned(),
+            publisher_unit: "musicindex-live-publisher@show-1.service".to_owned(),
+            producer_unit: "mixxx-now-playing@show-1.service".to_owned(),
+        };
+        save_show_instance(&cfg_path, "Local", &entry("/fixture/one.toml")).expect("save");
+        save_show_instance(&cfg_path, "Local", &entry("/fixture/two.toml")).expect("replace");
+        let cfg = ConfigSnapshot::read_existing(&cfg_path).expect("load config");
+        let broadcast = cfg.broadcast();
+        let host = broadcast.selected_host().expect("selected host");
+        assert_eq!(host.show_instances.len(), 1);
+        assert_eq!(host.show_instances[0].config_file, "/fixture/two.toml");
+        host.validate().expect("valid host");
+        assert!(save_show_instance(&cfg_path, "Other", &entry("/fixture/x.toml")).is_err());
     }
 
     /// ADR 0111 Decisions 2 and 4: a show instance cannot take the name of the

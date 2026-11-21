@@ -224,6 +224,7 @@ impl TopApp {
         let existing_runtime = self.runtime_host.clone();
         let music_dir = self.music_dir.clone();
         let conn = self.conn.clone();
+        let selected_show_instance = self.broadcast.selected_show_instance.clone();
         let producer = self
             .feature_availability()
             .require(Dependency::Producer)
@@ -245,7 +246,13 @@ impl TopApp {
                 .check_maintenance(bootstrap::cache_worker_for_config(&cfg_path))
                 .map(|()| RecoveredCapability::Cache),
             _ => Ok(RecoveredCapability::Optional(setup::check(
-                &cfg_path, dependency, player, &music_dir, &conn, producer,
+                &cfg_path,
+                dependency,
+                player,
+                &music_dir,
+                &conn,
+                producer,
+                selected_show_instance,
             ))),
         });
         match receiver {
