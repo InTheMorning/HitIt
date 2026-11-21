@@ -112,6 +112,12 @@ mode `700`. HitIt does not run the relay command.
 
 This decision applies to each row, Created or Reserved.
 
+The route is `GET /v1/liveitems/{event_id}/metadata`. The `404` body is one
+JSON object with the key `error`, for example `{"error":"event_not_found"}`
+(relay `src/lib.rs` and `tests/api.rs`, answer of 2026-11-21 through the
+orchestrator). An older relay build can send a different body. A body with no
+`error` key that HitIt can read is the row "with no code".
+
 | Relay answer | Status |
 | --- | --- |
 | Metadata | Live |
@@ -169,8 +175,6 @@ the target.
 - The protection of instance `mixxx` is not in this record. Item 2 of the
   live rehearsal goal request owns it, after the publisher ADR that changes
   publisher ADR 0016.
-- Open: the exact form of the `404` body of the relay. Task 001 gets it from
-  the relay session through the orchestrator before it parses the code.
 
 ## Tasks
 
