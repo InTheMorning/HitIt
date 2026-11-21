@@ -46,6 +46,10 @@ rules of the watch.
 
 Main session choices, 2026-11-21:
 
+- The lock holder comes from `list-units`, not from the lock file. If an
+  implementer reads `$XDG_RUNTIME_DIR/mixxx-now-playing/mixxx.lock`, the
+  file holds the instance name with no newline at the end (orchestrator
+  answer of 2026-11-21).
 - `ProducerSwitch` has no I/O. Its tests need no `systemctl`.
 - A unit with `LoadState=not-found` is "not installed". This is the state of
   `mixxx-now-playing@mixxx.service` before the operator runs

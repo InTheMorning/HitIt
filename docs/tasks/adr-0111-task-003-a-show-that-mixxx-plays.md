@@ -67,6 +67,10 @@ Main session choices, 2026-11-21:
 - The player setting is not saved in this task. It starts as HitIt at each
   start of HitIt, unless the stored fact is set. Then it starts as Mixxx with
   the stored show instance.
+- The confirmation of "Go on air" with Mixxx and the Mixxx line of the
+  Source inspector say that the show sends track data only from the next
+  track that starts in Mixxx. A track that started before the switch gets no
+  link (orchestrator answer of 2026-11-21, publisher behavior).
 - The recording start time is in `StartedParts` and in the stored row. Item
   6 of the live rehearsal request reads it later.
 - If a step needs a decision that this task file and ADR 0111 do not give,
