@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed - 2026-11-21. The orchestrator session makes this request to HitIt.
-The operator must approve it.
+Approved - 2026-11-21. The orchestrator session makes this request to HitIt.
+
+- Operator choice of 2026-11-21: the operator approves this request. The
+  orchestrator session relayed the choice.
 
 This document binds nothing. It is a plan. Each item that the operator
 approves becomes an ADR or a task in HitIt, and a request to each other
@@ -96,6 +98,14 @@ hold the admin token. The operator reserves the event with the relay tool,
 and HitIt enters it with its event ID and token file (item 4 of the reserved
 event safety request). This needs no relay change.
 
+- Operator choice of 2026-11-21: not decided. The operator prefers that the
+  operator reserves the event and HitIt enters it. But the operator does not
+  want to run Compose commands by hand. The operator also needs an easy way
+  to approve friends for events.
+- The relay `AGENTS.md` says that only the operator reserves events until a
+  subsequent identity decision. The orchestrator takes the item to the
+  operator and the relay. HitIt writes no code for item 1 until the decision.
+
 ### 2. Keep Each Show Stream Apart From The Private Stream (G8)
 
 **Unblocks:** R3, R8 and R11. The publisher must send the show tracks to the
@@ -105,8 +115,26 @@ show event, and must not change the private stream.
 act on one target of that instance. One publisher instance sends each track
 to all its targets (gap G8, from the publisher configuration of
 2026-11-21). The HitIt producer writes one drop file for each target
-(`src/broadcast/producer.rs:118`). It is an inference that the publisher can
-read a drop file for one target only. The publisher session must confirm it.
+(`src/broadcast/producer.rs:118`).
+
+**Publisher answer of 2026-11-21** (publisher session, publisher commit
+`f4408e4`):
+
+- A drop file has a `target` field (publisher `src/dropfile.rs:22`). The
+  publisher sends the track only to that target (publisher
+  `src/watcher.rs:224` to `:231`). One producer feeds one target, set by
+  `--target` (`mixxx-now-playing/src/cli.rs:52`).
+- A second publisher instance works with the unit template
+  `musicindex-live-publisher@.service`. But `setup-mixxx-musicindex` makes
+  only instance `mixxx` and one producer unit, `mixxx-now-playing.service`
+  (publisher ADR 0016 §Producer Units).
+- Two producers read the same Mixxx history, so each writes each track. Thus
+  the separation is by time: only one Mixxx producer runs at a time.
+- Option A, with no publisher code change: instance `show` with its own
+  configuration and event, and a show producer unit with
+  `Conflicts=mixxx-now-playing.service`.
+- Option B: a template producer unit for each instance. This changes
+  publisher ADR 0016.
 
 **HitIt must:**
 
@@ -126,9 +154,11 @@ read a drop file for one target only. The publisher session must confirm it.
   each target from the Mixxx producer.
 - A supported second instance on one Mixxx computer, with its own producer.
 
-**Open point:** one instance with separate targets, or a second instance.
-The publisher answer decides it. Recommendation: ask the publisher session
-first. HitIt writes no code for this item before the answer.
+**Open point:** publisher option A or option B. With each option, the private
+stream and a show do not run at the same time on one Mixxx computer.
+
+- Operator choice of 2026-11-21: not decided. HitIt writes no code for item 2
+  until the operator selects option A or option B.
 
 ### 3. Hold The Permanent Configuration (G7)
 
@@ -176,6 +206,9 @@ HitIt can also play the show in its own Show player, and its producer sends
 the tracks to one target. Recommendation: keep Mixxx for the rehearsal, and
 add the export. Record the choice of the player for subsequent shows as an open
 point of the ADR for item 5.
+
+- Operator choice of 2026-11-21: the rehearsal uses Mixxx, with the export
+  from HitIt. Item 4 can start.
 
 ### 5. Start And Stop The Full Chain With One Action (G6)
 
@@ -232,7 +265,8 @@ starts the recording (item 5).
 
 ## Proposed Order
 
-1. Item 2: ask the publisher first. Items 1, 3 and 5 depend on the answer.
+1. Item 2: the operator selects publisher option A or option B. Items 1, 3
+   and 5 depend on the selection.
 2. Item 1: enter a reserved event, and the safety requests.
 3. Item 3: configuration, after the publisher package update.
 4. Item 4: export to Mixxx. It has no dependency.
@@ -243,10 +277,10 @@ Item 4 can start first, because it has no dependency.
 
 ## What The Operator Decides
 
-1. Approve this request, or change it.
-2. Item 1: HitIt enters a reserved event that the operator made, or HitIt
-   reserves events itself.
-3. Item 4: the rehearsal uses Mixxx, or the HitIt Show player.
+1. Item 1: HitIt enters a reserved event that the operator made, or HitIt
+   reserves events itself. Open. The orchestrator takes it to the relay.
+2. Item 2: publisher option A or option B. Open.
 
-The other open points wait for an answer from the publisher, the relay or
-Studio.
+The operator approved this request and selected Mixxx for item 4 on
+2026-11-21. The other open points wait for an answer from the publisher, the
+relay or Studio.
