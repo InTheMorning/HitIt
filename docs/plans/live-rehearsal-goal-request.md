@@ -155,8 +155,25 @@ to all its targets (gap G8, from the publisher configuration of
 **Open point:** publisher option A or option B. With each option, the private
 stream and a show do not run at the same time on one Mixxx computer.
 
-- Operator choice of 2026-11-21: not decided. HitIt writes no code for item 2
-  until the operator selects option A or option B.
+- Operator choice of 2026-11-21: publisher option B. The publisher package
+  owns the content of each unit file, as template units. HitIt writes no
+  unit file. HitIt runs only `systemctl --user` and the publisher setup
+  helper. Option A is not used.
+- Operator choice of 2026-11-21: only one Mixxx producer runs at a time.
+  During a show, the private event gets no track data.
+- Operator choice of 2026-11-21: instance `mixxx`, the private stream, is
+  protected. HitIt refuses Attach, Detach and Replace on it.
+- Operator choice of 2026-11-21: HitIt gets full control of the publisher
+  units and the producer units. HitIt makes an instance, starts it, stops it,
+  switches between the private stream and a show, and shows the state.
+- HitIt extends `src/broadcast/control.rs` and
+  `src/runtime/broadcast_service_watch.rs` for this control. It makes no copy
+  of them. The producer unit name is fixed now in `PRODUCER_UNIT` at
+  `src/app/show.rs:55`, used at `:2694`.
+- The publisher session writes an ADR that changes publisher ADR 0016. It
+  gives the template unit names and the new setup helper flags `--instance`
+  and `--target`. HitIt writes no ADR and no code for item 2 before that ADR.
+  The orchestrator sends its path and commit.
 
 ### 3. Hold The Permanent Configuration (G7)
 
@@ -233,6 +250,10 @@ found no call of the butt record commands from the app
 publisher (gap G3, publisher task "Studio client 001", Not started). The
 publisher for step 1 when item 2 needs a second instance.
 
+- Operator choice of 2026-11-21: the control of the units of item 2 is also
+  the control of item 5. HitIt writes no ADR and no code for item 5 before
+  the publisher ADR of item 2.
+
 **Open point:** this item changes ADR 0105 and ADR 0107. A new ADR records
 the Mixxx path. ADR 0105 has one "Changed by" line now.
 
@@ -263,8 +284,8 @@ starts the recording (item 5).
 
 ## Proposed Order
 
-1. Item 2: the operator selects publisher option A or option B. Items 3
-   and 5 depend on the selection.
+1. Item 2: the publisher ADR that changes publisher ADR 0016, then the HitIt
+   control of the units. Items 3 and 5 wait for that publisher ADR.
 2. Item 1: enter a reserved event, and the safety requests.
 3. Item 3: configuration, after the publisher package update.
 4. Item 4: export to Mixxx. It has no dependency.
@@ -275,8 +296,7 @@ Item 4 can start first, because it has no dependency.
 
 ## What The Operator Decides
 
-1. Item 2: publisher option A or option B. Open.
-
-The operator approved this request on 2026-11-21. The operator also selected
-Mixxx for item 4, and one relay command for item 1. The other open points wait for an answer from the publisher, the
-relay or Studio.
+No operator choice is open on 2026-11-21. The operator approved this request,
+and selected Mixxx for item 4, one relay command for item 1, and publisher
+option B for item 2. The other open points wait for an answer from the
+publisher, the relay or Studio. The rehearsal waits for items 2 and 5.
