@@ -1,6 +1,6 @@
 # Walks
 
-Each walk operated the release binary of HitIt commit `c95aff3` on Xvfb with openbox. Two walker agents used
+Each walk operated the release binary of HitIt commit `79c23c1` on Xvfb with openbox. Two walker agents used
 two displays. The window was 1440 × 740 px, or 1120 × 780 px after a start of the app, or 390 px wide for
 the narrow walk. The data folders were scratch folders with an empty Library at the first start.
 

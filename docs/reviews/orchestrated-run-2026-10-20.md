@@ -104,37 +104,37 @@ Each entry names the step, the decision and the reason.
 
 | Step | State | Commit |
 |---|---|---|
-| Plan edits, triage, flow check | Done | `143a9ff` |
-| Packet 021: one release page | Implemented. V1 to V3 open | `6439c00` |
-| Packet 022: the download queue | Implemented. V1 to V6 open | `905f3fe` |
-| Packet 020: Discover tiles | Implemented. V1 to V6 open | `4cc4540` |
-| Packet 025: playlist page | Implemented. V1 to V7 open | `421eb53` |
-| Packet 011: the logo frame | Implemented. V1 to V7 open | `a08ec7a` |
-| Packet 024: the image of an artist feed (migration 20) | Implemented. V1 to V3 open | `fc0dbcb` |
-| Walk fixes: track row columns, single rows, feed images, playlist covers, release badge, group breadcrumb | Implemented. Walked | `958a17e`, `996754a`, `d41d381` |
-| Packets written: ADR 0083 tasks 006 to 008, ADR 0084 packets 010, 012, 016, 017, 023 and 027 | Done | `68bec25`, `e1d1281`, `71136c2` |
-| Dead code of flow map findings 13 and 14 | Deleted | `71136c2` |
-| Clippy for all targets (overhaul correctness task 001) | Complete | `0b723be` |
-| ADR 0083 task 006: the track row actions | Implemented. V1 to V12 open | `f51df32`, `545fc1f` |
-| Packet 027: "Stop queued" | Implemented. V1 to V3 open | `e655347` |
-| Packet 023: one track page | Implemented. V1 to V5 open | `24bcc2f` |
-| ADR 0083 task 007: the list and playlist row actions | Implemented. V1 to V11 open | `4b6c4ef` |
-| ADR 0083 task 008: drag a track to a playlist | Implemented. V1 to V9 open | `bc17d7b` |
-| Packet 016: the scopes, Parts A and B | Implemented. V1 to V8 open | `0bf685e`, `1febbf4` |
-| Packet 017: the name level page; `src/sources.rs` deleted | Implemented. V1 to V11 open | `46656ce` |
-| Packet 010: the search results in the list column | Implemented. V1 to V7 open | `2c4170e` |
-| Packet 012: saved searches (migration 21) | Implemented. V1 to V7 open | `c563ca4` |
-| Walk fixes of 2026-10-21: Library search images, the kind in the subtitle, a clear detail column, a rejected query | Implemented. Walk again | `e495bdd`, `c1c728a` |
-| Packet 028: the open defects of search | Implemented. V1 to V4 open | `5bdeec1` |
-| Packets 026 and 029 written after Stophammer release 0.13.0 | Ready. The operator answered their decisions | `22c7f7d` |
-| Packet 029: the link facts of search, the 0.13.0 contract | Implemented. V1 to V6 open | `e7c431b` |
-| Packet 026 Part A: the Index singles groups in the Releases list | Implemented. V1 to V6 and V10 open | `e091e18` |
-| Packet 026 Part B: the group page and "All n singles" with MusicIndex members | Implemented. V7 to V10 open | `2a0344c` |
-| Packet 030: the open defects of Music, and the scroll position of each history entry | Implemented. V1 to V6 open | `5b5dbe0` |
-| Packet 031: one release row menu, and the drag of a selection | Implemented. V1 to V9 open | `5486f0b` |
-| Packet 032: one track row style on the group page, and the matched singles in the feed group | Implemented. V1 to V7 open | `ea1902f` |
-| Packet 033: the download state icons of track rows and release rows | Implemented. V1 to V8 open | `9422468` |
-| Packet 034: the feed links of a release after a download, and one pass at start | Implemented. V1 to V4 open | `c061689` |
+| Plan edits, triage, flow check | Done | `b2ae75c` |
+| Packet 021: one release page | Implemented. V1 to V3 open | `6e4c20c` |
+| Packet 022: the download queue | Implemented. V1 to V6 open | `253b9b5` |
+| Packet 020: Discover tiles | Implemented. V1 to V6 open | `0ca4793` |
+| Packet 025: playlist page | Implemented. V1 to V7 open | `29b5f2d` |
+| Packet 011: the logo frame | Implemented. V1 to V7 open | `0d47967` |
+| Packet 024: the image of an artist feed (migration 20) | Implemented. V1 to V3 open | `7639878` |
+| Walk fixes: track row columns, single rows, feed images, playlist covers, release badge, group breadcrumb | Implemented. Walked | `50e50b8`, `6c2063e`, `028075a` |
+| Packets written: ADR 0083 tasks 006 to 008, ADR 0084 packets 010, 012, 016, 017, 023 and 027 | Done | `6f10b43`, `b7a0168`, `258783a` |
+| Dead code of flow map findings 13 and 14 | Deleted | `258783a` |
+| Clippy for all targets (overhaul correctness task 001) | Complete | `d179bf5` |
+| ADR 0083 task 006: the track row actions | Implemented. V1 to V12 open | `f34c4e1`, `587828f` |
+| Packet 027: "Stop queued" | Implemented. V1 to V3 open | `2e96ae9` |
+| Packet 023: one track page | Implemented. V1 to V5 open | `e6d05ec` |
+| ADR 0083 task 007: the list and playlist row actions | Implemented. V1 to V11 open | `bffc2a6` |
+| ADR 0083 task 008: drag a track to a playlist | Implemented. V1 to V9 open | `b9c14d6` |
+| Packet 016: the scopes, Parts A and B | Implemented. V1 to V8 open | `0598284`, `a587bd5` |
+| Packet 017: the name level page; `src/sources.rs` deleted | Implemented. V1 to V11 open | `1312fae` |
+| Packet 010: the search results in the list column | Implemented. V1 to V7 open | `c606605` |
+| Packet 012: saved searches (migration 21) | Implemented. V1 to V7 open | `93a766b` |
+| Walk fixes of 2026-10-21: Library search images, the kind in the subtitle, a clear detail column, a rejected query | Implemented. Walk again | `cb3b472`, `b82380b` |
+| Packet 028: the open defects of search | Implemented. V1 to V4 open | `7bd13c2` |
+| Packets 026 and 029 written after Stophammer release 0.13.0 | Ready. The operator answered their decisions | `368b1d6` |
+| Packet 029: the link facts of search, the 0.13.0 contract | Implemented. V1 to V6 open | `078ecbd` |
+| Packet 026 Part A: the Index singles groups in the Releases list | Implemented. V1 to V6 and V10 open | `c870167` |
+| Packet 026 Part B: the group page and "All n singles" with MusicIndex members | Implemented. V7 to V10 open | `e8150e4` |
+| Packet 030: the open defects of Music, and the scroll position of each history entry | Implemented. V1 to V6 open | `95d1638` |
+| Packet 031: one release row menu, and the drag of a selection | Implemented. V1 to V9 open | `cba93e8` |
+| Packet 032: one track row style on the group page, and the matched singles in the feed group | Implemented. V1 to V7 open | `a83f832` |
+| Packet 033: the download state icons of track rows and release rows | Implemented. V1 to V8 open | `52f7598` |
+| Packet 034: the feed links of a release after a download, and one pass at start | Implemented. V1 to V4 open | `e08f929` |
 
 ## Questions For The Operator
 
@@ -159,7 +159,7 @@ The operator sends screenshots, and the orchestrator records each result here wi
 | 2026-10-20 | 011.3 mosaic for a feed with no image, 024.2 | No data | Each artist feed of the Library has a channel image. Unit tests R11-04 and R24-04 cover it |
 | 2026-10-20 | 021.1 header, facts, layout in Light at narrow width | Pass | Release page "Aged Friends & Old Whiskey" |
 | 2026-10-20 | 021.1 selection on the release page | Pass | Two rows checked, bar "Add 2 tracks to playlist", "Remove 2 tracks…" |
-| 2026-10-20 | 021.1 row columns, 021.3 track numbers | Fail, fixed in `958a17e` | Walk again on a new build |
+| 2026-10-20 | 021.1 row columns, 021.3 track numbers | Fail, fixed in `50e50b8` | Walk again on a new build |
 | 2026-10-20 | 021.1 badge "● feed" above a release title | Fail, fix in progress | ADR 0084 Decision 5 |
 | 2026-10-20 | 021.3 selection on the singles group page | Pass | Two singles checked, release bar |
 | 2026-10-20 | 024.1 image on the group page and the group row | Pass | Haleen photo |

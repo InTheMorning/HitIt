@@ -5,7 +5,7 @@ Status: record of an agent walk. This walk closes no gate. Each visual gate stay
 
 ## Method
 
-- Binary: the release build of HEAD `89f0883`.
+- Binary: the release build of HEAD `5d7010e`.
 - Two walker agents used two Xvfb displays (:91 and :92) with openbox. Each walker had its own scratch `HOME`,
   `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. No walker touched the Library of the operator.
 - `allowed_domains` had `api.musicindex.org`, `cdn.kolomona.com` and `sirlibre.com`.
@@ -70,7 +70,7 @@ main agent examined.
 
 ## Section 43 Walk - 2026-11-19, Afternoon
 
-The main agent did this walk itself, with the release build of commit `3532954` on Xvfb display `:85` at 1440 px. The configuration had `musicindex_endpoint = "http://127.0.0.1:9"`. The shots are in the scratch folder of the session and are not kept.
+The main agent did this walk itself, with the release build of commit `506ac33` on Xvfb display `:85` at 1440 px. The configuration had `musicindex_endpoint = "http://127.0.0.1:9"`. The shots are in the scratch folder of the session and are not kept.
 
 | Item | Pass | Fail or open |
 | --- | --- | --- |
@@ -83,9 +83,9 @@ Finding 4: **the Releases page shows raw request text in its message.** With the
 
 ## Sections 44 To 46 Walk - 2026-11-19, Evening
 
-The main agent did this walk itself, with the debug build of commit `e362af2` on Xvfb display `:85`, at 1440 px and at 390 px. The Library had 11 audio files and the playlists Walk (10 tracks) and Mix (14 tracks). The sandbox has no sound device. For the cue steps, the scratch file `mpv/mpv.conf` had `ao=null`, so that mpv plays each file at its usual speed with no sound. The shots are in the scratch folder of the session and are not kept.
+The main agent did this walk itself, with the debug build of commit `5e15129` on Xvfb display `:85`, at 1440 px and at 390 px. The Library had 11 audio files and the playlists Walk (10 tracks) and Mix (14 tracks). The sandbox has no sound device. For the cue steps, the scratch file `mpv/mpv.conf` had `ao=null`, so that mpv plays each file at its usual speed with no sound. The shots are in the scratch folder of the session and are not kept.
 
-The walk found these defects. Commits `04c24ee` and `e362af2` correct them.
+The walk found these defects. Commits `0b79329` and `5e15129` correct them.
 
 1. The first start opened an empty Settings page.
 2. Settings said "mpv is not installed" for each mpv error. Each mpv check gave an error, because HitIt read the version from an incorrect field.
@@ -155,4 +155,4 @@ Agent walk of section 47 of the human checks, 2026-11-20. The results are in tha
 - A Connect to a server name that butt does not know fails with no error text.
 - Settings has no field for the encoder server name. The list of shows must own this setting.
 
-Operator choice, 2026-11-21: a tag date is the day in UTC, in the form `YYYY-MM-DD`. Commit 221171e of 2026-11-16 made the display date follow the local time zone (R-DATE-1). The TDRC value used that display date, so in UTC-5 the "Update files" scan wanted each file one day earlier. `metadata::fmt_tag_date` now gives the release date value. The test `tdrc_is_the_utc_day_in_each_time_zone` guards it. The "Release date" row of the metadata comparison table now shows the same form as the file value.
+Operator choice, 2026-11-21: a tag date is the day in UTC, in the form `YYYY-MM-DD`. Commit 5969e6c of 2026-11-16 made the display date follow the local time zone (R-DATE-1). The TDRC value used that display date, so in UTC-5 the "Update files" scan wanted each file one day earlier. `metadata::fmt_tag_date` now gives the release date value. The test `tdrc_is_the_utc_day_in_each_time_zone` guards it. The "Release date" row of the metadata comparison table now shows the same form as the file value.

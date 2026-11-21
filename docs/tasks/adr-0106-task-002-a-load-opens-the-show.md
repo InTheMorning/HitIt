@@ -43,7 +43,7 @@ These are in section 46 of [pending human checks](../pending-human-checks.md).
 
 ## Report
 
-Items 1, 2 and 3 are built. ADR 0105 task 001 (commit d7e85a2) built item 3.
+Items 1, 2 and 3 are built. ADR 0105 task 001 (commit 2139387) built item 3.
 
 Changed files:
 

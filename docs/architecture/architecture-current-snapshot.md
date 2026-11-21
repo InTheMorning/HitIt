@@ -2,11 +2,11 @@
 
 ## Status
 
-Current - 2026-11-14, from commit `86d97e7`. This snapshot is advisory. It states no rule.
+Current - 2026-11-14, from commit `d0f3441`. This snapshot is advisory. It states no rule.
 The layer rules are in ADRs 0023, 0024 and 0042, and `tests/architecture_tests.rs` enforces part of them.
 The shell is ADR 0089, the list bar is ADR 0090 and the fit check is ADR 0097.
 
-A subagent surveyed the code at `86d97e7`. The primary session examined the important claims against the code.
+A subagent surveyed the code at `d0f3441`. The primary session examined the important claims against the code.
 When the code and this snapshot disagree, the code is correct. Update this snapshot in the same change as a
 change of layer, shell or async model.
 
@@ -142,7 +142,7 @@ Important points:
 ## 2. Layer Order And The Edges That Go Against It
 
 The layer order runs from the top to the bottom of this diagram. The red edges go against the order. They are
-in the code at `86d97e7`.
+in the code at `d0f3441`.
 
 ```mermaid
 graph TD
@@ -174,7 +174,7 @@ graph TD
     linkStyle 16,17,18,19,20,21,22,23 stroke:#c0392b,stroke-width:2px
 ```
 
-At `86d97e7`, `tests/architecture_tests.rs` enforces these rules:
+At `d0f3441`, `tests/architecture_tests.rs` enforces these rules:
 
 | Test | Rule |
 |---|---|

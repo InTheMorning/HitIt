@@ -6,7 +6,7 @@ Complete - 2026-11-15. This document is advisory. [ADR 0101](../adr/0101-the-des
 
 ## Scope
 
-The orchestrator session asked for this check on 2026-11-15. The source is the research note `~/build/musicindex-research/research_notes/ui-design/hitit-conformance-2026-11-15.md` at musicindex-research commit `77fcefa`. Its section "Unverified Gaps" comes only from a ChatGPT run. This document examines each row of that section against the HitIt code and the HitIt ADRs at HitIt commit `1866ba9`.
+The orchestrator session asked for this check on 2026-11-15. The source is the research note `~/build/musicindex-research/research_notes/ui-design/hitit-conformance-2026-11-15.md` at musicindex-research commit `77fcefa`. Its section "Unverified Gaps" comes only from a ChatGPT run. This document examines each row of that section against the HitIt code and the HitIt ADRs at HitIt commit `51087da`.
 
 This session did not read a musicindex file. The words that describe a shared rule come from the research note and from its ChatGPT log, `~/.local/share/aiwrap/codex/aiwrap-gpt/runs/20261115T215001Z-7.txt`. Thus each statement about the content of a shared rule is an inference from those two sources. The statements about HitIt come from the HitIt files that each row names.
 

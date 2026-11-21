@@ -3,7 +3,7 @@
 ## Status And Scope
 
 Documentation correction complete. This review began against v4vmm commit
-`4c9b7e5`. The follow-up corrected the active records in this workspace and the
+`abaab26`. The follow-up corrected the active records in this workspace and the
 publisher's show-log documents. It changes no application behavior or operator
 acceptance result.
 
@@ -163,7 +163,7 @@ These are follow-ups, not additional acceptance gates on completed packets:
 ## Verification And Disposition
 
 The ADR 0055 review checked private module declarations, root re-exports and
-consumer imports. Commit `4be09d8` records the original split. The existing
+consumer imports. Commit `279489c` records the original split. The existing
 situational guard checks the retired path, module wiring, renderer boundary
 and prohibition on deep consumer imports. No source files changed.
 

@@ -461,7 +461,7 @@ Checked on 2026-09-19:
 The raw STE result is not Green. Technical terms retain their source and contract meanings.
 The checker cannot prove full standard compliance.
 
-Source inspection used app commit `d3c6ee4` and Stophammer commit `a220f44`.
+Source inspection used app commit `434fd9c` and Stophammer commit `a220f44`.
 The field inventory records the inspected boundaries and assigns missing rules.
 This correction changes documents and their example guard. It changes no application behavior.
 Application tests were not rerun for these changes. Document checks do not close the remaining operator gates.

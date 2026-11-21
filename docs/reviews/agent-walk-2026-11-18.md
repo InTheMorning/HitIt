@@ -5,7 +5,7 @@ Status: record of an agent walk. This walk closes no gate. Each visual gate stay
 
 ## Method
 
-- Binary: the release build of HEAD `99299eb`. No source file changed after the build of 2026-11-17 21:51.
+- Binary: the release build of HEAD `c655762`. No source file changed after the build of 2026-11-17 21:51.
 - Three walker agents used three Xvfb displays (:86 to :88) with openbox. Each walker had its own scratch
   `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME` and music folder. No walker touched the
   Library of the operator.

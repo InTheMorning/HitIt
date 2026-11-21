@@ -37,7 +37,7 @@ A track page and a release page show the payment split of the item in one sectio
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `PaymentRoute` (`src/api.rs:479`) has `recipient_name`, `route_type`, `split`, `fee`, `address`, `custom_key` and `custom_value`. Examined.
 - `stored_route` (`src/db/payment_routes.rs:249`) reads the route of a track, and the route of its feed when the track has none. Examined.

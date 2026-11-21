@@ -17,7 +17,7 @@ HitIt reads three settings from the system: Reduce Motion, Increase Contrast and
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `ThemeProfile` (`src/theme_profile.rs:14`) has System, Dark, Light, HighContrastDark and HighContrastLight. Dark is the default.
 - `effective_profile` (`src/ui/theme_profiles.rs:34`) maps System to Light or Dark from the window appearance. An explicit profile stays. Examined.

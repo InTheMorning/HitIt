@@ -256,7 +256,7 @@ It gets one row for each of the nine entries.
    With that key, the last entry replaced the others in one row.
    On 2026-09-24, the orchestrator added `remote_feed_guid` to the key. An entry without it writes no row.
    No real database has migration 14, so the migration 14 DDL changed in place.
-2. The `publisher` presence rule in `src/provider_observation/musicindex.rs` came from commit `82c3c06` without a documented rule.
+2. The `publisher` presence rule in `src/provider_observation/musicindex.rs` came from commit `78e73af` without a documented rule.
    It gave each live array the presence `invalid`. The live contract declares `FeedResponse.publisher` and `TrackResponse.publisher` as an array of `PublisherResponse` or null.
    On the orchestrator decision of 2026-09-24, `publisher` now uses the collection rule of `PropertyPresence::from_json`, and the special branch is deleted.
    The existing test proves that an array with entries is `populated`, an empty array is `empty`, and an object or `false` is `invalid`.

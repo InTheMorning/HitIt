@@ -9,7 +9,7 @@ This note is advisory. No decision record owns it.
 
 ## Method
 
-- The code is at git `82acd38`.
+- The code is at git `9c747fc`.
 - A ChatGPT run (`gpt-6.1-sol`, effort medium) searched the code, `Cargo.toml`, `Cargo.lock` and the crate sources.
 - The main session examined each gap in the code before it put the gap in this note.
 - Nobody built HitIt on Windows or on macOS. A gap marked **inference** comes from the code and the known behavior of

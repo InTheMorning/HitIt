@@ -30,7 +30,7 @@ This packet does not complete active identity display, field selection, or obser
 - [Packet 014](adr-0075-task-014-provider-observation-retention.md), the existing writer and selected Library caller.
 - [Phase plan](../plans/adr-0075-metadata-contract-phase-plan.md#packet-register), storage order and later projections.
 
-Inspection used app revision `a12521e7510b3d05cd4fc097a370f1f965145aad` plus the current uncommitted ADR 0075 implementation.
+Inspection used app revision `7638e9915a19e372ba08ce65aeddd35022ab69d9` plus the current uncommitted ADR 0075 implementation.
 The packet depends on packet 014's final working-tree implementation, not that revision alone.
 The inspected Stophammer revision is `a220f441d57640912eed9b190d7c194284f87a38`.
 No deployed service was inspected. Local source does not establish the deployed revision.

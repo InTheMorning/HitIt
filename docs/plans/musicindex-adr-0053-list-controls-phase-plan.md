@@ -2,7 +2,7 @@
 
 Status: Open. Created 2026-11-07.
 
-Packet 1 is implemented on 2026-11-08 (`b3b391d`). Packet 2 is implemented on 2026-11-08 (`90b6a8c`). Packet 4 is implemented on 2026-11-08 (`367e72c`). Packet 5 is implemented on 2026-11-08 (`2c5c7ea`). Packet 6 is implemented on 2026-11-08, with ADR 0090 task 004 (`2346d29`). Packet 7 is implemented on 2026-11-08.
+Packet 1 is implemented on 2026-11-08 (`50fba51`). Packet 2 is implemented on 2026-11-08 (`83b437e`). Packet 4 is implemented on 2026-11-08 (`a8dacfe`). Packet 5 is implemented on 2026-11-08 (`ed1881b`). Packet 6 is implemented on 2026-11-08, with ADR 0090 task 004 (`57bfe12`). Packet 7 is implemented on 2026-11-08.
 
 Packet 7 note: `src/view_models/name_order.rs` compares names with `icu_collator` in the locale of the reader. It reads numbers as numbers. Each list that the app sorts on its own side uses it. A list that merges Library rows with node rows keeps the sequence of the node. Thus a name can move when the person changes the scope.
 
@@ -12,7 +12,7 @@ Packet 6 note: a section offers Newest only when each of its rows has a date (R-
 
 The public playlist page has no list bar, so its control is at the right end of a heading above its entries (R-LIST-11 item 3).
 
-Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `7fc663f`. Packet 8 is committed as `bfb8674`. Packet 9 is committed as `70d8f23`.
+Packet 3 waits for the decision on the stored Curator Order. Packet 7 is committed as `9fc01c7`. Packet 8 is committed as `90975f2`. Packet 9 is committed as `e089c2c`.
 
 Packet 3 is implemented on 2026-11-08 with migration 24. Each packet of this plan is implemented. musicindex ADR 0054 replaces the reverse icon of these packets on 2026-11-08. The sort menu lists the reversed entries. A list with one fixed sequence has the toggle "Reverse".
 

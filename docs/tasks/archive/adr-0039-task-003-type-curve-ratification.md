@@ -154,7 +154,7 @@ Operator evidence — 2026-09-18: the operator passed the prepared playlist
 row, detail and popover at XS/XL in Light/Dark, with Medium references, and
 ShowCard's single-line summaries. The
 [review checklist](../../reviews/adr-0039-review-checklist.md#operator-visual-check--task-003)
-records each response, base revision `b5349f8`, matching working-tree source
+records each response, base revision `89a894d`, matching working-tree source
 hashes and the reported `maximized 1440x900` / `~half width` viewport coverage.
 Exact pane geometry was not recorded. Starting preferences were Dark/Medium.
 

@@ -17,7 +17,7 @@ The curator loads a playlist into a stored Show cue and starts it from Show. A s
 
 ## Assumptions
 
-Each fact below was read on 2026-11-11 at commit `ff0aca4`.
+Each fact below was read on 2026-11-11 at commit `e776a1d`.
 
 - `PlaybackOwner` (`src/playback_owner.rs`) is the only player. `TopApp` holds it as `Option<Arc<Mutex<PlaybackOwner<ConfiguredPlaybackDriver>>>>`. The polling actor in `src/runtime/playback_polling.rs` and `SessionDrain` in `src/application/session_lifecycle.rs` hold the same `Arc`.
 - The owner writes the session `DEFAULT_SESSION_ID` ("default") through `src/playback.rs`. It also owns the drop-file producer.

@@ -97,7 +97,7 @@ prioritized, and routed to the right governance artifact.
   packets record implementation. The review records the required theme checks.
   Item 8 covers future improvements, not unfinished packets from that series.
 - ADR 0055 is Implemented after the 2026-09-18 review and focused checks.
-  The decomposition shipped in commit `4be09d8`. It needs no duplicate packet.
+  The decomposition shipped in commit `279489c`. It needs no duplicate packet.
 
 - ADR 0058 outbound HTTP client policy was implemented on 2026-08-28. Review
   `docs/reviews/adr-0058-implementation-review.md` verifies it. All ten blocking
@@ -181,8 +181,8 @@ prioritized, and routed to the right governance artifact.
   views now enrich from explicit bindings without name-only merging.
 - Deferred item #2, Library/Discover data parity, completed on 2026-05-18.
   ADR 0052 routed the work. ADR 0024 follow-up runtime delivery shipped the six
-  loading-shape slices (`6e61d4f`, `f9bff8d`, `d7d0220`, `e8c1aaa`,
-  `8f701d2`, `de934bb`). ADR 0053 accepted the parent source-fact parity
+  loading-shape slices (`e28903f`, `296da2b`, `183e73d`, `6709bb9`,
+  `c80ec6c`, `497ae4d`). ADR 0053 accepted the parent source-fact parity
   contract. ADR 0054 implemented the concrete feed/track metadata source-fact
   slice.
 

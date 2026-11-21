@@ -1,12 +1,12 @@
-# HitIt User Journeys At Commit c95aff3
+# HitIt User Journeys At Commit 79c23c1
 
 Date: 2026-11-18. Status: research record. This record is advisory. It states no rule and gives no design
 proposal.
 
-This record gives the user journeys of HitIt as they are in the code at commit `c95aff3`. It is data for a
+This record gives the user journeys of HitIt as they are in the code at commit `79c23c1`. It is data for a
 subsequent UX analysis.
 
-The baseline is the v4vmm study of HitIt commit `38ecd9d` (2026-10-22). It is in the research repository, at
+The baseline is the v4vmm study of HitIt commit `d97da51` (2026-10-22). It is in the research repository, at
 `musicindex-research/sources/captures/2026-10-24-v4vmm-journeys/journeys/`. This record uses its jobs 1 to 16
 (`02-as-is.md`) and its journeys MH1 to MH7 (`03a-must-have-journeys.md`). This record does not replace that
 study. The two records use the same step method, so you can compare the step counts.
@@ -33,7 +33,7 @@ Three steps made the record.
    the sources. There are 999 quoted texts. Each one is in the code, or the code makes it from a template, or
    it is the Linux name of a key binding. Some quoted texts are not labels: the scope words of the brief, the
    start conditions of a count, and the names that an inventory says do not exist ("Go live", "End show").
-3. **Walks.** Two walker agents operated the release binary of commit `c95aff3` on Xvfb with openbox, with
+3. **Walks.** Two walker agents operated the release binary of commit `79c23c1` on Xvfb with openbox, with
    scratch data folders and the live Music Index API. The main agent examined the screenshots that the results
    cite. A walk result is stronger evidence than the code reading. Where the two disagree, `step-counts.md`
    says so.

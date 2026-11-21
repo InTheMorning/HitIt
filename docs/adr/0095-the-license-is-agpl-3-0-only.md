@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted - 2026-11-11. The operator selected the license on 2026-10-24 in commit `78afacc`. This record states that decision. It changes no code.
+Accepted - 2026-11-11. The operator selected the license on 2026-10-24 in commit `d9de25b`. This record states that decision. It changes no code.
 
 ## Context
 
 The research request on shared search code (`docs/plans/research-search-request.md`) found that v4vmm had no license. Stophammer and Studio are AGPL-3.0-only. v4vmm needs a license before it uses or gives shared code, for example the crate `musicindex-search` of [ADR 0091](0091-search-parser-moves-to-the-shared-crate.md).
 
-Commit `78afacc` added the license, but no decision record named it.
+Commit `d9de25b` added the license, but no decision record named it.
 
 ## Decision
 

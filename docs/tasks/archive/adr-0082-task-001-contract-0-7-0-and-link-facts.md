@@ -256,7 +256,7 @@ A terminal at the repository root ran each command below.
   header. The header reads "Superseded - 2026-10-02 by [ADR 0082](...)."
   ADR 0057 wants "Superseded by ADR 0082 - 2026-10-02."
 - `git diff` shows this session made no change to that file. Commit
-  `b10e4da`, the commit that accepted ADR 0082, wrote this header text,
+  `364b73c`, the commit that accepted ADR 0082, wrote this header text,
   before this packet began. "Do not touch: Any ADR" keeps this packet
   from a correction. The Status line above names this open item.
 - The ADR 0016 migration registry carries some test values that name "17"

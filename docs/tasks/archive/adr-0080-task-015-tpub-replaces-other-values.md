@@ -14,11 +14,11 @@ A frame that holds a confirmed label or a language does not grow. A write replac
 ## Recorded Facts - 2026-11-05
 
 - The writer replaces the `TPUB` and `TLAN` keys. Two tests recorded this result as an open point.
-- Commit `402300a` kept a `TPUB` value from another source. The operator rejected that rule, and this packet removes the code.
+- Commit `dff8651` kept a `TPUB` value from another source. The operator rejected that rule, and this packet removes the code.
 
 ## Required Changes
 
-1. The writer stays as it was before `402300a`.
+1. The writer stays as it was before `dff8651`.
 2. The two tests state the rulings of Decisions 12 and 13.
 
 ## Do Not Change

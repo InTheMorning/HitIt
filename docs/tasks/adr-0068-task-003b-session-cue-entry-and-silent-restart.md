@@ -16,7 +16,7 @@ The session can hold the cue entry that plays. A Clear or a Replace cannot leave
 
 ## Recorded Facts - 2026-11-14
 
-Each fact was read at commit `3b387f7`.
+Each fact was read at commit `25d98db`.
 
 - Migration 25 (`src/db/show_cue.rs:22`) adds `playback_sessions.cue_entry_id`, nullable, with no foreign key. No code reads it or writes it.
 - `PlaybackSessionRow` is in `src/db.rs:92`. Its decoder is at line 2134, the track upsert at line 2651 and the SELECT at line 2704.

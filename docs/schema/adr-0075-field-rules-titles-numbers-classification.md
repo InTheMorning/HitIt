@@ -34,7 +34,7 @@ These proposals change neither tag-write policy nor automatic candidate generati
 
 ## Inspected Evidence
 
-The app inspection used commit `a12521e` with packet 030 changes in the working tree.
+The app inspection used commit `7638e99` with packet 030 changes in the working tree.
 The upstream inspection used `/home/citizen/build/stophammer` at commit `a220f44`.
 No live request or app launch supplied this evidence.
 

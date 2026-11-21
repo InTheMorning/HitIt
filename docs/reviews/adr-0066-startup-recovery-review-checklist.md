@@ -223,7 +223,7 @@ new-setup design question.
 
 ## Task 003 Review — 2026-09-10
 
-Implementation revision: `beb2ed4` contains task 003, including its scoped
+Implementation revision: `93b10b5` contains task 003, including its scoped
 runtime/cache recovery and search-error reporting correction. Its commit subject
 names only the correction; this record identifies the full packet for traceability.
 

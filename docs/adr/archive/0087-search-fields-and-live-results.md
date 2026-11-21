@@ -176,7 +176,7 @@ These differences stay after packet 011 of [ADR 0087 task 011](../../tasks/archi
 
 ## Operator Answers - 2026-11-07
 
-A different session relayed these answers on 2026-11-07. They accept the behavior of commit `c433582`.
+A different session relayed these answers on 2026-11-07. They accept the behavior of commit `e401956`.
 
 1. Results in the scope All have no reverse icon.
 2. The note title has no period at its end: "MusicIndex needs a word or a field to search for".

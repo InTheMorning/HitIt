@@ -19,7 +19,7 @@ Each surface uses the level of its use. A group or a card has the group level. A
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `Surface::render` (`src/ui/primitives/surface.rs:80`) gives Sunken and Raised the color `SecondarySystemBackground` and Floating the color `TertiarySystemBackground`. Examined.
 - `bg_surface` and `bg_surface_hi` (`src/ui/style.rs:65` and `:68`) give `SecondarySystemBackground` and `TertiarySystemBackground`. Examined.

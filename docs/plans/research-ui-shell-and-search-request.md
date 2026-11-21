@@ -20,7 +20,7 @@ cover) and ADR 0068 R-SCALE-2 (the web scale, which HitIt does not use) state th
 shared rules. HitIt can now write its own ADRs for sections 1 to 4 of this
 request. They cite the musicindex rules and do not restate them.
 
-The research examined HitIt at HEAD `58ce1ab`. The mockups are research
+The research examined HitIt at HEAD `be80425`. The mockups are research
 commits `6bacd1c`, `4fedc27`, `8d02b00`, `10fd7eb` and `e2cd3a3`. Commits
 `10fd7eb` and `e2cd3a3` give the corrections of sections 2 to 4.
 

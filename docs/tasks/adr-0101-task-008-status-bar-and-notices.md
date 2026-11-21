@@ -23,7 +23,7 @@ The window has one status bar at the bottom, the same on each section. It replac
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `build_live_status_strip` (`src/app/show.rs:293`) builds the band only on Music and Settings. Examined.
 - `TopApp` render (`src/app.rs:2181` to `:2222`) puts the capability notice below the toolbar, then the live status band, then `download_status_view`, then the section content. Examined.

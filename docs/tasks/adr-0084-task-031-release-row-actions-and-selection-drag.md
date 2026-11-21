@@ -21,7 +21,7 @@ Part B. In selection mode, a drag that starts on a checked track row carries eac
 
 ## Recorded Facts - 2026-10-21
 
-The facts come from the working tree at commit `d298922`. Packet 030 changes some of these files. Find each call site again before a change.
+The facts come from the working tree at commit `43c7461`. Packet 030 changes some of these files. Find each call site again before a change.
 
 ### The walk
 

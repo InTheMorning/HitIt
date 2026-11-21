@@ -249,7 +249,7 @@ The orchestrator owns shared status and policy documents.
 No documentation file moved. No new documentation folder or root document was created.
 
 The frozen SQL inputs were captured before the registry changed.
-Their source revision is `a12521e7510b3d05cd4fc097a370f1f965145aad`.
+Their source revision is `7638e9915a19e372ba08ce65aeddd35022ab69d9`.
 Capture used synthetic databases and the existing migration-11 `AfterApply` boundary.
 Each input contains records from all legacy tables and event-selection revision 7.
 

@@ -363,7 +363,7 @@ checked. No caller needed a copied identity or description apart from a tag row.
 
 The orchestrator reviewed the diff and ran each check. Each check is Green: 1,857 unit tests, 283 guards, and no warning.
 
-- R22-06: the orchestrator ran the two tests on commit `d04f23d`, before this packet. Both passed with the same fixed edits. Thus the tag output is equal.
+- R22-06: the orchestrator ran the two tests on commit `460f89b`, before this packet. Both passed with the same fixed edits. Thus the tag output is equal.
 - The first version built the feed identity box in a screen with fixed tokens. The orchestrator sent it back. The box now uses the shared labeled box in `src/ui/composites/track_detail_surface.rs`, with the scaled tokens of ADR 0039.
 - The owner label is the feed title. The visual check decides if the title alone names the feed clearly.
 

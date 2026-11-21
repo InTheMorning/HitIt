@@ -71,7 +71,7 @@ Use the existing line numbers from the file as a guide:
 - `mod.rs` (WorkspaceLayout) lives around lines 720-1278
 
 Re-verify exact ranges when reading the file; the line numbers above are
-post-bee1ac2 snapshots.
+post-99c8393 snapshots.
 
 ## Implementation Steps
 

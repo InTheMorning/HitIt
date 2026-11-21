@@ -16,7 +16,7 @@ Operator choice, 2026-11-15, relayed by the orchestrator session: HitIt adopts m
 
 Step 4 of the [overhaul plan](../plans/design-and-cleanup-overhaul-plan.md#phase-7-visual-overhaul-1), Phase 7, says: "First, a HitIt ADR adopts the rules. It amends or supersedes ADR 0083 and the Phase 3 tokens." A shared rule binds HitIt only through this ADR. Step 4 waits for the operator. The three defect fixes of 2026-11-14 come first: ADR 0090 task 005, ADR 0092 task 001 and ADR 0085 task 001.
 
-The research note `~/build/musicindex-research/research_notes/ui-design/hitit-conformance-2026-11-15.md` (musicindex-research commit `77fcefa`) compares HitIt `1866ba9` with musicindex `3baa6f0` and musicindex-assets `dc564f9`. It is advisory. It says that the shared rules are stable, and it gives these facts:
+The research note `~/build/musicindex-research/research_notes/ui-design/hitit-conformance-2026-11-15.md` (musicindex-research commit `77fcefa`) compares HitIt `51087da` with musicindex `3baa6f0` and musicindex-assets `dc564f9`. It is advisory. It says that the shared rules are stable, and it gives these facts:
 
 - HitIt agrees with most rules of the shell, the back control, the lists, the search, the role words and the destructive button.
 - The base layer of HitIt does not agree. The focus color, the type sizes, the radius values and the spacing scale are earlier values.
@@ -203,7 +203,7 @@ The code differs from the adopted rules in these points. The [check of the open 
 
 The sequence of the work:
 
-1. The token packet. It changes the tokens of each row that names the token packet, in `src/ui/tokens.rs`. HitIt commit `77420fc` copied `tokens/tokens.json` of musicindex-assets `b8399cc` to `src/assets/tokens.json`. A test compares the values with `src/assets/tokens.json`. The three defect fixes of 2026-11-14 come before it.
+1. The token packet. It changes the tokens of each row that names the token packet, in `src/ui/tokens.rs`. HitIt commit `911ba73` copied `tokens/tokens.json` of musicindex-assets `b8399cc` to `src/assets/tokens.json`. A test compares the values with `src/assets/tokens.json`. The three defect fixes of 2026-11-14 come before it.
 2. One packet for each surface. The sequence starts with the header glow, the art radius, the payment split and the system settings. Then come the dates, the loading state, the notices, the link, the selected look and the main action.
 3. The Ready packets of ADR 0093, ADR 0069 task 002, ADR 0094 and ADR 0097 tasks 003 to 006 come after the token packet. Thus each one is built one time in the new design.
 

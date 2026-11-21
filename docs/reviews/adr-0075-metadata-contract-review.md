@@ -30,7 +30,7 @@ Storage and display preparation remain open. The operator holds every remaining 
 
 ## Evidence And Limits
 
-At the audit, the app checkout was clean at commit `7b95b25`.
+At the audit, the app checkout was clean at commit `f436e65`.
 The Stophammer checkout was clean at commit `a220f44`.
 The agent did not inspect the deployed MusicIndex revision or current RSS contents.
 The agent did not launch the app or a browser.
@@ -129,7 +129,7 @@ in production data or the contents of every Index record.
 
 ## Pre-Dispatch Review — 2026-09-19
 
-Reviewed the ADR, phase plan and packet 001 against app commit `fb1972a` and
+Reviewed the ADR, phase plan and packet 001 against app commit `c716953` and
 Stophammer commit `a220f44`. The app code still has the six-field contributor type.
 The agent changed documentation only.
 
@@ -234,7 +234,7 @@ Its existing dispatch hold remains in force.
 
 This review covers the working copies of ADR 0075, its plan, packets 001–008,
 this review and the changed documentation indexes and ADR amendments.
-The app base is `fb1972a`. The Stophammer checkout is `a220f441d57640912eed9b190d7c194284f87a38`.
+The app base is `c716953`. The Stophammer checkout is `a220f441d57640912eed9b190d7c194284f87a38`.
 The findings concern the inspected source. They do not establish the deployed API revision.
 
 The seven packet files 002–008 exist. Their seven deliverables do not yet exist.

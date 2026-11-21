@@ -25136,7 +25136,7 @@ fn adr_0091_name_order_vectors_pass() {
 
 /// Durable guard, musicindex ADR 0032 R-DOT-2: the app copy of the shared
 /// tokens equals `../musicindex-assets/tokens/tokens.json` byte for byte.
-/// Commit e101446 edited the copy, and no check found it. When the shared
+/// Commit a5a546b edited the copy, and no check found it. When the shared
 /// file is not on this machine, the guard prints that it did not run.
 #[test]
 fn shared_token_copy_equals_musicindex_assets() {

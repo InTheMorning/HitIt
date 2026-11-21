@@ -58,7 +58,7 @@ statements stay the same via `mod.rs` re-exports.
 | `empty_state.rs` | `EmptyStateDisplay` | 240-270 |
 | `tests.rs` | Existing `#[cfg(test)] mod tests` | last block in current file |
 
-Re-verify line ranges when reading; they are post-bee1ac2 snapshots.
+Re-verify line ranges when reading; they are post-99c8393 snapshots.
 
 ## Implementation Steps
 

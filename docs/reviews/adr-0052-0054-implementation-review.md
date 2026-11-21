@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-18
 **Reviewer:** Claude
-**Scope:** Commits since `dfd2277` (prior review baseline) on `master`,
+**Scope:** Commits since `55f24db` (prior review baseline) on `master`,
 covering ADR 0052 (Library / Index data parity triage), the ADR 0024
 loading-shape follow-up plan, and ADR 0054 (local metadata source-fact
 persistence).
@@ -17,23 +17,23 @@ HIG rules.
 
 ```
 Phase 1 — Triage foundation (doc-only)
-  7d4fd3a Add triage tasks for album, track, artist, and playlist detail parity
+  c5186cd Add triage tasks for album, track, artist, and playlist detail parity
 
 Phase 2 — ADR 0024 loading-shape follow-up (runtime + guards)
-  6e61d4f feat: implement feed language loading and integration across models and views
-  f9bff8d feat: implement rich Index track detail rendering and integration across components
-  d7d0220 feat: add pub_date and explicit fields to TrackRow and related projections
-  e8c1aaa feat: rename IndexArtistDetail to IndexArtistFeedScope and update related navigation logic
-  8f701d2 feat: implement local playlist detail metadata rendering in PlaylistDetailVm
-  de934bb feat: add final ADR 0024 loading-shape readiness architecture guard
+  e28903f feat: implement feed language loading and integration across models and views
+  296da2b feat: implement rich Index track detail rendering and integration across components
+  183e73d feat: add pub_date and explicit fields to TrackRow and related projections
+  6709bb9 feat: rename IndexArtistDetail to IndexArtistFeedScope and update related navigation logic
+  c80ec6c feat: implement local playlist detail metadata rendering in PlaylistDetailVm
+  497ae4d feat: add final ADR 0024 loading-shape readiness architecture guard
 
 Phase 3 — ADR 0054 local metadata source-fact persistence
-  60f87fb feat: implement ADR 0054 for local metadata source-fact persistence
-  668483e feat: add MusicIndex feed metadata ingestion and persistence logic
-  0008155 feat: implement MusicIndex track metadata persistence and retrieval logic
-  54e51b9 feat: implement local metadata source-fact hydration and integrate into feed read models
-  46a7d8e feat: implement track metadata hydration and local fallback in feed service
-  0bb37af feat: finalize ADR 0054 implementation and update review documentation
+  ae76408 feat: implement ADR 0054 for local metadata source-fact persistence
+  a6a4dfd feat: add MusicIndex feed metadata ingestion and persistence logic
+  7ced13f feat: implement MusicIndex track metadata persistence and retrieval logic
+  2d5cb4b feat: implement local metadata source-fact hydration and integrate into feed read models
+  827995c feat: implement track metadata hydration and local fallback in feed service
+  bbbd97b feat: finalize ADR 0054 implementation and update review documentation
 ```
 
 Thirteen commits, twelve hours wall-clock. The arc converted
@@ -105,7 +105,7 @@ submodule decomposition from ADR 0050 already in place.
 
 1. **Triage → routing → runtime executed cleanly end-to-end.** Deferred-work
    item #2 began as "needs triage after ADR 0028 contributor visibility";
-   Phase 1 (`7d4fd3a`) shipped three parity triage reports under
+   Phase 1 (`c5186cd`) shipped three parity triage reports under
    `docs/reviews/library-discover-parity-triage-{album,track,artist-playlist}.md`
    plus the consolidated synthesis at
    `docs/reviews/library-discover-parity-triage-synthesis.md`; Phase 2
@@ -115,12 +115,12 @@ submodule decomposition from ADR 0050 already in place.
    five-task ADR 0054 implementation. The same triage → routing → bounded
    slice pattern is reusable for the remaining deferred items.
 
-2. **ADR 0050 module decomposition held under pressure.** `e8c1aaa` added
+2. **ADR 0050 module decomposition held under pressure.** `6709bb9` added
    the `IndexArtistDetail` → `IndexArtistFeedScope` rename plus
    breadcrumb/nav routing changes by touching
    `src/view_models/workspace/breadcrumb.rs` and
    `src/view_models/workspace/nav.rs` submodules rather than re-growing
-   `workspace.rs`. `f9bff8d` added rich Index track detail through
+   `workspace.rs`. `296da2b` added rich Index track detail through
    `src/view_models/search_results/index_detail.rs` rather than growing
    `search_results/results.rs`. The P1 file-size drift flagged in the
    prior review did not regress.
@@ -128,12 +128,12 @@ submodule decomposition from ADR 0050 already in place.
 3. **Architecture-guard discipline per slice.** Every Phase 2 and Phase 3
    slice shipped its own behavior-pinning guard in
    `tests/architecture_tests.rs`:
-   - `de934bb` — ADR 0024 loading-shape readiness guard.
-   - `8f701d2` — playlist detail metadata path guard.
-   - `d7d0220` — `local_track_pubdate_and_explicit_projection_path_is_guarded`.
-   - `6e61d4f` — `local_feed_language_parity_is_loaded_through_read_model_path`.
-   - `f9bff8d` — Index track detail VM contract guard.
-   - `0bb37af` — ADR 0054 finalization guard.
+   - `497ae4d` — ADR 0024 loading-shape readiness guard.
+   - `c80ec6c` — playlist detail metadata path guard.
+   - `183e73d` — `local_track_pubdate_and_explicit_projection_path_is_guarded`.
+   - `e28903f` — `local_feed_language_parity_is_loaded_through_read_model_path`.
+   - `296da2b` — Index track detail VM contract guard.
+   - `bbbd97b` — ADR 0054 finalization guard.
    Each guard fails when its named invariant is broken; none are structural
    noise. This is the right cadence for ratcheting deferred work.
 
@@ -154,8 +154,8 @@ submodule decomposition from ADR 0050 already in place.
    pop semantics. Full HIG path-bar conformance preserved.
 
 6. **ADR 0054 follows ADR 0028's source-fact contract.** New MusicIndex
-   feed and track metadata tables (added in `60f87fb`, populated in
-   `668483e` and `0008155`, hydrated in `54e51b9` and `46a7d8e`) keep
+   feed and track metadata tables (added in `ae76408`, populated in
+   `a6a4dfd` and `7ced13f`, hydrated in `2d5cb4b` and `827995c`) keep
    MusicIndex provenance distinct from RSS/feed provenance — no
    collapse of source-fact identity, no movement of MusicIndex API
    structs into shared projections, no name-derived inference. The
@@ -163,12 +163,12 @@ submodule decomposition from ADR 0050 already in place.
    visibility) extend cleanly to the new metadata families.
 
 7. **Commit sizing within budget for runtime work.** Largest runtime
-   commit is `f9bff8d` at 619+/69− LOC across eight files (Index track
+   commit is `296da2b` at 619+/69− LOC across eight files (Index track
    detail). Every other runtime commit is ≤ 700 LOC. The only commits
-   above 1000 LOC are `60f87fb` (ADR 0054 spec + initial schema/DB
-   helpers, 1067+) and `7d4fd3a` (triage foundation, 2108+); both are
+   above 1000 LOC are `ae76408` (ADR 0054 spec + initial schema/DB
+   helpers, 1067+) and `c5186cd` (triage foundation, 2108+); both are
    doc-heavy ADR/triage commits — structural by design, not bundled
-   runtime drift like `bee1ac2` was in the prior arc.
+   runtime drift like `99c8393` was in the prior arc.
 
 8. **Doc governance closeout complete.** ADRs 0052/0053/0054 written;
    triage synthesis and follow-up plans landed; review checklist at
@@ -298,7 +298,7 @@ Plus an operator-visible UI skim:
   triage marked them populated.
 - Library track detail metadata grid surfaces the new `pub_date` and
   `explicit` cells.
-- Index track detail renders the rich layout from `f9bff8d` with no raw
+- Index track detail renders the rich layout from `296da2b` with no raw
   numeric/color leaks.
 - Breadcrumb chrome remains visually unchanged after any
   `frame_shell.rs` / `breadcrumb_trail.rs` reroute under R3.

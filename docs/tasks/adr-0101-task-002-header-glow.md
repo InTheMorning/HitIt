@@ -17,7 +17,7 @@ An album page, a track page, an artist page and a label page show a blurred glow
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `CoverBackdrop::render` (`src/ui/composites/cover_backdrop.rs:30`) draws a color gradient behind the header. It draws no image and no grain. Examined.
 - `CoverBackdrop` tokens (`src/ui/tokens.rs:898`) give a height of 320 px, an opacity and luminance limits.

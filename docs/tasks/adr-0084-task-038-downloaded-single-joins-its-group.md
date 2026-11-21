@@ -35,7 +35,7 @@ The operator found it on 2026-10-24, in the walk of packet 035 V1.
 
 ### Code facts: the Library tree joins two feeds into one release
 
-The code facts come from the working tree of 2026-10-24, at commit `78afacc`. Find each call site again before you change it.
+The code facts come from the working tree of 2026-10-24, at commit `d9de25b`. Find each call site again before you change it.
 
 1. `src/db.rs:536-548` `library_tracks` reads each Library track in the order `f.title COLLATE NOCASE, t.track_number, t.track_title COLLATE NOCASE`. `LoadLibraryTracksTree` (`src/application/queries/library.rs:83-86`) gives these rows to `build_tree`.
 2. `src/application/queries/library.rs:372-383` `build_tree` puts each track in a map with two keys: `display_artist` and `display_album`. `display_album` is the `album_title` of the track, else its `feed_title` (`src/view_models/library.rs:5682-5688`). The Library feed id is not part of the key.

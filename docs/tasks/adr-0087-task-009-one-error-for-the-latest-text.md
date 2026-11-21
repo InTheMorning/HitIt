@@ -38,7 +38,7 @@ The [run record](../reviews/orchestrated-run-2026-10-24.md) records the failure.
 
 ## Recorded Facts - 2026-10-24
 
-An agent read each fact below on 2026-10-24 in the working tree at commit `78afacc`.
+An agent read each fact below on 2026-10-24 in the working tree at commit `d9de25b`.
 
 ### The two items come from two runs
 

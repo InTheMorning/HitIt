@@ -16,7 +16,7 @@ Do not read a current-behavior statement as an accepted rule.
 
 | Source | Revision | Use |
 |---|---|---|
-| This repository, working tree | Commit `d3c6ee4` | Current app behavior |
+| This repository, working tree | Commit `434fd9c` | Current app behavior |
 | `/home/citizen/build/stophammer` | Commit `a220f44` | Current upstream parser behavior |
 | `rss` crate | Version 2.0.12, pinned by `Cargo.lock` | Current XML extension behavior |
 | [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md) | Current specification, retrieved 2026-09-19 | Bech32 encoding specification and checked vectors |

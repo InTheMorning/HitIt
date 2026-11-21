@@ -1,6 +1,6 @@
-<!-- Recorded output of Claude inventory run D (sonnet) at commit c95aff3. Kept unchanged as evidence. It is not edited to STE. See ../README.md. -->
+<!-- Recorded output of Claude inventory run D (sonnet) at commit 79c23c1. Kept unchanged as evidence. It is not edited to STE. See ../README.md. -->
 
-Recorded output of Claude inventory run D at commit c95aff3a2dfd2910125146c5773ac7294b973798.
+Recorded output of Claude inventory run D at commit 79c23c1a95a817a3d2ff2f4aba1cd9b6dd423391.
 
 ## 1. Reading this inventory
 
@@ -8,7 +8,7 @@ This inventory describes code paths. The app was not started. Files were not cha
 
 Quoted text preserves the code's spelling, capitalization and punctuation. Templates use braces for values that the code supplies at runtime, for example `{title}`.
 
-References are repository-relative `file:line`. Line numbers come from the code at commit c95aff3. A reference with a function name and no number means the number was not recorded during the read.
+References are repository-relative `file:line`. Line numbers come from the code at commit 79c23c1. A reference with a function name and no number means the number was not recorded during the read.
 
 Every count is **INFERENCE**. One click, one key, one typed field or one list selection is one step. A wait or an automatic action is zero steps. A native file selection is one step. A count starts at the start point that its job names.
 

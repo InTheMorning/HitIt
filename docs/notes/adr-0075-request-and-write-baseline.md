@@ -16,7 +16,7 @@ Repeated Library album hydration replaces stored facts even when the fixture ret
 
 | Item | Recorded value |
 |---|---|
-| Baseline revision | `a12521e7510b3d05cd4fc097a370f1f965145aad` |
+| Baseline revision | `7638e9915a19e372ba08ce65aeddd35022ab69d9` |
 | Source capture time | `2026-09-20T12:09:54.843538+00:00` |
 | Measurement start | `2026-09-20T12:13:51.448000+00:00` |
 | Measurement end | `2026-09-20T12:13:51.705000+00:00` |

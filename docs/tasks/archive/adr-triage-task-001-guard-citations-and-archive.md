@@ -170,7 +170,7 @@ Link repair, in `docs/adr` and `docs/tasks`:
   it to also cover a plain, backtick file path in a historical task
   document. One example is `` `docs/adr/0016-schema-migration-discipline.md` ``.
   This change corrects that type of path when it names a moved ADR. The
-  prior archive commit (433e46a) corrected the same type of path.
+  prior archive commit (3bf3290) corrected the same type of path.
 - A plain prose citation of an archived ADR has no link and no file path. One
   example is "ADR 0016 - Schema migration discipline" in a References list.
   This citation stays as it is. An archived ADR keeps its number, so these

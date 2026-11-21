@@ -37,7 +37,7 @@ This packet has two parts:
 
 ## Recorded Facts - 2026-10-24
 
-An agent read each fact below on 2026-10-24 in the working tree at commit `e476192`.
+An agent read each fact below on 2026-10-24 in the working tree at commit `e485258`.
 
 ### The two entry points
 

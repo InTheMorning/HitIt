@@ -15,7 +15,7 @@ No page of Music starts program playback. The event `PlayPlaylistAt` and each pa
 
 ## Recorded Facts - 2026-11-14
 
-Each fact was read at commit `3b387f7`.
+Each fact was read at commit `25d98db`.
 
 - `LibraryAppEvent::PlayPlaylistAt` is defined in `src/library.rs:87`. Its only emitter is `src/ui/shells/library/playlist_detail.rs:408`. Its handler is `src/app.rs:424`.
 - `TopApp::play_playlist_at` is in `src/app/playback_bar.rs:19`. It makes `PlaybackOperation::Playlist` at line 27 and the command at line 37. The retry is at lines 103 to 107.

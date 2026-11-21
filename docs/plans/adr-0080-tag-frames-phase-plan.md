@@ -36,7 +36,7 @@ Packets 006 to 008 and 013 are corrections, so they go first. Packets 009 to 012
 
 ## Recorded Facts - 2026-11-04
 
-The tag review of 2026-11-04 compared Studio at `79fff94`, Stophammer at `61e8762` and v4vmm at `74aab71`. The live API gave release 0.18.1.
+The tag review of 2026-11-04 compared Studio at `79fff94`, Stophammer at `61e8762` and v4vmm at `0ef6e05`. The live API gave release 0.18.1.
 
 | Gap | Owner |
 |---|---|

@@ -6,7 +6,7 @@ Pass - 2026-05-01.
 
 ## Scope
 
-- Audited deferred work after `9dac4e5`.
+- Audited deferred work after `ebab1dd`.
 - Corrected stale ADR 0028 contributor-panel references.
 - Added `docs/plans/deferred-architecture-work-index.md`.
 - Drafted ADR 0029 planning artifacts for artist/person identity persistence.

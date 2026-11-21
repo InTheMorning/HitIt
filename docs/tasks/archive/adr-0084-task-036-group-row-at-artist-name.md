@@ -22,7 +22,7 @@ The packet also states how this rule agrees with packet 016 decision D7: a row d
 
 ### Code facts
 
-The code facts come from the working tree of 2026-10-24, after commit `e476192`. Find each call site again before you change it.
+The code facts come from the working tree of 2026-10-24, after commit `e485258`. Find each call site again before you change it.
 
 - `src/view_models/library.rs:3664-3669`, in `LibraryViewModel::releases_list`: the order of a group row is `ReleaseOrderKey::group(&row.label, group.key())` in "Library". In "Everything", it is `ReleaseOrderKey::group_at(group.first_title_sort_key(), group.key())`.
 - `src/view_models/releases_everything.rs:63-80`: `ReleaseOrderKey::group` calls `group_at` with `name_sort_key(label)`. `group_at` has no other production caller.

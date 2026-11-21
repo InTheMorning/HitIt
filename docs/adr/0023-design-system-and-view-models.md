@@ -43,7 +43,7 @@ screens, with a view-model layer between domain services and screens. In the
 ideal architecture, view-models hold read snapshots, local UI state, and
 service-command intent while remaining GPUI-free.
 
-PR #5 (`feat/design-tokens-and-primitives`, merged at f2548a0) implemented
+PR #5 (`feat/design-tokens-and-primitives`, merged at 06e79d0) implemented
 the design-system foundation and the first projection-style view-models.
 Follow-up local commits on `master` extended that work: `ui_common.rs` is
 gone, `DisclosureGroup` and `ActionButton` shipped, `Environment` is the
@@ -498,4 +498,4 @@ introduced here remain valid as the *shape* the actor publishes.
   migration record plus deferred follow-up work.
 - `docs/plans/adr-0023-finalization-plan.md` (a deleted plan, in git history) — final ADR 0023 task sequence
   and verification scope.
-- PR #5 (commit f2548a0) — implementation.
+- PR #5 (commit 06e79d0) — implementation.

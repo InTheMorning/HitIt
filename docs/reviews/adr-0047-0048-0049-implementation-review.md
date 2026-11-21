@@ -2,19 +2,19 @@
 
 - **Date:** 2026-05-16
 - **Reviewer:** Claude (Opus 4.7)
-- **Scope:** the eight commits between `0e8c732` and `bee1ac2` on `master` that landed the library/search unification (ADR 0047), the content-list-frame breadcrumb search (ADR 0048), and the inspector source ownership model (ADR 0049).
+- **Scope:** the eight commits between `333f152` and `99c8393` on `master` that landed the library/search unification (ADR 0047), the content-list-frame breadcrumb search (ADR 0048), and the inspector source ownership model (ADR 0049).
 
 Commits reviewed (oldest → newest):
 
 ```
-0e8c732 feat: workspace navigation ownership (ADR 0047)
-f225faf feat: frame shell breadcrumb + search results inspector shell
-4e91e38 feat: saved searches in library app
-4e17477 feat: mpv driver remediation plan + composite call-site audit (docs only)
-64e24cb feat: text filtering across view models
-9cca749 feat: active frame search dispatch (NewFrame / ActiveFrame modifiers)
-19515b6 docs: plan content-frame search ownership (ADR 0048, 0049)
-bee1ac2 feat: unify content-frame search and feed ownership
+333f152 feat: workspace navigation ownership (ADR 0047)
+645fcaf feat: frame shell breadcrumb + search results inspector shell
+52d5d51 feat: saved searches in library app
+910c5a5 feat: mpv driver remediation plan + composite call-site audit (docs only)
+7844a0d feat: text filtering across view models
+a4ff497 feat: active frame search dispatch (NewFrame / ActiveFrame modifiers)
+83dd434 docs: plan content-frame search ownership (ADR 0048, 0049)
+99c8393 feat: unify content-frame search and feed ownership
 ```
 
 ## Method
@@ -75,9 +75,9 @@ Mechanical enforcement: `tests/architecture_tests.rs` contains roughly 125 guard
 
 | File | LOC | Note |
 |---|---:|---|
-| `src/app.rs` | 2,922 | `bee1ac2` alone added ~2,042 lines |
+| `src/app.rs` | 2,922 | `99c8393` alone added ~2,042 lines |
 | `src/view_models/workspace.rs` | 2,904 | Frame state + nav state + breadcrumb projection + search-results helpers + text-filter state all colocated |
-| `src/view_models/search_results.rs` | 1,408 | `bee1ac2` added 781: `IndexSearchResultRows`, `IndexDetailKind`, `IndexDetailDisplay`, paged-tab scope methods |
+| `src/view_models/search_results.rs` | 1,408 | `99c8393` added 781: `IndexSearchResultRows`, `IndexDetailKind`, `IndexDetailDisplay`, paged-tab scope methods |
 
 ADR 0042 specifically targeted shrinking top-level orchestration. These three files are now the three largest in the UI tree and have been growing in lockstep with each ADR in this region. Future work on the same surfaces will compound the size pressure.
 
@@ -93,7 +93,7 @@ Suggested split (deferred — not in scope here):
 
 ### P1 — `discover/` is parked code, ~5,000 LOC, no exit plan
 
-`src/discover.rs` (263 LOC) + `src/discover/app_impl.rs` (2,728 LOC) + `src/ui/shells/discover/*` (~15 files) survive the rename from `search` → `discover` performed in `bee1ac2`. The decision to rename rather than delete was deliberate: it preserves capability for a possible future re-activation.
+`src/discover.rs` (263 LOC) + `src/discover/app_impl.rs` (2,728 LOC) + `src/ui/shells/discover/*` (~15 files) survive the rename from `search` → `discover` performed in `99c8393`. The decision to rename rather than delete was deliberate: it preserves capability for a possible future re-activation.
 
 Import graph today: no path from `src/app.rs` or `src/library/` reaches these shells. They are only imported by other discover shells, by `src/ui/shells/feed.rs`, and by `src/ui/shells/track.rs` — none of which are rendered from the composition root.
 
@@ -106,7 +106,7 @@ Recommended follow-up: add `docs/notes/2026-05-discover-module-parked.md` docume
 
 ### P2 — text-filter helper duplication across VMs
 
-`64e24cb` added text filtering to five VMs (queue, library content list, playlist, feed, search-results). Verified duplication:
+`7844a0d` added text filtering to five VMs (queue, library content list, playlist, feed, search-results). Verified duplication:
 
 - `normalize_text_filter` is defined as a file-local free fn in **both** `src/view_models/queue_now_playing.rs:431` and `src/view_models/library.rs:2147`.
 - Per-VM matchers: `track_matches_text_filter` (`feed.rs:154`), `track_row_matches_text_filter` (`library.rs:2153`), `queue_row_matches_text_filter` (`queue_now_playing.rs:437`), `matches_text_filter` (`library.rs:692`). Each searches a different subset of fields (3–7) with no shared baseline of which fields count as searchable.
@@ -119,7 +119,7 @@ Recommended follow-up: extract `src/view_models/text_filter.rs`:
 
 Add an arch guard: a file-local `fn normalize_text_filter` outside `view_models::text_filter` is forbidden.
 
-### P2 — single 2,042-line `bee1ac2` commit
+### P2 — single 2,042-line `99c8393` commit
 
 The "unify content-frame search and feed ownership" commit bundles a module rename (`search` → `discover`), Search-tab removal, ContentList-frame search integration, Index detail VM introduction, async index search wiring, fluid resize wiring, and ~200 LOC of test changes.
 
@@ -186,7 +186,7 @@ Operator-visible verification (no behavioral change expected from R1–R7):
 - Async-runtime audit of `start_index_search_for_query` (separate review).
 - `RemoteDetailThumbnailState` lifecycle / race-condition review.
 - Accessibility audit (separate apple-hig-flavored pass on a11y labels, focus rings, keyboard nav).
-- The `mpv-playback-driver` remediation plan added in `4e17477` (unrelated to this UI surface).
+- The `mpv-playback-driver` remediation plan added in `910c5a5` (unrelated to this UI surface).
 
 ## Bottom line
 

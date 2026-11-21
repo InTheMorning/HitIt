@@ -15,14 +15,14 @@ Next and Previous move through the cue entries. The end of a track goes to the n
 
 ## Recorded Facts - 2026-11-14
 
-Each fact was read at commit `3b387f7`. Tasks 003a to 003c change some of these lines.
+Each fact was read at commit `25d98db`. Tasks 003a to 003c change some of these lines.
 
 - `PlaybackOwner::skip_next` (`src/playback_owner.rs:197`) and `skip_previous` (line 204) call `playback::skip_next` and `playback::skip_previous`. Those functions select a playable row of the session playlist (`src/playback.rs:153`). They do not keep a pause.
 - The end of a track is handled in `PlaybackOwner::poll` at line 278. The owner disarms `eof_armed`, moves, loads and arms again.
 - `SkipPlaybackNext` and `SkipPlaybackPrevious` are defined in `src/app/keyboard.rs:21` and `:22`, bound at lines 116 and 122, and handled at lines 377 and 386. The handlers do not read the view model flags.
 - The CLI commands `playback next` and `playback previous` use `playback::skip_next` and `playback::skip_previous`.
 
-## Facts After Task 003c - commit `2843451`
+## Facts After Task 003c - commit `8dee1a4`
 
 - `PlaybackOwner` has `generation`, `active_cue_entry_id`, `start_show_entry` and `advance_generation`. Use `start_show_entry` as the pattern for a load of a cue entry.
 - The typed error `ShowCueEntryCannotPlay` in `src/playback_owner.rs` holds the entry and the reason. Use it for a target entry that cannot play. Do not add a second error type.

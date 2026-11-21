@@ -19,7 +19,7 @@ The corner radius of each image of art is 6 % of its edge, rounded to a full pix
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `ThumbnailSize` (`src/ui/composites/thumbnail.rs:43`) gives Sm 32, Md 48, Lg 80, Xl 152 and XXl 200 px.
 - `ThumbnailSize::radius` (`src/ui/composites/thumbnail.rs:88`) maps Sm and Md to `Radius::SM`, Lg and Xl to `Radius::MD`, and XXl to `Radius::LG`. Examined. Task 001 changes these role values to 6, 10 and 12.

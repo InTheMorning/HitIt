@@ -20,7 +20,7 @@ A page or a list that loads shows a skeleton of its layout with a sheen. A short
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `Skeleton::render` (`src/ui/primitives/skeleton.rs:78`) draws static blocks. The module comment says "We intentionally avoid animated shimmer" (`:8` to `:11`). Examined.
 - `SkeletonTrackRow` (`src/ui/composites/skeleton_track_row.rs:50`) and `SkeletonInspector` (`src/ui/composites/skeleton_inspector.rs:57`) give the layout of a row and of the inspector.
@@ -30,7 +30,7 @@ Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found th
 - Busy labels exist in the startup view models, for example "Checking…" (`src/view_models/startup.rs:267`). Examined.
 - This is an inference: no primitive draws a progress bar.
 
-- 2026-11-16, examined by the main session at HitIt `221171e`: task 005 did step 2. `icon_turns` (`src/ui/icons.rs:381`) gives `turning && environment.allows_motion()`, and `maybe_turning` turns only when `icon_turns` gives `true`. The test at `src/ui/icons.rs:738` proves M2. Do not change this code.
+- 2026-11-16, examined by the main session at HitIt `5969e6c`: task 005 did step 2. `icon_turns` (`src/ui/icons.rs:381`) gives `turning && environment.allows_motion()`, and `maybe_turning` turns only when `icon_turns` gives `true`. The test at `src/ui/icons.rs:738` proves M2. Do not change this code.
 
 Main session choice, 2026-11-15: the sheen is a band of two-stop gradients that moves across the skeleton in 1.6 s, with `Environment::allows_motion`. The website value of the sheen is not known to this session. The packet reports its values.
 

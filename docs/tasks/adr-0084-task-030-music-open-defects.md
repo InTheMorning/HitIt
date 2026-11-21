@@ -19,7 +19,7 @@ Each correction gets a test or a guard. The packet records the cause of each def
 
 ## Recorded Facts - 2026-10-21
 
-The facts come from the working tree at commit `d298922`. Find each call site again before a change.
+The facts come from the working tree at commit `43c7461`. Find each call site again before a change.
 
 ### P1: "New Playlist" in the row menu does nothing
 

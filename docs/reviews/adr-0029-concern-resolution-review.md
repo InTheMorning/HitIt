@@ -12,7 +12,7 @@ Pass - 2026-05-01.
 - `docs/reviews/adr-0029-review-checklist.md`
 - `docs/tasks/archive/adr-0029-task-002-artist-source-schema.md`
 - `docs/reviews/adr-0029-task-002-review.md`
-- `src/db.rs` as implemented by `ce9cc6b`
+- `src/db.rs` as implemented by `fb24b9e`
 
 ## Concerns Addressed
 

@@ -86,8 +86,8 @@ Failing test before the change: `adr_0074_task_001_tab_reveals_each_band_button_
 
 Result: the new test and the two other ADR 0074 band tests pass. The band is 130 px high in the test window of 520 px, which is the band fraction of 0.25. The visual criteria V1 to V3 are open.
 
-Agent walk of defect 2, 2026-11-19, release build of `fc24a05` with this change. The main agent examined the shots of V2 in Dark and of V3 at 480 px.
+Agent walk of defect 2, 2026-11-19, release build of `c3d12ff` with this change. The main agent examined the shots of V2 in Dark and of V3 at 480 px.
 
 - V1 and V2 pass in Dark and Light at 390 px. Each Tab scrolls the band, and the focused button shows its full ring.
-- At 480 px the band is now 105 px high and shows two rows with all five buttons. In the build of `89f0883` the band at 480 px showed one row, and Cancel and "Copy database report" were hidden.
+- At 480 px the band is now 105 px high and shows two rows with all five buttons. In the build of `5d7010e` the band at 480 px showed one row, and Cancel and "Copy database report" were hidden.
 - Operator choice, open: the main agent accepted the higher band at 480 px. The old band hid two buttons at 480 px, which is the defect of this packet. The band stays in the band fraction of 0.25. The operator can reject this at V3.

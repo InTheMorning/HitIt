@@ -18,7 +18,7 @@ Music becomes a stack. One sidebar holds each destination, a list is a page at f
 
 ## Assumptions
 
-Each fact below was read on 2026-11-05 at commit `5942db3`.
+Each fact below was read on 2026-11-05 at commit `a965903`.
 
 - Music already has a one-page mode. `MusicColumns::for_width` gives `SidebarList` or `SidebarDetail` under `MUSIC_SINGLE_COLUMN_BREAKPOINT`. `FrameNavigationEntry::opens_detail_page` already tells a list root from a page. Packet 001 makes this mode the only mode.
 - `Settings` is a navigation entry of the content frame. `Show` is a whole-screen mount. The sidebar lives in the source-list frame, so it shows only in Music. Packet 003 moves it out of the frames.

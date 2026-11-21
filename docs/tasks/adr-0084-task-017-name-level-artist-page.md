@@ -42,7 +42,7 @@ Each of the two packets can come first. These rules apply to the one that comes 
 
 ## Recorded Facts - 2026-10-20
 
-The code facts come from the working tree of 2026-10-20, after commit `d41d381`. Find each call site again before you change it.
+The code facts come from the working tree of 2026-10-20, after commit `028075a`. Find each call site again before you change it.
 
 ### The Artists name row and its count
 

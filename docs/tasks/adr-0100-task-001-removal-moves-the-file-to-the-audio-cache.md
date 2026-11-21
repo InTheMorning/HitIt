@@ -1,6 +1,6 @@
 # ADR 0100 Task 001: A Removal Moves The File To The Audio Cache
 
-Status: Complete - 2026-11-15. M1 to M13 pass. The operator passed the visual criteria V1 to V4 on 2026-11-15 with the build of commit `0c84f85`: the first start moved 6 files of earlier removals, and 215 and 6 files added up to the 221 files before the start. The operator did not examine the text "Not downloaded" of a playlist entry of a removed track.
+Status: Complete - 2026-11-15. M1 to M13 pass. The operator passed the visual criteria V1 to V4 on 2026-11-15 with the build of commit `1e2392e`: the first start moved 6 files of earlier removals, and 215 and 6 files added up to the 221 files before the start. The operator did not examine the text "Not downloaded" of a playlist entry of a removed track.
 
 Known limits, found in the review of the diff:
 
@@ -21,7 +21,7 @@ A removal from the Library moves each audio file of the removed tracks from `mus
 
 ## Recorded Facts
 
-Each fact is from commit `e62c0f6`, read on 2026-11-15.
+Each fact is from commit `2e35fd3`, read on 2026-11-15.
 
 - `execute_library_removal` in `src/application/library_removal.rs` takes only a connection. `execute_track_removal` and `execute_feed_removal` write the membership and do no disk operation.
 - `RemoveFromLibrary::execute` in `src/application/commands/library_removal.rs` is the only production caller.

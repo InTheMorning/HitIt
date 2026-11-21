@@ -432,7 +432,7 @@ The orchestrator also recorded these points:
 
 The operator found these defects in the walk of 2026-10-21. Each fix is at its owner, and each fix has a unit test or a guard.
 
-- Image fix, commit `e495bdd`: each Library release row, track row and artist feed row of the search shows its image, in the order of the Library lists.
+- Image fix, commit `cb3b472`: each Library release row, track row and artist feed row of the search shows its image, in the order of the Library lists.
 - Fix 1, operator decision of 2026-10-21: in the list column, a release row shows its kind as the first word of its second line, for example "Album · HeyCitizen · 19 tracks". The state word stays at the trailing edge, and the row shows no kind badge.
   `ReleaseKindPlacement` decides this in the view model, and the saved-search page of packet 012 keeps the kind badge.
   - Test: `adr_0084_search_list_release_kind_is_the_first_word_of_the_subtitle`.

@@ -21,7 +21,7 @@ Each sheet, dialog, menu and popover is not wider than the window less the windo
 
 ## Recorded Facts
 
-"The Sheet List" of [ADR 0097 task 005](adr-0097-task-005-sheets-dialogs-and-menus-fit.md#the-sheet-list) gives each sheet with its file, its line and its width. The main session examined these facts at HitIt `80e8607`:
+"The Sheet List" of [ADR 0097 task 005](adr-0097-task-005-sheets-dialogs-and-menus-fit.md#the-sheet-list) gives each sheet with its file, its line and its width. The main session examined these facts at HitIt `530b844`:
 
 - `DialogProps::default` of `gpui-component` 0.6.1 gives a width of 448 px and no max width (`dialog/dialog.rs:156`). `Dialog::max_w` sets a max width (`:394`).
 - `Sheet` of `gpui-component` 0.6.1 uses its `size` with no limit (`sheet.rs:179`). HitIt gives 560 px (`src/ui/layouts.rs:32`).

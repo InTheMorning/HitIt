@@ -13,7 +13,7 @@ Core:
 - [App overview](architecture/app-overview.md): tabs, dependencies, config,
   and the main operator model
 - [Architecture snapshot](architecture/architecture-current-snapshot.md): the
-  layers, the shell, the async model and four call flows at commit `86d97e7`
+  layers, the shell, the async model and four call flows at commit `d0f3441`
 - [Architecture diagrams of 2026-04-30](architecture/architecture-diagrams.md):
   the earlier view and the "ideal" target that older ADRs cite
 - [Library and discovery workflows](runbooks/workflows.md): subscribing,

@@ -18,7 +18,7 @@ The surfaces of HitIt obey the shared rules that ADR 0101 Decision 11 adopts. Ea
 ## Sources
 
 - The shared rule text: the orchestrator session sent it on 2026-11-15 as a copy of musicindex commit `785ae28` and musicindex-assets commit `b8399cc`. ADR 0101 adopts the rules at musicindex `3baa6f0`. Each packet cites the musicindex path and the line range at `785ae28`. If the two commits differ in a rule, the packet stops and asks.
-- The code facts: a ChatGPT search at HitIt `ad1fcd9` on 2026-11-15. The main session examined the facts that each packet uses in its "Recorded Facts".
+- The code facts: a ChatGPT search at HitIt `ba43138` on 2026-11-15. The main session examined the facts that each packet uses in its "Recorded Facts".
 - No shared rule and no shared token gives a number for the glow blur, the saturation, the grain or the veil. None gives the art shadow of each size. The website code (`search.html` at musicindex `785ae28`) has values. The glow packet copies them, and it says so.
 
 ## Sequence

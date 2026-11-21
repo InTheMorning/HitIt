@@ -54,7 +54,7 @@ ellipsis truncation.
 
 ## Layout Ellipsis Collapse
 
-Commit `cfefdcf` exposed a second failure class: real source facts were passed
+Commit `123400b` exposed a second failure class: real source facts were passed
 to the metadata grid, but `MultilineText` collapsed non-wrapping rows to an
 ellipsis after wrap support added unconditional `min_w_0()` to the container
 and each line. That regression looked identical to source placeholder pollution
@@ -63,7 +63,7 @@ in screenshots, but DB contributor rows still contained real names.
 `src/ui/primitives/multiline_text.rs` now keeps the wrap-mode flex-shrink policy
 behind `layout_policy(self.wrap_lines)`. Description panels opt into
 `.wrap_lines()` and still get `min_w_0()` so body text can wrap. Metadata grid
-callers that use the default truncate mode keep the pre-`cfefdcf` intrinsic line
+callers that use the default truncate mode keep the pre-`123400b` intrinsic line
 shape, so values such as `HeyCitizen` cannot collapse to an ellipsis before the
 user can read them.
 

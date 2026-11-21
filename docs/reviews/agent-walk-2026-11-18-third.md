@@ -5,7 +5,7 @@ Status: record of an agent walk. This walk closes no gate. Each visual gate stay
 
 ## Method
 
-- Binary: the release build of HEAD `d323ffd`.
+- Binary: the release build of HEAD `f35e341`.
 - Two walker agents used two Xvfb displays (:91 and :92) with openbox. Each walker had its own scratch `HOME`,
   `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME` and music folder. No walker touched the Library of the operator.
 - The walk took the items that the [second walk of 2026-11-18](agent-walk-2026-11-18-second.md) left open for an
@@ -85,5 +85,5 @@ The second walk could not prove where the focus goes after the Tiles button. The
 | 15 | V3 at 600 px and at 330 px high: the notice "Music Index search unavailable", Tab to "Copy report" with its full ring | - | - |
 | 16 | V2 on "Ph@fe": "Label · Host", the label color on the page dot, no "studio" | - | V3: question 1. The row dot: question 2 |
 | 25 | V1 for a tile in Dark and Light at 940 px, after an arrow key. Light at 390 px: the page buttons and the dialog buttons | A list row at 390 px waits for [ADR 0092 task 004](../tasks/adr-0092-task-004-the-list-comes-before-the-tab-bar.md) | - |
-| 35 | Light at 1440 and 390 px on the Diagnostics row of `d323ffd`: V1, a drag selection, Copy, step 7 | - | All visual criteria |
+| 35 | Light at 1440 and 390 px on the Diagnostics row of `f35e341`: V1, a drag selection, Copy, step 7 | - | All visual criteria |
 | 36 | Light at 1440 and 390 px: V1 to V3. "Delete" on one scratch cache file at 390 px: the count went to 0 and the file went from the cache folder | - | All visual criteria |

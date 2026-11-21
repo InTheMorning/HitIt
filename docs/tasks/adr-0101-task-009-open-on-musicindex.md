@@ -20,7 +20,7 @@ Each release page, track page and artist page of HitIt has a link that opens the
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `IdentityActionKind` (`src/ui/composites/identity_action.rs:20`) has Website, Nostr and RSS. `identity_action_button` (`:63`) draws them. Examined.
 - The track page gives its identity actions in `src/view_models/track_detail.rs:376`. The release page gives them in `src/ui/shells/entity.rs:147`. The shared track surface gets them through behavior slots (`src/ui/shells/track.rs:156`).

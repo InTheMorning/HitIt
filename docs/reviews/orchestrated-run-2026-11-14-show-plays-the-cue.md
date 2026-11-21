@@ -17,7 +17,7 @@ The section "Operator Choices" of the task file gives the full text of D4 to D6.
 
 ## Sources
 
-A ChatGPT `ask` (`gpt-6.1-sol`, effort medium) gave the code locations at commit `3b387f7`. The planning model examined the callers of `play_playlist_at` and the references to `cue_entry_id` with a search of its own. The other locations come only from that report.
+A ChatGPT `ask` (`gpt-6.1-sol`, effort medium) gave the code locations at commit `25d98db`. The planning model examined the callers of `play_playlist_at` and the references to `cue_entry_id` with a search of its own. The other locations come only from that report.
 
 ## Result
 

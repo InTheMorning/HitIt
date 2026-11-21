@@ -82,22 +82,22 @@ Each entry names the step, the decision and the reason.
   - The field list view also observes the Library entity, so an open list updates in place when the Library values change.
   - Open concerns: when no MusicIndex endpoint is set, the `artist:` request fails and the error row shows. One test leaves a cache folder in the temporary folder.
 - The file `LICENSE` appeared untracked in the working tree during the run. The run did not make it and does not commit it.
-- Commit `d410e9f`, "docs: research request on shared search code", came from a different session during the run. It adds `docs/plans/research-search-request.md`. It changes no file of the run, and the run did not change it.
+- Commit `fdb64e7`, "docs: research request on shared search code", came from a different session during the run. It adds `docs/plans/research-search-request.md`. It changes no file of the run, and the run did not change it.
 
 ## Steps
 
 | Step | State | Commit |
 |---|---|---|
-| Planning documents of 2026-10-23 | Done | `e38b6e3`, Stophammer `97aa28e` |
-| ADR 0086 packet 001: parallel detail reads | Implemented. V1 to V4 open | `cdbabc4` |
-| ADR 0086 packet 002: New releases window groups | Implemented. V1 to V4, V6 and V8 open | `fffac06` |
-| ADR 0086 packet 003: the pager closes each window | Implemented. V1 to V10 open | `fbeec62` |
-| ADR 0086 packet 004: the window group page | Implemented. V1 to V10 open | `fcee74d` |
-| ADR 0086 packet 005: saved search window groups | Implemented. V1 to V7 open | `3e28b24` |
-| ADR 0087 packet 001: the query parser | Complete. No visual check | `93b2c79` |
-| ADR 0087 packet 002: Library fields and Index words | Implemented. V1 to V9 open | `ca8411a` |
-| ADR 0087 packet 004: the field list | Implemented. V1 to V9 open | `1ab7dff` |
-| ADR 0087 packet 003: live results | Implemented. V1 to V9 open | `c4794d1` |
+| Planning documents of 2026-10-23 | Done | `4083c38`, Stophammer `97aa28e` |
+| ADR 0086 packet 001: parallel detail reads | Implemented. V1 to V4 open | `743dd22` |
+| ADR 0086 packet 002: New releases window groups | Implemented. V1 to V4, V6 and V8 open | `f1e6c16` |
+| ADR 0086 packet 003: the pager closes each window | Implemented. V1 to V10 open | `168e3ee` |
+| ADR 0086 packet 004: the window group page | Implemented. V1 to V10 open | `e9e5301` |
+| ADR 0086 packet 005: saved search window groups | Implemented. V1 to V7 open | `6e37b2d` |
+| ADR 0087 packet 001: the query parser | Complete. No visual check | `9063243` |
+| ADR 0087 packet 002: Library fields and Index words | Implemented. V1 to V9 open | `48c7562` |
+| ADR 0087 packet 004: the field list | Implemented. V1 to V9 open | `4a0d35c` |
+| ADR 0087 packet 003: live results | Implemented. V1 to V9 open | `7655448` |
 | ADR 0087 packet 005: the values of the field list | Implemented. V1 to V7 open | (this commit) |
 
 ## Questions For The Operator

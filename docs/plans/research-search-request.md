@@ -13,7 +13,7 @@ Received - 2026-10-23. This request comes from the research repository at
 This document binds nothing in HitIt. HitIt records each decision in its own
 ADR.
 
-The research examined HitIt at commit `93b2c79`, and the work of ADR 0087
+The research examined HitIt at commit `9063243`, and the work of ADR 0087
 packet 002 that was not in a commit on that day.
 
 Stophammer release 0.14.0 is deployed on 2026-10-24. Section 5 gives the
@@ -36,7 +36,7 @@ changes for HitIt.
   [ADR 0091](../adr/0091-search-parser-moves-to-the-shared-crate.md). The
   parser moves to the `musicindex-search` crate, and musicindex ADR 0049 owns
   the syntax.
-- The license is Answered. Commit `78afacc` adds `LICENSE` and sets
+- The license is Answered. Commit `d9de25b` adds `LICENSE` and sets
   `license = "AGPL-3.0-only"` in `Cargo.toml`. ADR 0095 records the decision.
 
 The website, HitIt and musicindex-studio share no search code. Each has its own

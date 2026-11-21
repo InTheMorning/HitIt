@@ -125,7 +125,7 @@ callers in `src/app.rs` and shells do not need import-path churn.
   longer the delay, the bigger the consolidation churn.
 - **Single mega-ADR also covering text-filter, discover docs, render
   collapse.** Rejected. Those concerns are independent; bundling them
-  recreates the `bee1ac2` rollback-granularity problem the review flagged.
+  recreates the `99c8393` rollback-granularity problem the review flagged.
 - **File-size budget as an architecture test.** Rejected for now. A budget
   produces drive-by file shuffles and rewards locality over coherence. Revisit
   if file-size drift recurs after this pass.

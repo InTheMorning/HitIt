@@ -16,7 +16,7 @@ In the Tiles view of Releases and of Artists, each arrow key moves the focus to 
 
 ## Recorded Facts
 
-Each fact is from HitIt `9ed5336`, read by the main session on 2026-11-15.
+Each fact is from HitIt `3ab3edb`, read by the main session on 2026-11-15.
 
 - `FocusStep` (`src/view_models/list_selection.rs:26`) has Up, Down, PageUp, PageDown, Home and End. It has no Left and no Right.
 - `ListSelection::move_focus` (`src/view_models/list_selection.rs:259`) moves in the sequence of `visible`. It stops at the first and the last row.

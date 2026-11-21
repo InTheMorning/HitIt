@@ -2,11 +2,11 @@
 
 ## Status
 
-Current - 2026-10-20, from commit `4456deb`. This map is advisory. It states no rule.
+Current - 2026-10-20, from commit `978208f`. This map is advisory. It states no rule.
 It is step 1 of [Phase 4A](../plans/design-and-cleanup-overhaul-plan.md#phase-4a-flow-and-information-architecture) of the overhaul plan.
 
-A read-only agent wrote this map from the code at commit `4456deb`. It replaces the map of
-2026-10-08, which an earlier agent wrote from commit `204382e`. The operator has not walked
+A read-only agent wrote this map from the code at commit `978208f`. It replaces the map of
+2026-10-08, which an earlier agent wrote from commit `f6c1d03`. The operator has not walked
 this map yet. No finding below carries an operator check.
 
 ## Step-Count Method

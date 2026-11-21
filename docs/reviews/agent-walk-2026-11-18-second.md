@@ -5,7 +5,7 @@ Status: record of an agent walk. This walk closes no gate. Each visual gate stay
 
 ## Method
 
-- Binary: the release build of HEAD `343f5ab`.
+- Binary: the release build of HEAD `e265656`.
 - Three walker agents used three Xvfb displays (:91 to :93) with openbox. Each walker had its own scratch
   `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME` and music folder. No walker touched the
   Library of the operator.
@@ -65,7 +65,7 @@ Status: record of an agent walk. This walk closes no gate. Each visual gate stay
 | 17 | V3 in Rows: after "Show more", the ring is on the first new row | - | - |
 | 25 | V1 for a list row in Light at 1120 px | V1 for a tile (see "Not Confirmed"), a list row at 390 px (defect 2), Light at 390 px | - |
 | 33 | - | - | V2: question 1 |
-| 35 | Light at 1440 and 390 px on the About tab of `343f5ab`: the line, a drag selection, Copy | - | The Diagnostics row of `bebaf08` in Light. All visual criteria |
+| 35 | Light at 1440 and 390 px on the About tab of `e265656`: the line, a drag selection, Copy | - | The Diagnostics row of `9ac2f7b` in Light. All visual criteria |
 
-Section 35 changed after this walk. In `bebaf08`, the version line is the first row of Diagnostics, and the About tab
+Section 35 changed after this walk. In `9ac2f7b`, the version line is the first row of Diagnostics, and the About tab
 is gone. The main agent checked that row in Dark at 1440 and 390 px.

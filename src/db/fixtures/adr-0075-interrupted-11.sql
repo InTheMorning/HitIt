@@ -1,5 +1,5 @@
 -- ADR 0075 packet 012: frozen synthetic version-11 input.
--- Source revision: a12521e7510b3d05cd4fc097a370f1f965145aad; registry unchanged at capture.
+-- Source revision: 7638e9915a19e372ba08ce65aeddd35022ab69d9; registry unchanged at capture.
 -- Captured 2026-09-20 by adr_0075_migration_export_version_11.
 -- Complete registry execution stopped at migration 11 AfterApply before ledger insertion.
 -- Every legacy table has synthetic records. Never initialize an app database from this file.

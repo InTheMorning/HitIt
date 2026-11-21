@@ -23,7 +23,7 @@ The operator measured about 500 ms for each frame in the Releases list with the 
 
 ## Recorded Facts - 2026-10-24
 
-The code facts come from the working tree of 2026-10-24, after commit `e476192`. Packet 036 changes `src/view_models/releases_everything.rs`, `src/view_models/library.rs` and `src/view_models/singles_group.rs`. Find each call site again before you change it.
+The code facts come from the working tree of 2026-10-24, after commit `e485258`. Packet 036 changes `src/view_models/releases_everything.rs`, `src/view_models/library.rs` and `src/view_models/singles_group.rs`. Find each call site again before you change it.
 
 ### Each build of the merge in one frame
 
@@ -294,7 +294,7 @@ Cleanup: make sure that `nmcli networking on` ran in step 8. This check changes 
 
 ## Implementation Notes - 2026-10-24
 
-The implementation started from commit `3400cb2`, the commit of packet 036. The packet names commit `e476192`. Packet 036 deleted `group_at` and `first_title_sort_key`. The line numbers of the Recorded Facts are thus not current. Each call site was found again in the code.
+The implementation started from commit `3bc9eb5`, the commit of packet 036. The packet names commit `e485258`. Packet 036 deleted `group_at` and `first_title_sort_key`. The line numbers of the Recorded Facts are thus not current. Each call site was found again in the code.
 
 ### Differences From The Design
 

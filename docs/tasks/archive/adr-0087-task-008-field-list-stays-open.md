@@ -35,7 +35,7 @@ still close the list.
 
 ## Recorded Facts - 2026-10-24
 
-An agent read each fact below on 2026-10-24 in the working tree at commit `e476192`.
+An agent read each fact below on 2026-10-24 in the working tree at commit `e485258`.
 `$REG` is `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f`.
 
 ### The cause: an empty field name after other text shows no row

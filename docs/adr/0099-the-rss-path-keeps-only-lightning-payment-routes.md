@@ -13,7 +13,7 @@ Accepted - 2026-11-15. The operator selected option A on 2026-11-15. The orchest
 
 [stophammer ADR 0098](../../../stophammer/docs/adr/0098-a-value-block-keeps-its-type-and-method.md) section 4 limits `include=payment_routes` to Lightning routes. The rule is in effect from Stophammer release 0.21.0. A typed block of a different payment system is available only through `include=value_blocks`.
 
-An examination of HitIt at commit `635fc18` found these facts:
+An examination of HitIt at commit `211c63d` found these facts:
 
 - `value_block_json` in `src/rss/helpers.rs` kept the first `podcast:value` element and did not read its `type`.
 - `payment_routes_from_value_block` in `src/rss/value_routes.rs` kept each recipient and did not examine its type or its address.

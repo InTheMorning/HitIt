@@ -48,7 +48,7 @@ visual style of the list stays the same. The visual overhaul (Phase 7) owns the 
 
 ## Recorded Facts - 2026-10-24
 
-An agent read each fact below on 2026-10-24 in the working tree at commit `78afacc`.
+An agent read each fact below on 2026-10-24 in the working tree at commit `d9de25b`.
 `$REG` is `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f`.
 
 ### The cause: the rows shrink in the scrolling row list

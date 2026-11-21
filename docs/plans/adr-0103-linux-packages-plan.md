@@ -8,7 +8,7 @@ Make the `.deb`, the AppImage and the release workflow of [ADR 0103](../adr/0103
 
 | Phase | Task | Result | State |
 | --- | --- | --- | --- |
-| 1 | [Task 001](../tasks/adr-0103-task-001-deb-appimage-and-release-workflow.md) | `Cargo.toml` deb metadata, the AppImage script, the glibc script, `release.yml` and the runbook. A local `.deb` and AppImage. | Done, `1f903cf` |
+| 1 | [Task 001](../tasks/adr-0103-task-001-deb-appimage-and-release-workflow.md) | `Cargo.toml` deb metadata, the AppImage script, the glibc script, `release.yml` and the runbook. A local `.deb` and AppImage. | Done, `5cc5655` |
 | 2 | [Task 002](../tasks/adr-0103-task-002-missing-program-notices.md) | The playback notice names `mpv`. The remote host state names `ssh`. | Done |
 | 3 | Operator | The first tag, the first workflow run and the visual checks of ADR 0103. | Open |
 

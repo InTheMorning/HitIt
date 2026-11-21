@@ -16,9 +16,9 @@ The base tokens of HitIt agree with the shared token file. This packet changes t
 
 ## Recorded Facts
 
-Each fact is from commit `6b75e07`, read on 2026-11-15.
+Each fact is from commit `754bdbc`, read on 2026-11-15.
 
-- `src/assets/tokens.json` is the copy of musicindex-assets `b8399cc` (HitIt commit `77420fc`). It has `focus-ring.hitit` with width 2 and offset 0.
+- `src/assets/tokens.json` is the copy of musicindex-assets `b8399cc` (HitIt commit `911ba73`). It has `focus-ring.hitit` with width 2 and offset 0.
 - The focus token is `Focus` in `src/ui/tokens.rs`: `#5795ff` dark (line 256) and `#3b7cde` light (line 365). Each is a copy of `AccentHover`. The copy gives `color.dark.focus` `#2d7bff` and `color.light.focus` `#005bd3`.
 - `FontSize::px` in `src/ui/tokens.rs` (lines 638 to 647) gives Micro 11, Caption 12, Body 13, Headline 15, Title3 17, Title2 20, Title 24 and Display 30. The copy gives `type.desktop`: 26, 22, 17, 15, 13, 13, 12, 11, 10, 10 and 10. It gives `type.page-title.album-track-playlist.desktop` "large-title bold (26)" and `type.page-title.artist-label.display` 42 bold.
 - `Radius::px` (lines 583 to 587) gives SM 4 (chips, badges), MD 6 (inputs), LG 10 (popovers, sheets), XL 14 (large overlays) and Full 999. The copy gives `shape.radius`: chip 6, row 10, field 10, popover 12, card 20 and sheet 24.
@@ -181,7 +181,7 @@ The agent walked V1 to V5 on an Xvfb display with the debug binary, in Dark. Lig
   - The ring has the new focus color.
   - On "Download album" of an Index release page, a dark space of approximately 4 px is between the ring and the button.
   - The ring is a border of the hit target (`keyboard_button_focus`, `src/ui/primitives/button.rs`). The hit target is 44 px high or more, and the shown button is smaller.
-  - Commit `72f37cf` changed only the color of this ring, so the space was there before this packet.
+  - Commit `4c07c7e` changed only the color of this ring, so the space was there before this packet.
   - [ADR 0101 task 014](adr-0101-task-014-the-button-ring-has-no-gap.md) corrects it.
 - V2: Pass.
   - "GLOBAL FEDPILLED INDUSTRIAL COMPLEX" is 26 px bold on one line.

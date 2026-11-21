@@ -1,6 +1,6 @@
-<!-- Recorded output of Claude inventory run C (sonnet) at commit c95aff3. Kept unchanged as evidence. It is not edited to STE. See ../README.md. -->
+<!-- Recorded output of Claude inventory run C (sonnet) at commit 79c23c1. Kept unchanged as evidence. It is not edited to STE. See ../README.md. -->
 
-Recorded output of Claude inventory run C at commit c95aff3a2dfd2910125146c5773ac7294b973798.
+Recorded output of Claude inventory run C at commit 79c23c1a95a817a3d2ff2f4aba1cd9b6dd423391.
 
 ## 1. Reading this inventory
 

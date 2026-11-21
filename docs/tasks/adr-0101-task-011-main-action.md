@@ -23,7 +23,7 @@ A page header fills no button for the next curation step. A track page fills onl
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `TrackDetail::page_actions` (`src/view_models/track_detail.rs:593`) gives one `filled` action in each state: DownloadAlbum for an Index track, DownloadTrack for a Library track with no audio, and AddToPlaylist for a downloaded track. Examined.
 - `render_track_page_actions` (`src/ui/shells/track_page.rs:106`) draws `filled` with `ControlStyle::Primary` and each `plain` action with `ControlStyle::Neutral`. Examined.

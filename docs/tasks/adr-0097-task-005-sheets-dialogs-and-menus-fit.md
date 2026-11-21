@@ -46,7 +46,7 @@ The [third agent walk of 2026-11-18](../reviews/agent-walk-2026-11-18-third.md) 
 
 ## The Sheet List
 
-The main session made this list on 2026-11-15 from a ChatGPT search at HitIt `80e8607`. The main session examined the widths. The "Expected fault" column is an inference from a code read, at 390 px, where the window allows 358 px.
+The main session made this list on 2026-11-15 from a ChatGPT search at HitIt `530b844`. The main session examined the widths. The "Expected fault" column is an inference from a code read, at 390 px, where the window allows 358 px.
 
 | Sheet | Built at | Opens at | Width | Expected fault |
 |---|---|---|---|---|

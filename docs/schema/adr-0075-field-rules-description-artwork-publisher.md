@@ -30,7 +30,7 @@ This document changes no code, no schema, and no renderer.
 
 | Source | Revision | Use |
 |---|---|---|
-| This repository, working tree | Commit `d3c6ee4` | Current app behavior |
+| This repository, working tree | Commit `434fd9c` | Current app behavior |
 | `/home/citizen/build/stophammer` | Commit `a220f44` | Current upstream query and API behavior |
 | [Packet 002 corpus](adr-0075-metadata-example-corpus.md) | Cases C01 and C18a through C18c | Constructed and supplied examples of feed-to-track inheritance |
 

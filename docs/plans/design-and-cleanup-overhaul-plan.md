@@ -373,7 +373,7 @@ The operator walked §2 and §19 on the one track page on 2026-10-07. They left 
   - Retired on 2026-10-20: the stated and assumed role text of V4 (ADR 0085 Decision 3).
 - **§21 Feed Owner Text And Name Grouping — ADR 0077 Task 005.** Owner: [task 005](../tasks/adr-0077-task-005-feed-owner-text-and-name-search.md).
   - Carried from 2026-10-18: ADR 0082 packet 003 V5 carries V1.
-  - Retired on 2026-10-20: V2, the name search (ADR 0084 Decision 7, which replaces the Library artist page by name and the Index name match page). The deleted surface was removed in commit a32636e.
+  - Retired on 2026-10-20: V2, the name search (ADR 0084 Decision 7, which replaces the Library artist page by name and the Index name match page). The deleted surface was removed in commit 2bf2533.
   - Carried by ADR 0084 packet 017 V2 and V10 from 2026-10-21. Retired: the text "Grouped by name" of V3 (ADR 0085 Decision 2).
 - **§28 Confirmed And Unconfirmed Artists — ADR 0077 Task 007.** Owner: [task 007](../tasks/archive/adr-0077-task-007-confirmed-and-unconfirmed-artists.md).
   - Carried from 2026-10-18: ADR 0084 packet 008 V6 carries V1 to V3, and V8 carries V4.

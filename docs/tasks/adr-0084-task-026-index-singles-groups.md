@@ -29,7 +29,7 @@ Part B gives the group page, its main action and the link "All n singles" with t
 
 ### Code facts
 
-The code facts come from the working tree of 2026-10-21, after commit `c1c728a`. Find each call site again before you change it.
+The code facts come from the working tree of 2026-10-21, after commit `b82380b`. Find each call site again before you change it.
 
 - `singles_groups` in `src/view_models/singles_group.rs` groups the Library singles only. `GroupSingle` borrows an `ArtistNode` and an `AlbumNode` of the `LibraryTree`.
 - The guard `adr_0084_singles_group_r15_09_only_the_owner_groups_singles` keeps `ReleaseKind::Single` in `src/view_models/singles_group.rs` and `src/view_models/release_kind.rs`.

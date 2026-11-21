@@ -8,7 +8,7 @@ A publisher page can show a playlist row that the index does not hold. An exampl
 
 After this task, the page shows a "Not indexed" state when Music Index replies with HTTP `404`. The page does not show the raw HTTP text. The website does the same.
 
-The orchestrator sent this task on 2026-11-17, after its check of `1014014`. The owner of the playlist page is ADR 0098 and musicindex ADR 0081 R-CURATOR-3.
+The orchestrator sent this task on 2026-11-17, after its check of `aa3a277`. The owner of the playlist page is ADR 0098 and musicindex ADR 0081 R-CURATOR-3.
 
 ## Orchestrator Choices
 

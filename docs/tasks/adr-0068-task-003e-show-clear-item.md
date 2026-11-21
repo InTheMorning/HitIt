@@ -17,7 +17,7 @@ The Show page has a Clear item that removes the stored cue. The item is availabl
 
 ## Recorded Facts - 2026-11-14
 
-Each fact was read at commit `3b387f7`.
+Each fact was read at commit `25d98db`.
 
 - `ClearShowCue` is in `src/application/commands/playlist.rs:87`, with `execute` at line 101. No production code calls it.
 - `clear_show_cue` (`src/db/show_cue.rs:289`) checks the session state and removes the entries and the header in one transaction.

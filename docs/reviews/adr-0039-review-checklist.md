@@ -9,9 +9,9 @@ V1–V13 and confirmed fixture removal.
 The agent inferred preservation and preference restoration from the conditional cleanup command.
 The evidence section states the assumption and its limits. ADR 0039 is Implemented.
 
-The original review covered commit `3b40ec1b769d36447792e444098af962973b891d`
-and task 002 changes, later committed as `b5349f8`.
-The operator inspected task 003 changes in the working tree based on `b5349f8`.
+The original review covered commit `fb556d528cd41cc92efc60e2e1e1c01fd4545fa1`
+and task 002 changes, later committed as `89a894d`.
+The operator inspected task 003 changes in the working tree based on `89a894d`.
 The recorded source hashes identify those files before the wording review.
 Tasks 001 and 002 have no separate visual gate. This review does not close inherited human checks.
 
@@ -156,7 +156,7 @@ Evidence:
 
 Build and viewport record:
 
-- Base revision: `b5349f8` (`b5349f8b37cc79ab8ad38a7a4629aa4740a9540c`),
+- Base revision: `89a894d` (`89a894d9859b3a8d29ee2e224cc25bc190d1a315`),
   with task 003 working-tree changes. All three source hashes below matched
   the agent checkout before the wording review. The base revision alone predates task 003.
 - Viewport report, retained as supplied: `maximized 1440x900` and

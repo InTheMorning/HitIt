@@ -16,7 +16,7 @@ Typed Show commands start, pause, resume and stop the selected cue entry, and se
 
 ## Recorded Facts - 2026-11-14
 
-Each fact was read at commit `3b387f7`. Tasks 003a and 003b change some of these lines.
+Each fact was read at commit `25d98db`. Tasks 003a and 003b change some of these lines.
 
 - `PlaybackOwner` (`src/playback_owner.rs:29`) has `eof_armed` and `loaded_track_id`. It has no generation and no cue entry. `load_track_path` (line 111), `pause` (186), `stop` (219) and `poll` (241) write the session through `src/playback.rs`.
 - The polling snapshot (`src/runtime/playback_polling.rs:24`) holds an `Instant` and an outcome. Polling starts after a playback command in `src/app/playback_bar.rs:212`.

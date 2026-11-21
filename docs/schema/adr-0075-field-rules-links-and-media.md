@@ -24,7 +24,7 @@ before a dependent code packet may implement it. This document changes no code.
 
 | Source | Revision | Use |
 |---|---|---|
-| This repository, working tree | Commit `d3c6ee4` | Current app behavior |
+| This repository, working tree | Commit `434fd9c` | Current app behavior |
 | `/home/citizen/build/stophammer` | Commit `a220f44` | Current upstream parser behavior |
 | `rss` crate | Version 2.0.12, pinned by `Cargo.lock` | Current XML extension behavior |
 | [Packet 002 corpus](adr-0075-metadata-example-corpus.md) | Cases C07, C08a, C08b | Website and page-link constructed examples |

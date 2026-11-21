@@ -1,7 +1,7 @@
 # Step Counts
 
-This page gives the step count of each baseline journey at HitIt commit `c95aff3`. The baseline is the
-v4vmm study at commit `38ecd9d` (2026-10-22): jobs 1 to 16 come from `02-as-is.md`, and MH1 to MH7 come from
+This page gives the step count of each baseline journey at HitIt commit `79c23c1`. The baseline is the
+v4vmm study at commit `d97da51` (2026-10-22): jobs 1 to 16 come from `02-as-is.md`, and MH1 to MH7 come from
 `03a-must-have-journeys.md`. The step method is in `README.md`. It is the same method as the baseline.
 
 Each current count has a source:

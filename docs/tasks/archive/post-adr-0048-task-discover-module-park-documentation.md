@@ -2,7 +2,7 @@
 
 ## Goal
 
-The `bee1ac2` commit renamed `src/search/` → `src/discover/` and removed the
+The `99c8393` commit renamed `src/search/` → `src/discover/` and removed the
 Search top-level tab. The ~5,000 LOC under `src/discover.rs`,
 `src/discover/app_impl.rs`, and `src/ui/shells/discover/*` (plus
 `src/ui/shells/feed.rs` and `src/ui/shells/track.rs`) compiles but is not

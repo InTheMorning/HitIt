@@ -35,7 +35,7 @@ These facts are true on 2026-11-07:
 1. **Pin `3ee38db`.** This is the move, with no change of behavior. Each v4vmm search test passes with no change to the test.
 2. **Pin the commit with the corrections.** This step changes the tests and closes ADR 0087 Known Differences 2 and 5.
 
-Just before step 1, run the diff from v4vmm commit `1d6dbb9` on the three search files and `src/application/queries/search.rs`. Report each change. Do not adopt until the crate has it.
+Just before step 1, run the diff from v4vmm commit `886ab87` on the three search files and `src/application/queries/search.rs`. Report each change. Do not adopt until the crate has it.
 
 ## The Guards That Change
 
@@ -74,6 +74,6 @@ All are in `tests/architecture_tests.rs`. They change in the commit of step 1, a
 
 ## Verification
 
-Mechanical, in the commit of step 1: each v4vmm search test passes with no change to the test, and the four guards above state the new owner. The diff from `1d6dbb9` shows no change that the crate lacks.
+Mechanical, in the commit of step 1: each v4vmm search test passes with no change to the test, and the four guards above state the new owner. The diff from `886ab87` shows no change that the crate lacks.
 
 Visual, for the operator, after step 1: search, the field list and saved searches work as they did. The move changes no behavior, so a difference is a fault.

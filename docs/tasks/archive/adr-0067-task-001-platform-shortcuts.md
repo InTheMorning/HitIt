@@ -120,7 +120,7 @@ accepted. Final normal-mode inspection also passed: config changes are confined
 to workspace preferences, config/music/migration records are preserved, one
 playlist remains, and database/music probes are absent. The operator then
 confirmed the cleanup command's Removed fixture message. The accepted build
-used revision 6c63451 with the temporary Settings timing/profiling code removed.
+used revision 8a8fde1 with the temporary Settings timing/profiling code removed.
 All operator and cleanup gates are closed.
 
 Mechanical evidence - 2026-09-10: Green. Formatting, cargo check, strict

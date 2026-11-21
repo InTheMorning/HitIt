@@ -1,6 +1,6 @@
 # ADR 0039 Task 001: Scale Domains And Type Curves
 
-Status: Complete - 2026-09-18 (`3b40ec1`). Mechanical checks are Green.
+Status: Complete - 2026-09-18 (`fb556d5`). Mechanical checks are Green.
 Both resolvers initially produced the former uniform values.
 This packet has no visual gate.
 

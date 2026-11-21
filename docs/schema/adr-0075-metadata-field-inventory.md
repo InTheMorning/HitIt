@@ -21,7 +21,7 @@ Unknown extensions remain evidence governed by ADR 0075. An extension remains in
 | Upstream parser | Stophammer `stophammer-parser/src/types.rs`, `IngestFeedData`, `IngestTrackData`, and nested types, at commit `a220f44` |
 | Upstream API | Stophammer `src/query.rs`, `FeedResponse`, `TrackResponse`, `TrackSummary`, and nested response types, at commit `a220f44` |
 
-The app source is at commit `d3c6ee4`. Documentation changes do not prove deployed behavior.
+The app source is at commit `434fd9c`. Documentation changes do not prove deployed behavior.
 No live feed or Index request supplied this inventory.
 
 ## Implementation Progress — 2026-09-20

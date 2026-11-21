@@ -28,7 +28,7 @@ The orchestrating session made these choices on 2026-11-14 inside ADR 0068. Each
 - Select while playing or paused is not available. ADR 0068 gives a rule only for Select while stopped.
 - Next or Previous while paused: the owner stops the driver, writes the target entry to the paused session and loads the entry at Resume. `PlaybackDriver::load` starts playback, so a load in pause makes a short sound. The driver trait does not change. Part 003d implements it.
 - The Clear item opens a confirmation, as the playlist delete does. Part 003e implements it.
-- "Stop And Ask" of this file: the only desktop caller of `play_playlist_at` is the chain that this task removes. The search of 2026-11-14 at commit `3b387f7` found no different caller.
+- "Stop And Ask" of this file: the only desktop caller of `play_playlist_at` is the chain that this task removes. The search of 2026-11-14 at commit `25d98db` found no different caller.
 
 ## Goal
 

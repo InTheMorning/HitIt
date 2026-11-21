@@ -20,7 +20,7 @@ A selected sidebar item, a selected row in a list and a selected segment or tab 
 
 ## Recorded Facts
 
-Each fact is from HitIt `ad1fcd9`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
+Each fact is from HitIt `ba43138`, read on 2026-11-15. A ChatGPT search found them, and the main session examined the items marked "examined".
 
 - `src/assets/tokens.json` lines 20 to 23 and 43 to 46 give `selected-top`, `selected-bottom`, `selected-edge` and `selected-highlight` for dark and light. Examined. No Rust code reads them.
 - `ControlStyle::SelectedTab` (`src/ui/control_styles.rs:129`) is `ButtonVariant::Tinted` with `AccentOutline`. Examined. Its callers: `src/ui/composites/segmented_control.rs:125`, `src/ui/composites/tab_bar.rs:71` and `:101`, `src/ui/composites/letter_bar.rs:115`, `src/ui/composites/list_page_head.rs:316`, `src/ui/composites/settings.rs:144` and `src/ui/composites/maintenance_page.rs:120`.

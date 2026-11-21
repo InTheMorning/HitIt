@@ -10,7 +10,7 @@ Accepted - 2026-11-15. The operator selected the cache folder and the move of th
 
 [ADR 0060](0060-workflow-surface-structure.md) Decision "Vocabulary" says that a future ADR must define the cache policy. This ADR gives the cache part of that policy. The dump part stays open.
 
-An examination of HitIt at commit `e62c0f6` found these facts:
+An examination of HitIt at commit `2e35fd3` found these facts:
 
 - `execute_library_removal` in `src/application/library_removal.rs` writes only `is_in_library = 0`. It does no operation on the disk.
 - The audio file stays in `<music_dir>/artists/`. Its `local_files` row stays also.

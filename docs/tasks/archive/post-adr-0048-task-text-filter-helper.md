@@ -3,7 +3,7 @@
 ## Goal
 
 Eliminate the duplication of `normalize_text_filter` and per-VM matcher
-functions added by commit `64e24cb` (text filtering across view models).
+functions added by commit `7844a0d` (text filtering across view models).
 
 Today:
 

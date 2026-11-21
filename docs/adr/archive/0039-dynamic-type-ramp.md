@@ -427,7 +427,7 @@ Checks at both extremes remain necessary because text and chrome scale different
 
 1. Policy definition: complete on 2026-09-18, including downward scaling.
 2. [Task 001](../../tasks/archive/adr-0039-task-001-scale-domains-and-type-curves.md):
-   complete on 2026-09-18 (`3b40ec1`). Both live resolvers shipped at identity.
+   complete on 2026-09-18 (`fb556d5`). Both live resolvers shipped at identity.
    No visual gate.
 3. [Task 002](../../tasks/archive/adr-0039-task-002-fixed-height-reserve-and-acceptance.md):
    complete on 2026-09-18 with mechanical checks Green — the reservation

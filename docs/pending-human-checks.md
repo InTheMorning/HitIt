@@ -913,7 +913,7 @@ Task: [musicindex ADR 0083 task 001](tasks/musicindex-adr-0083-task-001-version-
 1. Compile HitIt with `cargo build --release --bin hitit`.
 2. Start HitIt with `target/release/hitit`.
 3. Open Settings. Make sure that the tab row shows General, Library and Diagnostics.
-4. Select Diagnostics. Make sure that the first row shows the version, for example "HitIt 0.1.0 (0dd3e95, 2026-11-18)", with "Copy" at its right (V1).
+4. Select Diagnostics. Make sure that the first row shows the version, for example "HitIt 0.1.0 (1b79b5b, 2026-11-18)", with "Copy" at its right (V1).
 5. Drag the pointer across the line. Make sure that the text shows as selected (V2).
 6. Click "Copy". Paste in a text editor. Make sure that the paste is the full line (V3).
 7. Select General and Library. Make sure that these pages do not show the line.
@@ -1095,7 +1095,7 @@ Look for these errors:
 - The band shows text above the cards.
 - The inspector does not show its cause.
 
-Agent walk on Xvfb, 2026-11-20, debug build of 3979f91 with the two corrections below. The Library and the cue were empty.
+Agent walk on Xvfb, 2026-11-20, debug build of 932a98c with the two corrections below. The Library and the cue were empty.
 
 - V1 passed in Dark and Light at 1440 px, and in Dark at 390 px. At 390 px the inspector covers the cards. The panel did this before this task.
 - V3 passed. The switch changes the Live Metadata card from Attention to Not ready.

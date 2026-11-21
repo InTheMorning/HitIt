@@ -18,7 +18,7 @@ On a detail page with a track list, Tab reaches the page controls first and the 
 - 2026-11-16: `detail_column_focus` is a plain `cx.focus_handle()` with Tab index 0 (`src/library/app_impl.rs:1240`).
 - 2026-11-16: `render_detail_column_frame` makes the detail column div the Tab stop of the list (`src/app/detail_selection.rs:361` to `:365`). The div holds the page header, the list bar and the rows.
 - 2026-11-16: GPUI `gpui-pre` 0.3.1 at `gpui-kit` revision `9e2392b` sorts Tab stops by the Tab index path, then by the sequence of insertion (`patches/gpui-pre/src/tab_stop.rs:52`). A div inserts its own handle before its children (`patches/gpui-pre/src/elements/div.rs:2495`).
-- 2026-11-16: commit `9ed5336` added `Button::tab_index` (`src/ui/primitives/button.rs:224`). The test `adr_0092_a_button_in_the_list_follows_the_list` proves the sequence for a list with index 1.
+- 2026-11-16: commit `3ab3edb` added `Button::tab_index` (`src/ui/primitives/button.rs:224`). The test `adr_0092_a_button_in_the_list_follows_the_list` proves the sequence for a list with index 1.
 - 2026-11-16: the controls in the detail column use index 0. These are the name links, the release buttons, the release menu, "Website", "RSS", "Select" and "Reverse".
 
 ## Base components
