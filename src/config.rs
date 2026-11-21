@@ -1387,7 +1387,8 @@ theme_profile = "dark"
 # [broadcast]
 # selected_host = "Local"
 # mpv drop-file producer. Missing drop_directory disables this producer.
-# drop_directory = "/run/user/1000/musicindex-live-publisher/mpv/nowplaying"
+# Replace $XDG_RUNTIME_DIR with its value. HitIt does not expand it here.
+# drop_directory = "$XDG_RUNTIME_DIR/musicindex-live-publisher/mpv/nowplaying"
 # drop_file_target = "default"
 #
 # [[broadcast.hosts]]
