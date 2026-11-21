@@ -7,6 +7,7 @@ Accepted - 2026-09-24. Implemented on 2026-09-10 before the ADR 0076 amendment. 
 - Changed by: [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md) Decisions 7 and 9, 2026-09-24.
   A playlist track is not ready for a show when its file payment route differs from the stored route.
   A track with the "removed from feed" mark is not ready until the operator confirms it or removes it from the playlist.
+- Changed by: [ADR 0110](0110-a-reserved-event-enters-the-registry.md), 2026-11-21. The registry holds reserved events. Only `event_not_found` makes a row Dead. `Forget` keeps a token file that a target uses or that HitIt did not write. Attach asks before it replaces a different event.
 
 Amended 2026-10-18: the operator heard the processor fan run faster while the app was open in Music. The service watch read the services each second, also when no screen showed the result.
 The new decision "The Service Watch Reads At The Pace Of Its Viewer" gives the pace. [Task 018](../tasks/archive/adr-0059-task-018-service-watch-pace.md) builds it.
