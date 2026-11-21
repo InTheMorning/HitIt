@@ -5,6 +5,9 @@
 //! records the fetch outcome of one feed of that run. Each result write also
 //! updates the counts of its run in the same transaction, so the counts
 //! always agree with the result rows.
+//!
+//! Migration 30 (ADR 0109) lets a run have no playlist. The "Check all feeds"
+//! command starts such a run for the feeds that musicindex marks as changed.
 
 #![warn(clippy::pedantic)]
 
@@ -72,6 +75,58 @@ pub(super) fn apply(conn: &Connection) -> Result<()> {
         .context("Create playlist RSS check run tables")
 }
 
+/// Migration 30 (ADR 0109 Decision 1.5): `playlist_id` accepts `NULL`, and the
+/// trigger accepts `feed_update`. `SQLite` changes a column constraint only by
+/// a rebuild. The registry transaction keeps foreign keys on, so the drop of
+/// `rss_check_runs` deletes or clears the rows of its child tables. The
+/// rebuild sets each child row aside first and restores it after, as
+/// migration 25 does.
+pub(super) fn apply_feed_runs(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TEMP TABLE rss_check_differences_30 AS SELECT * FROM rss_check_differences;
+         CREATE TEMP TABLE rss_field_hold_runs_30 AS
+             SELECT rowid AS hold_rowid, run_id FROM rss_field_holds WHERE run_id IS NOT NULL;
+         CREATE TEMP TABLE rss_check_feed_results_30 AS SELECT * FROM rss_check_feed_results;
+         DROP TABLE rss_check_feed_results;
+         DROP INDEX rss_check_runs_playlist;
+         CREATE TABLE rss_check_runs_new (
+             id INTEGER NOT NULL PRIMARY KEY,
+             playlist_id INTEGER NULL REFERENCES playlists(id) ON DELETE CASCADE,
+             trigger TEXT NOT NULL CHECK (trigger IN ('button', 'playback_start', 'cue_load', 'feed_update')),
+             started_at_us INTEGER NOT NULL,
+             finished_at_us INTEGER NULL,
+             document_count INTEGER NOT NULL DEFAULT 0 CHECK (document_count >= 0),
+             not_modified_count INTEGER NOT NULL DEFAULT 0 CHECK (not_modified_count >= 0),
+             failed_count INTEGER NOT NULL DEFAULT 0 CHECK (failed_count >= 0),
+             not_checked_count INTEGER NOT NULL DEFAULT 0 CHECK (not_checked_count >= 0),
+             CHECK (finished_at_us IS NULL OR finished_at_us >= started_at_us)
+         );
+         INSERT INTO rss_check_runs_new SELECT * FROM rss_check_runs;
+         DROP TABLE rss_check_runs;
+         ALTER TABLE rss_check_runs_new RENAME TO rss_check_runs;
+         CREATE INDEX rss_check_runs_playlist ON rss_check_runs(playlist_id, id);
+         CREATE TABLE rss_check_feed_results (
+             run_id INTEGER NOT NULL REFERENCES rss_check_runs(id) ON DELETE CASCADE,
+             feed_id INTEGER NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
+             outcome TEXT NOT NULL CHECK (outcome IN ('document', 'not_modified', 'failed', 'not_checked')),
+             http_status INTEGER NULL CHECK (http_status IS NULL OR http_status BETWEEN 100 AND 599),
+             observation_id INTEGER NULL REFERENCES metadata_observations(id) ON DELETE RESTRICT,
+             message TEXT NULL,
+             PRIMARY KEY (run_id, feed_id)
+         );
+         INSERT INTO rss_check_feed_results SELECT * FROM rss_check_feed_results_30;
+         DROP TABLE rss_check_feed_results_30;
+         DELETE FROM rss_check_differences;
+         INSERT INTO rss_check_differences SELECT * FROM rss_check_differences_30;
+         DROP TABLE rss_check_differences_30;
+         UPDATE rss_field_holds
+             SET run_id = (SELECT run_id FROM rss_field_hold_runs_30 WHERE hold_rowid = rss_field_holds.rowid)
+             WHERE rowid IN (SELECT hold_rowid FROM rss_field_hold_runs_30);
+         DROP TABLE rss_field_hold_runs_30;",
+    )
+    .context("Let an RSS check run have no playlist")
+}
+
 /// What started a playlist RSS check.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RssCheckTrigger {
@@ -82,6 +137,9 @@ pub enum RssCheckTrigger {
     PlaybackStart,
     /// The curator loaded or replaced the Show cue from this playlist.
     CueLoad,
+    /// "Check all feeds" found a feed that musicindex marks as changed
+    /// (ADR 0109). The run has no playlist.
+    FeedUpdate,
 }
 
 impl RssCheckTrigger {
@@ -91,6 +149,7 @@ impl RssCheckTrigger {
             Self::Button => "button",
             Self::PlaybackStart => "playback_start",
             Self::CueLoad => "cue_load",
+            Self::FeedUpdate => "feed_update",
         }
     }
 
@@ -99,6 +158,7 @@ impl RssCheckTrigger {
             "button" => Some(Self::Button),
             "playback_start" => Some(Self::PlaybackStart),
             "cue_load" => Some(Self::CueLoad),
+            "feed_update" => Some(Self::FeedUpdate),
             _ => None,
         }
     }
@@ -231,6 +291,81 @@ pub fn insert_run(
     )
     .context("insert rss_check_runs")?;
     Ok(conn.last_insert_rowid())
+}
+
+/// Insert a run row with no playlist (ADR 0109 Decision 1.5).
+///
+/// # Errors
+///
+/// Returns an error when the database query fails.
+pub fn insert_feed_run(
+    conn: &Connection,
+    trigger: RssCheckTrigger,
+    started_at_us: i64,
+) -> Result<i64> {
+    conn.execute(
+        "INSERT INTO rss_check_runs(playlist_id, trigger, started_at_us) VALUES (NULL, ?1, ?2)",
+        params![trigger.token(), started_at_us],
+    )
+    .context("insert rss_check_runs without playlist")?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// Read the named feeds in the order of `feed_ids`. A feed id that no feed
+/// has is left out, and a repeated id gives one row.
+///
+/// # Errors
+///
+/// Returns an error when the database query fails.
+pub fn feeds_to_check(conn: &Connection, feed_ids: &[i64]) -> Result<Vec<PlaylistCheckFeed>> {
+    let mut statement = conn
+        .prepare("SELECT id, title, feed_url FROM feeds WHERE id = ?1")
+        .context("prepare feeds_to_check")?;
+    let mut feeds: Vec<PlaylistCheckFeed> = Vec::new();
+    for feed_id in feed_ids {
+        if feeds.iter().any(|feed| feed.feed_id == *feed_id) {
+            continue;
+        }
+        let feed = statement
+            .query_row([feed_id], |row| {
+                Ok(PlaylistCheckFeed {
+                    feed_id: row.get(0)?,
+                    title: row.get(1)?,
+                    feed_url: row.get(2)?,
+                })
+            })
+            .optional()
+            .context("query feeds_to_check")?;
+        feeds.extend(feed);
+    }
+    Ok(feeds)
+}
+
+/// Each playlist that has a track of one of the feeds, in playlist order.
+///
+/// # Errors
+///
+/// Returns an error when the database query fails.
+pub fn playlists_with_feeds(conn: &Connection, feed_ids: &[i64]) -> Result<Vec<i64>> {
+    let mut statement = conn
+        .prepare(
+            "SELECT DISTINCT pt.playlist_id
+             FROM playlist_tracks pt
+             JOIN tracks t ON t.id = pt.track_id
+             WHERE t.feed_id = ?1
+             ORDER BY pt.playlist_id",
+        )
+        .context("prepare playlists_with_feeds")?;
+    let mut playlists = std::collections::BTreeSet::new();
+    for feed_id in feed_ids {
+        let rows = statement
+            .query_map([feed_id], |row| row.get::<_, i64>(0))
+            .context("query playlists_with_feeds")?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .context("collect playlists_with_feeds")?;
+        playlists.extend(rows);
+    }
+    Ok(playlists.into_iter().collect())
 }
 
 /// Insert one feed result and add it to the counts of its run.
@@ -452,6 +587,65 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(names, *columns);
         }
+    }
+
+    /// ADR 0109 task 001 criterion 8: migration 30 keeps each earlier run row
+    /// and its results, accepts a run with no playlist, and accepts the
+    /// trigger `feed_update`.
+    #[test]
+    fn adr_0109_migration_30_keeps_runs_and_accepts_a_run_with_no_playlist() {
+        let conn = Connection::open_in_memory().unwrap();
+        upgrades::create_fixture(&conn, 29).unwrap();
+        conn.execute_batch(
+            "INSERT INTO feeds(id, feed_url, feed_guid, title) VALUES (1, 'https://example.test/feed.xml', 'f1', 'Album');
+             INSERT INTO playlists(id, name) VALUES (1, 'Show');
+             INSERT INTO rss_check_runs(id, playlist_id, trigger, started_at_us, finished_at_us, document_count)
+                 VALUES (7, 1, 'cue_load', 10, 20, 1);
+             INSERT INTO rss_check_feed_results(run_id, feed_id, outcome) VALUES (7, 1, 'document');",
+        )
+        .unwrap();
+
+        crate::db::migrate_schema_to(&conn, 30).unwrap();
+
+        let kept: (i64, String, i64) = conn
+            .query_row(
+                "SELECT playlist_id, trigger, document_count FROM rss_check_runs WHERE id = 7",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(kept, (1, "cue_load".to_owned(), 1));
+        assert_eq!(row_count(&conn, "rss_check_feed_results"), 1);
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        conn.execute(
+            "INSERT INTO rss_check_runs(playlist_id, trigger, started_at_us) VALUES (NULL, 'feed_update', 30)",
+            [],
+        )
+        .unwrap();
+        assert!(conn
+            .execute(
+                "INSERT INTO rss_check_runs(playlist_id, trigger, started_at_us) VALUES (NULL, 'other', 31)",
+                [],
+            )
+            .is_err());
+        let parent: String = conn
+            .query_row(
+                "SELECT \"table\" FROM pragma_foreign_key_list('rss_check_feed_results') WHERE \"from\" = 'run_id'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(parent, "rss_check_runs");
+        assert!(conn
+            .execute("DELETE FROM rss_check_runs WHERE id = 7", [])
+            .is_ok());
+        assert_eq!(
+            row_count(&conn, "rss_check_feed_results"),
+            0,
+            "the result row follows its run"
+        );
+        upgrades::verify_target(&conn, 30).unwrap();
+        assert_eq!(inspect_schema(&conn).unwrap(), SchemaCompatibility::Current);
     }
 
     /// R1-12: a fresh database reaches version 15.

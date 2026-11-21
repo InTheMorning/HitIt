@@ -1131,3 +1131,13 @@ The agent did steps 1 to 6 on Xvfb on 2026-11-21 with one downloaded single and 
 - The popup stopped the app when it opened. The dialog read the Library app while the Library app was in its update.
 - A click on a change line also changed the box of its file.
 - Tab did not move to the check boxes.
+
+## 49. ADR 0109 Task 001 "Check All Feeds" Reads RSS Of Changed Feeds - 2026-11-21
+
+Task: [ADR 0109 task 001](tasks/adr-0109-task-001-changed-feeds-get-one-rss-check.md). The task is implemented. The mechanical criteria pass. These visual checks stay open. They use the data of the operator.
+
+1. Select "Check all feeds" when musicindex shows no changed feed. Make sure that the check ends in a shorter time. The timing run of 2026-11-21 took 8.8 s (V1).
+2. Change one feed in musicindex. Select "Check all feeds". Make sure that the feed updates. Open the playlist of the feed. Make sure that the RSS differences of that feed show where the differences of the RSS check show (V2).
+- Incorrect: the check takes 8.8 s or more when no feed changes. The feed updates, but its differences do not show in the playlist.
+
+The agent cannot do these steps. The data of the operator is not available to the agent.

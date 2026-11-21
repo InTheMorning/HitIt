@@ -1,6 +1,10 @@
 //! Playlist RSS check actor (ADR 0076 Decision 2, ADR 0040).
 //!
 //! The actor reads the RSS document of each distinct feed of one playlist.
+//! It also reads the RSS document of each feed that "Check all feeds" found
+//! changed (ADR 0109). That run has no playlist. All runs share one host
+//! gate and one limit of hosts, so the host interval and the limit of
+//! `MAX_PARALLEL_HOSTS` hold between two runs.
 //! It sends one conditional GET for each feed. It sends one request at a
 //! time to each host and waits `MIN_HOST_INTERVAL` or more after each
 //! response from that host. It runs at most `MAX_PARALLEL_HOSTS` host
@@ -299,6 +303,9 @@ pub struct PlaylistRssCheckSnapshot {
     /// Counts each applied document with one or more differences. The
     /// Library view reloads its stored values when this value changes.
     applied_revision: u64,
+    /// Counts each feed run (ADR 0109) that ended. A feed run has no
+    /// playlist, so it has no entry in `runs`.
+    feed_runs_finished: u64,
 }
 
 impl PlaylistRssCheckSnapshot {
@@ -345,14 +352,27 @@ impl PlaylistRssCheckSnapshot {
     pub fn applied_revision(&self) -> u64 {
         self.applied_revision
     }
+
+    /// Counts each feed run (ADR 0109) that ended. The Library compares two
+    /// snapshots with it to start the tag update scan.
+    #[must_use]
+    pub fn feed_runs_finished(&self) -> u64 {
+        self.feed_runs_finished
+    }
 }
 
 /// Inbox messages of the actor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PlaylistRssCheckMessage {
     /// Start a check. A start for a running playlist joins that check.
     Start {
         playlist_id: i64,
+        trigger: RssCheckTrigger,
+    },
+    /// Start a run for these feeds with no playlist (ADR 0109). An empty
+    /// list records no run.
+    StartFeeds {
+        feed_ids: Vec<i64>,
         trigger: RssCheckTrigger,
     },
     /// Read the latest stored run of a playlist into the snapshot.
@@ -382,6 +402,15 @@ impl PlaylistRssCheckHandle {
                 playlist_id,
                 trigger,
             })
+            .is_ok()
+    }
+
+    /// Send `StartFeeds`. Returns `false` when the actor stopped or its inbox
+    /// is full.
+    #[must_use]
+    pub fn start_feeds(&self, feed_ids: Vec<i64>, trigger: RssCheckTrigger) -> bool {
+        self.inbox
+            .try_send(PlaylistRssCheckMessage::StartFeeds { feed_ids, trigger })
             .is_ok()
     }
 
@@ -443,15 +472,35 @@ struct CheckContext {
     fetcher: Arc<dyn RssDocumentFetcher>,
     clock: Arc<dyn CheckClock>,
     snapshot: Arc<watch::Sender<PlaylistRssCheckSnapshot>>,
+    /// The limit of hosts that all runs share (ADR 0076 Decision 2).
+    permits: Arc<Semaphore>,
+    /// The gate of each host that all runs share (ADR 0109 Decision 2.3).
+    gates: Arc<Mutex<BTreeMap<String, HostGate>>>,
 }
 
+/// The earliest time of the next request to one host. A run holds the gate
+/// from the wait to the answer, so two runs send one request at a time to
+/// the host and keep the host interval between them.
+type HostGate = Arc<tokio::sync::Mutex<Option<Duration>>>;
+
 impl CheckContext {
-    fn update_run(&self, playlist_id: i64, update: impl FnOnce(&mut PlaylistRssRun)) {
+    fn update_run(&self, playlist_id: Option<i64>, update: impl FnOnce(&mut PlaylistRssRun)) {
+        let Some(playlist_id) = playlist_id else {
+            return;
+        };
         self.snapshot.send_modify(|snapshot| {
             if let Some(run) = snapshot.runs.get_mut(&playlist_id) {
                 update(run);
             }
         });
+    }
+
+    fn gate(&self, host: &str) -> HostGate {
+        let mut gates = self
+            .gates
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Arc::clone(gates.entry(host.to_owned()).or_default())
     }
 }
 
@@ -468,6 +517,8 @@ pub(crate) fn spawn_with(
         fetcher,
         clock,
         snapshot: Arc::new(snapshot_tx),
+        permits: Arc::new(Semaphore::new(MAX_PARALLEL_HOSTS)),
+        gates: Arc::new(Mutex::new(BTreeMap::new())),
     };
     let stop = session.stop_token();
     session.spawn_actor("Playlist RSS check", async move {
@@ -525,50 +576,21 @@ fn handle_message(
                 runs_stop.child_token(),
             ));
         }
-        PlaylistRssCheckMessage::Load { playlist_id } => {
-            if context.snapshot.borrow().run(playlist_id).is_some()
-                && context
-                    .snapshot
-                    .borrow()
-                    .removed_marks
-                    .contains_key(&playlist_id)
-            {
+        PlaylistRssCheckMessage::StartFeeds { feed_ids, trigger } => {
+            if feed_ids.is_empty() {
                 return;
             }
-            let context = context.clone();
-            runs.spawn(async move {
-                let conn = Arc::clone(&context.conn);
-                let stored = blocking(move || {
-                    let conn = lock(&conn)?;
-                    let run = store::latest_run(&conn, playlist_id)
-                        .map_err(|error| format!("{error:#}"))?;
-                    let differences = match &run {
-                        Some(run) => {
-                            crate::db::rss_field_holds::run_differences(&conn, run.id, None)
-                                .map_err(|error| format!("{error:#}"))?
-                        }
-                        None => Vec::new(),
-                    };
-                    let marks =
-                        crate::db::rss_field_holds::playlist_removed_marks(&conn, playlist_id)
-                            .map_err(|error| format!("{error:#}"))?;
-                    Ok((run, differences, marks))
-                })
-                .await;
-                if let Ok((stored, differences, marks)) = stored {
-                    context.snapshot.send_if_modified(|snapshot| {
-                        snapshot
-                            .removed_marks
-                            .insert(playlist_id, marks.into_iter().collect());
-                        if let Some(stored) = stored {
-                            snapshot.runs.entry(playlist_id).or_insert_with(|| {
-                                PlaylistRssRun::from_stored(stored, differences)
-                            });
-                        }
-                        true
-                    });
-                }
-            });
+            let started_at_us = context.clock.wall_time_us();
+            runs.spawn(run_feed_check(
+                context.clone(),
+                feed_ids,
+                trigger,
+                started_at_us,
+                runs_stop.child_token(),
+            ));
+        }
+        PlaylistRssCheckMessage::Load { playlist_id } => {
+            load_playlist(context, playlist_id, runs);
         }
         PlaylistRssCheckMessage::ReloadTrackMarks { track_id } => {
             let playlist_ids: Vec<i64> = context
@@ -592,6 +614,52 @@ fn handle_message(
             }
         }
     }
+}
+
+/// Read the latest stored run and the marks of a playlist into the snapshot.
+/// It does nothing when the snapshot holds both.
+fn load_playlist(context: &CheckContext, playlist_id: i64, runs: &mut JoinSet<()>) {
+    if context.snapshot.borrow().run(playlist_id).is_some()
+        && context
+            .snapshot
+            .borrow()
+            .removed_marks
+            .contains_key(&playlist_id)
+    {
+        return;
+    }
+    let context = context.clone();
+    runs.spawn(async move {
+        let conn = Arc::clone(&context.conn);
+        let stored = blocking(move || {
+            let conn = lock(&conn)?;
+            let run =
+                store::latest_run(&conn, playlist_id).map_err(|error| format!("{error:#}"))?;
+            let differences = match &run {
+                Some(run) => crate::db::rss_field_holds::run_differences(&conn, run.id, None)
+                    .map_err(|error| format!("{error:#}"))?,
+                None => Vec::new(),
+            };
+            let marks = crate::db::rss_field_holds::playlist_removed_marks(&conn, playlist_id)
+                .map_err(|error| format!("{error:#}"))?;
+            Ok((run, differences, marks))
+        })
+        .await;
+        if let Ok((stored, differences, marks)) = stored {
+            context.snapshot.send_if_modified(|snapshot| {
+                snapshot
+                    .removed_marks
+                    .insert(playlist_id, marks.into_iter().collect());
+                if let Some(stored) = stored {
+                    snapshot
+                        .runs
+                        .entry(playlist_id)
+                        .or_insert_with(|| PlaylistRssRun::from_stored(stored, differences));
+                }
+                true
+            });
+        }
+    });
 }
 
 /// Read the "removed from feed" marks of each playlist again, and replace
@@ -663,7 +731,7 @@ async fn run_check(
         Ok(prepared) => prepared,
         Err(error) => {
             let finished_at_us = context.clock.wall_time_us();
-            context.update_run(playlist_id, |run| {
+            context.update_run(Some(playlist_id), |run| {
                 run.state = RssCheckRunState::Failed;
                 run.finished_at_us = Some(finished_at_us);
                 run.error = Some(format!(
@@ -673,11 +741,116 @@ async fn run_check(
             return;
         }
     };
-    context.update_run(playlist_id, |run| {
+    context.update_run(Some(playlist_id), |run| {
         run.run_id = Some(run_id);
         run.feeds = feeds.iter().map(RssFeedCheck::waiting).collect();
     });
 
+    read_feeds(&context, Some(playlist_id), run_id, feeds, &stop).await;
+
+    if stop.is_cancelled() {
+        context.update_run(Some(playlist_id), |run| {
+            run.state = RssCheckRunState::Interrupted;
+        });
+        return;
+    }
+    let finished_at_us = context.clock.wall_time_us();
+    let conn = Arc::clone(&context.conn);
+    let finished = blocking(move || {
+        let conn = lock(&conn)?;
+        store::finish_run(&conn, run_id, finished_at_us).map_err(|error| format!("{error:#}"))
+    })
+    .await;
+    context.update_run(Some(playlist_id), |run| {
+        run.state = RssCheckRunState::Finished;
+        run.finished_at_us = Some(finished_at_us.max(run.started_at_us));
+        if let Err(error) = finished {
+            run.error = Some(format!(
+                "The app could not store the finish time of the RSS check. Database: {error}"
+            ));
+        }
+    });
+}
+
+/// The run of "Check all feeds" for the feeds that musicindex marks as
+/// changed (ADR 0109 Decision 1). The run has no playlist and no entry in
+/// the snapshot. When it ends, the actor reads the marks of each loaded
+/// playlist that has one of the feeds again.
+async fn run_feed_check(
+    context: CheckContext,
+    feed_ids: Vec<i64>,
+    trigger: RssCheckTrigger,
+    started_at_us: i64,
+    stop: CancellationToken,
+) {
+    let conn = Arc::clone(&context.conn);
+    let prepared = {
+        let feed_ids = feed_ids.clone();
+        blocking(move || {
+            let conn = lock(&conn)?;
+            let feeds =
+                store::feeds_to_check(&conn, &feed_ids).map_err(|error| format!("{error:#}"))?;
+            let run_id = store::insert_feed_run(&conn, trigger, started_at_us)
+                .map_err(|error| format!("{error:#}"))?;
+            Ok((run_id, feeds))
+        })
+        .await
+    };
+    // A failed start sends no request. The next "Check all feeds" or a
+    // playlist check reads the feeds again.
+    let Ok((run_id, feeds)) = prepared else {
+        return;
+    };
+    let feed_ids: Vec<i64> = feeds.iter().map(|feed| feed.feed_id).collect();
+    read_feeds(&context, None, run_id, feeds, &stop).await;
+    if stop.is_cancelled() {
+        return;
+    }
+    let finished_at_us = context.clock.wall_time_us();
+    let conn = Arc::clone(&context.conn);
+    let loaded: Vec<i64> = context
+        .snapshot
+        .borrow()
+        .removed_marks
+        .keys()
+        .copied()
+        .collect();
+    let reloaded = blocking(move || {
+        let conn = lock(&conn)?;
+        store::finish_run(&conn, run_id, finished_at_us).map_err(|error| format!("{error:#}"))?;
+        let with_feeds =
+            store::playlists_with_feeds(&conn, &feed_ids).map_err(|error| format!("{error:#}"))?;
+        with_feeds
+            .into_iter()
+            .filter(|playlist_id| loaded.contains(playlist_id))
+            .map(|playlist_id| {
+                crate::db::rss_field_holds::playlist_removed_marks(&conn, playlist_id)
+                    .map(|marks| (playlist_id, marks))
+                    .map_err(|error| format!("{error:#}"))
+            })
+            .collect::<Result<Vec<_>, String>>()
+    })
+    .await;
+    // A failed read keeps the earlier marks, as `reload_marks` does.
+    context.snapshot.send_modify(|snapshot| {
+        for (playlist_id, marks) in reloaded.unwrap_or_default() {
+            snapshot
+                .removed_marks
+                .insert(playlist_id, marks.into_iter().collect());
+        }
+        snapshot.feed_runs_finished += 1;
+    });
+}
+
+/// Send the requests of one run. It sorts the feeds into one queue for each
+/// host, and it runs the queues with the shared limit of hosts.
+async fn read_feeds(
+    context: &CheckContext,
+    playlist_id: Option<i64>,
+    run_id: i64,
+    feeds: Vec<PlaylistCheckFeed>,
+    stop: &CancellationToken,
+) {
     let mut queues: Vec<(String, Vec<PlaylistCheckFeed>)> = Vec::new();
     for feed in feeds {
         match feed_host(&feed.feed_url) {
@@ -687,7 +860,7 @@ async fn run_check(
             },
             None => {
                 record(
-                    &context,
+                    context,
                     playlist_id,
                     run_id,
                     feed.feed_id,
@@ -700,7 +873,6 @@ async fn run_check(
         }
     }
 
-    let permits = Arc::new(Semaphore::new(MAX_PARALLEL_HOSTS));
     let mut hosts = JoinSet::new();
     for (host, queue) in queues {
         hosts.spawn(host_queue(
@@ -709,54 +881,29 @@ async fn run_check(
             run_id,
             host,
             queue,
-            Arc::clone(&permits),
             stop.clone(),
         ));
     }
     while hosts.join_next().await.is_some() {}
-
-    if stop.is_cancelled() {
-        context.update_run(playlist_id, |run| {
-            run.state = RssCheckRunState::Interrupted;
-        });
-        return;
-    }
-    let finished_at_us = context.clock.wall_time_us();
-    let conn = Arc::clone(&context.conn);
-    let finished = blocking(move || {
-        let conn = lock(&conn)?;
-        store::finish_run(&conn, run_id, finished_at_us).map_err(|error| format!("{error:#}"))
-    })
-    .await;
-    context.update_run(playlist_id, |run| {
-        run.state = RssCheckRunState::Finished;
-        run.finished_at_us = Some(finished_at_us.max(run.started_at_us));
-        if let Err(error) = finished {
-            run.error = Some(format!(
-                "The app could not store the finish time of the RSS check. Database: {error}"
-            ));
-        }
-    });
 }
 
 async fn host_queue(
     context: CheckContext,
-    playlist_id: i64,
+    playlist_id: Option<i64>,
     run_id: i64,
     host: String,
     feeds: Vec<PlaylistCheckFeed>,
-    permits: Arc<Semaphore>,
     stop: CancellationToken,
 ) {
     let permit = tokio::select! {
         biased;
         () = stop.cancelled() => return,
-        permit = permits.acquire_owned() => permit,
+        permit = Arc::clone(&context.permits).acquire_owned() => permit,
     };
     let Ok(_permit) = permit else {
         return;
     };
-    let mut next_request_at: Option<Duration> = None;
+    let gate = context.gate(&host);
     // The text of each remaining feed after the check stopped this host.
     let mut stopped: Option<String> = None;
     for feed in feeds {
@@ -771,7 +918,13 @@ async fn host_queue(
             .await;
             continue;
         }
-        if let Some(deadline) = next_request_at {
+        // The gate gives one request at a time to the host for all runs.
+        let mut next_request_at = tokio::select! {
+            biased;
+            () = stop.cancelled() => return,
+            guard = gate.lock() => guard,
+        };
+        if let Some(deadline) = *next_request_at {
             tokio::select! {
                 biased;
                 () = stop.cancelled() => return,
@@ -804,8 +957,9 @@ async fn host_queue(
         .unwrap_or_else(|error| FeedFetch::failed(None, None, error));
         let mut fetch = fetch;
         let answered_at = context.clock.now();
-        next_request_at =
+        *next_request_at =
             Some(answered_at + fetch.retry_after.unwrap_or_default().max(MIN_HOST_INTERVAL));
+        drop(next_request_at);
         if let Some(stop) = host_stop(&host, &fetch) {
             if let Some(note) = stop.response_note {
                 fetch.message = Some(match fetch.message.take() {
@@ -918,7 +1072,7 @@ impl FeedFetch {
 
 async fn record(
     context: &CheckContext,
-    playlist_id: i64,
+    playlist_id: Option<i64>,
     run_id: i64,
     feed_id: i64,
     fetch: FeedFetch,
@@ -941,6 +1095,11 @@ async fn record(
             if fetch.differences == 0 {
                 return Ok(None);
             }
+            // A run with no playlist shows no differences in a playlist
+            // snapshot. Its end reads the marks again.
+            let Some(playlist_id) = playlist_id else {
+                return Ok(Some((Vec::new(), Vec::new())));
+            };
             let differences =
                 crate::db::rss_field_holds::run_differences(&conn, run_id, Some(feed_id))
                     .map_err(|error| format!("{error:#}"))?;
@@ -952,12 +1111,14 @@ async fn record(
     };
     context.snapshot.send_modify(|snapshot| {
         if let Ok(Some((_, marks))) = &stored {
-            snapshot
-                .removed_marks
-                .insert(playlist_id, marks.iter().copied().collect());
+            if let Some(playlist_id) = playlist_id {
+                snapshot
+                    .removed_marks
+                    .insert(playlist_id, marks.iter().copied().collect());
+            }
             snapshot.applied_revision += 1;
         }
-        let Some(run) = snapshot.runs.get_mut(&playlist_id) else {
+        let Some(run) = playlist_id.and_then(|id| snapshot.runs.get_mut(&id)) else {
             return;
         };
         if let Some(feed) = run.feeds.iter_mut().find(|feed| feed.feed_id == feed_id) {
@@ -2393,5 +2554,228 @@ mod tests {
         .await;
         assert!(handle.latest().removed_mark(first, track_id).is_some());
         assert!(fetcher.sent().is_empty());
+    }
+}
+
+/// ADR 0109 task 001: the feed run of "Check all feeds".
+#[cfg(test)]
+mod feed_run_tests {
+    use super::test_support::*;
+    use super::*;
+
+    fn start(
+        conn: &Arc<Mutex<Connection>>,
+        fetcher: &Arc<FakeFetcher>,
+        clock: &Arc<FakeClock>,
+        session: &SessionLifecycle,
+    ) -> PlaylistRssCheckHandle {
+        spawn_with(
+            Arc::clone(conn),
+            Arc::clone(fetcher) as Arc<dyn RssDocumentFetcher>,
+            Arc::clone(clock) as Arc<dyn CheckClock>,
+            session,
+        )
+    }
+
+    fn etag_response(url: &str) -> ProviderObservation {
+        response(
+            url,
+            200,
+            &[
+                ("etag", "\"v1\""),
+                ("last-modified", "Wed, 23 Sep 2026 10:00:00 GMT"),
+            ],
+            Some(RSS),
+        )
+    }
+
+    async fn wait_for(
+        handle: &PlaylistRssCheckHandle,
+        condition: impl Fn(&PlaylistRssCheckSnapshot) -> bool,
+    ) {
+        let mut receiver = handle.subscribe();
+        loop {
+            if condition(&receiver.borrow()) {
+                return;
+            }
+            tokio::time::timeout(Duration::from_secs(10), receiver.changed())
+                .await
+                .expect("the snapshot reaches the expected state")
+                .expect("the actor keeps its snapshot channel");
+        }
+    }
+
+    type RunRow = (Option<i64>, String, i64, Option<i64>);
+
+    fn run_rows(conn: &Arc<Mutex<Connection>>) -> Vec<RunRow> {
+        let conn = conn.lock().unwrap();
+        let mut statement = conn
+            .prepare(
+                "SELECT playlist_id, trigger, document_count, finished_at_us FROM rss_check_runs ORDER BY id",
+            )
+            .unwrap();
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        rows
+    }
+
+    /// Criterion 6: `StartFeeds` with two feeds sends one conditional GET for
+    /// each feed, records a run with no playlist and the trigger
+    /// `feed_update`, and applies the RSS values.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0109_start_feeds_sends_one_get_for_each_feed_and_records_a_feed_run() {
+        let urls = [
+            "https://a.test/r901/feed.xml",
+            "https://b.test/r901/feed.xml",
+        ];
+        let (conn, _playlist_id, feed_ids) = database(&[(urls[0], 1), (urls[1], 1)]);
+        let clock = FakeClock::new();
+        let fetcher = FakeFetcher::new(Arc::clone(&clock), etag_response);
+        let session = SessionLifecycle::new();
+        let handle = start(&conn, &fetcher, &clock, &session);
+
+        assert!(handle.start_feeds(feed_ids.clone(), RssCheckTrigger::FeedUpdate));
+        wait_for(&handle, |snapshot| snapshot.feed_runs_finished() == 1).await;
+
+        let sent = fetcher.sent();
+        assert_eq!(sent.len(), 2, "one request for each feed");
+        for url in urls {
+            assert_eq!(sent.iter().filter(|request| request.url == url).count(), 1);
+        }
+        assert_eq!(
+            run_rows(&conn)
+                .into_iter()
+                .map(|(playlist, trigger, documents, finished)| (
+                    playlist,
+                    trigger,
+                    documents,
+                    finished.is_some()
+                ))
+                .collect::<Vec<_>>(),
+            vec![(None, "feed_update".to_owned(), 2, true)]
+        );
+        for feed_id in &feed_ids {
+            let revision =
+                crate::local_metadata::rss_reader_revision(&conn.lock().unwrap(), *feed_id);
+            assert!(
+                revision > 0,
+                "the RSS values of feed {feed_id} did not apply"
+            );
+        }
+
+        // The second run sends the stored validators.
+        assert!(handle.start_feeds(feed_ids, RssCheckTrigger::FeedUpdate));
+        wait_for(&handle, |snapshot| snapshot.feed_runs_finished() == 2).await;
+        let sent = fetcher.sent();
+        assert_eq!(sent.len(), 4);
+        assert_eq!(
+            sent[2].validators,
+            Some(RequestValidators {
+                etag: Some("\"v1\"".into()),
+                last_modified: Some("Wed, 23 Sep 2026 10:00:00 GMT".into()),
+            })
+        );
+        assert_eq!(run_rows(&conn).len(), 2);
+    }
+
+    /// Criterion 7: `StartFeeds` with an empty list records no run.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0109_start_feeds_with_an_empty_list_records_no_run() {
+        let (conn, playlist_id, _) = database(&[("https://a.test/r902/feed.xml", 1)]);
+        let clock = FakeClock::new();
+        let fetcher = FakeFetcher::new(Arc::clone(&clock), etag_response);
+        let session = SessionLifecycle::new();
+        let handle = start(&conn, &fetcher, &clock, &session);
+
+        let _ = handle.start_feeds(Vec::new(), RssCheckTrigger::FeedUpdate);
+        // The channel keeps the order. The playlist run ends after the empty
+        // message, so the empty message has been handled.
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        finished(&handle, playlist_id).await;
+
+        let rows = run_rows(&conn);
+        assert_eq!(rows.len(), 1, "only the playlist run is recorded");
+        assert_eq!(rows[0].0, Some(playlist_id));
+        assert_eq!(handle.latest().feed_runs_finished(), 0);
+        assert_eq!(fetcher.sent().len(), 1);
+    }
+
+    /// The host interval applies between a playlist run and a feed run that
+    /// read one host at the same time.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn adr_0109_host_interval_applies_between_a_playlist_run_and_a_feed_run() {
+        let (conn, playlist_id, feed_ids) = database(&[
+            ("https://host.test/r903/one.xml", 1),
+            ("https://host.test/r903/two.xml", 0),
+        ]);
+        let clock = FakeClock::new();
+        let fetcher = FakeFetcher::new(Arc::clone(&clock), etag_response);
+        let session = SessionLifecycle::new();
+        let handle = start(&conn, &fetcher, &clock, &session);
+
+        assert!(handle.start(playlist_id, RssCheckTrigger::Button));
+        assert!(handle.start_feeds(vec![feed_ids[1]], RssCheckTrigger::FeedUpdate));
+        finished(&handle, playlist_id).await;
+        wait_for(&handle, |snapshot| snapshot.feed_runs_finished() == 1).await;
+
+        let sent = fetcher.sent();
+        assert_eq!(sent.len(), 2);
+        assert!(
+            sent[1].at >= sent[0].at + MIN_HOST_INTERVAL,
+            "the second run read the host after {:?}, the first after {:?}",
+            sent[1].at,
+            sent[0].at
+        );
+        assert_eq!(fetcher.active().1, 1, "one request at a time for one host");
+    }
+
+    /// Criterion 9: a feed run reloads the marks of a loaded playlist that
+    /// has one of the feeds.
+    #[tokio::test(flavor = "current_thread")]
+    async fn adr_0109_feed_run_reloads_the_marks_of_a_loaded_playlist() {
+        let url = "https://a.test/r904/feed.xml";
+        let (conn, playlist_id, feed_ids) = database(&[(url, 1)]);
+        let clock = FakeClock::new();
+        let fetcher = FakeFetcher::new(Arc::clone(&clock), |url| response(url, 304, &[], None));
+        let session = SessionLifecycle::new();
+        let handle = start(&conn, &fetcher, &clock, &session);
+        assert!(handle.load(playlist_id));
+        wait_for(&handle, |snapshot| {
+            snapshot.removed_marks.contains_key(&playlist_id)
+        })
+        .await;
+        let track_id: i64 = {
+            let conn = conn.lock().unwrap();
+            let track_id = conn
+                .query_row("SELECT min(id) FROM tracks", [], |row| row.get(0))
+                .unwrap();
+            conn.execute(
+                "UPDATE tracks SET removed_from_feed_at = ?2 WHERE id = ?1",
+                rusqlite::params![track_id, 1_790_000_000_000_000_i64],
+            )
+            .unwrap();
+            track_id
+        };
+        assert!(handle
+            .latest()
+            .removed_mark(playlist_id, track_id)
+            .is_none());
+
+        assert!(handle.start_feeds(feed_ids, RssCheckTrigger::FeedUpdate));
+        wait_for(&handle, |snapshot| snapshot.feed_runs_finished() == 1).await;
+
+        assert!(handle
+            .latest()
+            .removed_mark(playlist_id, track_id)
+            .is_some());
+        assert!(
+            handle.latest().run(playlist_id).is_none(),
+            "a feed run adds no playlist run to the snapshot"
+        );
     }
 }

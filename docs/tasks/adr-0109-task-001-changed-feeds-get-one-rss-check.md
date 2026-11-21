@@ -2,7 +2,7 @@
 
 ## Status
 
-Open - 2026-11-21. ADR 0108 task 001 must be complete first, because it adds migration 29.
+Implemented - 2026-11-21. The visual criteria V1 and V2 stay open in section 49 of the pending human checks.
 
 ## Goal
 
@@ -85,4 +85,40 @@ These go in section 49 of [pending human checks](../pending-human-checks.md).
 
 ## Report
 
-Write the report here when the task is complete. Name each changed file, the method of the host interval between two runs, and each criterion with its test name.
+### Changed files
+
+- `src/application/commands/feed.rs`: `check_feed_batch_for_updates` runs `PARALLEL_DETAIL_READS` workers with an atomic work index. Each call has its own recorder and receipt list, and the receipts join in the input order. `ApplyFeedUpdatesResult` and `CheckFeedsAndRepairRoutesResult` give `changed_feed_ids`. The observation tests follow the new rule. The new module `parallel_tests` holds the tests of criteria 1 to 5.
+- `src/feed_service.rs`: `apply_feed_updates` no longer calls `merge_track_context_with_recorder`. The new `fetch_track_details` sends the track detail requests in parallel. The database writes keep the input order of the tracks. `merge_track_context_with_recorder` stays, because other code and tests call it.
+- `src/runtime/playlist_rss_check.rs`: `PlaylistRssCheckMessage::StartFeeds`, `PlaylistRssCheckHandle::start_feeds`, `run_feed_check`, the snapshot counter `feed_runs_finished`, and the shared host gate. The new module `feed_run_tests` holds the runtime tests.
+- `src/db/rss_check_runs.rs`: migration 30 (`apply_feed_runs`), `RssCheckTrigger::FeedUpdate`, `insert_feed_run`, `feeds_to_check` and `playlists_with_feeds`.
+- `src/db.rs`: migration 30 in the registry, `CURRENT_VERSION` is 30, and two test helpers for the write order.
+- `src/library/app_impl.rs`: `start_feed_rss_checks` sends the changed feed ids after "Check all feeds" and after "Update all feeds". The snapshot watcher starts the tag scan when a feed run ends.
+- Version numbers: `src/db/maintenance/upgrade.rs`, `src/db/upgrades.rs`, `src/db/playlist_order.rs`, `src/view_models/startup/database.rs`. `src/view_models/playlist_rss_check.rs` gives the summary text of the new trigger.
+- `tests/architecture_tests.rs`: the guard `adr_0075_feed_observation_roots_and_consumers_are_guarded` follows ADR 0109.
+- `docs/tasks/adr-0075-task-039-feed-check-and-update-observation-retention.md` and `docs/pending-human-checks.md` (section 49).
+
+### Host interval between two runs
+
+`CheckContext` holds one gate for each host and one semaphore for the four hosts. Each run uses the same context. A run takes the gate of a host before the wait for the interval, and it keeps the gate until the answer arrives. Thus one request at a time goes to a host across all runs. The interval of 2 s, or the `Retry-After` of the earlier answer, applies between a playlist run and a feed run. This needed no large change.
+
+### Criteria
+
+1. `adr_0109_staleness_check_runs_in_parallel_in_input_order_with_own_receipts`
+2. `adr_0109_cancel_stops_new_staleness_calls_and_keeps_started_receipts`
+3. `adr_0109_staleness_check_runs_in_parallel_in_input_order_with_own_receipts`
+4. `adr_0109_update_sends_no_rss_request_and_writes_tracks_in_input_order`
+5. `adr_0109_results_give_ids_of_changed_feeds_and_not_failed_feeds`
+6. `adr_0109_start_feeds_sends_one_get_for_each_feed_and_records_a_feed_run`. The test `adr_0109_host_interval_applies_between_a_playlist_run_and_a_feed_run` covers the host interval.
+7. `adr_0109_start_feeds_with_an_empty_list_records_no_run`
+8. `adr_0109_migration_30_keeps_runs_and_accepts_a_run_with_no_playlist`. The registry guards in `architecture_tests` pass.
+9. `adr_0109_feed_run_reloads_the_marks_of_a_loaded_playlist`
+10. The six `adr_0075_feed_observation_*` tests and the guard `adr_0075_feed_observation_roots_and_consumers_are_guarded` follow the new rules.
+11. The checks of AGENTS.md pass (see the report of the agent).
+
+### Deviations and open points
+
+- `apply_feed_updates` has no cancel token. Decision 2.6 (a cancel stops new track detail calls in one feed) does not apply there. The command loop examines the cancel token between feeds.
+- If a track detail call has a storage error, the function returns the error before it writes the tracks of that feed. The earlier code wrote the tracks before the failing track.
+- `invalidate_feed_document` stays in `apply_feed_updates`, as the task allows.
+- The RSS part of the reopen test is deleted, not moved. The test of criterion 6 covers the RSS values of a feed run.
+- The guard counts two drains of a recorder in the feed commands: the command recorder and the recorder of each parallel call (ADR 0109 Decision 2.4).

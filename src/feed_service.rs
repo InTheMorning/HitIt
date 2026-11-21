@@ -471,10 +471,10 @@ pub fn check_feed_staleness(
 ///
 /// This function's own feed fetch, and each track's detail fetch inside
 /// the loop below, route through the owner's receipts-carrying methods
-/// (R18B-11). Both drain `recorder` for the owner's registry entry, so
-/// `receipts_out` accumulates every one of them; whatever the per-track
-/// RSS enrichment adds afterward stays on `recorder` for this function's
-/// own caller to drain.
+/// (R18B-11). Both drain a recorder for the owner's registry entry, so
+/// `receipts_out` accumulates every one of them. ADR 0109 Decision 1.3: the
+/// update sends no RSS request. The track detail requests run in parallel,
+/// each with its own recorder.
 ///
 /// # Errors
 /// Returns the existing database, merge or transport failure. A provider
@@ -558,32 +558,23 @@ pub fn apply_feed_updates(
         let db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
         library_service::tracks_for_feed(&db, stale.feed_id)?
     };
+    // The update reads the tracks with a downloaded file, as before.
+    // ADR 0076 Decision 8: it writes no audio tag. The tag update scan
+    // of packet 004 offers the file write after this update.
+    let downloaded: Vec<&TrackRow> = tracks
+        .iter()
+        .filter(|track| track.local_path.is_some())
+        .collect();
+    // ADR 0109 Decision 1.3: the update sends no RSS request. The RSS check
+    // of ADR 0076 reads the RSS document of a changed feed after this update.
+    // ADR 0109 Decision 2.2: the detail requests run in parallel. The
+    // database writes below keep the input order of the tracks.
+    let details = fetch_track_details(&downloaded, conn, musicindex_endpoint, receipts_out)?;
     let mut outcome = FeedApplyOutcome::default();
-    for track in &tracks {
-        // The update reads the tracks with a downloaded file, as before.
-        // ADR 0076 Decision 8: it writes no audio tag. The tag update scan
-        // of packet 004 offers the file write after this update.
-        if track.local_path.is_none() {
-            continue;
-        }
-        let detail = propagate_storage_failure(fetch_library_track_detail_with_recorder(
-            track,
-            musicindex_endpoint,
-            Some(Arc::clone(recorder)),
-            crate::application::request_reuse::RefreshIntent::Explicit,
-            receipts_out,
-        ))?;
+    for (track, detail) in downloaded.into_iter().zip(details) {
         let Some((fetched_track, fetched_feed)) = detail else {
             continue;
         };
-        // ADR 0075 packet 039: the RSS enrichment of the merge retains its
-        // observation. The merged context is not used for a tag write.
-        merge_track_context_with_recorder(
-            track,
-            fetched_track.clone(),
-            fetched_feed.clone(),
-            Some(recorder.as_ref()),
-        )?;
         let mut db = conn.lock().map_err(|_| anyhow!("database lock poisoned"))?;
         if let Some(feed) = fetched_feed.as_ref() {
             identity_ingest::persist_musicindex_feed(&mut db, stale.feed_id, feed)?;
@@ -598,6 +589,87 @@ pub fn apply_feed_updates(
         db::set_feed_musicindex_updated_at(&db, stale.feed_id, stale.new_updated_at)?;
     }
     Ok(outcome)
+}
+
+/// The detail of one track after an explicit request: the `MusicIndex` track
+/// and its feed. `None` after an ordinary failure.
+type TrackDetail = Option<(Option<Track>, Option<Feed>)>;
+
+/// ADR 0109 Decision 2.2: sends the detail requests of the tracks with at
+/// most `PARALLEL_DETAIL_READS` calls at the same time. The pattern is the
+/// one of `fetch_feed_singles_set`: an atomic work index and results in the
+/// input order. Each call has its own recorder and its own receipt list
+/// (Decision 2.4). `receipts_out` gets the receipts in the input order,
+/// also when the function returns an error.
+///
+/// An ordinary failure gives `None` for that track. A provider storage
+/// failure stops the start of new calls. The function then returns the
+/// failure of the first track in the input order that failed.
+fn fetch_track_details(
+    tracks: &[&TrackRow],
+    conn: &Arc<Mutex<Connection>>,
+    musicindex_endpoint: &crate::config::MusicIndexEndpoint,
+    receipts_out: &mut Vec<crate::provider_observation::ObservationReceipt>,
+) -> Result<Vec<TrackDetail>> {
+    use crate::application::queries::PARALLEL_DETAIL_READS;
+    use crate::provider_observation::{propagate_storage_failure, ProviderObservationRecorder};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    type Slot = (
+        Result<TrackDetail>,
+        Vec<crate::provider_observation::ObservationReceipt>,
+    );
+    let next = AtomicUsize::new(0);
+    let storage_failed = AtomicBool::new(false);
+    let slots: Mutex<Vec<Option<Slot>>> =
+        Mutex::new(std::iter::repeat_with(|| None).take(tracks.len()).collect());
+    std::thread::scope(|scope| {
+        for _ in 0..PARALLEL_DETAIL_READS.min(tracks.len()) {
+            scope.spawn(|| loop {
+                if storage_failed.load(Ordering::SeqCst) {
+                    return;
+                }
+                let index = next.fetch_add(1, Ordering::SeqCst);
+                let Some(track) = tracks.get(index) else {
+                    return;
+                };
+                let recorder = Arc::new(ProviderObservationRecorder::new(Arc::clone(conn)));
+                let mut receipts = Vec::new();
+                let detail = propagate_storage_failure(fetch_library_track_detail_with_recorder(
+                    track,
+                    musicindex_endpoint,
+                    Some(Arc::clone(&recorder)),
+                    crate::application::request_reuse::RefreshIntent::Explicit,
+                    &mut receipts,
+                ));
+                receipts.extend(recorder.take_receipts());
+                if detail.is_err() {
+                    storage_failed.store(true, Ordering::SeqCst);
+                }
+                if let Ok(mut slots) = slots.lock() {
+                    slots[index] = Some((detail, receipts));
+                }
+            });
+        }
+    });
+    let slots = slots
+        .into_inner()
+        .map_err(|_| anyhow!("a track detail request stopped"))?;
+    let mut details = Vec::with_capacity(tracks.len());
+    let mut failure = None;
+    for (detail, receipts) in slots.into_iter().flatten() {
+        receipts_out.extend(receipts);
+        match detail {
+            Ok(detail) => details.push(detail),
+            Err(error) => {
+                failure.get_or_insert(error);
+            }
+        }
+    }
+    match failure {
+        Some(error) => Err(error),
+        None => Ok(details),
+    }
 }
 
 /// The tag frame context of a track row without a database connection. It

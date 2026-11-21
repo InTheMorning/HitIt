@@ -1376,10 +1376,13 @@ impl LibraryApp {
                 });
                 // ADR 0076 Decision 8: a check that completes starts the
                 // tag update scan.
+                // ADR 0109 Decision 1: a feed run that ends can change stored
+                // values too, so it starts the scan in the same way.
                 let completed = this.playlist_rss_snapshot.as_ref().is_some_and(|previous| {
                     previous
                         .running_playlists()
                         .any(|playlist_id| !snapshot.is_running(playlist_id))
+                        || previous.feed_runs_finished() != snapshot.feed_runs_finished()
                 });
                 // ADR 0101 Decision 7: a failed feed has no visible action.
                 // Each failure of a run that ended goes to the event list
@@ -3192,6 +3195,7 @@ impl LibraryApp {
                 this.vm.finish_all_feed_check_with_route_repair(repair);
                 this.refresh_current_broadcast_readiness_report(cx);
                 this.scan_tag_updates();
+                this.start_feed_rss_checks(outcome.changed_feed_ids());
             },
             |this, error, cx| {
                 retain_library_query_failure(&mut this.vm, &error);
@@ -3199,6 +3203,22 @@ impl LibraryApp {
                 this.refresh_current_broadcast_readiness_report(cx);
             },
         );
+    }
+
+    /// ADR 0109 Decision 1: each feed that the musicindex update changed gets
+    /// one RSS check after the update. The command is synchronous, so this
+    /// method sends the feed ids to the actor after the command ends. It
+    /// sends nothing when no feed changed.
+    fn start_feed_rss_checks(&self, changed_feed_ids: &[i64]) {
+        if changed_feed_ids.is_empty() {
+            return;
+        }
+        if let Some(checker) = &self.playlist_rss_check {
+            let _ = checker.start_feeds(
+                changed_feed_ids.to_vec(),
+                crate::runtime::RssCheckTrigger::FeedUpdate,
+            );
+        }
     }
 
     pub(crate) fn apply_all_feed_updates(&mut self, cx: &mut Context<Self>) {
@@ -3222,6 +3242,7 @@ impl LibraryApp {
                 // ADR 0076 Decision 8: the feed update changes the database
                 // only. The scan then offers the file write.
                 this.scan_tag_updates();
+                this.start_feed_rss_checks(outcome.changed_feed_ids());
             },
             |this, error, _cx| {
                 retain_library_query_failure(&mut this.vm, &error);

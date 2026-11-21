@@ -1,6 +1,7 @@
 //! Feed command family.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
@@ -19,6 +20,7 @@ use crate::application::events::library::LibraryEvent;
 use crate::application::events::metadata::MetadataEvent;
 use crate::application::events::ApplicationEvent;
 use crate::application::ports::download_manager::{DownloadError, DownloadManager};
+use crate::application::queries::PARALLEL_DETAIL_READS;
 use crate::provider_observation::{ObservationReceipt, ProviderObservationRecorder};
 use crate::subscribe_service::{SubscribeFeedOutcome, SubscribeFeedRequest};
 use crate::{db, feed_service};
@@ -131,6 +133,9 @@ pub struct ApplyFeedUpdatesResult {
     tracks_refreshed: usize,
     feed_errors: Vec<String>,
     message: String,
+    /// The feeds that the update changed without an error, in the input
+    /// order. ADR 0109 Decision 1.1: each gets one RSS check.
+    changed_feed_ids: Vec<i64>,
     /// ADR 0075 keeps committed receipts outside the business value.
     observation_receipts: Vec<ObservationReceipt>,
 }
@@ -144,8 +149,22 @@ impl ApplyFeedUpdatesResult {
             tracks_refreshed,
             feed_errors,
             message,
+            changed_feed_ids: Vec::new(),
             observation_receipts: Vec::new(),
         }
+    }
+
+    /// Sets the ids of the feeds that the update changed without an error.
+    #[must_use]
+    fn with_changed_feed_ids(mut self, changed_feed_ids: Vec<i64>) -> Self {
+        self.changed_feed_ids = changed_feed_ids;
+        self
+    }
+
+    /// Returns the ids of the feeds that the update changed without an error.
+    #[must_use]
+    pub fn changed_feed_ids(&self) -> &[i64] {
+        &self.changed_feed_ids
     }
 
     /// Returns the receipts that this update committed.
@@ -243,41 +262,93 @@ fn assemble_observed_feed_command<T>(
     }
 }
 
+/// The result of one feed call of the staleness check, with its own receipts.
+struct FeedCheckSlot {
+    stale: anyhow::Result<Option<StaleFeed>>,
+    receipts: Vec<ObservationReceipt>,
+}
+
 /// ADR 0075 shares one observed feed-check loop with both check roots.
 ///
-/// Ordinary check failures stay skipped. A provider storage failure stops the
-/// loop with its typed capsule. `receipts_out` accumulates every checked
-/// feed's own receipts (packet 018 R18B-11); see
+/// ADR 0109 Decision 2.1: at most `PARALLEL_DETAIL_READS` calls run at the
+/// same time. The pattern is the one of `fetch_feed_singles_set`: an atomic
+/// work index and results in the input order. Each call has its own
+/// recorder and its own receipt list (Decision 2.4). The function joins the
+/// receipts in the input order, also when it returns an error.
+///
+/// Ordinary check failures stay skipped. A provider storage failure stops
+/// the start of new calls. The function then returns the failure of the
+/// first feed in the input order that failed. A cancel stops the start of
+/// new calls too (Decision 2.6). `receipts_out` accumulates the receipts of
+/// every started call (packet 018 R18B-11); see
 /// `feed_service::check_feed_staleness`'s documentation for why the receipt
-/// does not also survive on `recorder` alone.
+/// does not also survive on a recorder alone.
 fn check_feed_batch_for_updates(
     conn: &SharedConnection,
     musicindex_endpoint: &crate::config::MusicIndexEndpoint,
     feeds: &[db::FeedStaleCheckRow],
-    recorder: &Arc<ProviderObservationRecorder>,
     context: &CommandContext,
     receipts_out: &mut Vec<ObservationReceipt>,
 ) -> Result<Vec<StaleFeed>, CommandError> {
-    let mut stale = Vec::new();
-    for feed in feeds {
-        if context.cancellation().is_cancelled() {
-            return Err(CommandError::Cancelled);
+    let next = AtomicUsize::new(0);
+    let storage_failed = AtomicBool::new(false);
+    let slots: Mutex<Vec<Option<FeedCheckSlot>>> =
+        Mutex::new(std::iter::repeat_with(|| None).take(feeds.len()).collect());
+    std::thread::scope(|scope| {
+        for _ in 0..PARALLEL_DETAIL_READS.min(feeds.len()) {
+            scope.spawn(|| loop {
+                if context.cancellation().is_cancelled() || storage_failed.load(Ordering::SeqCst) {
+                    return;
+                }
+                let index = next.fetch_add(1, Ordering::SeqCst);
+                let Some(feed) = feeds.get(index) else {
+                    return;
+                };
+                let recorder = Arc::new(ProviderObservationRecorder::new(Arc::clone(conn)));
+                let mut receipts = Vec::new();
+                let stale = feed_service::check_feed_staleness(
+                    conn,
+                    musicindex_endpoint,
+                    feed.id,
+                    &recorder,
+                    &mut receipts,
+                );
+                receipts.extend(recorder.take_receipts());
+                if stale
+                    .as_ref()
+                    .err()
+                    .is_some_and(|error| observation_storage_failure(error).is_some())
+                {
+                    storage_failed.store(true, Ordering::SeqCst);
+                }
+                if let Ok(mut slots) = slots.lock() {
+                    slots[index] = Some(FeedCheckSlot { stale, receipts });
+                }
+            });
         }
-        match feed_service::check_feed_staleness(
-            conn,
-            musicindex_endpoint,
-            feed.id,
-            recorder,
-            receipts_out,
-        ) {
+    });
+    let slots = slots
+        .into_inner()
+        .map_err(|_| CommandError::Feed("a feed check stopped".to_owned()))?;
+    let mut stale = Vec::new();
+    let mut failure = None;
+    for slot in slots.into_iter().flatten() {
+        receipts_out.extend(slot.receipts);
+        match slot.stale {
             Ok(Some(entry)) => stale.push(entry),
             Ok(None) => {}
             Err(error) => {
-                if let Some(failure) = observation_storage_failure(&error) {
-                    return Err(CommandError::ObservationWriteFailure(Arc::new(failure)));
+                if failure.is_none() {
+                    failure = observation_storage_failure(&error);
                 }
             }
         }
+    }
+    if let Some(failure) = failure {
+        return Err(CommandError::ObservationWriteFailure(Arc::new(failure)));
+    }
+    if context.cancellation().is_cancelled() {
+        return Err(CommandError::Cancelled);
     }
     Ok(stale)
 }
@@ -298,6 +369,7 @@ fn apply_stale_feed_updates(
 ) -> Result<ApplyFeedUpdatesResult, CommandError> {
     let mut total_tracks = 0usize;
     let mut feed_errors = Vec::new();
+    let mut changed_feed_ids = Vec::new();
     for entry in stale {
         if context.cancellation().is_cancelled() {
             return Err(CommandError::Cancelled);
@@ -312,6 +384,7 @@ fn apply_stale_feed_updates(
         match applied {
             Ok(outcome) => {
                 total_tracks += outcome.tracks_refreshed;
+                changed_feed_ids.push(entry.feed_id);
             }
             Err(error) => {
                 if let Some(failure) = observation_storage_failure(&error) {
@@ -325,7 +398,8 @@ fn apply_stale_feed_updates(
             }
         }
     }
-    Ok(ApplyFeedUpdatesResult::new(total_tracks, feed_errors))
+    Ok(ApplyFeedUpdatesResult::new(total_tracks, feed_errors)
+        .with_changed_feed_ids(changed_feed_ids))
 }
 
 /// Result for checking feeds, applying updates, and repairing route tags.
@@ -381,6 +455,15 @@ impl CheckFeedsAndRepairRoutesResult {
         self.feed_updates.as_ref()
     }
 
+    /// Returns the ids of the feeds that the update changed without an
+    /// error, in the input order (ADR 0109 Decision 1.1).
+    #[must_use]
+    pub(crate) fn changed_feed_ids(&self) -> &[i64] {
+        self.feed_updates
+            .as_ref()
+            .map_or(&[], ApplyFeedUpdatesResult::changed_feed_ids)
+    }
+
     /// Returns the route-repair batch result.
     #[must_use]
     pub(crate) const fn route_repairs(&self) -> &PaymentRouteRepairBatchResult {
@@ -428,7 +511,6 @@ impl ApplicationCommand for CheckFeedsAndRepairRoutes {
                 &self.conn,
                 &self.musicindex_endpoint,
                 &self.feeds,
-                &recorder,
                 context,
                 &mut receipts,
             )?;
@@ -836,20 +918,19 @@ mod tests {
     #[test]
     fn check_feed_batch_empty_input_returns_no_stale_entries() -> anyhow::Result<()> {
         let conn = setup_test_db()?;
-        let recorder = Arc::new(ProviderObservationRecorder::new(Arc::clone(&conn)));
+        let mut receipts = Vec::new();
 
         let stale = check_feed_batch_for_updates(
             &conn,
             &"https://api.example.test".into(),
             &[],
-            &recorder,
             &CommandContext::next(),
-            &mut Vec::new(),
+            &mut receipts,
         )
         .expect("empty batch succeeds");
 
         assert!(stale.is_empty());
-        assert!(recorder.take_receipts().is_empty());
+        assert!(receipts.is_empty());
 
         Ok(())
     }
@@ -1159,9 +1240,6 @@ mod observation_tests {
                             if !route_repair && (mode == 3 || (mode == 6 && count == 2)) {
                                 db.lock().unwrap().execute_batch("CREATE TEMP TRIGGER reject_observation AFTER INSERT ON metadata_observations BEGIN SELECT RAISE(ABORT,'fixture response rejection'); END").unwrap();
                             }
-                            if mode == 7 && path == "/feed.xml" {
-                                db.lock().unwrap().execute_batch("CREATE TEMP TRIGGER reject_rss_observation AFTER INSERT ON metadata_observations BEGIN SELECT RAISE(ABORT,'fixture RSS rejection'); END").unwrap();
-                            }
                             let (status, body) = response(&url, path, mode);
                             write!(
                                 stream,
@@ -1267,12 +1345,6 @@ mod observation_tests {
     fn response(base: &str, path: &str, mode: usize) -> (&'static str, String) {
         let query = path.split('?').nth(1).unwrap_or_default().to_owned();
         let path = path.split('?').next().unwrap();
-        if path == "/feed.xml" {
-            if mode == 8 {
-                return ("503 Service Unavailable", "retained RSS failure".into());
-            }
-            return ("200 OK", "<rss xmlns:podcast=\"https://podcastindex.org/namespace/1.0\"><channel><title>RSS feed</title><podcast:guid>f1</podcast:guid><podcast:txt purpose=\"npub\">npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzqujme</podcast:txt><item><guid>t1</guid><title>RSS title</title><description>RSS description</description><podcast:txt purpose=\"other\">rejected-original</podcast:txt></item></channel></rss>".into());
-        }
         if mode == 1 {
             return (
                 "503 Service Unavailable",
@@ -1394,17 +1466,24 @@ mod observation_tests {
                 result.feed_errors()
             );
             assert_eq!(result.tracks_refreshed(), 1);
+            // ADR 0109 Decision 1.3: the update sends no RSS request.
             assert_eq!(
                 fixture.taken_requests(),
                 vec![
                     format!("/v1/feeds/f1{FEED_INCLUDE}"),
                     format!("/v1/feeds/f1/tracks/t1{TRACK_INCLUDE}"),
                     format!("/v1/feeds/f1{FEED_INCLUDE}"),
-                    "/feed.xml".to_owned(),
                 ],
-                "one feed request plus 2D detail requests and at most D RSS requests"
+                "one feed request plus 2D detail requests and no RSS request"
             );
-            assert_eq!(result.observation_receipts().len(), 4);
+            assert_eq!(result.observation_receipts().len(), 3);
+            assert!(
+                !result
+                    .observation_receipts()
+                    .iter()
+                    .any(|receipt| receipt.request_uri.ends_with("/feed.xml")),
+                "the receipts hold no RSS receipt"
+            );
             assert_eq!(fixture.marker(), Some(200));
             let mutations = mutations.lock().unwrap();
             let legacy: usize = mutations
@@ -1419,7 +1498,7 @@ mod observation_tests {
                 .sum();
             let snapshots = fixture.scalar("SELECT count(*) FROM metadata_snapshots");
             println!(
-                "ADR0075_FEED_UPDATE repetition={repetition} requests=4 legacy_rows={legacy} observation_rows={observation} snapshot_rows={snapshots} transactions={} tables={mutations:?}",
+                "ADR0075_FEED_UPDATE repetition={repetition} requests=3 legacy_rows={legacy} observation_rows={observation} snapshot_rows={snapshots} transactions={} tables={mutations:?}",
                 fixture.commits.load(Ordering::SeqCst)
             );
             assert!(legacy > 0, "legacy persistence keeps its existing writes");
@@ -1481,7 +1560,6 @@ mod observation_tests {
         assert!(bodies.iter().any(|body| body.contains("unknown_member")));
         assert!(bodies.iter().any(|body| body.contains("{broken JSON")));
         assert!(bodies.iter().any(|body| body.contains("retained failure")));
-        assert!(bodies.iter().any(|body| body.contains("rejected-original")));
         assert_eq!(
             reopened
                 .query_row(
@@ -1492,38 +1570,6 @@ mod observation_tests {
                 .unwrap(),
             2,
             "a malformed body and a failed response both stay retained"
-        );
-        // The RSS contract accepts only the checked identity collections.
-        let collections: Vec<String> = reopened
-            .prepare(
-                "SELECT DISTINCT collection FROM metadata_coverage WHERE observation_id IN \
-                 (SELECT id FROM metadata_observations WHERE provider_id IN \
-                 (SELECT id FROM metadata_providers WHERE kind='rss'))",
-            )
-            .unwrap()
-            .query_map([], |row| row.get(0))
-            .unwrap()
-            .collect::<std::result::Result<_, _>>()
-            .unwrap();
-        let contracted: Vec<String> = reopened
-            .prepare(
-                "SELECT DISTINCT collection FROM metadata_coverage WHERE contract_id IS NOT NULL \
-                 AND observation_id IN (SELECT id FROM metadata_observations WHERE provider_id IN \
-                 (SELECT id FROM metadata_providers WHERE kind='rss'))",
-            )
-            .unwrap()
-            .query_map([], |row| row.get(0))
-            .unwrap()
-            .collect::<std::result::Result<_, _>>()
-            .unwrap();
-        assert_eq!(
-            contracted,
-            vec!["source_ids".to_owned()],
-            "only the approved identity collection carries a contract"
-        );
-        assert!(
-            collections.len() > contracted.len(),
-            "RSS still retains its other observed evidence: {collections:?}"
         );
     }
 
@@ -1593,21 +1639,6 @@ mod observation_tests {
         assert_eq!(failure.receipts.len(), 1);
         assert!(failure.write_failure.is_some());
         assert_eq!(fixture.taken_requests().len(), 2);
-
-        // An RSS storage failure stops the track before its legacy write.
-        let fixture = Fixture::start();
-        fixture.mode.store(7, Ordering::SeqCst);
-        let error = fixture.apply().unwrap_err();
-        let CommandError::ObservationWriteFailure(failure) = &error else {
-            panic!("typed storage failure required, found {error:?}")
-        };
-        assert_eq!(
-            failure.receipts.len(),
-            3,
-            "three Index receipts stay retained"
-        );
-        assert_eq!(std::fs::read(&path).unwrap(), before);
-        assert_eq!(fixture.marker(), Some(100));
     }
 
     /// F39-05, F39-06, F39-10: ordinary failures keep their skips and messages.
@@ -1618,18 +1649,17 @@ mod observation_tests {
 
         // An ordinary batch-check failure stays skipped after retention.
         fixture.mode.store(1, Ordering::SeqCst);
-        let recorder = Arc::new(ProviderObservationRecorder::new(Arc::clone(&fixture.conn)));
+        let mut receipts = Vec::new();
         let stale = check_feed_batch_for_updates(
             &fixture.conn,
             &fixture.endpoint,
             &fixture.feed_rows(),
-            &recorder,
             &fixture.context(),
-            &mut Vec::new(),
+            &mut receipts,
         )
         .unwrap();
         assert!(stale.is_empty());
-        assert_eq!(recorder.take_receipts().len(), 1);
+        assert_eq!(receipts.len(), 1);
 
         // A single-feed root keeps its feed error family and its receipts.
         let error = fixture.check_one().unwrap_err();
@@ -1646,8 +1676,8 @@ mod observation_tests {
         let result = fixture.apply().unwrap();
         assert_eq!(result.tracks_refreshed(), 0);
         assert_eq!(result.feed_errors().len(), 0);
-        // The update sequence keeps its four requests. Each failed response leaves
-        // its own receipt.
+        // A failed response leaves its own receipt. The failed first request
+        // is sent again, so the update sends four requests and keeps four receipts.
         assert_eq!(result.observation_receipts().len(), 4);
         assert_eq!(
             fixture.marker(),
@@ -1667,8 +1697,8 @@ mod observation_tests {
             result.message(),
             "Stored the Music Index record of 1 track. No audio file changed"
         );
-        assert_eq!(fixture.taken_requests().len(), 4);
-        assert_eq!(result.observation_receipts().len(), 4);
+        assert_eq!(fixture.taken_requests().len(), 3);
+        assert_eq!(result.observation_receipts().len(), 3);
         assert_eq!(fixture.marker(), Some(200));
     }
 
@@ -1683,19 +1713,15 @@ mod observation_tests {
 
         let fixture = Fixture::start();
         fixture.cancel_after.store(1, Ordering::SeqCst);
-        let recorder = Arc::new(ProviderObservationRecorder::new(Arc::clone(&fixture.conn)));
         let mut receipts = Vec::new();
         let result = check_feed_batch_for_updates(
             &fixture.conn,
             &fixture.endpoint,
-            &[
-                fixture.feed_rows()[0].clone(),
-                fixture.feed_rows()[0].clone(),
-            ],
-            &recorder,
+            &fixture.feed_rows(),
             &fixture.context(),
             &mut receipts,
         );
+        let recorder = ProviderObservationRecorder::new(Arc::clone(&fixture.conn));
         let error = assemble_observed_feed_command(
             &recorder,
             result,
@@ -1793,7 +1819,7 @@ mod observation_tests {
             Arc::clone(&fixture.conn),
             fixture.endpoint.clone(),
             directory.path().to_owned(),
-            [feeds[0].clone(), feeds[0].clone()].to_vec(),
+            feeds,
         )
         .execute(&fixture.context())
         .unwrap_err();
@@ -1842,5 +1868,364 @@ mod observation_tests {
         };
         assert_eq!(failure.receipts().len(), 2);
         assert_eq!(failure.message(), "query cause");
+    }
+}
+
+/// ADR 0109 task 001: parallel staleness checks, parallel track detail
+/// requests and the ids of the changed feeds.
+#[cfg(test)]
+mod parallel_tests {
+    use super::*;
+    use serde_json::json;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::AtomicBool;
+    use std::time::Duration;
+
+    use crate::application::command_context::{
+        CancellationToken, CommandContext, OperationId, TraceId,
+    };
+
+    /// A MusicIndex server with one thread for each connection. It counts the
+    /// requests that run at the same time.
+    struct Server {
+        base: String,
+        requests: Arc<Mutex<Vec<String>>>,
+        peak: Arc<AtomicUsize>,
+        stop: Arc<AtomicBool>,
+        /// The server cancels this token when the request count reaches the value.
+        cancel_at: Arc<AtomicUsize>,
+    }
+
+    impl Server {
+        fn start(token: CancellationToken) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let requests = Arc::new(Mutex::new(Vec::<String>::new()));
+            let active = Arc::new(AtomicUsize::new(0));
+            let peak = Arc::new(AtomicUsize::new(0));
+            let stop = Arc::new(AtomicBool::new(false));
+            let cancel_at = Arc::new(AtomicUsize::new(0));
+            let shared = (
+                base.clone(),
+                Arc::clone(&requests),
+                Arc::clone(&active),
+                Arc::clone(&peak),
+                Arc::clone(&stop),
+                Arc::clone(&cancel_at),
+            );
+            std::thread::spawn(move || {
+                let (base, requests, active, peak, stop, cancel_at) = shared;
+                while !stop.load(Ordering::SeqCst) {
+                    match listener.accept() {
+                        Ok((stream, _)) => {
+                            let base = base.clone();
+                            let requests = Arc::clone(&requests);
+                            let active = Arc::clone(&active);
+                            let peak = Arc::clone(&peak);
+                            let token = token.clone();
+                            let cancel_at = Arc::clone(&cancel_at);
+                            std::thread::spawn(move || {
+                                Self::serve(
+                                    stream, &base, &requests, &active, &peak, &token, &cancel_at,
+                                );
+                            });
+                        }
+                        Err(_) => std::thread::sleep(Duration::from_millis(2)),
+                    }
+                }
+            });
+            Self {
+                base,
+                requests,
+                peak,
+                stop,
+                cancel_at,
+            }
+        }
+
+        fn serve(
+            mut stream: std::net::TcpStream,
+            base: &str,
+            requests: &Mutex<Vec<String>>,
+            active: &AtomicUsize,
+            peak: &AtomicUsize,
+            token: &CancellationToken,
+            cancel_at: &AtomicUsize,
+        ) {
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            stream.set_nonblocking(false).unwrap();
+            let mut bytes = Vec::new();
+            let mut buffer = [0; 4096];
+            while !bytes.windows(4).any(|window| window == b"\r\n\r\n") {
+                match stream.read(&mut buffer) {
+                    Ok(0) | Err(_) => break,
+                    Ok(read) => bytes.extend_from_slice(&buffer[..read]),
+                }
+            }
+            let request = String::from_utf8_lossy(&bytes);
+            let Some(path) = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .map(str::to_owned)
+            else {
+                return;
+            };
+            let count = {
+                let mut requests = requests.lock().unwrap();
+                requests.push(path.clone());
+                requests.len()
+            };
+            let now = active.fetch_add(1, Ordering::SeqCst) + 1;
+            peak.fetch_max(now, Ordering::SeqCst);
+            let limit = cancel_at.load(Ordering::SeqCst);
+            if limit > 0 && count >= limit {
+                token.cancel();
+            }
+            let (route, query) = path.split_once('?').unwrap_or((path.as_str(), ""));
+            let guid = route.rsplit('/').next().unwrap_or_default();
+            // Earlier tracks answer later, so the completion order differs
+            // from the input order.
+            let delay = if route.contains("/tracks/") {
+                let number: u64 = guid.trim_start_matches('t').parse().unwrap_or(0);
+                60 * 6u64.saturating_sub(number)
+            } else {
+                80
+            };
+            std::thread::sleep(Duration::from_millis(delay));
+            let body = if route.contains("/tracks/") {
+                json!({"data":{"track_guid":guid,"feed_guid":"g1",
+                    "feed_url":format!("{base}/feed.xml"),
+                    "title":format!("Index {guid}"),
+                    "description":format!("Description {guid}")}})
+            } else if query.is_empty() {
+                json!({"data":{"feed_guid":guid,"updated_at":200}})
+            } else {
+                json!({"data":{"feed_guid":guid,"feed_url":format!("{base}/{guid}.xml"),
+                    "title":"Index feed","source_links":[],"source_ids":[],
+                    "source_contributors":[]}})
+            }
+            .to_string();
+            let _ = write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            active.fetch_sub(1, Ordering::SeqCst);
+        }
+
+        fn requests(&self) -> Vec<String> {
+            self.requests.lock().unwrap().clone()
+        }
+    }
+
+    impl Drop for Server {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn database(server: &Server, feeds: usize, tracks_in_feed_one: usize) -> SharedConnection {
+        let conn = Connection::open_in_memory().unwrap();
+        db::upgrades::create_fixture(&conn, db::CURRENT_VERSION).unwrap();
+        for number in 1..=feeds {
+            conn.execute(
+                "INSERT INTO feeds(feed_url,feed_guid,title,is_subscribed,musicindex_updated_at)
+                 VALUES(?1,?2,?3,1,100)",
+                rusqlite::params![
+                    format!("{}/g{number}.xml", server.base),
+                    format!("g{number}"),
+                    format!("Feed {number}")
+                ],
+            )
+            .unwrap();
+        }
+        for number in 1..=tracks_in_feed_one {
+            conn.execute(
+                "INSERT INTO tracks(feed_id,item_guid,track_title,is_in_library) VALUES(1,?1,'Local',1)",
+                [format!("t{number}")],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO local_files(path,track_id) VALUES(?1,?2)",
+                rusqlite::params![format!("t{number}.mp3"), number as i64],
+            )
+            .unwrap();
+        }
+        Arc::new(Mutex::new(conn))
+    }
+
+    fn context(token: &CancellationToken) -> CommandContext {
+        CommandContext::new(OperationId::new(1), token.clone(), TraceId::new(1))
+    }
+
+    fn rows(conn: &SharedConnection) -> Vec<db::FeedStaleCheckRow> {
+        let conn = conn.lock().unwrap();
+        db::subscribed_feeds_for_stale_check(&conn).unwrap()
+    }
+
+    fn stale_entry(feed_id: i64) -> StaleFeed {
+        StaleFeed {
+            feed_id,
+            feed_guid: format!("g{feed_id}"),
+            title: Some(format!("Feed {feed_id}")),
+            new_updated_at: 200,
+        }
+    }
+
+    /// ADR 0109 task 001 criteria 1 and 3: nine feeds give the stale list in
+    /// the input order, at most four requests run at the same time, and the
+    /// receipts of each feed hold the observation of that feed.
+    #[test]
+    fn adr_0109_staleness_check_runs_in_parallel_in_input_order_with_own_receipts() {
+        let token = CancellationToken::new();
+        let server = Server::start(token.clone());
+        let conn = database(&server, 9, 0);
+        let feeds = rows(&conn);
+        let mut receipts = Vec::new();
+
+        let stale = check_feed_batch_for_updates(
+            &conn,
+            &crate::config::MusicIndexEndpoint::from(server.base.clone()),
+            &feeds,
+            &context(&token),
+            &mut receipts,
+        )
+        .unwrap();
+
+        let ids: Vec<i64> = stale.iter().map(|entry| entry.feed_id).collect();
+        let expected: Vec<i64> = feeds.iter().map(|feed| feed.id).collect();
+        assert_eq!(ids, expected, "the stale list keeps the input order");
+        let peak = server.peak.load(Ordering::SeqCst);
+        assert!(peak <= PARALLEL_DETAIL_READS, "peak was {peak}");
+        assert!(peak > 1, "the requests did not run in parallel");
+        assert_eq!(server.requests().len(), 9);
+        assert_eq!(receipts.len(), 9);
+        for (receipt, feed) in receipts.iter().zip(&feeds) {
+            assert!(
+                receipt
+                    .request_uri
+                    .ends_with(&format!("/v1/feeds/{}", feed.feed_guid)),
+                "receipt {} does not belong to {}",
+                receipt.request_uri,
+                feed.feed_guid
+            );
+        }
+    }
+
+    /// ADR 0109 task 001 criterion 2: a cancel stops the start of new calls.
+    /// The receipts of the started calls stay.
+    #[test]
+    fn adr_0109_cancel_stops_new_staleness_calls_and_keeps_started_receipts() {
+        let token = CancellationToken::new();
+        let server = Server::start(token.clone());
+        server.cancel_at.store(2, Ordering::SeqCst);
+        let conn = database(&server, 9, 0);
+        let mut receipts = Vec::new();
+
+        let result = check_feed_batch_for_updates(
+            &conn,
+            &crate::config::MusicIndexEndpoint::from(server.base.clone()),
+            &rows(&conn),
+            &context(&token),
+            &mut receipts,
+        );
+
+        assert_eq!(result.unwrap_err(), CommandError::Cancelled);
+        let sent = server.requests().len();
+        assert!((2..=PARALLEL_DETAIL_READS).contains(&sent), "sent {sent}");
+        assert_eq!(receipts.len(), sent, "each started call keeps its receipt");
+    }
+
+    /// ADR 0109 task 001 criterion 4: the update sends no RSS request. The
+    /// track writes keep the input order of the tracks.
+    #[test]
+    fn adr_0109_update_sends_no_rss_request_and_writes_tracks_in_input_order() {
+        let token = CancellationToken::new();
+        let server = Server::start(token.clone());
+        let conn = database(&server, 1, 5);
+        db::log_track_fact_writes(&conn.lock().unwrap()).unwrap();
+        let recorder = Arc::new(ProviderObservationRecorder::new(Arc::clone(&conn)));
+        let mut receipts = Vec::new();
+
+        let outcome = feed_service::apply_feed_updates(
+            &conn,
+            &crate::config::MusicIndexEndpoint::from(server.base.clone()),
+            &stale_entry(1),
+            &recorder,
+            &mut receipts,
+        )
+        .unwrap();
+
+        assert_eq!(outcome.tracks_refreshed, 5);
+        let requests = server.requests();
+        assert_eq!(
+            requests.len(),
+            11,
+            "one feed request and two requests for each of five tracks"
+        );
+        assert!(
+            requests.iter().all(|path| path.starts_with("/v1/")),
+            "the update sent a request that is not a MusicIndex request: {requests:?}"
+        );
+        assert_eq!(receipts.len(), 11);
+        assert!(server.peak.load(Ordering::SeqCst) > 1);
+        let written = db::track_fact_write_order(&conn.lock().unwrap()).unwrap();
+        assert_eq!(written, vec![1, 2, 3, 4, 5], "writes keep the input order");
+    }
+
+    /// ADR 0109 task 001 criterion 5: the results give the ids of the feeds
+    /// that changed without an error, and not the ids of the feeds that failed.
+    #[test]
+    fn adr_0109_results_give_ids_of_changed_feeds_and_not_failed_feeds() {
+        let token = CancellationToken::new();
+        let server = Server::start(token.clone());
+        let conn = database(&server, 3, 0);
+        conn.lock()
+            .unwrap()
+            .execute_batch(
+                "CREATE TEMP TRIGGER fail_feed_two BEFORE UPDATE OF musicindex_updated_at ON feeds
+                 WHEN NEW.id = 2 BEGIN SELECT RAISE(ABORT, 'fixture feed failure'); END",
+            )
+            .unwrap();
+        let endpoint = crate::config::MusicIndexEndpoint::from(server.base.clone());
+
+        let applied = ApplyFeedUpdates::new(
+            Arc::clone(&conn),
+            endpoint.clone(),
+            vec![stale_entry(1), stale_entry(2), stale_entry(3)],
+        )
+        .execute(&context(&token))
+        .unwrap()
+        .into_parts()
+        .0;
+        assert_eq!(applied.changed_feed_ids(), &[1, 3]);
+        assert_eq!(applied.feed_errors().len(), 1);
+
+        // Feeds 1 and 3 are now current. Reset them, so the combined command
+        // finds all three feeds stale.
+        conn.lock()
+            .unwrap()
+            .execute(
+                "UPDATE feeds SET musicindex_updated_at = 100 WHERE id <> 2",
+                [],
+            )
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let combined = CheckFeedsAndRepairRoutes::new(
+            Arc::clone(&conn),
+            endpoint,
+            directory.path().to_owned(),
+            rows(&conn),
+        )
+        .execute(&context(&token))
+        .unwrap()
+        .into_parts()
+        .0;
+        assert_eq!(combined.changed_feed_ids(), &[1, 3]);
     }
 }

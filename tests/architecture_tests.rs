@@ -18387,7 +18387,6 @@ under an explicit refresh intent.";
         ".fetch_feed_with_receipts(key, RefreshIntent::Explicit, || {",
         "propagate_storage_failure(fetch_library_track_detail_with_recorder(",
         "RefreshIntent::Explicit,",
-        "merge_track_context_with_recorder(",
         "set_feed_musicindex_updated_at(&db, stale.feed_id, stale.new_updated_at)?",
     ] {
         if !update.contains(required) {
@@ -18396,13 +18395,20 @@ under an explicit refresh intent.";
             ));
         }
     }
+    // ADR 0109 Decision 1.3: the update sends no RSS request. The RSS check of
+    // ADR 0076 reads the RSS document of a changed feed after the update.
+    if update.contains("merge_track_context_with_recorder(") {
+        violations.push(
+            "ADR 0109 Decision 1.3: apply_feed_updates must not call the RSS enrichment \
+`merge_track_context_with_recorder`. Remove the call. The RSS check of ADR 0076 reads the RSS \
+of a changed feed through `PlaylistRssCheckMessage::StartFeeds`."
+                .to_owned(),
+        );
+    }
     for (earlier, later) in [
+        // ADR 0109 Decision 2.2: the detail requests run before the writes.
         (
-            "propagate_storage_failure(fetch_library_track_detail_with_recorder(",
-            "merge_track_context_with_recorder(",
-        ),
-        (
-            "merge_track_context_with_recorder(",
+            "fetch_track_details(&downloaded,",
             "persist_musicindex_track(",
         ),
         // ADR 0076 Decision 8: the update writes no tag. The guard
@@ -18432,11 +18438,29 @@ under an explicit refresh intent.";
             "src/application/commands/feed.rs: the dead subscribed-feed command stays deleted. {FIX}"
         ));
     }
+    // ADR 0109 Decision 2.4: each parallel staleness call has its own recorder
+    // and drains it once. The command recorder keeps its one drain.
     assert_eq!(
         production.matches("take_receipts()").count(),
-        1,
-        "ADR 0075 packet 039: feed commands drain the recorder in one place. {FIX}"
+        2,
+        "ADR 0109 Decision 2.4: the feed commands drain the command recorder in one place, and \
+`check_feed_batch_for_updates` drains the recorder of each parallel call once. Do not add a \
+third drain; give a new parallel call its own recorder and join its receipts in the input order."
     );
+    if !source_between(
+        production,
+        "fn check_feed_batch_for_updates(",
+        "fn apply_stale_feed_updates(",
+    )
+    .contains("recorder.take_receipts()")
+    {
+        violations.push(
+            "ADR 0109 Decision 2.4: `check_feed_batch_for_updates` must drain the own recorder of \
+each parallel call. Create one `ProviderObservationRecorder` for each call and join the receipts \
+in the input order."
+                .to_owned(),
+        );
+    }
     assert_eq!(
         production
             .matches("ProviderObservationRecorder::new(Arc::clone(&self.conn))")

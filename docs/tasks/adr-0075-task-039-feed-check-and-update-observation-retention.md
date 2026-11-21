@@ -5,6 +5,8 @@ Root accepted the code and tests after seven test corrections. The normal binary
 Packet 038 is complete. The Root Compatibility Review section below records the five applied instructions.
 Visual gates remain open and paused. Do not request a visual batch.
 
+[ADR 0109](../adr/0109-check-all-feeds-reads-rss-of-changed-feeds.md) Decision 1.3 changes the scope of this packet. The feed update no longer merges the RSS of each track. The RSS check of ADR 0076 reads the RSS of a changed feed. Where this packet gives an RSS read or an RSS receipt for the feed update, ADR 0109 applies.
+
 ## Goal
 
 Retain provider observations from feed checks and explicit feed updates through the existing shared writer.

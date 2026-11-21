@@ -3046,7 +3046,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 29;
+pub(crate) const CURRENT_VERSION: i64 = 30;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -3193,6 +3193,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 29,
         name: "tag_update_skips",
         apply: tag_update_skips::apply,
+    },
+    Migration {
+        version: 30,
+        name: "rss_check_feed_runs",
+        apply: rss_check_runs::apply_feed_runs,
     },
 ];
 
@@ -4517,6 +4522,31 @@ pub(crate) fn refuse_local_metadata_fact_key(conn: &Connection, fact_key: &str) 
     .context("create fact refusal trigger")
 }
 
+/// Test helper of ADR 0109 task 001: logs the track of each stored metadata
+/// fact in write order. `track_fact_write_order` reads the log.
+#[cfg(test)]
+pub(crate) fn log_track_fact_writes(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TEMP TABLE track_fact_write_log(seq INTEGER PRIMARY KEY, track_id INTEGER);
+         CREATE TEMP TRIGGER log_track_fact_write AFTER INSERT ON entity_metadata_facts
+         WHEN NEW.track_id IS NOT NULL
+         BEGIN INSERT INTO track_fact_write_log(track_id) VALUES (NEW.track_id); END",
+    )?;
+    Ok(())
+}
+
+/// Test helper of ADR 0109 task 001: the tracks of the logged fact writes, in
+/// write order, with each run of the same track kept once.
+#[cfg(test)]
+pub(crate) fn track_fact_write_order(conn: &Connection) -> Result<Vec<i64>> {
+    let mut statement = conn.prepare("SELECT track_id FROM track_fact_write_log ORDER BY seq")?;
+    let mut order = statement
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<i64>>>()?;
+    order.dedup();
+    Ok(order)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5681,7 +5711,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26, 27, 28, 29
+                24, 25, 26, 27, 28, 29, 30
             ],
             "cleanup migration should be recorded exactly once"
         );
@@ -6763,8 +6793,14 @@ mod tests {
             [], |row| row.get(0),
         )?;
         assert_eq!(foreign_key, "CASCADE");
-        assert_eq!(inspect_schema(&conn)?, SchemaCompatibility::Current);
-        upgrades::verify_target(&conn, CURRENT_VERSION)?;
+        assert_eq!(
+            inspect_schema(&conn)?,
+            SchemaCompatibility::UpgradeRequired {
+                applied: 29,
+                current: CURRENT_VERSION as usize
+            }
+        );
+        upgrades::verify_target(&conn, 29)?;
         Ok(())
     }
 }
