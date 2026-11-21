@@ -2,7 +2,7 @@
 
 ## Status
 
-Open - 2026-11-21. Task 001 must be complete first.
+Implemented - 2026-11-21. The visual criteria are open in section 48 of the pending human checks.
 
 ## Goal
 
@@ -90,4 +90,44 @@ These go in section 48 of [pending human checks](../pending-human-checks.md).
 
 ## Report
 
-Write the report here when the task is complete. Name each changed file and each criterion with its test name.
+Changed files:
+
+- `src/view_models/tag_update.rs`: `TagUpdateSelection`, `TagUpdateCheck`, `TagUpdateCheckState`, the popup check boxes, the section "Skipped (n)", `skip_count` and the control for skips only in `button`.
+- `src/ui/composites/confirmation_dialog.rs`: check boxes, `confirm_enabled`, the folded section, the two new handlers and `open_confirmation_dialog_from`.
+- `src/ui/composites/mod.rs`, `src/app/show.rs` and four shells: the new fields of the display and the item, with the old values.
+- `src/ui/shells/tag_update_confirmation.rs`: maps the display and the handlers.
+- `src/library.rs` and `src/library/app_impl.rs`: the selection, the check handlers, and the confirm with the plan.
+- `src/view_models/status_bar.rs`: one test. The files item gets the label from `button`.
+- `src/application/queries/tag_update.rs`: `skips_for_groups` is no longer `#[cfg(test)]`.
+- `docs/pending-human-checks.md`: section 48.
+
+Mechanical criteria and their tests:
+
+1. `adr_0108_selection_starts_with_each_open_group_selected_and_each_skip_cleared`
+2. `adr_0108_selection_file_box_is_mixed_when_one_group_is_cleared`
+3. `adr_0108_selection_plan_writes_selected_groups_and_skips_cleared_ones`
+4. `adr_0108_selection_with_all_groups_cleared_confirms_only_the_skips`
+5. `adr_0108_selection_with_only_skips_needs_a_selected_skip`
+6. `adr_0108_selection_two_changes_of_one_group_are_one_line`
+7. `adr_0108_popup_gives_no_check_box_to_a_file_in_use_or_unreadable`
+8. `adr_0108_popup_skipped_section_counts_groups_and_shows_values`
+9. `adr_0108_button_for_skips_only_shows_the_skip_count` and `adr_0108_files_item_shows_skipped_changes_when_no_file_remains`
+10. `adr_0076_tag_update_presenter_maps_files_to_dialog_items` (changed only for the new fields) and `adr_0108_confirmation_section_shows_items_only_when_unfolded`
+11. The commit checks of AGENTS.md: see the report of the main session.
+
+Open points:
+
+- `popup` takes the selection only. The selection keeps the scan, so a subsequent scan does not change an open popup.
+- The Music section button shows the same label as the status bar control.
+- A skipped change of a file in use is in the count of the section. It has no check box.
+- The two changes of one group show in one line, separated by a line break.
+- A file in use or unreadable is not in the plan. Thus the write report does not show it. The popup message names these files.
+- The walk found two observations that are possibly older than this task. They are not task 002 defects. The WOAR line showed a difference with two values that look equal. After the write, TYER showed "file: no value". `mid3v2` saves ID3v2.4, which has no TYER frame. The cause is not known.
+- The popup has a large space between the header "Skipped (1)" and the file title.
+
+The main session review made these changes:
+
+- A line row is in the row of its file. GPUI gives a click to each row at the pointer position. Thus one click on a line toggled the line and the file. The row stops the click after the correction. `adr_0108_click_on_a_line_does_not_toggle_its_file` tests it.
+- The check box primitive has no Tab stop. After the correction, each check row of the dialog is a Tab stop (`tab_index(0)`), and Space on a focused row is a click. The row shows the focus ring only after a key press (`focus_ring_shows`).
+- The popup stopped the app when it opened. `open_confirmation_dialog_from` used the display function for `destructive`, and that function read `LibraryApp` in its own update. After the correction, the caller gives `destructive`, and the open does not use the display function. `adr_0108_open_from_the_update_of_the_display_owner` tests it.
+- The agent walk on Xvfb, 2026-11-21: V1 to V6 gave the correct result. The visual criteria stay open for the operator in section 48.

@@ -36,6 +36,8 @@ pub(crate) fn open_use_defaults_dialog<T>(
 
 fn confirmation_display(display: UseDefaultsConfirmation) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
+        confirm_enabled: true,
+        section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(display.message),
         cancel_button_id: SharedString::from(display.cancel_button_id),

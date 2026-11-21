@@ -75,6 +75,8 @@ impl TopApp {
             window,
             cx,
             ConfirmationDialogDisplay {
+                confirm_enabled: true,
+                section: None,
                 title: band.confirmation_title.into(),
                 message: message.into(),
                 cancel_button_id: "show-go-on-air-cancel".into(),
@@ -129,6 +131,8 @@ impl TopApp {
             .parts
             .iter()
             .map(|part| ConfirmationDialogItem {
+                check: None,
+                checked_lines: Vec::new(),
                 title: (*part).into(),
                 subtitle: None,
                 mark: None,
@@ -141,6 +145,8 @@ impl TopApp {
             window,
             cx,
             ConfirmationDialogDisplay {
+                confirm_enabled: true,
+                section: None,
                 title: "End show?".into(),
                 message: notes.into(),
                 cancel_button_id: "show-end-show-cancel".into(),
@@ -525,6 +531,8 @@ impl TopApp {
             window,
             cx,
             ConfirmationDialogDisplay {
+                confirm_enabled: true,
+                section: None,
                 title: "Clear the Show cue?".into(),
                 message: "This removes the stored cue.".into(),
                 cancel_button_id: "show-clear-cancel".into(),

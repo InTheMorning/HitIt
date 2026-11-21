@@ -14,11 +14,16 @@ use std::rc::Rc;
 use gpui::{div, prelude::*, App, FocusHandle, FontWeight, SharedString, Window};
 use gpui_component::{dialog::Dialog, WindowExt};
 
+use crate::ui::composites::{DisclosureGroup, DisclosureGroupDisplay};
 use crate::ui::control_styles::ControlStyle;
-use crate::ui::primitives::{Button, ButtonSize, Label, LabelVariant};
-use crate::ui::tokens::{SemanticColor, Size, Spacing};
+use crate::ui::focus_ring::focus_ring_shows;
+use crate::ui::layouts as layout;
+use crate::ui::primitives::{Button, ButtonSize, Checkbox, CheckboxState, Label, LabelVariant};
+use crate::ui::tokens::{color, Radius, SemanticColor, Size, Spacing};
 
 type DialogActionHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
+/// The handler of a click on a check box. It gets the box.
+type CheckHandler = Rc<dyn Fn(&ConfirmationDialogCheck, &mut Window, &mut App) + 'static>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConfirmationDialogDisplay {
@@ -31,8 +36,41 @@ pub struct ConfirmationDialogDisplay {
     pub confirm_label: SharedString,
     pub confirm_a11y_label: SharedString,
     pub destructive: bool,
+    /// `false` disables the confirm button. A dialog with no check boxes
+    /// sets `true`.
+    pub confirm_enabled: bool,
     /// The items that the choice affects. The dialog lists them in a
     /// scrolling column below the message. An empty list shows no column.
+    pub items: Vec<ConfirmationDialogItem>,
+    /// A folded section below the items, or `None` for no section.
+    pub section: Option<ConfirmationDialogSection>,
+}
+
+/// A check box of an item or of a line. The screen supplies the state and
+/// the accessibility label. The dialog owns no selection.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfirmationDialogCheck {
+    /// The id of the box. A click on the box gives it to the check handler.
+    pub id: SharedString,
+    pub state: CheckboxState,
+    pub a11y_label: SharedString,
+}
+
+/// One line of an item with its own check box.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfirmationDialogCheckedLine {
+    pub text: SharedString,
+    pub check: Option<ConfirmationDialogCheck>,
+}
+
+/// A section below the items that the host can fold.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfirmationDialogSection {
+    pub id: SharedString,
+    pub label: SharedString,
+    pub a11y_label: SharedString,
+    pub folded: bool,
+    /// The dialog shows the items only when the section is not folded.
     pub items: Vec<ConfirmationDialogItem>,
 }
 
@@ -45,12 +83,18 @@ pub struct ConfirmationDialogItem {
     pub subtitle: Option<SharedString>,
     pub mark: Option<(SharedString, SemanticColor)>,
     pub lines: Vec<SharedString>,
+    /// The check box of the item, or `None` for an item with no box.
+    pub check: Option<ConfirmationDialogCheck>,
+    /// The lines that have an optional check box. They follow `lines`.
+    pub checked_lines: Vec<ConfirmationDialogCheckedLine>,
 }
 
 #[derive(Clone)]
 pub struct ConfirmationDialogHandlers {
-    on_cancel: DialogActionHandler,
-    on_confirm: DialogActionHandler,
+    cancel: DialogActionHandler,
+    confirm: DialogActionHandler,
+    check: Option<CheckHandler>,
+    toggle_section: Option<DialogActionHandler>,
 }
 
 impl ConfirmationDialogHandlers {
@@ -59,9 +103,32 @@ impl ConfirmationDialogHandlers {
         on_confirm: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
-            on_cancel: Rc::new(on_cancel),
-            on_confirm: Rc::new(on_confirm),
+            cancel: Rc::new(on_cancel),
+            confirm: Rc::new(on_confirm),
+            check: None,
+            toggle_section: None,
         }
+    }
+
+    /// Sets the handler of a click on a check box. It gets the box. Its `id`
+    /// names the target.
+    #[must_use]
+    pub fn with_check_handler(
+        mut self,
+        on_check: impl Fn(&ConfirmationDialogCheck, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.check = Some(Rc::new(on_check));
+        self
+    }
+
+    /// Sets the handler of a click on the header of the folded section.
+    #[must_use]
+    pub fn with_section_toggle_handler(
+        mut self,
+        on_toggle: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.toggle_section = Some(Rc::new(on_toggle));
+        self
     }
 }
 
@@ -124,6 +191,27 @@ pub fn open_confirmation_dialog(
     open_confirmation_dialog_with_focus(window, cx, display, handlers);
 }
 
+/// Opens a confirmation dialog whose display comes from a function.
+///
+/// The dialog builder of gpui-component runs at each render of `Root`. Thus
+/// the dialog calls `display` at each render and shows the current state of
+/// the screen. After a change of that state, the caller calls
+/// `window.refresh()`. `destructive` sets the button row. The `destructive`
+/// field of each display must have the same value.
+///
+/// This function does not call `display`. The caller can be in the update of
+/// the entity that `display` reads. A read of that entity in its own update
+/// stops the app (walk of 2026-11-21).
+pub fn open_confirmation_dialog_from(
+    window: &mut Window,
+    cx: &mut App,
+    destructive: bool,
+    display: impl Fn(&App) -> ConfirmationDialogDisplay + 'static,
+    handlers: ConfirmationDialogHandlers,
+) {
+    open_dialog_from(window, cx, destructive, display, handlers);
+}
+
 /// Opens the dialog and gives the focus handle of Cancel.
 fn open_confirmation_dialog_with_focus(
     window: &mut Window,
@@ -131,11 +219,22 @@ fn open_confirmation_dialog_with_focus(
     display: ConfirmationDialogDisplay,
     handlers: ConfirmationDialogHandlers,
 ) -> FocusHandle {
-    let row = confirmation_button_row(display.destructive);
+    let destructive = display.destructive;
+    open_dialog_from(window, cx, destructive, move |_| display.clone(), handlers)
+}
+
+fn open_dialog_from(
+    window: &mut Window,
+    cx: &mut App,
+    destructive: bool,
+    display: impl Fn(&App) -> ConfirmationDialogDisplay + 'static,
+    handlers: ConfirmationDialogHandlers,
+) -> FocusHandle {
+    let row = confirmation_button_row(destructive);
     let cancel_focus = cx.focus_handle();
     let dialog_focus = cancel_focus.clone();
     window.open_dialog(cx, move |dialog, _window, cx| {
-        confirmation_dialog(dialog, display.clone(), handlers.clone(), &dialog_focus, cx)
+        confirmation_dialog(dialog, display(cx), handlers.clone(), &dialog_focus, cx)
     });
     if row.first_focus == Some(ConfirmationButton::Cancel) {
         // `open_dialog` focuses the dialog container. This call moves the
@@ -153,8 +252,10 @@ fn confirmation_dialog(
     cx: &App,
 ) -> Dialog {
     let ConfirmationDialogHandlers {
-        on_cancel,
-        on_confirm,
+        cancel: on_cancel,
+        confirm: on_confirm,
+        check: on_check,
+        toggle_section: on_toggle_section,
     } = handlers;
     let escape_cancel = on_cancel.clone();
     let enter_cancel = on_cancel.clone();
@@ -181,6 +282,7 @@ fn confirmation_dialog(
             .size(ButtonSize::Md)
             .label(display.confirm_label)
             .a11y_label(display.confirm_a11y_label)
+            .disabled(!display.confirm_enabled)
             .on_click(move |_, window, cx| {
                 on_confirm(window, cx);
                 window.close_dialog(cx);
@@ -228,9 +330,18 @@ fn confirmation_dialog(
                         .variant(LabelVariant::Body)
                         .color(SemanticColor::SecondaryLabel),
                 )
-                .when(!display.items.is_empty(), |el| {
-                    el.child(confirmation_items(display.items, cx))
-                })
+                .when(
+                    !display.items.is_empty() || display.section.is_some(),
+                    |el| {
+                        el.child(confirmation_items(
+                            display.items,
+                            display.section,
+                            on_check.as_ref(),
+                            on_toggle_section,
+                            cx,
+                        ))
+                    },
+                )
                 .child(buttons),
         )
 }
@@ -252,7 +363,13 @@ pub fn destructive_button_space(cx: &App) -> impl IntoElement {
 /// layout shrinks each item to zero height. `flex_shrink_0()` keeps each
 /// item at its own height. The column then scrolls to show the items that
 /// do not fit (ADR 0076 Decision 8).
-fn confirmation_items(items: Vec<ConfirmationDialogItem>, cx: &App) -> impl IntoElement {
+fn confirmation_items(
+    items: Vec<ConfirmationDialogItem>,
+    section: Option<ConfirmationDialogSection>,
+    on_check: Option<&CheckHandler>,
+    on_toggle_section: Option<DialogActionHandler>,
+    cx: &App,
+) -> impl IntoElement {
     div()
         .id("confirmation-dialog-items")
         .debug_selector(|| "confirmation-dialog-items".to_owned())
@@ -262,40 +379,166 @@ fn confirmation_items(items: Vec<ConfirmationDialogItem>, cx: &App) -> impl Into
         .max_h(Size::ColumnRegular.scaled(cx))
         .overflow_y_scroll()
         .children(items.into_iter().enumerate().map(|(index, item)| {
-            div()
-                .debug_selector(move || format!("confirmation-dialog-item-{index}"))
-                .flex()
-                .flex_col()
-                .flex_shrink_0()
-                .gap(Spacing::XXS.scaled(cx))
-                .min_w_0()
-                .overflow_hidden()
-                .child(
-                    Label::new(item.title)
-                        .variant(LabelVariant::Body)
-                        .weight(FontWeight::SEMIBOLD),
-                )
-                .when_some(item.subtitle, |el, subtitle| {
-                    el.child(
-                        Label::new(subtitle)
-                            .variant(LabelVariant::Caption)
-                            .color(SemanticColor::SecondaryLabel),
-                    )
-                })
-                .when_some(item.mark, |el, (mark, color)| {
-                    el.child(
-                        Label::new(mark)
-                            .variant(LabelVariant::Caption)
-                            .weight(FontWeight::SEMIBOLD)
-                            .color(color),
-                    )
-                })
-                .children(item.lines.into_iter().map(|line| {
-                    Label::new(line)
-                        .variant(LabelVariant::Caption)
-                        .color(SemanticColor::TertiaryLabel)
-                }))
+            confirmation_item(
+                format!("confirmation-dialog-item-{index}"),
+                item,
+                on_check,
+                cx,
+            )
         }))
+        .when_some(section, |el, section| {
+            let ConfirmationDialogSection {
+                id,
+                label,
+                a11y_label,
+                folded,
+                items,
+            } = section;
+            let header = DisclosureGroup::new(DisclosureGroupDisplay {
+                id: id.into(),
+                label,
+                a11y_label,
+            })
+            .collapsed(folded);
+            let header = match on_toggle_section {
+                Some(handler) => header.on_toggle(move |_, window, cx| handler(window, cx)),
+                None => header,
+            };
+            el.child(div().flex_shrink_0().child(header))
+                .when(!folded, |el| {
+                    el.children(items.into_iter().enumerate().map(|(index, item)| {
+                        confirmation_item(
+                            format!("confirmation-dialog-section-item-{index}"),
+                            item,
+                            on_check,
+                            cx,
+                        )
+                    }))
+                })
+        })
+}
+
+/// The row of a check box and its text. The box and the text are one click
+/// target (musicindex ADR 0063 R-CHECK-2). The box has no handler of its own,
+/// so a click on it reaches the row.
+fn check_row(
+    check: ConfirmationDialogCheck,
+    on_check: Option<&CheckHandler>,
+    body: impl IntoElement,
+    cx: &App,
+) -> impl IntoElement {
+    let target = check.clone();
+    let ring_width = layout::scaled_dimension(layout::CONTROL_FOCUS_RING_WIDTH, cx);
+    let ring_color = color(cx, SemanticColor::Focus);
+    // The row is the Tab stop of the box. GPUI turns Space on a focused row
+    // into a click. The ring shows only after a key press (R-FOCUS-1). The
+    // transparent border keeps the layout the same when the ring shows.
+    let row = div()
+        .id(SharedString::from(format!("{}-row", check.id)))
+        .debug_selector({
+            let id = check.id.clone();
+            move || format!("{id}-row")
+        })
+        .tab_index(0)
+        .flex()
+        .flex_row()
+        .items_start()
+        .gap(Spacing::XS.scaled(cx))
+        .min_w_0()
+        .rounded(Radius::SM.scaled(cx))
+        .border(ring_width)
+        .border_color(gpui::transparent_black())
+        .when(focus_ring_shows(cx), |row| {
+            row.focus(move |style| style.border_color(ring_color))
+        })
+        .child(
+            div()
+                .flex_none()
+                .child(Checkbox::new(check.id, check.state).a11y_label(check.a11y_label)),
+        )
+        .child(div().flex_1().min_w_0().child(body));
+    match on_check {
+        Some(handler) => {
+            let handler = handler.clone();
+            row.cursor_pointer().on_click(move |_, window, cx| {
+                // A line row is inside the row of its file. GPUI gives the
+                // click to each row under the pointer, so the line row stops
+                // it. In the other condition, one click toggles the line and
+                // the file.
+                cx.stop_propagation();
+                handler(&target, window, cx);
+            })
+        }
+        None => row,
+    }
+}
+
+fn confirmation_item(
+    selector: String,
+    item: ConfirmationDialogItem,
+    on_check: Option<&CheckHandler>,
+    cx: &App,
+) -> impl IntoElement {
+    let ConfirmationDialogItem {
+        title,
+        subtitle,
+        mark,
+        lines,
+        check,
+        checked_lines,
+    } = item;
+    let body = div()
+        .flex()
+        .flex_col()
+        .gap(Spacing::XXS.scaled(cx))
+        .min_w_0()
+        .overflow_hidden()
+        .child(
+            Label::new(title)
+                .variant(LabelVariant::Body)
+                .weight(FontWeight::SEMIBOLD),
+        )
+        .when_some(subtitle, |el, subtitle| {
+            el.child(
+                Label::new(subtitle)
+                    .variant(LabelVariant::Caption)
+                    .color(SemanticColor::SecondaryLabel),
+            )
+        })
+        .when_some(mark, |el, (mark, color)| {
+            el.child(
+                Label::new(mark)
+                    .variant(LabelVariant::Caption)
+                    .weight(FontWeight::SEMIBOLD)
+                    .color(color),
+            )
+        })
+        .children(lines.into_iter().map(|line| {
+            Label::new(line)
+                .variant(LabelVariant::Caption)
+                .color(SemanticColor::TertiaryLabel)
+        }))
+        .children(checked_lines.into_iter().map(|line| {
+            let text = Label::new(line.text)
+                .variant(LabelVariant::Caption)
+                .color(SemanticColor::TertiaryLabel);
+            match line.check {
+                Some(check) => check_row(check, on_check, text, cx).into_any_element(),
+                None => text.into_any_element(),
+            }
+        }));
+    let content = match check {
+        Some(check) => check_row(check, on_check, body, cx).into_any_element(),
+        None => body.into_any_element(),
+    };
+    div()
+        .debug_selector(move || selector.clone())
+        .flex()
+        .flex_col()
+        .flex_shrink_0()
+        .min_w_0()
+        .overflow_hidden()
+        .child(content)
 }
 
 #[cfg(test)]
@@ -315,6 +558,8 @@ mod tests {
             confirm_a11y_label: SharedString::from("Remove track from library"),
             destructive: true,
             items: Vec::new(),
+            confirm_enabled: true,
+            section: None,
         };
 
         assert_eq!(display.cancel_label, "Cancel");
@@ -351,6 +596,8 @@ mod tests {
                     SharedString::from("TIT2: title"),
                     SharedString::from("TPE1: artist"),
                 ],
+                check: None,
+                checked_lines: Vec::new(),
             })
             .collect()
     }
@@ -366,6 +613,8 @@ mod tests {
             confirm_label: SharedString::from("Remove"),
             confirm_a11y_label: SharedString::from("Remove track from library"),
             destructive: true,
+            confirm_enabled: true,
+            section: None,
             items: Vec::new(),
         }
     }
@@ -379,13 +628,19 @@ mod tests {
 
     struct ConfirmationItemsTest {
         items: Vec<ConfirmationDialogItem>,
+        section: Option<ConfirmationDialogSection>,
+        on_check: Option<CheckHandler>,
     }
 
     impl Render for ConfirmationItemsTest {
         fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-            div()
-                .size_full()
-                .child(confirmation_items(self.items.clone(), cx))
+            div().size_full().child(confirmation_items(
+                self.items.clone(),
+                self.section.clone(),
+                self.on_check.as_ref(),
+                None,
+                cx,
+            ))
         }
     }
 
@@ -400,6 +655,8 @@ mod tests {
 
         let (view, cx) = cx.add_window_view(|_, _| ConfirmationItemsTest {
             items: sample_items(1),
+            section: None,
+            on_check: None,
         });
         cx.update(|window, cx| {
             let _ = window.draw(cx);
@@ -447,6 +704,108 @@ mod tests {
             "the item column grew past its max_h: {:?} > {max_height:?}",
             column.size.height
         );
+    }
+
+    fn checked_item(id: &str) -> ConfirmationDialogItem {
+        ConfirmationDialogItem {
+            title: SharedString::from("Song"),
+            subtitle: None,
+            mark: None,
+            lines: Vec::new(),
+            check: Some(ConfirmationDialogCheck {
+                id: SharedString::from(format!("{id}-file")),
+                state: CheckboxState::Mixed,
+                a11y_label: SharedString::from("Write all changes of Song"),
+            }),
+            checked_lines: vec![ConfirmationDialogCheckedLine {
+                text: SharedString::from("TIT2: New (file: Old)"),
+                check: Some(ConfirmationDialogCheck {
+                    id: SharedString::from(format!("{id}-line")),
+                    state: CheckboxState::Checked,
+                    a11y_label: SharedString::from("Write TIT2 of Song"),
+                }),
+            }],
+        }
+    }
+
+    /// ADR 0108 task 002: a check box has a row with its text. A folded
+    /// section shows its header and no item. An unfolded section shows its
+    /// items. A display with no check box and no section is unchanged.
+    #[gpui::test]
+    fn adr_0108_confirmation_section_shows_items_only_when_unfolded(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let section = |folded| ConfirmationDialogSection {
+            id: SharedString::from("section"),
+            label: SharedString::from("Skipped (1)"),
+            a11y_label: SharedString::from("Show or hide the skipped changes"),
+            folded,
+            items: vec![checked_item("skip")],
+        };
+        let (view, cx) = cx.add_window_view(|_, _| ConfirmationItemsTest {
+            items: vec![checked_item("open")],
+            section: Some(section(true)),
+            on_check: None,
+        });
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        assert!(cx
+            .debug_bounds(leaked_selector("confirmation-dialog-item-0".to_owned()))
+            .is_some());
+        assert!(cx
+            .debug_bounds(leaked_selector(
+                "confirmation-dialog-section-item-0".to_owned()
+            ))
+            .is_none());
+        view.update(cx, |view, cx| {
+            view.section = Some(section(false));
+            cx.notify();
+        });
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        assert!(cx
+            .debug_bounds(leaked_selector(
+                "confirmation-dialog-section-item-0".to_owned()
+            ))
+            .is_some());
+        // A section with no item still shows the column.
+        view.update(cx, |view, cx| {
+            view.items = Vec::new();
+            cx.notify();
+        });
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        assert!(cx
+            .debug_bounds(leaked_selector("confirmation-dialog-items".to_owned()))
+            .is_some());
+    }
+
+    /// ADR 0108 task 002, walk of 2026-11-21: a line row is inside the row
+    /// of its file. A click on the line gives only the id of the line. Before
+    /// the fix, the click also toggled the file.
+    #[gpui::test]
+    fn adr_0108_click_on_a_line_does_not_toggle_its_file(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let clicks = Rc::new(std::cell::RefCell::new(Vec::<SharedString>::new()));
+        let record = Rc::clone(&clicks);
+        let handler: CheckHandler = Rc::new(move |check, _, _| {
+            record.borrow_mut().push(check.id.clone());
+        });
+        let (_view, cx) = cx.add_window_view(|_, _| ConfirmationItemsTest {
+            items: vec![checked_item("open")],
+            section: None,
+            on_check: Some(handler),
+        });
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        let line = cx
+            .debug_bounds("open-line-row")
+            .expect("the row of the line");
+        cx.simulate_click(line.center(), gpui::Modifiers::default());
+        assert_eq!(*clicks.borrow(), vec![SharedString::from("open-line")]);
     }
 
     struct ConfirmationDialogTest {
@@ -587,6 +946,55 @@ mod tests {
         cx.run_until_parked();
         cx.update(|window, cx| window.draw(cx).clear(cx));
         (cancel_focus, cx)
+    }
+
+    /// The state that a display function reads in the test below.
+    struct DisplayOwner {
+        title: SharedString,
+    }
+
+    /// Walk of 2026-11-21, ADR 0108 task 002: the Library app opens the tag
+    /// popup in its own update, and the display function reads the Library
+    /// app. The open must not call the display function, because GPUI stops
+    /// the app on a read of an entity in its own update. The dialog calls the
+    /// function at the next render.
+    #[gpui::test]
+    fn adr_0108_open_from_the_update_of_the_display_owner(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let inner = cx.new(|_| DialogHost);
+            Root::new(inner, window, cx)
+        });
+        let owner = cx.update(|_, cx| {
+            cx.new(|_| DisplayOwner {
+                title: SharedString::from("From the owner"),
+            })
+        });
+        let calls = Calls::new();
+        let handlers = calls.handlers();
+        let read_owner = owner.downgrade();
+        cx.update(|window, cx| {
+            owner.update(cx, |_, cx| {
+                open_confirmation_dialog_from(
+                    window,
+                    cx,
+                    false,
+                    move |cx: &App| {
+                        let mut display = empty_display();
+                        display.destructive = false;
+                        if let Ok(title) = read_owner.read_with(cx, |owner, _| owner.title.clone())
+                        {
+                            display.title = title;
+                        }
+                        display
+                    },
+                    handlers,
+                );
+            });
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.update(gpui_component::WindowExt::has_active_dialog));
     }
 
     /// musicindex ADR 0064 R-ACT-9 items 1 and 2: Cancel has the focus when

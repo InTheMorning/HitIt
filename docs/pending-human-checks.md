@@ -1113,3 +1113,21 @@ The check found these defects. Each one is corrected:
 - The band showed "Go on air" and "End show" together. Now it shows one of the two.
 - After "End show", the Stream card showed "Connected outside HitIt" for a short time, because the watch was late. Now the record stays until the watch shows the stream off.
 - The "End show" button was grey. Now it has the destructive style.
+
+## 48. ADR 0108 Task 002 The Popup Has Check Boxes - 2026-11-21
+
+Task: [ADR 0108 task 002](tasks/adr-0108-task-002-the-popup-has-check-boxes.md). The task is implemented. These checks stay open. Use a Library with two or more files. The tags of each file must differ from the stored metadata.
+
+1. Open the popup "Update n files". Make sure that each file and each change has a check box, and that all boxes are checked. Do this in Light and Dark (V1).
+2. Clear one change of a file with two changes. Make sure that the box of the file shows Mixed. Select "Write Tags". Make sure that the app writes the other change (V2).
+3. After step 2, make sure that the count falls. Open the popup. Make sure that it shows "Skipped (1)", folded (V3).
+4. Skip each remaining change. Make sure that the status bar shows "Skipped tag changes (n)". Click it. Make sure that the popup shows the section unfolded. "Write Tags" must stay unavailable until you select a skip (V4).
+5. Select a skip and select "Write Tags". Make sure that the file gets the stored value, and that the skip goes (V5).
+6. In the popup, press Tab. Make sure that the focus moves to each check box, and that Space changes it (V6).
+- Incorrect: a click on the text does not change its box. The file box does not show Mixed. "Write Tags" is available with no selected skip.
+
+The agent did steps 1 to 6 on Xvfb on 2026-11-21 with one downloaded single and `mid3v2`. Each step gave the correct result. The walk found these defects. Each one is corrected:
+
+- The popup stopped the app when it opened. The dialog read the Library app while the Library app was in its update.
+- A click on a change line also changed the box of its file.
+- Tab did not move to the check boxes.

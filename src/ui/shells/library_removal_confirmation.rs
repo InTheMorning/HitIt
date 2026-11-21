@@ -73,6 +73,8 @@ fn selection_confirmation_display(
     display: SelectionRemovalConfirmationDisplay,
 ) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
+        confirm_enabled: true,
+        section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(
             "Review each item below. \"Remove\" takes every one out of the Library.",
@@ -105,6 +107,8 @@ fn selection_removal_item(item: SelectionRemovalItemDisplay) -> ConfirmationDial
         ))
     };
     ConfirmationDialogItem {
+        check: None,
+        checked_lines: Vec::new(),
         title: SharedString::from(item.title),
         subtitle: Some(SharedString::from(item.impact_message)),
         mark,
@@ -114,6 +118,8 @@ fn selection_removal_item(item: SelectionRemovalItemDisplay) -> ConfirmationDial
 
 fn confirmation_display(display: LibraryRemovalConfirmationDisplay) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
+        confirm_enabled: true,
+        section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(display.message),
         cancel_button_id: SharedString::from(display.cancel_button_id),

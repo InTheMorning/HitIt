@@ -153,7 +153,6 @@ impl TagUpdateFile {
         })
     }
 
-    #[cfg(test)]
     pub(crate) fn skips_for_groups(&self, groups: &BTreeSet<usize>) -> Vec<TagUpdateSkip> {
         match &self.content {
             TagUpdateFileContent::Differs { frames, .. } => frames

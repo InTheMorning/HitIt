@@ -287,6 +287,9 @@ pub struct LibraryApp {
     tag_update_snapshot: Option<crate::runtime::TagUpdateSnapshot>,
     /// `true` when the actor did not accept the latest confirm.
     tag_update_request_failed: bool,
+    /// The choice of the host in the open tag update popup (ADR 0108).
+    /// `None` while the popup is closed.
+    tag_update_selection: Option<crate::view_models::tag_update::TagUpdateSelection>,
     /// Existing Recent Feeds pager consumed by the default Music content region.
     recent_music_page: RecentFeedsPageVm,
     /// Whether the app asked the node for its sort capability (musicindex ADR

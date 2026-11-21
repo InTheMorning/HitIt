@@ -39,6 +39,8 @@ fn confirmation_display(
     display: RemoveFromAllPlaylistsConfirmationDisplay,
 ) -> ConfirmationDialogDisplay {
     ConfirmationDialogDisplay {
+        confirm_enabled: true,
+        section: None,
         title: SharedString::from(display.title),
         message: SharedString::from(display.message),
         cancel_button_id: SharedString::from(display.cancel_button_id),
@@ -52,6 +54,8 @@ fn confirmation_display(
             .playlists
             .into_iter()
             .map(|name| ConfirmationDialogItem {
+                check: None,
+                checked_lines: Vec::new(),
                 title: SharedString::from(name),
                 subtitle: None,
                 mark: None,

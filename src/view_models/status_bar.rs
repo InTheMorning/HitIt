@@ -358,4 +358,41 @@ mod tests {
         assert_eq!(item.detail, StatusItemDetail::ReportsNotice);
         assert!(item.a11y_label.starts_with("3 reports."));
     }
+
+    /// ADR 0108 task 002: with only skipped changes, the files item gives
+    /// the label of the control for skips only and opens the same popup.
+    #[test]
+    fn adr_0108_files_item_shows_skipped_changes_when_no_file_remains() {
+        use crate::application::queries::tag_update::{
+            TagFrameChange, TagUpdateFile, TagUpdateFileContent, TagUpdateScan,
+        };
+        let skipped = TagUpdateFile {
+            track_id: 1,
+            title: "Song 1".into(),
+            album: None,
+            path: std::path::PathBuf::from("/music/song-1.mp3"),
+            in_use: false,
+            content: TagUpdateFileContent::Differs {
+                frames: vec![TagFrameChange {
+                    group: 0,
+                    skipped: true,
+                    frame_label: "TIT2".into(),
+                    file_value: None,
+                    expected_value: "Song 1".into(),
+                }],
+                shared_key_edits: Vec::new(),
+            },
+        };
+        let snapshot = TagUpdateSnapshot {
+            scan: Some(TagUpdateScan {
+                files: vec![skipped],
+                stale_skips: Vec::new(),
+            }),
+            ..TagUpdateSnapshot::default()
+        };
+        let item = files_item(Some(&snapshot)).expect("a files item");
+        assert_eq!(item.word, "Skipped tag changes (1)");
+        assert_eq!(item.detail, StatusItemDetail::TagUpdatePopup);
+        assert!(item.enabled);
+    }
 }

@@ -103,6 +103,7 @@ use crate::ui::shells::library_removal_confirmation::{
 use crate::ui::shells::playlist_delete_confirmation::open_playlist_delete_dialog;
 use crate::ui::shells::tag_update_confirmation::{
     open_tag_update_confirmation_dialog, render_tag_update_button, render_tag_update_report,
+    TagUpdateDialogHandlers,
 };
 use crate::ui::style::color;
 use crate::ui::style::spacing;
@@ -1205,6 +1206,7 @@ impl LibraryApp {
             tag_update: None,
             tag_update_snapshot: None,
             tag_update_request_failed: false,
+            tag_update_selection: None,
             recent_music_page: RecentFeedsPageVm::loading(),
             index_sorts_requested: false,
             artist_pages: ArtistGroupPages::default(),
@@ -1317,6 +1319,7 @@ impl LibraryApp {
         self.playlist_rss_snapshot = None;
         self.tag_update.take();
         self.tag_update_snapshot = None;
+        self.tag_update_selection = None;
         self.saved_search_counts_handle.take();
         self.runtime_host.take();
     }
@@ -1470,37 +1473,67 @@ impl LibraryApp {
         }
     }
 
-    /// Open the "Update n file(s)" popup. The confirm writes the listed
-    /// files that the popup shows.
+    /// Open the "Update n file(s)" popup, or the popup of the skipped
+    /// changes when the scan lists no file (ADR 0108 Decisions 1, 2 and 4).
+    /// The popup keeps a selection in this app while it is open. The
+    /// confirm writes the selected changes and records the cleared ones as
+    /// skips.
     pub(crate) fn open_tag_update_popup(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let snapshot = self.tag_update_snapshot.as_ref();
-        let Some(display) = crate::view_models::tag_update::popup(snapshot) else {
+        let Some(scan) = self
+            .tag_update_snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.scan.as_ref())
+        else {
             return;
         };
-        let files: Vec<crate::application::queries::tag_update::TagUpdateFile> = snapshot
-            .and_then(|snapshot| snapshot.scan.as_ref())
-            .map(|scan| scan.files.iter().filter_map(|file| {
-                let groups = match &file.content {
-                    crate::application::queries::tag_update::TagUpdateFileContent::Differs { frames, .. } => frames.iter().filter(|frame| !frame.skipped).map(|frame| frame.group).collect(),
-                    crate::application::queries::tag_update::TagUpdateFileContent::Unreadable { .. } => BTreeSet::new(),
-                };
-                if file.has_write_action() { file.with_groups(&groups) } else { Some(file.clone()) }
-            }).collect())
-            .unwrap_or_default();
-        open_tag_update_confirmation_dialog(window, cx, display, move |this, cx| {
-            this.confirm_tag_update(files.clone(), cx);
-        });
+        let selection = crate::view_models::tag_update::TagUpdateSelection::new(scan);
+        let Some(display) = crate::view_models::tag_update::popup(&selection) else {
+            return;
+        };
+        self.tag_update_selection = Some(selection);
+        open_tag_update_confirmation_dialog(
+            window,
+            cx,
+            display,
+            |this: &Self| {
+                this.tag_update_selection
+                    .as_ref()
+                    .and_then(crate::view_models::tag_update::popup)
+            },
+            TagUpdateDialogHandlers {
+                check: Box::new(|this: &mut Self, check| {
+                    if let Some(selection) = &mut this.tag_update_selection {
+                        selection.toggle(check);
+                    }
+                }),
+                toggle_skipped: Box::new(|this: &mut Self| {
+                    if let Some(selection) = &mut this.tag_update_selection {
+                        selection.toggle_skipped_folded();
+                    }
+                }),
+                confirm: Box::new(|this: &mut Self, cx| {
+                    if let Some(selection) = this.tag_update_selection.take() {
+                        let (files, skips) = selection.confirm_plan();
+                        this.confirm_tag_update(files, skips, cx);
+                    }
+                }),
+                cancel: Box::new(|this: &mut Self, _| {
+                    this.tag_update_selection = None;
+                }),
+            },
+        );
     }
 
     fn confirm_tag_update(
         &mut self,
         files: Vec<crate::application::queries::tag_update::TagUpdateFile>,
+        skips: Vec<crate::db::tag_update_skips::TagUpdateSkip>,
         cx: &mut Context<Self>,
     ) {
         self.tag_update_request_failed = !self
             .tag_update
             .as_ref()
-            .is_some_and(|handle| handle.confirm(self.music_dir.clone(), files, Vec::new()));
+            .is_some_and(|handle| handle.confirm(self.music_dir.clone(), files, skips));
         if self.tag_update_request_failed {
             self.emit_app_event(
                 AppEventOwner::TagWrite,
