@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed - 2026-11-21. The operator gave the three choices of the Decision on 2026-11-21.
+Accepted - 2026-11-21. The operator gave the three choices of the Decision on 2026-11-21 and accepted the ADR on 2026-11-21.
 
 - Bar: difficult to change later, and opposite choice by mistake. Decision 3 adds a stored record of skipped changes. ADR 0076 Decision 8 tells an agent that the confirm button writes all listed files.
 - Changes: [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md) Decision 8. The confirm button writes only the selected changes.
@@ -62,4 +62,5 @@ Terms:
 
 ## Tasks
 
-- None. A task file follows when the operator accepts this ADR.
+- [Task 001](../tasks/adr-0108-task-001-the-scan-keeps-skips.md): the skip record, the scan and the write of the selected changes.
+- [Task 002](../tasks/adr-0108-task-002-the-popup-has-check-boxes.md): the check boxes, the section "Skipped (n)" and the control that opens the skips.

@@ -89,6 +89,8 @@ The show host analysis of 2026-11-19 gives three ADRs, Accepted on 2026-11-19. [
 
 [ADR 0107](docs/adr/0107-the-cards-hold-the-on-air-status.md), Accepted on 2026-11-19, changes ADR 0105 and gives its band one button row. Its cards and inspectors show status. "End show" stops only recorded parts. [Its task 001](docs/tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md) is implemented. Its visual checks wait for a person in section 47 of [pending human checks](docs/pending-human-checks.md). A second ADR gives a list of shows in a root window. Each show has its own source and stream, and the band and the cards show the selected show.
 
+[ADR 0108](docs/adr/0108-the-tag-update-selects-each-change.md), Accepted on 2026-11-21, changes ADR 0076 Decision 8. The "Update n files" popup has a check box for each file and each change. A cleared change becomes a skip, and HitIt stores it until the stored value changes. Skips stay in a folded section "Skipped (n)". [Task 001](docs/tasks/adr-0108-task-001-the-scan-keeps-skips.md) and [task 002](docs/tasks/adr-0108-task-002-the-popup-has-check-boxes.md) are open.
+
 Known open defects:
 
 - The live status shows one song that does not change. Playback work waits for
