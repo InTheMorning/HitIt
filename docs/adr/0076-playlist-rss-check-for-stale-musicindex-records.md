@@ -9,6 +9,7 @@ The operator reviewed each decision on 2026-09-24. The review changed Decisions 
 - Changes: [ADR 0059](0059-broadcast-control-surface.md), through Decisions 7 and 9 of this ADR.
 - Changes: [ADR 0075](0075-metadata-ownership-and-completeness.md), Decisions F, G and H.
 - Changed by: [ADR 0099](0099-the-rss-path-keeps-only-lightning-payment-routes.md)
+- Changed by: [ADR 0108](0108-the-tag-update-selects-each-change.md), Decision 8. The confirm button writes only the selected changes.
 
 Amended 2026-09-25: the operator limited the `Retry-After` wait to 60 seconds. This tightens Decision 2. "Accepted Values" records the limit.
 "Accepted Values" records the three numeric values that the operator accepted on 2026-09-24.

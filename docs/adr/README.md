@@ -35,7 +35,7 @@ Status values are the ADR 0057 vocabulary: `Proposed`, `Accepted`,
 | ADR | Scope | Status |
 |---|---|---|
 | [0075](0075-metadata-ownership-and-completeness.md) | Shared metadata rules cover ownership, response completeness, storage by provider, each field with an accepted rule, and labeled identity sections. Decision I makes RSS the only provenance and MusicIndex a cache of RSS. The phase plan records packets and gates. ADR 0076 supersedes Decisions F to H and the source-selection rules | Accepted |
-| [0076](0076-playlist-rss-check-for-stale-musicindex-records.md) | MusicIndex stays the normal checker. A playlist RSS check, also run when a show selects the playlist, applies and reports RSS differences. Tags and payment routes in files change only on operator confirmation. Supersedes ADR 0075 Decisions F to H and its source-selection rules. Amends ADRs 0059 and 0065. Amended 2026-10-03: a download writes the stored values | Accepted |
+| [0076](0076-playlist-rss-check-for-stale-musicindex-records.md) | MusicIndex stays the normal checker. A playlist RSS check, also run when a show selects the playlist, applies and reports RSS differences. Tags and payment routes in files change only on operator confirmation. Supersedes ADR 0075 Decisions F to H and its source-selection rules. Amends ADRs 0059 and 0065. Amended 2026-10-03: a download writes the stored values. ADR 0108 changes Decision 8 | Accepted |
 | [0099](0099-the-rss-path-keeps-only-lightning-payment-routes.md) | The RSS path keeps the first Lightning `podcast:value` block and only `lnaddress` and valid `node` recipients, the rule of stophammer ADR 0098. HitIt discards the routes of other payment systems. Changes ADR 0076 Decision 9 | Accepted |
 | [0077](0077-publisher-feed-artist-binding.md) | An artist page is keyed on the publisher feed GUID that an album names. Supersedes ADR 0045. Each proposal needs individual operator review. ADR 0078 supersedes its Decision 4 | Accepted |
 | [0079](0079-remove-musicindex-artist-subject-storage.md) | MusicIndex artist subject storage is deleted. The publisher feed is the only artist identity. Person identity stays deferred. Supersedes ADR 0029 | Accepted |
@@ -76,6 +76,7 @@ Status values are the ADR 0057 vocabulary: `Proposed`, `Accepted`,
 | [0105](0105-go-on-air-and-end-show.md) | One on air band on the Show page: a checklist in order, "Go on air" and "End show" with confirmations, the signal state and the listener count of butt, and an end band after the last track. Changes ADRs 0063, 0068 and 0069. ADR 0107 changes Decisions 1, 2, 4 and 5 | Accepted |
 | [0106](0106-the-cue-changes-during-a-show.md) | Cue entries after the current entry move during a show, by a drag, Alt+Up and Alt+Down, or "Play next". A load opens Show, and the empty Show lists the playlists. Changes ADR 0068 | Accepted |
 | [0107](0107-the-cards-hold-the-on-air-status.md) | The band has one button row. Cards and inspectors show status. "End show" stops only parts recorded during this HitIt session. Changes ADR 0105 | Accepted |
+| [0108](0108-the-tag-update-selects-each-change.md) | The "Update n files" popup has a check box for each file and each change. A cleared change becomes a skip until its stored value changes. Skips stay in a folded section. Changes ADR 0076 Decision 8 | Proposed |
 
 ## UI Architecture
 
