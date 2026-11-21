@@ -6,6 +6,7 @@ Accepted - 2026-11-19. The [agent walk of 2026-11-19](../reviews/agent-walk-2026
 
 - Bar: opposite choice by mistake. ADR 0105 Decisions 2 and 4 tell an agent to put the checklist and the stream lines above the cards. ADR 0105 Decision 5 tells an agent to disconnect each connected stream. Without this record, an agent keeps the two rules.
 - Changes: [ADR 0105](0105-go-on-air-and-end-show.md) Decisions 1, 2, 4 and 5. The band has no status text. The cards and their inspectors show the status. "End show" stops only the parts that HitIt started.
+- Changed by: [ADR 0111](0111-show-instances-and-the-producer-switch.md), 2026-11-21. Decision 3: "End show" starts the producer of the private stream again when the switch of this show stopped it.
 
 Terms:
 
