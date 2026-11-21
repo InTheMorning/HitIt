@@ -104,6 +104,25 @@ event safety request). This needs no relay change.
   event ID and its token file (item 4 of the reserved event safety request).
   The relay session writes the relay command.
 
+**Relay answer of 2026-11-21** (relay commit `e661d96`, not pushed; relay
+`tools/relay-event`, and relay `docs/runbooks/reserved-live-items.md`
+§The Operator Command):
+
+- The operator runs `tools/relay-event` on the Mixxx computer. Its
+  subcommands are `reserve SHOW_NAME TOKEN_FILE`, `list` and
+  `delete EVENT_ID`. It connects to the VPS over SSH, and `RELAY_SSH_HOST`
+  is necessary. The admin token stays on the VPS.
+- `reserve` writes only the event ID to stdout, on one line. It writes its
+  messages to stderr.
+- The token file has one line: the broadcaster token and a newline
+  (relay `tools/relay-event:183`). The file mode is `600`.
+- The command makes a missing folder with mode `700`. It stops when the
+  folder exists with a different mode.
+- The command refuses a path that exists, also a symlink. Thus it cannot
+  write over the token file of the private stream.
+- HitIt can select its own folder for show token files and tell the
+  operator the path.
+
 ### 2. Keep Each Show Stream Apart From The Private Stream (G8)
 
 **Unblocks:** R3, R8 and R11. The publisher must send the show tracks to the
