@@ -100,6 +100,39 @@ impl BroadcastServiceWatchUnit {
     }
 }
 
+/// The publisher unit and the producer unit of one instance (ADR 0111).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BroadcastWatchInstance {
+    /// Instance name, for example `mixxx` or `show-1`.
+    pub name: String,
+    /// Publisher unit of the instance.
+    pub publisher: UnitRef,
+    /// Producer unit of the instance.
+    pub producer: UnitRef,
+}
+
+/// The instances of one host that the watch reads (ADR 0111 Decision 8).
+///
+/// The list holds the private instance and each show instance.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BroadcastInstanceWatch {
+    /// Transport that reads the units of each instance.
+    pub transport: Transport,
+    /// The instances, in display order.
+    pub instances: Vec<BroadcastWatchInstance>,
+}
+
+/// State of the units of one instance.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BroadcastInstanceSnapshot {
+    /// Instance name.
+    pub name: String,
+    /// State of the publisher unit. `NotInstalled` when the unit is absent.
+    pub publisher: ServiceState,
+    /// State of the producer unit. `NotInstalled` when the unit is absent.
+    pub producer: ServiceState,
+}
+
 /// State for one observed service unit.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BroadcastServiceUnitSnapshot {
@@ -170,12 +203,20 @@ pub struct BroadcastServiceWatchSnapshot {
     pub at: Instant,
     /// State for each observed unit.
     pub units: Vec<BroadcastServiceUnitSnapshot>,
+    /// State of the units of each instance (ADR 0111 Decision 8).
+    pub instances: Vec<BroadcastInstanceSnapshot>,
+    /// The instance whose producer runs and so holds Mixxx, when known.
+    pub mixxx_holder: Option<String>,
     /// State of the stream encoder control interface.
     pub encoder: BroadcastEncoderSnapshot,
 }
 
 impl BroadcastServiceWatchSnapshot {
-    fn unknown(units: &[BroadcastServiceWatchUnit], encoder: &BroadcastEncoderWatchTarget) -> Self {
+    fn unknown(
+        units: &[BroadcastServiceWatchUnit],
+        instances: &BroadcastInstanceWatch,
+        encoder: &BroadcastEncoderWatchTarget,
+    ) -> Self {
         Self::new(
             Instant::now(),
             units
@@ -187,6 +228,8 @@ impl BroadcastServiceWatchSnapshot {
                     state: ServiceState::Unknown,
                 })
                 .collect(),
+            instance_snapshots(instances, |_| ServiceState::Unknown),
+            None,
             unknown_encoder_snapshot(encoder),
         )
     }
@@ -194,12 +237,16 @@ impl BroadcastServiceWatchSnapshot {
     fn new(
         read_started_at: Instant,
         units: Vec<BroadcastServiceUnitSnapshot>,
+        instances: Vec<BroadcastInstanceSnapshot>,
+        mixxx_holder: Option<String>,
         encoder: BroadcastEncoderSnapshot,
     ) -> Self {
         Self {
             read_started_at,
             at: Instant::now(),
             units,
+            instances,
+            mixxx_holder,
             encoder,
         }
     }
@@ -265,11 +312,13 @@ enum BroadcastServiceWatchCommand {
 #[must_use]
 pub fn start(
     units: Vec<BroadcastServiceWatchUnit>,
+    instances: BroadcastInstanceWatch,
     encoder: BroadcastEncoderWatchTarget,
     session: &SessionLifecycle,
 ) -> BroadcastServiceWatchHandle {
     start_in_session(
         units,
+        instances,
         encoder,
         Arc::new(ControlBroadcastStatusReader),
         session,
@@ -278,6 +327,23 @@ pub fn start(
 
 trait BroadcastStatusReader: Send + Sync + 'static {
     fn show(&self, transport: &Transport, unit: &UnitRef) -> Result<ServiceState, String>;
+
+    /// Read several units, in one call when the reader can.
+    fn show_many(
+        &self,
+        transport: &Transport,
+        units: &[UnitRef],
+    ) -> Result<Vec<ServiceState>, String> {
+        units
+            .iter()
+            .map(|unit| self.show(transport, unit))
+            .collect()
+    }
+
+    /// Read the instance names of the producer units that run.
+    fn running_producers(&self, _transport: &Transport) -> Result<Vec<String>, String> {
+        Ok(Vec::new())
+    }
 
     fn encoder_status(&self, target: &EncoderTarget) -> Result<EncoderStatus, String>;
 }
@@ -291,6 +357,22 @@ impl BroadcastStatusReader for ControlBroadcastStatusReader {
         control::show(transport, unit).map_err(|error| format!("{error:#}"))
     }
 
+    fn show_many(
+        &self,
+        transport: &Transport,
+        units: &[UnitRef],
+    ) -> Result<Vec<ServiceState>, String> {
+        control::ServiceControl::default()
+            .show_many(transport, units)
+            .map_err(|error| format!("{error:#}"))
+    }
+
+    fn running_producers(&self, transport: &Transport) -> Result<Vec<String>, String> {
+        control::ServiceControl::default()
+            .running_producers(transport)
+            .map_err(|error| format!("{error:#}"))
+    }
+
     fn encoder_status(&self, target: &EncoderTarget) -> Result<EncoderStatus, String> {
         encoder::status(target).map_err(|error| format!("{error:#}"))
     }
@@ -302,17 +384,25 @@ fn start_with_reader(
     encoder: BroadcastEncoderWatchTarget,
     reader: SharedBroadcastStatusReader,
 ) -> BroadcastServiceWatchHandle {
-    start_in_session(units, encoder, reader, &SessionLifecycle::new())
+    start_in_session(
+        units,
+        BroadcastInstanceWatch::default(),
+        encoder,
+        reader,
+        &SessionLifecycle::new(),
+    )
 }
 
 fn start_in_session(
     units: Vec<BroadcastServiceWatchUnit>,
+    instances: BroadcastInstanceWatch,
     encoder: BroadcastEncoderWatchTarget,
     reader: SharedBroadcastStatusReader,
     session: &SessionLifecycle,
 ) -> BroadcastServiceWatchHandle {
-    let (snapshot_tx, snapshot_rx) =
-        watch::channel(BroadcastServiceWatchSnapshot::unknown(&units, &encoder));
+    let (snapshot_tx, snapshot_rx) = watch::channel(BroadcastServiceWatchSnapshot::unknown(
+        &units, &instances, &encoder,
+    ));
     let (inbox_tx, mut inbox_rx) = mpsc::channel::<BroadcastServiceWatchCommand>(INBOX_CAPACITY);
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
 
@@ -323,6 +413,7 @@ fn start_in_session(
         let mut last_encoder = publish_snapshot(
             &snapshot_tx,
             units.clone(),
+            instances.clone(),
             encoder.clone(),
             Arc::clone(&reader),
             true,
@@ -343,6 +434,7 @@ fn start_in_session(
                             last_encoder = publish_snapshot(
                                 &snapshot_tx,
                                 units.clone(),
+                                instances.clone(),
                                 encoder.clone(),
                                 Arc::clone(&reader),
                                 true,
@@ -360,6 +452,7 @@ fn start_in_session(
                                     last_encoder = publish_snapshot(
                                         &snapshot_tx,
                                         units.clone(),
+                                        instances.clone(),
                                         encoder.clone(),
                                         Arc::clone(&reader),
                                         true,
@@ -380,6 +473,7 @@ fn start_in_session(
                     last_encoder = publish_snapshot(
                         &snapshot_tx,
                         units.clone(),
+                        instances.clone(),
                         encoder.clone(),
                         Arc::clone(&reader),
                         read_encoder,
@@ -407,15 +501,23 @@ fn start_in_session(
 async fn publish_snapshot(
     snapshot_tx: &watch::Sender<BroadcastServiceWatchSnapshot>,
     units: Vec<BroadcastServiceWatchUnit>,
+    instances: BroadcastInstanceWatch,
     encoder: BroadcastEncoderWatchTarget,
     reader: SharedBroadcastStatusReader,
     read_encoder: bool,
     previous_encoder: BroadcastEncoderSnapshot,
 ) -> BroadcastEncoderSnapshot {
-    let fallback = BroadcastServiceWatchSnapshot::unknown(&units, &encoder);
-    let snapshot = read_broadcast_status(units, encoder, reader, read_encoder, previous_encoder)
-        .await
-        .unwrap_or(fallback);
+    let fallback = BroadcastServiceWatchSnapshot::unknown(&units, &instances, &encoder);
+    let snapshot = read_broadcast_status(
+        units,
+        instances,
+        encoder,
+        reader,
+        read_encoder,
+        previous_encoder,
+    )
+    .await
+    .unwrap_or(fallback);
     let published_encoder = snapshot.encoder.clone();
     let _ = snapshot_tx.send(snapshot);
     published_encoder
@@ -423,13 +525,21 @@ async fn publish_snapshot(
 
 async fn read_broadcast_status(
     units: Vec<BroadcastServiceWatchUnit>,
+    instances: BroadcastInstanceWatch,
     encoder: BroadcastEncoderWatchTarget,
     reader: SharedBroadcastStatusReader,
     read_encoder: bool,
     previous_encoder: BroadcastEncoderSnapshot,
 ) -> Result<BroadcastServiceWatchSnapshot, tokio::task::JoinError> {
     tokio::task::spawn_blocking(move || {
-        read_broadcast_status_blocking(&units, &encoder, &reader, read_encoder, &previous_encoder)
+        read_broadcast_status_blocking(
+            &units,
+            &instances,
+            &encoder,
+            &reader,
+            read_encoder,
+            &previous_encoder,
+        )
     })
     .await
 }
@@ -440,6 +550,7 @@ async fn read_broadcast_status(
 /// `previous_encoder` unchanged (ADR 0059).
 fn read_broadcast_status_blocking(
     units: &[BroadcastServiceWatchUnit],
+    instances: &BroadcastInstanceWatch,
     encoder: &BroadcastEncoderWatchTarget,
     reader: &SharedBroadcastStatusReader,
     read_encoder: bool,
@@ -458,12 +569,70 @@ fn read_broadcast_status_blocking(
                     .unwrap_or(ServiceState::Unknown),
             })
             .collect(),
+        read_instance_snapshots(instances, reader),
+        read_mixxx_holder(instances, reader),
         if read_encoder {
             read_encoder_snapshot(encoder, reader)
         } else {
             previous_encoder.clone()
         },
     )
+}
+
+/// Read the publisher and producer units of each instance with one call.
+fn read_instance_snapshots(
+    instances: &BroadcastInstanceWatch,
+    reader: &SharedBroadcastStatusReader,
+) -> Vec<BroadcastInstanceSnapshot> {
+    let units: Vec<UnitRef> = instances
+        .instances
+        .iter()
+        .flat_map(|instance| [instance.publisher.clone(), instance.producer.clone()])
+        .collect();
+    if units.is_empty() {
+        return Vec::new();
+    }
+    let states = reader
+        .show_many(&instances.transport, &units)
+        .ok()
+        .filter(|states| states.len() == units.len());
+    instance_snapshots(instances, |index| {
+        states
+            .as_ref()
+            .map_or(ServiceState::Unknown, |states| states[index].clone())
+    })
+}
+
+/// Build the instance snapshots. `state` takes the index of the unit in the
+/// list publisher 0, producer 0, publisher 1, producer 1, and so on.
+fn instance_snapshots(
+    instances: &BroadcastInstanceWatch,
+    state: impl Fn(usize) -> ServiceState,
+) -> Vec<BroadcastInstanceSnapshot> {
+    instances
+        .instances
+        .iter()
+        .enumerate()
+        .map(|(index, instance)| BroadcastInstanceSnapshot {
+            name: instance.name.clone(),
+            publisher: state(index * 2),
+            producer: state(index * 2 + 1),
+        })
+        .collect()
+}
+
+/// Read the instance whose producer runs (ADR 0111 Decision 8).
+fn read_mixxx_holder(
+    instances: &BroadcastInstanceWatch,
+    reader: &SharedBroadcastStatusReader,
+) -> Option<String> {
+    if instances.instances.is_empty() {
+        return None;
+    }
+    reader
+        .running_producers(&instances.transport)
+        .ok()
+        .and_then(|running| running.into_iter().next())
 }
 
 fn read_encoder_snapshot(
@@ -530,6 +699,7 @@ mod tests {
         let reader = Arc::new(TimedReader(Mutex::new(Vec::new())));
         let snapshot = read_broadcast_status_blocking(
             &watch_units(),
+            &BroadcastInstanceWatch::default(),
             &watch_encoder(),
             &(Arc::clone(&reader) as SharedBroadcastStatusReader),
             true,
@@ -554,6 +724,7 @@ mod tests {
 
         let snapshot = read_broadcast_status(
             units,
+            BroadcastInstanceWatch::default(),
             watch_encoder(),
             Arc::clone(&reader) as SharedBroadcastStatusReader,
             true,
@@ -612,6 +783,7 @@ mod tests {
 
         let snapshot = read_broadcast_status(
             units,
+            BroadcastInstanceWatch::default(),
             watch_encoder(),
             Arc::clone(&reader) as SharedBroadcastStatusReader,
             true,
@@ -636,6 +808,7 @@ mod tests {
 
         let snapshot = read_broadcast_status(
             Vec::new(),
+            BroadcastInstanceWatch::default(),
             BroadcastEncoderWatchTarget::not_configured(),
             Arc::clone(&reader) as SharedBroadcastStatusReader,
             true,
@@ -818,6 +991,168 @@ mod tests {
             assert_eq!(rx.borrow().encoder, encoder_after_pace_change);
         }
         drop(handle);
+    }
+
+    /// A reader that runs the real `ServiceControl` parsers on fixed text.
+    struct FixedSystemctlReader {
+        calls: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl crate::broadcast::control::CommandRunner for FixedSystemctlReader {
+        fn run(
+            &self,
+            _program: &str,
+            args: &[String],
+        ) -> anyhow::Result<crate::broadcast::control::CommandOutput> {
+            use crate::broadcast::control::CommandOutput;
+            self.calls.lock().unwrap().push(args.join(" "));
+            if args.iter().any(|arg| arg == "list-units") {
+                return Ok(CommandOutput::success(
+                    "mixxx-now-playing@show-1.service loaded active running Mixxx\n\
+                     mixxx-now-playing@mixxx.service loaded failed failed Mixxx\n",
+                ));
+            }
+            Ok(CommandOutput::success(
+                "Id=musicindex-live-publisher@mixxx.service\nLoadState=loaded\nActiveState=active\nSubState=running\nResult=success\n\n\
+                 Id=mixxx-now-playing@mixxx.service\nLoadState=loaded\nActiveState=inactive\nSubState=dead\nResult=success\n\n\
+                 Id=musicindex-live-publisher@show-1.service\nLoadState=loaded\nActiveState=active\nSubState=running\nResult=success\n\n\
+                 Id=mixxx-now-playing@show-1.service\nLoadState=loaded\nActiveState=active\nSubState=running\nResult=success\n\n\
+                 Id=musicindex-live-publisher@show-2.service\nLoadState=not-found\nActiveState=inactive\nSubState=dead\nResult=success\n\n\
+                 Id=mixxx-now-playing@show-2.service\nLoadState=not-found\nActiveState=inactive\nSubState=dead\nResult=success\n",
+            ))
+        }
+    }
+
+    struct FixedReader {
+        control: crate::broadcast::control::ServiceControl<FixedSystemctlReader>,
+        calls: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl BroadcastStatusReader for FixedReader {
+        fn show(&self, _: &Transport, _: &UnitRef) -> Result<ServiceState, String> {
+            Ok(ServiceState::Unknown)
+        }
+
+        fn show_many(
+            &self,
+            transport: &Transport,
+            units: &[UnitRef],
+        ) -> Result<Vec<ServiceState>, String> {
+            self.control
+                .show_many(transport, units)
+                .map_err(|error| format!("{error:#}"))
+        }
+
+        fn running_producers(&self, transport: &Transport) -> Result<Vec<String>, String> {
+            self.control
+                .running_producers(transport)
+                .map_err(|error| format!("{error:#}"))
+        }
+
+        fn encoder_status(&self, _: &EncoderTarget) -> Result<EncoderStatus, String> {
+            Ok(EncoderStatus::unknown())
+        }
+    }
+
+    fn watch_instance(name: &str) -> BroadcastWatchInstance {
+        BroadcastWatchInstance {
+            name: name.to_owned(),
+            publisher: UnitRef::publisher(name).expect("publisher unit"),
+            producer: UnitRef::producer(name).expect("producer unit"),
+        }
+    }
+
+    /// ADR 0111 criterion 9: the snapshot has the publisher unit and the
+    /// producer unit of each instance, and the instance that holds Mixxx. The
+    /// units of each instance come from one `systemctl show` call.
+    #[test]
+    fn adr_0111_watch_snapshot_has_the_units_of_each_instance_and_the_mixxx_holder() {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let reader = Arc::new(FixedReader {
+            control: crate::broadcast::control::ServiceControl::new(FixedSystemctlReader {
+                calls: Arc::clone(&calls),
+            }),
+            calls: Arc::clone(&calls),
+        });
+        let instances = BroadcastInstanceWatch {
+            transport: Transport::local(),
+            instances: vec![
+                watch_instance("mixxx"),
+                watch_instance("show-1"),
+                watch_instance("show-2"),
+            ],
+        };
+
+        let snapshot = read_broadcast_status_blocking(
+            &[],
+            &instances,
+            &BroadcastEncoderWatchTarget::not_configured(),
+            &(Arc::clone(&reader) as SharedBroadcastStatusReader),
+            false,
+            &unknown_encoder_snapshot(&BroadcastEncoderWatchTarget::not_configured()),
+        );
+
+        assert_eq!(
+            snapshot.instances,
+            vec![
+                BroadcastInstanceSnapshot {
+                    name: "mixxx".to_owned(),
+                    publisher: ServiceState::Active,
+                    producer: ServiceState::Inactive,
+                },
+                BroadcastInstanceSnapshot {
+                    name: "show-1".to_owned(),
+                    publisher: ServiceState::Active,
+                    producer: ServiceState::Active,
+                },
+                BroadcastInstanceSnapshot {
+                    name: "show-2".to_owned(),
+                    publisher: ServiceState::NotInstalled,
+                    producer: ServiceState::NotInstalled,
+                },
+            ]
+        );
+        assert_eq!(snapshot.mixxx_holder.as_deref(), Some("show-1"));
+        let calls = reader.calls.lock().unwrap().clone();
+        let shows = calls.iter().filter(|call| call.contains(" show ")).count();
+        assert_eq!(shows, 1);
+    }
+
+    /// A read error keeps each instance in the list with an unknown state.
+    #[test]
+    fn watch_snapshot_keeps_instances_with_unknown_state_when_the_read_fails() {
+        struct Failing;
+        impl BroadcastStatusReader for Failing {
+            fn show(&self, _: &Transport, _: &UnitRef) -> Result<ServiceState, String> {
+                Err("no".to_owned())
+            }
+            fn show_many(&self, _: &Transport, _: &[UnitRef]) -> Result<Vec<ServiceState>, String> {
+                Err("no".to_owned())
+            }
+            fn running_producers(&self, _: &Transport) -> Result<Vec<String>, String> {
+                Err("no".to_owned())
+            }
+            fn encoder_status(&self, _: &EncoderTarget) -> Result<EncoderStatus, String> {
+                Err("no".to_owned())
+            }
+        }
+        let instances = BroadcastInstanceWatch {
+            transport: Transport::local(),
+            instances: vec![watch_instance("mixxx")],
+        };
+
+        let snapshot = read_broadcast_status_blocking(
+            &[],
+            &instances,
+            &BroadcastEncoderWatchTarget::not_configured(),
+            &(Arc::new(Failing) as SharedBroadcastStatusReader),
+            false,
+            &unknown_encoder_snapshot(&BroadcastEncoderWatchTarget::not_configured()),
+        );
+
+        assert_eq!(snapshot.instances[0].publisher, ServiceState::Unknown);
+        assert_eq!(snapshot.instances[0].producer, ServiceState::Unknown);
+        assert_eq!(snapshot.mixxx_holder, None);
     }
 
     async fn wait_for_states(

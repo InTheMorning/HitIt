@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready after task 001 - 2026-11-21. Implementation has not started.
+Implemented - 2026-11-21. Mechanical criteria are Green. The main session reviewed the diff and ran the checks. This task has no visual criteria. Open point: the tests use fixed `systemctl` text. The output of `systemctl --user show` for several units was not read on a real system, because the agent sandbox has no user bus. The walk of task 003 V1 on the operator computer checks it.
 
 ## Goal
 
@@ -85,4 +85,29 @@ None. Task 003 has the visual criteria of ADR 0111.
 
 ## Report
 
-Not started.
+Mechanical criteria and their tests:
+
+1. `adr_0111_switch_model_gives_the_steps_in_order`,
+   `adr_0111_switch_model_gives_lock_holder_and_start_of_a_on_exit_status_3` and
+   `adr_0111_switch_model_gives_no_start_of_a_when_a_was_not_active`
+   (`src/broadcast/producer_switch.rs`). The tests `run_switch_*` in the same
+   module prove the run through `ServiceControl` with a fake runner.
+2. `adr_0111_watch_snapshot_has_the_units_of_each_instance_and_the_mixxx_holder`
+   (`src/runtime/broadcast_service_watch.rs`). It reads fixed `systemctl`
+   text, also for a unit with `LoadState=not-found`, and counts one `show` call.
+3. `adr_0111_live_metadata_card_has_one_line_for_each_instance_and_one_mark`
+   (`src/view_models/show.rs`).
+4. The commit checks of AGENTS.md. The result is in the report of the
+   implementer to the main session.
+
+Implementer choices that this task file did not give:
+
+- `units` of the snapshot is unchanged. The new `instances` list repeats the
+  units of the private instance, so the private units have two reads. The
+  existing consumers of `units` stay as they are.
+- The producer of B is a success when its state is `Active` or `Starting`.
+  Each other state is a failure.
+- When the stop of A fails, the switch stops. It does not start A or B.
+- Over SSH, the pattern `'mixxx-now-playing@*'` has single quotes, because the
+  remote shell expands an unquoted pattern.
+- The lock holder is the first running producer instance that is not B.

@@ -28,9 +28,10 @@ use crate::config::BroadcastHostConfig;
 use crate::presentation::present_command;
 use crate::presentation::{bridge_watch, bridge_watch_with_redraw, RuntimeHost};
 use crate::runtime::{
-    BroadcastEncoderWatchTarget, BroadcastReadinessSnapshot, BroadcastReadinessWatchHandle,
-    BroadcastServiceRole, BroadcastServiceWatchHandle, BroadcastServiceWatchPace,
-    BroadcastServiceWatchSnapshot, BroadcastServiceWatchUnit,
+    BroadcastEncoderWatchTarget, BroadcastInstanceWatch, BroadcastReadinessSnapshot,
+    BroadcastReadinessWatchHandle, BroadcastServiceRole, BroadcastServiceWatchHandle,
+    BroadcastServiceWatchPace, BroadcastServiceWatchSnapshot, BroadcastServiceWatchUnit,
+    BroadcastWatchInstance,
 };
 use crate::ui::composites::{
     open_confirmation_dialog, open_confirmation_dialog_from, ConfirmationDialogDisplay,
@@ -871,7 +872,8 @@ impl TopApp {
         }
         self.publisher_watch_generation += 1;
         let generation = self.publisher_watch_generation;
-        let handle = start_broadcast_service_watch(&host, units, encoder);
+        let instances = broadcast_instance_watch(&self.broadcast);
+        let handle = start_broadcast_service_watch(&host, units, instances, encoder);
         self.publisher_service_snapshot = Some(handle.latest());
         bridge_watch_with_redraw(
             handle.subscribe(),
@@ -2452,10 +2454,11 @@ fn attached_target_name(input: &EventSectionInput) -> Option<String> {
 fn start_broadcast_service_watch(
     host: &RuntimeHost,
     units: Vec<BroadcastServiceWatchUnit>,
+    instances: BroadcastInstanceWatch,
     encoder: BroadcastEncoderWatchTarget,
 ) -> BroadcastServiceWatchHandle {
     let _enter = host.handle().enter();
-    crate::runtime::broadcast_service_watch::start(units, encoder, host.bus().session())
+    crate::runtime::broadcast_service_watch::start(units, instances, encoder, host.bus().session())
 }
 
 fn start_broadcast_readiness_watch(
@@ -2679,6 +2682,32 @@ fn broadcast_watch_inputs(
     let encoder = broadcast_encoder_watch_target(broadcast)
         .unwrap_or_else(|_| BroadcastEncoderWatchTarget::unavailable());
     (units, encoder)
+}
+
+/// The private instance and each show instance of the selected host
+/// (ADR 0111 Decision 8). An invalid host gives no instances.
+fn broadcast_instance_watch(broadcast: &config::BroadcastCapabilities) -> BroadcastInstanceWatch {
+    selected_broadcast_host(broadcast)
+        .and_then(|host| broadcast_host_instances(&host))
+        .unwrap_or_default()
+}
+
+fn broadcast_host_instances(host: &BroadcastHostConfig) -> anyhow::Result<BroadcastInstanceWatch> {
+    let names = std::iter::once(host.instance_name.as_str())
+        .chain(host.show_instances.iter().map(|show| show.name.as_str()));
+    let instances = names
+        .map(|name| {
+            Ok(BroadcastWatchInstance {
+                name: name.to_owned(),
+                publisher: UnitRef::publisher(name)?,
+                producer: UnitRef::producer(name)?,
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(BroadcastInstanceWatch {
+        transport: host.transport.clone(),
+        instances,
+    })
 }
 
 fn broadcast_encoder_watch_target(
@@ -2913,6 +2942,8 @@ mod tests {
                 state: ServiceState::Active,
             })
             .collect(),
+            instances: Vec::new(),
+            mixxx_holder: None,
             encoder: BroadcastEncoderSnapshot {
                 server_name: "Not configured".to_owned(),
                 configured: false,

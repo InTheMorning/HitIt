@@ -20,7 +20,10 @@ const CAT: &str = "cat";
 const SHOW_PROPERTIES: &str = "--property=LoadState,ActiveState,SubState,Result";
 const PUBLISHER_UNIT_PREFIX: &str = "musicindex-live-publisher@";
 const PUBLISHER_UNIT_SUFFIX: &str = ".service";
+const SHOW_MANY_PROPERTIES: &str = "--property=Id,LoadState,ActiveState,SubState,Result";
+const EXEC_MAIN_STATUS_PROPERTY: &str = "--property=ExecMainStatus";
 const PRODUCER_UNIT_PREFIX: &str = "mixxx-now-playing@";
+const PRODUCER_UNIT_PATTERN: &str = "mixxx-now-playing@*";
 const INSTANCE_NAME_MAX_LEN: usize = 32;
 
 /// Check an instance name against `^[a-z0-9][a-z0-9-]{0,31}$`.
@@ -286,6 +289,79 @@ impl<R: CommandRunner> ServiceControl<R> {
         Ok(parse_service_state(&output.stdout))
     }
 
+    /// Read the state of several units with one `systemctl show` call.
+    ///
+    /// The result has one state for each unit, in the order of `units`. A
+    /// unit that the output does not name gets [`ServiceState::Unknown`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `systemctl show` cannot run or returns no output.
+    pub fn show_many(&self, transport: &Transport, units: &[UnitRef]) -> Result<Vec<ServiceState>> {
+        if units.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut args = systemctl_args(["--user", "show"]);
+        args.extend(units.iter().map(|unit| unit.unit().to_owned()));
+        args.push(SHOW_MANY_PROPERTIES.to_owned());
+        let run = match transport.run(&self.runner, SYSTEMCTL, &args) {
+            Ok(run) => run,
+            Err(error) if transport_ssh_program_missing(transport, &error) => {
+                return Ok(vec![ServiceState::ProgramNotInstalled; units.len()]);
+            }
+            Err(error) => return Err(error),
+        };
+        if matches!(run.reachability, Reachability::NotReachable) {
+            return Ok(vec![ServiceState::NotReachable; units.len()]);
+        }
+        let output = run.output;
+        if output.stdout.trim().is_empty() && !output.status.success() {
+            return Err(command_failure(SYSTEMCTL, &output));
+        }
+        Ok(parse_many_service_states(&output.stdout, units))
+    }
+
+    /// Read the exit status of the main process of one unit.
+    ///
+    /// Returns `None` when the unit reports no status.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `systemctl show` fails.
+    pub fn exec_main_status(&self, transport: &Transport, unit: &UnitRef) -> Result<Option<i32>> {
+        let args = systemctl_args(["--user", "show", unit.unit(), EXEC_MAIN_STATUS_PROPERTY]);
+        let output = self.run_checked(transport, SYSTEMCTL, &args)?;
+        Ok(parse_properties(&output.stdout)
+            .get("ExecMainStatus")
+            .and_then(|value| value.parse().ok()))
+    }
+
+    /// Read the instance names of the Mixxx producer units that run.
+    ///
+    /// Runs `systemctl --user list-units 'mixxx-now-playing@*'`. The Mixxx
+    /// lock allows one running producer (ADR 0111 Decision 5).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `systemctl list-units` fails.
+    pub fn running_producers(&self, transport: &Transport) -> Result<Vec<String>> {
+        // The remote shell of an SSH transport expands an unquoted pattern.
+        let pattern = match transport {
+            Transport::Local => PRODUCER_UNIT_PATTERN.to_owned(),
+            Transport::Ssh { .. } => format!("'{PRODUCER_UNIT_PATTERN}'"),
+        };
+        let args = systemctl_args([
+            "--user",
+            "list-units",
+            pattern.as_str(),
+            "--plain",
+            "--no-legend",
+            "--no-pager",
+        ]);
+        let output = self.run_checked(transport, SYSTEMCTL, &args)?;
+        Ok(parse_running_producers(&output.stdout))
+    }
+
     /// Start one unit.
     ///
     /// # Errors
@@ -511,6 +587,53 @@ fn parse_service_state(output: &str) -> ServiceState {
     }
 }
 
+/// Split `systemctl show` output for several units into one state each.
+///
+/// Each unit block holds an `Id` line. A block maps to a unit by `Id`.
+fn parse_many_service_states(output: &str, units: &[UnitRef]) -> Vec<ServiceState> {
+    let blocks: Vec<&str> = output
+        .split("\n\n")
+        .map(str::trim)
+        .filter(|block| !block.is_empty())
+        .collect();
+    units
+        .iter()
+        .map(|unit| {
+            blocks
+                .iter()
+                .find(|block| {
+                    parse_properties(block)
+                        .get("Id")
+                        .is_some_and(|id| *id == unit.unit())
+                })
+                .map_or(ServiceState::Unknown, |block| parse_service_state(block))
+        })
+        .collect()
+}
+
+/// Read the instance names of running producer units from `list-units`.
+///
+/// A line has the columns unit, load, active and sub state. A producer runs
+/// when its active column is `active`, `reloading` or `activating`.
+fn parse_running_producers(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let mut columns = line.split_whitespace();
+            let unit = columns.next()?;
+            let _load = columns.next()?;
+            let active = columns.next()?;
+            if !matches!(active, "active" | "reloading" | "activating") {
+                return None;
+            }
+            let instance = unit
+                .strip_prefix(PRODUCER_UNIT_PREFIX)?
+                .strip_suffix(PUBLISHER_UNIT_SUFFIX)?;
+            Some(instance.to_owned())
+        })
+        .collect()
+}
+
 fn parse_properties(output: &str) -> BTreeMap<&str, &str> {
     output
         .lines()
@@ -665,6 +788,48 @@ mod tests {
         format!(
             "LoadState={load_state}\nActiveState={active_state}\nSubState={sub_state}\nResult={result}\n"
         )
+    }
+
+    #[test]
+    fn show_many_reads_each_unit_by_id_with_one_call() -> Result<()> {
+        let publisher = UnitRef::publisher("show-1")?;
+        let producer = UnitRef::producer("show-1")?;
+        let runner = StubRunner::with_output(CommandOutput::success(
+            "Id=mixxx-now-playing@show-1.service\nLoadState=not-found\nActiveState=inactive\n\n\
+             Id=musicindex-live-publisher@show-1.service\nLoadState=loaded\nActiveState=active\n",
+        ));
+        let states =
+            ServiceControl::new(&runner).show_many(&local_transport(), &[publisher, producer])?;
+        assert_eq!(states, [ServiceState::Active, ServiceState::NotInstalled]);
+        assert_eq!(runner.calls().len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn running_producers_reads_active_units_from_list_units() -> Result<()> {
+        let listing = "mixxx-now-playing@show-1.service loaded active running Mixxx\n\
+                       mixxx-now-playing@mixxx.service loaded failed failed Mixxx\n";
+        let runner = StubRunner::with_output(CommandOutput::success(listing));
+        let running = ServiceControl::new(&runner).running_producers(&local_transport())?;
+        assert_eq!(running, ["show-1"]);
+        assert!(runner.calls()[0]
+            .args
+            .contains(&"mixxx-now-playing@*".to_owned()));
+        let runner = StubRunner::with_output(CommandOutput::success(""));
+        ServiceControl::new(&runner).running_producers(&ssh_transport())?;
+        assert!(runner.calls()[0]
+            .args
+            .contains(&"'mixxx-now-playing@*'".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn exec_main_status_reads_the_property() -> Result<()> {
+        let runner = StubRunner::with_output(CommandOutput::success("ExecMainStatus=3\n"));
+        let status = ServiceControl::new(&runner)
+            .exec_main_status(&local_transport(), &UnitRef::producer("show-1")?)?;
+        assert_eq!(status, Some(3));
+        Ok(())
     }
 
     #[test]

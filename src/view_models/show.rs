@@ -1263,6 +1263,43 @@ pub(crate) struct PublisherSectionDisplay {
     pub(crate) event: Option<EventSectionDisplay>,
     /// Observed service rows, in fixed section order.
     pub(crate) services: Vec<PublisherServiceDisplay>,
+    /// One line for the private instance and each show instance (ADR 0111
+    /// Decision 8).
+    pub(crate) instances: Vec<ShowInstanceLine>,
+}
+
+/// State of one instance on the Live Metadata card (ADR 0111 Decision 8).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ShowInstanceLine {
+    /// Instance name.
+    pub(crate) name: String,
+    /// State of the publisher unit.
+    pub(crate) publisher: PublisherServiceStateDisplay,
+    /// State of the producer unit.
+    pub(crate) producer: PublisherServiceStateDisplay,
+    /// The producer of this instance holds Mixxx. Only one line has the mark.
+    pub(crate) holds_mixxx: bool,
+}
+
+impl ShowInstanceLine {
+    /// Build one line for each instance of the snapshot.
+    fn from_snapshot(
+        snapshot: Option<&broadcast_service_watch::BroadcastServiceWatchSnapshot>,
+    ) -> Vec<Self> {
+        let Some(snapshot) = snapshot else {
+            return Vec::new();
+        };
+        snapshot
+            .instances
+            .iter()
+            .map(|instance| Self {
+                name: instance.name.clone(),
+                publisher: PublisherServiceStateDisplay::from_service_state(&instance.publisher),
+                producer: PublisherServiceStateDisplay::from_service_state(&instance.producer),
+                holds_mixxx: snapshot.mixxx_holder.as_deref() == Some(instance.name.as_str()),
+            })
+            .collect()
+    }
 }
 
 /// Display-ready Event section for the `Show` screen mount.
@@ -3387,6 +3424,7 @@ impl PublisherSectionDisplay {
             summary: String::new(),
             event,
             services,
+            instances: ShowInstanceLine::from_snapshot(snapshot),
         };
         section.update_summary();
         Some(section)
@@ -6391,6 +6429,59 @@ mod tests {
         assert_eq!(pane, before);
     }
 
+    /// ADR 0111 criterion 3: the Live Metadata card data has one line for each
+    /// instance, and the mark is on the lock holder only.
+    #[test]
+    fn adr_0111_live_metadata_card_has_one_line_for_each_instance_and_one_mark() {
+        let mut snapshot = publisher_snapshot([
+            (
+                PublisherServiceRole::Producer,
+                "producer.service",
+                ServiceState::Active,
+            ),
+            (
+                PublisherServiceRole::Publisher,
+                "publisher.service",
+                ServiceState::Active,
+            ),
+        ]);
+        snapshot.instances = ["mixxx", "show-1", "show-2"]
+            .into_iter()
+            .map(|name| broadcast_service_watch::BroadcastInstanceSnapshot {
+                name: name.to_owned(),
+                publisher: ServiceState::Active,
+                producer: if name == "show-2" {
+                    ServiceState::NotInstalled
+                } else {
+                    ServiceState::Inactive
+                },
+            })
+            .collect();
+        snapshot.mixxx_holder = Some("show-1".to_owned());
+
+        let section = PublisherSectionDisplay::from_snapshot(
+            Some(&snapshot),
+            &ShowLogPaneDisplay::closed(),
+            Some(EventSectionDisplay::from_input(&ready_event_input(), true)),
+        )
+        .expect("section");
+
+        let names: Vec<_> = section
+            .instances
+            .iter()
+            .map(|line| line.name.as_str())
+            .collect();
+        assert_eq!(names, ["mixxx", "show-1", "show-2"]);
+        let marked: Vec<_> = section
+            .instances
+            .iter()
+            .filter(|line| line.holds_mixxx)
+            .map(|line| line.name.as_str())
+            .collect();
+        assert_eq!(marked, ["show-1"]);
+        assert_eq!(section.instances[2].producer.label(), "Not installed");
+    }
+
     fn publisher_snapshot<const N: usize>(
         units: [(PublisherServiceRole, &str, ServiceState); N],
     ) -> broadcast_service_watch::BroadcastServiceWatchSnapshot {
@@ -6429,6 +6520,8 @@ mod tests {
             read_started_at: std::time::Instant::now(),
             at: std::time::Instant::now(),
             units,
+            instances: Vec::new(),
+            mixxx_holder: None,
             encoder,
         }
     }

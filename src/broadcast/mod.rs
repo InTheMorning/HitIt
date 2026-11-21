@@ -7,6 +7,7 @@ pub mod control;
 pub mod encoder;
 pub mod live_value;
 pub mod producer;
+pub mod producer_switch;
 pub mod publisher_targets;
 pub mod registry;
 pub mod setup_helper;

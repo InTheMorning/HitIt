@@ -38,9 +38,10 @@ pub use broadcast_observation::{
 };
 pub(crate) use broadcast_readiness::{BroadcastReadinessSnapshot, BroadcastReadinessWatchHandle};
 pub use broadcast_service_watch::{
-    BroadcastEncoderSnapshot, BroadcastEncoderWatchTarget, BroadcastServiceRole,
-    BroadcastServiceUnitSnapshot, BroadcastServiceWatchHandle, BroadcastServiceWatchPace,
-    BroadcastServiceWatchSnapshot, BroadcastServiceWatchUnit,
+    BroadcastEncoderSnapshot, BroadcastEncoderWatchTarget, BroadcastInstanceSnapshot,
+    BroadcastInstanceWatch, BroadcastServiceRole, BroadcastServiceUnitSnapshot,
+    BroadcastServiceWatchHandle, BroadcastServiceWatchPace, BroadcastServiceWatchSnapshot,
+    BroadcastServiceWatchUnit, BroadcastWatchInstance,
 };
 pub use musicbrainz_feed_saga::{
     MusicBrainzFeedSagaHandle, MusicBrainzFeedSagaState, StartFeedLookup,
