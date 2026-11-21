@@ -124,12 +124,21 @@ pub(crate) fn popup(snapshot: Option<&TagUpdateSnapshot>) -> Option<TagUpdatePop
     if scan.count() == 0 {
         return None;
     }
-    let writable = scan
+    let visible = scan
         .files
+        .iter()
+        .filter(|file| match &file.content {
+            TagUpdateFileContent::Unreadable { .. } => true,
+            TagUpdateFileContent::Differs { frames, .. } => {
+                frames.iter().any(|frame| !frame.skipped)
+            }
+        })
+        .collect::<Vec<_>>();
+    let writable = visible
         .iter()
         .filter(|file| file.has_write_action() && !file.in_use)
         .count();
-    let held = scan.files.len() - writable;
+    let held = visible.len() - writable;
     let mut message = format!(
         "The app writes the stored metadata to the tags of {}. Each file below shows the frames to write.",
         files_text(writable)
@@ -153,15 +162,20 @@ pub(crate) fn popup(snapshot: Option<&TagUpdateSnapshot>) -> Option<TagUpdatePop
             "Write the stored metadata to the tags of {}",
             files_text(writable)
         ),
-        files: scan.files.iter().map(file_display).collect(),
+        files: visible.into_iter().map(file_display).collect(),
     })
 }
 
 fn file_display(file: &TagUpdateFile) -> TagUpdateFileDisplay {
     let (lines, unreadable) = match &file.content {
-        TagUpdateFileContent::Differs { frames, .. } => {
-            (frames.iter().map(frame_line).collect(), false)
-        }
+        TagUpdateFileContent::Differs { frames, .. } => (
+            frames
+                .iter()
+                .filter(|frame| !frame.skipped)
+                .map(frame_line)
+                .collect(),
+            false,
+        ),
         TagUpdateFileContent::Unreadable { error } => (
             vec![format!(
                 "The app cannot read the tags of this file: {error}"
@@ -369,6 +383,8 @@ mod tests {
             in_use,
             content: TagUpdateFileContent::Differs {
                 frames: vec![TagFrameChange {
+                    group: 0,
+                    skipped: false,
                     frame_label: "TIT2".into(),
                     file_value: Some("Old title".into()),
                     expected_value: format!("Song {track_id}"),
@@ -380,7 +396,10 @@ mod tests {
 
     fn snapshot(files: Vec<TagUpdateFile>) -> TagUpdateSnapshot {
         TagUpdateSnapshot {
-            scan: Some(TagUpdateScan { files }),
+            scan: Some(TagUpdateScan {
+                files,
+                stale_skips: Vec::new(),
+            }),
             ..TagUpdateSnapshot::default()
         }
     }
@@ -456,6 +475,20 @@ mod tests {
             Some((UNREADABLE_MARK, TagUpdateMarkRole::Unreadable))
         );
         assert!(popup.files[2].lines[0].contains("probe failed"));
+    }
+
+    #[test]
+    fn adr_0108_tag_update_popup_omits_a_file_with_only_skipped_changes() {
+        let mut skipped = differs(2, false);
+        if let TagUpdateFileContent::Differs { frames, .. } = &mut skipped.content {
+            frames[0].skipped = true;
+        }
+        let state = snapshot(vec![differs(1, false), skipped]);
+        let display = popup(Some(&state)).unwrap();
+        assert_eq!(file_count(Some(&state)), 1);
+        assert_eq!(display.title, "Update 1 file?");
+        assert_eq!(display.files.len(), 1);
+        assert_eq!(display.files[0].title, "Song 1");
     }
 
     /// Each result has its own report line, and the summary gives the

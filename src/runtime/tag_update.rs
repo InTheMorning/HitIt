@@ -17,11 +17,14 @@ use std::sync::{Arc, Mutex};
 use rusqlite::Connection;
 use tokio::sync::{mpsc, watch};
 
-use crate::application::commands::tag_update::{write_tag_updates, TagUpdateWriteReport};
+use crate::application::commands::tag_update::{
+    delete_stale_skips, record_skips, write_tag_updates, TagUpdateWriteReport,
+};
 use crate::application::queries::tag_update::{
     compare_planned_files, plan_tag_update_scan, TagUpdateFile, TagUpdateScan,
 };
 use crate::application::session_lifecycle::SessionLifecycle;
+use crate::db::tag_update_skips::TagUpdateSkip;
 use crate::runtime::vm_bus::{VmBus, VmEvent};
 
 const INBOX_CAPACITY: usize = 8;
@@ -55,6 +58,7 @@ enum TagUpdateMessage {
     Confirm {
         music_dir: PathBuf,
         files: Vec<TagUpdateFile>,
+        skips: Vec<TagUpdateSkip>,
     },
 }
 
@@ -78,9 +82,18 @@ impl TagUpdateHandle {
     /// Write the listed files, and then scan again. Returns `false` when
     /// the actor stopped or its inbox is full.
     #[must_use]
-    pub(crate) fn confirm(&self, music_dir: PathBuf, files: Vec<TagUpdateFile>) -> bool {
+    pub(crate) fn confirm(
+        &self,
+        music_dir: PathBuf,
+        files: Vec<TagUpdateFile>,
+        skips: Vec<TagUpdateSkip>,
+    ) -> bool {
         self.inbox
-            .try_send(TagUpdateMessage::Confirm { music_dir, files })
+            .try_send(TagUpdateMessage::Confirm {
+                music_dir,
+                files,
+                skips,
+            })
             .is_ok()
     }
 
@@ -135,11 +148,31 @@ async fn handle(
 ) {
     match message {
         TagUpdateMessage::Scan { music_dir } => scan(conn, snapshot_tx, music_dir).await,
-        TagUpdateMessage::Confirm { music_dir, files } => {
+        TagUpdateMessage::Confirm {
+            music_dir,
+            files,
+            skips,
+        } => {
             snapshot_tx.send_modify(|snapshot| {
                 snapshot.writing = true;
                 snapshot.write_error = None;
             });
+            let conn_for_skips = Arc::clone(conn);
+            let recorded = tokio::task::spawn_blocking(move || {
+                record_skips(&conn_for_skips, &skips).map_err(|error| format!("{error:#}"))
+            })
+            .await
+            .unwrap_or_else(|error| Err(format!("The tag skip record stopped: {error}")));
+            if let Err(error) = recorded {
+                snapshot_tx.send_modify(|snapshot| {
+                    snapshot.writing = false;
+                    snapshot.scanning = true;
+                    snapshot.writes_ended += 1;
+                    snapshot.write_error = Some(error);
+                });
+                scan(conn, snapshot_tx, music_dir).await;
+                return;
+            }
             let conn_for_write = Arc::clone(conn);
             let bus = bus.clone();
             let written = tokio::task::spawn_blocking(move || {
@@ -183,16 +216,20 @@ async fn scan(
                 .map_err(|_| "The database lock is not available.".to_owned())?;
             plan_tag_update_scan(&conn, &music_dir).map_err(|error| format!("{error:#}"))?
         };
-        Ok::<_, String>(compare_planned_files(planned))
+        let compared = compare_planned_files(planned);
+        let delete_error = delete_stale_skips(&conn, &compared.stale_skips)
+            .err()
+            .map(|error| format!("{error:#}"));
+        Ok::<_, String>((compared, delete_error))
     })
     .await
     .unwrap_or_else(|error| Err(format!("The tag scan stopped: {error}")));
     snapshot_tx.send_modify(|snapshot| {
         snapshot.scanning = false;
         match result {
-            Ok(scan) => {
+            Ok((scan, delete_error)) => {
                 snapshot.scan = Some(scan);
-                snapshot.scan_error = None;
+                snapshot.scan_error = delete_error;
             }
             Err(error) => snapshot.scan_error = Some(error),
         }
@@ -230,7 +267,7 @@ mod tests {
     /// confirm writes the files, sends `VmEvent::TrackChanged` for each
     /// written track, and then scans again.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn adr_0076_tag_update_actor_scans_writes_and_sends_track_changed() {
+    async fn adr_0108_tag_update_actor_records_skip_and_writes_selected_file() {
         let dir = tempfile::tempdir().unwrap();
         let conn = Arc::new(Mutex::new(library(dir.path(), &[1, 2])));
         let bus = VmBus::new();
@@ -246,22 +283,105 @@ mod tests {
         .await;
         let files = scanned.scan.unwrap().files;
         assert_eq!(files.len(), 2);
+        let track_two = files.iter().find(|file| file.track_id == 2).unwrap();
+        let settling_edits = track_two
+            .edits()
+            .into_iter()
+            .filter(|edit| edit.frame_label != "TIT2")
+            .collect::<Vec<_>>();
+        crate::audio_tags::write_id3v24_edits(&track_two.path, &settling_edits).unwrap();
+        crate::audio_tags::write_id3v24_edits(
+            &track_two.path,
+            &[crate::audio_tags::Id3v24Edit {
+                frame_label: "TIT2".into(),
+                value: "Old title".into(),
+            }],
+        )
+        .unwrap();
+        let files = crate::application::queries::tag_update::scan_tag_updates(
+            &conn.lock().unwrap(),
+            dir.path(),
+        )
+        .unwrap()
+        .files;
+        let track_two = files.iter().find(|file| file.track_id == 2).unwrap();
+        let stored_title = match &track_two.content {
+            crate::application::queries::tag_update::TagUpdateFileContent::Differs {
+                frames,
+                ..
+            } => frames
+                .iter()
+                .find(|frame| frame.frame_label == "TIT2")
+                .unwrap()
+                .expected_value
+                .clone(),
+            crate::application::queries::tag_update::TagUpdateFileContent::Unreadable {
+                ..
+            } => unreachable!(),
+        };
+        let skip = TagUpdateSkip {
+            track_id: 2,
+            frame_label: "TIT2".into(),
+            stored_value: stored_title,
+        };
 
-        assert!(handle.confirm(dir.path().to_path_buf(), files));
+        assert!(handle.confirm(
+            dir.path().to_path_buf(),
+            vec![files[0].clone()],
+            vec![skip.clone()]
+        ));
         let confirmed = wait_for(&mut receiver, |snapshot| {
             snapshot.last_write.is_some() && !snapshot.writing && !snapshot.scanning
         })
         .await;
 
-        assert_eq!(confirmed.last_write.unwrap().written_count(), 2);
+        assert_eq!(confirmed.last_write.unwrap().written_count(), 1);
         // ADR 0101 Decision 7: each ended confirm adds one to the count.
         assert_eq!(scanned.writes_ended, 0);
         assert_eq!(confirmed.writes_ended, 1);
-        assert_eq!(confirmed.scan.unwrap().count(), 0);
+        let final_scan = confirmed.scan.unwrap();
+        assert_eq!(final_scan.count(), 0);
+        assert_eq!(final_scan.skip_count(), 1);
+        assert_eq!(
+            crate::db::tag_update_skips::tag_update_skips(&conn.lock().unwrap()).unwrap(),
+            vec![skip]
+        );
         let mut changed = Vec::new();
         while let Ok(VmEvent::TrackChanged { track_id }) = events.try_recv() {
             changed.push(track_id);
         }
-        assert_eq!(changed, vec![1, 2]);
+        assert_eq!(changed, vec![1]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn adr_0108_tag_update_actor_deletes_stale_skips_after_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = Arc::new(Mutex::new(library(dir.path(), &[1])));
+        let stale = TagUpdateSkip {
+            track_id: 1,
+            frame_label: "TIT2".into(),
+            stored_value: "Old stored title".into(),
+        };
+        crate::db::tag_update_skips::record_tag_update_skips(
+            &conn.lock().unwrap(),
+            std::slice::from_ref(&stale),
+        )
+        .unwrap();
+        let session = SessionLifecycle::new();
+        let handle = spawn(Arc::clone(&conn), VmBus::new(), &session);
+        let mut receiver = handle.subscribe();
+
+        assert!(handle.scan(dir.path().to_path_buf()));
+        let snapshot = wait_for(&mut receiver, |snapshot| {
+            snapshot.scan.is_some() && !snapshot.scanning
+        })
+        .await;
+
+        assert!(snapshot.scan_error.is_none());
+        assert!(
+            crate::db::tag_update_skips::tag_update_skips(&conn.lock().unwrap())
+                .unwrap()
+                .is_empty()
+        );
     }
 }

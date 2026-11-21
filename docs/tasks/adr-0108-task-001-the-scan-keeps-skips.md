@@ -2,7 +2,7 @@
 
 ## Status
 
-Open - 2026-11-21.
+Implemented - 2026-11-21.
 
 ## Goal
 
@@ -87,4 +87,36 @@ None. Task 002 gives the visual criteria.
 
 ## Report
 
-Write the report here when the task is complete. Name each changed file, the method that removes the skips of a removed track, and each criterion with its test name.
+Migration 29 adds `tag_update_skips`. Track and feed removal delete skips in the same database transaction as Library removal. Track deletion also uses `ON DELETE CASCADE`.
+
+| Criterion | Names |
+| --- | --- |
+| 1. Migration and registry | `adr_0108_migration_29_adds_skip_table_with_track_cascade`, `test_migrations_record_versions_on_fresh_schema` |
+| 2. Record, read and delete | `adr_0108_scan_keeps_matching_skip_and_marks_changed_value_stale` |
+| 3. Track removal | `adr_0100_track_removal_moves_file_and_updates_file_rows` |
+| 4 to 9. Scan, groups and selection | `adr_0108_scan_keeps_matching_skip_and_marks_changed_value_stale`, `adr_0108_flac_shared_key_group_skips_only_when_each_change_is_skipped`, `adr_0080_shared_key_year_only_flac_settles_after_one_write`, `adr_0076_tag_update_unreadable_file_is_listed_without_write_action` |
+| 10. Confirm | `adr_0108_tag_update_actor_records_skip_and_writes_selected_file` |
+| 11. Stale skip removal | `adr_0108_tag_update_actor_deletes_stale_skips_after_scan` |
+| 12. Popup and count | `adr_0108_tag_update_popup_omits_a_file_with_only_skipped_changes` |
+| 13. Scan and write guard | `adr_0076_tag_update_checks_and_scans_write_no_tag` |
+| 14. Required checks | `cargo build --bin hitit`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` |
+
+Changed files:
+
+- `src/db/tag_update_skips.rs`
+- `src/db.rs`
+- `src/db/upgrades.rs`
+- `src/application/queries/tag_update.rs`
+- `src/application/commands/tag_update.rs`
+- `src/application/library_removal.rs`
+- `src/runtime/tag_update.rs`
+- `src/library/app_impl.rs`
+- `src/view_models/tag_update.rs`
+- `AGENTS.md`
+- `docs/tasks/adr-0108-task-001-the-scan-keeps-skips.md`
+
+The main session review made these changes:
+
+- `TagUpdateFile::edits()` removed each skipped change. Thus a skip that the host selects in task 002 cannot be written (ADR 0108 Decision 4.3). Now `edits()` writes each change of the file that it gets, and `with_groups` makes the selection. `adr_0108_scan_keeps_matching_skip_and_marks_changed_value_stale` tests it.
+- Five tests had the schema version 28 in their expectations. They now expect 29.
+- The ChatGPT run stopped before its last test run, because the operator asked for no ChatGPT in this session. The main session ran the commit checks.

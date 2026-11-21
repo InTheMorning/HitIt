@@ -1477,9 +1477,15 @@ impl LibraryApp {
         let Some(display) = crate::view_models::tag_update::popup(snapshot) else {
             return;
         };
-        let files = snapshot
+        let files: Vec<crate::application::queries::tag_update::TagUpdateFile> = snapshot
             .and_then(|snapshot| snapshot.scan.as_ref())
-            .map(|scan| scan.files.clone())
+            .map(|scan| scan.files.iter().filter_map(|file| {
+                let groups = match &file.content {
+                    crate::application::queries::tag_update::TagUpdateFileContent::Differs { frames, .. } => frames.iter().filter(|frame| !frame.skipped).map(|frame| frame.group).collect(),
+                    crate::application::queries::tag_update::TagUpdateFileContent::Unreadable { .. } => BTreeSet::new(),
+                };
+                if file.has_write_action() { file.with_groups(&groups) } else { Some(file.clone()) }
+            }).collect())
             .unwrap_or_default();
         open_tag_update_confirmation_dialog(window, cx, display, move |this, cx| {
             this.confirm_tag_update(files.clone(), cx);
@@ -1494,7 +1500,7 @@ impl LibraryApp {
         self.tag_update_request_failed = !self
             .tag_update
             .as_ref()
-            .is_some_and(|handle| handle.confirm(self.music_dir.clone(), files));
+            .is_some_and(|handle| handle.confirm(self.music_dir.clone(), files, Vec::new()));
         if self.tag_update_request_failed {
             self.emit_app_event(
                 AppEventOwner::TagWrite,

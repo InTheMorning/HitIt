@@ -21,6 +21,7 @@ use rusqlite::Connection;
 use crate::application::queries::tag_update::TagUpdateFile;
 use crate::audio_tags::write_id3v24_edits;
 use crate::db;
+use crate::db::tag_update_skips::TagUpdateSkip;
 use crate::metadata_service::{with_stored_route_frame, RouteFrameWrite};
 
 /// The result of one listed file after a confirm.
@@ -51,6 +52,20 @@ pub(crate) struct TagUpdateWriteReport {
     /// The time at which the confirm completed, in microseconds since the
     /// Unix epoch.
     pub(crate) finished_at_us: i64,
+}
+
+pub(crate) fn record_skips(conn: &Mutex<Connection>, skips: &[TagUpdateSkip]) -> Result<()> {
+    let conn = conn
+        .lock()
+        .map_err(|_| anyhow!("The database lock is not available."))?;
+    db::tag_update_skips::record_tag_update_skips(&conn, skips)
+}
+
+pub(crate) fn delete_stale_skips(conn: &Mutex<Connection>, skips: &[TagUpdateSkip]) -> Result<()> {
+    let conn = conn
+        .lock()
+        .map_err(|_| anyhow!("The database lock is not available."))?;
+    db::tag_update_skips::delete_tag_update_skips(&conn, skips)
 }
 
 impl TagUpdateWriteReport {

@@ -250,6 +250,10 @@ fn execute_track_removal(
             "UPDATE tracks SET is_in_library = 0 WHERE id = ?1",
             [track_id],
         )?;
+        transaction.execute(
+            "DELETE FROM tag_update_skips WHERE track_id = ?1",
+            [track_id],
+        )?;
         db::move_local_file_rows_to_cache(&transaction, &rows, |row| {
             moves.iter().any(|moved| moved.relative_path() == &row.path)
         })?;
@@ -307,6 +311,10 @@ fn execute_feed_removal(
         let transaction = conn.unchecked_transaction()?;
         db::set_feed_subscribed(&transaction, feed_id, false)?;
         db::unsubscribe_feed_tracks(&transaction, feed_id)?;
+        transaction.execute(
+            "DELETE FROM tag_update_skips WHERE track_id IN (SELECT id FROM tracks WHERE feed_id = ?1)",
+            [feed_id],
+        )?;
         db::move_local_file_rows_to_cache(&transaction, &rows, |row| {
             moves.iter().any(|moved| moved.relative_path() == &row.path)
         })?;
@@ -409,6 +417,14 @@ mod tests {
         std::fs::create_dir_all(source.parent().unwrap())?;
         std::fs::write(&source, b"ADR 0100 audio")?;
         db::mark_track_downloaded(&conn, track_id, &relative, Some(14))?;
+        db::tag_update_skips::record_tag_update_skips(
+            &conn,
+            &[db::tag_update_skips::TagUpdateSkip {
+                track_id,
+                frame_label: "TIT2".into(),
+                stored_value: "Track Title".into(),
+            }],
+        )?;
 
         execute_library_removal(
             &conn,
@@ -432,6 +448,7 @@ mod tests {
         )?;
         assert_eq!(local_count, 0, "ADR 0100 leaves no local_files row");
         assert_eq!(cached_count, 1, "ADR 0100 adds one cached_files row");
+        assert!(db::tag_update_skips::tag_update_skips(&conn)?.is_empty());
         Ok(())
     }
 

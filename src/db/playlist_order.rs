@@ -189,14 +189,14 @@ mod tests {
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
         assert_eq!(
-            CURRENT_VERSION, 28,
-            "ADR 0098 adds the named_feed_titles migration"
+            CURRENT_VERSION, 29,
+            "ADR 0108 adds the tag_update_skips migration"
         );
         assert_eq!(
             inspect_schema(&conn).unwrap(),
             SchemaCompatibility::UpgradeRequired {
                 applied: 24,
-                current: 28,
+                current: 29,
             }
         );
         upgrades::verify_target(&conn, 24).unwrap();

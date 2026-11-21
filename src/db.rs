@@ -3032,6 +3032,7 @@ pub(crate) mod rss_field_holds;
 pub(crate) mod saved_search_seen;
 pub(crate) mod saved_searches;
 pub mod startup;
+pub(crate) mod tag_update_skips;
 pub(crate) mod upgrades;
 
 pub use library_search::{
@@ -3045,7 +3046,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 28;
+pub(crate) const CURRENT_VERSION: i64 = 29;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -3187,6 +3188,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 28,
         name: "named_feed_titles",
         apply: publisher_relationships::apply_named_titles,
+    },
+    Migration {
+        version: 29,
+        name: "tag_update_skips",
+        apply: tag_update_skips::apply,
     },
 ];
 
@@ -3387,6 +3393,11 @@ pub(crate) fn schema_contract(
         })
         .chain(if version >= 27 {
             cached_files::COLUMNS
+        } else {
+            &[]
+        })
+        .chain(if version >= 29 {
+            tag_update_skips::COLUMNS
         } else {
             &[]
         })
@@ -5670,7 +5681,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26, 27, 28
+                24, 25, 26, 27, 28, 29
             ],
             "cleanup migration should be recorded exactly once"
         );
@@ -6722,6 +6733,38 @@ mod tests {
             }
         );
         upgrades::verify_target(&conn, 27)?;
+        Ok(())
+    }
+
+    #[test]
+    fn adr_0108_migration_29_adds_skip_table_with_track_cascade() -> Result<()> {
+        let conn = Connection::open_in_memory()?;
+        conn.pragma_update(None, "foreign_keys", true)?;
+        init_schema(&conn)?;
+        migrate_schema_to(&conn, 28)?;
+        migrate_schema_to(&conn, 29)?;
+        let columns = conn
+            .prepare("PRAGMA table_info(tag_update_skips)")?
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(1)?, row.get::<_, i64>(5)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        assert_eq!(
+            columns,
+            vec![
+                ("track_id".to_owned(), 1),
+                ("frame_label".to_owned(), 2),
+                ("stored_value".to_owned(), 3),
+                ("recorded_at".to_owned(), 0),
+            ]
+        );
+        let foreign_key: String = conn.query_row(
+            "SELECT on_delete FROM pragma_foreign_key_list('tag_update_skips') WHERE \"table\" = 'tracks'",
+            [], |row| row.get(0),
+        )?;
+        assert_eq!(foreign_key, "CASCADE");
+        assert_eq!(inspect_schema(&conn)?, SchemaCompatibility::Current);
+        upgrades::verify_target(&conn, CURRENT_VERSION)?;
         Ok(())
     }
 }

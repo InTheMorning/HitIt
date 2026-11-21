@@ -15,7 +15,7 @@
 
 #![warn(clippy::pedantic)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -28,6 +28,7 @@ use crate::audio_tags::{
     Id3v24Edit, LICENSE_LIST_FRAME, LICENSE_URL_FRAME,
 };
 use crate::db;
+use crate::db::tag_update_skips::TagUpdateSkip;
 use crate::metadata::{
     audio_tags_value_routes, frame_destination_for_format, id3_frame_base, parse_value_routes,
     payment_routes_equal, pending_id3_target_key, summarize_value_routes,
@@ -40,13 +41,40 @@ use crate::rss::compare::{description_equal, TextRepresentation};
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TagUpdateScan {
     pub(crate) files: Vec<TagUpdateFile>,
+    pub(crate) stale_skips: Vec<TagUpdateSkip>,
 }
 
 impl TagUpdateScan {
     /// The number of listed files. The "Update n file(s)" button shows it.
     #[must_use]
     pub(crate) fn count(&self) -> usize {
-        self.files.len()
+        if self.skip_count() == 0 {
+            return self.files.len();
+        }
+        self.files
+            .iter()
+            .filter(|file| match &file.content {
+                TagUpdateFileContent::Unreadable { .. } => true,
+                TagUpdateFileContent::Differs { frames, .. } => {
+                    frames.iter().any(|frame| !frame.skipped)
+                }
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub(crate) fn skip_count(&self) -> usize {
+        self.files
+            .iter()
+            .flat_map(|file| match &file.content {
+                TagUpdateFileContent::Differs { frames, .. } => frames
+                    .iter()
+                    .filter(|f| f.skipped)
+                    .map(|f| f.group)
+                    .collect::<BTreeSet<_>>(),
+                TagUpdateFileContent::Unreadable { .. } => BTreeSet::new(),
+            })
+            .count()
     }
 
     /// The number of listed files that the show plays or holds.
@@ -90,7 +118,52 @@ impl TagUpdateFile {
                     frame_label: frame.frame_label.clone(),
                     value: frame.expected_value.clone(),
                 })
-                .chain(shared_key_edits.iter().cloned())
+                .chain(shared_key_edits.iter().map(|(_, edit)| edit.clone()))
+                .collect(),
+            TagUpdateFileContent::Unreadable { .. } => Vec::new(),
+        }
+    }
+
+    pub(crate) fn with_groups(&self, keep: &BTreeSet<usize>) -> Option<Self> {
+        let TagUpdateFileContent::Differs {
+            frames,
+            shared_key_edits,
+        } = &self.content
+        else {
+            return None;
+        };
+        let frames = frames
+            .iter()
+            .filter(|frame| keep.contains(&frame.group))
+            .cloned()
+            .collect::<Vec<_>>();
+        if frames.is_empty() {
+            return None;
+        }
+        Some(Self {
+            content: TagUpdateFileContent::Differs {
+                frames,
+                shared_key_edits: shared_key_edits
+                    .iter()
+                    .filter(|(group, _)| keep.contains(group))
+                    .cloned()
+                    .collect(),
+            },
+            ..self.clone()
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn skips_for_groups(&self, groups: &BTreeSet<usize>) -> Vec<TagUpdateSkip> {
+        match &self.content {
+            TagUpdateFileContent::Differs { frames, .. } => frames
+                .iter()
+                .filter(|frame| groups.contains(&frame.group))
+                .map(|frame| TagUpdateSkip {
+                    track_id: self.track_id,
+                    frame_label: frame.frame_label.clone(),
+                    stored_value: frame.expected_value.clone(),
+                })
                 .collect(),
             TagUpdateFileContent::Unreadable { .. } => Vec::new(),
         }
@@ -112,7 +185,7 @@ pub(crate) enum TagUpdateFileContent {
         /// Each expected frame that is equal in the file, but that shares a
         /// storage key with a changed frame. A confirm writes it again, so
         /// that the write keeps its value. The scan does not list it.
-        shared_key_edits: Vec<Id3v24Edit>,
+        shared_key_edits: Vec<(usize, Id3v24Edit)>,
     },
     /// The scan could not read the tags. The file has no write action.
     Unreadable { error: String },
@@ -121,6 +194,8 @@ pub(crate) enum TagUpdateFileContent {
 /// One frame to write.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct TagFrameChange {
+    pub(crate) group: usize,
+    pub(crate) skipped: bool,
     pub(crate) frame_label: String,
     /// The value in the file, or `None` when the file has no such frame.
     pub(crate) file_value: Option<String>,
@@ -140,6 +215,7 @@ pub(crate) struct PlannedFile {
     expected: Vec<Id3v24Edit>,
     /// The stored route, when it has one or more recipients.
     route: Option<Vec<PaymentRoute>>,
+    skips: Vec<TagUpdateSkip>,
 }
 
 /// Read the stored values of each Library track with a file.
@@ -156,6 +232,14 @@ pub(crate) fn plan_tag_update_scan(
 ) -> Result<Vec<PlannedFile>> {
     let in_use = db::tracks_in_use_by_show(conn)?;
     let tracks = db::library_tracks(conn).context("load local library tracks")?;
+    let skips = db::tag_update_skips::tag_update_skips(conn)?;
+    let skips_by_track = skips.into_iter().fold(
+        BTreeMap::<i64, Vec<TagUpdateSkip>>::new(),
+        |mut map, skip| {
+            map.entry(skip.track_id).or_default().push(skip);
+            map
+        },
+    );
     let mut planned = Vec::new();
     for track in &tracks {
         let Some(path) = track
@@ -168,7 +252,9 @@ pub(crate) fn plan_tag_update_scan(
         if !path.is_file() {
             continue;
         }
-        planned.push(plan_file(conn, track, path, &in_use)?);
+        let mut file = plan_file(conn, track, path, &in_use)?;
+        file.skips = skips_by_track.get(&track.id).cloned().unwrap_or_default();
+        planned.push(file);
     }
     Ok(planned)
 }
@@ -208,6 +294,7 @@ fn plan_file(
         in_use: in_use.contains(&track.id),
         expected,
         route,
+        skips: Vec::new(),
     })
 }
 
@@ -215,13 +302,60 @@ fn plan_file(
 /// that the scan could not read.
 #[must_use]
 pub(crate) fn compare_planned_files(planned: Vec<PlannedFile>) -> TagUpdateScan {
+    let mut stale_skips = Vec::new();
     let files = planned
         .into_iter()
         .filter_map(|file| {
             let content = match read_audio_tags(&file.path) {
                 Ok(tags) => {
                     let format = AudioFormat::detect_from_file(&file.path).ok();
-                    let frames = changed_frames(&file, &tags, format);
+                    let mut frames = changed_frames(&file, &tags, format);
+                    let mut groups = BTreeMap::<String, usize>::new();
+                    let mut next_group = 0;
+                    for frame in &mut frames {
+                        let key = match compare_key(&frame.frame_label, format) {
+                            CompareKey::Stored(key) => key,
+                            _ => format!("{}:{}", frame.frame_label, next_group),
+                        };
+                        let group = *groups.entry(key).or_insert_with(|| {
+                            let value = next_group;
+                            next_group += 1;
+                            value
+                        });
+                        frame.group = group;
+                        frame.skipped = false;
+                    }
+                    for skip in &file.skips {
+                        if !frames.iter().any(|frame| {
+                            frame.frame_label == skip.frame_label
+                                && frame.expected_value == skip.stored_value
+                        }) {
+                            stale_skips.push(skip.clone());
+                        }
+                    }
+                    for group in frames
+                        .iter()
+                        .map(|frame| frame.group)
+                        .collect::<BTreeSet<_>>()
+                    {
+                        let indexes = frames
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, frame)| frame.group == group)
+                            .map(|(index, _)| index)
+                            .collect::<Vec<_>>();
+                        let all_skipped = indexes.iter().all(|index| {
+                            file.skips.iter().any(|skip| {
+                                frames[*index].frame_label == skip.frame_label
+                                    && frames[*index].expected_value == skip.stored_value
+                            })
+                        });
+                        if all_skipped {
+                            for index in indexes {
+                                frames[index].skipped = true;
+                            }
+                        }
+                    }
                     if frames.is_empty() {
                         return None;
                     }
@@ -245,7 +379,7 @@ pub(crate) fn compare_planned_files(planned: Vec<PlannedFile>) -> TagUpdateScan 
             })
         })
         .collect();
-    TagUpdateScan { files }
+    TagUpdateScan { files, stale_skips }
 }
 
 /// Scan each Library file. The runtime actor runs the two steps apart, so
@@ -306,6 +440,8 @@ fn changed_frames(
                 continue;
             }
             frames.push(TagFrameChange {
+                group: 0,
+                skipped: false,
                 frame_label: edit.frame_label.clone(),
                 file_value: other.cloned(),
                 expected_value: edit.value.clone(),
@@ -323,6 +459,8 @@ fn changed_frames(
             });
             if let Some(other) = other {
                 frames.push(TagFrameChange {
+                    group: 0,
+                    skipped: false,
                     frame_label: edit.frame_label.clone(),
                     file_value: Some(other.clone()),
                     expected_value: edit.value.clone(),
@@ -337,6 +475,8 @@ fn changed_frames(
             continue;
         }
         frames.push(TagFrameChange {
+            group: 0,
+            skipped: false,
             frame_label: edit.frame_label.clone(),
             file_value: file_values.into_iter().next(),
             expected_value: edit.value.clone(),
@@ -350,6 +490,8 @@ fn changed_frames(
         if !equal {
             if let Some(expected_value) = summarize_value_routes(route) {
                 frames.push(TagFrameChange {
+                    group: 0,
+                    skipped: false,
                     frame_label: MUSICINDEX_VALUE_ROUTES_FRAME.to_owned(),
                     file_value: file_text.map(str::to_owned),
                     expected_value,
@@ -396,7 +538,7 @@ fn shared_key_edits(
     file: &PlannedFile,
     frames: &[TagFrameChange],
     format: Option<AudioFormat>,
-) -> Vec<Id3v24Edit> {
+) -> Vec<(usize, Id3v24Edit)> {
     let changed_keys = frames
         .iter()
         .filter_map(|frame| match compare_key(&frame.frame_label, format) {
@@ -421,7 +563,13 @@ fn shared_key_edits(
                 CompareKey::Stored(key) if changed_keys.contains(&key)
             )
         })
-        .cloned()
+        .map(|edit| {
+            let group = frames.iter().find(|frame| {
+                matches!(compare_key(&frame.frame_label, format), CompareKey::Stored(key)
+                    if matches!(compare_key(&edit.frame_label, format), CompareKey::Stored(edit_key) if key == edit_key))
+            }).map_or(0, |frame| frame.group);
+            (group, edit.clone())
+        })
         .collect()
 }
 
@@ -532,6 +680,82 @@ mod tests {
         assert_eq!(file.edits().len(), 1, "only the changed frame is written");
     }
 
+    #[test]
+    fn adr_0108_scan_keeps_matching_skip_and_marks_changed_value_stale() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        settle(&conn, dir.path());
+        write_id3v24_edits(
+            &dir.path().join("song-1.mp3"),
+            &[Id3v24Edit {
+                frame_label: "TIT2".into(),
+                value: "Old title".into(),
+            }],
+        )
+        .unwrap();
+        let baseline = scan_tag_updates(&conn, dir.path()).unwrap();
+        let title = frame(&baseline.files[0], "TIT2").unwrap();
+        let skip = TagUpdateSkip {
+            track_id: 1,
+            frame_label: "TIT2".into(),
+            stored_value: title.expected_value.clone(),
+        };
+        db::tag_update_skips::record_tag_update_skips(&conn, std::slice::from_ref(&skip)).unwrap();
+        db::tag_update_skips::record_tag_update_skips(&conn, std::slice::from_ref(&skip)).unwrap();
+
+        let skipped = scan_tag_updates(&conn, dir.path()).unwrap();
+        assert_eq!(skipped.count(), 0);
+        assert_eq!(skipped.skip_count(), 1);
+        assert!(skipped.stale_skips.is_empty());
+        assert_eq!(
+            skipped.files[0].skips_for_groups(&BTreeSet::from([0])),
+            vec![skip.clone()]
+        );
+        assert!(skipped.files[0].with_groups(&BTreeSet::new()).is_none());
+        // ADR 0108 Decision 4.3: a skip that the host selects is written.
+        let selected_skip = skipped.files[0]
+            .with_groups(&BTreeSet::from([0]))
+            .expect("the skipped group stays selectable");
+        assert!(selected_skip
+            .edits()
+            .iter()
+            .any(|edit| edit.frame_label == "TIT2" && edit.value == title.expected_value));
+        assert_eq!(
+            db::tag_update_skips::tag_update_skips(&conn).unwrap(),
+            vec![skip]
+        );
+
+        conn.execute(
+            "UPDATE tracks SET track_title = 'Changed title' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        let changed = scan_tag_updates(&conn, dir.path()).unwrap();
+        assert_eq!(changed.count(), 1);
+        assert_eq!(changed.stale_skips.len(), 1);
+        db::tag_update_skips::delete_tag_update_skips(&conn, &changed.stale_skips).unwrap();
+        assert!(db::tag_update_skips::tag_update_skips(&conn)
+            .unwrap()
+            .is_empty());
+        let equal_skip = TagUpdateSkip {
+            track_id: 1,
+            frame_label: "TIT2".into(),
+            stored_value: "Changed title".into(),
+        };
+        db::tag_update_skips::record_tag_update_skips(&conn, &[equal_skip]).unwrap();
+        write_id3v24_edits(
+            &dir.path().join("song-1.mp3"),
+            &[Id3v24Edit {
+                frame_label: "TIT2".into(),
+                value: "Changed title".into(),
+            }],
+        )
+        .unwrap();
+        let equal = scan_tag_updates(&conn, dir.path()).unwrap();
+        assert_eq!(equal.count(), 0);
+        assert_eq!(equal.stale_skips.len(), 1);
+    }
+
     /// R4-02: a file whose route frame differs from the stored route is
     /// listed with the route frame.
     #[test]
@@ -572,6 +796,15 @@ mod tests {
         let path = dir.path().join("song-1.mp3");
         // A FLAC marker with no valid metadata block after it.
         std::fs::write(&path, b"fLaC\xff\xff\xff\xff not a stream").unwrap();
+        db::tag_update_skips::record_tag_update_skips(
+            &conn,
+            &[TagUpdateSkip {
+                track_id: 1,
+                frame_label: "TIT2".into(),
+                stored_value: "Song 1".into(),
+            }],
+        )
+        .unwrap();
 
         let scan = scan_tag_updates(&conn, dir.path()).unwrap();
 
@@ -583,6 +816,7 @@ mod tests {
         ));
         assert!(!file.has_write_action());
         assert!(file.edits().is_empty());
+        assert!(scan.stale_skips.is_empty());
     }
 
     /// R4-04: a playing session on the track marks the file in use. A
@@ -734,6 +968,7 @@ mod tests {
             in_use: false,
             expected,
             route: None,
+            skips: Vec::new(),
         };
 
         let frames = changed_frames(&planned, &tags, Some(AudioFormat::Flac));
@@ -767,6 +1002,7 @@ mod tests {
             in_use: false,
             expected,
             route: None,
+            skips: Vec::new(),
         };
 
         let frames = changed_frames(&planned, &tags, None);
@@ -819,6 +1055,7 @@ mod tests {
             in_use: false,
             expected,
             route: None,
+            skips: Vec::new(),
         };
 
         let frames = changed_frames(&planned, &tags, None);
@@ -849,6 +1086,7 @@ mod tests {
                 value: "https://example.test/track.png".into(),
             }],
             route: None,
+            skips: Vec::new(),
         };
 
         let frames = changed_frames(&planned, &tags, None);
@@ -882,6 +1120,7 @@ mod tests {
             in_use: false,
             expected,
             route: None,
+            skips: Vec::new(),
         };
 
         let frames = changed_frames(&planned, &tags, Some(AudioFormat::Flac));
@@ -916,6 +1155,7 @@ mod tests {
                 value: "https://example.test/track.png".into(),
             }],
             route: None,
+            skips: Vec::new(),
         };
 
         let frames = changed_frames(&planned, &tags, Some(AudioFormat::Mp4));
@@ -1005,6 +1245,85 @@ mod tests {
         );
     }
 
+    #[test]
+    fn adr_0108_flac_shared_key_group_skips_only_when_each_change_is_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let (conn, _path) = flac_library(dir.path());
+        let baseline = scan_tag_updates(&conn, dir.path()).unwrap();
+        let file = &baseline.files[0];
+        let frames = match &file.content {
+            TagUpdateFileContent::Differs { frames, .. } => frames,
+            TagUpdateFileContent::Unreadable { .. } => panic!("the FLAC fixture is readable"),
+        };
+        let date = frames
+            .iter()
+            .find(|frame| frame.frame_label == "TDRC")
+            .unwrap();
+        let year = frames
+            .iter()
+            .find(|frame| frame.frame_label == "TYER")
+            .unwrap();
+        assert_eq!(date.group, year.group);
+        let date_skip = TagUpdateSkip {
+            track_id: 1,
+            frame_label: date.frame_label.clone(),
+            stored_value: date.expected_value.clone(),
+        };
+        let year_skip = TagUpdateSkip {
+            track_id: 1,
+            frame_label: year.frame_label.clone(),
+            stored_value: year.expected_value.clone(),
+        };
+        db::tag_update_skips::record_tag_update_skips(&conn, std::slice::from_ref(&date_skip))
+            .unwrap();
+        let partial = scan_tag_updates(&conn, dir.path()).unwrap();
+        let TagUpdateFileContent::Differs {
+            frames: partial_frames,
+            ..
+        } = &partial.files[0].content
+        else {
+            unreachable!()
+        };
+        assert!(
+            !partial_frames
+                .iter()
+                .find(|frame| frame.frame_label == "TDRC")
+                .unwrap()
+                .skipped
+        );
+        assert!(
+            !partial_frames
+                .iter()
+                .find(|frame| frame.frame_label == "TYER")
+                .unwrap()
+                .skipped
+        );
+
+        db::tag_update_skips::record_tag_update_skips(&conn, &[year_skip]).unwrap();
+        let complete = scan_tag_updates(&conn, dir.path()).unwrap();
+        let TagUpdateFileContent::Differs {
+            frames: complete_frames,
+            ..
+        } = &complete.files[0].content
+        else {
+            unreachable!()
+        };
+        assert!(
+            complete_frames
+                .iter()
+                .find(|frame| frame.frame_label == "TDRC")
+                .unwrap()
+                .skipped
+        );
+        assert!(
+            complete_frames
+                .iter()
+                .find(|frame| frame.frame_label == "TYER")
+                .unwrap()
+                .skipped
+        );
+    }
+
     /// R80-3-02: a FLAC file that holds only `DATE=<year>` lists the `TDRC`
     /// change. After the write of that scan, the file holds both values and
     /// the next scan gives no changed frame.
@@ -1032,6 +1351,12 @@ mod tests {
         let scan = scan_tag_updates(&conn, dir.path()).unwrap();
         assert_eq!(scan.count(), 1);
         assert_eq!(changed_labels(&scan.files[0]), vec!["TDRC"]);
+        let changed = frame(&scan.files[0], "TDRC").unwrap();
+        let selected = scan.files[0]
+            .with_groups(&BTreeSet::from([changed.group]))
+            .unwrap();
+        assert_eq!(changed_labels(&selected), vec!["TDRC"]);
+        assert_eq!(selected.edits(), vec![date.clone(), year.clone()]);
         let written = scan.files[0].edits();
         assert!(written.contains(&date), "the write holds TDRC: {written:?}");
         assert!(written.contains(&year), "the write keeps TYER: {written:?}");
@@ -1278,6 +1603,7 @@ mod tests {
                 value: "<p>New text</p>".into(),
             }],
             route: None,
+            skips: Vec::new(),
         };
 
         let frames = changed_frames(&planned, &tags, None);
