@@ -104,8 +104,8 @@ event safety request). This needs no relay change.
   event ID and its token file (item 4 of the reserved event safety request).
   The relay session writes the relay command.
 
-**Relay answer of 2026-11-21** (relay commit `e661d96`, not pushed; relay
-`tools/relay-event`, and relay `docs/runbooks/reserved-live-items.md`
+**Relay answer of 2026-11-21** (relay commit `e661d96`, not pushed. Sources:
+relay `tools/relay-event`, and relay `docs/runbooks/reserved-live-items.md`
 §The Operator Command):
 
 - The operator runs `tools/relay-event` on the Mixxx computer. Its
