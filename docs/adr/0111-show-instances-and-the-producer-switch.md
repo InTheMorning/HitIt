@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed - 2026-11-21. The operator must accept it.
+Accepted - 2026-11-21. The operator accepted it with one change: HitIt
+stores on disk that the switch of a show stopped the private producer, so
+"End show" starts it again also after a restart (Decision 7).
 
 - Bar: crosses repositories. HitIt runs the units and the setup helper of
   publisher ADR 0021. It also crosses modules: the configuration, the unit
@@ -157,6 +159,13 @@ With Mixxx, "End show" has these steps, in this order:
 
 When a step fails, HitIt does the next steps, as in ADR 0105 Decision 5.
 
+HitIt stores the fact "the switch of this show stopped the private producer"
+in its database, not in a repository file. HitIt stores it before step 2 of
+Decision 5 stops the private producer. HitIt clears it when the switch fails
+and the private producer starts again, and after step 5 of this decision.
+Step 5 reads the stored fact. Thus "End show" starts the private producer
+again also after a restart or a crash of HitIt during the show.
+
 ### 8. The Show page shows the state of each instance
 
 The Live Metadata card shows, for the private instance and each show
@@ -229,6 +238,9 @@ Each criterion is proved by a test.
 9. The service watch snapshot has the publisher unit and the producer unit of
    each instance, and the instance that holds Mixxx.
 10. A source check finds no `PRODUCER_UNIT` constant with a fixed unit name.
+11. An "End show" model that HitIt makes again from the stored state after a
+    restart still gives step 5 of Decision 7. After step 5, the stored fact
+    is clear.
 
 ### Visual
 
@@ -244,6 +256,10 @@ A person must judge each criterion. An agent walk on Xvfb comes first.
 
 ## Tasks
 
-Not written. Task 001 does Decisions 1 to 4 and mechanical criteria 1 to 5
-and 10. Task 002 does Decisions 5 and 8 and criteria 6 and 9. Task 003 does
-Decisions 6 and 7, criteria 7 and 8, and the visual criteria.
+- [Task 001](../tasks/adr-0111-task-001-instance-units-and-the-setup-helper.md):
+  Decisions 1 to 4, mechanical criteria 1 to 5 and 10.
+- [Task 002](../tasks/adr-0111-task-002-the-producer-switch-and-the-watch.md):
+  Decisions 5 and 8, mechanical criteria 6 and 9.
+- [Task 003](../tasks/adr-0111-task-003-a-show-that-mixxx-plays.md):
+  Decisions 6 and 7, the stored fact, the GUI of Decisions 3 and 4,
+  mechanical criteria 7, 8 and 11, and the visual criteria.

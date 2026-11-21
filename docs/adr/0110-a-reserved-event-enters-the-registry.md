@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed - 2026-11-21. The operator must accept it.
+Accepted - 2026-11-21. The operator accepted it as written.
 
 - Bar: crosses repositories. The relay command `tools/relay-event` makes the
   token file, and HitIt reads it. It is also an opposite choice by mistake.
@@ -178,5 +178,7 @@ the target.
 
 ## Tasks
 
-Not written. Task 001 does Decisions 1, 2, 4, 6 and the CLI part of
-Decision 7. Task 002 does the GUI part of Decisions 2, 3, 5 and 7.
+- [Task 001](../tasks/adr-0110-task-001-reserved-rows-in-the-registry.md):
+  Decisions 1, 2, 4, 6 and the CLI part of Decision 7.
+- [Task 002](../tasks/adr-0110-task-002-reserved-rows-on-the-show-page.md):
+  the GUI part of Decisions 2, 3, 5 and 7.
