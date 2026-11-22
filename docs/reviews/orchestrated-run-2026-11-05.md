@@ -143,6 +143,7 @@ The operator started the release binary with `id3` 1.17.1, and opened "Update n 
 - Operator decision, 2026-11-05: HeyCitizen is the artist, the label, the publisher and the hosting. Thus Decision 12 stays, and no file removal is necessary. The publisher feed proves the artist role: its 4 music items and the two album links hold `rel="artist"`.
 - Consequence: RSS is the source, and the live feeds do not state `label`. A new write of the stored rows gives `artist` only, and the "Label" row of the track page stays empty. Before a packet refreshes the rows, the feeds must state each role, on the two sides of each link. The operator owns this change in Studio.
 - Packet 011 V1: the file holds `TPUB` from a confirmed label row, and the operator confirmed the value. The orchestrator counts V1 as passed on HeyCitizen, not on Sir Libre Records.
+- After the write, 26 HeyCitizen files hold `TPUB: HeyCitizen`.
 
 ### Scope Of The Scan - 2026-11-05
 

@@ -11,113 +11,174 @@ Governance model: ADR 0061.
 
 ## Where The Work Stands
 
-[ADR 0096](docs/adr/0096-the-app-name-is-hitit.md), Accepted on 2026-11-11, renames the app HitIt with the machine name `hitit`. The GitHub repository is `InTheMorning/HitIt` and the directory is `~/build/HitIt`.
+The app name is HitIt, with the machine name `hitit`
+([ADR 0096](docs/adr/0096-the-app-name-is-hitit.md)). The GitHub repository is
+`InTheMorning/HitIt` and the directory is `~/build/HitIt`.
 
-The [overhaul plan](docs/plans/design-and-cleanup-overhaul-plan.md) is the current priority. It orders the
-design and cleanup work in six phases. Phases 1 and 2 are complete. The design language is
-[ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md), Accepted on 2026-11-15. It supersedes the archived ADR 0083.
+### Order Of The Work
 
-Phase 3, the tokens, is complete. Phase 4, the Library, is in progress. Its first two packets, one track page
-and one album page for the Library and the Index, are complete. Phase 4A, flow and information architecture, decided the
-Music structure in [ADR 0084](docs/adr/archive/0084-music-column-browser.md).
+- The [overhaul plan](docs/plans/design-and-cleanup-overhaul-plan.md) is the
+  current priority. Its
+  [remaining order](docs/plans/design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23)
+  gives the order of the next work. The visual overhaul comes before each new
+  screen. Phases 1 to 3 are complete. Phase 4, the Library, and Phase 7, the
+  visual overhaul, are open.
+- Phase 4 and 5 packets carry the
+  [visual requirements moved from pending checks](docs/plans/design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07).
+- The defect fixes of ADR 0090 task 005, ADR 0092 task 001 and ADR 0085 task
+  001 come before the ADR 0068 packets (operator choice).
+- The [ADR 0101 phase plan](docs/plans/adr-0101-design-language-phase-plan.md)
+  gives the position of the Ready packets of other ADRs and the open points for
+  the operator.
 
-Phase 4A builds ADR 0084 in the packets of the
-[ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md). [ADR 0089](docs/adr/archive/0089-the-shell-destinations-and-list-pages.md) replaces its columns, destinations and Discover.
-Stophammer release 0.13.0 delivered request 9 on 2026-10-21, so packets 026 and 029 wait for nothing outside this repository.
-Stophammer release 0.15.0 of 2026-10-25 delivered items 1 to 7 of request 10 (Stophammer ADRs 0078 and 0080). Stophammer release 0.19.0 of 2026-11-11 delivered requests 14 and 15 and item 1 of request 11 (Stophammer ADRs 0084, 0085 and 0094). The tag v0.19.0 is at git `9fcbdb5`, and on 2026-11-11 the live API gives version 0.19.0.
+### Documents And Checks
 
-Packets 001 to 009, 013 to 015, 018, 019, 036 and 037 are complete. Packets 010 to 012, 016, 017, 020 to 035 are implemented,
-and so are ADR 0083 tasks 006 to 008. The run of 2026-10-20 closed on 2026-10-23. Its unwalked visual checks stay open in
-[pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-20.md) lists them.
+- Each file in `docs/tasks/` is open: it is Ready, or it waits for an operator
+  check. Finished tasks are in `docs/tasks/archive/`. Each file in
+  `docs/plans/` is an active plan. Finished plans are in `docs/plans/archive/`.
+- [Pending human checks](docs/pending-human-checks.md) holds each open check.
+  Its [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09)
+  gives the commands, the needs that the agent could not supply and the open
+  operator decisions. Each run record in `docs/reviews/` lists the checks of
+  its run.
+- Walk a new check right after its packet. The procedures in `docs/runbooks/`
+  stay regression checks.
 
-[ADR 0086](docs/adr/archive/0086-new-releases-singles-window.md), Accepted on 2026-10-23, groups the singles of one artist in New releases by a window.
-[ADR 0087](docs/adr/archive/0087-search-fields-and-live-results.md), Accepted on 2026-10-23, gives search its fields, a field list and live results.
-The [remaining order](docs/plans/design-and-cleanup-overhaul-plan.md#remaining-order---2026-10-23)
-of the overhaul plan is the order of the next work. The visual overhaul comes before each new screen.
+### Design Language
 
-The fix packets of the walk of 2026-10-24 are implemented on 2026-10-25. They are ADR 0084 packets 038 and 039 and ADR 0087 packets 009 and 010. Their visual checks are open in sections 8 and 9 of [pending human checks](docs/pending-human-checks.md). The next step starts after those checks.
+- [ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md) is
+  the design language. Tasks 001 to 003, 005 to 012 and 014 are implemented.
+  Their checks are open in sections 25 to 34 of the pending human checks. The
+  checks of [task 008](docs/tasks/adr-0101-task-008-status-bar-and-notices.md)
+  are open in its task file.
+- [Task 004](docs/tasks/adr-0101-task-004-payment-split.md), the payment split,
+  is blocked until task 001 passes its checks.
+  [Task 013](docs/tasks/adr-0101-task-013-sheets-fit-the-window.md) waits for
+  ADR 0097 task 005.
+- The destructive button of musicindex ADR 0064 is implemented. ADR 0101
+  Decision 5 and the ADR 0093 amendment of 2026-11-12 own its open items. Its
+  checks are open in section 13.
+- [ADR 0097](docs/adr/0097-the-fit-check-at-two-widths.md) owns the fit check.
+  Phases 1 and 2 of its [phase plan](docs/plans/adr-0097-fit-check-phase-plan.md)
+  are complete. [Tasks 003 to 006](docs/tasks/adr-0097-task-003-item-pages-fit.md)
+  are Ready.
 
-Phase 4 and 5 packets carry the
-[visual requirements moved from pending checks](docs/plans/design-and-cleanup-overhaul-plan.md#visual-requirements-moved-from-pending-checks---2026-10-07).
+### Music Shell
 
-Each file in `docs/tasks/` is open: it is Ready, or it waits for an operator check. Finished tasks are in
-`docs/tasks/archive/`. Each file in `docs/plans/` is an active plan. Finished plans are in `docs/plans/archive/`.
+- [ADR 0098](docs/adr/0098-the-music-shell-pages-lists-and-search.md) is the
+  current record for the Music pages, lists and search. Its item map gives the
+  new place of each item of the archived ADRs 0084 to 0087, 0089 and 0090.
+- The packets of the [ADR 0084 phase plan](docs/plans/adr-0084-music-column-browser-phase-plan.md)
+  and the [ADR 0089 phase plan](docs/plans/adr-0089-shell-phase-plan.md) are
+  implemented, but not ADR 0089 packet 016. Their checks are open in sections
+  8, 9 and 11. Packet 016, the now-playing panel and the row action Play, waits
+  for the ADR 0068 packets.
+- The list controls of musicindex ADR 0053 and ADR 0054, and the release counts
+  of musicindex ADR 0085 R-WORD-9, are implemented. Their checks are open in
+  section 12. The [phase plan](docs/plans/musicindex-adr-0053-list-controls-phase-plan.md)
+  gives the packets.
+- [ADR 0092](docs/adr/0092-the-keys-of-a-list-row.md) owns the keys of a list
+  row. Public playlists, Live and Search do not have the list focus yet. A
+  subsequent task gives it (ADR 0092).
+- [ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md): the
+  crate `musicindex-search` owns the search parser, the Index plan, the field
+  list, the notes, the `kind:` requests and the sort parameters. HitIt builds
+  no copy of these (ADR 0091 Decision 7).
+- Ready: [ADR 0102 task 001](docs/tasks/adr-0102-task-001-tiles-arrow-keys.md),
+  which waits until the operator opens it,
+  [ADR 0093 task 001](docs/tasks/adr-0093-task-001-settings-tab-row-and-rows.md),
+  [ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md),
+  [ADR 0094 tasks 001](docs/tasks/adr-0094-task-001-fold-header-composite.md)
+  and [002](docs/tasks/adr-0094-task-002-singles-group-row-keys.md),
+  [ADR 0088 task 001](docs/tasks/adr-0088-task-001-rss-check-follows-a-move.md)
+  and [ADR 0064 task 002](docs/tasks/adr-0064-task-002-repair-report-surface.md).
+  ADR 0069 task 002 gives the Save bar of ADR 0093. The operator decides the
+  priority.
 
-The operator resumed visual checks on 2026-10-02. [Pending human checks](docs/pending-human-checks.md)
-holds each open check. Its [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09) gives the commands, the needs that the agent could not supply and the open operator decisions. Walk a new check right after its packet. The procedures in `docs/runbooks/` stay
-regression checks.
+### Library And Tags
 
-The run of 2026-10-23 implemented ADR 0086 packets 001 to 005 and ADR 0087 packets 001 to 005. It closed on 2026-10-24. Its unwalked checks stay open in
-[pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-23.md) lists them.
+- [ADR 0100](docs/adr/0100-a-removal-moves-the-audio-file-to-the-audio-cache.md):
+  a removal moves the audio file to the audio cache `~/.cache/hitit/audio`.
+- The tag frames of the [ADR 0080 phase plan](docs/plans/adr-0080-tag-frames-phase-plan.md)
+  are implemented. Their checks are open in section 10. The next full write of
+  "Update n files" waits for more playlist checks (open point 3 of the
+  [run record](docs/reviews/orchestrated-run-2026-11-05.md)).
+- [ADR 0108](docs/adr/0108-the-tag-update-selects-each-change.md), the check
+  boxes of "Update n files": tasks 001 and 002 are implemented. Their checks
+  are open in section 48.
+- [ADR 0109](docs/adr/0109-check-all-feeds-reads-rss-of-changed-feeds.md),
+  RSS reads of changed feeds: task 001 is implemented. Its checks are open in
+  section 49.
+- HitIt uses the crate `musicindex-tags` (musicindex ADRs 0086 and 0090). The
+  operator retag of the library is complete. The R-TAG-6 episode part is open.
+  It waits for the HitIt station ADR and the push of stophammer-parser
+  d105468 ([task file](docs/tasks/musicindex-adr-0086-task-001-tag-crate-and-retag.md)).
 
-The run of 2026-10-24 implemented ADR 0084 packets 035 to 037, ADR 0087 packets 007 and 008 and ADR 0059 packet 019. It closed on 2026-10-24 after its walk.
-Its open checks stay in [pending human checks](docs/pending-human-checks.md), and the [run record](docs/reviews/orchestrated-run-2026-10-24.md) lists them.
+### Show And Broadcast
 
-On 2026-11-14 the operator put the defect fixes first: [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md), [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md) and [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) come before the ADR 0068 packets.
-On 2026-11-15 the operator opened step 4 of the overhaul plan, Phase 7, the visual overhaul. [ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md) adopts the shared rules. [ADR 0102](docs/adr/0102-the-arrow-keys-move-in-a-grid-of-tiles.md), Accepted on 2026-11-15, uses musicindex ADR 0078 R-GRIDKEY-1 for the arrow keys of the Tiles views. Its [task 001](docs/tasks/adr-0102-task-001-tiles-arrow-keys.md) waits until the operator opens it.
-ADR 0101 tasks 001 to 003, 005 to 012 and 014 are implemented. They are the [token packet](docs/tasks/adr-0101-task-001-shared-tokens.md), the surface packets of ADR 0101 Decision 12 and the correction of the button ring. Their visual checks are open in sections 25 to 34 of [pending human checks](docs/pending-human-checks.md). The checks of [task 008](docs/tasks/adr-0101-task-008-status-bar-and-notices.md) are open in its task file.
-[Task 004](docs/tasks/adr-0101-task-004-payment-split.md), the payment split, is blocked until task 001 passes its checks. [Task 013](docs/tasks/adr-0101-task-013-sheets-fit-the-window.md), the sheets that fit the window, waits for ADR 0097 task 005.
-The [ADR 0101 phase plan](docs/plans/adr-0101-design-language-phase-plan.md) gives the position of the Ready packets of other ADRs and the open points for the operator.
-Ready packets include
-[ADR 0064 task 002](docs/tasks/adr-0064-task-002-repair-report-surface.md) and
-[ADR 0069 task 002](docs/tasks/adr-0069-task-002-shared-guarded-editor.md).
-[ADR 0093](docs/adr/0093-settings-has-a-tab-row-and-one-save-bar.md), Accepted on 2026-11-10, applies the Settings layout of musicindex ADR 0059. [ADR 0093 task 001](docs/tasks/adr-0093-task-001-settings-tab-row-and-rows.md), the tab row and the rows, is Ready. ADR 0069 task 002 delivers its Save bar, its marks and its leave question. The operator decides the priority.
-[ADR 0094](docs/adr/0094-one-fold-header.md), Accepted on 2026-11-10, applies the fold header of musicindex ADR 0060. [ADR 0094 task 001](docs/tasks/adr-0094-task-001-fold-header-composite.md) and [task 002](docs/tasks/adr-0094-task-002-singles-group-row-keys.md), the keys of the singles group row, are Ready.
-The [run of 2026-11-05](docs/reviews/orchestrated-run-2026-11-05.md) implemented [ADR 0080 packets 006 to 016](docs/plans/adr-0080-tag-frames-phase-plan.md), the tag frames of the review of 2026-11-04, and [ADR 0076 packet 011](docs/tasks/adr-0076-task-011-new-reader-reads-each-feed-once.md). The open checks of these packets are in section 10 of [pending human checks](docs/pending-human-checks.md). [Packet 014](docs/tasks/adr-0080-task-014-reader-keeps-each-frame.md) corrects a reader fault that the walk found. A write of 143 Library files ran on 2026-11-05. The next full write waits for more playlist checks, as the operator decided (open point 3 of the run record). 26 HeyCitizen files hold `TPUB: HeyCitizen`. The operator confirmed that this value is correct. The live HeyCitizen feeds state only `rel="artist"`.
-[ADR 0088](docs/adr/0088-a-feed-move-follows-musicindex.md), the feed move, is Accepted on 2026-11-11. A stored feed follows the MusicIndex `feed_url` when the RSS document proves the same `podcast:guid`. [ADR 0088 task 001](docs/tasks/adr-0088-task-001-rss-check-follows-a-move.md) is Ready.
-[ADR 0089](docs/adr/archive/0089-the-shell-destinations-and-list-pages.md), the shell, is Accepted on 2026-11-05. The [shell run](docs/reviews/orchestrated-run-2026-11-05-shell.md) implemented packets 001 to 015 of its [phase plan](docs/plans/adr-0089-shell-phase-plan.md) on 2026-11-06. Their visual checks and the questions of the run record are open in section 11 of [pending human checks](docs/pending-human-checks.md). Packet 016, the now-playing panel and the row action Play, waits for the packets of ADR 0068, Accepted on 2026-11-11. The new tokens of the overhaul plan start after the walk.
+- [ADR 0113](docs/adr/0113-broadcast-control-surface.md) is the current record
+  of the broadcast control surface. A guard test can keep the prefix `adr_0059_`
+  in its name.
+- [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md): packets 001 to
+  003 of its [phase plan](docs/plans/adr-0068-show-cue-and-audition-phase-plan.md)
+  are implemented. Their checks are open in sections 19 and 20. Packets 004 and
+  005 are Ready.
+- ADRs [0104](docs/adr/0104-the-show-player-and-the-sound-setup.md),
+  [0105](docs/adr/0105-go-on-air-and-end-show.md) and
+  [0106](docs/adr/0106-the-cue-changes-during-a-show.md): the six tasks are
+  implemented. The agent walked sections 44 to 46. Some operator checks of
+  those sections are open.
+- [ADR 0107](docs/adr/0107-the-cards-hold-the-on-air-status.md):
+  [task 001](docs/tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md)
+  is implemented. Its checks are open in section 47. ADR 0107 names the second
+  record, which gives the list of shows.
+- [ADR 0110](docs/adr/0110-a-reserved-event-enters-the-registry.md) and
+  [ADR 0111](docs/adr/0111-show-instances-and-the-producer-switch.md) are items
+  1, 2 and 5 of the [live rehearsal goal request](docs/plans/live-rehearsal-goal-request.md).
+  Their tasks are implemented. The checks of ADR 0110 task 002 are open, and
+  the checks of ADR 0111 are open in section 51. An agent check does not start,
+  stop or change the private units (ADR 0111 Decision 4).
+- [ADR 0112](docs/adr/0112-a-station-host-with-a-liquidsoap-producer.md), the
+  station host: tasks 001 to 003 are implemented, and the agent walked them on
+  Xvfb. The operator check on a real radio host is open. No agent configures a
+  radio host.
 
-[musicindex ADR 0042](../musicindex/docs/adr/0042-a-button-with-a-label-has-a-fill.md), the neutral button, is implemented here on 2026-11-06 in the [run record](docs/reviews/orchestrated-run-2026-11-06-neutral-button.md). The operator passed its check on 2026-11-07.
+### Known Open Defects
 
-[musicindex ADR 0053](../musicindex/docs/adr/0053-which-lists-have-a-sort-a-reverse-and-a-view.md), the sorts, the direction and the views of each list, is built in the packets of its [phase plan](docs/plans/musicindex-adr-0053-list-controls-phase-plan.md). Packets 1 to 9 are implemented on 2026-11-08, packet 6 with ADR 0090 task 004: Releases All, Public playlists and Artists All reverse through the node when the node lists the capability `sort`, the results page and the saved search page sort by Relevance, A to Z and Newest, the group pages have a sort, a reverse and views in the list bar, a release page and a public playlist page reverse their tracks or entries from 8 rows, each release section of a feed page and a name level page has its own sort, reverse and views from 8 rows, a local A to Z compares names in the language of the reader with numbers as numbers, Artists has rows and tiles and the sort Newest in each scope, and My playlists has the stored Curator Order of the [ADR 0089 amendment of 2026-11-08](docs/adr/archive/0089-the-shell-destinations-and-list-pages.md#amendment---2026-11-08-the-stored-curator-order). Their checks are open in section 12 of [pending human checks](docs/pending-human-checks.md).
+- The live status shows one song that does not change. The ADR 0068 packets own
+  the fix.
+- The MP4 `TYER` difference in "Update n files": the fix is implemented.
+  [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
+  owns the open operator check.
+- A Music column must bring a focused control into view (ADR 0098 Invariants).
+  [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md)
+  implements the fix. Its checks are open in section 15.
+- A feed page with two or more roles shows "Publisher", and Sir Libre Records
+  shows "Publisher" for `rel="recordLabel"`. ADR 0098 Decision 11.7 and
+  musicindex ADR 0066 own the rules.
+  [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md)
+  implements the fix. Its checks are open in section 16.
+- Tab does not go to an artist tile on Artists, and after "Show more" the focus
+  goes to the sidebar.
+  [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md)
+  implements the fix. Its checks are open in section 17.
 
-[musicindex ADR 0054](../musicindex/docs/adr/0054-the-sort-menu-names-both-directions.md), Accepted on 2026-11-08, replaces the reverse icon of musicindex ADR 0043 R-LIST-7. It is implemented on 2026-11-08: each sort menu lists the usual and the reversed entry of each sort that can reverse, a list with one fixed sequence has a text toggle "Reverse", and the "Add to playlist" menus follow the Curator Order. [ADR 0092](docs/adr/0092-the-keys-of-a-list-row.md), the keys of a list row, is implemented on 2026-11-08. It uses musicindex ADR 0061 R-LISTKEY-1. Artists is one Tab stop in its Rows view and its Tiles view ([ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md)). Public playlists, Live and Search are not one Tab stop yet, and a subsequent task gives them the list focus. musicindex ADR 0056, the accent glow at the top of the sidebar, is implemented on 2026-11-08. The shared releases section of a feed page uses the heading, the note and the row text of musicindex ADR 0085 R-WORD-10. An Index row of Artists All and a feed row of the search Artists tab count the releases of each kind from `release_track_counts`, for example "14 albums · 38 singles" (musicindex ADR 0085 R-WORD-9). A row with no valid map gives the total. Their visual checks are open in section 12 of [pending human checks](docs/pending-human-checks.md).
+A defect stays in this list until the operator passes its checks.
 
-[musicindex ADR 0064](../musicindex/docs/adr/0064-a-destructive-button-is-never-the-rightmost-button.md), Accepted on 2026-11-12, is implemented here on 2026-11-12. In each horizontal row of buttons, list entries included, the destructive button is leftmost, a larger space follows it, and the safe action is rightmost. A destructive confirmation gives the first focus to Cancel, and Enter and Escape close it with no action. The amendment in musicindex commit `ab11758` adds R-ACT-10 to R-ACT-12. A playlist row of a removed track shows one "Remove…" menu button. A maintenance column puts its destructive controls last, and its narrow band puts them first. "Use Defaults…" in Settings is red and asks for confirmation. [ADR 0101](docs/adr/0101-the-design-language-follows-the-shared-rules.md) Decision 5 and the [ADR 0093](docs/adr/0093-settings-has-a-tab-row-and-one-save-bar.md) amendment of 2026-11-12 record this and their open items. The visual checks are open in section 13 of [pending human checks](docs/pending-human-checks.md).
+### Stored Facts That Agents Need
 
-[ADR 0098](docs/adr/0098-the-music-shell-pages-lists-and-search.md), Accepted on 2026-11-14, restates the live rules of ADRs 0084, 0085, 0086, 0087, 0089 and 0090. It makes no new decision. Those six ADRs are in `docs/adr/archive/`. The item map of ADR 0098 gives the new place of each item that code, tests and documents cite.
-
-[ADR 0097](docs/adr/0097-the-fit-check-at-two-widths.md), Accepted on 2026-11-13, applies musicindex ADR 0065. The narrowest window width is 390 px. GPUI layout tests with Figtree check the fit at 390 px and at 940 px. Phases 1 and 2 of its [phase plan](docs/plans/adr-0097-fit-check-phase-plan.md) are complete: `src/app/fit_check/` checks the shell, the list bar and each list page, `src/library/fit_fixtures.rs` gives the fixture rows, and `src/ui/primitives/fit_probe.rs` finds the faults. [ADR 0097 task 007](docs/tasks/adr-0097-task-007-list-rows-truncate-long-names.md) truncates a long name in the rows of the Inbox, Search and the search results, and its visual check is open in section 18 of [pending human checks](docs/pending-human-checks.md). Phases 3 to 6 are open, and their packets, [ADR 0097 tasks 003 to 006](docs/tasks/adr-0097-task-003-item-pages-fit.md), are Ready. A new text or control primitive records a fit probe.
-
-[ADR 0087 packet 011](docs/tasks/archive/adr-0087-task-011-index-receives-the-fields.md) sends each search field to the Index as its own filter, and ADR 0098 Known Differences list the differences from the Library. [Responsiveness task 001](docs/tasks/archive/responsiveness-task-001-no-ui-thread-database-wait.md) removes the hang of a download or a removal. The operator confirmed both on 2026-11-06.
-
-[ADR 0091](docs/adr/0091-search-parser-moves-to-the-shared-crate.md), Accepted on 2026-11-07, moves the search parser, the Index plan and the kind rule to the `musicindex-search` crate. The crate is pinned at `4761148`. It gives the placeholder of each text field and `quote_field_value` for a runnable example (musicindex ADR 0058). It gives the rows of the field list (`field_list_rows`), the note of a text that sends no Index request (`search_note`) and the note of a tab that gets no request (`scope_note`), from musicindex ADR 0052 R-QUERY-7 and R-QUERY-8. HitIt adds only its sentence about its Library rows. The crate builds the `kind:` requests, the text of `q` and the sort parameters. HitIt builds no `kind:` mapping and no sort parameter of its own. musicindex ADR 0062 owns the `host:` field. The crate sends `host` and `not_host`, and HitIt filters its Library rows with `host_keeps_row` and the host of the feed URL. It passes the crate's sort parameters for a sort that the person selected, when the node lists `sort`.
-
-[ADR 0100](docs/adr/0100-a-removal-moves-the-audio-file-to-the-audio-cache.md), Accepted on 2026-11-15, moves the audio file of a removed track from the music folder to the audio cache, `~/.cache/hitit/audio`. The music folder holds only Library tracks. The table `cached_files` holds the cache files, and a `local_files` row is a file below `music_dir`. [ADR 0100 task 001](docs/tasks/adr-0100-task-001-removal-moves-the-file-to-the-audio-cache.md) implements it on 2026-11-15, and the operator passed its visual checks on 2026-11-15.
-
-The show host analysis of 2026-11-19 gives three ADRs, Accepted on 2026-11-19. [ADR 0104](docs/adr/0104-the-show-player-and-the-sound-setup.md) makes mpv the default Show player, adds the Settings group "Audio" with a test sound, and opens it at the first start. [ADR 0105](docs/adr/0105-go-on-air-and-end-show.md) gives the Show page one on air band with "Go on air" and "End show". [ADR 0106](docs/adr/0106-the-cue-changes-during-a-show.md) lets the host move cue entries after the current entry during a show, and a load opens Show. Their six tasks are implemented, and the agent walked sections 44 to 46 of [pending human checks](docs/pending-human-checks.md). Some operator checks of those sections stay open.
-
-[ADR 0107](docs/adr/0107-the-cards-hold-the-on-air-status.md), Accepted on 2026-11-19, changes ADR 0105 and gives its band one button row. Its cards and inspectors show status. "End show" stops only recorded parts. [Its task 001](docs/tasks/adr-0107-task-001-the-cards-hold-the-on-air-status.md) is implemented. Its visual checks wait for a person in section 47 of [pending human checks](docs/pending-human-checks.md). A second ADR gives a list of shows in a root window. Each show has its own source and stream, and the band and the cards show the selected show.
-
-[ADR 0108](docs/adr/0108-the-tag-update-selects-each-change.md), Accepted on 2026-11-21, changes ADR 0076 Decision 8. The "Update n files" popup has a check box for each file and each change. A cleared change becomes a skip, and HitIt stores it until the stored value changes. Skips stay in a folded section "Skipped (n)". [Task 001](docs/tasks/adr-0108-task-001-the-scan-keeps-skips.md) is implemented. [Task 002](docs/tasks/adr-0108-task-002-the-popup-has-check-boxes.md) is implemented. Its visual checks are open in section 48 of the pending human checks.
-
-[ADR 0109](docs/adr/0109-check-all-feeds-reads-rss-of-changed-feeds.md), Accepted on 2026-11-21, changes the scope of ADR 0075 task 039. "Check all feeds" reads RSS only for a feed that musicindex marks as changed. That feed gets one RSS check of ADR 0076, which applies the values. Musicindex requests run a maximum of four at the same time. [Its task 001](docs/tasks/adr-0109-task-001-changed-feeds-get-one-rss-check.md) is implemented. Its visual checks are open in section 49 of the pending human checks.
-
-[ADR 0110](docs/adr/0110-a-reserved-event-enters-the-registry.md) and [ADR 0111](docs/adr/0111-show-instances-and-the-producer-switch.md), Accepted on 2026-11-21, are items 1, 2 and 5 of the [live rehearsal goal request](docs/plans/live-rehearsal-goal-request.md). ADR 0110 adds a reserved relay event from its event ID and its token file. ADR 0111 gives each Mixxx producer unit an instance, makes a show instance with the publisher setup helper, switches the one Mixxx producer, protects the private instance and gives a show that Mixxx plays its own "Go on air" and "End show". The operator computer has the publisher package with publisher ADR 0021, and the private stream runs as `mixxx-now-playing@mixxx.service` since 2026-11-21. An agent check does not start, stop or change the private units (ADR 0111 Decision 4). The tasks are [ADR 0110 task 001](docs/tasks/adr-0110-task-001-reserved-rows-in-the-registry.md) and [task 002](docs/tasks/adr-0110-task-002-reserved-rows-on-the-show-page.md), and [ADR 0111 tasks 001](docs/tasks/adr-0111-task-001-instance-units-and-the-setup-helper.md), [002](docs/tasks/adr-0111-task-002-the-producer-switch-and-the-watch.md) and [003](docs/tasks/adr-0111-task-003-a-show-that-mixxx-plays.md), in that order. ADR 0110 tasks 001 and 002 are implemented, and the visual checks of task 002 are open. ADR 0111 task 001 is implemented: `UnitRef::producer(instance)` makes the producer unit name and `UnitRef::producer` and `UnitRef::publisher` check the instance name (`src/broadcast/control.rs`). `BroadcastHostConfig` holds `show_instances`. `src/broadcast/setup_helper.rs` runs the publisher setup helper. The setup helper refuses the private instance, which is the `instance_name` of the host (ADR 0111 Decision 4). No show, with either player, changes the private instance (ADR 0111 Decision 6). ADR 0111 task 002 is implemented: `ProducerSwitch` in `src/broadcast/producer_switch.rs` is the pure model of the producer switch, and `run_switch` runs it through `ServiceControl` and `Transport`. The service watch snapshot has `instances`, the publisher state and the producer state of the private instance and each show instance read with one `systemctl show` call, and `mixxx_holder`, the instance that `systemctl --user list-units 'mixxx-now-playing@*'` shows as running. The Live Metadata card data (`PublisherSectionDisplay::instances`) has one line for each instance and a mark on the instance that holds Mixxx. ADR 0111 task 003 is implemented. The Source inspector has the settings Player (HitIt or Mixxx) and Show instance. The selected show instance is `BroadcastCapabilities::selected_show_instance`. It is a run time value and HitIt does not save it. Both players use it. With none selected, "Go on air" is not available. Attach, Detach, the step Attach of "Go on air" with HitIt and the CLI command `attach --instance` use its target, and they refuse the private instance with an error that names ADR 0111 Decision 4 (`PublisherTargetCommandError::PrivateInstance`). With Mixxx, "Go on air" has the steps SwitchProducer, CheckEvent, ConnectStream and StartRecording, and "End show" has the steps for the parts that HitIt started (`src/app/show_mixxx.rs`). The stored fact is the table of database migration 32 (`src/db/show_producer_switch.rs`). HitIt reads it at start. "Make show instance" (`src/app/show_instance.rs`) calls the setup helper. With a selected show instance, the drop file producer writes into `$XDG_RUNTIME_DIR/musicindex-live-publisher/INSTANCE/nowplaying` (`config::show_drop_directory`, `BroadcastCapabilities::drop_file_producer_in`). With none, it keeps `broadcast.drop_directory`. A change of the selection gives the player the new producer (`apply_drop_producer` in `src/app/show_instance.rs`). The folder is local, so "Go on air" with HitIt is not available when the host uses SSH or when `XDG_RUNTIME_DIR` is not set. Start, Stop and Reset of the role units, the step StartService and the unit watch use the selected show instance. The command refuses the private instance and no selection before any command runs (`refuse_private_service_instance`, ADR 0111 Decision 4). With none selected, the watch reads the private units for display only. The visual checks are open in section 51 of the pending human checks.
-
-[ADR 0112](docs/adr/0112-a-station-host-with-a-liquidsoap-producer.md) is Accepted. It prepares HitIt for the station producer `liquidsoap-now-playing` of publisher ADR 0022. No agent configures a radio host. Its tasks are [ADR 0112 task 001](docs/tasks/adr-0112-task-001-the-producer-kind-of-a-host.md), [task 002](docs/tasks/adr-0112-task-002-the-station-units-on-the-show-page.md) and [task 003](docs/tasks/adr-0112-task-003-the-dj-audio-text.md), They are Implemented. The agent walked their visual criteria on Xvfb. The operator check on a real radio host is open. [ADR 0113](docs/adr/0113-broadcast-control-surface.md) is the current record of the broadcast control surface. It supersedes ADR 0059. A guard test can keep the prefix `adr_0059_` in its name.
-
-Known open defects:
-
-- The live status shows one song that does not change. Playback work waits for
-  [ADR 0068](docs/adr/0068-show-cue-and-audition-isolation.md), which is Accepted on 2026-11-11. Its five packets are written in its [phase plan](docs/plans/adr-0068-show-cue-and-audition-phase-plan.md). [Packet 001](docs/tasks/adr-0068-task-001-mpv-ipc-read-error.md) fixes the mpv IPC read error on 2026-11-14: a read timeout is not an error before a reply deadline of 10 s. [Packet 002](docs/tasks/adr-0068-task-002-stored-show-cue.md), the stored Show cue, is implemented on 2026-11-14, and its visual checks are open in section 19 of [pending human checks](docs/pending-human-checks.md). [Packet 003](docs/tasks/adr-0068-task-003-show-plays-the-cue.md), Show plays the cue, is implemented on 2026-11-15, and its visual checks are open in section 20. Only typed Show commands start program playback, and no page of Music starts it. Packets 004 and 005 are Ready.
-- The fix for the MP4 `TYER` difference in "Update n files" is implemented. [ADR 0080 packet 013](docs/tasks/adr-0080-task-013-mp4-date-shares-one-value.md)
-  owns the operator check, which is open.
-- Each Music column scrolls with a held handle, so a focused control comes into view ([ADR 0098](docs/adr/0098-the-music-shell-pages-lists-and-search.md) Invariants). [ADR 0090 task 005](docs/tasks/adr-0090-task-005-each-music-column-shows-the-focus.md) implements this on 2026-11-14. The defect stays in this list until the operator passes its visual checks in section 15 of [pending human checks](docs/pending-human-checks.md).
-- A feed page with two or more roles shows "Publisher". [ADR 0098](docs/adr/0098-the-music-shell-pages-lists-and-search.md) Decision 11.7 lists each role. [ADR 0085 task 001](docs/tasks/adr-0085-task-001-type-label-of-known-roles.md) implements the fix on 2026-11-14. The defect stays in this list until the operator passes the checks in section 16 of [pending human checks](docs/pending-human-checks.md).
-- Sir Libre Records shows the badge "Publisher", because one side gives `rel="recordLabel"`. On 2026-11-14 the operator decided that the badge ignores an unknown role word. Decision 1 of the [operator run sheet](docs/pending-human-checks.md#operator-run-sheet---2026-11-09) records it. [musicindex ADR 0066](../musicindex/docs/adr/0066-a-role-word-that-is-not-known-is-ignored.md) owns the rule. ADR 0085 task 001 implements the fix on 2026-11-14, and its checks are open in section 16.
-- Tab does not go to an artist tile on Artists, and after "Show more" the focus goes to the sidebar. [ADR 0092 task 001](docs/tasks/adr-0092-task-001-artists-list-focus.md) implements the fix on 2026-11-14. The defect stays in this list until the operator passes its visual checks in section 17 of [pending human checks](docs/pending-human-checks.md).
-
-Stored facts that agents need:
-
-- Schema version 33 is current. The migration registry of ADR 0016 owns each schema change.
-- `tests/fixtures/musicindex-openapi-0.21.0.json` is the stored MusicIndex contract. Since 2026-11-17 it holds the contract of Stophammer release 0.21.0, tag `v0.21.0` at git `238d1b6`. After each Stophammer
-  release, replace it in the same change as the decode changes (ADR 0075 section 6).
-- [Open Stophammer requests](docs/plans/hitit-open-requests.md) has an equal copy in the Stophammer
-  repository. Update both copies together.
-- `docs/plans/broadcast-chain-delivery-order.md` is the only cross-repository order. Read it before a session
-  on broadcast work. When a real show is scheduled, publisher show-log task 001 takes priority.
-- Do not delete the evidence fixture `/tmp/v4vmm-governance.ie6k8TQf`. Its cleanup is unconfirmed.
+- Schema version 33 is current. The migration registry of ADR 0016 owns each
+  schema change.
+- `tests/fixtures/musicindex-openapi-0.21.0.json` is the stored MusicIndex
+  contract of Stophammer release 0.21.0. After each Stophammer release, replace
+  it in the same change as the decode changes (ADR 0075 section 6).
+- [Open Stophammer requests](docs/plans/hitit-open-requests.md) has an equal
+  copy in the Stophammer repository. Update both copies together.
+- `docs/plans/broadcast-chain-delivery-order.md` is the only cross-repository
+  order. Read it before a session on broadcast work. When a real show is
+  scheduled, publisher show-log task 001 takes priority.
+- Do not delete the evidence fixture `/tmp/v4vmm-governance.ie6k8TQf`. Its
+  cleanup is unconfirmed.
 
 ## Current Design Philosophy
 
