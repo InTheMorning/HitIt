@@ -230,4 +230,11 @@ The operator answered these questions on 2026-11-21:
 
 ## Tasks
 
-The task files follow in a different commit.
+Do these tasks in this order. No code starts until the operator says so.
+
+1. [Task 001](../tasks/adr-0112-task-001-the-producer-kind-of-a-host.md):
+   the producer kind of a host.
+2. [Task 002](../tasks/adr-0112-task-002-the-station-units-on-the-show-page.md):
+   the station units on the Show page.
+3. [Task 003](../tasks/adr-0112-task-003-the-dj-audio-text.md): the DJ audio
+   text.
