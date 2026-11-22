@@ -2,8 +2,8 @@
 
 ## Status
 
-In progress - 2026-11-22. Commits 942baf8, 49fcef5 and 2440498 hold
-steps 1 to 3. The main session ran the gate for each commit. Three items are
+In progress - 2026-11-22. Commits 942baf8, 49fcef5, 2440498 and 89384ed hold
+steps 1 to 3. The main session ran the gate for each commit. Two items are
 open. The Open section gives them.
 
 ## Goal
@@ -61,17 +61,8 @@ Visual: none.
 
 ## Open
 
-1. The temporary crate path. musicindex-lib commit
-   2226fafbb2ea21ca7116038764641dcaffe1eb8d makes a write with an empty edit
-   list remove the old frames. GitHub does not have it yet, so `Cargo.toml`
-   uses `path = "../musicindex-lib/tags"`. After the operator pushes it,
-   change the line to the `git` URL with that `rev`, regenerate `Cargo.lock`
-   and run the gate. Test
-   `adr_0086_retag_removes_a_route_frame_with_no_stored_route` covers the
-   write with an empty edit list.
-2. The operator runs the dry run and decides the real run, after the push
-   of item 1.
-3. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
+1. The operator runs the dry run and decides the real run.
+2. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
    writes episode tags. The HitIt ADR for the station selects the action that
    writes them. Do not start it before that ADR. It also needs the push of
    stophammer-parser d105468.

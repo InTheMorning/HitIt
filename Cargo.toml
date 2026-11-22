@@ -22,10 +22,7 @@ musicindex-build-info = { git = "https://github.com/InTheMorning/musicindex-lib"
 musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5e35cf5c39a8ff68c64267156d0a7165c43f1826" }
 # musicindex ADR 0086 R-TAG-1 and ADR 0089 R-TAG-6: the frame code of song and
 # episode files comes from the shared crate.
-# Temporary: GitHub does not have musicindex-lib 2226fafbb2ea21ca7116038764641dcaffe1eb8d
-# yet. After the push, use git = "https://github.com/InTheMorning/musicindex-lib"
-# with that rev (task musicindex-adr-0086-task-001, Open).
-musicindex-tags = { path = "../musicindex-lib/tags" }
+musicindex-tags = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "2226fafbb2ea21ca7116038764641dcaffe1eb8d" }
 roxmltree = "=0.21.1"
 quick-xml = { version = "=0.37.5", features = ["encoding"] }
 # ADR 0076 packet 002: readable-text comparison of descriptions (ADR 0075
