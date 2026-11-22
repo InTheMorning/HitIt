@@ -209,11 +209,9 @@ fn retag_file(
         file.edits.clone(),
         RouteFrameWrite::WhenSelected,
     )?;
-    if edits.is_empty() {
-        return Err(anyhow!(
-            "no new frame to write; the crate removes old frames only in a write with an edit"
-        ));
-    }
+    // An empty edit list still removes the old frames: a file whose only old
+    // frame gets no new frame, for example a route frame of a track with no
+    // stored route.
     if !backup.exists() {
         if let Some(parent) = backup.parent() {
             fs::create_dir_all(parent)
@@ -734,6 +732,44 @@ mod tests {
         );
         let second = plan_library(&conn, music.path()).unwrap();
         assert_eq!(second.count(&FileState::Current), 1);
+    }
+
+    /// A track with no stored route: the write removes the old route frame
+    /// and writes no new route frame (ADR 0076 Decision 9). The edit list is
+    /// empty, and the crate still removes the old frame.
+    #[test]
+    fn adr_0086_retag_removes_a_route_frame_with_no_stored_route() {
+        let conn = setup_db();
+        let music = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let path = add_track(&conn, music.path(), "song.mp3", b"");
+        let mut tag = Tag::new();
+        tag.add_frame(ExtendedText {
+            description: "MusicIndex Value Routes".into(),
+            value: "old routes".into(),
+        });
+        tag.write_to_path(&path, Version::Id3v24).unwrap();
+
+        let report = write_library(&conn, music.path(), backups.path()).unwrap();
+
+        assert!(
+            matches!(
+                report.results.as_slice(),
+                [(_, FileResult::Written(write))]
+                    if write.removed_old_frames == ["TXXX:MusicIndex Value Routes"]
+            ),
+            "{:?}",
+            report.results
+        );
+        let labels = frame_labels(&path);
+        assert!(
+            !labels
+                .iter()
+                .any(|label| label.contains("MusicIndex") || label == frames::VALUE_ROUTES),
+            "{labels:?}"
+        );
+        let second = plan_library(&conn, music.path()).unwrap();
+        assert!(plan_text(&second).contains("Files to rewrite: 0"));
     }
 
     #[test]

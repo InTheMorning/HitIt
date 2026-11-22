@@ -53,18 +53,24 @@ Mechanical:
 4. The dry run writes nothing. Test `adr_0086_retag_dry_run_writes_nothing`.
 5. Old Vorbis keys in capital letters get the new names. Test
    `adr_0086_retag_renames_old_vorbis_comments`.
+6. A route frame of a track with no stored route is removed, and a second
+   dry run gives no file to rewrite. Test
+   `adr_0086_retag_removes_a_route_frame_with_no_stored_route`.
 
 Visual: none.
 
 ## Open
 
-1. The write that only removes frames. The crate writes nothing for an empty
-   edit list. Thus a file with only an old frame that gets no new frame keeps
-   that frame. An example is a route frame of a track with no stored route.
-   The orchestrator asked for the change in `musicindex-tags` on 2026-11-22.
-   The `lib` session owns that repository. When the crate commit exists, pin
-   it in `Cargo.toml` and add a retag test for this file.
-2. The operator runs the dry run and decides the real run, after item 1.
+1. The temporary crate path. musicindex-lib commit
+   2226fafbb2ea21ca7116038764641dcaffe1eb8d makes a write with an empty edit
+   list remove the old frames. GitHub does not have it yet, so `Cargo.toml`
+   uses `path = "../musicindex-lib/tags"`. After the operator pushes it,
+   change the line to the `git` URL with that `rev`, regenerate `Cargo.lock`
+   and run the gate. Test
+   `adr_0086_retag_removes_a_route_frame_with_no_stored_route` covers the
+   write with an empty edit list.
+2. The operator runs the dry run and decides the real run, after the push
+   of item 1.
 3. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
    writes episode tags. The HitIt ADR for the station selects the action that
    writes them. Do not start it before that ADR. It also needs the push of
