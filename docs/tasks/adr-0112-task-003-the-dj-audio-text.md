@@ -2,8 +2,9 @@
 
 ## Status
 
-Ready - 2026-11-21. It needs task 001. No code starts until the operator says
-so.
+Implemented - 2026-11-21. Mechanical criteria are Green. The main session
+reviewed the diff and ran the checks. The agent walked visual criterion 1 on
+Xvfb. The result is in the Report.
 
 ## Goal
 
@@ -71,6 +72,37 @@ implementer stops and reports.
 
 ## Report
 
-Give each mechanical criterion and its test, and the result of the visual
-walk. Do not commit. The main session reviews the diff, runs the checks and
-commits.
+1. Criterion 1:
+   `adr_0112_go_confirmation_has_the_dj_audio_text_only_for_a_station_event`
+   in `src/view_models/show.rs`, and
+   `adr_0112_selected_event_fact_needs_a_station_target_and_a_good_read` in
+   `src/app/show.rs`.
+2. Criterion 2: `adr_0112_station_read_runs_list_targets_for_the_station_instance_only`
+   in `src/app/show.rs`.
+3. Criterion 3: the commit checks pass. Lib tests: 3466. Architecture tests:
+   418.
+
+The read is the command `ReadStationEvents` in `src/app/show.rs`. It runs at
+app start, when the selection of the Show page changes, and when the operator
+selects an event. The fact is `ShowPlayerFacts.selected_event_on_station`.
+
+Visual criterion 1: the agent walked it on Xvfb. The configuration had a DJ
+host and a station host with SSH destinations on the reserved domain
+`.invalid`. A stub `ssh` answered only `target list` for `my-station`, and
+refused each other command. The relay endpoint was a closed local port. The
+agent added the reserved event `event-station` with a fake token file,
+selected the player Mixxx and the show instance `show-1`, and clicked
+"Go on air". The confirmation started with "Connect the DJ audio to the
+station first." The agent clicked Cancel.
+
+Then the stub gave a different event ID for the station target. After a new
+selection, the confirmation had no DJ audio text. The stub received only
+`systemctl --user show`, `systemctl --user list-units` and `target list`.
+
+Open items:
+
+- The read does not run when the operator only opens the Show tab. A change
+  of a station target on the radio host shows after the next selection or
+  start.
+- A failed read writes one line to standard error. The project has no log
+  crate.

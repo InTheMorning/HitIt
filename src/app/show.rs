@@ -19,9 +19,11 @@ use crate::application::capability::Dependency;
 use crate::application::capability_recovery::{RecoveryAction, RecoveryIntent};
 use crate::application::commands::playlist::ClearShowCue;
 use crate::application::{ApplicationCommand, CommandContext, CommandError, CommandOutcome};
-use crate::broadcast::control::{self, ServiceState, UnitRef};
+use crate::broadcast::control::{self, CommandRunner, ProcessCommandRunner, ServiceState, UnitRef};
 use crate::broadcast::encoder::{self, EncoderTarget};
-use crate::broadcast::publisher_targets::{self, PublisherTargetCommandError, PublisherTargetList};
+use crate::broadcast::publisher_targets::{
+    self, PublisherTargetCommandError, PublisherTargetControl, PublisherTargetList,
+};
 use crate::broadcast::registry::BroadcastRegistry;
 use crate::broadcast::transport::Transport;
 use crate::config::BroadcastHostConfig;
@@ -1161,6 +1163,45 @@ impl TopApp {
         }
     }
 
+    /// Read the station events (ADR 0112 Decision 6). The read runs in a command, never in a view.
+    pub(super) fn refresh_station_events(&mut self, cx: &mut Context<Self>) {
+        let hosts = station_hosts(&self.broadcast);
+        if hosts.is_empty() {
+            if !self.station_event_ids.is_empty() {
+                self.station_event_ids.clear();
+                self.reproject_show_page_from_current_queue();
+                cx.notify();
+            }
+            return;
+        }
+        present_command(
+            &self.command_runner,
+            ReadStationEvents { hosts },
+            CommandContext::next(),
+            cx,
+            |this, ids, cx| {
+                if this.station_event_ids != ids {
+                    this.station_event_ids = ids;
+                    this.reproject_show_page_from_current_queue();
+                    cx.notify();
+                }
+            },
+            |this, _error, cx| {
+                // A failed command gives no station events. It does not block "Go on air".
+                eprintln!("The read of the station events failed.");
+                if !this.station_event_ids.is_empty() {
+                    this.station_event_ids.clear();
+                    this.reproject_show_page_from_current_queue();
+                    cx.notify();
+                }
+            },
+        );
+    }
+
+    fn selected_event_on_station(&self) -> bool {
+        selected_event_is_on_station(&self.station_event_ids, self.event_section_input.as_ref())
+    }
+
     pub(super) fn refresh_show_page(&self, cx: &mut Context<Self>) {
         let requested_event_input = self.event_section_input.clone();
         let command = RefreshShowPage::new(
@@ -1192,6 +1233,9 @@ impl TopApp {
                         .is_some_and(|input| input.selected_event.is_some())
                 {
                     this.run_event_registry_command(EventRegistryAction::Check, cx);
+                }
+                if selection_changed {
+                    this.refresh_station_events(cx);
                 }
             },
             |this, error, _cx| {
@@ -1366,6 +1410,7 @@ impl TopApp {
                 instances: &instance_names,
                 drop_folder_problem: drop_problem.as_deref(),
                 producer,
+                selected_event_on_station: self.selected_event_on_station(),
             },
         });
     }
@@ -3449,6 +3494,114 @@ producer = "liquidsoap"
         assert_eq!(empty_event_section(&broadcast).attach_target_name, "");
     }
 
+    #[derive(Clone, Default)]
+    struct RecordingRunner {
+        calls: std::rc::Rc<std::cell::RefCell<Vec<Vec<String>>>>,
+        stdout: Option<String>,
+    }
+
+    impl CommandRunner for RecordingRunner {
+        fn run(&self, program: &str, args: &[String]) -> anyhow::Result<control::CommandOutput> {
+            let mut call = vec![program.to_owned()];
+            call.extend(args.iter().cloned());
+            self.calls.borrow_mut().push(call);
+            self.stdout.as_ref().map_or_else(
+                || Err(anyhow::anyhow!("fixture runner has no output")),
+                |stdout| Ok(control::CommandOutput::success(stdout.clone())),
+            )
+        }
+    }
+
+    fn adr_0112_host(
+        name: &str,
+        instance: &str,
+        producer: config::ProducerKind,
+    ) -> BroadcastHostConfig {
+        BroadcastHostConfig {
+            name: name.to_owned(),
+            transport: Transport::ssh("station@radio.invalid").unwrap(),
+            instance_name: instance.to_owned(),
+            producer,
+            show_instances: Vec::new(),
+        }
+    }
+
+    /// ADR 0112 criterion 5: the read runs `list_targets` for the station instance of the
+    /// station hosts only. It runs no attach, detach, replace, start or stop.
+    #[test]
+    fn adr_0112_station_read_runs_list_targets_for_the_station_instance_only() {
+        let runner = RecordingRunner {
+            stdout: Some(
+                r#"{"targets":[{"name":"main","event_id":"event-station","token_file":"t","stream_delay_secs":0.0}]}"#
+                    .to_owned(),
+            ),
+            ..RecordingRunner::default()
+        };
+        let hosts = [
+            adr_0112_host("Radio", "my-station", config::ProducerKind::Liquidsoap),
+            adr_0112_host("Laptop", "my-private", config::ProducerKind::Mixxx),
+        ];
+        let broadcast_hosts: Vec<_> = hosts
+            .iter()
+            .filter(|host| host.producer == config::ProducerKind::Liquidsoap)
+            .cloned()
+            .collect();
+        let ids = read_station_event_ids(
+            &PublisherTargetControl::new(runner.clone()),
+            &broadcast_hosts,
+        );
+        assert_eq!(ids, ["event-station"]);
+        let calls = runner.calls.borrow();
+        assert_eq!(calls.len(), 1, "{calls:?}");
+        let joined = calls[0].join(" ");
+        assert!(joined.contains("target list"), "{joined}");
+        assert!(joined.contains("my-station"), "{joined}");
+        assert!(!joined.contains("my-private"), "{joined}");
+        for word in [
+            "attach", "detach", "add", "remove", "start", "stop", "restart",
+        ] {
+            assert!(
+                !calls[0]
+                    .iter()
+                    .any(|arg| arg == word || arg == &format!("target {word}")),
+                "{word}: {joined}"
+            );
+        }
+    }
+
+    /// ADR 0112 criterion 5: the fact is false for no event, for an event on no station target
+    /// and after a failed read. A failed read gives no IDs.
+    #[test]
+    fn adr_0112_selected_event_fact_needs_a_station_target_and_a_good_read() {
+        let failing = RecordingRunner::default();
+        let host = adr_0112_host("Radio", "my-station", config::ProducerKind::Liquidsoap);
+        let failed = read_station_event_ids(&PublisherTargetControl::new(failing), &[host]);
+        assert!(failed.is_empty());
+        let mut broadcast = adr_0112_station_broadcast();
+        broadcast.selected_show_instance = None;
+        let mut input = empty_event_section(&broadcast);
+        let station = vec!["event-station".to_owned()];
+        assert!(!selected_event_is_on_station(&station, None));
+        assert!(!selected_event_is_on_station(&station, Some(&input)));
+        input.selected_event = Some(EventSelectionInput {
+            kind: EventKind::Reserved,
+            created_at: 0,
+            last_checked_at: None,
+            label: None,
+            event_id: "event-station".to_owned(),
+            endpoint: String::new(),
+            token_path: String::new(),
+            token_file_missing: false,
+            state: EventState::Live,
+        });
+        assert!(selected_event_is_on_station(&station, Some(&input)));
+        assert!(!selected_event_is_on_station(
+            &["event-other".to_owned()],
+            Some(&input)
+        ));
+        assert!(!selected_event_is_on_station(&failed, Some(&input)));
+    }
+
     /// ADR 0111 criterion 12: Attach goes to the target of the selected show
     /// instance. With no selection, or with the private instance, the section has
     /// no target name, so Attach and Detach are not available.
@@ -4933,6 +5086,7 @@ impl TopApp {
                 this.event_section_input = Some(input);
                 this.reproject_show_page_from_current_queue();
                 this.run_event_registry_command(EventRegistryAction::Check, cx);
+                this.refresh_station_events(cx);
             },
             move |this, error, cx| {
                 if !this.event_request_is_current(request, &error_context) {
@@ -5084,6 +5238,65 @@ impl ApplicationCommand for SelectShowEvent {
         Ok(CommandOutcome::without_events(load_event_section(
             &conn,
             &self.broadcast,
+        )))
+    }
+}
+
+/// Station hosts of the configuration (ADR 0112 Decision 1). The producer kind is the enum.
+fn station_hosts(broadcast: &config::BroadcastCapabilities) -> Vec<BroadcastHostConfig> {
+    broadcast
+        .hosts
+        .as_ref()
+        .map(|hosts| {
+            hosts
+                .iter()
+                .filter(|host| host.producer == config::ProducerKind::Liquidsoap)
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Event IDs of the targets of the station instance of each host (ADR 0112 Decision 6).
+///
+/// Only `list_targets` runs. A host whose read fails gives no IDs and one log line.
+fn read_station_event_ids<R: CommandRunner + Clone>(
+    control: &PublisherTargetControl<R>,
+    hosts: &[BroadcastHostConfig],
+) -> Vec<String> {
+    let mut ids = Vec::new();
+    for host in hosts {
+        match control.list_targets(&host.transport, &host.instance_name) {
+            Ok(list) => ids.extend(list.targets.into_iter().map(|target| target.event_id)),
+            Err(error) => eprintln!("The read of the station events of a host failed: {error}"),
+        }
+    }
+    ids
+}
+
+/// True when the selected event is the event of a station target.
+fn selected_event_is_on_station(
+    station_event_ids: &[String],
+    input: Option<&EventSectionInput>,
+) -> bool {
+    input
+        .and_then(|input| input.selected_event.as_ref())
+        .is_some_and(|event| station_event_ids.contains(&event.event_id))
+}
+
+struct ReadStationEvents {
+    hosts: Vec<BroadcastHostConfig>,
+}
+
+impl ApplicationCommand for ReadStationEvents {
+    type Output = Vec<String>;
+    fn execute(self, context: &CommandContext) -> crate::application::CommandResult<Self::Output> {
+        if context.cancellation().is_cancelled() {
+            return Err(CommandError::Cancelled);
+        }
+        Ok(CommandOutcome::without_events(read_station_event_ids(
+            &PublisherTargetControl::new(ProcessCommandRunner),
+            &self.hosts,
         )))
     }
 }

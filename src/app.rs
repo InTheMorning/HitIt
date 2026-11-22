@@ -295,6 +295,8 @@ pub struct TopApp {
     broadcast_service_watch_pace: BroadcastServiceWatchPace,
     show_log_resize: Option<(f32, f32)>,
     event_section_input: Option<EventSectionInput>,
+    /// Event IDs of the targets of the station instances (ADR 0112 Decision 6).
+    station_event_ids: Vec<String>,
     event_session: show::EventSession,
     /// The open dialog "Add reserved event", if any (ADR 0110 Decision 2).
     add_reserved_dialog: Option<show::AddReservedDialog>,
@@ -690,6 +692,7 @@ impl TopApp {
             broadcast_service_watch_pace: BroadcastServiceWatchPace::Background,
             show_log_resize: None,
             event_section_input: None,
+            station_event_ids: Vec::new(),
             show_playlists: Vec::new(),
             event_session: show::EventSession::default(),
             add_reserved_dialog: None,

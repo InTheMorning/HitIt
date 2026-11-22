@@ -606,6 +606,8 @@ pub(crate) struct ShowPlayerFacts<'a> {
     pub(crate) drop_folder_problem: Option<&'a str>,
     /// Producer kind of the selected host (ADR 0112 Decision 1).
     pub(crate) producer: ProducerKind,
+    /// The selected event is the event of a station target (ADR 0112 Decision 6).
+    pub(crate) selected_event_on_station: bool,
 }
 
 impl ShowPlayerFacts<'_> {
@@ -3774,13 +3776,22 @@ fn mixxx_go_confirmation(facts: &ShowPlayerFacts<'_>) -> String {
     let SelectedInstance::Show(instance) = facts.selected else {
         return String::new();
     };
+    let dj_audio = if facts.selected_event_on_station {
+        DJ_AUDIO_TEXT
+    } else {
+        ""
+    };
     format!(
-        "HitIt stops the producer of {private} and starts the producer of {instance}. \
+        "{dj_audio}HitIt stops the producer of {private} and starts the producer of {instance}. \
          The show sends track data only from the next track that starts in Mixxx. \
          A track that started before the switch gets no link.",
         private = facts.private_instance
     )
 }
+
+/// First sentences of the "Go on air" confirmation for the station event (ADR 0112 Decision 6).
+const DJ_AUDIO_TEXT: &str = "Connect the DJ audio to the station first. \
+     The station event plays the DJ only after the audio is connected. ";
 
 /// Confirmation text of "End show" for a show that Mixxx plays (ADR 0111 Decision 7).
 fn mixxx_end_confirmation(facts: &EndShowFacts<'_>) -> EndShowConfirmation {
@@ -4366,6 +4377,7 @@ mod tests {
                 instances: &[],
                 drop_folder_problem: None,
                 producer: ProducerKind::Mixxx,
+                selected_event_on_station: false,
             },
         }
     }
@@ -8215,6 +8227,30 @@ mod tests {
             .unwrap()
             .mixxx_note;
         assert!(note.is_some_and(|text| text.contains("next track")));
+    }
+
+    /// ADR 0112 criterion 5: the DJ audio text shows only for an event on a station target.
+    #[test]
+    fn adr_0112_go_confirmation_has_the_dj_audio_text_only_for_a_station_event() {
+        let mut facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        facts.show_player.player = ShowPlayer::Mixxx;
+        let message = |facts: OnAirFacts<'static>| {
+            ready_page(true, AudioSignalState::Present)
+                .with_on_air_band(facts)
+                .on_air
+                .unwrap()
+                .confirmation_message
+        };
+        let plain = message(facts);
+        assert!(!plain.contains("DJ audio"), "{plain}");
+        facts.show_player.selected_event_on_station = true;
+        let station = message(facts);
+        assert!(station.starts_with("Connect the DJ audio to the station first."));
+        assert!(station.contains("only after the audio is connected"));
+        assert!(station.ends_with(&plain), "{station}");
     }
 }
 

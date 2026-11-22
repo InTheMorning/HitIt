@@ -320,6 +320,7 @@ pub(super) fn mount_normal<T: 'static>(
         app.maybe_start_broadcast_readiness_watch(cx);
         app.maybe_start_broadcast_service_watch(cx);
         app.refresh_show_page(cx);
+        app.refresh_station_events(cx);
         let status = normal_startup_status(&notices);
         if !status.is_empty() {
             app.settings_status = status;
