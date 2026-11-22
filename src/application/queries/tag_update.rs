@@ -650,6 +650,52 @@ mod tests {
 
     use crate::audio_tags::write_id3v24_edits;
 
+    /// Give song 1 an RSS duration of 187 s and a file `TLEN` of 194185.
+    /// The `id3` crate writes the frame, because the app write sends no
+    /// `TLEN` edit (ADR 0114).
+    fn give_song_one_a_tlen(conn: &Connection, dir: &Path) {
+        conn.execute("UPDATE tracks SET duration_seconds = 187 WHERE id = 1", [])
+            .unwrap();
+        let path = dir.join("song-1.mp3");
+        let mut tag = id3::Tag::read_from_path(&path).unwrap();
+        id3::TagLike::set_text(&mut tag, "TLEN", "194185");
+        tag.write_to_path(&path, id3::Version::Id3v24).unwrap();
+    }
+
+    /// ADR 0114 Decision 2: the scan shows no `TLEN` change.
+    #[test]
+    fn adr_0114_scan_shows_no_tlen_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        settle(&conn, dir.path());
+        give_song_one_a_tlen(&conn, dir.path());
+
+        let scan = scan_tag_updates(&conn, dir.path()).unwrap();
+
+        assert_eq!(scan.count(), 0, "ADR 0114: the scan shows no TLEN change");
+    }
+
+    /// ADR 0114 Decision 2: a stored skip of `TLEN` becomes stale.
+    #[test]
+    fn adr_0114_scan_marks_a_tlen_skip_stale() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = library(dir.path(), &[1]);
+        settle(&conn, dir.path());
+        give_song_one_a_tlen(&conn, dir.path());
+        let skip = TagUpdateSkip {
+            track_id: 1,
+            frame_label: "TLEN".into(),
+            stored_value: "187000".into(),
+        };
+        db::tag_update_skips::record_tag_update_skips(&conn, &[skip]).unwrap();
+
+        let scan = scan_tag_updates(&conn, dir.path()).unwrap();
+
+        assert_eq!(scan.count(), 0);
+        assert_eq!(scan.stale_skips.len(), 1);
+        assert_eq!(scan.stale_skips[0].frame_label, "TLEN");
+    }
+
     fn frame<'a>(file: &'a TagUpdateFile, label: &str) -> Option<&'a TagFrameChange> {
         match &file.content {
             TagUpdateFileContent::Differs { frames, .. } => {

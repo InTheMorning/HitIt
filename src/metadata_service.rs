@@ -596,6 +596,30 @@ mod tests {
         }
     }
 
+    /// ADR 0114 Invariant: a track with an RSS duration gives no `TLEN` edit,
+    /// also when an explicit edit names `TLEN`.
+    #[test]
+    fn adr_0114_edit_builder_gives_no_tlen_edit() {
+        let mut context = track_context_without_own_identity();
+        context.track.duration_secs = Some(187);
+        let edits = id3_edits_for_track_context(&context);
+        assert!(
+            !edits.iter().any(|edit| edit.frame_label == "TLEN"),
+            "ADR 0114: HitIt sends no TLEN edit. The crate owns TLEN."
+        );
+
+        let explicit = BTreeMap::from([(
+            "duration".to_string(),
+            PendingId3Edit {
+                field: "Duration".into(),
+                frame: "TLEN".into(),
+                value: "187000".into(),
+                source: crate::metadata::MetadataColumn::Rss,
+            },
+        )]);
+        assert!(crate::metadata::pending_id3_edits_for_apply(&explicit).is_empty());
+    }
+
     /// R49-05 (ADR 0075 packet 049): a track without its own date gets no
     /// `TDRC` edit from a feed release date or an oldest item date.
     #[test]

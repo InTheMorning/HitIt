@@ -2843,8 +2843,10 @@ pub fn valid_musicindex_image_url(value: &str) -> Option<String> {
     matches!(parsed.scheme(), "http" | "https").then(|| url.to_string())
 }
 
+/// ADR 0114: the crate owns `TLEN` (musicindex ADR 0091 R-TAG-11), so HitIt
+/// stages no `TLEN` edit.
 pub fn id3v24_drag_copy_frame_is_writable(frame_label: &str) -> bool {
-    id3v24_edit_label_is_writable(frame_label)
+    frame_label != "TLEN" && id3v24_edit_label_is_writable(frame_label)
 }
 
 pub fn pending_id3_conflict_descriptions(edits: &BTreeMap<String, PendingId3Edit>) -> Vec<String> {
@@ -2884,7 +2886,8 @@ pub fn pending_id3_conflict_descriptions(edits: &BTreeMap<String, PendingId3Edit
 
 pub fn pending_id3_edits_for_apply(edits: &BTreeMap<String, PendingId3Edit>) -> Vec<Id3v24Edit> {
     let mut by_target = BTreeMap::<String, Id3v24Edit>::new();
-    for edit in edits.values() {
+    // ADR 0114 Invariant: no write path sends a `TLEN` edit to the crate.
+    for edit in edits.values().filter(|edit| edit.frame != "TLEN") {
         let target = pending_id3_effective_target_key(edit);
         if pending_id3_values_are_mergeable(&edit.frame) {
             if let Some(existing) = by_target.get_mut(&target) {

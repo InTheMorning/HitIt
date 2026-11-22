@@ -16,6 +16,7 @@ Amended 2026-11-05: Decision 6 changes. A write replaces each other value of a f
 
 - Changed by: [musicindex ADR 0086](../../../musicindex/docs/adr/0086-one-feed-parser-and-one-tag-crate-for-songs-and-episodes.md) R-TAG-2, 2026-11-22. Each `MusicIndex ...` frame of this record has a new name, for example `TXXX:Podcast Image` for `TXXX:MusicIndex Image`. A write removes each old frame. The value forms do not change.
 - Changed by: [musicindex ADR 0090](../../../musicindex/docs/adr/0090-each-tag-write-gives-a-correct-id3v2-4-tag.md) R-TAG-8 item 6, 2026-11-22. For a bad frame, a frame of an older ID3 version and an ID3v1 tag, that rule replaces Decision 6. A write repairs a bad frame when the repair is sure, and removes it when it is not. A write changes a frame of ID3v2.2 or ID3v2.3 to its ID3v2.4 equivalent, or removes it. A write gives ID3v2.4 only, removes the ID3v1 tag, and writes the file also when it has only these changes.
+- Changed by: [ADR 0114](0114-the-crate-owns-the-audio-length.md), 2026-11-22. HitIt sends no `TLEN` edit, and the scan shows no `TLEN` change. The crate owns `TLEN` (musicindex ADR 0091 R-TAG-11).
 
 ## Context
 
