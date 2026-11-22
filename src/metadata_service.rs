@@ -665,6 +665,143 @@ mod tests {
         );
     }
 
+    /// ADR 0080 task 019 part A: a file that HitIt wrote with RSS credits and
+    /// an artist shows no difference on the "Contributors" row (ADR 0080
+    /// Decision 3). The `TPE1` artist is not a credit of that row.
+    #[test]
+    fn adr_0080_task_019_written_file_matches_its_contributors() {
+        let context = TrackContext {
+            track: Track {
+                title: Some("Dirt and Sand".into()),
+                track_artist: Some("Strange Love".into()),
+                release_artist: Some("Strange Love".into()),
+                source_contributors: Some(
+                    [
+                        ("Anthony Columbro", "producer"),
+                        ("Josh Moroz", "bass"),
+                        ("Alex Nicol", "drums"),
+                        ("Josh Moroz", "vocals"),
+                        ("Alex Nicol", "vocals"),
+                    ]
+                    .into_iter()
+                    .map(|(name, role)| crate::api::Contributor {
+                        name: Some(name.into()),
+                        role: Some(role.into()),
+                        role_norm: Some(role.into()),
+                        ..Default::default()
+                    })
+                    .collect(),
+                ),
+                ..Default::default()
+            },
+            feed: Some(Feed {
+                title: Some("Strange Love".into()),
+                ..Default::default()
+            }),
+            rss_observation: None,
+            observation_receipts: Vec::new(),
+            provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
+        };
+
+        let temp = tempfile::tempdir().expect("temporary directory");
+        let path = temp.path().join("track.mp3");
+        std::fs::write(&path, b"not really an mp3").expect("write fixture");
+        let edits = id3_edits_for_track_context(&context);
+        crate::audio_tags::write_id3v24_edits(&path, &edits).expect("write ID3 edits");
+        let result = crate::subscribe_service::compare_downloaded_track_path(&path, &context)
+            .expect("compare downloaded file");
+        let rows =
+            crate::metadata::aligned_compare_rows(&result, &context, None, false, &BTreeSet::new());
+        let row = rows
+            .iter()
+            .find_map(|row| match row {
+                crate::metadata::MetadataGridRow::Data(row) if row.field == "Contributors" => {
+                    Some(row)
+                }
+                _ => None,
+            })
+            .expect("Contributors row");
+        assert_eq!(
+            row.id3_status,
+            crate::track_compare::ComparisonStatus::Match,
+            "rss={:?} file={:?}",
+            row.rss_value,
+            row.id3_value
+        );
+    }
+
+    fn vocal_credits_context(names: &[&str]) -> TrackContext {
+        TrackContext {
+            track: Track {
+                title: Some("Dirt and Sand".into()),
+                source_contributors: Some(
+                    names
+                        .iter()
+                        .map(|name| crate::api::Contributor {
+                            name: Some((*name).into()),
+                            role: Some("vocals".into()),
+                            role_norm: Some("vocals".into()),
+                            ..Default::default()
+                        })
+                        .collect(),
+                ),
+                ..Default::default()
+            },
+            feed: None,
+            rss_observation: None,
+            observation_receipts: Vec::new(),
+            provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
+        }
+    }
+
+    /// ADR 0080 task 019 part C: two persons on one instrument read back
+    /// through the crate as two `TMCL` pairs.
+    #[test]
+    fn adr_0080_task_019_tmcl_two_people_read_back() {
+        let context = vocal_credits_context(&["Josh Moroz", "Alex Nicol"]);
+        let edits = id3_edits_for_track_context(&context);
+        let temp = tempfile::tempdir().expect("temporary directory");
+        let path = temp.path().join("track.mp3");
+        std::fs::write(&path, b"not really an mp3").expect("write fixture");
+        crate::audio_tags::write_id3v24_edits(&path, &edits).expect("write ID3 edits");
+        let tags = crate::audio_tags::read_audio_tags(&path).expect("read tags back");
+        let pairs = tags
+            .fields
+            .iter()
+            .filter(|field| field.frame_id == "TMCL")
+            .flat_map(|field| field.value.split(" / "))
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        assert_eq!(pairs, ["vocals: Josh Moroz", "vocals: Alex Nicol"]);
+    }
+
+    /// ADR 0080 task 019 part C: a credit that the crate cannot build as a
+    /// `TMCL` text gives a message for the user and no `TMCL` edit.
+    #[test]
+    fn adr_0080_task_019_tmcl_builder_error_writes_no_frame() {
+        let context = vocal_credits_context(&["Josh Moroz", "/ Alex Nicol"]);
+        let edits = id3_edits_for_track_context(&context);
+        assert!(
+            !edits.iter().any(|edit| edit.frame_label == "TMCL"),
+            "edits: {edits:?}"
+        );
+        let errors = crate::metadata::tmcl_errors(
+            context
+                .track
+                .source_contributors
+                .as_deref()
+                .unwrap_or_default(),
+        );
+        assert_eq!(errors.len(), 1, "errors: {errors:?}");
+        assert!(
+            errors[0].starts_with("App wrote no TMCL frame: "),
+            "{}",
+            errors[0]
+        );
+    }
+
     /// R49-04 (ADR 0075 packet 049): a track with its own date gives a
     /// `TDRC` edit with that date.
     #[test]

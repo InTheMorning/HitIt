@@ -30,7 +30,8 @@ pub(super) fn metadata_value_cell(
     field: &str,
     row_id: &str,
     raw_value: &str,
-    display_value: &str,
+    base_display: &str,
+    glyph: Option<&str>,
     expanded: bool,
     color: gpui::Rgba,
     column: &str,
@@ -39,15 +40,17 @@ pub(super) fn metadata_value_cell(
 ) -> AnyElement {
     let logical_field = TrackMetadataGridVm::logical_field(field);
     let field_kind = TrackMetadataGridVm::expanded_field_kind(logical_field);
+    let display_value = TrackMetadataGridVm::display_with_glyph(glyph, base_display);
     let expandable = TrackMetadataGridVm::field_is_expandable(logical_field, raw_value);
     if !expandable {
-        return compare_cell(display_value, Some(color));
+        return compare_cell(&display_value, Some(color));
     }
     let display = TrackMetadataGridVm::library_expandable_cell_display(column, row_id, expanded);
     let summary = TrackMetadataGridVm::expandable_cell_summary(
         logical_field,
         raw_value,
-        display_value,
+        base_display,
+        glyph,
         ValueRoutesSummaryFallback::DisplayValue,
     );
     // musicindex ADR 0082 R-ROUTES-8 item 1: an open value routes cell keeps
@@ -57,7 +60,7 @@ pub(super) fn metadata_value_cell(
             field_kind,
             logical_field,
             raw_value,
-            display_value,
+            &display_value,
             color,
             file_image,
         )
@@ -101,7 +104,8 @@ pub(super) fn metadata_tag_cell(
     field: &str,
     row_id: &str,
     raw_value: &str,
-    display_value: &str,
+    base_display: &str,
+    glyph: Option<&str>,
     expanded: bool,
     color: gpui::Rgba,
     frame_id: Option<&str>,
@@ -116,7 +120,8 @@ pub(super) fn metadata_tag_cell(
         field,
         row_id,
         raw_value,
-        display_value,
+        base_display,
+        glyph,
         expanded,
         color,
         "id3",

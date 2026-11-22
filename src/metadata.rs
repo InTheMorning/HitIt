@@ -1840,7 +1840,7 @@ pub fn aligned_compare_rows(
     }
 
     let mut rows = Vec::new();
-    let aligned_frame_ids = aligned_id3_frame_ids(result, &grouped_rows);
+    let aligned_frame_ids = aligned_id3_frame_ids(&grouped_rows);
     for &(group_key, label) in ID3V24_FRAME_GROUPS {
         let group_rows = grouped_rows.remove(group_key).unwrap_or_default();
         let unused = unused_id3v24_frames_for_group(result, group_key);
@@ -1871,7 +1871,6 @@ pub fn aligned_compare_rows(
 }
 
 pub fn aligned_id3_frame_ids(
-    result: &TagCompareResult,
     grouped_rows: &BTreeMap<&'static str, Vec<MetadataGridRow>>,
 ) -> BTreeSet<String> {
     let mut frame_ids = BTreeSet::new();
@@ -1882,7 +1881,7 @@ pub fn aligned_id3_frame_ids(
         if let Some(frame) = row.id3_frame.as_deref() {
             frame_ids.insert(pending_id3_target_key(frame));
         }
-        for frame in grouped_id3_frame_keys(&row.field, result) {
+        for frame in grouped_id3_frame_keys(&row.field) {
             frame_ids.insert(frame);
         }
     }
@@ -2519,10 +2518,6 @@ pub fn id3_value_for_field(field: &str, result: &TagCompareResult) -> Option<Str
         return Some(value);
     }
 
-    if field == "Contributors" {
-        return id3_contributor_values(result);
-    }
-
     if field == "License URL" {
         return join_values(&id3_license_urls(result));
     }
@@ -2564,10 +2559,6 @@ pub fn id3_compare_value_for_field(field: &str, result: &TagCompareResult) -> Op
 
     if let Some(instrument) = performer_instrument_field(field) {
         return id3_involved_people_value(result, "TMCL", &instrument);
-    }
-
-    if field == "Contributors" {
-        return id3_contributor_values(result);
     }
 
     if field == "License URL" {
@@ -2668,7 +2659,7 @@ pub fn format_drag_value_for_id3v24(
     let frame_id = id3_frame_base(frame_label);
     match frame_id {
         "TIT2" => format_id3_title(&value),
-        "TMCL" => format_tmcl_value(target_field, &value),
+        "TMCL" => tmcl_value(target_field, &value)?.ok(),
         "TXXX" | "UFID" => Some(value),
         "COMM" | "USLT" | "SYLT" => Some(value),
         "WXXX" => format_id3_url(&value),
@@ -2695,14 +2686,39 @@ pub fn format_id3_title(value: &str) -> Option<String> {
     (!value.trim().is_empty()).then_some(value)
 }
 
-pub fn format_tmcl_value(target_field: &str, value: &str) -> Option<String> {
+/// Musicindex ADR 0086 R-TAG-1 item 4: the crate builds the text of a `TMCL`
+/// frame. Each name of a performer row gets one (instrument, name) pair.
+/// The function gives `None` for a field that is not a performer row or that
+/// has no name, and the crate error for a pair that does not read back the
+/// same. HitIt writes no `TMCL` frame for that error (ADR 0080 task 019).
+pub fn tmcl_value(
+    target_field: &str,
+    value: &str,
+) -> Option<Result<String, crate::audio_tags::BadInvolvedPerson>> {
     let instrument = performer_instrument_field(target_field)?;
-    let values = value
+    let names = value
         .split(" / ")
         .filter_map(|name| normalized_compare_value(Some(name)))
-        .map(|name| format!("{instrument}: {name}"))
         .collect::<Vec<_>>();
-    join_values(&values)
+    if names.is_empty() {
+        return None;
+    }
+    Some(crate::audio_tags::involved_people_value(
+        names
+            .iter()
+            .map(|name| (instrument.as_str(), name.as_str())),
+    ))
+}
+
+/// The message for each performer row of the credits that the crate cannot
+/// build as a `TMCL` text. The download shows each message to the user.
+pub fn tmcl_errors(contributors: &[Contributor]) -> Vec<String> {
+    contributor_id3_rows(contributors)
+        .into_iter()
+        .filter(|(_, frame, _)| *frame == "TMCL")
+        .filter_map(|(field, _, value)| tmcl_value(&field, &value)?.err())
+        .map(|error| format!("App wrote no TMCL frame: {error}"))
+        .collect()
 }
 
 pub fn format_source_value_for_id3v24(
@@ -3087,15 +3103,12 @@ pub fn tempo_id3_frame_labels() -> &'static [&'static str] {
     &["TBPM", "TXXX:IBPM", "TXXX:tempo", "TXXX:bpm"]
 }
 
-pub fn grouped_id3_frame_keys(field: &str, result: &TagCompareResult) -> Vec<String> {
-    match field {
-        "Contributors" => contributor_grouped_id3_frame_keys(result),
-        _ => grouped_id3_frame_labels(field)
-            .into_iter()
-            .flat_map(|frames| frames.iter())
-            .map(|frame| pending_id3_target_key(frame))
-            .collect(),
-    }
+pub fn grouped_id3_frame_keys(field: &str) -> Vec<String> {
+    grouped_id3_frame_labels(field)
+        .into_iter()
+        .flat_map(|frames| frames.iter())
+        .map(|frame| pending_id3_target_key(frame))
+        .collect()
 }
 
 pub fn grouped_id3_frame_labels(field: &str) -> Option<&'static [&'static str]> {
@@ -3104,21 +3117,6 @@ pub fn grouped_id3_frame_labels(field: &str) -> Option<&'static [&'static str]> 
         "Title" => Some(&["TIT2", "TSOT"]),
         "Artist" => Some(&["TPE1", "TSOP"]),
         "Album/Feed" => Some(&["TALB", "TSOA"]),
-        "Contributors" => Some(&[
-            "TXXX:Podcast Contributors",
-            "TXXX:MUSICIANCREDITS",
-            "TXXX:Musician Credits",
-            "TCOM",
-            "TEXT",
-            "TIPL",
-            "TMCL",
-            "TPE1",
-            "TPE2",
-            "TPE3",
-            "TPE4",
-            "TOPE",
-            "TOLY",
-        ]),
         _ => None,
     }
 }
@@ -3140,74 +3138,6 @@ pub fn id3_sort_order_values(field: &str, result: &TagCompareResult) -> Option<S
         .iter()
         .any(|field| sort_targets.contains(&pending_id3_target_key(&field.frame_id)));
     has_sort_order.then(|| join_line_values(&id3_grouped_frame_lines(result, frame_labels)))?
-}
-
-pub fn id3_contributor_values(result: &TagCompareResult) -> Option<String> {
-    let mut seen = BTreeSet::<(String, String)>::new();
-    let values = result
-        .id3_fields
-        .iter()
-        .flat_map(id3_contributor_entries_for_field)
-        .filter(|(role, name)| seen.insert((role.to_ascii_lowercase(), name.to_ascii_lowercase())))
-        .map(|(role, name)| format!("{role}: {name}"))
-        .collect::<Vec<_>>();
-    (!values.is_empty()).then(|| values.join(" / "))
-}
-
-fn contributor_grouped_id3_frame_keys(result: &TagCompareResult) -> Vec<String> {
-    result
-        .id3_fields
-        .iter()
-        .filter(|field| id3_field_is_contributor_related(field))
-        .map(|field| pending_id3_target_key(&field.frame_id))
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect()
-}
-
-fn id3_field_is_contributor_related(field: &Id3Field) -> bool {
-    match id3_frame_base(&field.frame_id) {
-        "TCOM" | "TEXT" | "TIPL" | "TMCL" | "TPE1" | "TPE2" | "TPE3" | "TPE4" | "TOPE" | "TOLY" => {
-            true
-        }
-        "TXXX" => {
-            let descriptor = normalized_id3_descriptor_key(&field.frame_id);
-            descriptor == "podcast contributors"
-                || (descriptor.contains("musician") && descriptor.contains("credit"))
-        }
-        _ => false,
-    }
-}
-
-fn id3_contributor_entries_for_field(field: &Id3Field) -> Vec<(String, String)> {
-    match id3_frame_base(&field.frame_id) {
-        "TXXX" if id3_field_is_contributor_related(field) => {
-            contributor_entries_from_serialized(&field.value)
-        }
-        "TCOM" => contributor_entries_for_people_frame(&field.value, "composer"),
-        "TEXT" => contributor_entries_for_people_frame(&field.value, "lyricist"),
-        "TPE1" => contributor_entries_for_people_frame(&field.value, "musician"),
-        "TPE2" => contributor_entries_for_people_frame(&field.value, "album artist"),
-        "TPE3" => contributor_entries_for_people_frame(&field.value, "conductor"),
-        "TPE4" => contributor_entries_for_people_frame(&field.value, "remixer"),
-        "TOPE" => contributor_entries_for_people_frame(&field.value, "original artist"),
-        "TOLY" => contributor_entries_for_people_frame(&field.value, "original lyricist"),
-        "TIPL" | "TMCL" => field
-            .value
-            .split(" / ")
-            .filter_map(involved_people_entry)
-            .filter_map(|(role, name)| contributor_entry(&role, &name))
-            .collect(),
-        _ => Vec::new(),
-    }
-}
-
-fn contributor_entries_for_people_frame(value: &str, role: &str) -> Vec<(String, String)> {
-    value
-        .split(" / ")
-        .flat_map(split_joined_metadata_values)
-        .filter_map(|name| contributor_entry(role, &name))
-        .collect()
 }
 
 fn contributor_entries_from_serialized(value: &str) -> Vec<(String, String)> {
@@ -5402,5 +5332,39 @@ mod tests {
 
         let (url, _) = status_after_writing(&[("WCOP", "https://other.example/license")]);
         assert_eq!(url, Some(ComparisonStatus::Different));
+    }
+
+    /// ADR 0080 task 019 part A: the file side of the "Contributors" row reads
+    /// `TXXX:Podcast Contributors` only, the frame that the writer fills from
+    /// the RSS credits. A `TPE1` value is not in it.
+    #[test]
+    fn adr_0080_task_019_contributors_reads_one_frame() {
+        let result = TagCompareResult {
+            path: String::new(),
+            rows: Vec::new(),
+            file_image: None,
+            contributors: Vec::new(),
+            value_routes: Vec::new(),
+            id3_fields: vec![
+                crate::audio_tags::Id3Field {
+                    frame_id: "TPE1".into(),
+                    value: "Strange Love".into(),
+                },
+                crate::audio_tags::Id3Field {
+                    frame_id: "TXXX:Podcast Contributors".into(),
+                    value: "bass: Josh Moroz".into(),
+                },
+            ],
+            total_tracks: None,
+            format: None,
+        };
+        assert_eq!(
+            super::id3_value_for_field("Contributors", &result).as_deref(),
+            Some("bass: Josh Moroz")
+        );
+        assert_eq!(
+            super::id3_compare_value_for_field("Contributors", &result).as_deref(),
+            Some("bass: Josh Moroz")
+        );
     }
 }

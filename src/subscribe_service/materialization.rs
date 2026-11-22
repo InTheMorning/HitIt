@@ -281,6 +281,21 @@ impl Materialization {
         let working_path = prepared.working_path().to_path_buf();
         *class = FILE;
         let mut warning = warning;
+        // ADR 0080 task 019: a credit that the crate cannot build as a `TMCL`
+        // text gives no frame. The download result shows the crate error.
+        if conversion != ConversionOutcome::WavRetained {
+            let credits = stored
+                .track
+                .source_contributors
+                .as_deref()
+                .unwrap_or_default();
+            for message in crate::metadata::tmcl_errors(credits) {
+                warning = Some(warning.map_or_else(
+                    || message.clone(),
+                    |warning| format!("{warning}; {message}"),
+                ));
+            }
+        }
         let applied_edits = if conversion == ConversionOutcome::WavRetained {
             0
         } else if retry || self.binding.is_some() {

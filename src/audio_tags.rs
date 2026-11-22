@@ -14,9 +14,10 @@ use anyhow::{anyhow, Context, Result};
 
 pub use musicindex_tags::frames;
 pub use musicindex_tags::{
-    id3v24_edit_label_is_writable, read_audio_tags, read_podcast_tags, sanitize_title_text,
-    split_license_list, vorbis_storage_key, AudioTags, BadTag, Id3Field, Id3v24Edit,
-    ReferenceSource, TagWriteResult, LICENSE_LIST_FRAME, LICENSE_NAME_FRAME, LICENSE_URL_FRAME,
+    id3v24_edit_label_is_writable, involved_people_value, read_audio_tags, read_podcast_tags,
+    sanitize_title_text, split_license_list, vorbis_storage_key, AudioTags, BadInvolvedPerson,
+    BadTag, Id3Field, Id3v24Edit, ReferenceSource, TagWriteResult, LICENSE_LIST_FRAME,
+    LICENSE_NAME_FRAME, LICENSE_URL_FRAME,
 };
 
 use crate::media::image_type;

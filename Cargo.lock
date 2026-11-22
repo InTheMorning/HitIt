@@ -4470,7 +4470,7 @@ dependencies = [
 [[package]]
 name = "musicindex-tags"
 version = "0.1.0"
-source = "git+https://github.com/InTheMorning/musicindex-lib?rev=1937944e87c80fa7de413ffe1cd8dfd1846af2c2#1937944e87c80fa7de413ffe1cd8dfd1846af2c2"
+source = "git+https://github.com/InTheMorning/musicindex-lib?rev=e2e8a20843d322aaf2b253c0148130cb00f1622c#e2e8a20843d322aaf2b253c0148130cb00f1622c"
 dependencies = [
  "anyhow",
  "id3",

@@ -386,21 +386,25 @@ impl TrackMetadataGridVm {
         )
     }
 
+    /// The closed text of an expandable cell. `display_value` has no glyph.
+    /// ADR 0080 task 019 part B: the summary keeps the compare glyph.
     #[must_use]
     pub fn expandable_cell_summary(
         field: &str,
         raw_value: &str,
         display_value: &str,
+        glyph: Option<&str>,
         value_routes_fallback: ValueRoutesSummaryFallback,
     ) -> String {
-        match field {
+        let summary = match field {
             "Contributors" => Self::contributor_summary(raw_value, display_value),
             "Value Routes" => {
                 Self::value_routes_summary(raw_value, display_value, value_routes_fallback)
             }
             "Artwork" => Self::artwork_summary(raw_value, display_value),
             _ => display_value.to_string(),
-        }
+        };
+        Self::display_with_glyph(glyph, &summary)
     }
 
     #[must_use]
@@ -1066,6 +1070,32 @@ mod tests {
         );
     }
 
+    /// ADR 0080 task 019 part B: the summary of an expandable cell keeps the
+    /// compare marker. A fallback summary shows the marker one time.
+    #[test]
+    fn adr_0080_task_019_summary_keeps_its_marker() {
+        assert_eq!(
+            TrackMetadataGridVm::expandable_cell_summary(
+                "Contributors",
+                "bass: Josh Moroz / drums: Alex Nicol / guitar: Anthony Columbro",
+                "Josh Moroz",
+                Some("≠"),
+                ValueRoutesSummaryFallback::DisplayValue,
+            ),
+            "≠ 3 contributors"
+        );
+        assert_eq!(
+            TrackMetadataGridVm::expandable_cell_summary(
+                "Transcript",
+                "raw transcript",
+                "display transcript",
+                Some("="),
+                ValueRoutesSummaryFallback::DisplayValue,
+            ),
+            "= display transcript"
+        );
+    }
+
     #[test]
     fn expandable_cell_summary_owns_context_fallbacks() {
         assert_eq!(
@@ -1073,6 +1103,7 @@ mod tests {
                 "Contributors",
                 "role: Alice",
                 "Alice",
+                None,
                 ValueRoutesSummaryFallback::DisplayValue,
             ),
             "1 contributor"
@@ -1082,6 +1113,7 @@ mod tests {
                 "Value Routes",
                 r#"[{"recipient_name":"Alice"}]"#,
                 "Alice",
+                None,
                 ValueRoutesSummaryFallback::DisplayValue,
             ),
             "[1 items]"
@@ -1091,6 +1123,7 @@ mod tests {
                 "Value Routes",
                 "not json",
                 "Alice\nBob",
+                None,
                 ValueRoutesSummaryFallback::MultilineCount,
             ),
             "[2 lines]"
@@ -1100,6 +1133,7 @@ mod tests {
                 "Artwork",
                 "https://cdn.example/art/front.jpg",
                 "Full artwork URL",
+                None,
                 ValueRoutesSummaryFallback::DisplayValue,
             ),
             "front.jpg"
@@ -1109,6 +1143,7 @@ mod tests {
                 "Transcript",
                 "raw transcript",
                 "display transcript",
+                None,
                 ValueRoutesSummaryFallback::DisplayValue,
             ),
             "display transcript"

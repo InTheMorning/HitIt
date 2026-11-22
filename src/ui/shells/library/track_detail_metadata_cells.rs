@@ -70,13 +70,13 @@ pub(super) fn metadata_rss_cell(
     let base_display = display_metadata_value(&row.field, value);
     let source_role = rss_source_role(row, pending);
     let glyph = source_role.map(ProvenanceRole::glyph);
-    let display_value = TrackMetadataGridVm::display_with_glyph(glyph, &base_display);
     let value_color = rss_value_color(source_role, cx);
     let value_element = metadata_value_cell(
         &row.field,
         &row.row_id,
         value,
-        &display_value,
+        &base_display,
+        glyph,
         expanded,
         value_color,
         "rss",
@@ -203,13 +203,13 @@ pub(super) fn metadata_id3_cell(
     } else {
         TrackMetadataGridVm::comparison_glyph(&row.id3_status)
     };
-    let display_value = TrackMetadataGridVm::display_with_glyph(glyph, &base_display);
     let color = id3_value_color(row, pending, cx);
     let value_element = metadata_tag_cell(
         &row.field,
         &row.row_id,
         value,
-        &display_value,
+        &base_display,
+        glyph,
         expanded,
         color,
         frame,
