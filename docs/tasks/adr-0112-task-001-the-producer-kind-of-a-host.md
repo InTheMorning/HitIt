@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready - 2026-11-21. No code starts until the operator says so.
+Implemented - 2026-11-21. Mechanical criteria are Green. The main session reviewed the diff and ran the checks. This task has no visual criteria.
 
 ## Goal
 
@@ -83,5 +83,16 @@ None. Task 002 has visual criterion 1 of ADR 0112.
 
 ## Report
 
-Give each mechanical criterion and its test. Do not commit. The main session
-reviews the diff, runs the checks and commits.
+1. Criterion 1: `adr_0112_host_has_a_producer_kind_and_a_station_host_has_no_show_instance`
+   in `src/config.rs`.
+2. Criterion 2: `adr_0112_producer_unit_name_comes_from_the_kind` in
+   `src/broadcast/control.rs`.
+3. Criterion 3: `adr_0112_setup_helper_refuses_a_station_host` in
+   `src/broadcast/setup_helper.rs`, and
+   `adr_0112_make_show_instance_is_not_available_on_a_station_host` in
+   `src/view_models/show.rs`.
+4. Criterion 4: the architecture tests are Green.
+5. Criterion 5: the commit checks pass. Lib tests: 3459. Architecture tests:
+   418.
+
+Step 6 needed no change. The producer switch uses `ProducerKind::Mixxx`.

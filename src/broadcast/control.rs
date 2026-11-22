@@ -13,6 +13,7 @@ use std::process::Command;
 use anyhow::{anyhow, Context, Result};
 
 use crate::broadcast::transport::{Reachability, Transport};
+use crate::config::ProducerKind;
 
 const SYSTEMCTL: &str = "systemctl";
 const JOURNALCTL: &str = "journalctl";
@@ -23,6 +24,7 @@ const PUBLISHER_UNIT_SUFFIX: &str = ".service";
 const SHOW_MANY_PROPERTIES: &str = "--property=Id,LoadState,ActiveState,SubState,Result";
 const EXEC_MAIN_STATUS_PROPERTY: &str = "--property=ExecMainStatus";
 const PRODUCER_UNIT_PREFIX: &str = "mixxx-now-playing@";
+const STATION_PRODUCER_UNIT_PREFIX: &str = "liquidsoap-now-playing@";
 const PRODUCER_UNIT_PATTERN: &str = "mixxx-now-playing@*";
 const INSTANCE_NAME_MAX_LEN: usize = 32;
 
@@ -85,17 +87,23 @@ impl UnitRef {
         ))
     }
 
-    /// Create the Mixxx producer instance unit name (ADR 0111 Decision 1).
+    /// Create the producer instance unit name (ADR 0111 Decision 1 and
+    /// ADR 0112 Decision 1).
+    ///
+    /// The kind gives the prefix. `Mixxx` gives `mixxx-now-playing@`. The
+    /// `Liquidsoap` kind gives `liquidsoap-now-playing@` (publisher ADR 0022).
     ///
     /// # Errors
     ///
     /// Returns an error when the instance name does not match the pattern of
     /// ADR 0111 Decision 1.
-    pub fn producer(instance: &str) -> Result<Self> {
+    pub fn producer(kind: ProducerKind, instance: &str) -> Result<Self> {
         validate_instance_name(instance)?;
-        Self::new(format!(
-            "{PRODUCER_UNIT_PREFIX}{instance}{PUBLISHER_UNIT_SUFFIX}"
-        ))
+        let prefix = match kind {
+            ProducerKind::Mixxx => PRODUCER_UNIT_PREFIX,
+            ProducerKind::Liquidsoap => STATION_PRODUCER_UNIT_PREFIX,
+        };
+        Self::new(format!("{prefix}{instance}{PUBLISHER_UNIT_SUFFIX}"))
     }
 
     /// Return the complete unit name.
@@ -700,7 +708,7 @@ mod tests {
     #[test]
     fn adr_0111_producer_unit_has_an_instance_and_the_name_is_checked() -> Result<()> {
         assert_eq!(
-            UnitRef::producer("show-1")?.unit(),
+            UnitRef::producer(ProducerKind::Mixxx, "show-1")?.unit(),
             "mixxx-now-playing@show-1.service"
         );
         assert_eq!(
@@ -708,11 +716,31 @@ mod tests {
             "musicindex-live-publisher@show-1.service"
         );
         let too_long = "a".repeat(33);
-        assert!(UnitRef::producer(&"a".repeat(32)).is_ok());
+        assert!(UnitRef::producer(ProducerKind::Mixxx, &"a".repeat(32)).is_ok());
         for bad in ["Show", "-show", "", "show_1", "show 1", too_long.as_str()] {
-            let producer = UnitRef::producer(bad).expect_err(bad);
+            let producer = UnitRef::producer(ProducerKind::Mixxx, bad).expect_err(bad);
             assert!(producer.to_string().contains("ADR 0111 Decision 1"));
             assert!(UnitRef::publisher(bad).is_err(), "{bad:?}");
+        }
+        Ok(())
+    }
+
+    /// ADR 0112 criterion 2: the kind gives the producer unit name, and the
+    /// instance name check applies to both kinds.
+    #[test]
+    fn adr_0112_producer_unit_name_comes_from_the_kind() -> Result<()> {
+        assert_eq!(
+            UnitRef::producer(ProducerKind::Liquidsoap, "my-station")?.unit(),
+            "liquidsoap-now-playing@my-station.service"
+        );
+        assert_eq!(
+            UnitRef::producer(ProducerKind::Mixxx, "show-1")?.unit(),
+            "mixxx-now-playing@show-1.service"
+        );
+        for kind in [ProducerKind::Mixxx, ProducerKind::Liquidsoap] {
+            for bad in ["Show", "-show", "", "my_station", &"a".repeat(33)] {
+                assert!(UnitRef::producer(kind, bad).is_err(), "{kind:?} {bad:?}");
+            }
         }
         Ok(())
     }
@@ -793,7 +821,7 @@ mod tests {
     #[test]
     fn show_many_reads_each_unit_by_id_with_one_call() -> Result<()> {
         let publisher = UnitRef::publisher("show-1")?;
-        let producer = UnitRef::producer("show-1")?;
+        let producer = UnitRef::producer(ProducerKind::Mixxx, "show-1")?;
         let runner = StubRunner::with_output(CommandOutput::success(
             "Id=mixxx-now-playing@show-1.service\nLoadState=not-found\nActiveState=inactive\n\n\
              Id=musicindex-live-publisher@show-1.service\nLoadState=loaded\nActiveState=active\n",
@@ -826,8 +854,10 @@ mod tests {
     #[test]
     fn exec_main_status_reads_the_property() -> Result<()> {
         let runner = StubRunner::with_output(CommandOutput::success("ExecMainStatus=3\n"));
-        let status = ServiceControl::new(&runner)
-            .exec_main_status(&local_transport(), &UnitRef::producer("show-1")?)?;
+        let status = ServiceControl::new(&runner).exec_main_status(
+            &local_transport(),
+            &UnitRef::producer(ProducerKind::Mixxx, "show-1")?,
+        )?;
         assert_eq!(status, Some(3));
         Ok(())
     }

@@ -12,7 +12,8 @@ use gpui_component::input::InputState;
 
 use crate::application::{ApplicationCommand, CommandContext, CommandError, CommandOutcome};
 use crate::broadcast::setup_helper::{
-    add_show_instance, ForceConfirmation, SetupHelperControl, SetupHelperRequest,
+    add_show_instance, refuse_station_host, ForceConfirmation, SetupHelperControl,
+    SetupHelperRequest,
 };
 use crate::config::{self, BroadcastHostConfig, ShowInstanceConfig};
 use crate::presentation::present_command;
@@ -281,6 +282,17 @@ impl TopApp {
         cx: &mut Context<Self>,
     ) {
         if self.make_instance_dialog.is_some() || self.show_choice_is_locked() {
+            return;
+        }
+        // ADR 0112 Decision 3: a station host has no show instances. No dialog opens.
+        if let Some(error) = self
+            .broadcast
+            .selected_host()
+            .ok()
+            .and_then(|host| refuse_station_host(host).err())
+        {
+            self.settings_status = error.to_string();
+            cx.notify();
             return;
         }
         let choices = self

@@ -17,7 +17,7 @@ use crate::broadcast::control::{
     validate_instance_name, CommandOutput, CommandRunner, ProcessCommandRunner,
 };
 use crate::broadcast::transport::Reachability;
-use crate::config::{BroadcastHostConfig, ShowInstanceConfig};
+use crate::config::{BroadcastHostConfig, ProducerKind, ShowInstanceConfig};
 
 const SETUP_HELPER_BINARY: &str = "setup-mixxx-musicindex";
 
@@ -55,6 +55,11 @@ pub enum SetupHelperError {
         /// Private instance name.
         instance: String,
     },
+    /// The host has the producer kind `liquidsoap` (ADR 0112 Decision 3).
+    StationHost {
+        /// Curator-facing host name.
+        host: String,
+    },
     /// A request field is not valid.
     InvalidInput {
         /// Detail of the failure.
@@ -87,6 +92,10 @@ impl fmt::Display for SetupHelperError {
             Self::PrivateInstance { instance } => write!(
                 formatter,
                 "ADR 0111 Decision 4: HitIt does not run the setup helper on the private instance {instance}. Use a show instance."
+            ),
+            Self::StationHost { host } => write!(
+                formatter,
+                "ADR 0112 Decision 3: HitIt makes no show instance on the station host {host}. Use a host with the producer kind mixxx."
             ),
             Self::NotReachable => formatter.write_str("publisher host is not reachable"),
             Self::InvalidInput { detail }
@@ -195,6 +204,20 @@ pub fn parse_setup_output(stdout: &str) -> SetupResult<ShowInstanceConfig> {
     })
 }
 
+/// Refuse a host with the producer kind `liquidsoap` (ADR 0112 Decision 3).
+///
+/// # Errors
+///
+/// Returns `StationHost` for a `liquidsoap` host.
+pub fn refuse_station_host(host: &BroadcastHostConfig) -> SetupResult<()> {
+    if host.producer == ProducerKind::Liquidsoap {
+        return Err(SetupHelperError::StationHost {
+            host: host.name.clone(),
+        });
+    }
+    Ok(())
+}
+
 /// Add a show instance to the host. An entry of the same name is replaced.
 ///
 /// # Errors
@@ -205,6 +228,7 @@ pub fn add_show_instance(
     host: &mut BroadcastHostConfig,
     instance: ShowInstanceConfig,
 ) -> SetupResult<()> {
+    refuse_station_host(host)?;
     if instance.name == host.instance_name {
         return Err(SetupHelperError::PrivateInstance {
             instance: instance.name,
@@ -249,8 +273,8 @@ impl<R: CommandRunner> SetupHelperControl<R> {
     ///
     /// # Errors
     ///
-    /// Returns an error before any command runs for the private instance or a
-    /// bad input. Returns a failure state when the host, the command or the
+    /// Returns an error before any command runs for a station host, the private
+    /// instance or a bad input. Returns a failure state when the host, the command or the
     /// output does not satisfy publisher ADR 0021.
     pub fn run(
         &self,
@@ -258,6 +282,7 @@ impl<R: CommandRunner> SetupHelperControl<R> {
         request: &SetupHelperRequest<'_>,
         force: ForceConfirmation,
     ) -> SetupResult<ShowInstanceConfig> {
+        refuse_station_host(host)?;
         let args = setup_helper_args(&host.instance_name, request, force)?;
         let run = host
             .transport
@@ -462,6 +487,26 @@ mod tests {
 
         assert!(matches!(error, SetupHelperError::PrivateInstance { .. }));
         assert!(error.to_string().contains("ADR 0111 Decision 4"));
+        assert!(runner.calls.borrow().is_empty(), "no command may run");
+        assert!(host.show_instances.is_empty());
+    }
+
+    /// ADR 0112 criterion 3: the setup helper refuses a `liquidsoap` host and
+    /// runs no command.
+    #[test]
+    fn adr_0112_setup_helper_refuses_a_station_host() {
+        let runner = StubRunner::new(vec![]);
+        let control = SetupHelperControl::new(&runner);
+        let mut host = BroadcastHostConfig::default_local();
+        host.instance_name = "my-station".to_owned();
+        host.producer = ProducerKind::Liquidsoap;
+
+        let error = control
+            .make_show_instance(&mut host, &request("show-1"), ForceConfirmation::Given)
+            .expect_err("station host");
+
+        assert!(matches!(error, SetupHelperError::StationHost { .. }));
+        assert!(error.to_string().contains("ADR 0112 Decision 3"));
         assert!(runner.calls.borrow().is_empty(), "no command may run");
         assert!(host.show_instances.is_empty());
     }

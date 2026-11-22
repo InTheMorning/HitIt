@@ -13,6 +13,7 @@ use crate::broadcast::control::{
     validate_instance_name, CommandRunner, ServiceControl, ServiceState, UnitRef,
 };
 use crate::broadcast::transport::Transport;
+use crate::config::ProducerKind;
 
 /// Exit status of a producer that cannot get the Mixxx lock (ADR 0111
 /// Decision 5).
@@ -194,8 +195,10 @@ fn run_steps<R: CommandRunner>(
     transport: &Transport,
     switch: &ProducerSwitch,
 ) -> Result<StepResult, String> {
-    let from = UnitRef::producer(switch.from_instance()).map_err(|error| format!("{error:#}"))?;
-    let to = UnitRef::producer(switch.to_instance()).map_err(|error| format!("{error:#}"))?;
+    let from = UnitRef::producer(ProducerKind::Mixxx, switch.from_instance())
+        .map_err(|error| format!("{error:#}"))?;
+    let to = UnitRef::producer(ProducerKind::Mixxx, switch.to_instance())
+        .map_err(|error| format!("{error:#}"))?;
     if let Err(error) = control.stop(transport, &from) {
         return Ok(StepResult::StopFailed(format!("{error:#}")));
     }
@@ -222,7 +225,7 @@ fn recover<R: CommandRunner>(
     switch: &ProducerSwitch,
     error: String,
 ) -> SwitchFailure {
-    let exit_status = UnitRef::producer(switch.to_instance())
+    let exit_status = UnitRef::producer(ProducerKind::Mixxx, switch.to_instance())
         .ok()
         .and_then(|unit| control.exec_main_status(transport, &unit).ok().flatten());
     let running = if exit_status == Some(LOCK_HELD_EXIT_STATUS) {
@@ -234,7 +237,9 @@ fn recover<R: CommandRunner>(
     let restart = match recovery.restart.as_deref() {
         None => RestartResult::NotNeeded,
         Some(instance) => {
-            match UnitRef::producer(instance).and_then(|unit| control.start(transport, &unit)) {
+            match UnitRef::producer(ProducerKind::Mixxx, instance)
+                .and_then(|unit| control.start(transport, &unit))
+            {
                 Ok(()) => RestartResult::Started,
                 Err(error) => RestartResult::Failed(format!("{error:#}")),
             }

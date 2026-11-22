@@ -1058,7 +1058,8 @@ mod tests {
         BroadcastWatchInstance {
             name: name.to_owned(),
             publisher: UnitRef::publisher(name).expect("publisher unit"),
-            producer: UnitRef::producer(name).expect("producer unit"),
+            producer: UnitRef::producer(crate::config::ProducerKind::Mixxx, name)
+                .expect("producer unit"),
         }
     }
 

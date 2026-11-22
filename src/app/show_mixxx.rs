@@ -14,6 +14,7 @@ use crate::broadcast::control::{CommandRunner, ServiceControl, ServiceState, Uni
 use crate::broadcast::encoder::{self, EncoderTarget};
 use crate::broadcast::producer_switch::{run_switch, ProducerSwitch, RestartResult, SwitchOutcome};
 use crate::broadcast::transport::Transport;
+use crate::config::ProducerKind;
 use crate::db::show_producer_switch as stored;
 use crate::runtime::BroadcastServiceWatchSnapshot;
 use crate::view_models::show::StartedParts;
@@ -81,7 +82,8 @@ pub(super) fn start_private_producer<R: CommandRunner>(
     transport: &Transport,
     private_instance: &str,
 ) -> Result<(), String> {
-    let unit = UnitRef::producer(private_instance).map_err(|error| format!("{error:#}"))?;
+    let unit = UnitRef::producer(ProducerKind::Mixxx, private_instance)
+        .map_err(|error| format!("{error:#}"))?;
     control
         .start(transport, &unit)
         .map_err(|error| format!("Start the producer of {private_instance}: {error:#}"))?;
@@ -111,7 +113,7 @@ pub(super) fn stop_show_unit<R: CommandRunner>(
         ));
     }
     let unit_ref = match unit {
-        ShowUnit::Producer => UnitRef::producer(show_instance),
+        ShowUnit::Producer => UnitRef::producer(ProducerKind::Mixxx, show_instance),
         ShowUnit::Publisher => UnitRef::publisher(show_instance),
     }
     .map_err(|error| format!("{error:#}"))?;

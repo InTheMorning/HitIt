@@ -20,6 +20,7 @@ use crate::broadcast::{
     encoder::{AudioSignalState, EncoderState, ListenerCount, RecordingState},
     live_value::live_value_uri,
 };
+use crate::config::ProducerKind;
 use crate::runtime::{broadcast_service_watch, BroadcastReadinessSnapshot};
 use crate::view_models::format::fmt_duration;
 use crate::view_models::queue_now_playing::{
@@ -594,6 +595,8 @@ pub(crate) struct ShowPlayerFacts<'a> {
     pub(crate) instances: &'a [String],
     /// Why a show instance has no drop folder for the player `HitIt`, for example an SSH host.
     pub(crate) drop_folder_problem: Option<&'a str>,
+    /// Producer kind of the selected host (ADR 0112 Decision 1).
+    pub(crate) producer: ProducerKind,
 }
 
 impl ShowPlayerFacts<'_> {
@@ -1501,6 +1504,9 @@ pub(crate) struct PublisherSectionDisplay {
     pub(crate) instances: Vec<ShowInstanceLine>,
     /// Why Start, Stop and Reset are not available for the selection (ADR 0111 Decision 4).
     pub(crate) service_refusal: Option<String>,
+    /// The action "Make show instance" is available. A `liquidsoap` host has none
+    /// (ADR 0112 Decision 3).
+    pub(crate) make_instance_available: bool,
 }
 
 /// State of one instance on the Live Metadata card (ADR 0111 Decision 8).
@@ -2808,6 +2814,7 @@ impl ShowPageVm {
             event.instance_notice.clone_from(&player_display.refusal);
         }
         if let Some(publisher) = &mut self.publisher {
+            publisher.make_instance_available = facts.show_player.producer == ProducerKind::Mixxx;
             publisher.service_refusal = facts.show_player.service_refusal();
             if publisher.service_refusal.is_some() {
                 for service in &mut publisher.services {
@@ -3821,6 +3828,7 @@ impl PublisherSectionDisplay {
             services,
             instances: ShowInstanceLine::from_snapshot(snapshot),
             service_refusal: None,
+            make_instance_available: true,
         };
         section.update_summary();
         Some(section)
@@ -4306,6 +4314,7 @@ mod tests {
                 private_instance: "mixxx",
                 instances: &[],
                 drop_folder_problem: None,
+                producer: ProducerKind::Mixxx,
             },
         }
     }
@@ -8033,6 +8042,22 @@ mod tests {
         mixxx.show_player.player = ShowPlayer::Mixxx;
         let page = ready_page(true, AudioSignalState::Present).with_on_air_band(mixxx);
         assert!(page.on_air.unwrap().go_available);
+    }
+
+    /// ADR 0112 Decision 3: the view model gives no "Make show instance" action
+    /// for a `liquidsoap` host, and keeps it for a Mixxx host.
+    #[test]
+    fn adr_0112_make_show_instance_is_not_available_on_a_station_host() {
+        let facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(facts);
+        assert!(page.publisher.unwrap().make_instance_available);
+        let mut station = facts;
+        station.show_player.producer = ProducerKind::Liquidsoap;
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(station);
+        assert!(!page.publisher.unwrap().make_instance_available);
     }
 
     /// ADR 0111 Decision 4: with no selection or the private instance, Start, Stop and Reset of

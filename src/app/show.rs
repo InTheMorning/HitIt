@@ -1284,9 +1284,9 @@ impl TopApp {
         let panel_mode = self.show_page.panel_mode;
         let panel_open = self.show_page.panel_open;
         let private_instance = self.private_instance_name().unwrap_or_default();
-        let instance_names: Vec<String> = self
-            .broadcast
-            .selected_host()
+        let selected_host = self.broadcast.selected_host().ok();
+        let producer = selected_host.map(|host| host.producer).unwrap_or_default();
+        let instance_names: Vec<String> = selected_host
             .map(|host| {
                 host.show_instances
                     .iter()
@@ -1365,6 +1365,7 @@ impl TopApp {
                 private_instance: &private_instance,
                 instances: &instance_names,
                 drop_folder_problem: drop_problem.as_deref(),
+                producer,
             },
         });
     }
@@ -2560,7 +2561,8 @@ impl PublisherServiceCommand {
         Ok(Self {
             role,
             transport: host.transport.clone(),
-            unit: broadcast_service_unit(&instance, role).map_err(publisher_command_error)?,
+            unit: broadcast_service_unit(host.producer, &instance, role)
+                .map_err(publisher_command_error)?,
             operation,
         })
     }
@@ -2611,7 +2613,8 @@ impl ReadPublisherLogs {
             request_id,
             role,
             transport: host.transport.clone(),
-            unit: broadcast_service_unit(instance, role).map_err(publisher_command_error)?,
+            unit: broadcast_service_unit(host.producer, instance, role)
+                .map_err(publisher_command_error)?,
             line_count: PUBLISHER_LOG_LINE_COUNT,
         })
     }
@@ -3039,7 +3042,7 @@ fn broadcast_host_instances(host: &BroadcastHostConfig) -> anyhow::Result<Broadc
             Ok(BroadcastWatchInstance {
                 name: name.to_owned(),
                 publisher: UnitRef::publisher(name)?,
-                producer: UnitRef::producer(name)?,
+                producer: UnitRef::producer(host.producer, name)?,
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
@@ -3076,21 +3079,25 @@ fn broadcast_service_units(
             BroadcastServiceRole::Publisher,
             host_name.clone(),
             host.transport.clone(),
-            broadcast_service_unit(instance, BroadcastServiceRole::Publisher)?,
+            broadcast_service_unit(host.producer, instance, BroadcastServiceRole::Publisher)?,
         ),
         BroadcastServiceWatchUnit::new(
             BroadcastServiceRole::Producer,
             host_name,
             host.transport.clone(),
-            broadcast_service_unit(instance, BroadcastServiceRole::Producer)?,
+            broadcast_service_unit(host.producer, instance, BroadcastServiceRole::Producer)?,
         ),
     ])
 }
 
-fn broadcast_service_unit(instance: &str, role: PublisherServiceRole) -> anyhow::Result<UnitRef> {
+fn broadcast_service_unit(
+    kind: config::ProducerKind,
+    instance: &str,
+    role: PublisherServiceRole,
+) -> anyhow::Result<UnitRef> {
     match role {
         PublisherServiceRole::Publisher => UnitRef::publisher(instance),
-        PublisherServiceRole::Producer => UnitRef::producer(instance),
+        PublisherServiceRole::Producer => UnitRef::producer(kind, instance),
     }
 }
 

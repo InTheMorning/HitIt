@@ -136,6 +136,28 @@ impl PlaybackDriver {
     }
 }
 
+/// Producer kind of a broadcast host (ADR 0112 Decision 1).
+///
+/// The kind gives the unit name of the producer. `Mixxx` is the default, so a
+/// configuration without the field keeps its meaning.
+#[derive(Debug, Clone, Copy, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProducerKind {
+    /// A Mixxx producer. The host can have show instances.
+    #[default]
+    Mixxx,
+    /// A Liquidsoap station producer. The host has no show instances.
+    Liquidsoap,
+}
+
+impl ProducerKind {
+    /// Return true for the default kind. Serde uses it to omit the field.
+    #[must_use]
+    pub const fn is_default(&self) -> bool {
+        matches!(self, Self::Mixxx)
+    }
+}
+
 /// One configured host that can own publisher-side broadcast services.
 #[derive(Debug, Clone, Deserialize, Eq, PartialEq, Serialize)]
 pub struct BroadcastHostConfig {
@@ -147,6 +169,10 @@ pub struct BroadcastHostConfig {
     /// Publisher instance name used in the user service unit. This is the
     /// private instance (ADR 0111 Decision 4).
     pub instance_name: String,
+    /// Producer kind of the host (ADR 0112 Decision 1). For `liquidsoap`,
+    /// `instance_name` is the station instance.
+    #[serde(default, skip_serializing_if = "ProducerKind::is_default")]
+    pub producer: ProducerKind,
     /// Publisher instances that `HitIt` made for shows (ADR 0111 Decision 2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub show_instances: Vec<ShowInstanceConfig>,
@@ -179,6 +205,7 @@ impl BroadcastHostConfig {
             name: "Local".to_owned(),
             transport: Transport::local(),
             instance_name: default_broadcast_instance_name(),
+            producer: ProducerKind::default(),
             show_instances: Vec::new(),
         }
     }
@@ -203,6 +230,12 @@ impl BroadcastHostConfig {
     }
 
     fn validate_show_instances(&self) -> Result<()> {
+        if self.producer == ProducerKind::Liquidsoap && !self.show_instances.is_empty() {
+            return Err(anyhow!(
+                "ADR 0112 Decision 1: config: broadcast host {} has producer liquidsoap and show instances. Remove the show instances or set producer to mixxx.",
+                self.name
+            ));
+        }
         for (index, instance) in self.show_instances.iter().enumerate() {
             crate::broadcast::control::validate_instance_name(&instance.name)
                 .with_context(|| format!("config: broadcast host {} show instance", self.name))?;
@@ -1671,6 +1704,44 @@ producer_unit = "mixxx-now-playing@show-1.service"
             host.show_instances = names.iter().map(|name| entry(name)).collect();
             assert!(host.validate().is_err(), "{names:?}");
         }
+    }
+
+    /// ADR 0112 criterion 1: a host with no `producer` field has the kind
+    /// `Mixxx` and writes with no `producer` field. A `liquidsoap` host reads
+    /// and writes. A `liquidsoap` host with a show instance is refused.
+    #[test]
+    fn adr_0112_host_has_a_producer_kind_and_a_station_host_has_no_show_instance() {
+        let read: BroadcastHostConfig =
+            toml::from_str("name = \"Local\"\ntransport = \"local\"\ninstance_name = \"mixxx\"\n")
+                .expect("read plain host");
+        assert_eq!(read.producer, ProducerKind::Mixxx);
+        assert!(!toml::to_string(&read)
+            .expect("write plain host")
+            .contains("producer"));
+
+        let station: BroadcastHostConfig = toml::from_str(
+            "name = \"Radio\"\ntransport = \"local\"\ninstance_name = \"my-station\"\nproducer = \"liquidsoap\"\n",
+        )
+        .expect("read station host");
+        assert_eq!(station.producer, ProducerKind::Liquidsoap);
+        station.validate().expect("valid station host");
+        let written = toml::to_string(&station).expect("write station host");
+        assert!(written.contains("producer = \"liquidsoap\""));
+        let again: BroadcastHostConfig = toml::from_str(&written).expect("read again");
+        assert_eq!(again, station);
+
+        let mut refused = station;
+        refused.show_instances = vec![ShowInstanceConfig {
+            name: "show-1".to_owned(),
+            target: "default".to_owned(),
+            config_file: "/fixture/config.toml".to_owned(),
+            publisher_unit: "unit".to_owned(),
+            producer_unit: "unit".to_owned(),
+        }];
+        let error = refused
+            .validate()
+            .expect_err("station host with show instance");
+        assert!(error.to_string().contains("ADR 0112 Decision 1"));
     }
 
     #[test]

@@ -717,16 +717,18 @@ fn render_publisher_detail(
                 }
             }),
     );
-    let make_instance = slots.make_instance.clone();
-    detail = detail.child(
-        Button::plain("show-make-instance")
-            .label("Make show instance")
-            .on_click(move |event, window, app| {
-                if let Some(handler) = &make_instance {
-                    handler(event, window, app);
-                }
-            }),
-    );
+    if section.make_instance_available {
+        let make_instance = slots.make_instance.clone();
+        detail = detail.child(
+            Button::plain("show-make-instance")
+                .label("Make show instance")
+                .on_click(move |event, window, app| {
+                    if let Some(handler) = &make_instance {
+                        handler(event, window, app);
+                    }
+                }),
+        );
+    }
     for line in &section.instances {
         detail = detail.child(compact_detail(line.text(), cx));
     }
