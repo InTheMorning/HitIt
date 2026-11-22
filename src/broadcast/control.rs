@@ -833,6 +833,28 @@ mod tests {
         Ok(())
     }
 
+    /// ADR 0112 Decision 4: Stop of a station unit over SSH runs `systemctl --user` and adds no `-M`.
+    #[test]
+    fn adr_0112_station_unit_stop_over_ssh_uses_systemctl_user_without_machine_option() -> Result<()>
+    {
+        let unit = UnitRef::producer(ProducerKind::Liquidsoap, "my-station")?;
+        let runner = StubRunner::with_output(CommandOutput::success(""));
+        ServiceControl::new(&runner).stop(&ssh_transport(), &unit)?;
+        let calls = runner.calls();
+        assert_eq!(calls.len(), 1);
+        let args = &calls[0].args;
+        assert!(
+            args.windows(3)
+                .any(|w| w == ["systemctl", "--user", "stop"]),
+            "{args:?}"
+        );
+        assert!(args.contains(&"liquidsoap-now-playing@my-station.service".to_owned()));
+        assert!(!args
+            .iter()
+            .any(|arg| arg == "-M" || arg.starts_with("--machine")));
+        Ok(())
+    }
+
     #[test]
     fn running_producers_reads_active_units_from_list_units() -> Result<()> {
         let listing = "mixxx-now-playing@show-1.service loaded active running Mixxx\n\

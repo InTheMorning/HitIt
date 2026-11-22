@@ -2,8 +2,9 @@
 
 ## Status
 
-Ready - 2026-11-21. It needs task 001. No code starts until the operator says
-so.
+Implemented - 2026-11-21. Mechanical criteria are Green. The main session
+reviewed the diff and ran the checks. The agent walked visual criterion 1 on
+Xvfb. The result is in the Report.
 
 - Operator choice, 2026-11-21, relayed by the orchestrator: the station line
   and its Start, Stop and Reset controls show only when the station host is
@@ -89,6 +90,27 @@ implementer stops and reports.
 
 ## Report
 
-Give each mechanical criterion and its test, and the result of the visual
-walk. Do not commit. The main session reviews the diff, runs the checks and
-commits.
+1. Criterion 1: `adr_0112_station_host_has_controls_one_line_and_a_stop_confirmation`
+   and `adr_0112_station_instance_has_no_attach_target` in
+   `src/view_models/show.rs`.
+2. Criterion 2: `adr_0112_station_units_are_watched_and_commanded_on_the_station_instance`
+   in `src/app/show.rs`.
+3. Criterion 3: `adr_0112_station_host_has_controls_one_line_and_a_stop_confirmation`.
+4. Criterion 4: `adr_0112_station_unit_stop_over_ssh_uses_systemctl_user_without_machine_option`
+   in `src/broadcast/control.rs`.
+5. Criterion 5: the commit checks pass. Lib tests: 3463. Architecture tests:
+   418.
+
+Visual criterion 1: the agent walked it on Xvfb with a station host that has
+an SSH destination on the reserved domain `radio.invalid`. The Live Metadata
+card and its inspector show the line of `my-station` with the state of the
+relay sender and the producer. The inspector shows the two units
+`liquidsoap-now-playing@my-station.service` and
+`musicindex-live-publisher@my-station.service`. It shows no Mixxx mark.
+
+The inspector also shows the ADR 0112 Decision 3 refusal for Attach, Detach and Go on air. The
+host is not reachable, so Start, Stop and Reset are disabled. Thus the walk
+did not open the Stop confirmation. Criterion 1 proves the confirmation.
+
+Open item: on a station host, the instance menu shows the instance with the
+word "private".

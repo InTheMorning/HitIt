@@ -966,9 +966,9 @@ pub(super) fn build_show_screen(
                     this.run_publisher_service_command(role, PublisherServiceOperation::Start, cx);
                 });
             })
-            .on_stop_publisher_service(move |role, _, _, cx| {
+            .on_stop_publisher_service(move |role, _, window, cx| {
                 stop_entity.update(cx, |this, cx| {
-                    this.run_publisher_service_command(role, PublisherServiceOperation::Stop, cx);
+                    this.request_publisher_stop(role, window, cx);
                 });
             })
             .on_reset_publisher_service(move |role, _, _, cx| {
@@ -1393,6 +1393,62 @@ impl TopApp {
     fn show_cuelist_panel(&mut self, cx: &mut Context<Self>) {
         self.show_page = self.show_page.clone().show_cuelist_panel();
         cx.notify();
+    }
+
+    /// Stop of a station unit asks first (ADR 0112 Decision 4). Another host stops at once.
+    fn request_publisher_stop(
+        &mut self,
+        role: PublisherServiceRole,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::ui::composites::ConfirmationDialogDisplay;
+        let Some(question) = self
+            .show_page
+            .publisher
+            .as_ref()
+            .and_then(|section| section.stop_confirmation.clone())
+        else {
+            self.run_publisher_service_command(role, PublisherServiceOperation::Stop, cx);
+            return;
+        };
+        let entity = cx.weak_entity();
+        open_confirmation_dialog(
+            window,
+            cx,
+            ConfirmationDialogDisplay {
+                confirm_enabled: true,
+                form: None,
+                section: None,
+                title: question.title.into(),
+                message: question.message.into(),
+                cancel_button_id: "show-station-stop-cancel".into(),
+                cancel_label: "Cancel".into(),
+                cancel_a11y_label: "Keep the station unit running".into(),
+                confirm_button_id: "show-station-stop-confirm".into(),
+                confirm_label: "Stop".into(),
+                confirm_a11y_label: format!(
+                    "Stop the {} of station instance {}",
+                    role_label(role),
+                    question.instance
+                )
+                .into(),
+                destructive: true,
+                items: Vec::new(),
+            },
+            ConfirmationDialogHandlers::new(
+                |_, _: &mut gpui::App| {},
+                move |_, cx: &mut gpui::App| {
+                    let _ = entity.update(cx, |this, cx| {
+                        this.run_publisher_service_command(
+                            role,
+                            PublisherServiceOperation::Stop,
+                            cx,
+                        );
+                    });
+                },
+            ),
+        );
     }
 
     fn run_publisher_service_command(
@@ -3035,8 +3091,14 @@ fn broadcast_instance_watch(broadcast: &config::BroadcastCapabilities) -> Broadc
 }
 
 fn broadcast_host_instances(host: &BroadcastHostConfig) -> anyhow::Result<BroadcastInstanceWatch> {
+    // ADR 0112 Decision 4: a station host has the station instance only.
+    let show_instances: &[_] = if host.producer == config::ProducerKind::Liquidsoap {
+        &[]
+    } else {
+        &host.show_instances
+    };
     let names = std::iter::once(host.instance_name.as_str())
-        .chain(host.show_instances.iter().map(|show| show.name.as_str()));
+        .chain(show_instances.iter().map(|show| show.name.as_str()));
     let instances = names
         .map(|name| {
             Ok(BroadcastWatchInstance {
@@ -3104,6 +3166,10 @@ fn broadcast_service_unit(
 /// The instance whose role units the Show page reads: the selected instance, or the private
 /// instance when none is selected. The private units are read for display only.
 fn service_instance(host: &BroadcastHostConfig, selected: Option<&str>) -> String {
+    // ADR 0112 Decision 4: a station host has the station instance only.
+    if host.producer == config::ProducerKind::Liquidsoap {
+        return host.instance_name.clone();
+    }
     selected
         .filter(|name| {
             *name == host.instance_name || host.show_instances.iter().any(|show| show.name == *name)
@@ -3120,6 +3186,10 @@ fn refuse_private_service_instance(
     host: &BroadcastHostConfig,
     selected: Option<&str>,
 ) -> Result<String, CommandError> {
+    // ADR 0112 Decision 4: on a station host the commands act on `instance_name`.
+    if host.producer == config::ProducerKind::Liquidsoap {
+        return Ok(host.instance_name.clone());
+    }
     match selected {
         None => Err(publisher_command_error(
             "No show instance is selected. Make or select a show instance, then try again.",
@@ -3302,6 +3372,81 @@ producer_unit = "mixxx-now-playing@show-1.service"
         assert!(names(Some("show-1"))
             .iter()
             .all(|unit| unit.contains("@show-1.")));
+    }
+
+    fn adr_0112_station_broadcast() -> config::BroadcastCapabilities {
+        let temp = tempfile::tempdir().unwrap();
+        let cfg_path = temp.path().join("config.toml");
+        fs::write(
+            &cfg_path,
+            r#"
+music_dir = "/tmp/music"
+db_path = "/tmp/hitit.sqlite"
+
+[[broadcast.hosts]]
+name = "Radio"
+transport = "local"
+instance_name = "my-station"
+producer = "liquidsoap"
+"#,
+        )
+        .unwrap();
+        config::ConfigSnapshot::read_existing(&cfg_path)
+            .unwrap()
+            .broadcast()
+    }
+
+    /// ADR 0112 Decision 4: on a station host the watch reads the two station units, the
+    /// commands act on `instance_name` with any selection, and the instance list has one entry.
+    #[test]
+    fn adr_0112_station_units_are_watched_and_commanded_on_the_station_instance() {
+        let mut broadcast = adr_0112_station_broadcast();
+        let host = broadcast.selected_host().unwrap().clone();
+        for selected in [None, Some("my-station"), Some("other")] {
+            broadcast.selected_show_instance = selected.map(str::to_owned);
+            let units: Vec<_> = broadcast_watch_inputs(&broadcast)
+                .0
+                .iter()
+                .map(|unit| unit.unit.unit().to_owned())
+                .collect();
+            assert_eq!(
+                units,
+                [
+                    "musicindex-live-publisher@my-station.service",
+                    "liquidsoap-now-playing@my-station.service"
+                ]
+            );
+            for role in [
+                PublisherServiceRole::Publisher,
+                PublisherServiceRole::Producer,
+            ] {
+                for operation in [
+                    PublisherServiceOperation::Start,
+                    PublisherServiceOperation::Stop,
+                    PublisherServiceOperation::Reset,
+                ] {
+                    let command =
+                        PublisherServiceCommand::new(&host, role, operation, selected).unwrap();
+                    assert!(command.unit.unit().contains("@my-station."));
+                }
+            }
+        }
+        let watch = broadcast_instance_watch(&broadcast);
+        let names: Vec<_> = watch.instances.iter().map(|i| i.name.as_str()).collect();
+        assert_eq!(names, ["my-station"]);
+        assert_eq!(
+            watch.instances[0].producer.unit(),
+            "liquidsoap-now-playing@my-station.service"
+        );
+    }
+
+    /// ADR 0112 Decision 3: Attach and Detach have no target on a station instance.
+    #[test]
+    fn adr_0112_station_instance_has_no_attach_target() {
+        let mut broadcast = adr_0112_station_broadcast();
+        broadcast.selected_show_instance = Some("my-station".to_owned());
+        assert_eq!(selected_show_target(&broadcast), None);
+        assert_eq!(empty_event_section(&broadcast).attach_target_name, "");
     }
 
     /// ADR 0111 criterion 12: Attach goes to the target of the selected show

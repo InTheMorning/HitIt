@@ -391,7 +391,15 @@ impl ShowPlayerDisplay {
             private: false,
             selected: selected_name == Some(name.as_str()),
         }));
-        let refusal = if matches!(facts.selected, SelectedInstance::Private(_)) {
+        let station = facts.producer == ProducerKind::Liquidsoap;
+        let refusal = if station {
+            // ADR 0112 Decision 3: Attach, Detach and Go on air are not available on a station.
+            Some(format!(
+                "ADR 0112 Decision 3: {} is a station instance. Attach, Detach and Go on air are \
+                 not available on a station host.",
+                facts.private_instance
+            ))
+        } else if matches!(facts.selected, SelectedInstance::Private(_)) {
             Some(format!(
                 "ADR 0111 Decision 4: Attach, Detach, Start, Stop, Reset and Go on air are not \
                  available on the private instance {}. Select a show instance.",
@@ -403,6 +411,7 @@ impl ShowPlayerDisplay {
             None
         };
         let instance_text = match facts.selected {
+            _ if station => format!("Station instance: {}", facts.private_instance),
             SelectedInstance::None => {
                 "No show instance is selected. Make or select a show instance.".to_owned()
             }
@@ -604,6 +613,11 @@ impl ShowPlayerFacts<'_> {
     #[must_use]
     pub(crate) fn instance_cause(&self) -> Option<String> {
         match self.selected {
+            // ADR 0112 Decision 3: a station host has no show instances.
+            _ if self.producer == ProducerKind::Liquidsoap => Some(
+                "A station host has no show instances. Select the host of the DJ computer"
+                    .to_owned(),
+            ),
             SelectedInstance::None => Some("Make or select a show instance".to_owned()),
             SelectedInstance::Private(name) => Some(format!(
                 "{name} is the private instance. Select a show instance"
@@ -622,6 +636,8 @@ impl ShowPlayerFacts<'_> {
     #[must_use]
     pub(crate) fn service_refusal(&self) -> Option<String> {
         match self.selected {
+            // ADR 0112 Decision 4: on a station host these commands act on the station instance.
+            _ if self.producer == ProducerKind::Liquidsoap => None,
             SelectedInstance::None => Some(
                 "Start, Stop and Reset act on a show instance. Make or select a show instance."
                     .to_owned(),
@@ -1507,6 +1523,31 @@ pub(crate) struct PublisherSectionDisplay {
     /// The action "Make show instance" is available. A `liquidsoap` host has none
     /// (ADR 0112 Decision 3).
     pub(crate) make_instance_available: bool,
+    /// Stop of a station unit asks first (ADR 0112 Decision 4). A Mixxx host has none.
+    pub(crate) stop_confirmation: Option<StopConfirmationDisplay>,
+}
+
+/// The question before Stop of a unit of a station instance (ADR 0112 Decision 4).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct StopConfirmationDisplay {
+    /// Name of the station instance.
+    pub(crate) instance: String,
+    /// Dialog title.
+    pub(crate) title: String,
+    /// Dialog message.
+    pub(crate) message: String,
+}
+
+impl StopConfirmationDisplay {
+    fn for_station(instance: &str) -> Self {
+        Self {
+            instance: instance.to_owned(),
+            title: format!("Stop station instance {instance}?"),
+            message: format!(
+                "Stop acts on the station instance {instance}. The listeners pay nobody until the next start."
+            ),
+        }
+    }
 }
 
 /// State of one instance on the Live Metadata card (ADR 0111 Decision 8).
@@ -2814,7 +2855,16 @@ impl ShowPageVm {
             event.instance_notice.clone_from(&player_display.refusal);
         }
         if let Some(publisher) = &mut self.publisher {
-            publisher.make_instance_available = facts.show_player.producer == ProducerKind::Mixxx;
+            let station = facts.show_player.producer == ProducerKind::Liquidsoap;
+            publisher.make_instance_available = !station;
+            publisher.stop_confirmation = station
+                .then(|| StopConfirmationDisplay::for_station(facts.show_player.private_instance));
+            if station {
+                // ADR 0112 Decision 4: the station line has no Mixxx mark.
+                for line in &mut publisher.instances {
+                    line.holds_mixxx = false;
+                }
+            }
             publisher.service_refusal = facts.show_player.service_refusal();
             if publisher.service_refusal.is_some() {
                 for service in &mut publisher.services {
@@ -3829,6 +3879,7 @@ impl PublisherSectionDisplay {
             instances: ShowInstanceLine::from_snapshot(snapshot),
             service_refusal: None,
             make_instance_available: true,
+            stop_confirmation: None,
         };
         section.update_summary();
         Some(section)
@@ -8058,6 +8109,52 @@ mod tests {
         station.show_player.producer = ProducerKind::Liquidsoap;
         let page = ready_page(true, AudioSignalState::Present).with_on_air_band(station);
         assert!(!page.publisher.unwrap().make_instance_available);
+    }
+
+    /// ADR 0112 Decision 4: a station host has no refusal text and has its controls. The line
+    /// of the station instance has no Mixxx mark. Stop gives a confirmation with the instance
+    /// name. A Mixxx host has no confirmation.
+    #[test]
+    fn adr_0112_station_host_has_controls_one_line_and_a_stop_confirmation() {
+        let facts = on_air_facts(
+            crate::view_models::audio_setup::TestSoundOutcome::NotTested,
+            true,
+        );
+        let mut station = facts;
+        station.show_player.producer = ProducerKind::Liquidsoap;
+        station.show_player.selected = SelectedInstance::None;
+        station.show_player.private_instance = "my-station";
+        let mut page = ready_page(true, AudioSignalState::Present);
+        page.publisher.as_mut().unwrap().instances = vec![ShowInstanceLine {
+            name: "my-station".to_owned(),
+            publisher: PublisherServiceStateDisplay::Active,
+            producer: PublisherServiceStateDisplay::Active,
+            holds_mixxx: true,
+        }];
+        let section = page.with_on_air_band(station).publisher.unwrap();
+        assert_eq!(section.service_refusal, None);
+        assert!(section
+            .services
+            .iter()
+            .any(|service| !service.actions.stop.disabled()));
+        assert_eq!(section.instances.len(), 1);
+        assert!(!section.instances[0].holds_mixxx);
+        assert!(!section.instances[0].text().contains("Mixxx"));
+        let question = section.stop_confirmation.unwrap();
+        assert_eq!(question.instance, "my-station");
+        assert!(question.title.contains("my-station"));
+        assert!(question.message.contains("my-station"));
+        assert!(question.message.contains("listeners pay nobody"));
+        let player = ShowPlayerDisplay::from_facts(&station.show_player);
+        assert_eq!(player.instance_text, "Station instance: my-station");
+        assert!(player.refusal.unwrap().contains("ADR 0112 Decision 3"));
+        assert!(station
+            .show_player
+            .instance_cause()
+            .unwrap()
+            .contains("station host"));
+        let page = ready_page(true, AudioSignalState::Present).with_on_air_band(facts);
+        assert_eq!(page.publisher.unwrap().stop_confirmation, None);
     }
 
     /// ADR 0111 Decision 4: with no selection or the private instance, Start, Stop and Reset of
