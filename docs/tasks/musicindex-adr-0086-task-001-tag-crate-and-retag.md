@@ -3,7 +3,7 @@
 ## Status
 
 In progress - 2026-11-22. Commits 942baf8, 49fcef5, 2440498 and 89384ed hold
-steps 1 to 3. The main session ran the gate for each commit. Two items are
+steps 1 to 3. The main session ran the gate for each commit. Three items are
 open. The Open section gives them.
 
 ## Goal
@@ -62,7 +62,23 @@ Visual: none.
 ## Open
 
 1. The operator runs the dry run and decides the real run.
-2. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
+2. Two files of the operator library are unreadable for the `id3` crate:
+   "Parsing: delimiter not found". The retag does not change them. The
+   `id3` crate gives this error only for a frame that starts with a
+   delimited string and has no delimiter. An example is a `TXXX` frame with
+   no NUL after its description. The operator script result names the frame,
+   and another fix follows from it.
+3. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
    writes episode tags. The HitIt ADR for the station selects the action that
    writes them. Do not start it before that ADR. It also needs the push of
    stophammer-parser d105468.
+
+## Findings
+
+- Operator choice, 2026-11-22: no fix for the two copies of the migration
+  lines of the dry run. The upgrade to schema 33 calls `upgrades::verify_target` with the
+  current version two times, after the migration and after the reopen. Each
+  call makes a reference database in memory and runs each migration on it.
+  Migrations 16, 17 and 26 write their counts to the error stream, so each
+  call prints them with 0 counts. The operator database does not run these
+  migrations again, and the lines occur only during an upgrade.
