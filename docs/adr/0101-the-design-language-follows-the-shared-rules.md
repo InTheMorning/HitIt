@@ -129,7 +129,7 @@ These items of ADR 0083 stay open for the operator:
 
 The window has one status bar at the bottom, the same on every section. One shared composite owns it.
 
-- **Left:** the latest event of one bounded app event list. The list holds the show event reports ([ADRs 0059 and 0063](0059-broadcast-control-surface.md)) and the events with no visible action of musicindex ADR 0026 R-NOTICE-1 item 2: a feed check, a download or a tag write that fails. Each event keeps the words of its owner and its recorded time.
+- **Left:** the latest event of one bounded app event list. The list holds the show event reports ([ADRs 0059 and 0063](archive/0059-broadcast-control-surface.md)) and the events with no visible action of musicindex ADR 0026 R-NOTICE-1 item 2: a feed check, a download or a tag write that fails. Each event keeps the words of its owner and its recorded time.
 - **Right:** small items with a simple icon and a short word. Each item opens its detail. The items are feed state, files to update, reports with a count, and show state.
 - **The show item appears only while a show is active.** With no active show, Music and Settings show no broadcast state ([ADR 0098](0098-the-music-shell-pages-lists-and-search.md) Decision 18).
 

@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! Broadcast host command transport for ADR 0059.
+//! Broadcast host command transport for ADR 0113.
 //!
 //! A transport chooses where a command runs. It does not know which broadcast
 //! service operation the command represents, and it never builds a shell string.

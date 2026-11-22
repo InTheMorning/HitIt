@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed - 2026-11-21. The publisher answered Open Questions 1 to 7 at
-publisher commit `8e139b0`. The operator answered Open Questions 8 to 11. The
-record waits for the operator acceptance. No task starts before it.
+Accepted - 2026-11-21. The operator accepted it as written. The publisher
+answered Open Questions 1 to 7 at publisher commit `8e139b0`. The operator
+answered Open Questions 8 to 11.
 
 - Operator choice, 2026-11-21, relayed by the orchestrator: each answer to
   Open Questions 8 to 11 is the recommendation of this record.
@@ -15,14 +15,6 @@ record waits for the operator acceptance. No task starts before it.
   HitIt write the slot text or copy a token file to the radio host. An agent
   can also make HitIt attach an event to the station instance.
 
-If the operator accepts this record, it changes ADR 0059 in these parts.
-The "Changes" lines go in at acceptance, with the "Changed by" line in
-ADR 0059:
-
-- §Sources Are Selectable: `liquidsoap` is a producer kind of a host.
-- §Follow-Up Work: HitIt needs no control API in the publisher for Liquidsoap.
-  SSH and `systemctl --user` give the state and the start and the stop.
-
 Uses:
 
 - Publisher ADR 0022, ADR 0023 and ADR 0024, at publisher commits `6eb01dc`,
@@ -32,7 +24,7 @@ Uses:
 - The research tutorial
   `research_notes/azuracast/musicindex-producer-tutorial.md`, research commit
   `233aacb`. It is advisory.
-- [ADR 0059](0059-broadcast-control-surface.md),
+- [ADR 0113](0113-broadcast-control-surface.md),
   [ADR 0110](0110-a-reserved-event-enters-the-registry.md) and
   [ADR 0111](0111-show-instances-and-the-producer-switch.md).
 
@@ -68,7 +60,7 @@ HitIt has these parts at this time:
 - Attach passes a token file path to the publisher on the host of the
   instance (`src/broadcast/publisher_targets.rs`). The file must be on that
   host before the Attach. HitIt copies no token file.
-- ADR 0059 defers the Liquidsoap source until the publisher has a control API.
+- ADR 0113 §Remote Control Uses SSH needs no control API in the publisher.
   Publisher ADR 0022 adds no control API.
 
 ## Decision
@@ -84,7 +76,7 @@ of today keeps its meaning.
   if it has one.
 - `UnitRef::producer` takes the kind. For `liquidsoap`, the unit is
   `liquidsoap-now-playing@INSTANCE.service`.
-- Only the source adapter knows the kind (ADR 0059 §Sources Are Selectable).
+- Only the source adapter knows the kind (ADR 0113 §Sources Are Selectable).
 - The station instance name is the AzuraCast short name with each `_`
   changed to `-` (publisher ADR 0022 §The Template Unit, commit `8e139b0`).
   HitIt applies the name rule of ADR 0111 Decision 1. The operator enters
@@ -109,7 +101,7 @@ producers only (ADR 0111 Decision 5).
 ### 4. HitIt shows the station units
 
 The service watch reads the two station units over SSH, with the pace rules
-of ADR 0059. The SSH destination is the account with lingering on the radio
+of ADR 0113. The SSH destination is the account with lingering on the radio
 host. HitIt runs `systemctl --user` as that account, not with `-M` from a
 different account (publisher answer 4). The Show page shows one line for the station instance, as
 ADR 0111 Decision 8 does for each instance. The station producer does not
@@ -188,13 +180,14 @@ The operator answered these questions on 2026-11-21:
 
 ## Alternatives
 
-- **Wait for a control API in the publisher.** ADR 0059 planned it.
+- **Wait for a control API in the publisher.** ADR 0059 planned it, and
+  ADR 0113 replaces that plan.
   Rejected: publisher ADR 0022 adds none, and HitIt needs only the unit state,
   the start and the stop.
 - **HitIt sets up the station.** Rejected: the setup needs root on the radio
   host and changes AzuraCast. The publisher runbook owns it.
 - **HitIt copies the token file to the radio host.** Rejected: a token file
-  is irreplaceable (ADR 0059). A copy over SSH adds a new path for a secret.
+  is irreplaceable (ADR 0113). A copy over SSH adds a new path for a secret.
 - **A different list of stations in the configuration.** Rejected: a station
   host has a transport and an instance, as each host has. The producer kind
   is the only difference.
@@ -237,4 +230,4 @@ The operator answered these questions on 2026-11-21:
 
 ## Tasks
 
-None until the operator accepts this record.
+The task files follow in a different commit.

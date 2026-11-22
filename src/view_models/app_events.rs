@@ -1,7 +1,7 @@
 //! The bounded list of app events (ADR 0101 Decision 7, task 008).
 //!
 //! The status bar shows the latest event of this list. The list holds two
-//! kinds of event. The first kind is a show event report (ADRs 0059 and
+//! kinds of event. The first kind is a show event report (ADRs 0113 and
 //! 0063). The second kind is an event with no visible action, as musicindex
 //! ADR 0026 R-NOTICE-1 item 2 names it: a feed check, a download or a tag
 //! write that fails. Each event keeps the words of its owner and its
@@ -21,7 +21,7 @@ pub(crate) const APP_EVENT_LIMIT: usize = 50;
 /// The part of the app that owns the words of an event.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AppEventOwner {
-    /// A show event report (ADRs 0059 and 0063).
+    /// A show event report (ADRs 0113 and 0063).
     ShowEventReport,
     /// A feed check of a playlist that fails (ADR 0076).
     FeedCheck,

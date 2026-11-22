@@ -8,11 +8,11 @@ Accepted - 2026-11-21. The operator accepted it as written.
   token file, and HitIt reads it. It is also an opposite choice by mistake.
   ADR 0059 lets `Forget` remove the token file of each row. Without this
   record, an agent can remove the token file of a reserved event.
-- Changes: [ADR 0059](0059-broadcast-control-surface.md) §This App Owns The
+- Changes: [ADR 0059](archive/0059-broadcast-control-surface.md) §This App Owns The
   Event Registry. The registry also holds reserved events that the operator
   made. A `404` is not always a dead event. `Forget` keeps a token file that
   a target uses or that HitIt did not write.
-- Changes: [ADR 0059](0059-broadcast-control-surface.md) §Attachment Names The
+- Changes: [ADR 0059](archive/0059-broadcast-control-surface.md) §Attachment Names The
   Configured Target. Attach asks before it replaces a different event on the
   target.
 

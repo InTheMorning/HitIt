@@ -1,7 +1,7 @@
 # Show Event Controls Proposal
 
 > Archived 2026-09-09 after operator approval. Current decisions live in
-> [ADR 0059](../adr/0059-broadcast-control-surface.md) and
+> [ADR 0059](../adr/archive/0059-broadcast-control-surface.md) and
 > [ADR 0063](../adr/0063-show-dashboard-layout.md); executable work and the open
 > acceptance gate live in [task 017](../tasks/archive/adr-0059-task-017-compact-event-controls-and-badges.md).
 > The proposal below records the reviewed draft and no longer binds current work.
@@ -376,7 +376,7 @@ command names can remain in diagnostics.
 
 ### Existing Authority And New Decisions
 
-[ADR 0059](../adr/0059-broadcast-control-surface.md#this-app-owns-the-event-registry)
+[ADR 0059](../adr/archive/0059-broadcast-control-surface.md#this-app-owns-the-event-registry)
 already decides that Resume selects a stored event and tests it. The picker
 delivers that existing workflow; a list of stored events and selecting an older
 entry need no new architectural permission. Registration/checking remaining

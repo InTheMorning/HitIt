@@ -3,7 +3,7 @@
 //! ADR 0060 moves queue and transport presentation into a screen mount. This
 //! adapter binds existing playback projection and transport callbacks to the
 //! Show shell without introducing a workspace frame.
-//! ADR 0059 places event registration and retryable liveness checks inside Live Metadata.
+//! ADR 0113 places event registration and retryable liveness checks inside Live Metadata.
 
 use std::collections::HashMap;
 use std::fs;
@@ -989,7 +989,7 @@ pub(super) fn build_show_screen(
     )
 }
 
-/// Binds the event row's explicit registry actions (ADR 0059).
+/// Binds the event row's explicit registry actions (ADR 0113).
 fn with_event_registry_slots(slots: ShowSlots, entity: &Entity<TopApp>) -> ShowSlots {
     let select_event_entity = entity.clone();
     let event_logs_entity = entity.clone();
@@ -1139,13 +1139,13 @@ impl TopApp {
         );
         self.publisher_service_watch = Some(handle);
         // The fresh watch always starts at Background; correct it for the
-        // current section and any command still waiting (ADR 0059).
+        // current section and any command still waiting (ADR 0113).
         self.broadcast_service_watch_pace = BroadcastServiceWatchPace::Background;
         self.sync_broadcast_service_watch_pace();
     }
 
     /// Send the broadcast service watch the pace its current viewer needs
-    /// (ADR 0059). A command resolving outside Show can still lower the
+    /// (ADR 0113). A command resolving outside Show can still lower the
     /// pace, so this also runs after each snapshot's `observe`.
     pub(super) fn sync_broadcast_service_watch_pace(&mut self) {
         let pace = crate::view_models::show::broadcast_service_watch_pace(
@@ -1202,7 +1202,7 @@ impl TopApp {
 
     /// Apply one service-watch snapshot. Returns whether the Show page must
     /// redraw for it: a changed unit or encoder state, a changed command
-    /// progress, or a started log read (ADR 0059). A changed read time alone
+    /// progress, or a started log read (ADR 0113). A changed read time alone
     /// never redraws.
     fn apply_publisher_service_snapshot(
         &mut self,
@@ -1484,7 +1484,7 @@ impl TopApp {
     ) where
         C: ApplicationCommand<Output = ShowCommandCompletion>,
     {
-        // ADR 0059: a command that begins outside Show, for example from a
+        // ADR 0113: a command that begins outside Show, for example from a
         // Settings recovery action, needs the Viewed pace at once. Else its
         // first fresh read can come only after the Background interval.
         self.sync_broadcast_service_watch_pace();
@@ -2025,7 +2025,7 @@ impl TopApp {
         {
             self.on_air_step_id = Some(command_id);
         }
-        // ADR 0059: the waiting command needs the Viewed pace at once.
+        // ADR 0113: the waiting command needs the Viewed pace at once.
         self.sync_broadcast_service_watch_pace();
         self.event_session.next_request += 1;
         let request = self.event_session.next_request;
@@ -2177,7 +2177,7 @@ impl TopApp {
     }
 }
 
-/// Registry commands have no publisher transport or configuration mutation capability (ADR 0059).
+/// Registry commands have no publisher transport or configuration mutation capability (ADR 0113).
 struct EventRegistryCommand {
     conn: Arc<Mutex<Connection>>,
     cfg_path: PathBuf,
@@ -2358,7 +2358,7 @@ struct EventRegistrySuccess {
     events: Vec<EventSelectionInput>,
 }
 
-/// Registration and selection storage have independent results (ADR 0059).
+/// Registration and selection storage have independent results (ADR 0113).
 fn apply_event_registry_result(
     input: &mut EventSectionInput,
     action: EventRegistryAction,
@@ -2526,7 +2526,7 @@ struct ShowPageProjection {
     playlists: Vec<db::Playlist>,
 }
 
-/// Capture completion in the worker, before presentation callback scheduling (ADR 0059).
+/// Capture completion in the worker, before presentation callback scheduling (ADR 0113).
 struct ShowCommandCompletion {
     returned_at: Instant,
     result: Result<(), CommandError>,
@@ -3532,7 +3532,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         apply_event_registry_result(input, action, result)
     }
 
-    /// Situational ADR 0059: Replace preserves the dead registry entry and its token.
+    /// Situational ADR 0113: Replace preserves the dead registry entry and its token.
     fn seed_dead_recovery_event(
         conn: &Connection,
         directory: &Path,
@@ -3559,7 +3559,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
             .unwrap()
     }
 
-    /// Situational ADR 0059: registration saves a private token and reports the new identity.
+    /// Situational ADR 0113: registration saves a private token and reports the new identity.
     fn assert_event_registration(input: &EventSectionInput) -> EventSelectionInput {
         let registered = input.selected_event.clone().unwrap();
         assert_eq!(registered.event_id, "event-new");
@@ -3583,7 +3583,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         registered
     }
 
-    /// Situational ADR 0059: queue refresh preserves recovery state and never exposes token contents.
+    /// Situational ADR 0113: queue refresh preserves recovery state and never exposes token contents.
     fn assert_recovered_event_refresh(
         input: &mut EventSectionInput,
         expected: EventState,
@@ -3610,7 +3610,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         assert!(!format!("{row:?}").contains("fixture-secret"));
     }
 
-    /// Situational ADR 0059: a failed check preserves registration success and offers a retry.
+    /// Situational ADR 0113: a failed check preserves registration success and offers a retry.
     fn assert_event_check_retry(input: &EventSectionInput) {
         let failed = show_event_project(input);
         assert_eq!(input.feedback.check_response, EventCheckResponse::Http(503));
@@ -3632,7 +3632,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         );
     }
 
-    /// Situational ADR 0059: run real registry commands and the mounted-row presenter transitions.
+    /// Situational ADR 0113: run real registry commands and the mounted-row presenter transitions.
     fn show_event_recovery_sequence(action: EventRegistryAction, retry_status: u16) {
         let temp = tempfile::tempdir().unwrap();
         let conn = Arc::new(Mutex::new(show_event_db(&temp)));
@@ -3757,7 +3757,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
     fn show_event_replace_retry_404_stores_dead_before_offering_replace() {
         show_event_recovery_sequence(EventRegistryAction::Replace, 404);
     }
-    /// Situational ADR 0059: an observed Live response is not success until its status is stored.
+    /// Situational ADR 0113: an observed Live response is not success until its status is stored.
     #[test]
     fn show_event_status_write_failure_retains_unknown_and_retry() {
         let temp = tempfile::tempdir().unwrap();
@@ -3826,7 +3826,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         assert_eq!(relay.join().unwrap().len(), 3);
     }
 
-    /// Situational ADR 0059: an in-flight registry command owns its row until completion.
+    /// Situational ADR 0113: an in-flight registry command owns its row until completion.
     #[test]
     fn show_event_refresh_cannot_clear_progress_or_failure_feedback() {
         let mut input = EventSectionInput {
@@ -3886,7 +3886,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         .unwrap();
     }
 
-    /// Situational ADR 0059: chosen older rows remain operable; changing revision rejects stale commands.
+    /// Situational ADR 0113: chosen older rows remain operable; changing revision rejects stale commands.
     #[test]
     fn compact_event_saved_choice_drives_commands_and_refresh() {
         let temp = tempfile::tempdir().unwrap();
@@ -3957,7 +3957,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         );
     }
 
-    /// Situational ADR 0059: failed preference storage cannot erase successful registration or repeat POST.
+    /// Situational ADR 0113: failed preference storage cannot erase successful registration or repeat POST.
     #[test]
     fn compact_event_registration_survives_selection_save_failure() {
         let temp = tempfile::tempdir().unwrap();
@@ -4003,7 +4003,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         assert_eq!(relay.join().unwrap().len(), 1);
     }
 
-    /// Situational ADR 0059: a missing saved entry and a failed registry read never offer Create.
+    /// Situational ADR 0113: a missing saved entry and a failed registry read never offer Create.
     #[test]
     fn compact_event_missing_choice_and_registry_errors_are_explicit() {
         let temp = tempfile::tempdir().unwrap();
@@ -4042,7 +4042,7 @@ producer_unit = "mixxx-now-playing@show-1.service"
         assert_eq!(event.primary.unwrap().intent, EventControlIntent::Refresh);
     }
 
-    /// Situational ADR 0059: refreshes cannot resurrect old confirmation or another context's results.
+    /// Situational ADR 0113: refreshes cannot resurrect old confirmation or another context's results.
     #[test]
     fn compact_event_context_revision_and_configured_detach_are_scoped() {
         let mut input = empty_event_section(
@@ -4654,7 +4654,7 @@ impl ApplicationCommand for AddReservedEventCommand {
     }
 }
 
-/// Session-only latest results; no token contents or persistent audit trail (ADR 0059).
+/// Session-only latest results; no token contents or persistent audit trail (ADR 0113).
 #[derive(Default)]
 pub(super) struct EventSession {
     next_request: u64,

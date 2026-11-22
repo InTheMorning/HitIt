@@ -11191,7 +11191,7 @@ fn adr_0059_broadcast_observation_actor_is_runtime_owned() {
     ] {
         if !runtime_source.contains(required) {
             violations.push(format!(
-                "src/runtime/broadcast_observation.rs: ADR 0059 broadcast observation actor missing `{required}`"
+                "src/runtime/broadcast_observation.rs: ADR 0113 broadcast observation actor missing `{required}`"
             ));
         }
     }
@@ -11209,7 +11209,7 @@ fn adr_0059_broadcast_observation_actor_is_runtime_owned() {
     ] {
         if runtime_source.contains(forbidden) {
             violations.push(format!(
-                "src/runtime/broadcast_observation.rs: ADR 0059 observation actor must stay GPUI-free and DB-free; found `{forbidden}`"
+                "src/runtime/broadcast_observation.rs: ADR 0113 observation actor must stay GPUI-free and DB-free; found `{forbidden}`"
             ));
         }
     }
@@ -11230,7 +11230,7 @@ fn adr_0059_broadcast_observation_actor_is_runtime_owned() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 broadcast observation actor violations:\n{}",
+        "ADR 0113 broadcast observation actor violations:\n{}",
         violations.join("\n")
     );
 }
@@ -12543,7 +12543,7 @@ fn adr_0065_readiness_rows_keep_state_labels_separate_from_actions() {
     );
 }
 
-/// ADR 0059: HitIt reads live metadata but does not publish it.
+/// ADR 0113: HitIt reads live metadata but does not publish it.
 #[test]
 fn adr_0059_hitit_does_not_publish_live_metadata() {
     let mut violations = Vec::new();
@@ -12552,7 +12552,7 @@ fn adr_0059_hitit_does_not_publish_live_metadata() {
         for (line_number, line) in code_lines(&source) {
             if line.contains("publish_live_metadata") {
                 violations.push(format!(
-                    "{}:{line_number}: ADR 0059 removes the HitIt live metadata publish path: `{line}`",
+                    "{}:{line_number}: ADR 0113 removes the HitIt live metadata publish path: `{line}`",
                     rel_path(&path)
                 ));
             }
@@ -12570,7 +12570,7 @@ fn adr_0059_hitit_does_not_publish_live_metadata() {
     ] {
         if api_compact.contains(call) {
             violations.push(format!(
-                "src/api.rs: ADR 0059 keeps metadata relay access read-only; found `{call}`"
+                "src/api.rs: ADR 0113 keeps metadata relay access read-only; found `{call}`"
             ));
         }
     }
@@ -12584,26 +12584,26 @@ fn adr_0059_hitit_does_not_publish_live_metadata() {
             || line.contains("create_live_item")
         {
             violations.push(format!(
-                "src/cli.rs:{line_number}: ADR 0059 forbids broadcaster tokens in HitIt CLI commands: `{line}`"
+                "src/cli.rs:{line_number}: ADR 0113 forbids broadcaster tokens in HitIt CLI commands: `{line}`"
             ));
         }
     }
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 live metadata publish violations:\n{}",
+        "ADR 0113 live metadata publish violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// R19-07, situational: ADR 0059 amendment of 2026-10-24 and ADR 0059 task 019.
+/// R19-07, situational: ADR 0113 §The Broadcast Sections Live In Show and ADR 0059 task 019.
 /// The `podcast:liveValue` tag names the relay of the event. Only
 /// `feed_tag_for_event` in `src/view_models/show.rs` writes the tag, and it
 /// builds the `uri` with `live_value_uri`. Delete this guard when that
 /// amendment is superseded.
 #[test]
 fn adr_0059_task_019_r19_07_live_value_tag_names_the_relay() {
-    const FIX: &str = "ADR 0059 amendment of 2026-10-24, task 019: the podcast:liveValue tag must name the relay\n\
+    const FIX: &str = "ADR 0113 §The Broadcast Sections Live In Show, ADR 0059 task 019: the podcast:liveValue tag must name the relay\n\
          of the event. Build its uri with broadcast::live_value::live_value_uri in\n\
          feed_tag_for_event. Do not write the tag in another file.";
     const OWNER: &str = "src/view_models/show.rs";
@@ -12641,7 +12641,7 @@ fn adr_0059_task_019_r19_07_live_value_tag_names_the_relay() {
     assert!(violations.is_empty(), "{FIX}\n{}", violations.join("\n"));
 }
 
-/// ADR 0059: broadcast tokens stay in files, not UI or database text columns.
+/// ADR 0113: broadcast tokens stay in files, not UI or database text columns.
 #[test]
 fn adr_0059_broadcast_event_schema_keeps_tokens_out_of_storage_and_ui() {
     let mut violations = Vec::new();
@@ -12659,7 +12659,7 @@ fn adr_0059_broadcast_event_schema_keeps_tokens_out_of_storage_and_ui() {
         let trimmed = line.trim_start();
         if trimmed.starts_with("token ") || trimmed.starts_with("token\t") {
             violations.push(format!(
-                "src/db.rs:{}: ADR 0059 stores token_path only, not token text: `{}`",
+                "src/db.rs:{}: ADR 0113 stores token_path only, not token text: `{}`",
                 schema_line_start + offset,
                 trimmed.trim_end()
             ));
@@ -12672,7 +12672,7 @@ fn adr_0059_broadcast_event_schema_keeps_tokens_out_of_storage_and_ui() {
             for (line_number, line) in code_lines(&source) {
                 if line.contains("broadcast_events") {
                     violations.push(format!(
-                        "{}:{line_number}: ADR 0059 broadcast event table access belongs outside UI/view-model layers: `{line}`",
+                        "{}:{line_number}: ADR 0113 broadcast event table access belongs outside UI/view-model layers: `{line}`",
                         rel_path(&path)
                     ));
                 }
@@ -12682,12 +12682,12 @@ fn adr_0059_broadcast_event_schema_keeps_tokens_out_of_storage_and_ui() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 broadcast event storage violations:\n{}",
+        "ADR 0113 broadcast event storage violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// ADR 0059: broadcast services stay GPUI-free and build relay clients through
+/// ADR 0113: broadcast services stay GPUI-free and build relay clients through
 /// `api::Client`. Only `reqwest::Url`, a parser that builds no client, is
 /// allowed (task 019).
 #[test]
@@ -12698,7 +12698,7 @@ fn adr_0059_broadcast_services_stay_gpui_free_and_use_api_client() {
         for (line_number, line) in code_lines(&source) {
             for forbidden in broadcast_service_line_violations(&line) {
                 violations.push(format!(
-                    "{}:{line_number}: ADR 0059: broadcast services stay GPUI-free and build relay clients through api::Client. Only reqwest::Url, a parser that builds no client, is allowed (task 019). Found `{forbidden}` in `{line}`",
+                    "{}:{line_number}: ADR 0113: broadcast services stay GPUI-free and build relay clients through api::Client. Only reqwest::Url, a parser that builds no client, is allowed (task 019). Found `{forbidden}` in `{line}`",
                     rel_path(&path)
                 ));
             }
@@ -12707,7 +12707,7 @@ fn adr_0059_broadcast_services_stay_gpui_free_and_use_api_client() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 broadcast service boundary violations:\n{}",
+        "ADR 0113 broadcast service boundary violations:\n{}",
         violations.join("\n")
     );
 }
@@ -12754,7 +12754,7 @@ fn adr_0059_task_019_broadcast_boundary_allows_only_reqwest_url() {
     }
 }
 
-/// Situational ADR 0059: systemd service commands stay in broadcast control.
+/// Situational ADR 0113: systemd service commands stay in broadcast control.
 #[test]
 fn adr_0059_publisher_service_control_boundary_is_broadcast_owned() {
     let mut violations = Vec::new();
@@ -12773,7 +12773,7 @@ fn adr_0059_publisher_service_control_boundary_is_broadcast_owned() {
     ] {
         if !control_source.contains(required) && !broadcast_mod_source.contains(required) {
             violations.push(format!(
-                "src/broadcast/control.rs: Situational ADR 0059 service-control boundary missing `{required}`. Fix: keep systemd command construction and journal reads in broadcast control."
+                "src/broadcast/control.rs: Situational ADR 0113 service-control boundary missing `{required}`. Fix: keep systemd command construction and journal reads in broadcast control."
             ));
         }
     }
@@ -12787,7 +12787,7 @@ fn adr_0059_publisher_service_control_boundary_is_broadcast_owned() {
             for forbidden in ["systemctl", "journalctl"] {
                 if line.contains(forbidden) {
                     violations.push(format!(
-                        "{}:{line_number}: Situational ADR 0059 service-control boundary forbids `{forbidden}` outside src/broadcast/control.rs. Fix: route user service commands through broadcast::control.",
+                        "{}:{line_number}: Situational ADR 0113 service-control boundary forbids `{forbidden}` outside src/broadcast/control.rs. Fix: route user service commands through broadcast::control.",
                         rel_path(&path)
                     ));
                 }
@@ -12797,12 +12797,12 @@ fn adr_0059_publisher_service_control_boundary_is_broadcast_owned() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 service-control boundary violations:\n{}",
+        "Situational ADR 0113 service-control boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Packet 010 SSH command construction stays in broadcast.
+/// Situational ADR 0113: Packet 010 SSH command construction stays in broadcast.
 #[test]
 fn adr_0059_ssh_transport_boundary_is_broadcast_owned() {
     let mut violations = Vec::new();
@@ -12821,7 +12821,7 @@ fn adr_0059_ssh_transport_boundary_is_broadcast_owned() {
     ] {
         if !transport_source.contains(required) && !broadcast_mod_source.contains(required) {
             violations.push(format!(
-                "src/broadcast/transport.rs: Situational ADR 0059 Packet 010 SSH transport missing `{required}`. Fix: keep SSH wrapping and reachability classification in broadcast::transport."
+                "src/broadcast/transport.rs: Situational ADR 0113, from ADR 0059 packet 010, SSH transport missing `{required}`. Fix: keep SSH wrapping and reachability classification in broadcast::transport."
             ));
         }
     }
@@ -12844,7 +12844,7 @@ fn adr_0059_ssh_transport_boundary_is_broadcast_owned() {
             ] {
                 if line.contains(forbidden) {
                     violations.push(format!(
-                        "{}:{line_number}: Situational ADR 0059 Packet 010 forbids SSH command construction outside src/broadcast. Fix: route remote host commands through broadcast::transport.",
+                        "{}:{line_number}: Situational ADR 0113, from ADR 0059 packet 010, forbids SSH command construction outside src/broadcast. Fix: route remote host commands through broadcast::transport.",
                         rel_path(&path)
                     ));
                 }
@@ -12854,12 +12854,12 @@ fn adr_0059_ssh_transport_boundary_is_broadcast_owned() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 Packet 010 SSH transport boundary violations:\n{}",
+        "Situational ADR 0113, from ADR 0059 packet 010, SSH transport boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Packet 011 mpv drop-file production stays in broadcast.
+/// Situational ADR 0113: Packet 011 mpv drop-file production stays in broadcast.
 #[test]
 fn adr_0059_mpv_drop_file_producer_boundary_is_broadcast_owned() {
     let mut violations = Vec::new();
@@ -12880,14 +12880,14 @@ fn adr_0059_mpv_drop_file_producer_boundary_is_broadcast_owned() {
     ] {
         if !producer_source.contains(required) && !broadcast_mod_source.contains(required) {
             violations.push(format!(
-                "src/broadcast/producer.rs: Situational ADR 0059 Packet 011 mpv drop-file producer missing `{required}`. Fix: keep mpv now-playing drop-file construction in broadcast::producer."
+                "src/broadcast/producer.rs: Situational ADR 0113, from ADR 0059 packet 011, mpv drop-file producer missing `{required}`. Fix: keep mpv now-playing drop-file construction in broadcast::producer."
             ));
         }
     }
 
     if production_source.contains("value_block") {
         violations.push(
-            "src/broadcast/producer.rs: Situational ADR 0059 Packet 011 forbids building value routes from NowPlayingUpdate.value_block. Fix: read embedded MusicIndex Value Routes from the audio file tag.".to_owned(),
+            "src/broadcast/producer.rs: Situational ADR 0113, from ADR 0059 packet 011, forbids building value routes from NowPlayingUpdate.value_block. Fix: read embedded MusicIndex Value Routes from the audio file tag.".to_owned(),
         );
     }
 
@@ -12906,7 +12906,7 @@ fn adr_0059_mpv_drop_file_producer_boundary_is_broadcast_owned() {
             ] {
                 if line.contains(forbidden) {
                     violations.push(format!(
-                        "{}:{line_number}: Situational ADR 0059 Packet 011 forbids mpv drop-file naming or schema construction outside src/broadcast/producer.rs. Fix: route mpv drop-file writes through broadcast::producer.",
+                        "{}:{line_number}: Situational ADR 0113, from ADR 0059 packet 011, forbids mpv drop-file naming or schema construction outside src/broadcast/producer.rs. Fix: route mpv drop-file writes through broadcast::producer.",
                         rel_path(&path)
                     ));
                 }
@@ -12916,12 +12916,12 @@ fn adr_0059_mpv_drop_file_producer_boundary_is_broadcast_owned() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 Packet 011 mpv drop-file producer boundary violations:\n{}",
+        "Situational ADR 0113, from ADR 0059 packet 011, mpv drop-file producer boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Packet 015 encoder command construction stays in broadcast.
+/// Situational ADR 0113: Packet 015 encoder command construction stays in broadcast.
 #[test]
 fn adr_0059_stream_encoder_control_boundary_is_broadcast_owned() {
     let mut violations = Vec::new();
@@ -12949,7 +12949,7 @@ fn adr_0059_stream_encoder_control_boundary_is_broadcast_owned() {
     ] {
         if !encoder_source.contains(required) && !broadcast_mod_source.contains(required) {
             violations.push(format!(
-                "src/broadcast/encoder.rs: Situational ADR 0059 Packet 015 encoder control missing `{required}`. Fix: keep stream encoder command construction and status parsing in broadcast::encoder."
+                "src/broadcast/encoder.rs: Situational ADR 0113, from ADR 0059 packet 015, encoder control missing `{required}`. Fix: keep stream encoder command construction and status parsing in broadcast::encoder."
             ));
         }
     }
@@ -12957,7 +12957,7 @@ fn adr_0059_stream_encoder_control_boundary_is_broadcast_owned() {
     for (line_number, line) in code_lines(&encoder_source) {
         if line.contains("\"-u\"") {
             violations.push(format!(
-                "src/broadcast/encoder.rs:{line_number}: Situational ADR 0059 Packet 015 forbids sending song titles to the encoder. Fix: remove the encoder `-u` option and let the producer own song text."
+                "src/broadcast/encoder.rs:{line_number}: Situational ADR 0113, from ADR 0059 packet 015, forbids sending song titles to the encoder. Fix: remove the encoder `-u` option and let the producer own song text."
             ));
         }
     }
@@ -12978,7 +12978,7 @@ fn adr_0059_stream_encoder_control_boundary_is_broadcast_owned() {
             ] {
                 if line.contains(forbidden) {
                     violations.push(format!(
-                        "{}:{line_number}: Situational ADR 0059 Packet 015 forbids encoder command construction outside src/broadcast/encoder.rs. Fix: route stream encoder commands through broadcast::encoder.",
+                        "{}:{line_number}: Situational ADR 0113, from ADR 0059 packet 015, forbids encoder command construction outside src/broadcast/encoder.rs. Fix: route stream encoder commands through broadcast::encoder.",
                         rel_path(&path)
                     ));
                 }
@@ -12988,12 +12988,12 @@ fn adr_0059_stream_encoder_control_boundary_is_broadcast_owned() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 Packet 015 stream encoder boundary violations:\n{}",
+        "Situational ADR 0113, from ADR 0059 packet 015, stream encoder boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Packet 014 publisher target commands stay in broadcast.
+/// Situational ADR 0113: Packet 014 publisher target commands stay in broadcast.
 #[test]
 fn adr_0059_publisher_target_command_boundary_is_broadcast_owned() {
     let mut violations = Vec::new();
@@ -13015,7 +13015,7 @@ fn adr_0059_publisher_target_command_boundary_is_broadcast_owned() {
     ] {
         if !target_source.contains(required) && !broadcast_mod_source.contains(required) {
             violations.push(format!(
-                "src/broadcast/publisher_targets.rs: Situational ADR 0059 Packet 014 publisher target control missing `{required}`. Fix: keep target command construction and publisher restart in broadcast::publisher_targets."
+                "src/broadcast/publisher_targets.rs: Situational ADR 0113, from ADR 0059 packet 014, publisher target control missing `{required}`. Fix: keep target command construction and publisher restart in broadcast::publisher_targets."
             ));
         }
     }
@@ -13036,7 +13036,7 @@ fn adr_0059_publisher_target_command_boundary_is_broadcast_owned() {
             ] {
                 if line.contains(forbidden) {
                     violations.push(format!(
-                        "{}:{line_number}: Situational ADR 0059 Packet 014 forbids publisher target command construction outside src/broadcast. Fix: route target list/add/remove through broadcast::publisher_targets.",
+                        "{}:{line_number}: Situational ADR 0113, from ADR 0059 packet 014, forbids publisher target command construction outside src/broadcast. Fix: route target list/add/remove through broadcast::publisher_targets.",
                         rel_path(&path)
                     ));
                 }
@@ -13046,12 +13046,12 @@ fn adr_0059_publisher_target_command_boundary_is_broadcast_owned() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 Packet 014 publisher target boundary violations:\n{}",
+        "Situational ADR 0113, from ADR 0059 packet 014, publisher target boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Packet 009 screens and shells do not run service tools.
+/// Situational ADR 0113: Packet 009 screens and shells do not run service tools.
 #[test]
 fn adr_0059_show_screen_and_shell_do_not_call_service_processes() {
     let mut violations = Vec::new();
@@ -13063,7 +13063,7 @@ fn adr_0059_show_screen_and_shell_do_not_call_service_processes() {
                 for forbidden in ["systemctl", "journalctl"] {
                     if line.contains(forbidden) {
                         violations.push(format!(
-                            "{}:{line_number}: Situational ADR 0059 Packet 009 forbids `{forbidden}` in screens and shells. Fix: route publisher service observation and logs through runtime actors and broadcast::control.",
+                            "{}:{line_number}: Situational ADR 0113, from ADR 0059 packet 009, forbids `{forbidden}` in screens and shells. Fix: route publisher service observation and logs through runtime actors and broadcast::control.",
                             rel_path(&path)
                         ));
                     }
@@ -13074,12 +13074,12 @@ fn adr_0059_show_screen_and_shell_do_not_call_service_processes() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 Packet 009 screen/shell service-process violations:\n{}",
+        "Situational ADR 0113, from ADR 0059 packet 009, screen/shell service-process violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Packet 012 renderer path does not scan readiness files.
+/// Situational ADR 0113: Packet 012 renderer path does not scan readiness files.
 #[test]
 fn adr_0059_broadcast_readiness_file_scan_stays_out_of_renderers() {
     let mut violations = Vec::new();
@@ -13090,7 +13090,7 @@ fn adr_0059_broadcast_readiness_file_scan_stays_out_of_renderers() {
             for forbidden in ["read_audio_tags", "MusicIndex Value Routes", ".is_file()"] {
                 if line.contains(forbidden) {
                     violations.push(format!(
-                        "{file}:{line_number}: Situational ADR 0059 Packet 012 forbids readiness file scanning in the renderer path. Fix: keep payment-route tag reads in application queries or runtime actors."
+                        "{file}:{line_number}: Situational ADR 0113, from ADR 0059 packet 012, forbids readiness file scanning in the renderer path. Fix: keep payment-route tag reads in application queries or runtime actors."
                     ));
                 }
             }
@@ -13099,16 +13099,16 @@ fn adr_0059_broadcast_readiness_file_scan_stays_out_of_renderers() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 Packet 012 readiness renderer violations:\n{}",
+        "Situational ADR 0113, from ADR 0059 packet 012, readiness renderer violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: relay create responses must not print broadcaster
+/// Situational ADR 0113: relay create responses must not print broadcaster
 /// tokens.
 ///
 /// Secret handling may deserve the durable set. ADR 0061 says adding to that set
-/// is its own decision, and ADR 0059 has no such record, so this stays
+/// is its own decision, and ADR 0113 has no such record, so this stays
 /// situational until one exists.
 #[test]
 fn adr_0059_live_item_create_response_debug_redacts_broadcaster_token() {
@@ -13131,7 +13131,7 @@ fn adr_0059_live_item_create_response_debug_redacts_broadcaster_token() {
 
     if derive_region.contains("Debug") {
         violations.push(
-            "src/api.rs: ADR 0059 forbids derived Debug for LiveItemCreateResponse because it carries broadcaster_token"
+            "src/api.rs: ADR 0113 forbids derived Debug for LiveItemCreateResponse because it carries broadcaster_token"
                 .to_owned(),
         );
     }
@@ -13144,19 +13144,19 @@ fn adr_0059_live_item_create_response_debug_redacts_broadcaster_token() {
     ] {
         if !debug_impl.contains(required) {
             violations.push(format!(
-                "src/api.rs: ADR 0059 redacted Debug implementation missing `{required}`"
+                "src/api.rs: ADR 0113 redacted Debug implementation missing `{required}`"
             ));
         }
     }
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 LiveItemCreateResponse Debug violations:\n{}",
+        "ADR 0113 LiveItemCreateResponse Debug violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: broadcaster token text stays at the API, registry, and
+/// Situational ADR 0113: broadcaster token text stays at the API, registry, and
 /// file boundary.
 #[test]
 fn adr_0059_broadcast_token_text_has_single_storage_boundary() {
@@ -13175,7 +13175,7 @@ fn adr_0059_broadcast_token_text_has_single_storage_boundary() {
                 )
             {
                 violations.push(format!(
-                    "{file}:{line_number}: ADR 0059 token file reads and writes belong only to the broadcast registry/token boundary: `{line}`"
+                    "{file}:{line_number}: ADR 0113 token file reads and writes belong only to the broadcast registry/token boundary: `{line}`"
                 ));
             }
 
@@ -13183,7 +13183,7 @@ fn adr_0059_broadcast_token_text_has_single_storage_boundary() {
                 && !matches!(file.as_str(), "src/api.rs" | "src/broadcast/registry.rs")
             {
                 violations.push(format!(
-                    "{file}:{line_number}: ADR 0059 broadcaster token text escaped the API/registry boundary: `{line}`"
+                    "{file}:{line_number}: ADR 0113 broadcaster token text escaped the API/registry boundary: `{line}`"
                 ));
             }
 
@@ -13202,7 +13202,7 @@ fn adr_0059_broadcast_token_text_has_single_storage_boundary() {
             .any(|pattern| line.contains(pattern));
             if mentions_token_text && prints_or_formats {
                 violations.push(format!(
-                    "{file}:{line_number}: ADR 0059 forbids token text in output or log-adjacent formatting: `{line}`"
+                    "{file}:{line_number}: ADR 0113 forbids token text in output or log-adjacent formatting: `{line}`"
                 ));
             }
         }
@@ -13210,12 +13210,12 @@ fn adr_0059_broadcast_token_text_has_single_storage_boundary() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 broadcast token text boundary violations:\n{}",
+        "ADR 0113 broadcast token text boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: publisher configuration is changed only through
+/// Situational ADR 0113: publisher configuration is changed only through
 /// publisher commands.
 #[test]
 fn adr_0059_publisher_configuration_changes_use_publisher_tools() {
@@ -13234,7 +13234,7 @@ fn adr_0059_publisher_configuration_changes_use_publisher_tools() {
     ] {
         if !control_source.contains(required) {
             violations.push(format!(
-                "src/broadcast/publisher_targets.rs: ADR 0059 publisher target mutation must use publisher CLI tools and restart the unit; missing `{required}`"
+                "src/broadcast/publisher_targets.rs: ADR 0113 publisher target mutation must use publisher CLI tools and restart the unit; missing `{required}`"
             ));
         }
     }
@@ -13250,7 +13250,7 @@ fn adr_0059_publisher_configuration_changes_use_publisher_tools() {
         for (line_number, line) in code_lines(source) {
             if line.contains("musicindex-live-publisher") && line.contains("config.toml") {
                 violations.push(format!(
-                    "{file}:{line_number}: ADR 0059 publisher config path access belongs to broadcast::publisher_targets and the publisher CLI: `{line}`"
+                    "{file}:{line_number}: ADR 0113 publisher config path access belongs to broadcast::publisher_targets and the publisher CLI: `{line}`"
                 ));
             }
 
@@ -13260,7 +13260,7 @@ fn adr_0059_publisher_configuration_changes_use_publisher_tools() {
                 || line.contains("write_all(");
             if writes_file && line.contains("musicindex-live-publisher") {
                 violations.push(format!(
-                    "{file}:{line_number}: ADR 0059 forbids direct writes to publisher-owned files: `{line}`"
+                    "{file}:{line_number}: ADR 0113 forbids direct writes to publisher-owned files: `{line}`"
                 ));
             }
         }
@@ -13268,12 +13268,12 @@ fn adr_0059_publisher_configuration_changes_use_publisher_tools() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 publisher configuration boundary violations:\n{}",
+        "ADR 0113 publisher configuration boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: now-playing source-kind names stay at adapter and
+/// Situational ADR 0113: now-playing source-kind names stay at adapter and
 /// config boundaries.
 #[test]
 fn adr_0059_source_kind_literals_stay_at_adapter_boundaries() {
@@ -13293,7 +13293,7 @@ fn adr_0059_source_kind_literals_stay_at_adapter_boundaries() {
         for literal in string_literals(source) {
             if source_kinds.contains(literal.as_str()) && !allowed_files.contains(file.as_str()) {
                 violations.push(format!(
-                    "{file}: ADR 0059 source kind literal `{literal}` belongs in a source adapter or config boundary, not shared display/control logic"
+                    "{file}: ADR 0113 source kind literal `{literal}` belongs in a source adapter or config boundary, not shared display/control logic"
                 ));
             }
         }
@@ -13301,12 +13301,12 @@ fn adr_0059_source_kind_literals_stay_at_adapter_boundaries() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 source-kind literal boundary violations:\n{}",
+        "ADR 0113 source-kind literal boundary violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Show broadcast sections stay separate
+/// Situational ADR 0113: Show broadcast sections stay separate
 /// from the queue transport.
 #[test]
 fn adr_0059_show_broadcast_sections_stay_separate_from_queue_now_playing() {
@@ -13330,7 +13330,7 @@ fn adr_0059_show_broadcast_sections_stay_separate_from_queue_now_playing() {
     ] {
         if !show_source.contains(required) {
             violations.push(format!(
-                "src/view_models/show.rs: ADR 0059 Show surface must keep broadcast sections and queue transport as separate fields; missing `{required}`"
+                "src/view_models/show.rs: ADR 0113 Show surface must keep broadcast sections and queue transport as separate fields; missing `{required}`"
             ));
         }
     }
@@ -13351,7 +13351,7 @@ fn adr_0059_show_broadcast_sections_stay_separate_from_queue_now_playing() {
         ] {
             if source.contains(forbidden) {
                 violations.push(format!(
-                    "{file}: ADR 0059 forbids broadcast section state inside QueueNowPlaying; found `{forbidden}`"
+                    "{file}: ADR 0113 forbids broadcast section state inside QueueNowPlaying; found `{forbidden}`"
                 ));
             }
         }
@@ -13359,12 +13359,12 @@ fn adr_0059_show_broadcast_sections_stay_separate_from_queue_now_playing() {
 
     assert!(
         violations.is_empty(),
-        "ADR 0059 Show and QueueNowPlaying separation violations:\n{}",
+        "ADR 0113 Show and QueueNowPlaying separation violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Show broadcast shell uses semantic colors for theme parity.
+/// Situational ADR 0113: Show broadcast shell uses semantic colors for theme parity.
 #[test]
 fn adr_0059_show_shell_uses_semantic_colors_for_dark_mode_parity() {
     let mut violations = Vec::new();
@@ -13378,7 +13378,7 @@ fn adr_0059_show_shell_uses_semantic_colors_for_dark_mode_parity() {
         for required in ["SemanticColor", "color(cx,"] {
             if !source.contains(required) {
                 violations.push(format!(
-                    "{file}: Situational ADR 0059 Show shell theme parity requires semantic color tokens; missing `{required}`"
+                    "{file}: Situational ADR 0113 Show shell theme parity requires semantic color tokens; missing `{required}`"
                 ));
             }
         }
@@ -13394,7 +13394,7 @@ fn adr_0059_show_shell_uses_semantic_colors_for_dark_mode_parity() {
             ] {
                 if line.contains(forbidden) {
                     violations.push(format!(
-                        "{file}:{line_number}: Situational ADR 0059 forbids display-local dark-mode branching or raw colors in the Show broadcast shell: `{line}`"
+                        "{file}:{line_number}: Situational ADR 0113 forbids display-local dark-mode branching or raw colors in the Show broadcast shell: `{line}`"
                     ));
                 }
             }
@@ -13403,12 +13403,12 @@ fn adr_0059_show_shell_uses_semantic_colors_for_dark_mode_parity() {
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 dark-mode parity violations:\n{}",
+        "Situational ADR 0113 dark-mode parity violations:\n{}",
         violations.join("\n")
     );
 }
 
-/// Situational ADR 0059: Show shell controls consume view-model accessibility labels.
+/// Situational ADR 0113: Show shell controls consume view-model accessibility labels.
 #[test]
 fn adr_0059_show_shell_consumes_vm_owned_accessibility_labels() {
     let vm_source = read_source(&manifest_path("src/view_models/show.rs"));
@@ -13464,7 +13464,7 @@ fn adr_0059_show_shell_consumes_vm_owned_accessibility_labels() {
         let struct_source = source_between(&vm_source, start, end);
         if !struct_source.contains(field) {
             violations.push(format!(
-                "src/view_models/show.rs: Situational ADR 0059 {struct_name} must own `{field}` before it renders"
+                "src/view_models/show.rs: Situational ADR 0113 {struct_name} must own `{field}` before it renders"
             ));
         }
     }
@@ -13484,14 +13484,14 @@ fn adr_0059_show_shell_consumes_vm_owned_accessibility_labels() {
             && !panel_source.contains(required)
         {
             violations.push(format!(
-                "Show UI: Situational ADR 0059 controls must consume VM-owned accessibility labels; missing `{required}`"
+                "Show UI: Situational ADR 0113 controls must consume VM-owned accessibility labels; missing `{required}`"
             ));
         }
     }
 
     assert!(
         violations.is_empty(),
-        "Situational ADR 0059 accessibility-label ownership violations:\n{}",
+        "Situational ADR 0113 accessibility-label ownership violations:\n{}",
         violations.join("\n")
     );
 }
@@ -16018,14 +16018,14 @@ fn adr_0063_log_copy_menu_preserves_selection_and_uses_typed_actions() {
     }
 }
 
-/// Situational ADR 0059: Event belongs to Live Metadata; registry actions cannot configure a publisher.
+/// Situational ADR 0113: Event belongs to Live Metadata; registry actions cannot configure a publisher.
 #[test]
 fn adr_0059_event_row_precedes_services_and_registry_actions_do_not_attach() {
     let vm = read_source(&manifest_path("src/view_models/show.rs"));
     let kinds = source_between(&vm, "pub(crate) enum ShowCardKind", "impl ShowCardKind");
     assert!(
         !code_lines(kinds).any(|(_, line)| line.trim() == "Event,"),
-        "ADR 0059: Event is a row, never a card kind"
+        "ADR 0113: Event is a row, never a card kind"
     );
     let publisher = source_between(
         &vm,
@@ -16044,7 +16044,7 @@ fn adr_0059_event_row_precedes_services_and_registry_actions_do_not_attach() {
     assert!(
         detail.find("render_event_detail(").unwrap()
             < detail.find("for service in section.services").unwrap(),
-        "ADR 0059: Event must render before Producer and Publisher"
+        "ADR 0113: Event must render before Producer and Publisher"
     );
     assert!(panel.contains("EventControlIntent::CopyFeedTag"));
     assert!(panel.contains("cx.write_to_clipboard(ClipboardItem::new_string(tag.clone()))"));
@@ -16062,7 +16062,7 @@ fn adr_0059_event_row_precedes_services_and_registry_actions_do_not_attach() {
     ] {
         assert!(
             compact_command.contains(required),
-            "ADR 0059: registry command must call {required}"
+            "ADR 0113: registry command must call {required}"
         );
     }
     for forbidden in [
@@ -16077,7 +16077,7 @@ fn adr_0059_event_row_precedes_services_and_registry_actions_do_not_attach() {
     ] {
         assert!(
             !command.contains(forbidden),
-            "ADR 0059: registration/checking must not use {forbidden}"
+            "ADR 0113: registration/checking must not use {forbidden}"
         );
     }
     let wiring = source_between(
@@ -16093,11 +16093,11 @@ fn adr_0059_event_row_precedes_services_and_registry_actions_do_not_attach() {
             < wiring
                 .find("this.run_event_registry_command(next, cx)")
                 .unwrap(),
-        "ADR 0059: project the registered event before requesting its initial check"
+        "ADR 0113: project the registered event before requesting its initial check"
     );
 }
 
-/// Situational ADR 0059: every Show projection reapplies command ownership before rendering.
+/// Situational ADR 0113: every Show projection reapplies command ownership before rendering.
 #[test]
 fn adr_0059_show_command_feedback_survives_all_reprojections() {
     let app = read_source(&manifest_path("src/app/show.rs"));
@@ -16160,12 +16160,12 @@ fn adr_0059_show_command_feedback_survives_all_reprojections() {
                 .split_whitespace()
                 .collect::<String>()
                 .contains("ShowCommandCompletion::new(result"),
-            "ADR 0059: stamp command return in the worker, not the presentation callback"
+            "ADR 0113: stamp command return in the worker, not the presentation callback"
         );
     }
 }
 
-/// Situational ADR 0059: Working uses typed unavailable stream controls, preserving the action row.
+/// Situational ADR 0113: Working uses typed unavailable stream controls, preserving the action row.
 #[test]
 fn adr_0059_stream_working_retains_typed_actions() {
     let vm = read_source(&manifest_path("src/view_models/show.rs"));
@@ -16315,7 +16315,7 @@ fn adr_0063_event_reports_use_recorded_times_and_plain_text() {
     assert!(vm.contains("self.text = event_diagnostics(input)"));
 }
 
-/// Situational ADR 0059: target mutation reserves Publisher using the existing bounded readback policy.
+/// Situational ADR 0113: target mutation reserves Publisher using the existing bounded readback policy.
 #[test]
 fn adr_0059_event_target_commands_share_publisher_ownership() {
     let app = read_source(&manifest_path("src/app/show.rs"));

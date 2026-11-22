@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! Publisher-side service watch actor for ADR 0059.
+//! Publisher-side service watch actor for ADR 0113.
 //!
 //! The actor observes service state for the local broadcast chain and publishes
 //! GPUI-free snapshots over `tokio::sync::watch`. Blocking service reads run on
@@ -26,14 +26,14 @@ use crate::broadcast::transport::Transport;
 
 const INBOX_CAPACITY: usize = 8;
 
-/// Unit read interval at the `Viewed` pace (ADR 0059).
+/// Unit read interval at the `Viewed` pace (ADR 0113).
 const VIEWED_UNIT_INTERVAL: Duration = Duration::from_secs(1);
-/// Encoder read interval at the `Viewed` pace (ADR 0059).
+/// Encoder read interval at the `Viewed` pace (ADR 0113).
 const VIEWED_ENCODER_INTERVAL: Duration = Duration::from_secs(5);
-/// Unit and encoder read interval at the `Background` pace (ADR 0059).
+/// Unit and encoder read interval at the `Background` pace (ADR 0113).
 const BACKGROUND_INTERVAL: Duration = Duration::from_secs(10);
 
-/// How often the service watch reads (ADR 0059).
+/// How often the service watch reads (ADR 0113).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BroadcastServiceWatchPace {
     /// Show is open, or a Show command waits for its result.
@@ -282,7 +282,7 @@ impl BroadcastServiceWatchHandle {
             .is_ok()
     }
 
-    /// Set the pace the watch reads at (ADR 0059).
+    /// Set the pace the watch reads at (ADR 0113).
     ///
     /// A change to `Viewed` reads all services at once. Returns `false` when
     /// the actor has shut down or its inbox is full.
@@ -408,7 +408,7 @@ fn start_in_session(
 
     let stop = session.stop_token();
     session.spawn_actor("Broadcast service observations", async move {
-        // The first read at start always reads the encoder too (ADR 0059).
+        // The first read at start always reads the encoder too (ADR 0113).
         let mut pace = BroadcastServiceWatchPace::Background;
         let mut last_encoder = publish_snapshot(
             &snapshot_tx,
@@ -447,7 +447,7 @@ fn start_in_session(
                         Some(BroadcastServiceWatchCommand::SetPace(new_pace)) => {
                             if new_pace != pace {
                                 pace = new_pace;
-                                // A change to Viewed reads all services at once (ADR 0059).
+                                // A change to Viewed reads all services at once (ADR 0113).
                                 if pace == BroadcastServiceWatchPace::Viewed {
                                     last_encoder = publish_snapshot(
                                         &snapshot_tx,
@@ -497,7 +497,7 @@ fn start_in_session(
 }
 
 /// Publish one snapshot. Returns the published encoder snapshot, so the
-/// caller can carry it over into a later unit-only tick (ADR 0059).
+/// caller can carry it over into a later unit-only tick (ADR 0113).
 async fn publish_snapshot(
     snapshot_tx: &watch::Sender<BroadcastServiceWatchSnapshot>,
     units: Vec<BroadcastServiceWatchUnit>,
@@ -547,7 +547,7 @@ async fn read_broadcast_status(
 /// Read the units, and the encoder only when `read_encoder` is true.
 ///
 /// When `read_encoder` is false, the returned snapshot keeps
-/// `previous_encoder` unchanged (ADR 0059).
+/// `previous_encoder` unchanged (ADR 0113).
 fn read_broadcast_status_blocking(
     units: &[BroadcastServiceWatchUnit],
     instances: &BroadcastInstanceWatch,
@@ -681,7 +681,7 @@ mod tests {
 
     use super::*;
 
-    /// Situational ADR 0059: freshness starts before every service and encoder read.
+    /// Situational ADR 0113: freshness starts before every service and encoder read.
     #[test]
     fn show_watch_read_start_precedes_all_reads_and_end_follows_them() {
         struct TimedReader(Mutex<Vec<Instant>>);
@@ -859,7 +859,7 @@ mod tests {
         drop(handle);
     }
 
-    /// R59-18-01 (ADR 0059): `Background` reads the units and the encoder no
+    /// R59-18-01 (ADR 0113): `Background` reads the units and the encoder no
     /// more than every 10 seconds.
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn adr_0059_watch_pace_background_reads_units_and_encoder_at_most_every_ten_seconds() {
@@ -883,7 +883,7 @@ mod tests {
         drop(handle);
     }
 
-    /// R59-18-02 (ADR 0059): `Viewed` reads the units each second and the
+    /// R59-18-02 (ADR 0113): `Viewed` reads the units each second and the
     /// encoder each 5 seconds.
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn adr_0059_watch_pace_viewed_reads_units_each_second_and_encoder_each_five_seconds() {
@@ -912,7 +912,7 @@ mod tests {
         drop(handle);
     }
 
-    /// R59-18-03 (ADR 0059): a change to `Viewed` reads all services at once.
+    /// R59-18-03 (ADR 0113): a change to `Viewed` reads all services at once.
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn adr_0059_watch_pace_set_pace_viewed_reads_all_services_at_once() {
         let reader = Arc::new(CountingBroadcastStatusReader::new());
@@ -936,7 +936,7 @@ mod tests {
         drop(handle);
     }
 
-    /// R59-18-04 (ADR 0059): `refresh_now` reads the units and the encoder,
+    /// R59-18-04 (ADR 0113): `refresh_now` reads the units and the encoder,
     /// also before the encoder interval ends.
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn adr_0059_watch_pace_refresh_now_reads_before_the_encoder_interval_ends() {
@@ -968,7 +968,7 @@ mod tests {
         drop(handle);
     }
 
-    /// R59-18-05 (ADR 0059): a snapshot between two encoder reads keeps the
+    /// R59-18-05 (ADR 0113): a snapshot between two encoder reads keeps the
     /// last encoder value.
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn adr_0059_watch_pace_unit_only_ticks_keep_the_last_encoder_value() {

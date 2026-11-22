@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! Broadcast relay observation actor for ADR 0059.
+//! Broadcast relay observation actor for ADR 0113.
 //!
 //! The actor polls the relay snapshot for the selected broadcast event and
 //! publishes display-free facts over a `tokio::sync::watch` channel. It does

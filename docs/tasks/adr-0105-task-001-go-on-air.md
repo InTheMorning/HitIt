@@ -10,7 +10,7 @@ The Show page has the on air band. It has a checklist in order and one "Go on ai
 
 ## Authority
 
-[ADR 0105](../adr/0105-go-on-air-and-end-show.md) Decisions 1 to 4. [ADR 0059](../adr/0059-broadcast-control-surface.md) §Invariants: encoder commands run only in the broadcast service layer.
+[ADR 0105](../adr/0105-go-on-air-and-end-show.md) Decisions 1 to 4. [ADR 0059](../adr/archive/0059-broadcast-control-surface.md) §Invariants: encoder commands run only in the broadcast service layer.
 
 ## Change
 

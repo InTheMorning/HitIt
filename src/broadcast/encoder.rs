@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! Stream encoder control for ADR 0059.
+//! Stream encoder control for ADR 0113.
 //!
 //! This module owns the blocking `butt` command-line control boundary. It
 //! parses the status text into typed stream state and never sends song metadata
@@ -340,7 +340,7 @@ pub fn status(target: &EncoderTarget) -> Result<EncoderStatus> {
 /// The status of a local encoder when the app need not start the binary, or
 /// `None` when it must run the status command. Each start of an `AppImage`
 /// unpacks the program: a capture of 2026-11-06 gave it 31% of the processor
-/// samples while no encoder ran (ADR 0059). `processes` is `None` when the app
+/// samples while no encoder ran (ADR 0113). `processes` is `None` when the app
 /// cannot list the processes. An addressed target can be on another host, so
 /// its status always runs the command.
 fn local_status_without_a_start(

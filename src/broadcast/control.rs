@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! Systemd service control for ADR 0059.
+//! Systemd service control for ADR 0113.
 //!
 //! This module owns the blocking `systemctl --user` and `journalctl --user`
 //! boundary for publisher-side services. Callers pass unit names as values and

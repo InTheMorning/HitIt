@@ -30,6 +30,7 @@ research. Never read it to find a live rule.
 | 0051 | Workspace pane width persistence | Fully guarded |
 | 0052 | Library / Index data parity triage | Superseded by ADR 0053 |
 | 0055 | Search view-model module decomposition | Superseded by ADR 0060 |
+| 0059 | Broadcast Control Surface | Superseded by ADR 0113 |
 | 0064 | Local File Addressing | Fully guarded |
 | 0065 | Payment Route Tag Repair | Fully guarded |
 | 0067 | Platform Shortcut Modifiers | Fully guarded |

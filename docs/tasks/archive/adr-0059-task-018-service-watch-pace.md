@@ -9,7 +9,7 @@ The app redraws the window only when a shown state changes. The processor load i
 
 ## Authority
 
-- [ADR 0059](../../adr/0059-broadcast-control-surface.md), decision "The Service Watch Reads At The Pace Of Its Viewer", and its invariant. The operator decided the pace on 2026-10-18.
+- [ADR 0059](../../adr/archive/0059-broadcast-control-surface.md), decision "The Service Watch Reads At The Pace Of Its Viewer", and its invariant. The operator decided the pace on 2026-10-18.
 - [ADR 0040](../../adr/0040-async-vm-runtime.md): blocking work runs in a runtime actor, and `src/presentation/gpui_vm_bridge.rs` is the only bridge from a watch to GPUI.
 - The durable set in [AGENTS.md](../../../AGENTS.md): renderer portability. The pace and the redraw decision live outside the screens.
 

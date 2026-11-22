@@ -128,7 +128,7 @@ Until a page can play a track ([ADR 0068](../0068-show-cue-and-audition-isolatio
 
 The window has one status bar at the bottom, the same on every section. One shared composite owns it.
 
-- **Left:** the latest reported event, in the words of the report owner ([ADRs 0059 and 0063](../0059-broadcast-control-surface.md)), with its recorded time.
+- **Left:** the latest reported event, in the words of the report owner ([ADRs 0059 and 0063](0059-broadcast-control-surface.md)), with its recorded time.
 - **Right:** small items with a simple icon and a short word. Each item opens its detail. The items are feed state, files to update, reports with a count, and show state.
 - **The show item appears only while a show is active.** With no active show, Music and Settings show no broadcast state (Current Design Philosophy: curation shows nothing operational).
 

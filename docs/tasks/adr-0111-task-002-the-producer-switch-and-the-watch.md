@@ -13,7 +13,7 @@ the instance that holds Mixxx.
 ## Authority
 
 [ADR 0111](../adr/0111-show-instances-and-the-producer-switch.md) Decisions
-5 and 8. [ADR 0059](../adr/0059-broadcast-control-surface.md) gives the pace
+5 and 8. [ADR 0059](../adr/archive/0059-broadcast-control-surface.md) gives the pace
 rules of the watch.
 
 ## Change

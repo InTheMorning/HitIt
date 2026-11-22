@@ -15,7 +15,7 @@ Dead. `Forget` keeps a token file that HitIt must not remove. The CLI command
 
 [ADR 0110](../adr/0110-a-reserved-event-enters-the-registry.md) Decisions 1,
 2, 4, 6 and the CLI part of Decision 7. It changes
-[ADR 0059](../adr/0059-broadcast-control-surface.md).
+[ADR 0059](../adr/archive/0059-broadcast-control-surface.md).
 
 ## Change
 

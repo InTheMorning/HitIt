@@ -168,7 +168,7 @@ semantic fill/foreground mappings. State labels accompany every color.
 `adr_0063_item_activity_keeps_its_width_and_single_line` guards pending activity
 against vertical wrapping in the shared item header (situational, ADR 0063).
 
-[ADR 0059](0059-broadcast-control-surface.md#item-readiness-determines-section-readiness)
+[ADR 0059](archive/0059-broadcast-control-surface.md#item-readiness-determines-section-readiness)
 owns kind/label projection and aggregate readiness. The existing card-grid
 and two-summary-line guards remain binding. Separate Checking activity preserves
 the meaning of a confirmed Attached badge.

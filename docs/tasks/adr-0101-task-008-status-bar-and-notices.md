@@ -18,7 +18,7 @@ The window has one status bar at the bottom, the same on each section. It replac
   2. An event that is not the result of a visible action goes to one status area of the app, the status bar of HitIt.
   3. No app shows a toast: a message that slides in and goes away by itself.
 - musicindex ADR 0028 R-PAGE-2 item 4 (`../musicindex/docs/adr/0028-cross-app-item-pages.md` lines 57 to 73): after a copy, the "…" button of the header shows "Copied".
-- [ADR 0059](../adr/0059-broadcast-control-surface.md) and ADR 0063 own the words of a report.
+- [ADR 0059](../adr/archive/0059-broadcast-control-surface.md) and ADR 0063 own the words of a report.
 - The `rust-dev` skill applies to each Rust change.
 
 ## Recorded Facts

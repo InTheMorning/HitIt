@@ -1,10 +1,10 @@
 #![warn(clippy::pedantic)]
 #![expect(
     clippy::module_name_repetitions,
-    reason = "drop-file producer names mirror the ADR 0059 contract"
+    reason = "drop-file producer names mirror the ADR 0113 contract"
 )]
 
-//! Local mpv now-playing drop-file producer for ADR 0059.
+//! Local mpv now-playing drop-file producer for ADR 0113.
 //!
 //! The publisher owns relay payload delivery. This module only writes and
 //! removes the local `musicindex.nowplaying/1` input file for the built-in mpv

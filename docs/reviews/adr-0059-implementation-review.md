@@ -6,7 +6,7 @@ Passed - 2026-09-09. ADR 0059 is ready to mark `Implemented`.
 
 ## Artifacts Reviewed
 
-- [ADR 0059](../adr/0059-broadcast-control-surface.md)
+- [ADR 0059](../adr/archive/0059-broadcast-control-surface.md)
 - ADR 0059 phase plan
 - [Broadcast chain delivery order](../plans/broadcast-chain-delivery-order.md)
 - ADR 0059 task packets 001 through 015

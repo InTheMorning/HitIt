@@ -1,4 +1,4 @@
-//! Broadcast readiness watch actor for ADR 0059.
+//! Broadcast readiness watch actor for ADR 0113.
 //!
 //! The actor owns the blocking local file scan and publishes cached snapshots
 //! so Show renders payment-route readiness without touching the filesystem.

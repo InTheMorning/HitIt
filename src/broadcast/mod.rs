@@ -1,4 +1,4 @@
-//! Broadcast control helpers for ADR 0059.
+//! Broadcast control helpers for ADR 0113.
 //!
 //! The broadcast chain must keep running when the desktop app is closed. This
 //! module owns GPUI-free helpers that support the app's control-surface state.

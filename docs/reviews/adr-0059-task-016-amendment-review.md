@@ -8,7 +8,7 @@ not claim that its code or acceptance checks are complete.
 
 ## Scope
 
-Reviewed [ADR 0059](../adr/0059-broadcast-control-surface.md),
+Reviewed [ADR 0059](../adr/archive/0059-broadcast-control-surface.md),
 [ADR 0063](../adr/0063-show-dashboard-layout.md), the
 [current ADR index](../adr/README.md), the
 [delivery order](../plans/broadcast-chain-delivery-order.md), and

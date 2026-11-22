@@ -112,7 +112,7 @@ struct ShowCommandProgress {
     fresh_samples: u8,
 }
 
-/// Retained command ownership and observation release policy for Show (ADR 0059).
+/// Retained command ownership and observation release policy for Show (ADR 0113).
 #[derive(Debug, Default)]
 pub(crate) struct ShowCommandState {
     next_sequence: u64,
@@ -212,7 +212,7 @@ impl ShowCommandState {
     /// Reconcile a watch delivery once; projection alone must not count as another sample.
     ///
     /// Returns `true` when a command's progress changed, which is the only
-    /// visible effect of this call (ADR 0059).
+    /// visible effect of this call (ADR 0113).
     pub(crate) fn observe(
         &mut self,
         snapshot: &broadcast_service_watch::BroadcastServiceWatchSnapshot,
@@ -237,7 +237,7 @@ impl ShowCommandState {
         before != self.progress.len()
     }
 
-    /// Whether a command still waits for its result or for fresh confirming reads (ADR 0059).
+    /// Whether a command still waits for its result or for fresh confirming reads (ADR 0113).
     #[must_use]
     pub(crate) fn has_waiting(&self) -> bool {
         !self.progress.is_empty()
@@ -249,7 +249,7 @@ impl ShowCommandState {
     }
 }
 
-/// Pace the broadcast service watch should read at (ADR 0059).
+/// Pace the broadcast service watch should read at (ADR 0113).
 ///
 /// The Show section wants a fast view. Each other section wants a slow
 /// read, unless one of its commands still waits for its result.
@@ -265,7 +265,7 @@ pub(crate) fn broadcast_service_watch_pace(
     }
 }
 
-/// Whether a service-watch snapshot changed what the Show page would show (ADR 0059).
+/// Whether a service-watch snapshot changed what the Show page would show (ADR 0113).
 ///
 /// A changed read time alone is not a reason to redraw. The caller passes
 /// the result of `ShowCommandState::observe` and whether it started a
@@ -1492,7 +1492,7 @@ pub(crate) struct PublisherSectionDisplay {
     pub(crate) title: &'static str,
     /// Combined readiness of the event, attachment, and services.
     pub(crate) summary: String,
-    /// Event setup precedes the producer and publisher (ADR 0059).
+    /// Event setup precedes the producer and publisher (ADR 0113).
     pub(crate) event: Option<EventSectionDisplay>,
     /// Observed service rows, in fixed section order.
     pub(crate) services: Vec<PublisherServiceDisplay>,
@@ -1759,7 +1759,7 @@ pub(crate) struct EventActionsDisplay {
     pub(crate) add_reserved: EventActionDisplay,
 }
 
-/// Operator intent for registry commands (ADR 0059).
+/// Operator intent for registry commands (ADR 0113).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum EventRegistryAction {
     Create,
@@ -1779,7 +1779,7 @@ pub(crate) enum EventCommandState {
     },
 }
 
-/// Registration and checking have independent results (ADR 0059).
+/// Registration and checking have independent results (ADR 0113).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct EventCommandFeedback {
     report: event_report::EventReport,
@@ -2171,7 +2171,7 @@ pub(crate) const fn show_card_for_dependency(
 
 /// Stable card identities for the Show dashboard.
 ///
-/// The order of this enum is the ADR 0059 section order.
+/// The order of this enum is the ADR 0113 section order.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ShowCardKind {
     /// Source host and library readiness.
@@ -3003,7 +3003,7 @@ impl ShowPageVm {
     /// An operator presses an action and the answer takes seconds: the command
     /// blocks, and then the watch actor reads the new state. This holds the row
     /// in the meantime. The retained command state determines when readback
-    /// can replace it (ADR 0059).
+    /// can replace it (ADR 0113).
     #[must_use]
     pub(crate) fn mark_service_working(mut self, role: PublisherServiceRole) -> Self {
         if let Some(publisher) = self.publisher.as_mut() {
@@ -3679,7 +3679,7 @@ fn event_hint(input: &EventSectionInput) -> Option<String> {
 const COPY_FEED_TAG_NO_HOST_A11Y_LABEL: &str =
     "Copy listener feed tag. The stored relay endpoint of this event has no host.";
 
-/// The `podcast:liveValue` tag names the relay of the event (ADR 0059 amendment of 2026-10-24).
+/// The `podcast:liveValue` tag names the relay of the event (ADR 0113 amendment of 2026-10-24).
 ///
 /// The tag is absent when the stored endpoint of the event gives no URI.
 fn feed_tag_for_event(event: &EventSelectionInput) -> Option<String> {
@@ -5038,7 +5038,7 @@ mod tests {
             .unwrap()
     }
 
-    /// ADR 0059: a fresh matching read releases a completed command.
+    /// ADR 0113: a fresh matching read releases a completed command.
     #[test]
     fn show_command_transition_requires_fresh_read_and_matching_direction() {
         let returned_at = Instant::now();
@@ -5110,7 +5110,7 @@ mod tests {
         }
     }
 
-    /// Situational ADR 0059: failures end transitions without clearing another role or a newer press.
+    /// Situational ADR 0113: failures end transitions without clearing another role or a newer press.
     #[test]
     fn show_command_failures_and_old_results_keep_role_ownership_separate() {
         let mut commands = ShowCommandState::default();
@@ -5189,7 +5189,7 @@ mod tests {
         assert!(commands.complete(new_host, now, false));
     }
 
-    /// Situational ADR 0059: a failed start or inaccessible unit is an answer, even without agreement.
+    /// Situational ADR 0113: a failed start or inaccessible unit is an answer, even without agreement.
     #[test]
     fn show_command_fresh_settled_failure_releases_immediately() {
         let now = Instant::now();
@@ -5221,7 +5221,7 @@ mod tests {
         }
     }
 
-    /// Situational ADR 0059: three distinct fresh samples bound a transition; reprojection is not a sample.
+    /// Situational ADR 0113: three distinct fresh samples bound a transition; reprojection is not a sample.
     #[test]
     fn show_command_transition_is_bounded_and_duplicate_reads_do_not_count() {
         let now = Instant::now();
@@ -5260,7 +5260,7 @@ mod tests {
         }
     }
 
-    /// R59-18-06 (ADR 0059): the pace function prefers Show, then a waiting command.
+    /// R59-18-06 (ADR 0113): the pace function prefers Show, then a waiting command.
     #[test]
     fn adr_0059_watch_pace_function_prefers_show_then_waiting_command() {
         let mut commands = ShowCommandState::default();
@@ -5287,7 +5287,7 @@ mod tests {
         );
     }
 
-    /// R59-18-07 (ADR 0059): only an observed-state, command, or log-read change redraws.
+    /// R59-18-07 (ADR 0113): only an observed-state, command, or log-read change redraws.
     #[test]
     fn adr_0059_watch_pace_redraw_ignores_read_time_alone() {
         let base = command_snapshot(ServiceState::Active, Instant::now());
@@ -5328,7 +5328,7 @@ mod tests {
         );
     }
 
-    /// R59-18-08 (ADR 0059): three fresh Viewed reads end a waiting command,
+    /// R59-18-08 (ADR 0113): three fresh Viewed reads end a waiting command,
     /// even when its service state never resolves.
     #[test]
     fn adr_0059_watch_pace_three_fresh_viewed_reads_release_a_waiting_command() {
@@ -5366,7 +5366,7 @@ mod tests {
         );
     }
 
-    /// Situational ADR 0059: stream actions stay mounted and disabled until command readback resolves.
+    /// Situational ADR 0113: stream actions stay mounted and disabled until command readback resolves.
     #[test]
     fn show_command_stream_keeps_controls_and_uses_the_service_release_policy() {
         let now = Instant::now();
@@ -7153,7 +7153,7 @@ mod tests {
         assert_eq!(unread.attach_confirmation, None);
     }
 
-    /// Situational ADR 0059: event liveness and attachment precede running services.
+    /// Situational ADR 0113: event liveness and attachment precede running services.
     #[test]
     fn show_event_readiness_table_covers_liveness_and_every_attachment_result() {
         let snapshot = publisher_snapshot([
@@ -7236,7 +7236,7 @@ mod tests {
         assert_event_attachment_readiness(&snapshot);
     }
 
-    /// Situational ADR 0059: attachment query failures cannot claim confirmed absence.
+    /// Situational ADR 0113: attachment query failures cannot claim confirmed absence.
     fn assert_event_attachment_readiness(
         snapshot: &broadcast_service_watch::BroadcastServiceWatchSnapshot,
     ) {
@@ -7284,7 +7284,7 @@ mod tests {
         }
     }
 
-    /// Situational ADR 0059: stopped, transient, absent, and unknown services cannot read Ready.
+    /// Situational ADR 0113: stopped, transient, absent, and unknown services cannot read Ready.
     #[test]
     fn show_event_readiness_table_covers_every_service_state() {
         for state in [
@@ -7345,7 +7345,7 @@ mod tests {
         }
     }
 
-    /// Situational ADR 0059: busy commands serialize; a failed check preserves registration success.
+    /// Situational ADR 0113: busy commands serialize; a failed check preserves registration success.
     #[test]
     fn show_event_unknown_check_retry_and_working_actions_are_typed() {
         let mut input = ready_event_input();
@@ -7477,7 +7477,7 @@ mod tests {
             "card {card:?} has an empty accessibility label"
         );
     }
-    /// Situational ADR 0059: configured name AND ID decide attachment, including an empty name.
+    /// Situational ADR 0113: configured name AND ID decide attachment, including an empty name.
     #[test]
     fn compact_event_configured_target_and_remote_hint() {
         let mut input = ready_event_input();
@@ -7524,7 +7524,7 @@ mod tests {
         assert!(event_hint(&input).is_none());
     }
 
-    /// Situational ADR 0059: independently completed read failures override retained confirmation.
+    /// Situational ADR 0113: independently completed read failures override retained confirmation.
     #[test]
     fn compact_event_passive_checks_and_mutations_have_distinct_readiness() {
         let mut input = ready_event_input();
@@ -7607,7 +7607,7 @@ mod tests {
         }
     }
 
-    /// Situational ADR 0059: event badge labels distinguish unknown facts from absence.
+    /// Situational ADR 0113: event badge labels distinguish unknown facts from absence.
     fn assert_compact_event_badge_table() {
         use ShowCardStateKind::{Attention, Failed, Ok, Unknown};
         let ready = ready_event_input();
@@ -7678,7 +7678,7 @@ mod tests {
         assert!(event.actions.create.disabled());
     }
 
-    /// Situational ADR 0059: every label and every role combination uses the same badge facts.
+    /// Situational ADR 0113: every label and every role combination uses the same badge facts.
     #[test]
     fn compact_event_badge_tables_and_card_equivalence() {
         use ShowCardStateKind::{Attention, Failed, Ok, Unknown};
@@ -8096,7 +8096,7 @@ mod tests {
     }
 }
 
-/// Renderer-free badge shared by card and item projections (ADR 0059/0063).
+/// Renderer-free badge shared by card and item projections (ADR 0113/0063).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct ShowItemBadge {
     pub(crate) kind: ShowCardStateKind,

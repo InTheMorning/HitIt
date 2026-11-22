@@ -2073,7 +2073,7 @@ pub fn broadcast_events(conn: &Connection) -> Result<Vec<BroadcastEventRow>> {
     Ok(rows)
 }
 
-/// Database-scoped operator choice. A missing event remains selected (ADR 0059).
+/// Database-scoped operator choice. A missing event remains selected (ADR 0113).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct BroadcastEventSelection {
     pub(crate) event_id: Option<String>,
@@ -4672,7 +4672,7 @@ mod tests {
         .with_context(|| format!("count rows in {table}"))
     }
 
-    /// Situational ADR 0059: selection survives reopen, missing rows, and new registrations.
+    /// Situational ADR 0113: selection survives reopen, missing rows, and new registrations.
     #[test]
     fn broadcast_selection_is_persistent_and_revisioned() -> Result<()> {
         let dir = tempfile::tempdir()?;

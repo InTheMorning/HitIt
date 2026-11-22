@@ -1,4 +1,4 @@
-//! Token-file storage for ADR 0059 broadcast events.
+//! Token-file storage for ADR 0113 broadcast events.
 //!
 //! The relay returns a broadcaster token once. The database stores only the
 //! path to the token file; this module owns the file write and read boundary.

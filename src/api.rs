@@ -11,7 +11,7 @@ use crate::application::request_profiles::{RequestPathShape, RequestProfile};
 pub const DEFAULT_BASE_URL: &str = "https://api.musicindex.org";
 pub const PAGE_LIMIT: i32 = 20;
 
-/// Facts retained when an event metadata request cannot supply an answer (ADR 0059).
+/// Facts retained when an event metadata request cannot supply an answer (ADR 0113).
 #[derive(Debug)]
 pub(crate) struct LiveMetadataReadError {
     pub(crate) response_status: Option<u16>,

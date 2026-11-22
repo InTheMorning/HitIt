@@ -13,7 +13,7 @@ Accepted - 2026-09-07.
 - Revised: 2026-11-14: each citation of a live rule of the six archived Music shell ADRs names the item of [ADR 0098](0098-the-music-shell-pages-lists-and-search.md) that restates it. No rule changes.
 
 - Changes: [ADR 0048](archive/0048-content-list-frame-breadcrumb-search.md), the app-section tab set.
-- Changes: [ADR 0059](0059-broadcast-control-surface.md), the `Broadcast` workspace frame. Everything else in ADR 0059 stays.
+- Changes: [ADR 0059](archive/0059-broadcast-control-surface.md), the `Broadcast` workspace frame. Everything else in ADR 0059 stays.
 - Changes: [ADR 0037](0037-same-entity-surface-parity.md), the separate Library and Discover screens.
 
 Amended 2026-09-11: corrected the obsolete reserved audition ADR number to

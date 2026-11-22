@@ -291,7 +291,7 @@ pub struct TopApp {
     publisher_service_watch: Option<BroadcastServiceWatchHandle>,
     publisher_watch_generation: u64,
     publisher_service_snapshot: Option<BroadcastServiceWatchSnapshot>,
-    /// The pace last sent to the service watch, so a repeat is never sent (ADR 0059).
+    /// The pace last sent to the service watch, so a repeat is never sent (ADR 0113).
     broadcast_service_watch_pace: BroadcastServiceWatchPace,
     show_log_resize: Option<(f32, f32)>,
     event_section_input: Option<EventSectionInput>,

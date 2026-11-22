@@ -103,7 +103,7 @@ Current governance:
   status values, partial-implementation format, and amendment rules
 - [ADR 0058: Outbound HTTP client policy](adr/0058-outbound-http-client-policy.md):
   one owner for blocking HTTP client construction and timeout constants
-- [ADR 0059: Broadcast control surface](adr/0059-broadcast-control-surface.md):
+- [ADR 0059: Broadcast control surface](adr/archive/0059-broadcast-control-surface.md):
   external publisher control, selectable now-playing sources, event registry,
   saved event selection, configured-target readiness, and token storage
 - [ADR 0063: Show dashboard layout](adr/0063-show-dashboard-layout.md):

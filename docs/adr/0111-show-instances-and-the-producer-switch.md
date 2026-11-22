@@ -189,7 +189,7 @@ instance:
   `systemctl --user list-units 'mixxx-now-playing@*'`.
 
 `src/runtime/broadcast_service_watch.rs` reads these units. It keeps the pace
-rules of ADR 0059.
+rules of ADR 0113.
 
 ## Invariants
 

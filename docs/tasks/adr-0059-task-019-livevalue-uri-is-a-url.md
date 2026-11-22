@@ -11,7 +11,7 @@ and Stophammer can match the `uri` to a confirming relay.
 
 ## Authority
 
-- [ADR 0059](../adr/0059-broadcast-control-surface.md), amendment of 2026-09-06: the `Event`
+- [ADR 0059](../adr/archive/0059-broadcast-control-surface.md), amendment of 2026-09-06: the `Event`
   section shows the ready-to-paste `podcast:liveValue` tag with a copy action. This packet
   amends the form of that tag.
 - [The live value URI plan](../plans/archive/livevalue-uri-is-a-url.md) of 2026-09-26. It records the

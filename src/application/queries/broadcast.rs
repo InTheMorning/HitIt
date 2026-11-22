@@ -1,4 +1,4 @@
-//! Broadcast readiness read model for ADR 0059.
+//! Broadcast readiness read model for ADR 0113.
 //!
 //! The query is read-only: it checks local library rows and embedded audio tag
 //! state so Show and CLI surfaces can report payment-route readiness without

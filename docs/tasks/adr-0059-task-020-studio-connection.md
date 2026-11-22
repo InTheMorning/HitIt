@@ -8,7 +8,7 @@ The operator can connect a local publisher to Studio from the Show section. The 
 
 ## Authority
 
-- [ADR 0059](../adr/0059-broadcast-control-surface.md): §This App Is A Control Surface, §Observation Has Two Layers and §Attachment Names The Configured Target. Also §The Publisher Owns Its Configuration and §Remote Control Uses SSH First.
+- [ADR 0059](../adr/archive/0059-broadcast-control-surface.md): §This App Is A Control Surface, §Observation Has Two Layers and §Attachment Names The Configured Target. Also §The Publisher Owns Its Configuration and §Remote Control Uses SSH First.
 - Studio ADR 0110 (`~/build/musicindex-studio/docs/adr/0110-a-connected-app-signs-each-request-with-its-own-key.md`) owns the interface between Studio and an app. This app cites it and does not restate it.
 - `musicindex-live-publisher` ADR 0018, written by its Studio client task 001, owns the pairing command, the configuration and the status file of the publisher.
 - The Studio handoff note (`~/build/musicindex-studio/docs/notes/2026-11-01-live-publisher-studio-client.md`) lists the open points of this app. It is advisory.

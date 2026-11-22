@@ -1,4 +1,4 @@
-//! Timestamped Event reports with concrete subjects and outcomes (ADRs 0059/0063).
+//! Timestamped Event reports with concrete subjects and outcomes (ADRs 0113/0063).
 
 use chrono::{DateTime, Utc};
 
@@ -425,7 +425,7 @@ mod tests {
         assert!(restarted.contains("no recorded event actions"));
     }
 
-    /// Situational ADR 0059: HTTP replies, missing replies, invalid data, and save failures differ.
+    /// Situational ADR 0113: HTTP replies, missing replies, invalid data, and save failures differ.
     #[test]
     fn event_report_check_failures_use_typed_response_facts() {
         for (response, expected, unchanged) in [
@@ -471,7 +471,7 @@ mod tests {
         }
     }
 
-    /// Situational ADR 0059: a missing event is a successful answer, not an unreachable relay.
+    /// Situational ADR 0113: a missing event is a successful answer, not an unreachable relay.
     #[test]
     fn event_report_success_names_the_answer_and_saved_state() {
         for (state, answer, saved) in [
@@ -496,7 +496,7 @@ mod tests {
         }
     }
 
-    /// Situational ADR 0059: reports name the configured target and explain partial command failures.
+    /// Situational ADR 0113: reports name the configured target and explain partial command failures.
     #[test]
     fn event_report_target_results_name_configuration_and_consequences() {
         let mut input = example();

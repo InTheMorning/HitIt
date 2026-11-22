@@ -166,7 +166,7 @@ identifier from the updated feed.
 
 ## References
 
-- [ADR 0059](../adr/0059-broadcast-control-surface.md)
+- [ADR 0059](../adr/archive/0059-broadcast-control-surface.md)
 - [Broadcast chain architecture](../architecture/broadcast-chain.md)
 - [ADR 0059 implementation review](../reviews/adr-0059-implementation-review.md)
 

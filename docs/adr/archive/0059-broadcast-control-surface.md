@@ -2,6 +2,8 @@
 
 ## Status
 
+Superseded by ADR 0113 - 2026-11-21. [ADR 0113](../0113-broadcast-control-surface.md) restates each live rule of this ADR and of its changes. The text below is the record before the consolidation.
+
 Accepted - 2026-09-24. Implemented on 2026-09-10 before the ADR 0076 amendment. ADR 0076 packet 003 implemented the amendment on 2026-09-24.
 
 - Changed by: [ADR 0076](0076-playlist-rss-check-for-stale-musicindex-records.md) Decisions 7 and 9, 2026-09-24.

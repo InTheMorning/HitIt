@@ -34,11 +34,11 @@ attachment; passive checks retain confirmation until their result arrives.
 
 ## Decision Owners
 
-- [ADR 0059: stored selection](../../adr/0059-broadcast-control-surface.md#stored-event-selection-is-explicit-and-persistent),
-  [configured target](../../adr/0059-broadcast-control-surface.md#attachment-names-the-configured-target),
-  [actions](../../adr/0059-broadcast-control-surface.md#event-actions-keep-independent-results),
-  [state mappings](../../adr/0059-broadcast-control-surface.md#item-readiness-determines-section-readiness),
-  and [passive checks](../../adr/0059-broadcast-control-surface.md#passive-checks-preserve-confirmation-until-they-answer).
+- [ADR 0059: stored selection](../../adr/archive/0059-broadcast-control-surface.md#stored-event-selection-is-explicit-and-persistent),
+  [configured target](../../adr/archive/0059-broadcast-control-surface.md#attachment-names-the-configured-target),
+  [actions](../../adr/archive/0059-broadcast-control-surface.md#event-actions-keep-independent-results),
+  [state mappings](../../adr/archive/0059-broadcast-control-surface.md#item-readiness-determines-section-readiness),
+  and [passive checks](../../adr/archive/0059-broadcast-control-surface.md#passive-checks-preserve-confirmation-until-they-answer).
 - [ADR 0063: compact items](../../adr/0063-show-dashboard-layout.md#live-metadata-has-three-compact-items),
   [shared badges](../../adr/0063-show-dashboard-layout.md#item-badges-share-the-card-badge-presentation),
   and [Event diagnostics](../../adr/0063-show-dashboard-layout.md#event-diagnostics-reuses-the-bottom-pane).
@@ -290,7 +290,7 @@ ADR 0063). Preserve the existing text selection and copy-menu guards at
 `tests/architecture_tests.rs:15231` and `:15260`.
 
 Configured-target attachment and passive-check readiness guards cite
-[ADR 0059 Invariants](../../adr/0059-broadcast-control-surface.md#invariants).
+[ADR 0059 Invariants](../../adr/archive/0059-broadcast-control-surface.md#invariants).
 Every guard keeps one owning ADR and its class. Retire an obsolete assertion
 when its replacement becomes binding; delete a whole test or guard only when
 every rule it enforces is retired. Keep the queue separation, three-card, and

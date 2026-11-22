@@ -111,7 +111,7 @@ Packet 017 must identify summary coverage before packet 013 accepts a replacemen
 | Publisher search | Text, feed/track counts, and feed/track result lists. Packet 005 owns text. Packet 034 owns aggregates and collection coverage |
 | Embedded tags | Format-specific fields and artwork remain separate governed by [ADR 0004](../adr/0004-format-neutral-audio-tag-boundary.md). [ADR 0008](../adr/0008-explicit-id3v24-write-boundary.md) governs writes |
 | MusicBrainz | Lookup and release facts remain separate governed by [ADR 0005](../adr/0005-musicbrainz-metadata-lookup.md) and [ADR 0006](../adr/0006-musicbrainz-release-detail-enrichment.md) |
-| Live items | Status, start/end time, content link, and shared metadata keep the existing broadcast contract. [ADR 0059](../adr/0059-broadcast-control-surface.md) remains unchanged |
+| Live items | Status, start/end time, content link, and shared metadata keep the existing broadcast contract. [ADR 0059](../adr/archive/0059-broadcast-control-surface.md) remains unchanged |
 | Local operational state | Database row IDs, membership, subscription state, local file paths, and playback state are not publisher metadata. Existing owners remain unchanged |
 
 ## Required Checks Before Field Implementation

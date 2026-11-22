@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! The `podcast:liveValue` URI of a broadcast event (ADR 0059, amendment of 2026-10-24).
+//! The `podcast:liveValue` URI of a broadcast event (ADR 0113 §The Broadcast Sections Live In Show).
 //!
 //! ADR 0059 task 019 owns this module. The URI names the relay that holds the
 //! event, so a listener app can connect to it. The relay registers the

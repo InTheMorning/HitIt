@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! Broadcast event registry service for ADR 0059.
+//! Broadcast event registry service for ADR 0113.
 //!
 //! This module owns the GPUI-free service boundary around relay event creation,
 //! liveness checks, local rows, and token files. It calls the relay through
@@ -45,7 +45,7 @@ pub struct CheckedBroadcastEvent {
     pub status: db::BroadcastEventStatus,
 }
 
-/// A relay answer arrived, but storing or reading back that answer failed (ADR 0059).
+/// A relay answer arrived, but storing or reading back that answer failed (ADR 0113).
 #[derive(Debug)]
 pub(crate) struct EventCheckSaveError {
     pub(crate) observed_status: db::BroadcastEventStatus,
@@ -816,7 +816,7 @@ mod tests {
 
         let response = error
             .downcast_ref::<crate::api::LiveMetadataReadError>()
-            .expect("ADR 0059: retain response facts through registry context");
+            .expect("ADR 0113: retain response facts through registry context");
         assert_eq!(response.response_status, None);
 
         assert!(
@@ -831,7 +831,7 @@ mod tests {
         Ok(())
     }
 
-    /// Situational ADR 0059: rejected and unreadable HTTP responses remain distinct from no response.
+    /// Situational ADR 0113: rejected and unreadable HTTP responses remain distinct from no response.
     #[test]
     fn check_event_retains_http_status_without_changing_saved_facts() -> Result<()> {
         for (status, expected) in [("503 Service Unavailable", 503), ("200 OK", 200)] {

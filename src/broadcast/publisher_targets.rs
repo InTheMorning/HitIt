@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-//! Publisher target command control for ADR 0059.
+//! Publisher target command control for ADR 0113.
 //!
 //! This module owns the `musicindex-live-publisher target` command boundary.
 //! It runs every command through a task 010 transport, passes broadcaster
