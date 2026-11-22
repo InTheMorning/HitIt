@@ -3,9 +3,15 @@
 ## Status
 
 Done - 2026-11-22, except the visual check. The main session ran the gate.
-With task 017, both tests of this task pass. The `WOAR` cause is not known:
-the step 2 test failed first on `TIPL`, which is its first assertion. The
-visual check shows if the `WOAR` edit stays.
+Step 3 corrects the `WOAR` cause that the operator re-download showed.
+
+- Operator choice, 2026-11-22, through the orchestrator (interim): when the
+  HitIt `rss` row and the MusicIndex `rss_link` row both give the channel
+  website of a feed, the stored context takes the `rss_link` row. It is the
+  read value of stophammer ADR 0054 §4a. With only the `rss` row, a URL with
+  no scheme gives no `WOAR` edit. HitIt adds no scheme repair. The rule goes
+  in the change that pins the shared parser function of that repair
+  (musicindex ADR 0086 R-FEED-1 item 4).
 
 ## Goal
 
@@ -96,6 +102,19 @@ Changes:
 3. A comment at each change cites ADR 0076 Decision 10, ADR 0080 Decision 3
    and this task.
 
+## Step 3: The Website Takes The MusicIndex Row
+
+Cause, from the operator database on 2026-11-22. Feed 18 has two website
+rows: source `rss`, `www.strangeloveofmusic.wixsite.com/strangelove`, from
+`parse_feed_document`, and source `rss_link`,
+`https://www.strangeloveofmusic.wixsite.com/strangelove`, from MusicIndex.
+`local_identity_links` sorts by source, so the stored context took the `rss`
+row. `format_id3_website_url` does not parse a URL with no scheme, so the
+download wrote no `WOAR`.
+
+Change: `hydrate_feed_identity` puts the website rows of source `rss_link`
+before the other links.
+
 ## Do Not Change
 
 - `src/metadata.rs` and `src/application/queries/tag_update.rs`. Task 017
@@ -143,6 +162,12 @@ Mechanical:
    only.
 6. If the `WOAR` edit is missing after changes 1 and 2, the report gives the
    cause with file:line evidence. Do not change the link storage.
+
+7. Step 3. A feed with both website rows gives one `WOAR` edit with
+   `https://www.strangeloveofmusic.wixsite.com/strangelove`. Test
+   `adr_0080_task_018_website_takes_the_musicindex_row`. A feed with only
+   the `rss` row with no scheme gives no `WOAR` edit. Test
+   `adr_0080_task_018_website_with_no_scheme_gives_no_woar`.
 
 Visual (manual, by the operator):
 

@@ -82,3 +82,14 @@ At the end, report:
 3. behavior changed
 4. deviations from task
 5. unresolved concerns
+
+## Findings
+
+- Operator report, 2026-11-22, release binary of commit 37a721e. V3 fails.
+  The sheet is too narrow, and the operator cannot make it wider. Values are
+  cut off and do not wrap. A collapsed group header ("URL link frames",
+  "Identification / release structure" and others) expands to no rows. No
+  field gives a way to copy or expand its value. The operator stated that
+  the sheet does not follow the shared rules yet (ADR 0101). The operator
+  could not read a full URL in the sheet, so a `WOAR` check needed a
+  terminal command. A fix needs a task with the shared rules of ADR 0101.
