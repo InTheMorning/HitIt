@@ -162,8 +162,14 @@ R-TAG-2 gives each `MusicIndex ...` frame a new `Podcast ...` name. HitIt reads
 only the new names. Use this command one time to give the library files the new
 names.
 
+The same write also repairs each ID3 tag that is not a correct ID3v2.4 tag
+(musicindex ADR 0090 R-TAG-8 and R-TAG-10 item 2). Examples are a bad frame, an
+ID3v2.3 tag and an ID3v1 tag. A file with a bad tag header is unreadable. The
+write does not change it (R-TAG-7 item 5).
+
 1. Do the dry run. It changes no file. It lists each file with old frames, the
-   old frames and the new frames, and then the counts.
+   old frames and the new frames, and then the counts. A line "repair:" names
+   each repair of the ID3 tag.
 
    ```bash
    hitit library retag-podcast-frames
@@ -182,7 +188,7 @@ names.
 
 5. Do the dry run again. "Files to rewrite" must be 0.
 
-A second write does not change a file that has only new frames. To get the
+A second write does not change a file that has a correct tag. To get the
 file of the time before the write, copy it from the backup folder.
 
 ## Playback Session Workflow

@@ -469,7 +469,7 @@ fn changed_frames(
         }
         if file_values.iter().any(|value| {
             values_match(&edit.frame_label, value, &edit.value)
-                || mp4_year_matches(&edit.frame_label, value, &edit.value, format)
+                || year_matches(&edit.frame_label, value, &edit.value, format)
         }) {
             continue;
         }
@@ -509,17 +509,19 @@ enum CompareKey {
     Stored(String),
     /// The ID3 target key. An MP3 file keeps each frame apart.
     Frame(String),
-    /// The one date value of an MP4 file. The reader gives the `TDRC` and
-    /// `TYER` atoms both as `TDRC`.
-    Mp4Date,
+    /// The one date value of an MP4 or MP3 file. The reader gives the `TDRC`
+    /// and `TYER` atoms of MP4 both as `TDRC`. An MP3 write gives one `TDRC`
+    /// frame, because an ID3v2.4 tag has no `TYER` frame (musicindex ADR 0090
+    /// R-TAG-8 item 1).
+    OneDate,
 }
 
 /// ADR 0080 Decision 6: the scan finds the file values of a frame by the
 /// storage key of the file format. The reader gives each value under one
 /// frame label for its key. Thus the scan must use the key, not the label.
 fn compare_key(frame_label: &str, format: Option<AudioFormat>) -> CompareKey {
-    if format == Some(AudioFormat::Mp4) && matches!(frame_label, "TDRC" | "TYER") {
-        return CompareKey::Mp4Date;
+    if holds_one_date(format) && matches!(frame_label, "TDRC" | "TYER") {
+        return CompareKey::OneDate;
     }
     format
         .and_then(|format| vorbis_storage_key(frame_label, format))
@@ -542,7 +544,7 @@ fn shared_key_edits(
         .iter()
         .filter_map(|frame| match compare_key(&frame.frame_label, format) {
             CompareKey::Stored(key) => Some(key),
-            CompareKey::Frame(_) | CompareKey::Mp4Date => None,
+            CompareKey::Frame(_) | CompareKey::OneDate => None,
         })
         .collect::<BTreeSet<_>>();
     if changed_keys.is_empty() {
@@ -588,16 +590,23 @@ fn frame_is_compared(frame_label: &str, format: Option<AudioFormat>) -> bool {
     }
 }
 
-/// ADR 0080 Decision 6: an MP4 file holds one date value. A `TYER` year is
+/// True when a write gives the file one date value: an MP4 file (ADR 0080
+/// Decision 6) and an MP3 file (musicindex ADR 0090 R-TAG-8 item 1). The
+/// writer handles a file of an unknown format as MP3.
+fn holds_one_date(format: Option<AudioFormat>) -> bool {
+    matches!(format, None | Some(AudioFormat::Mp3 | AudioFormat::Mp4))
+}
+
+/// A file with one date value (see [`holds_one_date`]): a `TYER` year is
 /// equal when the file date starts with it.
-fn mp4_year_matches(
+fn year_matches(
     frame_label: &str,
     file_value: &str,
     expected: &str,
     format: Option<AudioFormat>,
 ) -> bool {
     let expected = expected.trim();
-    format == Some(AudioFormat::Mp4)
+    holds_one_date(format)
         && frame_label == "TYER"
         && !expected.is_empty()
         && file_value.trim().starts_with(expected)
@@ -1433,9 +1442,10 @@ mod tests {
         assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
     }
 
-    /// R80-3-04: an MP3 file of the same track keeps `TDRC` and `TYER` as
-    /// two frames. The scan lists only the missing `TDRC` frame, and the
-    /// write holds only that frame.
+    /// R80-3-04, changed by musicindex ADR 0090 R-TAG-8 item 1: an MP3 file
+    /// of the same track holds one `TDRC` frame and no `TYER` frame. The
+    /// scan lists only the missing `TDRC` frame, and the write holds only
+    /// that frame.
     #[test]
     fn adr_0080_shared_key_mp3_scan_is_unchanged() {
         let dir = tempfile::tempdir().unwrap();
@@ -1444,32 +1454,27 @@ mod tests {
             .unwrap();
         let path = dir.path().join("song-1.mp3");
         let edits = full_edits(&conn);
-        let year = edits
-            .iter()
-            .find(|edit| edit.frame_label == "TYER")
-            .cloned()
-            .unwrap();
+        assert!(edits.iter().any(|edit| edit.frame_label == "TYER"));
         write_id3v24_edits(&path, &edits).unwrap();
         assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
 
-        // An MP3 write of the year alone keeps the `TDRC` frame.
-        write_id3v24_edits(&path, std::slice::from_ref(&year)).unwrap();
-        assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
-
         let mut tag = id3::Tag::read_from_path(&path).unwrap();
+        assert!(id3::TagLike::get(&tag, "TYER").is_none());
         id3::TagLike::remove(&mut tag, "TDRC");
         tag.write_to_path(&path, id3::Version::Id3v24).unwrap();
 
         let scan = scan_tag_updates(&conn, dir.path()).unwrap();
         assert_eq!(scan.count(), 1);
         let file = &scan.files[0];
-        assert_eq!(changed_labels(file), vec!["TDRC"]);
+        assert_eq!(changed_labels(file), vec!["TDRC", "TYER"]);
         assert_eq!(frame(file, "TDRC").unwrap().file_value, None);
-        assert_eq!(file.edits().len(), 1, "an MP3 write holds no other frame");
         assert!(matches!(
             &file.content,
             TagUpdateFileContent::Differs { shared_key_edits, .. } if shared_key_edits.is_empty()
         ));
+
+        write_id3v24_edits(&path, &file.edits()).unwrap();
+        assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
     }
 
     /// A fixture database with track 1 and a copy of the MP4 fixture as its

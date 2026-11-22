@@ -450,10 +450,11 @@ fn subscribe_track_from_search_internal(
 /// A download keeps the track when its tag write fails (ADR 0080 task 004).
 /// The function returns the number of applied edits, and the warning for the
 /// download result when the write fails.
+///
+/// The write runs also with no edit. Then the crate repairs a bad frame,
+/// changes an older tag to ID3v2.4 and removes an ID3v1 tag (musicindex ADR
+/// 0090 R-TAG-10 item 1). A correct tag with no edit does not change.
 fn apply_id3_edits_nonfatal(path: &Path, edits: &[Id3v24Edit]) -> (usize, Option<String>) {
-    if edits.is_empty() {
-        return (0, None);
-    }
     match write_id3v24_edits(path, edits) {
         Ok(write) => (write.applied, skipped_tags_warning(&write.skipped)),
         Err(err) => (
@@ -463,6 +464,14 @@ fn apply_id3_edits_nonfatal(path: &Path, edits: &[Id3v24Edit]) -> (usize, Option
             ))),
         ),
     }
+}
+
+/// The warning for a file with a bad ID3v2 tag header. The crate does not
+/// change such a file (musicindex ADR 0090 R-TAG-7 item 5).
+pub(crate) fn bad_tag_warning(error: &anyhow::Error) -> String {
+    crate::diagnostics::redact_endpoint_details(&format!(
+        "App saved the track but could not write its tags: {error:#}"
+    ))
 }
 
 /// The warning for the edits that the tag writer skipped, or `None` when it
@@ -1014,6 +1023,12 @@ mod tests {
     const CHANNEL_LINK: &str = "https://v4vmusic.com/?publisher=fixture-publisher";
     const MP3_BODY: &[u8] = b"ID3\x04\x00\x00\x00\x00\x00\x00mp3data";
 
+    /// An ID3v2.3 tag with two `PRIV` frames of size 0, as in the two Strange
+    /// Love files (musicindex ADR 0090 R-TAG-9 item 4). The tag size is 34.
+    const BAD_TAG_MP3_BODY: &[u8] = b"ID3\x03\x00\x00\x00\x00\x00\x22\
+PRIV\x00\x00\x00\x00\x00\x00PRIV\x00\x00\x00\x00\x00\x00TIT2\x00\x00\x00\x04\x00\x00\x00Old\
+\xff\xfbmp3data";
+
     /// A parsed RSS fixture of two items. The channel has a `<link>`.
     fn rss_document(base: &str) -> Vec<u8> {
         let items = [(1, "Song One"), (2, "Song Two")]
@@ -1077,10 +1092,21 @@ mod tests {
         Arc<Mutex<Connection>>,
         Result<SubscribeFeedOutcome>,
     ) {
+        download_fixture_feed_with(MP3_BODY)
+    }
+
+    /// Download the request feed with `body` as the bytes of each audio file.
+    fn download_fixture_feed_with(
+        body: &'static [u8],
+    ) -> (
+        tempfile::TempDir,
+        Arc<Mutex<Connection>>,
+        Result<SubscribeFeedOutcome>,
+    ) {
         let temp = tempfile::tempdir().unwrap();
-        let server = FixtureServer::start(|base, path| match path {
+        let server = FixtureServer::start(move |base, path| match path {
             "/feed.xml" => Some(rss_document(base)),
-            "/song-1.mp3" | "/song-2.mp3" => Some(MP3_BODY.to_vec()),
+            "/song-1.mp3" | "/song-2.mp3" => Some(body.to_vec()),
             _ => None,
         });
         let conn = Connection::open_in_memory().unwrap();
@@ -1176,6 +1202,31 @@ mod tests {
         assert!(outcome.path.exists());
     }
 
+    /// Musicindex ADR 0090 R-TAG-10 item 1: a download writes a correct tag
+    /// one time. A file with a bad tag gets an ID3v2.4 tag that a strict `id3`
+    /// read accepts, with no bad frame.
+    #[test]
+    fn adr_0090_download_of_a_bad_tag_gives_a_tag_that_a_strict_read_accepts() {
+        assert!(
+            id3::Tag::read_from2(std::io::Cursor::new(BAD_TAG_MP3_BODY)).is_err(),
+            "the fixture is bad"
+        );
+        let (temp, conn, outcome) = download_fixture_feed_with(BAD_TAG_MP3_BODY);
+        let outcome = outcome.unwrap();
+        assert_eq!(outcome.downloaded, 2);
+        let music_dir = cfg(temp.path()).music_dir;
+        for row in db::library_tracks(&conn.lock().unwrap()).unwrap() {
+            let path = row.local_path.unwrap().resolve(&music_dir);
+            let tag = id3::Tag::read_from_path(&path).expect("a strict read accepts the tag");
+            assert_eq!(tag.version(), id3::Version::Id3v24);
+            assert!(
+                id3::TagLike::get(&tag, "PRIV").is_none(),
+                "the write removes the bad frames"
+            );
+            assert!(id3::TagLike::title(&tag).is_some());
+        }
+    }
+
     /// R76-9-01: a download from a request feed with no `source_links`
     /// writes `WOAR` with the channel `<link>` of the RSS document.
     #[test]
@@ -1224,7 +1275,17 @@ mod tests {
         let outcome = outcome.unwrap();
         let music_dir = cfg(temp.path()).music_dir;
         let db = conn.lock().unwrap();
-        let expected = stored_projection_edits(&db);
+        // Musicindex ADR 0090 R-TAG-8 item 1: an ID3v2.4 tag has no `TYER`
+        // frame. The crate drops the `TYER` edit when a `TDRC` edit exists.
+        let expected = stored_projection_edits(&db)
+            .into_iter()
+            .map(|(row, mut edits)| {
+                if edits.iter().any(|edit| edit.frame_label == "TDRC") {
+                    edits.retain(|edit| edit.frame_label != "TYER");
+                }
+                (row, edits)
+            })
+            .collect::<Vec<_>>();
         assert_eq!(expected.len(), 2);
         assert_eq!(
             outcome.applied_edits,

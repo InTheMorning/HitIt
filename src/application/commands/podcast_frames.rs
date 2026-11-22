@@ -6,6 +6,11 @@
 //! The crate write removes each old frame (R-TAG-2 item 5). A file with no old
 //! frame does not change, so a second run writes nothing.
 //!
+//! A file also needs a write when its ID3 tag is not a correct ID3v2.4 tag:
+//! a bad frame, a tag of an older version or an ID3v1 tag (musicindex ADR
+//! 0090 R-TAG-8 and R-TAG-10 item 2). The crate write repairs it. A file with
+//! a bad tag header stays unreadable (R-TAG-7 item 5).
+//!
 //! The dry run reads only. The write copies each file into the backup folder
 //! before its write. The route frame uses the stored route of the track (ADR
 //! 0076 Decision 9).
@@ -16,10 +21,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use musicindex_tags::format::AudioFormat;
+use musicindex_tags::read_id3v2;
 use rusqlite::Connection;
 
 use crate::audio_tags::{
-    frames, read_audio_tags, Id3Field, Id3v24Edit, ReferenceSource, TagWriteResult, RENAMED_FRAMES,
+    frames, read_audio_tags, BadTag, Id3Field, Id3v24Edit, ReferenceSource, TagWriteResult,
+    RENAMED_FRAMES,
 };
 use crate::db::{self, TrackRow};
 use crate::library_path::LibraryRelativePath;
@@ -32,9 +40,10 @@ const TRANSCRIPT_REFERENCE: &str = "retag-transcript:";
 /// The state of one library file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FileState {
-    /// The file has old frames. The write gives them their new names.
+    /// The file has old frames or an ID3 tag to repair. The write gives the
+    /// old frames their new names and repairs the tag.
     Rewrite,
-    /// The file has no old frame.
+    /// The file has no old frame and no ID3 tag to repair.
     Current,
     /// The track has no local path, or the file is not on the disk.
     Missing,
@@ -66,6 +75,9 @@ pub(crate) struct FilePlan {
     pub(crate) state: FileState,
     /// The label of each old frame in the file.
     pub(crate) old_frames: Vec<String>,
+    /// Each repair of the ID3 tag that the write makes (musicindex ADR 0090
+    /// R-TAG-8), for example `ID3v2.3 to ID3v2.4`.
+    pub(crate) repairs: Vec<String>,
     /// The edits, before the route frame takes the stored route.
     edits: Vec<Id3v24Edit>,
     /// The text of each transcript edit.
@@ -258,17 +270,61 @@ fn plan_track(track: &TrackRow, music_dir: &Path) -> FilePlan {
         path: path.clone(),
         state: FileState::Missing,
         old_frames: Vec::new(),
+        repairs: Vec::new(),
         edits: Vec::new(),
         transcripts: Vec::new(),
     };
     let Some(path) = path.filter(|path| path.is_file()) else {
         return plan;
     };
+    match id3_repairs(&path) {
+        Ok(repairs) => plan.repairs = repairs,
+        Err(error) => {
+            plan.state = FileState::Unreadable(format!("{error:#}"));
+            return plan;
+        }
+    }
     match read_audio_tags(&path) {
         Ok(tags) => plan_fields(&mut plan, &tags.fields),
         Err(error) => plan.state = FileState::Unreadable(format!("{error:#}")),
     }
     plan
+}
+
+/// Each repair that a write makes to the ID3 tag of an MP3 file (musicindex
+/// ADR 0090 R-TAG-8). Another format gives no repair.
+///
+/// # Errors
+///
+/// Returns an error when the file cannot be read, or when its ID3v2 tag
+/// header is bad. The write does not change such a file (R-TAG-7 item 5).
+fn id3_repairs(path: &Path) -> Result<Vec<String>> {
+    if !matches!(AudioFormat::detect_from_file(path), Ok(AudioFormat::Mp3)) {
+        return Ok(Vec::new());
+    }
+    let read = read_id3v2(path)?;
+    if let Some(cause) = read.problems.bad_tag {
+        return Err(BadTag { cause }.into());
+    }
+    let mut repairs = Vec::new();
+    if let Some(major @ (2 | 3)) = read.version {
+        repairs.push(format!("ID3v2.{major} to ID3v2.4"));
+    }
+    for frame in &read.problems.bad_frames {
+        repairs.push(format!(
+            "bad frame {} at byte {}: {}",
+            frame.id.as_deref().unwrap_or("(no ID)"),
+            frame.position,
+            frame.cause
+        ));
+    }
+    if read.plain_frame_sizes {
+        repairs.push("ID3v2.4 frame sizes that are not syncsafe".to_owned());
+    }
+    if read.has_id3v1 {
+        repairs.push("remove the ID3v1 tag".to_owned());
+    }
+    Ok(repairs)
 }
 
 /// Fills the plan from the fields of one file.
@@ -277,11 +333,11 @@ fn plan_fields(plan: &mut FilePlan, fields: &[Id3Field]) {
         .iter()
         .filter(|field| frames::is_old_description(frames::descriptor(&field.frame_id)))
         .collect::<Vec<_>>();
-    if old.is_empty() {
-        plan.state = FileState::Current;
-        return;
-    }
-    plan.state = FileState::Rewrite;
+    plan.state = if old.is_empty() && plan.repairs.is_empty() {
+        FileState::Current
+    } else {
+        FileState::Rewrite
+    };
     for field in old {
         plan.old_frames.push(field.frame_id.clone());
         let Some(new_label) = new_label(&field.frame_id) else {
@@ -382,19 +438,23 @@ pub(crate) fn plan_text(plan: &RetagPlan) -> String {
         if file.state != FileState::Rewrite {
             continue;
         }
-        let _ = writeln!(
-            text,
-            "{}\n  old: {}\n  new: {}{}",
-            shown_path(file.relative.as_ref()),
-            file.old_frames.join(", "),
-            file.new_frames().join(", "),
-            match route {
-                RouteChange::NoFrame | RouteChange::Same => "",
-                RouteChange::Stored => "\n  route: the stored route replaces the file value",
-                RouteChange::Removed =>
-                    "\n  route: no stored route; the write removes the route frame",
-            }
-        );
+        let _ = writeln!(text, "{}", shown_path(file.relative.as_ref()));
+        if !file.old_frames.is_empty() {
+            let _ = writeln!(
+                text,
+                "  old: {}\n  new: {}",
+                file.old_frames.join(", "),
+                file.new_frames().join(", ")
+            );
+        }
+        for repair in &file.repairs {
+            let _ = writeln!(text, "  repair: {repair}");
+        }
+        text.push_str(match route {
+            RouteChange::NoFrame | RouteChange::Same => "",
+            RouteChange::Stored => "  route: the stored route replaces the file value\n",
+            RouteChange::Removed => "  route: no stored route; the write removes the route frame\n",
+        });
     }
     for (file, _) in &plan.files {
         if let FileState::Unreadable(error) = &file.state {
@@ -413,7 +473,15 @@ pub(crate) fn plan_text(plan: &RetagPlan) -> String {
     );
     let _ = writeln!(
         text,
-        "Files with only new frames: {}",
+        "Files with a tag repair: {}",
+        plan.files
+            .iter()
+            .filter(|(file, _)| file.state == FileState::Rewrite && !file.repairs.is_empty())
+            .count()
+    );
+    let _ = writeln!(
+        text,
+        "Files with a correct tag: {}",
         plan.count(&FileState::Current)
     );
     let _ = writeln!(
@@ -448,11 +516,15 @@ pub(crate) fn report_text(report: &RetagReport) -> String {
     let mut written = 0_usize;
     let mut removed = 0_usize;
     let mut failed = 0_usize;
+    let mut bad_frames = 0_usize;
+    let mut id3v1 = 0_usize;
     for (shown, result) in &report.results {
         match result {
             FileResult::Written(write) => {
                 written += 1;
                 removed += write.removed_old_frames.len();
+                bad_frames += write.bad_frames.len();
+                id3v1 += usize::from(write.removed_id3v1);
                 if !write.skipped.is_empty() {
                     let _ = writeln!(text, "{shown}: skipped: {}", write.skipped.join("; "));
                 }
@@ -465,12 +537,14 @@ pub(crate) fn report_text(report: &RetagReport) -> String {
     }
     let _ = writeln!(
         text,
-        "\nFiles with only new frames before the write: {}",
+        "\nFiles with a correct tag before the write: {}",
         report.plan.count(&FileState::Current)
     );
     let _ = writeln!(text, "Files written: {written}");
     let _ = writeln!(text, "Files failed: {failed}");
     let _ = writeln!(text, "Old frames removed: {removed}");
+    let _ = writeln!(text, "Bad frames removed or repaired: {bad_frames}");
+    let _ = writeln!(text, "ID3v1 tags removed: {id3v1}");
     text
 }
 
@@ -633,6 +707,135 @@ mod tests {
                 (62_250, "Second line".to_owned())
             ]
         );
+    }
+
+    /// An ID3v2.3 tag with `frames`, then audio bytes. The frame sizes of
+    /// ID3v2.3 are plain numbers.
+    fn v23_file(frames: &[(&[u8; 4], &[u8])], id3v1: bool) -> Vec<u8> {
+        let mut body = Vec::new();
+        for (id, data) in frames {
+            body.extend_from_slice(*id);
+            body.extend_from_slice(&u32::try_from(data.len()).unwrap().to_be_bytes());
+            body.extend_from_slice(&[0, 0]);
+            body.extend_from_slice(data);
+        }
+        body.extend_from_slice(&[0; 16]);
+        let size = u32::try_from(body.len()).unwrap();
+        let mut bytes = b"ID3\x03\x00\x00".to_vec();
+        bytes.extend_from_slice(&[
+            u8::try_from((size >> 21) & 0x7f).unwrap(),
+            u8::try_from((size >> 14) & 0x7f).unwrap(),
+            u8::try_from((size >> 7) & 0x7f).unwrap(),
+            u8::try_from(size & 0x7f).unwrap(),
+        ]);
+        bytes.extend_from_slice(&body);
+        bytes.extend_from_slice(b"\xff\xfbmp3data");
+        if id3v1 {
+            let mut v1 = b"TAG".to_vec();
+            v1.extend_from_slice(b"Old Title");
+            v1.resize(128, 0);
+            bytes.extend_from_slice(&v1);
+        }
+        bytes
+    }
+
+    /// Musicindex ADR 0090 R-TAG-10 item 2: the two Strange Love files have an
+    /// ID3v2.3 tag with two `PRIV` frames of size 0. The retag rewrites them,
+    /// and then a strict `id3` read gives an ID3v2.4 tag with no `PRIV` frame.
+    #[test]
+    fn adr_0090_retag_rewrites_a_v23_file_with_empty_priv_frames() {
+        let conn = setup_db();
+        let music = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let bytes = v23_file(
+            &[
+                (b"TIT2", b"\x00Dirt and Sand"),
+                (b"PRIV", b""),
+                (b"PRIV", b""),
+                (b"TPE1", b"\x00Strange Love"),
+            ],
+            false,
+        );
+        let path = add_track(&conn, music.path(), "song.mp3", &bytes);
+        assert!(Tag::read_from_path(&path).is_err(), "the fixture is bad");
+
+        let plan = plan_library(&conn, music.path()).unwrap();
+        assert_eq!(plan.count(&FileState::Rewrite), 1);
+        assert!(plan_text(&plan).contains("bad frame PRIV"));
+        let report = write_library(&conn, music.path(), backups.path()).unwrap();
+        let FileResult::Written(write) = &report.results[0].1 else {
+            panic!("the write failed: {:?}", report.results);
+        };
+        assert_eq!(write.bad_frames.len(), 2);
+
+        let tag = Tag::read_from_path(&path).expect("a strict read accepts the tag");
+        assert_eq!(tag.version(), Version::Id3v24);
+        assert_eq!(tag.title(), Some("Dirt and Sand"));
+        assert_eq!(tag.artist(), Some("Strange Love"));
+        assert!(tag.get("PRIV").is_none());
+        assert_eq!(
+            plan_library(&conn, music.path())
+                .unwrap()
+                .count(&FileState::Current),
+            1
+        );
+    }
+
+    /// Musicindex ADR 0090 R-TAG-8: a correct ID3v2.3 file with no podcast
+    /// frame and with an ID3v1 tag is a rewrite. The write gives ID3v2.4 and
+    /// removes the ID3v1 tag.
+    #[test]
+    fn adr_0090_retag_converts_a_v23_file_with_no_podcast_frame() {
+        let conn = setup_db();
+        let music = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let bytes = v23_file(&[(b"TIT2", b"\x00Song")], true);
+        let path = add_track(&conn, music.path(), "song.mp3", &bytes);
+
+        let plan = plan_library(&conn, music.path()).unwrap();
+        assert_eq!(plan.count(&FileState::Rewrite), 1);
+        assert_eq!(
+            plan.files[0].0.repairs,
+            vec![
+                "ID3v2.3 to ID3v2.4".to_owned(),
+                "remove the ID3v1 tag".to_owned()
+            ]
+        );
+        write_library(&conn, music.path(), backups.path()).unwrap();
+
+        let tag = Tag::read_from_path(&path).unwrap();
+        assert_eq!(tag.version(), Version::Id3v24);
+        assert_eq!(tag.title(), Some("Song"));
+        let written = fs::read(&path).unwrap();
+        assert!(
+            !written.windows(12).any(|bytes| bytes == b"TAGOld Title"),
+            "the write must remove the ID3v1 tag"
+        );
+        assert_eq!(
+            plan_library(&conn, music.path())
+                .unwrap()
+                .count(&FileState::Current),
+            1
+        );
+    }
+
+    /// Musicindex ADR 0090 R-TAG-7 item 5: a file with a bad tag header stays
+    /// unreadable, and the write does not change it.
+    #[test]
+    fn adr_0090_retag_reports_a_bad_tag_header_and_keeps_the_file() {
+        let conn = setup_db();
+        let music = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        // The size byte 0x80 is not syncsafe.
+        let bytes = b"ID3\x03\x00\x00\x00\x00\x00\x80TIT2\xff\xfbmp3data".to_vec();
+        let path = add_track(&conn, music.path(), "song.mp3", &bytes);
+
+        let plan = plan_library(&conn, music.path()).unwrap();
+        assert_eq!(plan.count(&FileState::Unreadable(String::new())), 1);
+        assert!(plan_text(&plan).contains("unreadable: song.mp3"));
+        let report = write_library(&conn, music.path(), backups.path()).unwrap();
+        assert!(report.results.is_empty());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
     }
 
     /// A second run writes nothing: the file has only new frames.

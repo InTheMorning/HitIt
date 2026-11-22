@@ -284,17 +284,28 @@ impl Materialization {
         let applied_edits = if conversion == ConversionOutcome::WavRetained {
             0
         } else if retry || self.binding.is_some() {
-            if edits.is_empty() {
-                0
-            } else {
-                let write = write_id3v24_edits(&working_path, &edits)?;
-                if let Some(message) = super::skipped_tags_warning(&write.skipped) {
+            // Musicindex ADR 0090 R-TAG-10 item 1: the write runs also with no
+            // edit, so that the crate repairs the tag. A bad tag header
+            // stays a warning (R-TAG-7 item 5); each other error stops.
+            match write_id3v24_edits(&working_path, &edits) {
+                Ok(write) => {
+                    if let Some(message) = super::skipped_tags_warning(&write.skipped) {
+                        warning = Some(warning.map_or_else(
+                            || message.clone(),
+                            |warning| format!("{warning}; {message}"),
+                        ));
+                    }
+                    write.applied
+                }
+                Err(error) if error.downcast_ref::<crate::audio_tags::BadTag>().is_some() => {
+                    let message = super::bad_tag_warning(&error);
                     warning = Some(warning.map_or_else(
                         || message.clone(),
                         |warning| format!("{warning}; {message}"),
                     ));
+                    0
                 }
-                write.applied
+                Err(error) => return Err(error),
             }
         } else {
             let (applied, tag_warning) = super::apply_id3_edits_nonfatal(&working_path, &edits);
