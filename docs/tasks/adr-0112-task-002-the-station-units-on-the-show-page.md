@@ -5,13 +5,10 @@
 Ready - 2026-11-21. It needs task 001. No code starts until the operator says
 so.
 
-- Operator choice, open: the line and the controls of a station show when
-  the station host is the selected host (`broadcast.selected_host`). This
-  agrees with ADR 0113 §Lists From The Start, which shows one selection at a
-  time. The other option is a station line on the Show page for each
-  `liquidsoap` host at all times. The main session chose the first option
-  because ADR 0112 does not decide it. The operator can change it before
-  the implementation starts.
+- Operator choice, 2026-11-21, relayed by the orchestrator: the station line
+  and its Start, Stop and Reset controls show only when the station host is
+  the selected host (`broadcast.selected_host`). This agrees with ADR 0113
+  §Lists From The Start, which shows one selection at a time.
 
 ## Goal
 
