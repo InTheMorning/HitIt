@@ -2,9 +2,11 @@
 
 ## Status
 
-In progress - 2026-11-22. Commits 942baf8, 49fcef5, 2440498 and 89384ed hold
-steps 1 to 3. Step 4 applies musicindex ADR 0090. The main session ran the gate
-for each commit. Three items are open. The Open section gives them.
+Done for steps 1 to 4 - 2026-11-22. Commits 942baf8, 49fcef5, 2440498 and
+89384ed hold steps 1 to 3. Commit d8238e7 holds step 4, which applies
+musicindex ADR 0090. The main session ran the gate for each commit. The
+operator did the retag and the visual check. The Open section
+gives the item that waits.
 
 ## Goal
 
@@ -83,15 +85,12 @@ Mechanical:
 Visual (manual, by the operator):
 
 1. After the retag, HitIt shows the tags of the two Strange Love files
-   (musicindex ADR 0090 R-TAG-10 item 2).
+   (musicindex ADR 0090 R-TAG-10 item 2). Passed on 2026-11-22. `Compare ID3`
+   showed the "Embedded MP3" values of tracks 01 and 02 with no error.
 
 ## Open
 
-1. The operator runs the dry run and the write with the release binary.
-2. The visual check of the Strange Love files. The orchestrator reports that
-   they have an ID3v2.3 tag with two `PRIV` frames of size 0. The new crate
-   reads them, and the retag removes the two frames.
-3. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
+1. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
    writes episode tags. The HitIt ADR for the station selects the action that
    writes them. Do not start it before that ADR. It also needs the push of
    stophammer-parser d105468.
@@ -105,3 +104,12 @@ Visual (manual, by the operator):
   Migrations 16, 17 and 26 write their counts to the error stream, so each
   call prints them with 0 counts. The operator database does not run these
   migrations again, and the lines occur only during an upgrade.
+- Retag on the operator library, 2026-11-22, with the release binary of
+  d8238e7. The dry run gave 159 files to rewrite, 23 files with a tag repair
+  and 0 unreadable files. The write gave 159 files written, 0 failed, 884 old
+  frames removed, 4 bad frames removed and 23 ID3v1 tags removed. The second
+  dry run gave 0 files to rewrite and 159 files with a correct tag.
+- After the retag, `Compare ID3` on Strange Love track 01 staged 19 edits.
+  These are frames that the file did not have. The retag renames and repairs
+  frames, but it does not add frames. The operator can write them with
+  `Apply tags`.
