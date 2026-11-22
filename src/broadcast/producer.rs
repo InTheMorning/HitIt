@@ -31,7 +31,7 @@ pub const DROP_FILE_SUFFIX: &str = ".nowplaying.json";
 /// Route provenance marker for embedded audio tags.
 pub const EMBEDDED_ID3_ROUTES_SOURCE: &str = "embedded-id3";
 /// Readiness reason retained when a playing track has no embedded route tag.
-pub const MISSING_VALUE_ROUTES_TAG_REASON: &str = "missing embedded MusicIndex Value Routes tag";
+pub const MISSING_VALUE_ROUTES_TAG_REASON: &str = "missing embedded Podcast Value Routes tag";
 /// Operator warning emitted before app shutdown clears the mpv source file.
 pub const SHUTDOWN_WARNING: &str = "hitit::broadcast: closing HitIt removes the mpv now-playing drop file; publisher output for the built-in player stops.";
 
@@ -41,10 +41,10 @@ const TRACK_GUID_KEY: &str = "Track Guid";
 const VALUE_ROUTES_KEY: &str = "Value Routes";
 static PREPARATION_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 const MUSICINDEX_VOCABULARY: &[(&str, &str)] = &[
-    (FEED_GUID_KEY, "TXXX:MusicIndex Feed Guid"),
-    (IMAGE_KEY, "TXXX:MusicIndex Image"),
-    (TRACK_GUID_KEY, "TXXX:MusicIndex Track Guid"),
-    (VALUE_ROUTES_KEY, "TXXX:MusicIndex Value Routes"),
+    (FEED_GUID_KEY, "TXXX:Podcast Feed Guid"),
+    (IMAGE_KEY, "TXXX:Podcast Image"),
+    (TRACK_GUID_KEY, "TXXX:Podcast Item Guid"),
+    (VALUE_ROUTES_KEY, "TXXX:Podcast Value Routes"),
 ];
 
 /// Active producer for one mpv now-playing drop file.
@@ -184,7 +184,7 @@ impl DropFileProducer {
             .transpose()
             .with_context(|| {
                 format!(
-                    "parse embedded MusicIndex Value Routes from {}",
+                    "parse embedded Podcast Value Routes from {}",
                     audio_path.display()
                 )
             })?
@@ -392,17 +392,17 @@ mod tests {
         fs::write(&path, b"not really an mp3")?;
         let mut edits = vec![
             Id3v24Edit {
-                frame_label: "TXXX:MusicIndex Feed Guid".to_owned(),
+                frame_label: "TXXX:Podcast Feed Guid".to_owned(),
                 value: "tag-feed-guid".to_owned(),
             },
             Id3v24Edit {
-                frame_label: "TXXX:MusicIndex Track Guid".to_owned(),
+                frame_label: "TXXX:Podcast Item Guid".to_owned(),
                 value: "tag-track-guid".to_owned(),
             },
         ];
         if let Some(routes) = value_routes {
             edits.push(Id3v24Edit {
-                frame_label: "TXXX:MusicIndex Value Routes".to_owned(),
+                frame_label: "TXXX:Podcast Value Routes".to_owned(),
                 value: routes.to_owned(),
             });
         }

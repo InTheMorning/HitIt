@@ -4,7 +4,7 @@
 //! The database keeps the raw block in `tracks.item_value_json` and
 //! `feeds.podcast_value_json`, in the JSON form of
 //! `helpers::value_block_json`. This module converts that block to the
-//! `api::PaymentRoute` list that the file frame `TXXX:MusicIndex Value
+//! `api::PaymentRoute` list that the file frame `TXXX:Podcast Value
 //! Routes` holds. Migration 17, the playlist RSS check and the subscribe
 //! persist step use this one converter.
 

@@ -189,14 +189,14 @@ mod tests {
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
         assert_eq!(
-            CURRENT_VERSION, 32,
-            "ADR 0111 adds the show_producer_switch migration"
+            CURRENT_VERSION, 33,
+            "musicindex ADR 0086 adds the podcast_frame_labels migration"
         );
         assert_eq!(
             inspect_schema(&conn).unwrap(),
             SchemaCompatibility::UpgradeRequired {
                 applied: 24,
-                current: 32,
+                current: 33,
             }
         );
         upgrades::verify_target(&conn, 24).unwrap();

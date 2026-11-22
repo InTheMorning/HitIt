@@ -455,7 +455,7 @@ fn apply_id3_edits_nonfatal(path: &Path, edits: &[Id3v24Edit]) -> (usize, Option
         return (0, None);
     }
     match write_id3v24_edits(path, edits) {
-        Ok(_) => (edits.len(), None),
+        Ok(write) => (write.applied, skipped_tags_warning(&write.skipped)),
         Err(err) => (
             0,
             Some(crate::diagnostics::redact_endpoint_details(&format!(
@@ -463,6 +463,17 @@ fn apply_id3_edits_nonfatal(path: &Path, edits: &[Id3v24Edit]) -> (usize, Option
             ))),
         ),
     }
+}
+
+/// The warning for the edits that the tag writer skipped, or `None` when it
+/// skipped no edit.
+pub(crate) fn skipped_tags_warning(skipped: &[String]) -> Option<String> {
+    (!skipped.is_empty()).then(|| {
+        crate::diagnostics::redact_endpoint_details(&format!(
+            "App wrote the tags but skipped: {}",
+            skipped.join("; ")
+        ))
+    })
 }
 
 pub fn track_row_to_api_track(row: &TrackRow) -> Track {
@@ -1100,16 +1111,15 @@ mod tests {
                     crate::feed_service::track_row_to_track_context_with_local_identity(conn, &row)
                         .unwrap();
                 let mut edits = id3_edits_for_track_context(&context);
-                edits.retain(|edit| {
-                    edit.frame_label != crate::metadata::MUSICINDEX_VALUE_ROUTES_FRAME
-                });
+                edits
+                    .retain(|edit| edit.frame_label != crate::metadata::PODCAST_VALUE_ROUTES_FRAME);
                 if let Some(value) = db::payment_routes::stored_route(conn, row.id)
                     .unwrap()
                     .as_deref()
                     .and_then(crate::metadata::summarize_value_routes)
                 {
                     edits.push(Id3v24Edit {
-                        frame_label: crate::metadata::MUSICINDEX_VALUE_ROUTES_FRAME.into(),
+                        frame_label: crate::metadata::PODCAST_VALUE_ROUTES_FRAME.into(),
                         value,
                     });
                 }
@@ -1225,7 +1235,7 @@ mod tests {
             let path = row.local_path.as_ref().unwrap().resolve(&music_dir);
             for edit in &edits {
                 // The scan compares the route frame as routes, not as text.
-                if edit.frame_label == crate::metadata::MUSICINDEX_VALUE_ROUTES_FRAME {
+                if edit.frame_label == crate::metadata::PODCAST_VALUE_ROUTES_FRAME {
                     continue;
                 }
                 let values = read_audio_tags(&path)

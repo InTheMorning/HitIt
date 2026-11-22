@@ -198,7 +198,14 @@ impl ApplicationCommand for ApplyTrackId3Edits {
             }
             None => self.edits,
         };
-        write_id3v24_edits(&self.path, &edits).map_err(|error| metadata_command_error(&error))?;
+        let write = write_id3v24_edits(&self.path, &edits)
+            .map_err(|error| metadata_command_error(&error))?;
+        if !write.skipped.is_empty() {
+            return Err(CommandError::Metadata(format!(
+                "The app wrote the other tags, but it skipped: {}",
+                write.skipped.join("; ")
+            )));
+        }
         let comparison =
             subscribe_service::compare_downloaded_track_path(&self.path, &self.track_context)
                 .map_err(|error| metadata_command_error(&error))?;

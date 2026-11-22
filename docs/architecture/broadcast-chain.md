@@ -52,10 +52,10 @@ Producer: `hitit`. Consumer: each now-playing producer.
 
 `src/metadata.rs` writes these `TXXX` frames into a download:
 
-- `TXXX:MusicIndex Feed Guid`
-- `TXXX:MusicIndex Track Guid`
-- `TXXX:MusicIndex Image`
-- `TXXX:MusicIndex Value Routes`
+- `TXXX:Podcast Feed Guid`
+- `TXXX:Podcast Item Guid`
+- `TXXX:Podcast Image`
+- `TXXX:Podcast Value Routes`
 
 `Value Routes` holds a JSON array of payment routes. The field names are the
 names in `src/api.rs`, `PaymentRoute`.

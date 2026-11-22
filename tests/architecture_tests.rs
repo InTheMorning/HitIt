@@ -8741,12 +8741,12 @@ fn view_models_own_display_fallbacks_for_library() {
         ),
         (
             "src/library.rs",
-            "\"TXXX:MusicIndex Contributors\" => \"Contributors\"",
+            "\"TXXX:Podcast Contributors\" => \"Contributors\"",
             "Library raw contributor metadata alias belongs in TrackMetadataGridVm::logical_field",
         ),
         (
             "src/library.rs",
-            "\"TXXX:MusicIndex Value Routes\" => \"Value Routes\"",
+            "\"TXXX:Podcast Value Routes\" => \"Value Routes\"",
             "Library raw Value Routes metadata alias belongs in TrackMetadataGridVm::logical_field",
         ),
         (
@@ -12872,7 +12872,7 @@ fn adr_0059_mpv_drop_file_producer_boundary_is_broadcast_owned() {
         "pub struct DropFileProducer",
         "pub const DROP_FILE_SCHEMA: &str = \"musicindex.nowplaying/1\"",
         "pub const DROP_FILE_SUFFIX: &str = \".nowplaying.json\"",
-        "TXXX:MusicIndex Value Routes",
+        "TXXX:Podcast Value Routes",
         "EMBEDDED_ID3_ROUTES_SOURCE: &str = \"embedded-id3\"",
         "fn write_atomic(&self, content: &str)",
         "fs::rename(&temp_path, &self.path)",
@@ -12887,7 +12887,7 @@ fn adr_0059_mpv_drop_file_producer_boundary_is_broadcast_owned() {
 
     if production_source.contains("value_block") {
         violations.push(
-            "src/broadcast/producer.rs: Situational ADR 0113, from ADR 0059 packet 011, forbids building value routes from NowPlayingUpdate.value_block. Fix: read embedded MusicIndex Value Routes from the audio file tag.".to_owned(),
+            "src/broadcast/producer.rs: Situational ADR 0113, from ADR 0059 packet 011, forbids building value routes from NowPlayingUpdate.value_block. Fix: read embedded Podcast Value Routes from the audio file tag.".to_owned(),
         );
     }
 
@@ -13087,7 +13087,7 @@ fn adr_0059_broadcast_readiness_file_scan_stays_out_of_renderers() {
     for file in ["src/app/show.rs", "src/ui/shells/show.rs"] {
         let source = read_source(&manifest_path(file));
         for (line_number, line) in code_lines(&source) {
-            for forbidden in ["read_audio_tags", "MusicIndex Value Routes", ".is_file()"] {
+            for forbidden in ["read_audio_tags", "Podcast Value Routes", ".is_file()"] {
                 if line.contains(forbidden) {
                     violations.push(format!(
                         "{file}:{line_number}: Situational ADR 0113, from ADR 0059 packet 012, forbids readiness file scanning in the renderer path. Fix: keep payment-route tag reads in application queries or runtime actors."

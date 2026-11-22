@@ -284,10 +284,18 @@ impl Materialization {
         let applied_edits = if conversion == ConversionOutcome::WavRetained {
             0
         } else if retry || self.binding.is_some() {
-            if !edits.is_empty() {
-                write_id3v24_edits(&working_path, &edits)?;
+            if edits.is_empty() {
+                0
+            } else {
+                let write = write_id3v24_edits(&working_path, &edits)?;
+                if let Some(message) = super::skipped_tags_warning(&write.skipped) {
+                    warning = Some(warning.map_or_else(
+                        || message.clone(),
+                        |warning| format!("{warning}; {message}"),
+                    ));
+                }
+                write.applied
             }
-            edits.len()
         } else {
             let (applied, tag_warning) = super::apply_id3_edits_nonfatal(&working_path, &edits);
             if let Some(message) = tag_warning {

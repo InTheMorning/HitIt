@@ -425,7 +425,10 @@ pub fn compare_track_tags(track: &Track, tags: &AudioTags) -> Vec<ComparisonRow>
     let mut rows = vec![
         comparison_row(
             "Title",
-            track.title.as_deref().map(sanitize_title_text),
+            track
+                .title
+                .as_deref()
+                .map(crate::audio_tags::sanitize_title_text),
             tags.title.as_deref(),
         ),
         comparison_row(
@@ -535,15 +538,6 @@ fn normalized(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
-}
-
-fn sanitize_title_text(value: &str) -> String {
-    value
-        .trim_start()
-        .strip_prefix("- ")
-        .map(str::trim_start)
-        .unwrap_or(value)
-        .to_string()
 }
 
 fn sanitize_path_part(value: &str) -> String {

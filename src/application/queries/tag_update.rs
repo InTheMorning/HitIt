@@ -32,7 +32,7 @@ use crate::db::tag_update_skips::TagUpdateSkip;
 use crate::metadata::{
     audio_tags_value_routes, frame_destination_for_format, id3_frame_base, parse_value_routes,
     payment_routes_equal, pending_id3_target_key, summarize_value_routes,
-    MUSICINDEX_VALUE_ROUTES_FRAME,
+    PODCAST_VALUE_ROUTES_FRAME,
 };
 use crate::rss::compare::{description_equal, TextRepresentation};
 
@@ -268,7 +268,7 @@ fn plan_file(
         .with_context(|| format!("read the stored values of track {}", track.id))?;
     let mut expected = crate::metadata_service::id3_edits_for_track_context(&context);
     // ADR 0076 Decision 9: the route frame comes from the stored route only.
-    expected.retain(|edit| edit.frame_label != MUSICINDEX_VALUE_ROUTES_FRAME);
+    expected.retain(|edit| edit.frame_label != PODCAST_VALUE_ROUTES_FRAME);
     let route = db::payment_routes::stored_route(conn, track.id)?.filter(|route| !route.is_empty());
     let title = context
         .track
@@ -491,7 +491,7 @@ fn changed_frames(
                 frames.push(TagFrameChange {
                     group: 0,
                     skipped: false,
-                    frame_label: MUSICINDEX_VALUE_ROUTES_FRAME.to_owned(),
+                    frame_label: PODCAST_VALUE_ROUTES_FRAME.to_owned(),
                     file_value: file_text.map(str::to_owned),
                     expected_value,
                 });
@@ -770,7 +770,7 @@ mod tests {
         write_id3v24_edits(
             &dir.path().join("song-1.mp3"),
             &[Id3v24Edit {
-                frame_label: MUSICINDEX_VALUE_ROUTES_FRAME.into(),
+                frame_label: PODCAST_VALUE_ROUTES_FRAME.into(),
                 value: r#"[{"recipient_name":"Old","route_type":"node","split":100.0,"fee":false,"address":"03abcdef"}]"#.into(),
             }],
         )
@@ -779,8 +779,8 @@ mod tests {
         let scan = scan_tag_updates(&conn, dir.path()).unwrap();
 
         assert_eq!(scan.count(), 1);
-        let route = frame(&scan.files[0], MUSICINDEX_VALUE_ROUTES_FRAME)
-            .expect("the route frame is listed");
+        let route =
+            frame(&scan.files[0], PODCAST_VALUE_ROUTES_FRAME).expect("the route frame is listed");
         let expected = parse_value_routes(&route.expected_value).unwrap();
         assert_eq!(expected[0].recipient_name.as_deref(), Some("Stored"));
         assert!(route.file_value.as_deref().unwrap().contains("Old"));
@@ -942,10 +942,10 @@ mod tests {
     /// Orchestrator review, defect 1 (ADR 0080 Decision 3): the scan reports
     /// no difference for a FLAC track without its own description, after a
     /// write of the channel's description to
-    /// `COMM:MusicIndex Album Description`.
+    /// `COMM:Podcast Feed Description`.
     ///
     /// Before the fix, that value read back only under the shared Comment
-    /// key, as `COMM:MusicIndex Description`, so the scan reported a
+    /// key, as `COMM:Podcast Description`, so the scan reported a
     /// difference on every read of a file this app had written.
     #[test]
     fn adr_0080_flac_album_description_round_trips_with_no_difference() {
@@ -953,7 +953,7 @@ mod tests {
         let temp = tempfile::Builder::new().suffix(".flac").tempfile().unwrap();
         std::fs::write(temp.path(), flac_bytes).unwrap();
         let expected = vec![Id3v24Edit {
-            frame_label: "COMM:MusicIndex Album Description".into(),
+            frame_label: "COMM:Podcast Feed Description".into(),
             value: "Feed description".into(),
         }];
         write_id3v24_edits(temp.path(), &expected).unwrap();
@@ -987,7 +987,7 @@ mod tests {
         let path = dir.path().join("song.mp3");
         std::fs::write(&path, b"not really an mp3").unwrap();
         let expected = vec![Id3v24Edit {
-            frame_label: "TXXX:MusicIndex Image".into(),
+            frame_label: "TXXX:Podcast Image".into(),
             value: "https://example.test/track.png".into(),
         }];
         write_id3v24_edits(&path, &expected).unwrap();
@@ -1081,7 +1081,7 @@ mod tests {
             path,
             in_use: false,
             expected: vec![Id3v24Edit {
-                frame_label: "TXXX:MusicIndex Image".into(),
+                frame_label: "TXXX:Podcast Image".into(),
                 value: "https://example.test/track.png".into(),
             }],
             route: None,
@@ -1091,7 +1091,7 @@ mod tests {
         let frames = changed_frames(&planned, &tags, None);
 
         assert_eq!(frames.len(), 1);
-        assert_eq!(frames[0].frame_label, "TXXX:MusicIndex Image");
+        assert_eq!(frames[0].frame_label, "TXXX:Podcast Image");
         assert_eq!(frames[0].file_value, None);
         assert_eq!(frames[0].expected_value, "https://example.test/track.png");
     }
@@ -1105,7 +1105,7 @@ mod tests {
         let temp = tempfile::Builder::new().suffix(".flac").tempfile().unwrap();
         std::fs::write(temp.path(), flac_bytes).unwrap();
         let expected = vec![Id3v24Edit {
-            frame_label: "TXXX:MusicIndex Image".into(),
+            frame_label: "TXXX:Podcast Image".into(),
             value: "https://example.test/track.png".into(),
         }];
         write_id3v24_edits(temp.path(), &expected).unwrap();
@@ -1132,13 +1132,13 @@ mod tests {
 
     /// R80-57 (ADR 0080 Decision 9), the MP4 half: an MP4 file gets the
     /// image frame under its freeform atom key. `audio_tags::tests` proves
-    /// that key reads back as `TXXX:MusicIndex Image`; this proves the
+    /// that key reads back as `TXXX:Podcast Image`; this proves the
     /// scan treats that read-back frame as equal to the expected edit.
     #[test]
     fn adr_0080_image_mp4_frame_reads_back_as_equal() {
         let tags = AudioTags {
             fields: vec![crate::audio_tags::Id3Field {
-                frame_id: "TXXX:MusicIndex Image".into(),
+                frame_id: "TXXX:Podcast Image".into(),
                 value: "https://example.test/track.png".into(),
             }],
             ..AudioTags::default()
@@ -1150,7 +1150,7 @@ mod tests {
             path: PathBuf::from("song.m4a"),
             in_use: false,
             expected: vec![Id3v24Edit {
-                frame_label: "TXXX:MusicIndex Image".into(),
+                frame_label: "TXXX:Podcast Image".into(),
                 value: "https://example.test/track.png".into(),
             }],
             route: None,
@@ -1551,7 +1551,7 @@ mod tests {
     #[test]
     fn adr_0076_scan_readable_description_html_and_plain_text_are_equal() {
         assert!(values_match(
-            "COMM:MusicIndex Description",
+            "COMM:Podcast Description",
             "1. Disco Swag",
             "<p>1. Disco Swag</p>",
         ));
@@ -1562,12 +1562,12 @@ mod tests {
     #[test]
     fn adr_0076_scan_readable_description_whitespace_and_entities_are_equal() {
         assert!(values_match(
-            "COMM:MusicIndex Album Description",
+            "COMM:Podcast Feed Description",
             "A B",
             "A&nbsp;B",
         ));
         assert!(values_match(
-            "COMM:MusicIndex Description",
+            "COMM:Podcast Description",
             "Line one Line two",
             "<p>Line one</p>\n<p>Line two</p>",
         ));
@@ -1585,7 +1585,7 @@ mod tests {
         write_id3v24_edits(
             &path,
             &[Id3v24Edit {
-                frame_label: "COMM:MusicIndex Description".into(),
+                frame_label: "COMM:Podcast Description".into(),
                 value: "Old text".into(),
             }],
         )
@@ -1598,7 +1598,7 @@ mod tests {
             path,
             in_use: false,
             expected: vec![Id3v24Edit {
-                frame_label: "COMM:MusicIndex Description".into(),
+                frame_label: "COMM:Podcast Description".into(),
                 value: "<p>New text</p>".into(),
             }],
             route: None,
@@ -1608,7 +1608,7 @@ mod tests {
         let frames = changed_frames(&planned, &tags, None);
 
         assert_eq!(frames.len(), 1);
-        assert_eq!(frames[0].frame_label, "COMM:MusicIndex Description");
+        assert_eq!(frames[0].frame_label, "COMM:Podcast Description");
         assert_eq!(frames[0].file_value.as_deref(), Some("Old text"));
         assert_eq!(frames[0].expected_value, "<p>New text</p>");
     }
@@ -1782,12 +1782,12 @@ mod tests {
             "{edits:?}"
         );
         assert!(
-            edits.contains(&license_edit("TXXX:MusicIndex License", LICENSE_TEXT)),
+            edits.contains(&license_edit("TXXX:Podcast License", LICENSE_TEXT)),
             "{edits:?}"
         );
         let before = scan_tag_updates(conn, dir).unwrap();
         assert!(changed_labels(&before.files[0]).contains(&"WCOP"));
-        assert!(changed_labels(&before.files[0]).contains(&"TXXX:MusicIndex License"));
+        assert!(changed_labels(&before.files[0]).contains(&"TXXX:Podcast License"));
 
         write_id3v24_edits(path, &edits).unwrap();
         let first = all_fields(path);
@@ -1796,7 +1796,7 @@ mod tests {
         assert_eq!(all_fields(path), first);
         assert_eq!(license_values(path, "WCOP"), vec![LICENSE_URL]);
         assert_eq!(
-            license_values(path, "TXXX:MusicIndex License"),
+            license_values(path, "TXXX:Podcast License"),
             vec![LICENSE_TEXT]
         );
         assert!(license_values(path, "TXXX:LICENSE").is_empty());
@@ -1936,7 +1936,7 @@ mod tests {
         add_channel_license(&mut conn, None, Some(LICENSE_TEXT));
         let edits = full_edits(&conn);
         assert!(edits.iter().all(|edit| edit.frame_label != "WCOP"));
-        assert!(edits.contains(&license_edit("TXXX:MusicIndex License", LICENSE_TEXT)));
+        assert!(edits.contains(&license_edit("TXXX:Podcast License", LICENSE_TEXT)));
 
         add_channel_license(&mut conn, Some("ftp://channel.test/license"), None);
         let edits = full_edits(&conn);

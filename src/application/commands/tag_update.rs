@@ -28,7 +28,11 @@ use crate::metadata_service::{with_stored_route_frame, RouteFrameWrite};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum TagUpdateWriteStatus {
     /// The app wrote the frames to the file.
-    Written { frames: usize },
+    Written {
+        frames: usize,
+        /// Each edit that the writer skipped, with its reason.
+        skipped: Vec<String>,
+    },
     /// The show plays or holds the file. The app did not write it.
     InUse,
     /// The scan could not read the file. The app did not write it.
@@ -130,6 +134,7 @@ pub(crate) fn write_tag_updates(
                     on_written(file.track_id);
                     TagUpdateWriteStatus::Written {
                         frames: write.applied,
+                        skipped: write.skipped,
                     }
                 }
                 Err(error) => TagUpdateWriteStatus::Failed {
@@ -197,9 +202,21 @@ mod tests {
         assert_eq!(
             statuses,
             vec![
-                (1, TagUpdateWriteStatus::Written { frames: 1 }),
+                (
+                    1,
+                    TagUpdateWriteStatus::Written {
+                        frames: 1,
+                        skipped: Vec::new()
+                    }
+                ),
                 (2, TagUpdateWriteStatus::InUse),
-                (3, TagUpdateWriteStatus::Written { frames: 1 }),
+                (
+                    3,
+                    TagUpdateWriteStatus::Written {
+                        frames: 1,
+                        skipped: Vec::new()
+                    }
+                ),
             ]
         );
         assert_eq!(changed, vec![1, 3], "each written track is reported");

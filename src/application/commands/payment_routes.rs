@@ -592,7 +592,7 @@ mod tests {
     use crate::audio_tags::{read_audio_tags, Id3v24Edit};
     use crate::library_path::LibraryRelativePath;
     use crate::metadata::audio_tags_have_ready_value_routes;
-    use crate::metadata::MUSICINDEX_VALUE_ROUTES_FRAME;
+    use crate::metadata::PODCAST_VALUE_ROUTES_FRAME;
 
     use super::*;
 
@@ -967,7 +967,7 @@ mod tests {
         write_id3v24_edits(
             &path,
             &[Id3v24Edit {
-                frame_label: MUSICINDEX_VALUE_ROUTES_FRAME.to_owned(),
+                frame_label: PODCAST_VALUE_ROUTES_FRAME.to_owned(),
                 value: serde_json::to_string(&vec![payment_route()])?,
             }],
         )?;

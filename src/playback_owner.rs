@@ -686,7 +686,7 @@ mod tests {
         write_id3v24_edits(
             &path,
             &[Id3v24Edit {
-                frame_label: "TXXX:MusicIndex Value Routes".to_owned(),
+                frame_label: "TXXX:Podcast Value Routes".to_owned(),
                 value: r#"[{"recipient_name":"Embedded Route","route_type":"node","split":77.0}]"#
                     .to_owned(),
             }],

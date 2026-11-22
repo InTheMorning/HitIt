@@ -15,7 +15,7 @@ use crate::application::queries::tag_update::{
     TagFrameChange, TagUpdateFile, TagUpdateFileContent, TagUpdateScan,
 };
 use crate::db::tag_update_skips::TagUpdateSkip;
-use crate::metadata::MUSICINDEX_VALUE_ROUTES_FRAME;
+use crate::metadata::PODCAST_VALUE_ROUTES_FRAME;
 use crate::runtime::TagUpdateSnapshot;
 
 /// The longest file or stored value that a popup line shows, in
@@ -648,7 +648,7 @@ fn skipped_display(selection: &TagUpdateSelection, count: usize) -> TagUpdateSki
 }
 
 fn frame_line(frame: &TagFrameChange) -> String {
-    let name = if frame.frame_label == MUSICINDEX_VALUE_ROUTES_FRAME {
+    let name = if frame.frame_label == PODCAST_VALUE_ROUTES_FRAME {
         format!("Payment route ({})", frame.frame_label)
     } else {
         frame.frame_label.clone()
@@ -778,8 +778,16 @@ fn write_report(write: &TagUpdateWriteReport) -> TagUpdateReportDisplay {
         .map(|result| {
             let title = &result.title;
             match &result.status {
-                TagUpdateWriteStatus::Written { frames } => TagUpdateReportLine {
-                    text: format!("Wrote {} to {title}.", frames_text(*frames)),
+                TagUpdateWriteStatus::Written { frames, skipped } => TagUpdateReportLine {
+                    text: if skipped.is_empty() {
+                        format!("Wrote {} to {title}.", frames_text(*frames))
+                    } else {
+                        format!(
+                            "Wrote {} to {title}. Skipped: {}.",
+                            frames_text(*frames),
+                            skipped.join("; ")
+                        )
+                    },
                     role: TagUpdateReportRole::Written,
                 },
                 TagUpdateWriteStatus::InUse => TagUpdateReportLine {
@@ -1167,7 +1175,10 @@ mod tests {
                     TagUpdateWriteResult {
                         track_id: 1,
                         title: "Song 1".into(),
-                        status: TagUpdateWriteStatus::Written { frames: 2 },
+                        status: TagUpdateWriteStatus::Written {
+                            frames: 2,
+                            skipped: Vec::new(),
+                        },
                     },
                     TagUpdateWriteResult {
                         track_id: 2,

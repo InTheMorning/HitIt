@@ -421,8 +421,8 @@ impl TrackMetadataGridVm {
     #[must_use]
     pub fn logical_field(field: &str) -> &str {
         match field {
-            "TXXX:MusicIndex Contributors" => "Contributors",
-            "TXXX:MusicIndex Value Routes" => "Value Routes",
+            "TXXX:Podcast Contributors" => "Contributors",
+            "TXXX:Podcast Value Routes" => "Value Routes",
             _ => field,
         }
     }
@@ -811,7 +811,7 @@ mod tests {
         );
         assert_eq!(
             TrackMetadataGridVm::id3_frame_color_role(
-                Some("TXXX:MusicIndex Contributors"),
+                Some("TXXX:Podcast Contributors"),
                 TrackMetadataId3FrameColorContext::Library
             ),
             TrackMetadataId3FrameColorRole::V22
@@ -1164,7 +1164,7 @@ mod tests {
             rss_expanded: false,
             id3_expanded: true,
         };
-        let panels = vm.value_routes_panels("TXXX:MusicIndex Value Routes", id3_only, "[]", "[]");
+        let panels = vm.value_routes_panels("TXXX:Podcast Value Routes", id3_only, "[]", "[]");
         assert_eq!(panels.len(), 1);
         assert_eq!(panels[0].column, "id3");
         // An empty value has no panel, and another field has no panel.
@@ -1195,11 +1195,11 @@ mod tests {
     #[test]
     fn logical_field_maps_raw_musicindex_txxx_fields() {
         assert_eq!(
-            TrackMetadataGridVm::logical_field("TXXX:MusicIndex Contributors"),
+            TrackMetadataGridVm::logical_field("TXXX:Podcast Contributors"),
             "Contributors"
         );
         assert_eq!(
-            TrackMetadataGridVm::logical_field("TXXX:MusicIndex Value Routes"),
+            TrackMetadataGridVm::logical_field("TXXX:Podcast Value Routes"),
             "Value Routes"
         );
         assert_eq!(TrackMetadataGridVm::logical_field("Title"), "Title");

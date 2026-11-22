@@ -3180,12 +3180,12 @@ dependencies = [
  "icu_locale_core",
  "id3",
  "image",
- "lofty",
  "lru",
  "markup5ever_rcdom",
  "mime",
  "musicindex-build-info",
  "musicindex-search",
+ "musicindex-tags",
  "musicindex-value",
  "open",
  "quick-xml 0.37.5",
@@ -4465,6 +4465,18 @@ dependencies = [
  "chrono",
  "serde_json",
  "unicode-normalization",
+]
+
+[[package]]
+name = "musicindex-tags"
+version = "0.1.0"
+source = "git+https://github.com/InTheMorning/musicindex-lib?rev=3b7129a9e57477a1dc9ce51884aa1a96e5311b59#3b7129a9e57477a1dc9ce51884aa1a96e5311b59"
+dependencies = [
+ "anyhow",
+ "id3",
+ "lofty",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

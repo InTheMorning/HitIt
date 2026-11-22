@@ -54,8 +54,8 @@ pub const ID3V24_FRAME_GROUPS: &[(&str, &str)] = &[
 
 pub const MUSICINDEX_METADATA_SOURCE: &str = "musicindex";
 pub const MUSICINDEX_VALUE_ROUTES_FIELD: &str = "Value Routes";
-pub const MUSICINDEX_VALUE_ROUTES_FRAME: &str = "TXXX:MusicIndex Value Routes";
-pub const MUSICINDEX_VALUE_ROUTES_CUSTOM_KEY: &str = "MusicIndex Value Routes";
+pub const PODCAST_VALUE_ROUTES_FRAME: &str = "TXXX:Podcast Value Routes";
+pub const PODCAST_VALUE_ROUTES_CUSTOM_KEY: &str = "Podcast Value Routes";
 pub const MUSICINDEX_PAYMENT_ROUTES_ABSENT_FACT_KEY: &str = "payment_routes_absent";
 
 // Types
@@ -240,7 +240,7 @@ pub fn compare_track_rows(
     // The "Artwork" row still shows an invalid URL.
     push_compare_row(
         &mut rows,
-        "MusicIndex Image",
+        "Podcast Image",
         artwork_url(track, feed).and_then(|url| valid_musicindex_image_url(&url)),
         None,
     );
@@ -1437,7 +1437,7 @@ pub fn track_metadata_rows(
     push_track_metadata_row(
         &mut rows,
         "lyrics-comments-artwork-user-facing-content",
-        "MusicIndex Image",
+        "Podcast Image",
         track_artwork_url(track_context),
         None,
     );
@@ -1952,7 +1952,7 @@ pub fn metadata_field_group_key(field: &str) -> &'static str {
         | "Explicit"
         | "Description" => "descriptive-technical-rights-text",
         "Tempo" => "timing-seeking-audio-analysis-playback-control",
-        "Artwork" | "MusicIndex Image" | "Transcript" | "Transcript text" => {
+        "Artwork" | "Podcast Image" | "Transcript" | "Transcript text" => {
             "lyrics-comments-artwork-user-facing-content"
         }
         "Website" | "RSS feed website" | "Funding" | "RSS feed funding" | "License"
@@ -2194,7 +2194,7 @@ fn musicbrainz_license_row(
         many => (LICENSE_LIST_FRAME, join_values(many)?),
     };
     let rss_value = musicbrainz_source_value_for_field("License", track_context, result);
-    // The exact label keeps `TXXX:MusicIndex License`, the frame of the RSS
+    // The exact label keeps `TXXX:Podcast License`, the frame of the RSS
     // license name, out of this read (ADR 0080 Decision 11).
     let id3_value = result.and_then(|result| {
         if frame == LICENSE_LIST_FRAME {
@@ -2385,7 +2385,7 @@ fn source_value_for_metadata_field(field: &str, track_context: &TrackContext) ->
         "Release date" | "Release year" => musicindex_release_date(track_context),
         "Duration" => track.duration_secs.map(fmt_dur),
         "Explicit" => track.explicit.and_then(explicit_metadata_value),
-        "Artwork" | "MusicIndex Image" => track_artwork_url(track_context),
+        "Artwork" | "Podcast Image" => track_artwork_url(track_context),
         "Transcript" | "Transcript text" => track_transcript_url(track),
         // ADR 0080 Decision 5: the item description holds only the item's
         // own value. "Album description" carries the channel fallback.
@@ -2534,7 +2534,7 @@ pub fn id3_value_for_field(field: &str, result: &TagCompareResult) -> Option<Str
     }
     if matches!(frame_id, "COMM" | "USLT" | "SYLT") {
         // ADR 0080 Decision 5: "Description" and "Album description" share
-        // the same needles ("musicindex", "description"), so a loose search
+        // the same needles ("podcast", "description"), so a loose search
         // would match either frame for both rows. An exact frame label
         // keeps the item row and the channel row apart.
         if matches!(field, "Description" | "Album description") {
@@ -2658,7 +2658,7 @@ pub fn format_drag_value_for_id3v24(
     // `https` URL of 2,048 characters or fewer, the way `WOAR`/`WOAF` hold
     // a plain URL. This runs before the generic `TXXX` passthrough below,
     // which would otherwise accept any value.
-    if frame_label == MUSICINDEX_IMAGE_FRAME {
+    if frame_label == PODCAST_IMAGE_FRAME {
         return valid_musicindex_image_url(&value);
     }
     let frame_id = id3_frame_base(frame_label);
@@ -2823,13 +2823,13 @@ pub fn format_id3_website_url(value: &str) -> Option<String> {
 }
 
 /// The frame that holds the artwork URL (ADR 0080 Decision 9).
-const MUSICINDEX_IMAGE_FRAME: &str = "TXXX:MusicIndex Image";
+const PODCAST_IMAGE_FRAME: &str = "TXXX:Podcast Image";
 
-/// The longest value that `MUSICINDEX_IMAGE_FRAME` accepts (ADR 0080
+/// The longest value that `PODCAST_IMAGE_FRAME` accepts (ADR 0080
 /// Decision 9).
 const MUSICINDEX_IMAGE_URL_MAX_CHARS: usize = 2048;
 
-/// ADR 0080 Decision 9: `TXXX:MusicIndex Image` holds one plain `http` or
+/// ADR 0080 Decision 9: `TXXX:Podcast Image` holds one plain `http` or
 /// `https` URL of 2,048 characters or fewer. A relative value, a value with
 /// another scheme, and a longer value each give no frame. This uses the
 /// same URL parser as `format_id3_website_url` (`reqwest`'s, already a
@@ -2953,7 +2953,7 @@ pub fn frame_destination_for_format(
     format: crate::audio_format::AudioFormat,
 ) -> Option<String> {
     use crate::audio_format::AudioFormat;
-    use crate::tag_field::TagFieldId;
+    use musicindex_tags::field::TagFieldId;
 
     let field = TagFieldId::from_id3_label(frame_label);
     match format {
@@ -3040,7 +3040,7 @@ fn license_url_compare_value(
 /// The value of the field whose full label, including its descriptor,
 /// matches `frame_label`. Unlike [`id3_values_for_frame`], this makes no
 /// substring guess: it keeps two owners of the same base frame, such as
-/// `COMM:MusicIndex Description` and `COMM:MusicIndex Album Description`,
+/// `COMM:Podcast Description` and `COMM:Podcast Feed Description`,
 /// from matching each other's needles (ADR 0080 Decision 5).
 fn id3_exact_frame_value(result: &TagCompareResult, frame_label: &str) -> Option<String> {
     let values = result
@@ -3098,7 +3098,7 @@ pub fn grouped_id3_frame_labels(field: &str) -> Option<&'static [&'static str]> 
         "Artist" => Some(&["TPE1", "TSOP"]),
         "Album/Feed" => Some(&["TALB", "TSOA"]),
         "Contributors" => Some(&[
-            "TXXX:MusicIndex Contributors",
+            "TXXX:Podcast Contributors",
             "TXXX:MUSICIANCREDITS",
             "TXXX:Musician Credits",
             "TCOM",
@@ -3165,7 +3165,7 @@ fn id3_field_is_contributor_related(field: &Id3Field) -> bool {
         }
         "TXXX" => {
             let descriptor = normalized_id3_descriptor_key(&field.frame_id);
-            descriptor == "musicindex contributors"
+            descriptor == "podcast contributors"
                 || (descriptor.contains("musician") && descriptor.contains("credit"))
         }
         _ => false,
@@ -3254,8 +3254,8 @@ pub fn needles_match(value: &str, needles: &[&str]) -> bool {
 
 pub fn id3_txxx_needles(field: &str) -> &'static [&'static str] {
     match field {
-        "RSS feed guid" => &["musicindex", "feed", "guid"],
-        "RSS track guid" => &["musicindex", "track", "guid"],
+        "RSS feed guid" => &["podcast", "feed", "guid"],
+        "RSS track guid" => &["podcast", "item", "guid"],
         "MusicBrainz release" => &["musicbrainz", "album", "id"],
         "MusicBrainz release group" => &["musicbrainz", "release", "group", "id"],
         "Release country" => &["musicbrainz", "album", "release", "country"],
@@ -3264,18 +3264,18 @@ pub fn id3_txxx_needles(field: &str) -> &'static [&'static str] {
         "Release type" | "Release secondary types" => &["musicbrainz", "album", "type"],
         "Publisher" => &["v4v", "publisher"],
         "Nostr handle" | "RSS feed nostr handle" => &["nostr"],
-        "Contributors" => &["musicindex", "contributors"],
-        "Value Routes" => &["musicindex", "value", "routes"],
-        "MusicIndex Image" => &["musicindex", "image"],
-        "License name" => &["musicindex", "license"],
+        "Contributors" => &["podcast", "contributors"],
+        "Value Routes" => &["podcast", "value", "routes"],
+        "Podcast Image" => &["podcast", "image"],
+        "License name" => &["podcast", "license"],
         _ => &[],
     }
 }
 
 pub fn id3_descriptor_needles(field: &str) -> &'static [&'static str] {
     match field {
-        "Description" => &["musicindex", "description"],
-        "Transcript" | "Transcript text" => &["musicindex", "transcript"],
+        "Description" => &["podcast", "description"],
+        "Transcript" | "Transcript text" => &["podcast", "transcript"],
         _ => &[],
     }
 }
@@ -3743,7 +3743,7 @@ pub fn audio_tags_value_routes(tags: &AudioTags) -> Option<&str> {
     }
 
     tags.custom
-        .get(MUSICINDEX_VALUE_ROUTES_CUSTOM_KEY)
+        .get(PODCAST_VALUE_ROUTES_CUSTOM_KEY)
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
 }
@@ -3811,7 +3811,7 @@ fn route_set(routes: &[PaymentRoute]) -> Vec<RouteKey> {
 
 fn canonical_musicindex_key(key: &str) -> Option<&'static str> {
     let normalized = normalize_key(frame_match_key(key));
-    (normalize_key(frame_match_key(MUSICINDEX_VALUE_ROUTES_FRAME)) == normalized)
+    (normalize_key(frame_match_key(PODCAST_VALUE_ROUTES_FRAME)) == normalized)
         .then_some(MUSICINDEX_VALUE_ROUTES_FIELD)
 }
 
@@ -4099,8 +4099,8 @@ pub fn id3_frame_hint(field: &str) -> Option<&'static str> {
         "Album/Feed" => Some("TALB"),
         "Track #" => Some("TRCK"),
         "Publisher" => Some("TXXX:V4V_PUBLISHER"),
-        "RSS feed guid" => Some("TXXX:MusicIndex Feed Guid"),
-        "RSS track guid" => Some("TXXX:MusicIndex Track Guid"),
+        "RSS feed guid" => Some("TXXX:Podcast Feed Guid"),
+        "RSS track guid" => Some("TXXX:Podcast Item Guid"),
         "Nostr handle" | "RSS feed nostr handle" => Some("TXXX:RSS Nostr Handle"),
         "Label" => Some("TPUB"),
         // ADR 0080 Decision 2: the item page and the channel website are two
@@ -4119,14 +4119,14 @@ pub fn id3_frame_hint(field: &str) -> Option<&'static str> {
         "Release year" => Some("TYER"),
         "Duration" => Some("TLEN"),
         "Artwork" => Some("APIC"),
-        "MusicIndex Image" => Some(MUSICINDEX_IMAGE_FRAME),
-        "Description" => Some("COMM:MusicIndex Description"),
+        "Podcast Image" => Some(PODCAST_IMAGE_FRAME),
+        "Description" => Some("COMM:Podcast Description"),
         // ADR 0080 Decision 5: the channel description has its own frame,
         // used only when the item states none.
-        "Album description" => Some("COMM:MusicIndex Album Description"),
-        "Transcript" => Some("SYLT:MusicIndex Transcript"),
-        "Transcript text" => Some("USLT:MusicIndex Transcript"),
-        "Contributors" => Some("TXXX:MusicIndex Contributors"),
+        "Album description" => Some("COMM:Podcast Feed Description"),
+        "Transcript" => Some("SYLT:Podcast Transcript"),
+        "Transcript text" => Some("USLT:Podcast Transcript"),
+        "Contributors" => Some("TXXX:Podcast Contributors"),
         "Composer" => Some("TCOM"),
         "Lyricist" => Some("TEXT"),
         "Lead performer" => Some("TPE1"),
@@ -4136,7 +4136,7 @@ pub fn id3_frame_hint(field: &str) -> Option<&'static str> {
         "Original artist" => Some("TOPE"),
         "Original lyricist" => Some("TOLY"),
         "Involved musicians" => Some("TMCL"),
-        "Value Routes" => Some("TXXX:MusicIndex Value Routes"),
+        "Value Routes" => Some("TXXX:Podcast Value Routes"),
         "MusicBrainz recording" => Some("UFID:http://musicbrainz.org"),
         "MusicBrainz release" => Some("TXXX:MusicBrainz Album Id"),
         "MusicBrainz release group" => Some("TXXX:MusicBrainz Release Group Id"),
@@ -4240,8 +4240,8 @@ mod tests {
     #[test]
     fn id3_target_keys_normalize_descriptor_control_chars() {
         assert_eq!(
-            pending_id3_target_key("TXXX: \0MusicIndex Contributors\t"),
-            "TXXX:musicindex contributors"
+            pending_id3_target_key("TXXX: \0Podcast Contributors\t"),
+            "TXXX:podcast contributors"
         );
         assert_eq!(id3_frame_base(" TXXX : descriptor "), "TXXX");
     }
@@ -4441,7 +4441,7 @@ mod tests {
         let image_source = |track: &Track| {
             compare_track_rows(track, None, &tags)
                 .into_iter()
-                .find(|row| row.field == "MusicIndex Image")
+                .find(|row| row.field == "Podcast Image")
                 .and_then(|row| row.source_value)
         };
 
@@ -5359,7 +5359,7 @@ mod tests {
 
         let (url, name) = status_after_writing(&[
             ("WCOP", "https://rss.example/by"),
-            ("TXXX:MusicIndex License", "cc-by-4.0"),
+            ("TXXX:Podcast License", "cc-by-4.0"),
         ]);
         assert_eq!(url, Some(ComparisonStatus::Match));
         assert_eq!(name, Some(ComparisonStatus::Match));

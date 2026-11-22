@@ -10,7 +10,7 @@ use crate::metadata::{
     auto_populated_pending_id3_edits, expand_woar_metadata_rows, feed_funding, feed_nostr,
     pending_id3_edits_for_apply, resolved_license, summarize_value_routes, track_funding,
     track_metadata_rows, track_nostr, MetadataColumn, PendingId3Edit, TrackContext,
-    LICENSE_NAME_FRAME, LICENSE_URL_FRAME, MUSICINDEX_VALUE_ROUTES_FRAME,
+    LICENSE_NAME_FRAME, LICENSE_URL_FRAME, PODCAST_VALUE_ROUTES_FRAME,
 };
 use crate::musicbrainz::LookupMetadata;
 use crate::rss::{validate_nostr_identity, IdentityValidation, NostrIdentity};
@@ -89,7 +89,7 @@ fn apply_resolved_funding_link(
 
 /// ADR 0080 Decision 11: the RSS license is the `podcast:license` of the
 /// item, otherwise the one of the channel. Its `http` or `https` URL goes
-/// to `WCOP`, and its text goes to `TXXX:MusicIndex License`. A license with
+/// to `WCOP`, and its text goes to `TXXX:Podcast License`. A license with
 /// no valid URL gives no `WCOP` edit. A license with no text gives no text
 /// edit. The writer decides if the URL stays in `WCOP` or joins
 /// `TXXX:LICENSE` (`write_id3v24_edits`).
@@ -179,15 +179,15 @@ pub fn with_stored_route_frame(
 ) -> Result<Vec<Id3v24Edit>> {
     let selected = edits
         .iter()
-        .any(|edit| edit.frame_label == MUSICINDEX_VALUE_ROUTES_FRAME);
+        .any(|edit| edit.frame_label == PODCAST_VALUE_ROUTES_FRAME);
     if write == RouteFrameWrite::WhenSelected && !selected {
         return Ok(edits);
     }
-    edits.retain(|edit| edit.frame_label != MUSICINDEX_VALUE_ROUTES_FRAME);
+    edits.retain(|edit| edit.frame_label != PODCAST_VALUE_ROUTES_FRAME);
     let stored = db::payment_routes::route_for_write(conn, track_id, musicindex_routes)?;
     if let Some(value) = stored.as_deref().and_then(summarize_value_routes) {
         edits.push(Id3v24Edit {
-            frame_label: MUSICINDEX_VALUE_ROUTES_FRAME.to_owned(),
+            frame_label: PODCAST_VALUE_ROUTES_FRAME.to_owned(),
             value,
         });
     }
@@ -312,7 +312,7 @@ mod tests {
     /// 001): a track with no own website, Nostr key or description tags the
     /// channel's values in their own frames. The channel website goes to
     /// `WOAR` (Decision 2), the channel description goes to
-    /// `COMM:MusicIndex Album Description` (Decision 5) because the item
+    /// `COMM:Podcast Feed Description` (Decision 5) because the item
     /// has none, and the channel's Nostr key resolves into
     /// `TXXX:RSS Nostr Handle` (Decision 1) because the item has none. This
     /// test holds the expected edits as fixed values. It also proves ADR
@@ -325,11 +325,11 @@ mod tests {
         assert_eq!(
             edits,
             vec![
-                edit("COMM:MusicIndex Album Description", "Feed description"),
+                edit("COMM:Podcast Feed Description", "Feed description"),
                 edit("TALB", "Feed Title"),
                 edit("TIT2", "Song"),
-                edit("TXXX:MusicIndex Feed Guid", "feed-guid"),
-                edit("TXXX:MusicIndex Track Guid", "track-guid"),
+                edit("TXXX:Podcast Feed Guid", "feed-guid"),
+                edit("TXXX:Podcast Item Guid", "track-guid"),
                 edit("TXXX:RSS Nostr Handle", NPUB_FEED),
                 edit("WOAR", "https://example.test/feed"),
             ],
@@ -342,7 +342,7 @@ mod tests {
     /// frame now follows ADR 0080: the item page goes to `WOAF` and the
     /// channel website to `WOAR` (Decision 2), the item's own Nostr key
     /// wins over the channel's (Decision 1), and the item's own description
-    /// stays in `COMM:MusicIndex Description` with no album row (Decision
+    /// stays in `COMM:Podcast Description` with no album row (Decision
     /// 5). It also proves ADR 0011: the feed and track GUIDs map to their
     /// own `TXXX` frames.
     #[test]
@@ -353,11 +353,11 @@ mod tests {
         assert_eq!(
             edits,
             vec![
-                edit("COMM:MusicIndex Description", "Track description"),
+                edit("COMM:Podcast Description", "Track description"),
                 edit("TALB", "Feed Title"),
                 edit("TIT2", "Song"),
-                edit("TXXX:MusicIndex Feed Guid", "feed-guid"),
-                edit("TXXX:MusicIndex Track Guid", "track-guid"),
+                edit("TXXX:Podcast Feed Guid", "feed-guid"),
+                edit("TXXX:Podcast Item Guid", "track-guid"),
                 edit("TXXX:RSS Nostr Handle", NPUB_TRACK),
                 edit("WOAF", "https://example.test/track"),
                 edit("WOAR", "https://example.test/feed"),
@@ -443,22 +443,19 @@ mod tests {
     }
 
     /// R80-05: a track without its own description gives
-    /// `COMM:MusicIndex Album Description` with the channel description, and
-    /// no `COMM:MusicIndex Description`.
+    /// `COMM:Podcast Feed Description` with the channel description, and
+    /// no `COMM:Podcast Description`.
     #[test]
     fn adr_0080_description_falls_back_to_the_album_row_only() {
         let edits = id3_edits_for_track_context(&track_context_without_own_identity());
-        assert!(edits.contains(&edit(
-            "COMM:MusicIndex Album Description",
-            "Feed description"
-        )));
+        assert!(edits.contains(&edit("COMM:Podcast Feed Description", "Feed description")));
         assert!(!edits
             .iter()
-            .any(|edit| edit.frame_label == "COMM:MusicIndex Description"));
+            .any(|edit| edit.frame_label == "COMM:Podcast Description"));
     }
 
     /// R80-51: the tag edits for a track with its own artwork URL hold that
-    /// URL in `TXXX:MusicIndex Image`.
+    /// URL in `TXXX:Podcast Image`.
     #[test]
     fn adr_0080_image_edit_holds_the_track_artwork_url() {
         let mut context = track_context_without_own_identity();
@@ -466,13 +463,13 @@ mod tests {
         let edits = id3_edits_for_track_context(&context);
 
         assert!(edits.contains(&edit(
-            "TXXX:MusicIndex Image",
+            "TXXX:Podcast Image",
             "https://example.test/track.png"
         )));
     }
 
     /// R80-52: a track with no artwork URL of its own gives the feed
-    /// image URL in `TXXX:MusicIndex Image`.
+    /// image URL in `TXXX:Podcast Image`.
     #[test]
     fn adr_0080_image_edit_falls_back_to_the_feed_artwork_url() {
         let mut context = track_context_without_own_identity();
@@ -480,14 +477,11 @@ mod tests {
             Some("https://example.test/feed.png".into());
         let edits = id3_edits_for_track_context(&context);
 
-        assert!(edits.contains(&edit(
-            "TXXX:MusicIndex Image",
-            "https://example.test/feed.png"
-        )));
+        assert!(edits.contains(&edit("TXXX:Podcast Image", "https://example.test/feed.png")));
     }
 
     /// R80-53: a `data:` URL, a relative URL, an `ftp` URL, and an `https`
-    /// URL of 2,049 characters each give no `TXXX:MusicIndex Image` edit.
+    /// URL of 2,049 characters each give no `TXXX:Podcast Image` edit.
     #[test]
     fn adr_0080_image_edit_rejects_an_unsupported_or_oversized_url() {
         let prefix_len = "https://example.test/".len();
@@ -511,14 +505,14 @@ mod tests {
             assert!(
                 !edits
                     .iter()
-                    .any(|edit| edit.frame_label == "TXXX:MusicIndex Image"),
-                "{invalid} must give no TXXX:MusicIndex Image edit"
+                    .any(|edit| edit.frame_label == "TXXX:Podcast Image"),
+                "{invalid} must give no TXXX:Podcast Image edit"
             );
         }
     }
 
     /// R80-56: two writes of the same edits give one
-    /// `TXXX:MusicIndex Image` value, with no duplicate frame.
+    /// `TXXX:Podcast Image` value, with no duplicate frame.
     ///
     /// This writes only the one frame, not the full edits of a track
     /// context: the "Artwork" row shares the same artwork URL and maps to
@@ -527,7 +521,7 @@ mod tests {
     #[test]
     fn adr_0080_image_edit_write_is_idempotent() {
         let edits = vec![Id3v24Edit {
-            frame_label: "TXXX:MusicIndex Image".into(),
+            frame_label: "TXXX:Podcast Image".into(),
             value: "https://example.test/track.png".into(),
         }];
 
@@ -540,7 +534,7 @@ mod tests {
         let values = tags
             .fields
             .iter()
-            .filter(|field| field.frame_id == "TXXX:MusicIndex Image")
+            .filter(|field| field.frame_id == "TXXX:Podcast Image")
             .map(|field| field.value.as_str())
             .collect::<Vec<_>>();
         assert_eq!(values, vec!["https://example.test/track.png"]);
@@ -766,8 +760,8 @@ mod tests {
         for frame in [
             "WOAF",
             "WOAR",
-            "SYLT:MusicIndex Transcript",
-            "USLT:MusicIndex Transcript",
+            "SYLT:Podcast Transcript",
+            "USLT:Podcast Transcript",
         ] {
             assert!(
                 !edits.iter().any(|edit| edit.frame_label == frame),
@@ -828,9 +822,7 @@ mod tests {
     fn license_edits(edits: &[Id3v24Edit]) -> Vec<(&str, &str)> {
         let mut found = edits
             .iter()
-            .filter(|edit| {
-                edit.frame_label == "WCOP" || edit.frame_label == "TXXX:MusicIndex License"
-            })
+            .filter(|edit| edit.frame_label == "WCOP" || edit.frame_label == "TXXX:Podcast License")
             .map(|edit| (edit.frame_label.as_str(), edit.value.as_str()))
             .collect::<Vec<_>>();
         found.sort_by_key(|(label, _)| *label != "WCOP");
@@ -850,7 +842,7 @@ mod tests {
             license_edits(&channel_only),
             vec![
                 ("WCOP", "https://channel.test/by"),
-                ("TXXX:MusicIndex License", "channel-license")
+                ("TXXX:Podcast License", "channel-license")
             ]
         );
 
@@ -861,7 +853,7 @@ mod tests {
             license_edits(&own),
             vec![
                 ("WCOP", "https://item.test/by"),
-                ("TXXX:MusicIndex License", "item-license")
+                ("TXXX:Podcast License", "item-license")
             ]
         );
     }
@@ -878,7 +870,7 @@ mod tests {
         let edits = id3_edits_for_track_context(&context);
         assert_eq!(
             license_edits(&edits),
-            vec![("TXXX:MusicIndex License", "All rights reserved")]
+            vec![("TXXX:Podcast License", "All rights reserved")]
         );
 
         context.track.license_url = Some("my-podcast-license-v1".into());
@@ -886,7 +878,7 @@ mod tests {
         let edits = id3_edits_for_track_context(&context);
         assert_eq!(
             license_edits(&edits),
-            vec![("TXXX:MusicIndex License", "my-podcast-license-v1")]
+            vec![("TXXX:Podcast License", "my-podcast-license-v1")]
         );
 
         context.track.license_url = Some("ftp://item.test/by".into());
@@ -929,10 +921,7 @@ mod tests {
         assert_eq!(url[0].id3_frame.as_deref(), Some("WCOP"));
         assert_eq!(name.len(), 1);
         assert_eq!(name[0].rss_value.as_deref(), Some("cc-by-4.0"));
-        assert_eq!(
-            name[0].id3_frame.as_deref(),
-            Some("TXXX:MusicIndex License")
-        );
+        assert_eq!(name[0].id3_frame.as_deref(), Some("TXXX:Podcast License"));
         assert_eq!(musicbrainz.len(), 1);
         assert_eq!(musicbrainz[0].rss_value, None);
         assert_eq!(

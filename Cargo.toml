@@ -8,8 +8,6 @@ description = "Desktop app for MusicIndex music feeds, a local audio library and
 
 [dependencies]
 toml  = "1.0"
-id3 = "1.17"
-lofty = "0.22"
 rusqlite = { version = "0.38", features = ["bundled", "backup", "hooks"] }
 reqwest = { version = "0.13", features = ["blocking", "json"] }
 rss = "2"
@@ -22,6 +20,9 @@ musicindex-build-info = { git = "https://github.com/InTheMorning/musicindex-lib"
 # musicindex ADR 0075 R-VALUE-4: the share percentages and the short address
 # (musicindex ADR 0076 R-ADDRESS-2) come from the shared crate.
 musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5e35cf5c39a8ff68c64267156d0a7165c43f1826" }
+# musicindex ADR 0086 R-TAG-1 and ADR 0089 R-TAG-6: the frame code of song and
+# episode files comes from the shared crate.
+musicindex-tags = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "3b7129a9e57477a1dc9ce51884aa1a96e5311b59" }
 roxmltree = "=0.21.1"
 quick-xml = { version = "=0.37.5", features = ["encoding"] }
 # ADR 0076 packet 002: readable-text comparison of descriptions (ADR 0075
@@ -74,6 +75,9 @@ ashpd = { version = "=0.13.13", default-features = false, features = ["async-io"
 musicindex-build-info = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "e6d11118d33069c26c01368f7de71524988039c6" }
 
 [dev-dependencies]
+# The tests build MP3 tag fixtures. The production frame code is in
+# musicindex-tags (musicindex ADR 0086 R-TAG-1).
+id3 = "1.17"
 gpui = { package = "gpui-pre", version = "=0.3.1", features = ["test-support"] }
 # ADR 0097 Decision 3: the fit tests measure text with Figtree.
 gpui_wgpu = { package = "gpui-pre-wgpu", version = "=0.3.1" }

@@ -14,6 +14,8 @@ Amended 2026-11-05: Decision 10 limits Decision 6 for `WPAY`. The operator decid
 
 Amended 2026-11-05: Decision 6 changes. A write replaces each other value of a frame that it supplies, so that a frame does not grow. Decisions 10 to 13 follow. The operator decided this on 2026-11-05: "overwrite all".
 
+- Changed by: [musicindex ADR 0086](../../../musicindex/docs/adr/0086-one-feed-parser-and-one-tag-crate-for-songs-and-episodes.md) R-TAG-2, 2026-11-22. Each `MusicIndex ...` frame of this record has a new name, for example `TXXX:Podcast Image` for `TXXX:MusicIndex Image`. A write removes each old frame. The value forms do not change.
+
 ## Context
 
 An ID3 frame has no owner field. v4vmm writes values of two owners into one frame:

@@ -516,7 +516,7 @@ fn readiness_track_from_missing_tag(
     } else {
         (
             BroadcastReadinessState::NoRouteTag,
-            "Embedded MusicIndex Value Routes tag is missing.".to_owned(),
+            "Embedded Podcast Value Routes tag is missing.".to_owned(),
         )
     };
 
@@ -614,7 +614,7 @@ mod tests {
         write_id3v24_edits(
             &path,
             &[Id3v24Edit {
-                frame_label: crate::metadata::MUSICINDEX_VALUE_ROUTES_FRAME.to_owned(),
+                frame_label: crate::metadata::PODCAST_VALUE_ROUTES_FRAME.to_owned(),
                 value: routes.to_owned(),
             }],
         )?;

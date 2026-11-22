@@ -1118,7 +1118,7 @@ mod tests {
         Ok(())
     }
 
-    /// ADR 0011: the feed GUID maps to the `TXXX:MusicIndex Feed Guid` frame.
+    /// ADR 0011: the feed GUID maps to the `TXXX:Podcast Feed Guid` frame.
     #[test]
     fn library_track_context_preserves_feed_guid_for_id3_provenance() {
         let track = TrackRow {
@@ -1150,9 +1150,9 @@ mod tests {
 
         assert!(
             edits.iter().any(|edit| {
-                edit.frame_label == "TXXX:MusicIndex Feed Guid" && edit.value == "feed-guid"
+                edit.frame_label == "TXXX:Podcast Feed Guid" && edit.value == "feed-guid"
             }),
-            "ADR 0011: the feed GUID must map to the TXXX:MusicIndex Feed Guid frame"
+            "ADR 0011: the feed GUID must map to the TXXX:Podcast Feed Guid frame"
         );
     }
 

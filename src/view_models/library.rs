@@ -9288,7 +9288,7 @@ mod tests {
                     7,
                     "Missing Routes",
                     crate::application::queries::broadcast::BroadcastReadinessState::NoRouteTag,
-                    "Embedded MusicIndex Value Routes tag is missing.",
+                    "Embedded Podcast Value Routes tag is missing.",
                 ),
                 broadcast_readiness_track(
                     8,
@@ -9404,7 +9404,7 @@ mod tests {
                         *id,
                         title,
                         BroadcastReadinessState::NoRouteTag,
-                        "Embedded MusicIndex Value Routes tag is missing.",
+                        "Embedded Podcast Value Routes tag is missing.",
                     )
                 })
                 .collect(),
@@ -9432,7 +9432,7 @@ mod tests {
                 7,
                 "Missing Routes",
                 crate::application::queries::broadcast::BroadcastReadinessState::NoRouteTag,
-                "Embedded MusicIndex Value Routes tag is missing.",
+                "Embedded Podcast Value Routes tag is missing.",
             ),
             false,
         );
@@ -9544,7 +9544,7 @@ mod tests {
                 7,
                 "Missing Routes",
                 crate::application::queries::broadcast::BroadcastReadinessState::NoRouteTag,
-                "Embedded MusicIndex Value Routes tag is missing.",
+                "Embedded Podcast Value Routes tag is missing.",
             )],
         };
         vm.show_inbox_report(&report, &[]);

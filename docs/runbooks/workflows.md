@@ -130,7 +130,7 @@ The status line reports:
 ## Broadcast Readiness Repair Workflow
 
 Use readiness repair when a downloaded library track lacks the embedded
-`TXXX:MusicIndex Value Routes` tag.
+`TXXX:Podcast Value Routes` tag.
 
 ```bash
 hitit broadcast readiness --json
@@ -140,7 +140,7 @@ hitit broadcast repair-routes <track-id> --json
 
 `repair-routes` fetches MusicIndex track detail with `payment_routes` included,
 applies the existing feed-level route fallback, and writes only a non-empty
-MusicIndex Value Routes tag. In the app, `Check all feeds` runs the repair-all
+Podcast Value Routes tag. In the app, `Check all feeds` runs the repair-all
 path after any stale feed updates apply. The single-row `Fix routes` action and
 the one-track CLI command ask upstream again for that track.
 

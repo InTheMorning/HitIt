@@ -5523,7 +5523,7 @@ mod tests {
             album: Some("Album".to_owned()),
             path: Some("/tmp/track.mp3".to_owned()),
             state,
-            reason: "Embedded MusicIndex Value Routes tag is missing.".to_owned(),
+            reason: "Embedded Podcast Value Routes tag is missing.".to_owned(),
         }
     }
 
