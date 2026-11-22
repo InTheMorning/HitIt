@@ -8,5 +8,6 @@ pub mod metadata;
 pub mod payment_routes;
 pub mod playback;
 pub mod playlist;
+pub(crate) mod podcast_frames;
 pub mod search;
 pub(crate) mod tag_update;

@@ -155,6 +155,36 @@ The JSON summary separates:
 `NoRoutesUpstream` is not a failure. The readiness report keeps it separate so
 the publisher can fix routes upstream before the local repair is run again.
 
+## Podcast Frame Retag Workflow
+
+[musicindex ADR 0086](../../../musicindex/docs/adr/0086-one-feed-parser-and-one-tag-crate-for-songs-and-episodes.md)
+R-TAG-2 gives each `MusicIndex ...` frame a new `Podcast ...` name. HitIt reads
+only the new names. Use this command one time to give the library files the new
+names.
+
+1. Do the dry run. It changes no file. It lists each file with old frames, the
+   old frames and the new frames, and then the counts.
+
+   ```bash
+   hitit library retag-podcast-frames
+   ```
+
+2. Read the counts. A route frame of a track with no stored route is removed
+   and not written again (ADR 0076 Decision 9).
+3. Select a backup folder that is not in the music folder. The write copies
+   each file into the backup folder, at its library path, before it changes
+   the file. It does not replace a backup that exists.
+4. Do the write.
+
+   ```bash
+   hitit library retag-podcast-frames --write --backup-dir /absolute/backup/folder
+   ```
+
+5. Do the dry run again. "Files to rewrite" must be 0.
+
+A second write does not change a file that has only new frames. To get the
+file of the time before the write, copy it from the backup folder.
+
 ## Playback Session Workflow
 
 `PlaybackSession` is the authoritative now-playing state. Player adapters report

@@ -107,6 +107,11 @@ pub fn run(args: &[String]) -> Result<()> {
         {
             repair_library_paths(settings)
         }
+        [section, command, rest @ ..]
+            if section == "library" && command == "retag-podcast-frames" =>
+        {
+            retag_podcast_frames(settings, rest)
+        }
         [section, command] if section == "player" && command == "ping" => ping_player(settings),
         [section, command, track_id, flag]
             if section == "track" && command == "inspect" && flag == "--json" =>
@@ -486,6 +491,36 @@ fn repair_library_paths(settings: &CliConfig) -> Result<()> {
     print_json(&repair)
 }
 
+/// musicindex ADR 0086 R-TAG-2: no option gives the dry run. `--write
+/// --backup-dir DIR` copies each file into `DIR` and then writes it.
+fn retag_podcast_frames(settings: &CliConfig, options: &[String]) -> Result<()> {
+    use crate::application::commands::podcast_frames;
+    let backup_dir = match options {
+        [] => None,
+        [write, flag, dir] if write == "--write" && flag == "--backup-dir" => {
+            Some(std::path::PathBuf::from(dir))
+        }
+        _ => {
+            return Err(anyhow!(
+                "usage: hitit library retag-podcast-frames [--write --backup-dir <absolute-path>]"
+            ))
+        }
+    };
+    let (music_dir, conn) = open_configured_db_with_music_dir(settings)?;
+    match backup_dir {
+        None => {
+            let plan = podcast_frames::plan_library(&conn, &music_dir)?;
+            print!("{}", podcast_frames::plan_text(&plan));
+            println!("Dry run: no file changed.");
+        }
+        Some(backup_dir) => {
+            let report = podcast_frames::write_library(&conn, &music_dir, &backup_dir)?;
+            print!("{}", podcast_frames::report_text(&report));
+        }
+    }
+    Ok(())
+}
+
 fn print_track_inspect(settings: &CliConfig, track_id: i64) -> Result<()> {
     let (music_dir, conn) = open_configured_db_with_music_dir(settings)?;
     let row = debug_contracts::track_inspect(&conn, track_id, &music_dir)?;
@@ -858,6 +893,7 @@ fn help_text() -> &'static str {
   hitit playlist tracks <playlist-id> --json
   hitit library tracks --json
   hitit library repair-paths --json
+  hitit library retag-podcast-frames [--write --backup-dir <absolute-path>]
   hitit player ping
   hitit track inspect <track-id> --json
   hitit playlist play <playlist-id> [--position <zero-based-position>]
