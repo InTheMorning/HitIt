@@ -18,8 +18,8 @@ use crate::api::PaymentRoute;
 ///
 /// Each Lightning `podcast:valueRecipient` gives one route: `name`, `type`,
 /// `address`, `split`, `fee`, `customKey` and `customValue`. A block without
-/// such a recipient gives an empty list. A recipient without `fee` has the
-/// namespace default `false`.
+/// such a recipient gives an empty list. The `fee` value follows musicindex
+/// ADR 0086 R-FEED-4 item 5: no `fee` value removes a recipient.
 ///
 /// ADR 0099 Decision 2: a block that is not a Lightning block gives an empty
 /// list, and a recipient that is not a Lightning recipient gives no route.
@@ -27,7 +27,7 @@ use crate::api::PaymentRoute;
 /// # Errors
 ///
 /// Returns a reason when the block is not a JSON object, when its recipient
-/// list is not an array, or when a `split` or `fee` value has no valid form.
+/// list is not an array, or when a `split` value has no valid form.
 pub(crate) fn payment_routes_from_value_block(raw: &str) -> Result<Vec<PaymentRoute>, String> {
     let value: Value =
         serde_json::from_str(raw).map_err(|error| format!("block is not JSON: {error}"))?;
@@ -122,12 +122,10 @@ fn recipient_route(recipient: &Value) -> Result<PaymentRoute, String> {
                 .ok_or_else(|| format!("split `{split}` is not a number"))
         })
         .transpose()?;
-    let fee = match text("fee") {
-        None => false,
-        Some(fee) if fee.eq_ignore_ascii_case("true") => true,
-        Some(fee) if fee.eq_ignore_ascii_case("false") => false,
-        Some(fee) => return Err(format!("fee `{fee}` is not true or false")),
-    };
+    let (fee, warning) = parse_fee(text("fee").as_deref());
+    if let Some(warning) = warning {
+        eprintln!("warning: value recipient {:?}: {warning}", text("name"));
+    }
     Ok(PaymentRoute {
         recipient_name: text("name"),
         route_type: text("type").map(|route_type| route_type.to_ascii_lowercase()),
@@ -137,6 +135,31 @@ fn recipient_route(recipient: &Value) -> Result<PaymentRoute, String> {
         custom_key: text("customKey"),
         custom_value: text("customValue"),
     })
+}
+
+/// The parsed form of a `fee` attribute (musicindex ADR 0086 R-FEED-4 item
+/// 5), with a warning for a value that the rule does not name.
+///
+/// `true`, `1` and `yes`, in any case, mean a fee. `false`, `0`, `no`, an
+/// empty value and a missing attribute mean not a fee. Each other value means
+/// not a fee and gives a warning. No value removes the recipient.
+fn parse_fee(fee: Option<&str>) -> (bool, Option<String>) {
+    let Some(fee) = fee.map(str::trim).filter(|fee| !fee.is_empty()) else {
+        return (false, None);
+    };
+    let is = |names: [&str; 3]| names.iter().any(|name| fee.eq_ignore_ascii_case(name));
+    if is(["true", "1", "yes"]) {
+        (true, None)
+    } else if is(["false", "0", "no"]) {
+        (false, None)
+    } else {
+        (
+            false,
+            Some(format!(
+                "fee `{fee}` is not a known value; read as not a fee"
+            )),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -188,7 +211,6 @@ mod tests {
             "[]",
             r#"{"children":{"valueRecipient":{}}}"#,
             r#"{"children":{"valueRecipient":[{"attrs":{"type":"lnaddress","split":"most"}}]}}"#,
-            r#"{"children":{"valueRecipient":[{"attrs":{"type":"lnaddress","split":"50","fee":"maybe"}}]}}"#,
         ] {
             assert!(
                 payment_routes_from_value_block(invalid).is_err(),
@@ -197,6 +219,48 @@ mod tests {
             assert_eq!(canonical_routes_json(Some(invalid)), None);
         }
         assert_eq!(canonical_routes_json(None), None);
+    }
+
+    /// ADR 0086 R-FEED-4 item 5: each `fee` value gives a fee or not a fee,
+    /// and an unknown value gives a warning.
+    #[test]
+    fn adr_0086_fee_values_give_a_fee_or_not_a_fee() {
+        for fee in ["true", "TRUE", "True", "1", "yes", "YES", " yes "] {
+            assert_eq!(parse_fee(Some(fee)), (true, None), "{fee}");
+        }
+        for fee in ["false", "FALSE", "0", "no", "No", "", "  "] {
+            assert_eq!(parse_fee(Some(fee)), (false, None), "{fee:?}");
+        }
+        assert_eq!(parse_fee(None), (false, None));
+        for fee in ["maybe", "2", "y", "on"] {
+            let (is_fee, warning) = parse_fee(Some(fee));
+            assert!(!is_fee, "{fee}");
+            assert!(
+                warning.is_some_and(|warning| warning.contains(fee)),
+                "{fee}"
+            );
+        }
+    }
+
+    /// ADR 0086 R-FEED-4 item 5: a recipient with an empty or unknown `fee`
+    /// stays in the route list as not a fee.
+    #[test]
+    fn adr_0086_unusual_fee_keeps_the_recipient() {
+        let raw = r#"{"attrs":{"type":"lightning"},"children":{"valueRecipient":[{"attrs":{"name":"Empty","type":"lnaddress","address":"a@b.c","split":"50","fee":""}},{"attrs":{"name":"Unknown","type":"lnaddress","address":"d@e.f","split":"40","fee":"maybe"}},{"attrs":{"name":"Yes","type":"lnaddress","address":"g@h.i","split":"10","fee":"Yes"}}]}}"#;
+        let routes = payment_routes_from_value_block(raw).unwrap();
+        let fees = routes
+            .iter()
+            .map(|route| (route.recipient_name.as_deref(), route.fee))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            fees,
+            [
+                (Some("Empty"), Some(false)),
+                (Some("Unknown"), Some(false)),
+                (Some("Yes"), Some(true)),
+            ]
+        );
+        assert!(canonical_routes_json(Some(raw)).is_some());
     }
 
     const NODE: &str = "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a";
