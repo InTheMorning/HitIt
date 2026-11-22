@@ -2,7 +2,8 @@
 
 ## Status
 
-Done - 2026-11-22, except the visual check. The main session ran the gate.
+Done - 2026-11-22. The main session ran the gate. The operator screen of
+2026-11-22 passed visual check 1 on the re-downloaded "Dirt and Sand".
 Step 3 corrects the `WOAR` cause that the operator re-download showed.
 
 - Operator choice, 2026-11-22, through the orchestrator (interim): when the

@@ -2,7 +2,9 @@
 
 ## Status
 
-Done - 2026-11-22, except the visual check. The main session ran the gate.
+Done - 2026-11-22. The main session ran the gate. The operator screen of
+2026-11-22 passed visual check 1: "Track #" shows "= 1/6" and the
+"Release year" row has no border.
 
 - Agent choice, 2026-11-22: criteria 2 and 3 have no separate tests. The
   test `adr_0080_task_018_downloaded_file_stages_no_edit` covers them on the
