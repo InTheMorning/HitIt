@@ -1645,7 +1645,11 @@ pub fn aligned_compare_rows(
     let release_year_rss = musicindex_release_date(track_context)
         .or_else(|| comparison_source_value(result, "Release date"))
         .and_then(|value| release_year_from_value(&value));
-    let release_year_id3 = id3_value_for_field("Release year", result);
+    // ADR 0080 Decision 3 and task 017 use the writer's file date when TYER is absent.
+    let release_year_id3 = id3_value_for_field("Release year", result).or_else(|| {
+        id3_value_for_field("Release date", result)
+            .and_then(|value| release_year_from_value(&value))
+    });
     let release_year_musicbrainz = musicbrainz_value_for_field("Release date", musicbrainz)
         .and_then(|value| release_year_from_value(&value));
     let release_year_status =
@@ -3351,6 +3355,12 @@ pub fn compare_id3_field_values(
     }
     let source = normalized_field_compare_value(field, source);
     let target = normalized_field_compare_value(field, target);
+    if matches!(field, "Track #" | "Disc #") {
+        return compare_optional_values(
+            source.as_deref().map(leading_number),
+            target.as_deref().map(leading_number),
+        );
+    }
     match (&source, &target) {
         (Some(source), Some(target)) if source == target => ComparisonStatus::Match,
         (Some(_), Some(_)) => ComparisonStatus::Different,
@@ -3358,6 +3368,11 @@ pub fn compare_id3_field_values(
         (None, Some(_)) => ComparisonStatus::MissingSource,
         (None, None) => ComparisonStatus::MissingBoth,
     }
+}
+
+/// Return the number before a slash for the ADR 0080 Decision 3 scan and grid (task 017).
+pub(crate) fn leading_number(value: &str) -> &str {
+    value.split('/').next().unwrap_or_default().trim()
 }
 
 pub fn id3_presence_satisfies_field(field: &str) -> bool {
@@ -4193,8 +4208,8 @@ pub fn metadata_drag_value(
 #[cfg(test)]
 mod tests {
     use super::{
-        aligned_compare_rows, auto_populated_pending_id3_edits, compare_track_rows,
-        contributor_id3_rows, display_contributor_tree, display_metadata_value,
+        aligned_compare_rows, auto_populated_pending_id3_edits, compare_id3_field_values,
+        compare_track_rows, contributor_id3_rows, display_contributor_tree, display_metadata_value,
         expand_woar_metadata_rows, expanded_metadata_display_string,
         expanded_metadata_display_value, feed_publication_pubdate, feed_release_pubdate,
         id3_frame_base, musicindex_contributors_id3_value, musicindex_release_date,
@@ -4212,6 +4227,18 @@ mod tests {
         MusicBrainzCandidate, MusicBrainzRelationOwner, MusicBrainzUrlRelation,
     };
     use crate::track_compare::{ComparisonRow, ComparisonStatus};
+
+    #[test]
+    fn adr_0080_task_017_track_number_compares_its_number() {
+        assert_eq!(
+            compare_id3_field_values("Track #", Some("1/6"), Some("1")),
+            ComparisonStatus::Match
+        );
+        assert_eq!(
+            compare_id3_field_values("Track #", Some("2/6"), Some("1")),
+            ComparisonStatus::Different
+        );
+    }
 
     /// R46-02: `TrackContext::feed_url` gives the feed address of a context
     /// with a feed, and `None` for a context without a feed or with an

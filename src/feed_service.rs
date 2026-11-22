@@ -726,12 +726,12 @@ pub fn track_row_to_track_context_with_local_identity(
 ) -> Result<TrackContext> {
     let values = stored_values::track_values(conn, track)?;
     let mut context = track_context_with_values(track, &values);
-    context.feed = Some(hydrate_feed_identity(
-        conn,
-        track.feed_id,
-        context.feed.take(),
-    )?);
-    context.track = hydrate_track_identity(conn, track.id, context.track, &values)?;
+    let feed = hydrate_feed_identity(conn, track.feed_id, context.feed.take())?;
+    let hydrated_track = hydrate_track_identity(conn, track.id, context.track, &values)?;
+    // ADR 0076 Decision 10 and ADR 0080 Decision 3: apply channel defaults
+    // after the scan has loaded stored channel and item values (task 018).
+    context.track = crate::api::track_with_feed_defaults(hydrated_track, Some(&feed));
+    context.feed = Some(feed);
     // ADR 0080 Decision 3: a Library context reads the confirmed labels from
     // the stored `feed_publisher_relationships` rows. It sends no request.
     context.confirmed_labels = crate::view_models::named_feeds::confirmed_label_titles(
@@ -760,7 +760,12 @@ fn hydrate_feed_identity(conn: &Connection, feed_id: i64, feed: Option<Feed>) ->
     );
     // ADR 0080 Decision 13: the stored channel language, in the form that
     // the stored value projection selects.
-    feed.language = stored_values::feed_values(conn, feed_id)?.language.value;
+    // ADR 0076 Decision 10 and ADR 0080 Decision 3: use stored channel
+    // values in their projected form (task 018).
+    let values = stored_values::feed_values(conn, feed_id)?;
+    feed.language = values.language.value;
+    feed.description = values.description.value;
+    feed.publisher_text = values.owner_name.value;
     // ADR 0080 Decision 11: the RSS license of the channel.
     (feed.license_url, feed.license_text) =
         crate::local_metadata::rss_license_facts(conn, db::LocalMetadataOwner::Feed(feed_id))?;
@@ -796,14 +801,16 @@ fn hydrate_track_identity(
     (track.license_url, track.license_text) =
         crate::local_metadata::rss_license_facts(conn, db::LocalMetadataOwner::Track(track_id))?;
     // ADR 0076 packet 006: the projected credit list of the item.
-    track.source_contributors = Some(
+    // ADR 0076 Decision 10 and ADR 0080 Decision 3: an empty item credit
+    // list means no item list, so channel credits can apply (task 018).
+    track.source_contributors = (!values.credits.is_empty()).then(|| {
         values
             .credits
             .iter()
             .cloned()
             .map(Contributor::from)
-            .collect(),
-    );
+            .collect()
+    });
     Ok(track)
 }
 
@@ -1490,6 +1497,81 @@ mod tests {
         );
         assert_eq!(context.track.pub_date, Some(1_700_000_000));
         assert_eq!(context.track.explicit, Some(true));
+        Ok(())
+    }
+
+    /// ADR 0076 Decision 10 and ADR 0080 Decision 3: the stored context uses
+    /// channel values when the item has no matching values (task 018).
+    #[test]
+    fn adr_0080_task_018_stored_context_gets_the_channel_values() -> Result<()> {
+        let mut conn = setup_test_db()?;
+        let track = insert_track(&conn)?;
+        db::replace_local_metadata_facts(
+            &mut conn,
+            db::LocalMetadataOwner::Feed(track.feed_id),
+            "musicindex",
+            &[
+                db::LocalMetadataFactInput {
+                    fact_key: "description".into(),
+                    value: db::LocalMetadataValue::Text("Channel description".into()),
+                    extraction_path: None,
+                    observed_at: None,
+                    raw_json: None,
+                },
+                db::LocalMetadataFactInput {
+                    fact_key: "publisher_text".into(),
+                    value: db::LocalMetadataValue::Text("Channel publisher".into()),
+                    extraction_path: None,
+                    observed_at: None,
+                    raw_json: None,
+                },
+            ],
+        )?;
+        db::replace_local_identity_links(
+            &mut conn,
+            db::LocalIdentityOwner::Feed(track.feed_id),
+            "musicindex",
+            &[db::LocalIdentityLinkInput {
+                link_type: Some("website".into()),
+                url: Some("https://example.test/feed".into()),
+                ..db::LocalIdentityLinkInput::default()
+            }],
+        )?;
+        db::replace_local_contributors(
+            &mut conn,
+            db::LocalEntityOwner::Feed(track.feed_id),
+            "musicindex",
+            &[
+                ("Producer", "producer"),
+                ("Bass player", "bass"),
+                ("Drummer", "drums"),
+                ("Guitarist", "guitar"),
+                ("Vocalist", "vocals"),
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(position, (name, role))| db::LocalContributorInput {
+                position: i64::try_from(position).expect("small contributor position"),
+                name: Some(name.into()),
+                role: Some(role.into()),
+                ..db::LocalContributorInput::default()
+            })
+            .collect::<Vec<_>>(),
+        )?;
+
+        let row = db::track_row_by_id(&conn, track.id)?.expect("stored track");
+        let context = track_row_to_track_context_with_local_identity(&conn, &row)?;
+        let edits = id3_edits_for_track_context(&context);
+        let frames = edits
+            .iter()
+            .map(|edit| edit.frame_label.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(frames.contains(&"TIPL"));
+        assert!(frames.contains(&"TMCL"));
+        assert!(frames.contains(&"TXXX:V4V_PUBLISHER"));
+        assert!(frames.contains(&"COMM:Podcast Feed Description"));
+        assert!(frames.contains(&"WOAR"));
         Ok(())
     }
 }

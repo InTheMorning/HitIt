@@ -565,6 +565,106 @@ mod tests {
         }
     }
 
+    #[test]
+    fn adr_0080_task_018_downloaded_file_stages_no_edit() {
+        let context = TrackContext {
+            track: Track {
+                title: Some("Come Back to Me Now".into()),
+                track_number: Some(5),
+                pub_date: Some(1_770_768_000),
+                publisher_text: Some("Strange Love".into()),
+                source_contributors: Some(
+                    [
+                        ("Anthony Columbro", "producer"),
+                        ("Josh Moroz", "bass"),
+                        ("Alex Nicol", "drums"),
+                        ("Anthony Columbro", "guitar"),
+                        ("Anthony Columbro", "keyboards"),
+                        ("Josh Moroz / Alex Nicol", "vocals"),
+                    ]
+                    .into_iter()
+                    .map(|(name, role)| crate::api::Contributor {
+                        name: Some(name.into()),
+                        role: Some(role.into()),
+                        role_norm: Some(role.into()),
+                        ..Default::default()
+                    })
+                    .collect(),
+                ),
+                ..Default::default()
+            },
+            feed: Some(Feed {
+                title: Some("Strange Love".into()),
+                description: Some("Channel description".into()),
+                source_links: Some(vec![SourceEntityLink {
+                    link_type: Some("website".into()),
+                    url: Some("https://example.test/strange-love".into()),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            }),
+            rss_observation: None,
+            observation_receipts: Vec::new(),
+            provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
+        };
+
+        let temp = tempfile::tempdir().expect("temporary directory");
+        let path = temp.path().join("track.mp3");
+        std::fs::write(&path, b"not really an mp3").expect("write fixture");
+        let edits = id3_edits_for_track_context(&context);
+        crate::audio_tags::write_id3v24_edits(&path, &edits).expect("write ID3 edits");
+        let result = crate::subscribe_service::compare_downloaded_track_path(&path, &context)
+            .expect("compare downloaded file");
+        let rows =
+            crate::metadata::aligned_compare_rows(&result, &context, None, false, &BTreeSet::new());
+        let pending = crate::metadata::auto_populated_pending_id3_edits(
+            &rows,
+            &BTreeMap::new(),
+            &BTreeSet::new(),
+            Some(crate::audio_format::AudioFormat::Mp3),
+        );
+        let staged = pending
+            .iter()
+            .map(|(row_id, edit)| {
+                let file_value = rows.iter().find_map(|row| match row {
+                    crate::metadata::MetadataGridRow::Data(row) if row.row_id == *row_id => {
+                        row.id3_value.as_deref()
+                    }
+                    _ => None,
+                });
+                format!(
+                    "row={row_id}, frame={}, staged={:?}, file={:?}",
+                    edit.frame, edit.value, file_value
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            staged.is_empty(),
+            "staged edits: {}; writer edits: {}; grid: {}",
+            staged.join("; "),
+            edits
+                .iter()
+                .map(|edit| format!("{}={:?}", edit.frame_label, edit.value))
+                .collect::<Vec<_>>()
+                .join("; "),
+            rows.iter()
+                .filter_map(|row| match row {
+                    crate::metadata::MetadataGridRow::Data(row) => Some(format!(
+                        "{} [{}] rss={:?} file={:?}",
+                        row.row_id,
+                        row.id3_frame.as_deref().unwrap_or(""),
+                        row.rss_value,
+                        row.id3_value
+                    )),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        );
+    }
+
     /// R49-04 (ADR 0075 packet 049): a track with its own date gives a
     /// `TDRC` edit with that date.
     #[test]

@@ -30,8 +30,8 @@ use crate::audio_tags::{
 use crate::db;
 use crate::db::tag_update_skips::TagUpdateSkip;
 use crate::metadata::{
-    audio_tags_value_routes, frame_destination_for_format, id3_frame_base, parse_value_routes,
-    payment_routes_equal, pending_id3_target_key, summarize_value_routes,
+    audio_tags_value_routes, frame_destination_for_format, id3_frame_base, leading_number,
+    parse_value_routes, payment_routes_equal, pending_id3_target_key, summarize_value_routes,
     PODCAST_VALUE_ROUTES_FRAME,
 };
 use crate::rss::compare::{description_equal, TextRepresentation};
@@ -635,10 +635,6 @@ fn values_match(frame_label: &str, file_value: &str, expected: &str) -> bool {
         ),
         _ => file_value == expected,
     }
-}
-
-fn leading_number(value: &str) -> &str {
-    value.split('/').next().unwrap_or_default().trim()
 }
 
 #[cfg(test)]
