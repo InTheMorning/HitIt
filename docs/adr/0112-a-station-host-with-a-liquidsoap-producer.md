@@ -3,9 +3,11 @@
 ## Status
 
 Proposed - 2026-11-21. The publisher answered Open Questions 1 to 7 at
-publisher commit `8e139b0`. It waits for the operator decision on Open
-Questions 8 to 11. No task
-starts before the operator accepts it.
+publisher commit `8e139b0`. The operator answered Open Questions 8 to 11. The
+record waits for the operator acceptance. No task starts before it.
+
+- Operator choice, 2026-11-21, relayed by the orchestrator: each answer to
+  Open Questions 8 to 11 is the recommendation of this record.
 
 - Bar: crosses repositories. Publisher ADR 0022 owns the station units and
   ADR 0023 owns the DJ takeover, and HitIt controls those units. It is
@@ -113,8 +115,9 @@ different account (publisher answer 4). The Show page shows one line for the sta
 ADR 0111 Decision 8 does for each instance. The station producer does not
 change the Mixxx holder of ADR 0111.
 
-Start and Reset of a station unit are available. Stop follows the operator
-decision on Open Question 8.
+Start, Stop and Reset of a station unit are available. Stop has a
+confirmation. It names the station and says that the listeners pay nobody
+until the next start (operator answer 8).
 
 ### 5. The station event is a reserved event
 
@@ -134,13 +137,13 @@ HitIt cannot see if the DJ audio is connected to the station. When the
 selected event is the event on the station target, the confirmation of
 "Go on air" tells the operator to connect the DJ audio first. HitIt reads the
 station target with the target list of the radio host. The publisher has no command
-that gives the lock state (publisher answer 5). Open Question 11 holds the
-operator decision.
+that gives the lock state (publisher answer 5). The operator asked the
+publisher for one as a future item (operator answer 11). Until it exists,
+the confirmation text is the guard.
 
 ### 7. HitIt sends no tracks to Liquidsoap
 
-This record gives HitIt no command to Liquidsoap. Open Question 9 holds the
-operator decision.
+This record gives HitIt no command to Liquidsoap (operator answer 9).
 
 ## Invariants
 
@@ -172,21 +175,16 @@ commit `8e139b0`:
 7. The station producer takes no Mixxx lock. It shares only the producer
    lock with the other producers of its instance.
 
-For the operator:
+The operator answered these questions on 2026-11-21:
 
-8. Stop of a station unit. Recommendation: available, with a confirmation
-   that names the station and says that the listeners pay nobody until the
-   next start. The alternative is no Stop in HitIt.
-9. If HitIt sends tracks to Liquidsoap. Recommendation: not in this
-   record. A subsequent record can add it.
-10. The paired GUID rule. Publisher ADR 0024 makes a track with one GUID not
-    payable. A HitIt record can make it necessary that HitIt writes the feed
-    GUID tag and the track GUID tag together, or writes no GUID tag.
-    Recommendation: a different record, only if the operator asks for it.
-11. A lock state command in the publisher. With it, HitIt can make sure
-    that the station producer does not hold its lock before "Go on air" of
-    a DJ set. Recommendation: the publisher records it as a future item. Until
-    it exists, the confirmation text of Decision 6 is the only guard.
+8. Stop of a station unit: available, with a confirmation that names the
+   station and says that the listeners pay nobody until the next start.
+9. HitIt sends tracks to Liquidsoap: not in this record.
+10. The paired GUID rule of publisher ADR 0024: no HitIt change at this time. A
+    different HitIt record follows only if the operator asks for it.
+11. A lock state command in the publisher: yes, as a future item. The
+    orchestrator tells the publisher. Until the command
+    exists, the confirmation text of Decision 6 is the guard.
 
 ## Alternatives
 
@@ -208,8 +206,9 @@ For the operator:
 - A DJ set uses the show instances and the producer switch of ADR 0111 with
   no new switch.
 - A DJ producer that starts before the DJ audio connects can put a DJ
-  block back over the station dead block (publisher ADR 0023 §Risks). Until Open
-  Question 11 has a decision, only the confirmation text guards it.
+  block back over the station dead block (publisher ADR 0023 §Risks). Until the
+  lock state command of operator answer 11 exists, only the confirmation
+  text guards it.
 
 ## Acceptance Criteria
 
@@ -221,7 +220,8 @@ For the operator:
 2. A unit test: `UnitRef::producer` gives
    `liquidsoap-now-playing@INSTANCE.service` for the kind `liquidsoap`.
 3. A view model test: Make show instance, Attach and Detach are not
-   available on a station instance.
+   available on a station instance. Stop of a station unit gives the
+   confirmation with the station name.
 4. A watch test with fixed `systemctl` text: the snapshot has the two station
    units, and the Mixxx holder does not change.
 5. A view model test: the "Go on air" confirmation has the DJ audio text when
