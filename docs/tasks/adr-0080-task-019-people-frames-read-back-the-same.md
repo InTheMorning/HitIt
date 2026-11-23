@@ -2,7 +2,12 @@
 
 ## Status
 
-Done - 2026-11-22, except the visual check. The main session ran the gate.
+Done - 2026-11-22. The main session ran the gate.
+
+- Visual check 1 passed, 2026-11-22: the operator used the release binary
+  of 3e7210a on "What You Mean To Me" by Strange Love. The closed
+  "Contributors" row showed "= 3 contributors" in the file column. The
+  operator did not download the track again.
 The `musicindex-tags` pin is musicindex-lib commit e2e8a20, with the public
 builder `involved_people_value`.
 
