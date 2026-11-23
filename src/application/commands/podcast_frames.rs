@@ -8,7 +8,7 @@
 //!
 //! A file also needs a write when its ID3 tag is not a correct ID3v2.4 tag:
 //! a bad frame, a tag of an older version or an ID3v1 tag (musicindex ADR
-//! 0090 R-TAG-8 and R-TAG-10 item 2). The crate write repairs it. A file with
+//! 0093 R-TAG-8 and R-TAG-10 item 2). The crate write repairs it. A file with
 //! a bad tag header stays unreadable (R-TAG-7 item 5).
 //!
 //! The dry run reads only. The write copies each file into the backup folder

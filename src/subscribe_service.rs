@@ -453,7 +453,7 @@ fn subscribe_track_from_search_internal(
 ///
 /// The write runs also with no edit. Then the crate repairs a bad frame,
 /// changes an older tag to ID3v2.4 and removes an ID3v1 tag (musicindex ADR
-/// 0090 R-TAG-10 item 1). A correct tag with no edit does not change.
+/// 0093 R-TAG-10 item 1). A correct tag with no edit does not change.
 fn apply_id3_edits_nonfatal(path: &Path, edits: &[Id3v24Edit]) -> (usize, Option<String>) {
     match write_id3v24_edits(path, edits) {
         Ok(write) => (write.applied, skipped_tags_warning(&write.skipped)),
