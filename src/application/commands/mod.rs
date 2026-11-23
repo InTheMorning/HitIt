@@ -5,6 +5,7 @@ pub mod feed;
 pub mod library_removal;
 pub(crate) mod maintenance;
 pub mod metadata;
+pub(crate) mod musicl_export;
 pub mod payment_routes;
 pub mod playback;
 pub mod playlist;

@@ -3051,6 +3051,7 @@ mod library_search;
 pub(crate) mod maintenance;
 pub(crate) mod named_feed_position;
 pub(crate) mod payment_routes;
+pub(crate) mod playlist_guid;
 mod playlist_order;
 mod show_cue;
 pub use playlist_order::{move_playlist, set_playlist_order};
@@ -3085,7 +3086,7 @@ struct Migration {
     apply: fn(&Connection) -> Result<()>,
 }
 
-pub(crate) const CURRENT_VERSION: i64 = 33;
+pub(crate) const CURRENT_VERSION: i64 = 34;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -3253,6 +3254,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "podcast_frame_labels",
         apply: tag_update_skips::apply_podcast_frame_labels,
     },
+    Migration {
+        version: 34,
+        name: "playlist_musicl_guid",
+        apply: playlist_guid::apply,
+    },
 ];
 
 /// Read compatibility facts share the migration authority (ADRs 0016, 0066).
@@ -3403,6 +3409,9 @@ pub(crate) fn schema_contract(
         .map(move |entry| {
             if version >= 31 && entry.0 == "broadcast_events" {
                 return BROADCAST_EVENT_COLUMNS_V31;
+            }
+            if version >= 34 && entry.0 == "playlists" {
+                return playlist_guid::COLUMNS;
             }
             if version >= 24 && entry.0 == "playlists" {
                 return playlist_order::COLUMNS;
@@ -5820,7 +5829,7 @@ mod tests {
             applied_migration_versions(&conn)?,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26, 27, 28, 29, 30, 31, 32, 33
+                24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34
             ],
             "cleanup migration should be recorded exactly once"
         );

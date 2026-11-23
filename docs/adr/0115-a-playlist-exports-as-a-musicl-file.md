@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed - 2026-11-22.
+Accepted - 2026-11-22. The operator accepted the record on 2026-11-22 with no change.
 
 - Bar: crosses repositories. The station of musicindex ADR 0092 reads the file that HitIt writes. A change of the format changes the input of a different repository.
 - Uses: musicindex ADR 0092 R-STATION-3 items 1 and 2 (musicindex commit 708daf9). Stophammer ADR 0054 §4 for the feed URL.

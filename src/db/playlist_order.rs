@@ -189,14 +189,14 @@ mod tests {
         crate::db::migrate_schema_to(&conn, 24).unwrap();
 
         assert_eq!(
-            CURRENT_VERSION, 33,
-            "musicindex ADR 0093 adds the podcast_frame_labels migration"
+            CURRENT_VERSION, 34,
+            "ADR 0115 adds the playlist_musicl_guid migration"
         );
         assert_eq!(
             inspect_schema(&conn).unwrap(),
             SchemaCompatibility::UpgradeRequired {
                 applied: 24,
-                current: 33,
+                current: 34,
             }
         );
         upgrades::verify_target(&conn, 24).unwrap();

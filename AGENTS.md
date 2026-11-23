@@ -167,7 +167,7 @@ A defect stays in this list until the operator passes its checks.
 
 ### Stored Facts That Agents Need
 
-- Schema version 33 is current. The migration registry of ADR 0016 owns each
+- Schema version 34 is current. The migration registry of ADR 0016 owns each
   schema change.
 - `tests/fixtures/musicindex-openapi-0.21.0.json` is the stored MusicIndex
   contract of Stophammer release 0.21.0. After each Stophammer release, replace

@@ -118,6 +118,11 @@ pub fn run(args: &[String]) -> Result<()> {
         {
             print_track_inspect(settings, parse_i64("track id", track_id)?)
         }
+        [section, command, playlist_id, path]
+            if section == "playlist" && command == "export-musicl" =>
+        {
+            export_musicl(settings, parse_i64("playlist id", playlist_id)?, path)
+        }
         [section, command, rest @ ..] if section == "playlist" && command == "play" => {
             play_playlist(settings, rest)
         }
@@ -489,6 +494,17 @@ fn repair_library_paths(settings: &CliConfig) -> Result<()> {
     let (music_dir, conn) = open_configured_db_with_music_dir_without_repair(settings)?;
     let repair = db::repair_local_file_paths(&conn, &music_dir)?;
     print_json(&repair)
+}
+
+/// ADR 0115: write the playlist as a `musicL` file and print the report.
+fn export_musicl(settings: &CliConfig, playlist_id: i64, path: &str) -> Result<()> {
+    use crate::application::commands::musicl_export;
+    let conn = open_configured_db(settings)?;
+    let report = musicl_export::export(&conn, playlist_id, std::path::Path::new(path), || {
+        uuid::Uuid::new_v4().to_string()
+    })?;
+    print!("{}", musicl_export::report_text(&report));
+    Ok(())
 }
 
 /// musicindex ADR 0093 R-TAG-2: no option gives the dry run. `--write
@@ -891,6 +907,7 @@ fn help_text() -> &'static str {
   hitit broadcast repair-routes <track-id> --json
   hitit playlists list --json
   hitit playlist tracks <playlist-id> --json
+  hitit playlist export-musicl <playlist-id> <file-path>
   hitit library tracks --json
   hitit library repair-paths --json
   hitit library retag-podcast-frames [--write --backup-dir <absolute-path>]

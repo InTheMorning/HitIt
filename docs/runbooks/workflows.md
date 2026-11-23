@@ -348,6 +348,19 @@ hitit track inspect <track-id> --json
 `track inspect` uses the canonical local track identity service. It requires a
 local file binding and feed GUID, matching the now-playing identity rules.
 
+## musicL Export
+
+ADR 0115 owns this command. It writes a playlist as a `musicL` file for the
+station of musicindex ADR 0092. Get the playlist id from `hitit playlists list
+--json`.
+
+```bash
+hitit playlist export-musicl <playlist-id> <file-path>
+```
+
+The command replaces a file at the path. It prints the path, the playlist GUID,
+the number of written songs and each track that it left out, with the cause.
+
 ## State Model
 
 The UI uses four related states that are worth keeping distinct:
