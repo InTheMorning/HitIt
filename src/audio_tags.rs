@@ -1,4 +1,4 @@
-//! The HitIt side of the `musicindex-tags` crate (musicindex ADR 0086
+//! The HitIt side of the `musicindex-tags` crate (musicindex ADR 0093
 //! R-TAG-1).
 //!
 //! The crate owns the frame code: the read, the write, the frame names of
@@ -23,7 +23,7 @@ pub use musicindex_tags::{
 use crate::media::image_type;
 use crate::remote_media;
 
-/// Each old frame label of musicindex ADR 0086 R-TAG-2 and its new label.
+/// Each old frame label of musicindex ADR 0093 R-TAG-2 and its new label.
 pub(crate) const RENAMED_FRAMES: [(&str, &str); 10] = [
     ("TXXX:MusicIndex Feed Guid", frames::FEED_GUID),
     ("TXXX:MusicIndex Track Guid", frames::ITEM_GUID),

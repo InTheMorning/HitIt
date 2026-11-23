@@ -4,7 +4,7 @@
 
 Accepted - 2026-04-14.
 
-- Changed by: [musicindex ADR 0086](../../../musicindex/docs/adr/0086-one-feed-parser-and-one-tag-crate-for-songs-and-episodes.md) R-TAG-1 and R-TAG-2, 2026-11-22. The writer is in the crate `musicindex-tags`. `src/audio_tags.rs` gives the crate the `ReferenceSource` of the app. The frame `TXXX:MusicIndex Contributors` has the new name `TXXX:Podcast Contributors`.
+- Changed by: [musicindex ADR 0093](../../../musicindex/docs/adr/0093-the-feed-parser-and-the-tag-crate-of-the-suite.md) R-TAG-1 and R-TAG-2, 2026-11-22. The writer is in the crate `musicindex-tags`. `src/audio_tags.rs` gives the crate the `ReferenceSource` of the app. The frame `TXXX:MusicIndex Contributors` has the new name `TXXX:Podcast Contributors`.
 
 ## Context
 

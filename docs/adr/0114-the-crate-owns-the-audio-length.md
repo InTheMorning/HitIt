@@ -6,7 +6,7 @@ Accepted - 2026-11-22. The operator selected the decision on 2026-11-22: the fil
 
 - Bar: opposite choice by mistake. ADR 0080 Decisions 3 and 6 tell an agent that HitIt writes and compares each frame of the stored metadata. Without this record, an agent sends the RSS duration as a `TLEN` edit.
 - Changes: [ADR 0080](0080-tag-frames-follow-their-owner.md) Decisions 3 and 6 for the frame `TLEN` only.
-- Uses: musicindex ADR 0091 R-TAG-11 (musicindex commit 813e261, musicindex-lib commit 1937944).
+- Uses: musicindex ADR 0093 R-TAG-11 (musicindex commit 813e261, musicindex-lib commit 1937944).
 
 Terms:
 
@@ -18,7 +18,7 @@ Terms:
 - A download and the tag update wrote `TLEN` from the RSS duration. The scan of "Update n files" compared the file value and the stored value as two strings.
 - An encoder measures `TLEN` from the audio. A publisher types the RSS duration, or a tool estimates it.
 - On 2026-11-22 the scan showed the two Strange Love files. The stored value of track 01 was `208000` and the file value was `209484`. The stored value of track 02 was `187000` and the file value was `194185`, a difference of 7.2 s. A tolerance is not a solution.
-- Musicindex ADR 0091 R-TAG-11 gives the rule to the crate. A write keeps the `TLEN` of a file. A file with no `TLEN` gets the length that the crate measures from the audio. The crate ignores each `TLEN` edit and lists it in `TagWriteResult::skipped`.
+- Musicindex ADR 0093 R-TAG-11 gives the rule to the crate. A write keeps the `TLEN` of a file. A file with no `TLEN` gets the length that the crate measures from the audio. The crate ignores each `TLEN` edit and lists it in `TagWriteResult::skipped`.
 
 ## Decision
 

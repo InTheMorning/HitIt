@@ -7,7 +7,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 
-/// The audio format type comes from the shared crate (musicindex ADR 0086
+/// The audio format type comes from the shared crate (musicindex ADR 0093
 /// R-TAG-1). This module keeps the conversion and the converter probe.
 pub use musicindex_tags::format::AudioFormat;
 

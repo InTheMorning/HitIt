@@ -491,7 +491,7 @@ fn repair_library_paths(settings: &CliConfig) -> Result<()> {
     print_json(&repair)
 }
 
-/// musicindex ADR 0086 R-TAG-2: no option gives the dry run. `--write
+/// musicindex ADR 0093 R-TAG-2: no option gives the dry run. `--write
 /// --backup-dir DIR` copies each file into `DIR` and then writes it.
 fn retag_podcast_frames(settings: &CliConfig, options: &[String]) -> Result<()> {
     use crate::application::commands::podcast_frames;

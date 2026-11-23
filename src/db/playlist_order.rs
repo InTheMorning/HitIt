@@ -190,7 +190,7 @@ mod tests {
 
         assert_eq!(
             CURRENT_VERSION, 33,
-            "musicindex ADR 0086 adds the podcast_frame_labels migration"
+            "musicindex ADR 0093 adds the podcast_frame_labels migration"
         );
         assert_eq!(
             inspect_schema(&conn).unwrap(),

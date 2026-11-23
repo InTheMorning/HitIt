@@ -19,7 +19,7 @@ use crate::api::PaymentRoute;
 /// Each Lightning `podcast:valueRecipient` gives one route: `name`, `type`,
 /// `address`, `split`, `fee`, `customKey` and `customValue`. A block without
 /// such a recipient gives an empty list. The `fee` value follows musicindex
-/// ADR 0086 R-FEED-4 item 5: no `fee` value removes a recipient.
+/// ADR 0093 R-FEED-4 item 5: no `fee` value removes a recipient.
 ///
 /// ADR 0099 Decision 2: a block that is not a Lightning block gives an empty
 /// list, and a recipient that is not a Lightning recipient gives no route.
@@ -137,7 +137,7 @@ fn recipient_route(recipient: &Value) -> Result<PaymentRoute, String> {
     })
 }
 
-/// The parsed form of a `fee` attribute (musicindex ADR 0086 R-FEED-4 item
+/// The parsed form of a `fee` attribute (musicindex ADR 0093 R-FEED-4 item
 /// 5), with a warning for a value that the rule does not name.
 ///
 /// `true`, `1` and `yes`, in any case, mean a fee. `false`, `0`, `no`, an
@@ -221,7 +221,7 @@ mod tests {
         assert_eq!(canonical_routes_json(None), None);
     }
 
-    /// ADR 0086 R-FEED-4 item 5: each `fee` value gives a fee or not a fee,
+    /// ADR 0093 R-FEED-4 item 5: each `fee` value gives a fee or not a fee,
     /// and an unknown value gives a warning.
     #[test]
     fn adr_0086_fee_values_give_a_fee_or_not_a_fee() {
@@ -242,7 +242,7 @@ mod tests {
         }
     }
 
-    /// ADR 0086 R-FEED-4 item 5: a recipient with an empty or unknown `fee`
+    /// ADR 0093 R-FEED-4 item 5: a recipient with an empty or unknown `fee`
     /// stays in the route list as not a fee.
     #[test]
     fn adr_0086_unusual_fee_keeps_the_recipient() {

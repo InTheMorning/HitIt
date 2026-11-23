@@ -299,7 +299,7 @@ impl Materialization {
         let applied_edits = if conversion == ConversionOutcome::WavRetained {
             0
         } else if retry || self.binding.is_some() {
-            // Musicindex ADR 0090 R-TAG-10 item 1: the write runs also with no
+            // Musicindex ADR 0093 R-TAG-10 item 1: the write runs also with no
             // edit, so that the crate repairs the tag. A bad tag header
             // stays a warning (R-TAG-7 item 5); each other error stops.
             match write_id3v24_edits(&working_path, &edits) {

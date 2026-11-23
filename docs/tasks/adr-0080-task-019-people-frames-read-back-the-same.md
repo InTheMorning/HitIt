@@ -13,7 +13,7 @@ builder `involved_people_value`.
 
 - Orchestrator choice, 2026-11-22 (the operator lets the orchestrator make
   choices for suite efficiency): `musicindex-tags` owns the text of `TIPL`
-  and `TMCL` (musicindex ADR 0086 R-TAG-1 item 4). HitIt did not change its
+  and `TMCL` (musicindex ADR 0093 R-TAG-1 item 4). HitIt did not change its
   `TMCL` join to " / " as an interim step.
 - Agent choice, 2026-11-22: only the download shows the crate error, as a
   part of its tag warning. The download writes with no review by the user.
@@ -37,7 +37,7 @@ on one instrument reads back as two pairs.
 [ADR 0080](../adr/0080-tag-frames-follow-their-owner.md) Decision 3: the
 compare checks each frame against the value that the writer would write. A
 file that the app wrote shows no difference at the next compare.
-Musicindex ADR 0086 R-TAG-1 item 4: the crate owns the text of `TIPL` and
+Musicindex ADR 0093 R-TAG-1 item 4: the crate owns the text of `TIPL` and
 `TMCL`.
 
 ## Recorded Facts

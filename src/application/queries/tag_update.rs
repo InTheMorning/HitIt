@@ -511,7 +511,7 @@ enum CompareKey {
     Frame(String),
     /// The one date value of an MP4 or MP3 file. The reader gives the `TDRC`
     /// and `TYER` atoms of MP4 both as `TDRC`. An MP3 write gives one `TDRC`
-    /// frame, because an ID3v2.4 tag has no `TYER` frame (musicindex ADR 0090
+    /// frame, because an ID3v2.4 tag has no `TYER` frame (musicindex ADR 0093
     /// R-TAG-8 item 1).
     OneDate,
 }
@@ -591,7 +591,7 @@ fn frame_is_compared(frame_label: &str, format: Option<AudioFormat>) -> bool {
 }
 
 /// True when a write gives the file one date value: an MP4 file (ADR 0080
-/// Decision 6) and an MP3 file (musicindex ADR 0090 R-TAG-8 item 1). The
+/// Decision 6) and an MP3 file (musicindex ADR 0093 R-TAG-8 item 1). The
 /// writer handles a file of an unknown format as MP3.
 fn holds_one_date(format: Option<AudioFormat>) -> bool {
     matches!(format, None | Some(AudioFormat::Mp3 | AudioFormat::Mp4))
@@ -1484,7 +1484,7 @@ mod tests {
         assert_eq!(scan_tag_updates(&conn, dir.path()).unwrap().count(), 0);
     }
 
-    /// R80-3-04, changed by musicindex ADR 0090 R-TAG-8 item 1: an MP3 file
+    /// R80-3-04, changed by musicindex ADR 0093 R-TAG-8 item 1: an MP3 file
     /// of the same track holds one `TDRC` frame and no `TYER` frame. The
     /// scan lists only the missing `TDRC` frame, and the write holds only
     /// that frame.

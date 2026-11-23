@@ -1,24 +1,24 @@
-# Musicindex ADR 0086 Task 001: The Tag Crate And The Retag
+# Musicindex ADR 0093 Task 001: The Tag Crate And The Retag
 
 ## Status
 
 Done for steps 1 to 4 - 2026-11-22. Commits 942baf8, 49fcef5, 2440498 and
 89384ed hold steps 1 to 3. Commit d8238e7 holds step 4, which applies
-musicindex ADR 0090. The main session ran the gate for each commit. The
+musicindex ADR 0093. The main session ran the gate for each commit. The
 operator did the retag and the visual check. The Open section
 gives the item that waits.
 
 ## Goal
 
 HitIt uses the crate `musicindex-tags` and writes only the frame names of
-musicindex ADR 0086 R-TAG-2. The operator can rewrite the library files with
+musicindex ADR 0093 R-TAG-2. The operator can rewrite the library files with
 the new names.
 
 ## Authority
 
-[musicindex ADR 0086](../../../musicindex/docs/adr/0086-one-feed-parser-and-one-tag-crate-for-songs-and-episodes.md)
-R-FEED-4 item 5, R-TAG-1 and R-TAG-2. Musicindex ADR 0089 R-TAG-6.
-Musicindex ADR 0090 (commit 6920ed8) R-TAG-7 item 5, R-TAG-8 and R-TAG-10.
+[musicindex ADR 0093](../../../musicindex/docs/adr/0093-the-feed-parser-and-the-tag-crate-of-the-suite.md)
+R-FEED-4 item 5, R-TAG-1 and R-TAG-2. Musicindex ADR 0093 R-TAG-6.
+Musicindex ADR 0093 (commit 6920ed8) R-TAG-7 item 5, R-TAG-8 and R-TAG-10.
 [ADR 0076](../adr/0076-playlist-rss-check-for-stale-musicindex-records.md) Decision 9 for the
 route frame.
 
@@ -32,7 +32,7 @@ route frame.
 3. Step 3, commit 2440498: `hitit library retag-podcast-frames`, in
    `src/application/commands/podcast_frames.rs`. The runbook section "Podcast
    Frame Retag Workflow" gives the steps.
-4. Step 4, musicindex ADR 0090: `musicindex-tags` moves to musicindex-lib
+4. Step 4, musicindex ADR 0093: `musicindex-tags` moves to musicindex-lib
    fad5343. ADR 0080 records that R-TAG-8 item 6 replaces Decision 6 for bad
    frames, frames of an older version and ID3v1. A download writes the tag one
    time, also with no edit, so the crate repairs it. The retag also rewrites
@@ -50,8 +50,8 @@ route frame.
 | Rename table | extend | src/audio_tags.rs | `RENAMED_FRAMES` serves migration 33 and the retag. |
 | Stored route of a write | reuse | src/metadata_service.rs | `with_stored_route_frame` gives the route frame (ADR 0076 Decision 9). |
 | Library file list | reuse | src/library_service.rs | `library_tracks` gives each track with its stored path. |
-| ID3v2 frame loop | reuse | ~/build/musicindex-lib/tags/src/id3v2.rs | `read_id3v2` gives the version, the bad frames and the ID3v1 tag of the retag plan (ADR 0090 R-TAG-7). |
-| Download tag write | extend | src/subscribe_service/materialization.rs | The one download write runs also with no edit (ADR 0090 R-TAG-10 item 1). |
+| ID3v2 frame loop | reuse | ~/build/musicindex-lib/tags/src/id3v2.rs | `read_id3v2` gives the version, the bad frames and the ID3v1 tag of the retag plan (ADR 0093 R-TAG-7). |
+| Download tag write | extend | src/subscribe_service/materialization.rs | The one download write runs also with no edit (ADR 0093 R-TAG-10 item 1). |
 | Library path | reuse | src/library_path.rs | `LibraryRelativePath::resolve` gives the file path and the backup path (ADR 0064). |
 
 ## Acceptance Criteria
@@ -85,12 +85,12 @@ Mechanical:
 Visual (manual, by the operator):
 
 1. After the retag, HitIt shows the tags of the two Strange Love files
-   (musicindex ADR 0090 R-TAG-10 item 2). Passed on 2026-11-22. `Compare ID3`
+   (musicindex ADR 0093 R-TAG-10 item 2). Passed on 2026-11-22. `Compare ID3`
    showed the "Embedded MP3" values of tracks 01 and 02 with no error.
 
 ## Open
 
-1. The episode part of musicindex ADR 0089 R-TAG-6. HitIt has no path that
+1. The episode part of musicindex ADR 0093 R-TAG-6. HitIt has no path that
    writes episode tags. The HitIt ADR for the station selects the action that
    writes them. Do not start it before that ADR. It also needs the push of
    stophammer-parser d105468.

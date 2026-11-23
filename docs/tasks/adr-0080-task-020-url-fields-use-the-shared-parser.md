@@ -29,7 +29,7 @@ compare.
 
 ## Authority
 
-- Musicindex ADR 0086 R-FEED-1 items 2 and 3: a Git dependency at a fixed
+- Musicindex ADR 0093 R-FEED-1 items 2 and 3: a Git dependency at a fixed
   rev, and no local copy of a parser function.
 - Stophammer ADR 0054 §4: a URL field gives its value only when the scheme
   is `http` or `https`.

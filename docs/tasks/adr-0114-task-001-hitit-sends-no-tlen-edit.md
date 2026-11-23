@@ -12,7 +12,7 @@ change. The crate `musicindex-tags` owns `TLEN`.
 ## Authority
 
 [ADR 0114](../adr/0114-the-crate-owns-the-audio-length.md) Decisions 1 to 4
-and its Invariant. Musicindex ADR 0091 R-TAG-11.
+and its Invariant. Musicindex ADR 0093 R-TAG-11.
 [ADR 0108](../adr/0108-the-tag-update-selects-each-change.md) Decision 3 for
 the skip.
 
@@ -37,7 +37,7 @@ the skip.
 | --- | --- | --- | --- |
 | Writable frame check | extend | src/metadata.rs | `id3v24_drag_copy_frame_is_writable` controls the edit builder and the drag of the compare grid. |
 | Stale skip delete | reuse | src/db/tag_update_skips.rs | The runtime deletes a stale skip after each scan. |
-| Tag write | reuse | ~/build/musicindex-lib/tags/src/audio.rs | The crate owns `TLEN` (musicindex ADR 0091 R-TAG-11). |
+| Tag write | reuse | ~/build/musicindex-lib/tags/src/audio.rs | The crate owns `TLEN` (musicindex ADR 0093 R-TAG-11). |
 
 ## Acceptance Criteria
 

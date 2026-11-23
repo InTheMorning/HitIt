@@ -30,7 +30,7 @@ pub(crate) fn apply(conn: &Connection) -> Result<()> {
 }
 
 /// Migration 33: a stored skip keeps its meaning after the frame rename of
-/// musicindex ADR 0086 R-TAG-2. Each old label changes to its new label. When
+/// musicindex ADR 0093 R-TAG-2. Each old label changes to its new label. When
 /// a row with the new label exists already, the old row is removed.
 pub(crate) fn apply_podcast_frame_labels(conn: &Connection) -> Result<()> {
     for (old, new) in crate::audio_tags::RENAMED_FRAMES {
@@ -116,7 +116,7 @@ mod tests {
             .unwrap()
     }
 
-    /// Migration 33 (musicindex ADR 0086 R-TAG-2): each old label changes to
+    /// Migration 33 (musicindex ADR 0093 R-TAG-2): each old label changes to
     /// its new label, a label that is not old stays, and a row that would
     /// copy an existing new row is removed.
     #[test]

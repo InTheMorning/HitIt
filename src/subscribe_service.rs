@@ -467,7 +467,7 @@ fn apply_id3_edits_nonfatal(path: &Path, edits: &[Id3v24Edit]) -> (usize, Option
 }
 
 /// The warning for a file with a bad ID3v2 tag header. The crate does not
-/// change such a file (musicindex ADR 0090 R-TAG-7 item 5).
+/// change such a file (musicindex ADR 0093 R-TAG-7 item 5).
 pub(crate) fn bad_tag_warning(error: &anyhow::Error) -> String {
     crate::diagnostics::redact_endpoint_details(&format!(
         "App saved the track but could not write its tags: {error:#}"
@@ -1024,7 +1024,7 @@ mod tests {
     const MP3_BODY: &[u8] = b"ID3\x04\x00\x00\x00\x00\x00\x00mp3data";
 
     /// An ID3v2.3 tag with two `PRIV` frames of size 0, as in the two Strange
-    /// Love files (musicindex ADR 0090 R-TAG-9 item 4). The tag size is 34.
+    /// Love files (musicindex ADR 0093 R-TAG-9 item 4). The tag size is 34.
     const BAD_TAG_MP3_BODY: &[u8] = b"ID3\x03\x00\x00\x00\x00\x00\x22\
 PRIV\x00\x00\x00\x00\x00\x00PRIV\x00\x00\x00\x00\x00\x00TIT2\x00\x00\x00\x04\x00\x00\x00Old\
 \xff\xfbmp3data";
@@ -1202,7 +1202,7 @@ PRIV\x00\x00\x00\x00\x00\x00PRIV\x00\x00\x00\x00\x00\x00TIT2\x00\x00\x00\x04\x00
         assert!(outcome.path.exists());
     }
 
-    /// Musicindex ADR 0090 R-TAG-10 item 1: a download writes a correct tag
+    /// Musicindex ADR 0093 R-TAG-10 item 1: a download writes a correct tag
     /// one time. A file with a bad tag gets an ID3v2.4 tag that a strict `id3`
     /// read accepts, with no bad frame.
     #[test]
@@ -1275,7 +1275,7 @@ PRIV\x00\x00\x00\x00\x00\x00PRIV\x00\x00\x00\x00\x00\x00TIT2\x00\x00\x00\x04\x00
         let outcome = outcome.unwrap();
         let music_dir = cfg(temp.path()).music_dir;
         let db = conn.lock().unwrap();
-        // Musicindex ADR 0090 R-TAG-8 item 1: an ID3v2.4 tag has no `TYER`
+        // Musicindex ADR 0093 R-TAG-8 item 1: an ID3v2.4 tag has no `TYER`
         // frame. The crate drops the `TYER` edit when a `TDRC` edit exists.
         let expected = stored_projection_edits(&db)
             .into_iter()

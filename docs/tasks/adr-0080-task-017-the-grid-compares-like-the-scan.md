@@ -20,7 +20,7 @@ same result for the track number and the release year. The grid stages no
 
 [ADR 0080](../adr/0080-tag-frames-follow-their-owner.md) Decision 3: the tag
 compare checks each frame against the value that the writer would write.
-Musicindex ADR 0090 R-TAG-8 item 1: an MP3 write gives one `TDRC` frame and
+Musicindex ADR 0093 R-TAG-8 item 1: an MP3 write gives one `TDRC` frame and
 no `TYER` frame.
 
 - Operator choice, 2026-11-22: the track number compares its number only. A

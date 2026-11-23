@@ -366,7 +366,7 @@ pub fn artwork_url(track: &Track, feed: Option<&Feed>) -> Option<String> {
 
 /// The read value of the first `website` or `web_page` row whose URL gives
 /// a read value. Stophammer ADR 0054 §4a owns the read rule, and the shared
-/// parser applies it (musicindex ADR 0086 R-FEED-1 items 2 and 3). A row
+/// parser applies it (musicindex ADR 0093 R-FEED-1 items 2 and 3). A row
 /// whose URL gives no read value is skipped.
 pub fn website_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> {
     links?.iter().find_map(|link| {
@@ -2702,7 +2702,7 @@ pub fn format_id3_title(value: &str) -> Option<String> {
     (!value.trim().is_empty()).then_some(value)
 }
 
-/// Musicindex ADR 0086 R-TAG-1 item 4: the crate builds the text of a `TMCL`
+/// Musicindex ADR 0093 R-TAG-1 item 4: the crate builds the text of a `TMCL`
 /// frame. Each name of a performer row gets one (instrument, name) pair.
 /// The function gives `None` for a field that is not a performer row or that
 /// has no name, and the crate error for a pair that does not read back the
@@ -2884,7 +2884,7 @@ pub fn valid_musicindex_image_url(value: &str) -> Option<String> {
     web_url_value(url)
 }
 
-/// ADR 0114: the crate owns `TLEN` (musicindex ADR 0091 R-TAG-11), so HitIt
+/// ADR 0114: the crate owns `TLEN` (musicindex ADR 0093 R-TAG-11), so HitIt
 /// stages no `TLEN` edit.
 pub fn id3v24_drag_copy_frame_is_writable(frame_label: &str) -> bool {
     frame_label != "TLEN" && id3v24_edit_label_is_writable(frame_label)

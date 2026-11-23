@@ -12,7 +12,7 @@ Step 3 corrects the `WOAR` cause that the operator re-download showed.
   read value of stophammer ADR 0054 §4a. With only the `rss` row, a URL with
   no scheme gives no `WOAR` edit. HitIt adds no scheme repair. The rule goes
   in the change that pins the shared parser function of that repair
-  (musicindex ADR 0086 R-FEED-1 item 4).
+  (musicindex ADR 0093 R-FEED-1 item 4).
 
 ## Goal
 

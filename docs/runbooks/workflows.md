@@ -157,13 +157,13 @@ the publisher can fix routes upstream before the local repair is run again.
 
 ## Podcast Frame Retag Workflow
 
-[musicindex ADR 0086](../../../musicindex/docs/adr/0086-one-feed-parser-and-one-tag-crate-for-songs-and-episodes.md)
+[musicindex ADR 0093](../../../musicindex/docs/adr/0093-the-feed-parser-and-the-tag-crate-of-the-suite.md)
 R-TAG-2 gives each `MusicIndex ...` frame a new `Podcast ...` name. HitIt reads
 only the new names. Use this command one time to give the library files the new
 names.
 
 The same write also repairs each ID3 tag that is not a correct ID3v2.4 tag
-(musicindex ADR 0090 R-TAG-8 and R-TAG-10 item 2). Examples are a bad frame, an
+(musicindex ADR 0093 R-TAG-8 and R-TAG-10 item 2). Examples are a bad frame, an
 ID3v2.3 tag and an ID3v1 tag. A file with a bad tag header is unreadable. The
 write does not change it (R-TAG-7 item 5).
 

@@ -1,4 +1,4 @@
-//! The retag of the library to the frame names of musicindex ADR 0086
+//! The retag of the library to the frame names of musicindex ADR 0093
 //! R-TAG-2.
 //!
 //! The command reads each library file. A file that has an old
@@ -75,7 +75,7 @@ pub(crate) struct FilePlan {
     pub(crate) state: FileState,
     /// The label of each old frame in the file.
     pub(crate) old_frames: Vec<String>,
-    /// Each repair of the ID3 tag that the write makes (musicindex ADR 0090
+    /// Each repair of the ID3 tag that the write makes (musicindex ADR 0093
     /// R-TAG-8), for example `ID3v2.3 to ID3v2.4`.
     pub(crate) repairs: Vec<String>,
     /// The edits, before the route frame takes the stored route.
@@ -292,7 +292,7 @@ fn plan_track(track: &TrackRow, music_dir: &Path) -> FilePlan {
 }
 
 /// Each repair that a write makes to the ID3 tag of an MP3 file (musicindex
-/// ADR 0090 R-TAG-8). Another format gives no repair.
+/// ADR 0093 R-TAG-8). Another format gives no repair.
 ///
 /// # Errors
 ///
@@ -739,7 +739,7 @@ mod tests {
         bytes
     }
 
-    /// Musicindex ADR 0090 R-TAG-10 item 2: the two Strange Love files have an
+    /// Musicindex ADR 0093 R-TAG-10 item 2: the two Strange Love files have an
     /// ID3v2.3 tag with two `PRIV` frames of size 0. The retag rewrites them,
     /// and then a strict `id3` read gives an ID3v2.4 tag with no `PRIV` frame.
     #[test]
@@ -781,7 +781,7 @@ mod tests {
         );
     }
 
-    /// Musicindex ADR 0090 R-TAG-8: a correct ID3v2.3 file with no podcast
+    /// Musicindex ADR 0093 R-TAG-8: a correct ID3v2.3 file with no podcast
     /// frame and with an ID3v1 tag is a rewrite. The write gives ID3v2.4 and
     /// removes the ID3v1 tag.
     #[test]
@@ -819,7 +819,7 @@ mod tests {
         );
     }
 
-    /// Musicindex ADR 0090 R-TAG-7 item 5: a file with a bad tag header stays
+    /// Musicindex ADR 0093 R-TAG-7 item 5: a file with a bad tag header stays
     /// unreadable, and the write does not change it.
     #[test]
     fn adr_0090_retag_reports_a_bad_tag_header_and_keeps_the_file() {

@@ -109,7 +109,7 @@ The app name is HitIt, with the machine name `hitit`
 - [ADR 0109](docs/adr/0109-check-all-feeds-reads-rss-of-changed-feeds.md),
   RSS reads of changed feeds: task 001 is implemented. Its checks are open in
   section 49.
-- HitIt uses the crate `musicindex-tags` (musicindex ADRs 0086 and 0090). The
+- HitIt uses the crate `musicindex-tags` (musicindex ADR 0093). The
   operator retag of the library is complete. The R-TAG-6 episode part is open.
   It waits for the HitIt station ADR and the push of stophammer-parser
   d105468 ([task file](docs/tasks/musicindex-adr-0086-task-001-tag-crate-and-retag.md)).
