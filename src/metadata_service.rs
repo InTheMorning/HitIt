@@ -665,9 +665,10 @@ mod tests {
         );
     }
 
-    /// ADR 0080 task 019 part A: a file that HitIt wrote with RSS credits and
-    /// an artist shows no difference on the "Contributors" row (ADR 0080
-    /// Decision 3). The `TPE1` artist is not a credit of that row.
+    /// ADR 0080 task 020: a file that HitIt wrote from website links with no
+    /// scheme shows no difference on the rows "Website" and "RSS feed
+    /// website" (ADR 0080 Decision 3). The two sides compare the read value
+    /// of the shared parser (stophammer ADR 0054 §4a).
     #[test]
     fn adr_0080_task_020_written_website_matches_its_row() {
         let website = |url: &str| crate::api::SourceEntityLink {
@@ -721,6 +722,9 @@ mod tests {
         }
     }
 
+    /// ADR 0080 task 019 part A: a file that HitIt wrote with RSS credits and
+    /// an artist shows no difference on the "Contributors" row (ADR 0080
+    /// Decision 3). The `TPE1` artist is not a credit of that row.
     #[test]
     fn adr_0080_task_019_written_file_matches_its_contributors() {
         let context = TrackContext {
