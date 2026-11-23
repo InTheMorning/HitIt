@@ -40,7 +40,7 @@ const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
 /// agent: `files.catbox.moe` resets the stream, and `hogstory.net` gives 400
 /// (walk of 2026-11-07). A caller such as the MusicBrainz lookup can set its
 /// own agent after the builder.
-const USER_AGENT: &str = concat!("hitit/", env!("CARGO_PKG_VERSION"));
+pub(crate) const USER_AGENT: &str = concat!("hitit/", env!("CARGO_PKG_VERSION"));
 
 /// ADR 0075 uses this duration for the complete observed request.
 pub(crate) const fn document_timeout() -> Duration {
@@ -54,6 +54,20 @@ pub fn document_builder() -> ClientBuilder {
         .user_agent(USER_AGENT)
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(OPERATION_TIMEOUT)
+}
+
+/// The request function of the `musicindex-fetch` feed reader, with the
+/// HitIt user agent (musicindex ADR 0092 R-STATION-1 item 5). The crate
+/// uses the same connect timeout and operation timeout as this module.
+///
+/// # Errors
+///
+/// Gives an error when `reqwest` cannot make the client.
+pub fn feed_fetch() -> reqwest::Result<musicindex_fetch::HttpFetch> {
+    musicindex_fetch::HttpFetch::new(&musicindex_fetch::ReaderConfig {
+        user_agent: USER_AGENT.to_owned(),
+        ..musicindex_fetch::ReaderConfig::default()
+    })
 }
 
 /// Client for document and API fetches.

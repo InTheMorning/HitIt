@@ -1,35 +1,35 @@
 //! Copies a public playlist of the Index into a local playlist (ADR 0089
 //! Decision 1, packet 010).
 //!
-//! The copy downloads no file. Each remote feed is read once through the
-//! RSS path of a subscribe: `rss::fetch_feed_document`, then
+//! The copy downloads no file. The `FeedReader` of `musicindex-fetch` reads
+//! each remote feed one time and finds the item (musicindex ADR 0092
+//! R-STATION-1 item 5). When an item has no feed URL, the reader gets it
+//! from `MusicIndex` by the feed GUID (R-STATION-1 item 3). The reader keeps
+//! the minimum interval between two requests to one host, and it sends no
+//! more requests to a host that answers HTTP 429.
+//!
+//! `HitIt` then stores the body through the RSS path of a subscribe,
 //! `rss::subscribe_feed_body`. That path makes the `feeds` and `tracks`
-//! rows, with `is_in_library` false (ADR 0075 provenance). Requests to one
-//! host keep the minimum interval of ADR 0084 task 039. A host that answers
-//! HTTP 429 gets no more requests in the same copy.
+//! rows, with `is_in_library` false (ADR 0075 provenance).
 //!
 //! The remote items come from `MusicIndex`, so they are untrusted input.
 //! The database lock is never held during an HTTP request.
 
 #![warn(clippy::pedantic)]
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context as _, Result};
+use musicindex_fetch::{FeedReader, FetchDocument, ReaderConfig, RemoteItemRef};
 use rusqlite::Connection;
 
 use crate::api::RemoteItem;
 use crate::config::MusicIndexEndpoint;
 use crate::db;
 use crate::playlist_service;
-use crate::rss::{self, HostThrottled};
-
-/// The minimum wait between two RSS requests to one host (ADR 0084 task
-/// 039).
-pub const RSS_HOST_INTERVAL: Duration = Duration::from_secs(2);
+use crate::rss;
 
 /// Why a copy did not finish.
 #[derive(Debug)]
@@ -66,8 +66,8 @@ impl CopyOutcome {
 
 /// Makes the local playlist `name` with the tracks of `remote_items`.
 ///
-/// `fetch` reads one RSS document. It is `rss::fetch_feed_document` in the
-/// app. A test passes a stub. `min_interval` is the wait between two
+/// `fetch` sends one GET request. It is `http_client::feed_fetch()` in the
+/// app. A test gives a closure. `min_interval` is the wait between two
 /// requests to one host.
 ///
 /// # Errors
@@ -79,7 +79,7 @@ pub fn copy_public_playlist(
     endpoint: &MusicIndexEndpoint,
     name: &str,
     remote_items: &[RemoteItem],
-    fetch: impl FnMut(&str) -> Result<Vec<u8>>,
+    fetch: impl FetchDocument,
     min_interval: Duration,
 ) -> Result<CopyOutcome, CopyError> {
     let name = name.trim();
@@ -94,11 +94,22 @@ pub fn copy_public_playlist(
     items.sort_by_key(|item| item.position.unwrap_or(i64::MAX));
     let total = items.len();
 
-    let mut reader = FeedReader::new(fetch, min_interval);
+    let musicindex_base_url = endpoint.require().ok().map(str::to_owned);
+    let config = ReaderConfig {
+        min_interval,
+        musicindex_base_url: musicindex_base_url.clone().unwrap_or_default(),
+        user_agent: crate::http_client::USER_AGENT.to_owned(),
+    };
+    let mut copy = Copy {
+        conn,
+        endpoint,
+        can_look_up_feed_urls: musicindex_base_url.is_some(),
+        reader: FeedReader::with_fetch(fetch, config),
+        stored: HashMap::new(),
+    };
     let mut track_ids = Vec::new();
     for item in items {
-        let resolved =
-            resolve_item(conn, endpoint, item, &mut reader).map_err(CopyError::Failed)?;
+        let resolved = copy.resolve_item(item).map_err(CopyError::Failed)?;
         track_ids.extend(resolved);
     }
 
@@ -144,88 +155,68 @@ fn name_taken(conn: &Arc<Mutex<Connection>>, name: &str) -> Result<bool> {
     db::playlist_name_taken(&db, name)
 }
 
-/// The track of one remote item, or `None` when the item names no track
-/// that the copy can read. An item with no item GUID is skipped.
-fn resolve_item<F: FnMut(&str) -> Result<Vec<u8>>>(
-    conn: &Arc<Mutex<Connection>>,
-    endpoint: &MusicIndexEndpoint,
-    item: &RemoteItem,
-    reader: &mut FeedReader<F>,
-) -> Result<Option<i64>> {
-    let Some(item_guid) = non_empty(item.remote_item_guid.as_deref()) else {
-        return Ok(None);
-    };
-    if let Some(feed_guid) = non_empty(item.remote_feed_guid.as_deref()) {
-        let db = lock(conn)?;
-        if let Some(id) = db::find_track_id_by_feed_guid_and_item_guid(&db, feed_guid, item_guid)? {
-            return Ok(Some(id));
-        }
-    }
-    let Some(feed_url) = non_empty(item.remote_feed_url.as_deref()) else {
-        return Ok(None);
-    };
-    reader.read_once(conn, endpoint, feed_url)?;
-    let db = lock(conn)?;
-    db::find_track_id(&db, Some(feed_url), Some(item_guid), None)
+/// The state of one copy: the crate reader and the store result of each
+/// feed URL.
+struct Copy<'a, F> {
+    conn: &'a Arc<Mutex<Connection>>,
+    endpoint: &'a MusicIndexEndpoint,
+    /// `false` when the `MusicIndex` endpoint is not valid. Then an item with
+    /// no feed URL is skipped.
+    can_look_up_feed_urls: bool,
+    reader: FeedReader<F>,
+    /// `true` for a feed URL whose rows were stored in this copy.
+    stored: HashMap<String, bool>,
 }
 
-/// Reads each feed URL once per copy, and keeps the host limits.
-struct FeedReader<F> {
-    fetch: F,
-    min_interval: Duration,
-    /// The result of each feed URL that was read: `true` when its rows
-    /// were stored.
-    outcomes: HashMap<String, bool>,
-    last_request: HashMap<String, Instant>,
-    /// Hosts that answered HTTP 429. They get no more requests.
-    stopped_hosts: BTreeSet<String>,
-}
-
-impl<F: FnMut(&str) -> Result<Vec<u8>>> FeedReader<F> {
-    fn new(fetch: F, min_interval: Duration) -> Self {
-        Self {
-            fetch,
-            min_interval,
-            outcomes: HashMap::new(),
-            last_request: HashMap::new(),
-            stopped_hosts: BTreeSet::new(),
+impl<F: FetchDocument> Copy<'_, F> {
+    /// The track of one remote item, or `None` when the item names no
+    /// track that the copy can read. An item with no item GUID is skipped.
+    fn resolve_item(&mut self, item: &RemoteItem) -> Result<Option<i64>> {
+        let Some(item_guid) = non_empty(item.remote_item_guid.as_deref()) else {
+            return Ok(None);
+        };
+        let feed_guid = non_empty(item.remote_feed_guid.as_deref());
+        if let Some(feed_guid) = feed_guid {
+            // The database lookup comes before each request.
+            let db = lock(self.conn)?;
+            if let Some(id) =
+                db::find_track_id_by_feed_guid_and_item_guid(&db, feed_guid, item_guid)?
+            {
+                return Ok(Some(id));
+            }
         }
+        let feed_url = non_empty(item.remote_feed_url.as_deref());
+        if feed_url.is_none() && (feed_guid.is_none() || !self.can_look_up_feed_urls) {
+            return Ok(None);
+        }
+        let reference = RemoteItemRef {
+            feed_guid: feed_guid.unwrap_or_default().to_owned(),
+            feed_url: feed_url.map(str::to_owned),
+            item_guid: Some(item_guid.to_owned()),
+            title: None,
+        };
+        let Ok(resolved) = self.reader.resolve(&reference) else {
+            return Ok(None);
+        };
+        if !self.store_once(&resolved.feed_url)? {
+            return Ok(None);
+        }
+        let db = lock(self.conn)?;
+        db::find_track_id(&db, Some(&resolved.feed_url), Some(item_guid), None)
     }
 
-    /// Reads `feed_url` unless it was read already in this copy. Gives
-    /// `true` when its rows are stored.
-    fn read_once(
-        &mut self,
-        conn: &Arc<Mutex<Connection>>,
-        endpoint: &MusicIndexEndpoint,
-        feed_url: &str,
-    ) -> Result<bool> {
-        if let Some(stored) = self.outcomes.get(feed_url) {
+    /// Stores the feed at `feed_url` one time in this copy. Gives `true`
+    /// when its rows are stored.
+    fn store_once(&mut self, feed_url: &str) -> Result<bool> {
+        if let Some(stored) = self.stored.get(feed_url) {
             return Ok(*stored);
         }
-        let host = rss::feed_host(feed_url).unwrap_or_else(|| feed_url.to_owned());
-        if self.stopped_hosts.contains(&host) {
-            self.outcomes.insert(feed_url.to_owned(), false);
-            return Ok(false);
-        }
-        if let Some(last) = self.last_request.get(&host) {
-            let wait = self.min_interval.checked_sub(last.elapsed());
-            if let Some(wait) = wait {
-                thread::sleep(wait);
-            }
-        }
-        self.last_request.insert(host.clone(), Instant::now());
-
-        let stored = match (self.fetch)(feed_url) {
-            Ok(body) => store_document(conn, endpoint, feed_url, &body)?,
-            Err(error) => {
-                if error.downcast_ref::<HostThrottled>().is_some() {
-                    self.stopped_hosts.insert(host);
-                }
-                false
-            }
+        // The reader keeps each document, so this read sends no request.
+        let stored = match self.reader.read(feed_url) {
+            Ok(document) => store_document(self.conn, self.endpoint, feed_url, &document.body)?,
+            Err(_) => false,
         };
-        self.outcomes.insert(feed_url.to_owned(), stored);
+        self.stored.insert(feed_url.to_owned(), stored);
         Ok(stored)
     }
 }
@@ -265,6 +256,7 @@ fn non_empty(value: Option<&str>) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use musicindex_fetch::{FeedError, HostThrottled};
     use std::cell::Cell;
 
     const FEED_URL: &str = "https://feed.test/album.xml";
@@ -318,7 +310,12 @@ mod tests {
             &endpoint(),
             "Nothing",
             &[remote(1, None, None)],
-            |_| Err(anyhow!("no fetch expected")),
+            |url: &str| {
+                Err(FeedError::Transport {
+                    url: url.to_owned(),
+                    message: "no fetch expected".to_owned(),
+                })
+            },
             Duration::ZERO,
         );
         assert!(matches!(result, Err(CopyError::NoReadableTracks)));
@@ -338,7 +335,7 @@ mod tests {
             &endpoint(),
             "  Road Trip  ",
             &items,
-            |_| Ok(rss_body(&["first", "second"])),
+            |_: &str| Ok(rss_body(&["first", "second"])),
             Duration::ZERO,
         );
         let outcome = outcome.map_err(|error| anyhow!("{error:?}"))?;
@@ -380,7 +377,7 @@ mod tests {
             &endpoint(),
             "Road Trip",
             &items,
-            |_| Ok(rss_body(&["first"])),
+            |_: &str| Ok(rss_body(&["first"])),
             Duration::ZERO,
         );
         assert!(first.is_ok());
@@ -396,7 +393,7 @@ mod tests {
             &endpoint(),
             "Road Trip",
             &items,
-            |_| {
+            |_: &str| {
                 reads.set(reads.get() + 1);
                 Ok(rss_body(&["first"]))
             },
@@ -429,7 +426,7 @@ mod tests {
             &endpoint(),
             "Mixed",
             &items,
-            |_| {
+            |_: &str| {
                 reads.set(reads.get() + 1);
                 Ok(rss_body(&["first"]))
             },
@@ -458,19 +455,64 @@ mod tests {
             &endpoint(),
             "Throttled",
             &items,
-            |url| {
+            |_: &str| {
                 reads.set(reads.get() + 1);
-                Err(HostThrottled {
-                    host: url.to_owned(),
+                Err(FeedError::Throttled(HostThrottled {
+                    host: "busy.test".to_owned(),
                     retry_after: None,
-                }
-                .into())
+                }))
             },
             Duration::ZERO,
         );
         assert_eq!(reads.get(), 1);
         assert!(matches!(result, Err(CopyError::NoReadableTracks)));
         assert!(!name_taken(&conn, "Throttled")?);
+        Ok(())
+    }
+
+    /// musicindex ADR 0092 R-STATION-1 items 3 and 5: an item with no feed
+    /// URL gets the URL from `MusicIndex` by the feed GUID. Then the copy
+    /// reads and stores that feed.
+    #[test]
+    fn adr_0092_copy_gets_a_missing_feed_url_from_musicindex() -> Result<()> {
+        let conn = setup()?;
+        let lookup = "https://index.test/v1/feeds/album-guid";
+        let requests = std::cell::RefCell::new(Vec::new());
+        let outcome = copy_public_playlist(
+            &conn,
+            &MusicIndexEndpoint::from("https://index.test"),
+            "Looked Up",
+            &[remote(1, None, Some("first"))],
+            |url: &str| {
+                requests.borrow_mut().push(url.to_owned());
+                if url == lookup {
+                    Ok(format!(r#"{{"data":{{"feed_url":"{FEED_URL}"}}}}"#).into_bytes())
+                } else {
+                    Ok(rss_body(&["first"]))
+                }
+            },
+            Duration::ZERO,
+        )
+        .map_err(|error| anyhow!("{error:?}"))?;
+        assert_eq!(outcome.copied, 1);
+        assert_eq!(*requests.borrow(), [lookup, FEED_URL]);
+        Ok(())
+    }
+
+    /// musicindex ADR 0092 R-STATION-1 item 5: when the feed has no item
+    /// with the item GUID, the item is skipped.
+    #[test]
+    fn adr_0092_copy_skips_an_item_that_is_not_in_its_feed() -> Result<()> {
+        let conn = setup()?;
+        let result = copy_public_playlist(
+            &conn,
+            &endpoint(),
+            "Missing",
+            &[remote(1, Some(FEED_URL), Some("absent"))],
+            |_: &str| Ok(rss_body(&["first"])),
+            Duration::ZERO,
+        );
+        assert!(matches!(result, Err(CopyError::NoReadableTracks)));
         Ok(())
     }
 }

@@ -19,13 +19,16 @@ musicindex-search = { git = "https://github.com/InTheMorning/musicindex-lib", re
 musicindex-build-info = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "e6d11118d33069c26c01368f7de71524988039c6" }
 # musicindex ADR 0075 R-VALUE-4: the share percentages and the short address
 # (musicindex ADR 0076 R-ADDRESS-2) come from the shared crate.
-musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5e35cf5c39a8ff68c64267156d0a7165c43f1826" }
+musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5db5c807bdd6808b52dd2ca5a1d805651dbe0b5a" }
 # musicindex ADR 0093 R-TAG-1 and R-TAG-6: the frame code of song and
 # episode files comes from the shared crate.
-musicindex-tags = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "e2e8a20843d322aaf2b253c0148130cb00f1622c" }
+musicindex-tags = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5db5c807bdd6808b52dd2ca5a1d805651dbe0b5a" }
 # musicindex ADR 0093 R-FEED-1 items 2 and 3: the URL read rules of stophammer
 # ADR 0054 §4 and §4a come from the shared parser.
-stophammer-parser = { git = "https://github.com/InTheMorning/stophammer-parser", rev = "7bd898a36eea2aeabfa17b2a8a2e9f192af5472c", default-features = false }
+stophammer-parser = { git = "https://github.com/InTheMorning/stophammer-parser", rev = "81fc50b5416efe01c4dcd3fbc6db0ef4e3bcb04b", default-features = false }
+# musicindex ADR 0092 R-STATION-1 item 5: the feed read of the playlist copy
+# comes from the shared crate.
+musicindex-fetch = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5db5c807bdd6808b52dd2ca5a1d805651dbe0b5a" }
 roxmltree = "=0.21.1"
 quick-xml = { version = "=0.37.5", features = ["encoding"] }
 uuid = { version = "=1.23.0", features = ["v4"] }

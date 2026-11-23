@@ -13,9 +13,9 @@ use crate::application::events::playlist::PlaylistEvent;
 use crate::application::events::ApplicationEvent;
 use crate::application::request_profiles::INDEX_PUBLIC_PLAYLIST_DETAIL;
 use crate::config::MusicIndexEndpoint;
-use crate::public_playlist_copy::{self, CopyError, CopyOutcome, RSS_HOST_INTERVAL};
+use crate::public_playlist_copy::{self, CopyError, CopyOutcome};
 use crate::runtime::{PlaylistRssCheckHandle, RssCheckTrigger};
-use crate::{db, playlist_service, rss};
+use crate::{db, playlist_service};
 
 type SharedConnection = Arc<Mutex<Connection>>;
 
@@ -230,13 +230,15 @@ impl ApplicationCommand for CopyPublicPlaylistToMyPlaylists {
             .fetch_feed_with_profile(&self.feed_guid, &INDEX_PUBLIC_PLAYLIST_DETAIL)
             .map_err(|error| CommandError::Query(format!("{error:#}")))?;
         let remote_items = feed.remote_items.unwrap_or_default();
+        let fetch = crate::http_client::feed_fetch()
+            .map_err(|error| CommandError::Query(format!("{error:#}")))?;
         let result = public_playlist_copy::copy_public_playlist(
             &self.conn,
             &self.endpoint,
             &self.name,
             &remote_items,
-            rss::fetch_feed_document,
-            RSS_HOST_INTERVAL,
+            fetch,
+            musicindex_fetch::RSS_HOST_INTERVAL,
         );
         let result = match result {
             Ok(outcome) => CopyPublicPlaylistResult::Copied(outcome),
