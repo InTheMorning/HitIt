@@ -27,7 +27,7 @@ musicindex-tags = { git = "https://github.com/InTheMorning/musicindex-lib", rev 
 # ADR 0054 §4 and §4a come from the shared parser.
 stophammer-parser = { git = "https://github.com/InTheMorning/stophammer-parser", rev = "81fc50b5416efe01c4dcd3fbc6db0ef4e3bcb04b", default-features = false }
 # musicindex ADR 0092 R-STATION-1 item 5: the feed read of the playlist copy
-# comes from the shared crate.
+# and the enclosure download come from the shared crate.
 musicindex-fetch = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "5db5c807bdd6808b52dd2ca5a1d805651dbe0b5a" }
 roxmltree = "=0.21.1"
 quick-xml = { version = "=0.37.5", features = ["encoding"] }

@@ -2,11 +2,13 @@
 
 ## Status
 
-Done - 2026-11-23. The main session ran the gate. The download part is
-open. It waits for a change of `musicindex-fetch` (see Open Item).
+Done - 2026-11-23. The main session ran the gate.
 
 - Agent choice, 2026-11-23: `musicindex-tags` and `musicindex-value` move
   to rev `5db5c80`, so the lock file has one version of each lib crate.
+- Agent choice, 2026-11-23: `tower-http` moves from 0.6.8 to 0.6.11 in
+  the lock file. Version 0.6.8 did not follow a redirect with a raw space
+  in `Location` (see Download).
 - Agent choice, 2026-11-23: the pin stays at `5db5c80`. The orchestrator
   names rev `40ef57a` for the gzip and Brotli decode after the operator
   pushes it.
@@ -33,7 +35,10 @@ items (musicindex ADR 0092 R-STATION-1 item 5).
    by the feed GUID.
 3. `src/http_client.rs`: `feed_fetch()` gives the crate `HttpFetch` with
    the HitIt user agent.
-4. `src/rss/host.rs`: a re-export of `HostThrottled`, `feed_host` and
+4. `src/track_compare.rs`: `download_track` calls
+   `musicindex_fetch::download_enclosure`. The HitIt `download_enclosure`
+   is deleted. The staging, the format detection and the conversion stay.
+5. `src/rss/host.rs`: a re-export of `HostThrottled`, `feed_host` and
    `parse_retry_after` from the crate. The copy and its two tests are
    deleted.
 
@@ -44,6 +49,7 @@ items (musicindex ADR 0092 R-STATION-1 item 5).
 | Feed reader | reuse | Cargo.toml | `musicindex_fetch::FeedReader` replaces the private reader of the copy. |
 | Host items | reuse | src/rss/host.rs | The module re-exports the crate items. |
 | HTTP client values | extend | src/http_client.rs | `feed_fetch()` gives the crate fetch with the HitIt user agent. |
+| Enclosure download | reuse | Cargo.toml | `musicindex_fetch::download_enclosure` replaces the HitIt function. |
 | Feed store | reuse | src/rss/subscribe.rs | `subscribe_feed_body` stores the body, as before. |
 
 ## Acceptance Criteria
@@ -56,15 +62,16 @@ Mechanical:
    `public_playlist_copy::tests::adr_0092_copy_gets_a_missing_feed_url_from_musicindex`.
 3. An item that is not in its feed is skipped. Test
    `public_playlist_copy::tests::adr_0092_copy_skips_an_item_that_is_not_in_its_feed`.
+4. The download follows a redirect with a raw space in `Location`. Test
+   `track_compare::tests::follows_enclosure_redirect_instead_of_saving_redirect_body`.
 
 Visual: none.
 
-## Open Item
+## Download
 
-`download_enclosure` of HitIt stays. The crate download follows redirects
-with the `reqwest` redirect layer. That layer does not follow a `Location`
-value with a raw space. The HitIt redirect code encodes the space
-(ADR 0056). The test
+The first run of the crate download failed the test
 `track_compare::tests::follows_enclosure_redirect_instead_of_saving_redirect_body`
-fails with the crate download and gives HTTP 301. The lib session owns the
-change of the crate.
+with HTTP 301. The `Location` value of the test has a raw space
+(ADR 0056). The cause was `tower-http` 0.6.8 in the HitIt lock file. With
+0.6.11, the version of the crate lock file, the test passes. The test
+stays as the guard of the HitIt lock file.

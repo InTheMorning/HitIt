@@ -2,8 +2,7 @@
 
 pub(crate) mod retained;
 
-use std::fs::{self, File};
-use std::io::copy;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,7 +13,6 @@ use crate::api::{SourceEnclosure, Track};
 use crate::audio_format::{AudioFormat, ConversionOutcome};
 use crate::audio_tags::AudioTags;
 use crate::config::DownloadConfig;
-use crate::remote_media;
 
 const PUBLISHER_TAG_KEY: &str = "V4V_PUBLISHER";
 const MAX_PATH_PART_CHARS: usize = 120;
@@ -312,8 +310,16 @@ pub fn download_track(cfg: &DownloadConfig, track: &Track) -> Result<DownloadedT
         err
     };
 
-    if let Err(err) = download_enclosure(&enclosure.url, &staged) {
-        return Err(cleanup_on_err(err));
+    // musicindex ADR 0092 R-STATION-1 item 5: the download comes from the
+    // shared crate. It leaves no file at `staged` when it fails.
+    if let Err(err) = musicindex_fetch::download_enclosure(
+        &enclosure.url,
+        &staged,
+        crate::http_client::USER_AGENT,
+    ) {
+        return Err(cleanup_on_err(
+            anyhow::Error::new(err).context(format!("download enclosure {}", enclosure.url)),
+        ));
     }
 
     // The bytes must be a container we support. Falling back to the declared
@@ -404,21 +410,6 @@ fn create_staging_dir(cfg: &DownloadConfig) -> Result<retained::OwnedStaging> {
     fs::create_dir_all(&dir)
         .with_context(|| format!("create staging directory {}", dir.display()))?;
     retained::OwnedStaging::capture(&cfg.music_dir, dir)
-}
-
-pub fn download_enclosure(url: &str, path: &Path) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("create download directory {}", parent.display()))?;
-    }
-
-    let mut response = remote_media::fetch(url, "enclosure")?;
-    let mut output =
-        File::create(path).with_context(|| format!("create download {}", path.display()))?;
-    copy(&mut response, &mut output)
-        .with_context(|| format!("write download {}", path.display()))?;
-
-    Ok(())
 }
 
 pub fn compare_track_tags(track: &Track, tags: &AudioTags) -> Vec<ComparisonRow> {
@@ -921,6 +912,11 @@ mod tests {
         );
     }
 
+    /// ADR 0056: a `Location` value with a raw space is followed. The crate
+    /// download (musicindex ADR 0092 R-STATION-1 item 5) uses the
+    /// `tower-http` of the HitIt lock file. Version 0.6.8 did not follow
+    /// this redirect and gave HTTP 301 (2026-11-23). Version 0.6.11 follows
+    /// it.
     #[test]
     fn follows_enclosure_redirect_instead_of_saving_redirect_body() {
         let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
