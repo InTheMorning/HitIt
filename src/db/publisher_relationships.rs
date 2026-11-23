@@ -703,8 +703,7 @@ fn is_storable_feed_image_url(image_url: &str) -> bool {
     if image_url.is_empty() || image_url.len() > MAX_FEED_IMAGE_URL_LEN {
         return false;
     }
-    let lower = image_url.to_ascii_lowercase();
-    (lower.starts_with("https://") || lower.starts_with("http://"))
+    stophammer_parser::web_url_or_none(Some(image_url)).is_some()
         && !image_url.chars().any(char::is_control)
 }
 

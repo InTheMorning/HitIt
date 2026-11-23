@@ -364,28 +364,48 @@ pub fn artwork_url(track: &Track, feed: Option<&Feed>) -> Option<String> {
         .or_else(|| feed.and_then(|feed| feed.image_url.clone()))
 }
 
+/// The read value of the first `website` or `web_page` row whose URL gives
+/// a read value. Stophammer ADR 0054 §4a owns the read rule, and the shared
+/// parser applies it (musicindex ADR 0086 R-FEED-1 items 2 and 3). A row
+/// whose URL gives no read value is skipped.
 pub fn website_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> {
     links?.iter().find_map(|link| {
         let link_type = link.link_type.as_deref()?;
         if link_type == "website" || link_type == "web_page" {
-            link.url.clone()
+            web_link_read_value(link.url.as_deref()?)
         } else {
             None
         }
     })
 }
 
+/// The read value of a website link, a web page link or a live item link
+/// (stophammer ADR 0054 §4a, through the shared parser). `None` means that
+/// the value is not a web link, and the app writes no frame for it.
+pub fn web_link_read_value(raw: &str) -> Option<String> {
+    stophammer_parser::web_link_for_read(raw).0
+}
+
+/// The value of each other URL field when it is an `http` or `https` URL
+/// (stophammer ADR 0054 §4, through the shared parser). HitIt trims the
+/// value first. An empty value gives `None`.
+pub fn web_url_value(raw: &str) -> Option<String> {
+    let url = raw.trim();
+    if url.is_empty() {
+        return None;
+    }
+    stophammer_parser::web_url_or_none(Some(url))
+}
+
 /// ADR 0080 Decision 10: the first `funding` row whose URL is an `http` or
-/// `https` URL that `format_id3_website_url` accepts. A row with a null URL,
-/// or with another scheme, is skipped. The label never enters the value.
+/// `https` URL (`web_url_value`). A row with a null URL, or with another
+/// scheme, is skipped. The label never enters the value.
 pub fn funding_url_from_links(links: Option<&[SourceEntityLink]>) -> Option<String> {
     links?.iter().find_map(|link| {
         if link.link_type.as_deref() != Some("funding") {
             return None;
         }
-        let url = format_id3_website_url(link.url.as_deref()?.trim())?;
-        let parsed = reqwest::Url::parse(&url).ok()?;
-        matches!(parsed.scheme(), "http" | "https").then_some(url)
+        web_url_value(link.url.as_deref()?)
     })
 }
 
@@ -399,15 +419,11 @@ pub fn feed_funding(feed: &Feed) -> Option<String> {
 
 pub use crate::audio_tags::{LICENSE_LIST_FRAME, LICENSE_NAME_FRAME, LICENSE_URL_FRAME};
 
-/// ADR 0080 Decision 11: a license URL goes into a frame only when it parses
-/// as an `http` or `https` URL. The label never enters the value.
+/// ADR 0080 Decision 11: a license URL goes into a frame only when it is
+/// an `http` or `https` URL (`web_url_value`). The label never enters the
+/// value.
 pub fn valid_license_url(value: &str) -> Option<String> {
-    let url = value.trim();
-    if url.is_empty() {
-        return None;
-    }
-    let parsed = reqwest::Url::parse(url).ok()?;
-    matches!(parsed.scheme(), "http" | "https").then(|| url.to_string())
+    web_url_value(value)
 }
 
 /// ADR 0080 Decision 11: the RSS license is the `podcast:license` of the
@@ -2662,7 +2678,7 @@ pub fn format_drag_value_for_id3v24(
         "TMCL" => tmcl_value(target_field, &value)?.ok(),
         "TXXX" | "UFID" => Some(value),
         "COMM" | "USLT" | "SYLT" => Some(value),
-        "WXXX" => format_id3_url(&value),
+        "WXXX" => format_id3_web_url(&value),
         // ADR 0080 Decision 8: `WOAR` and `WOAF` hold a plain URL only.
         "WOAR" | "WOAF" => format_id3_website_url(&value),
         "TRCK" => format_slash_number_frame(target_field, existing_value, &value),
@@ -2671,7 +2687,7 @@ pub fn format_drag_value_for_id3v24(
         "APIC" => format_id3_url(&value),
         "TYER" => format_id3_timestamp(&value).map(|value| value.chars().take(4).collect()),
         "TDRC" | "TDRL" | "TDOR" => format_id3_timestamp(&value),
-        id if id.starts_with('W') => format_id3_url(&value),
+        id if id.starts_with('W') => format_id3_web_url(&value),
         _ => Some(value),
     }
 }
@@ -2828,18 +2844,25 @@ pub fn format_id3_duration_ms(value: &str) -> Option<String> {
         .map(|duration| duration.to_string())
 }
 
+/// The URL part of a value: the text before a " · " label. The `APIC`
+/// value can also be a local path, so this function does not check the
+/// scheme.
 pub fn format_id3_url(value: &str) -> Option<String> {
     let url = value.split('·').next().map(str::trim).unwrap_or(value);
     (!url.is_empty()).then(|| url.to_string())
 }
 
+/// ADR 0080 Decision 8: a URL frame other than `WOAR` and `WOAF` holds one
+/// plain `http` or `https` URL (`web_url_value`), with no label text.
+pub fn format_id3_web_url(value: &str) -> Option<String> {
+    web_url_value(&format_id3_url(value)?)
+}
+
 /// ADR 0080 Decision 8: `WOAR` and `WOAF` hold one plain URL, with no label
-/// text before it. The app writes a URL only when it parses as a URL. This
-/// uses `reqwest`'s URL parser, already a dependency, so no crate is added
-/// only for this check.
+/// text before it. The value is the read value of the website link
+/// (`web_link_read_value`), so a host with no scheme gets `https://`.
 pub fn format_id3_website_url(value: &str) -> Option<String> {
-    let url = value.split('·').next().map(str::trim).unwrap_or(value);
-    reqwest::Url::parse(url).ok().map(|_| url.to_string())
+    web_link_read_value(&format_id3_url(value)?)
 }
 
 /// The frame that holds the artwork URL (ADR 0080 Decision 9).
@@ -2851,16 +2874,14 @@ const MUSICINDEX_IMAGE_URL_MAX_CHARS: usize = 2048;
 
 /// ADR 0080 Decision 9: `TXXX:Podcast Image` holds one plain `http` or
 /// `https` URL of 2,048 characters or fewer. A relative value, a value with
-/// another scheme, and a longer value each give no frame. This uses the
-/// same URL parser as `format_id3_website_url` (`reqwest`'s, already a
-/// dependency).
+/// another scheme, and a longer value each give no frame. The scheme check
+/// is `web_url_value`.
 pub fn valid_musicindex_image_url(value: &str) -> Option<String> {
     let url = value.trim();
-    if url.is_empty() || url.chars().count() > MUSICINDEX_IMAGE_URL_MAX_CHARS {
+    if url.chars().count() > MUSICINDEX_IMAGE_URL_MAX_CHARS {
         return None;
     }
-    let parsed = reqwest::Url::parse(url).ok()?;
-    matches!(parsed.scheme(), "http" | "https").then(|| url.to_string())
+    web_url_value(url)
 }
 
 /// ADR 0114: the crate owns `TLEN` (musicindex ADR 0091 R-TAG-11), so HitIt
@@ -3314,9 +3335,15 @@ pub fn normalized_field_compare_value(field: &str, value: Option<&str>) -> Optio
     match field {
         "Release date" | "RSS item pubdate" => normalized_date_compare_value(&value),
         "Release year" => release_year_from_value(&value),
-        "Website" | "RSS feed website" | "Funding" | "RSS feed funding" | "License URL" => {
-            normalized_url_compare_value(&value)
-        }
+        // The two sides of a website row compare their read values, so a
+        // file that HitIt wrote shows no difference (ADR 0080 Decision 3).
+        "Website" | "RSS feed website" => normalized_url_compare_value(
+            &embedded_url(&value)
+                .and_then(|url| web_link_read_value(&url))
+                .or_else(|| web_link_read_value(&value))
+                .unwrap_or(value),
+        ),
+        "Funding" | "RSS feed funding" | "License URL" => normalized_url_compare_value(&value),
         "Contributors" => normalized_contributors_compare_value(&value),
         "Artist" | "Album artist" | "Lead performer" | "Composer" | "Lyricist" | "Conductor"
         | "Remixer" | "Original artist" | "Original lyricist" => {

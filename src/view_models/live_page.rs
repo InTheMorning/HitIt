@@ -181,32 +181,13 @@ fn live_row(item: &LiveItem) -> Option<LiveRowVm> {
     })
 }
 
-/// The link out of a live item, or `None`. Only a web link with the `http`
-/// or `https` scheme passes (ADR 0089 packet 011). The value is untrusted,
-/// so a link with another scheme or no scheme gives no button.
+/// The link out of a live item, or `None` (ADR 0089 packet 011). The value
+/// is the read value of a live item link (stophammer ADR 0054 §4a, through
+/// the shared parser). A host with no scheme gets `https://`. A link with
+/// another scheme gives no button.
 #[must_use]
 pub(crate) fn live_link_url(content_link: Option<&str>) -> Option<String> {
-    let url = non_empty(content_link)?;
-    is_web_link(url).then(|| url.to_owned())
-}
-
-/// Whether `url` starts with `http://` or `https://`, followed by a host
-/// with no blank. The scheme is compared without case, as a URL scheme is.
-fn is_web_link(url: &str) -> bool {
-    let host = if url
-        .get(..7)
-        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("http://"))
-    {
-        url.get(7..)
-    } else if url
-        .get(..8)
-        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
-    {
-        url.get(8..)
-    } else {
-        None
-    };
-    host.is_some_and(|host| !host.is_empty() && !host.chars().any(char::is_whitespace))
+    crate::metadata::web_link_read_value(non_empty(content_link)?)
 }
 
 /// The scheduled time of a live item as text, in the language and the local
@@ -322,6 +303,7 @@ mod tests {
 
     /// ADR 0089 packet 011: the link out has the `http` or `https` scheme
     /// only. Another scheme, a relative value and a blank value give none.
+    /// A host with no scheme gets `https://` (stophammer ADR 0054 §4a).
     #[test]
     fn adr_0089_live_link_accepts_only_http_and_https() {
         assert_eq!(
@@ -336,7 +318,6 @@ mod tests {
             "javascript:alert(1)",
             "file:///etc/passwd",
             "/relative/path",
-            "example.test/no-scheme",
             "https://",
             "https://exa mple.test",
             "   ",
@@ -344,6 +325,10 @@ mod tests {
             assert_eq!(live_link_url(Some(value)), None, "{value}");
         }
         assert_eq!(live_link_url(None), None);
+        assert_eq!(
+            live_link_url(Some("example.test/no-scheme")).as_deref(),
+            Some("https://example.test/no-scheme")
+        );
     }
 
     /// ADR 0089 packet 011: a row with a safe content link gets its button,

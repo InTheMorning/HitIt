@@ -750,10 +750,10 @@ fn hydrate_feed_identity(conn: &Connection, feed_id: i64, feed: Option<Feed>) ->
         .into_iter()
         .map(source_link_from_local)
         .collect::<Vec<_>>();
-    // Task 018 step 3 (operator choice of 2026-11-22, interim): the website
-    // row of MusicIndex (`rss_link`) comes before the HitIt `rss` row. It
-    // is the read value of stophammer ADR 0054 §4a. This selects a row; it
-    // repairs no URL. The shared parser function replaces this rule.
+    // Task 018 step 3 (operator choice of 2026-11-22): the website row of
+    // MusicIndex (`rss_link`) comes before the HitIt `rss` row. This sort
+    // selects one of two rows. It changes no URL. The shared parser gives
+    // the read value of the selected row (`website_from_links`).
     links.sort_by_key(|link| {
         !(matches!(link.link_type.as_deref(), Some("website" | "web_page"))
             && link.source.as_deref() == Some("rss_link"))
@@ -1629,10 +1629,11 @@ mod tests {
         Ok(())
     }
 
-    /// Task 018 step 3: with only the HitIt `rss` row and no scheme, the
-    /// write gives no `WOAR`. HitIt adds no scheme repair of its own.
+    /// Task 020: with only the HitIt `rss` row and no scheme, the write
+    /// gives a `WOAR` with the read value of the shared parser (stophammer
+    /// ADR 0054 §4a).
     #[test]
-    fn adr_0080_task_018_website_with_no_scheme_gives_no_woar() -> Result<()> {
+    fn adr_0080_task_018_website_with_no_scheme_gets_https_woar() -> Result<()> {
         let mut conn = setup_test_db()?;
         let track = insert_track(&conn)?;
         db::replace_local_identity_links(
@@ -1648,10 +1649,16 @@ mod tests {
 
         let row = db::track_row_by_id(&conn, track.id)?.expect("stored track");
         let context = track_row_to_track_context_with_local_identity(&conn, &row)?;
+        let woar = id3_edits_for_track_context(&context)
+            .into_iter()
+            .filter(|edit| edit.frame_label == "WOAR")
+            .map(|edit| edit.value)
+            .collect::<Vec<_>>();
 
-        assert!(!id3_edits_for_track_context(&context)
-            .iter()
-            .any(|edit| edit.frame_label == "WOAR"));
+        assert_eq!(
+            woar,
+            vec!["https://www.strangeloveofmusic.wixsite.com/strangelove".to_owned()]
+        );
         Ok(())
     }
 }

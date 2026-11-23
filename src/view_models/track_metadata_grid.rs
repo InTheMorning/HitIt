@@ -367,10 +367,11 @@ impl TrackMetadataGridVm {
 
     #[must_use]
     pub fn artwork_url(raw_value: &str) -> Option<&str> {
-        raw_value
-            .starts_with("http://")
+        // Stophammer ADR 0054 §4 through the shared parser: only an `http`
+        // or `https` URL shows as a URL.
+        crate::metadata::web_url_value(raw_value)
+            .is_some()
             .then_some(raw_value)
-            .or_else(|| raw_value.starts_with("https://").then_some(raw_value))
     }
 
     #[must_use]

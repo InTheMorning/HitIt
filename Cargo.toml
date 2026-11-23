@@ -23,6 +23,9 @@ musicindex-value = { git = "https://github.com/InTheMorning/musicindex-lib", rev
 # musicindex ADR 0086 R-TAG-1 and ADR 0089 R-TAG-6: the frame code of song and
 # episode files comes from the shared crate.
 musicindex-tags = { git = "https://github.com/InTheMorning/musicindex-lib", rev = "e2e8a20843d322aaf2b253c0148130cb00f1622c" }
+# musicindex ADR 0086 R-FEED-1 items 2 and 3: the URL read rules of stophammer
+# ADR 0054 §4 and §4a come from the shared parser.
+stophammer-parser = { git = "https://github.com/InTheMorning/stophammer-parser", rev = "7bd898a36eea2aeabfa17b2a8a2e9f192af5472c", default-features = false }
 roxmltree = "=0.21.1"
 quick-xml = { version = "=0.37.5", features = ["encoding"] }
 # ADR 0076 packet 002: readable-text comparison of descriptions (ADR 0075

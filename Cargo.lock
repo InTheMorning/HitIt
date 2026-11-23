@@ -3196,6 +3196,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "stophammer-parser",
  "sys-locale",
  "tempfile",
  "tokio",
@@ -6889,6 +6890,17 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stophammer-parser"
+version = "0.21.1"
+source = "git+https://github.com/InTheMorning/stophammer-parser?rev=7bd898a36eea2aeabfa17b2a8a2e9f192af5472c#7bd898a36eea2aeabfa17b2a8a2e9f192af5472c"
+dependencies = [
+ "chrono",
+ "regex",
+ "roxmltree 0.21.1",
+ "url",
+]
 
 [[package]]
 name = "str_indices"

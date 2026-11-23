@@ -669,6 +669,59 @@ mod tests {
     /// an artist shows no difference on the "Contributors" row (ADR 0080
     /// Decision 3). The `TPE1` artist is not a credit of that row.
     #[test]
+    fn adr_0080_task_020_written_website_matches_its_row() {
+        let website = |url: &str| crate::api::SourceEntityLink {
+            link_type: Some("website".into()),
+            url: Some(url.into()),
+            ..Default::default()
+        };
+        let context = TrackContext {
+            track: Track {
+                title: Some("Dirt and Sand".into()),
+                source_links: Some(vec![website("www.strangeloveofmusic.wixsite.com/track")]),
+                ..Default::default()
+            },
+            feed: Some(Feed {
+                title: Some("Strange Love".into()),
+                source_links: Some(vec![website(
+                    "www.strangeloveofmusic.wixsite.com/strangelove",
+                )]),
+                ..Default::default()
+            }),
+            rss_observation: None,
+            observation_receipts: Vec::new(),
+            provider_state: Default::default(),
+            confirmed_labels: Vec::new(),
+        };
+
+        let temp = tempfile::tempdir().expect("temporary directory");
+        let path = temp.path().join("track.mp3");
+        std::fs::write(&path, b"not really an mp3").expect("write fixture");
+        let edits = id3_edits_for_track_context(&context);
+        crate::audio_tags::write_id3v24_edits(&path, &edits).expect("write ID3 edits");
+        let result = crate::subscribe_service::compare_downloaded_track_path(&path, &context)
+            .expect("compare downloaded file");
+        let rows =
+            crate::metadata::aligned_compare_rows(&result, &context, None, false, &BTreeSet::new());
+        for field in ["Website", "RSS feed website"] {
+            let row = rows
+                .iter()
+                .find_map(|row| match row {
+                    crate::metadata::MetadataGridRow::Data(row) if row.field == field => Some(row),
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("{field} row"));
+            assert_eq!(
+                row.id3_status,
+                crate::track_compare::ComparisonStatus::Match,
+                "{field}: rss={:?} file={:?}",
+                row.rss_value,
+                row.id3_value
+            );
+        }
+    }
+
+    #[test]
     fn adr_0080_task_019_written_file_matches_its_contributors() {
         let context = TrackContext {
             track: Track {

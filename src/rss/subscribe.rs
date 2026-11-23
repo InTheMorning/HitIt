@@ -864,10 +864,7 @@ fn funding_link_inputs(
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty());
-        let url = reqwest::Url::parse(attribute)
-            .ok()
-            .filter(|parsed| matches!(parsed.scheme(), "http" | "https"))
-            .map(|_| attribute.to_owned());
+        let url = stophammer_parser::web_url_or_none(Some(attribute));
         links.push(db::LocalIdentityLinkInput {
             entity_type: Some(entity_type.to_owned()),
             entity_id: clean_text(entity_id),
