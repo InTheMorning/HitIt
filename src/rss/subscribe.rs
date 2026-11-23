@@ -953,7 +953,7 @@ mod tests {
     #[test]
     fn adr_0066_known_rss_import_skips_invalid_index_and_retains_local_identity() -> Result<()> {
         use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+        let listener = crate::test_ports::fresh_local_listener()?;
         let url = format!("http://{}/feed.xml", listener.local_addr()?);
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -1305,14 +1305,14 @@ mod tests {
     #[cfg(test)]
     mod adr_0084_task_039_tests {
         use std::io::{Read, Write};
-        use std::net::TcpListener;
+
         use std::time::Duration;
 
         use super::{fetch_feed_document, HostThrottled};
 
         /// A local server that sends one response to the next request.
         fn serve_once(status_line: &'static str, headers: &'static str) -> String {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+            let listener = crate::test_ports::fresh_local_listener().expect("bind a local port");
             let address = listener.local_addr().expect("the local address");
             std::thread::spawn(move || {
                 if let Ok((mut stream, _)) = listener.accept() {

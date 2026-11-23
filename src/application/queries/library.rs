@@ -1172,7 +1172,7 @@ mod observation_tests {
     use super::*;
     use serde_json::json;
     use std::io::{Read, Write};
-    use std::net::{TcpListener, TcpStream};
+    use std::net::TcpStream;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
 
@@ -1221,7 +1221,7 @@ mod observation_tests {
             let unobserved_read = Arc::clone(&unobserved);
             let held_response = Arc::new(Mutex::new(None));
             let held = Arc::clone(&held_response);
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap().to_string();
             let base = format!("http://{address}");
@@ -3506,7 +3506,7 @@ target=\"1 request set\" measured_requests={measured_requests} requests={all_req
 mod adr_0077_publisher_page_tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::{TcpListener, TcpStream};
+    use std::net::TcpStream;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
@@ -3523,7 +3523,7 @@ mod adr_0077_publisher_page_tests {
 
     impl Fixture {
         fn start() -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap().to_string();
             let endpoint: crate::config::MusicIndexEndpoint = format!("http://{address}").into();

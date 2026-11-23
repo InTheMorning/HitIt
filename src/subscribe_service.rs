@@ -965,7 +965,7 @@ mod tests {
             use std::io::{Read, Write};
             use std::sync::atomic::{AtomicBool, Ordering};
 
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             let base = format!("http://{}", listener.local_addr().unwrap());
             listener.set_nonblocking(true).unwrap();
             let stop = Arc::new(AtomicBool::new(false));
@@ -1350,7 +1350,7 @@ PRIV\x00\x00\x00\x00\x00\x00PRIV\x00\x00\x00\x00\x00\x00TIT2\x00\x00\x00\x04\x00
         use std::io::{Read, Write};
         use std::sync::mpsc;
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind a local port");
         let address = listener.local_addr().expect("the local address");
         let (requested_tx, requested_rx) = mpsc::channel::<()>();
         let (release_tx, release_rx) = mpsc::channel::<()>();

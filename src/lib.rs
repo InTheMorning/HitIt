@@ -36,6 +36,8 @@ pub mod rss;
 pub mod runtime;
 pub mod startup;
 pub mod subscribe_service;
+#[cfg(test)]
+pub(crate) mod test_ports;
 pub mod theme_profile;
 pub mod track_compare;
 pub mod track_identity;

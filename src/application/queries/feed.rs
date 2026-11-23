@@ -476,7 +476,7 @@ mod tests {
 mod adr_0075_request_profile_tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -492,7 +492,7 @@ mod adr_0075_request_profile_tests {
 
     impl Fixture {
         fn start() -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap().to_string();
             let endpoint: crate::config::MusicIndexEndpoint = format!("http://{address}").into();
@@ -732,7 +732,7 @@ mod adr_0086_parallel_reads_tests {
     use super::*;
     use crate::application::queries::PARALLEL_DETAIL_READS;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
@@ -750,7 +750,7 @@ mod adr_0086_parallel_reads_tests {
         answer: fn(&str) -> String,
         expected_requests: usize,
     ) -> (String, Arc<Mutex<Vec<String>>>, Arc<Mutex<(usize, usize)>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let address = listener.local_addr().unwrap().to_string();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let running = Arc::new(Mutex::new((0_usize, 0_usize)));
@@ -814,7 +814,7 @@ mod adr_0086_parallel_reads_tests {
         delay_millis: fn(&str) -> u64,
         expected_requests: usize,
     ) -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let address = listener.local_addr().unwrap().to_string();
         std::thread::spawn(move || {
             for _ in 0..expected_requests {

@@ -148,7 +148,6 @@ mod tests {
     use super::*;
     use crate::media::header_glow::GlowStyle;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
 
     use crate::application::command_bus::CommandBus;
     use crate::application::command_context::{CancellationToken, OperationId, TraceId};
@@ -162,7 +161,7 @@ mod tests {
     }
 
     fn serve_image_once(content_type: &'static str, body: &'static [u8]) -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");

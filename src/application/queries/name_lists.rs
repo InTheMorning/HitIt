@@ -424,14 +424,14 @@ impl ApplicationCommand for FetchArtistNameValues {
 pub(crate) mod tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     /// A local HTTP server that answers each request with `body` and
     /// records each request path.
     fn serve(body: String, expected_requests: usize) -> (String, Arc<Mutex<Vec<String>>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let address = listener.local_addr().unwrap().to_string();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let received = Arc::clone(&requests);
@@ -606,7 +606,7 @@ pub(crate) mod tests {
         answer: fn(&str) -> String,
         expected_requests: usize,
     ) -> (String, Arc<Mutex<Vec<String>>>, Arc<Mutex<(usize, usize)>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let address = listener.local_addr().unwrap().to_string();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let running = Arc::new(Mutex::new((0_usize, 0_usize)));

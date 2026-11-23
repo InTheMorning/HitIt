@@ -497,7 +497,6 @@ fn unix_timestamp() -> Result<i64> {
 #[cfg(test)]
 mod tests {
     use std::io::{Read as _, Write as _};
-    use std::net::TcpListener;
 
     use anyhow::Result;
 
@@ -526,7 +525,7 @@ mod tests {
     }
 
     fn serve_once(status: &str, body: impl Into<String>) -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         let status = status.to_owned();
         let body = body.into();
@@ -545,7 +544,7 @@ mod tests {
     }
 
     fn serve_disconnect_once() -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");

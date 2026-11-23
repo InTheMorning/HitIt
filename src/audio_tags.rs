@@ -130,7 +130,7 @@ mod tests {
     /// text (ADR 0056).
     #[test]
     fn transcript_download_rejects_markup_body() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn apic_image_download_follows_redirect_with_spaces() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut redirect_stream, _) = listener.accept().expect("accept redirect request");
@@ -189,7 +189,7 @@ mod tests {
     /// could put markup into the picture frame (ADR 0056).
     #[test]
     fn apic_image_download_rejects_markup_declared_as_an_image() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn apic_image_download_rejects_non_image_redirect_body() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");

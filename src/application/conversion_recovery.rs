@@ -616,7 +616,7 @@ mod tests {
         fn start(respond: impl Fn(&str, usize) -> (u16, Vec<u8>) + Send + 'static) -> Self {
             use std::io::{Read, Write};
             use std::sync::atomic::Ordering;
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let addr = listener.local_addr().unwrap();
             let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -671,7 +671,7 @@ mod tests {
     const MP3: &[u8] = b"ID3\x04\x00\x00\x00\x00\x00\x00mp3data";
 
     fn closed_port_url() -> String {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let url = format!("http://{}/closed.mp3", listener.local_addr().unwrap());
         drop(listener);
         url
@@ -1012,7 +1012,7 @@ mod tests {
         use std::io::{Read, Write};
         use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
         let (temp, config, conn, _) = fixture();
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}/original.wav", listener.local_addr().unwrap());
         let requests = Arc::new(AtomicUsize::new(0));

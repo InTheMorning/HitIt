@@ -614,7 +614,7 @@ mod tests {
             ("mp3", b"ID3\x04\x00\x00\x00\x00\x00\x00mp3data".as_slice()),
             ("wav", b"RIFF\x24\x00\x00\x00WAVEfmt ".as_slice()),
         ] {
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             let url = format!(
                 "http://{}/audio.{extension}",
                 listener.local_addr().unwrap()
@@ -875,7 +875,7 @@ mod tests {
 
     #[test]
     fn downloads_selected_mp3_to_local_path() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");
@@ -923,7 +923,7 @@ mod tests {
 
     #[test]
     fn follows_enclosure_redirect_instead_of_saving_redirect_body() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut redirect_stream, _) = listener.accept().expect("accept redirect request");
@@ -968,7 +968,7 @@ mod tests {
     /// 2026-10-03).
     #[test]
     fn adr_0056_no_length_check_container_detection_rejects_non_audio_body() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");
@@ -1023,7 +1023,7 @@ mod tests {
                 b"ID3\x04\x00\x00\x00\x00\x00\x00short".as_slice(),
             ),
         ] {
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+            let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
             let addr = listener.local_addr().expect("listener addr");
             let response_body = body.to_vec();
             std::thread::spawn(move || {
@@ -1059,7 +1059,7 @@ mod tests {
     /// (ADR 0056, amended 2026-10-03).
     #[test]
     fn adr_0056_no_length_check_truncated_transfer_fails_the_download() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");

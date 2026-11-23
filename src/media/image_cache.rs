@@ -568,7 +568,6 @@ fn downscale(bytes: &[u8], max_dim: u32) -> Result<Option<Vec<u8>>> {
 mod tests {
     use super::*;
     use std::io::{Read as _, Write as _};
-    use std::net::TcpListener;
 
     const TEST_IMAGE_BYTES: &[u8] = include_bytes!("../assets/music_network_logo.png");
 
@@ -654,7 +653,7 @@ mod tests {
     }
 
     fn serve_once(content_type: &'static str, body: &'static [u8]) -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");
@@ -671,7 +670,7 @@ mod tests {
     }
 
     fn serve_redirect_then_image() -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let (mut redirect_stream, _) = listener.accept().expect("accept redirect request");

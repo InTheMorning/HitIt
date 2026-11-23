@@ -3714,7 +3714,7 @@ producer = "liquidsoap"
 
     use super::*;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::time::{Duration, Instant};
 
     use crate::broadcast::control::ServiceState;
@@ -3730,7 +3730,7 @@ producer = "liquidsoap"
     }
 
     fn show_event_relay(statuses: Vec<u16>) -> (String, std::thread::JoinHandle<Vec<String>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let thread = std::thread::spawn(move || {
             let mut requests = Vec::new();

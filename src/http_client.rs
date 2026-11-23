@@ -82,14 +82,13 @@ pub fn media_builder() -> ClientBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::TcpListener;
 
     /// A host that accepts the connection and then says nothing must fail
     /// rather than hang. Pins the behavior rather than trusting the dependency
     /// default to stay where it is.
     #[test]
     fn client_gives_up_on_a_silent_host() {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             let _accepted = listener.accept();
@@ -116,7 +115,7 @@ mod tests {
     fn builders_send_the_user_agent_of_the_app() {
         use std::io::{Read as _, Write as _};
 
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         std::thread::spawn(move || {
             for stream in listener.incoming().take(2) {

@@ -1347,7 +1347,7 @@ fn append_feed_source_id(
 #[cfg(test)]
 mod tests {
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::thread;
     use std::time::{Duration, Instant};
 
@@ -1390,7 +1390,7 @@ mod tests {
 
     // Each response closes its connection. The bounded worker records every requested path.
     fn server(responses: Vec<(String, Vec<u8>)>) -> (String, thread::JoinHandle<Vec<String>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind the RSS fixture");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind the RSS fixture");
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}/feed", listener.local_addr().unwrap());
         let worker = thread::spawn(move || {
@@ -2329,7 +2329,7 @@ mod tests {
         use rusqlite::Connection;
         use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind the RSS fixture");
+        let listener = crate::test_ports::fresh_local_listener().expect("bind the RSS fixture");
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}/feed", listener.local_addr().unwrap());
         let xml = document("<item><guid>track</guid><title>Shared</title></item>");

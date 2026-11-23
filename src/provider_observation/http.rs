@@ -185,11 +185,11 @@ pub(crate) fn decode_text(observation: &mut ProviderObservation) -> String {
 mod tests {
     use super::*;
     use std::io::Write;
-    use std::net::TcpListener;
+
     use std::time::Instant;
 
     fn server(response: Vec<u8>, count: usize) -> (String, std::thread::JoinHandle<()>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let url = format!("http://{}/private", listener.local_addr().unwrap());
         let handle = std::thread::spawn(move || {
             for _ in 0..count {
@@ -263,7 +263,7 @@ mod tests {
         assert_eq!(observation.interpretation["body_state"], "truncated");
         assert_eq!(observation.fetched_at_us, None);
         assert_eq!(observation.outcome, ObservationOutcome::Failed);
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let url = format!("http://{}/slow", listener.local_addr().unwrap());
         let worker = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -312,7 +312,7 @@ mod tests {
         assert!(observation.occurrence["headers"]
             .get("set-cookie")
             .is_none());
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         drop(listener);
         let absent = capture(crate::http_client::document().get(url), "test-v1");

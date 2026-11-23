@@ -588,11 +588,11 @@ mod tests {
     #[test]
     fn adr_0100_missing_cache_file_deletes_row_and_uses_network() -> Result<()> {
         use std::io::{Read, Write};
-        use std::net::TcpListener;
+
         use std::thread;
 
         let (temp, cfg, conn, mut operation) = fixture();
-        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let listener = crate::test_ports::fresh_local_listener()?;
         let url = format!("http://{}/audio.flac", listener.local_addr()?);
         let audio = include_bytes!("../../docs/runbooks/fixtures/conversion.flac").to_vec();
         let response_audio = audio.clone();
@@ -659,12 +659,12 @@ mod tests {
     #[test]
     fn adr_0075_rss_materialization_retry_retains_the_original_observation() {
         use std::io::{Read, Write};
-        use std::net::TcpListener;
+
         use std::thread;
         use std::time::Duration;
 
         let (temp, mut cfg, conn, operation) = fixture();
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let url = format!("http://{}/rss", listener.local_addr().unwrap());
         let xml = b"<rss xmlns:podcast=\"https://podcastindex.org/namespace/1.0\"><channel><item><guid>original</guid><podcast:txt purpose=\"nostr\">retained rejected evidence</podcast:txt></item></channel></rss>";
         let worker = thread::spawn(move || {

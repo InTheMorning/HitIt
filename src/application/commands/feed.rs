@@ -1105,7 +1105,7 @@ mod observation_tests {
     use serde_json::json;
     use std::collections::BTreeMap;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::path::Path;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
@@ -1144,7 +1144,7 @@ mod observation_tests {
             // would race a concurrently running test's own state.
             let conn = Connection::open_in_memory().unwrap();
             db::upgrades::create_fixture(&conn, db::CURRENT_VERSION).unwrap();
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap().to_string();
             let base = format!("http://{address}");
@@ -1878,7 +1878,7 @@ mod parallel_tests {
     use super::*;
     use serde_json::json;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::sync::atomic::AtomicBool;
     use std::time::Duration;
 
@@ -1899,7 +1899,7 @@ mod parallel_tests {
 
     impl Server {
         fn start(token: CancellationToken) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let base = format!("http://{}", listener.local_addr().unwrap());
             let requests = Arc::new(Mutex::new(Vec::<String>::new()));

@@ -1670,7 +1670,7 @@ mod adr_0075_request_profile_tests {
     use super::*;
     use crate::application::request_profiles;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
 
@@ -1687,12 +1687,13 @@ mod adr_0075_request_profile_tests {
     impl Fixture {
         fn start() -> Self {
             // Packet 018 Part B: the shared owner is one process-wide value
-            // (P18-6), so this and every other test share it. A fresh
-            // ephemeral port makes each fixture's `RequestKey` distinct
-            // (the key carries the endpoint), so tests never collide on a
-            // retained entry; nothing here clears the shared owner, which
-            // would race a concurrently running test's own state.
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            // (P18-6), so this and every other test share it. The key
+            // carries the endpoint. `fresh_local_listener` never gives a
+            // port two times in one test process, so each fixture has its
+            // own `RequestKey` and gets no retained entry of an earlier
+            // test. Nothing here clears the shared owner, because that
+            // would race the state of a concurrent test.
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap().to_string();
             let endpoint: crate::config::MusicIndexEndpoint = format!("http://{address}").into();

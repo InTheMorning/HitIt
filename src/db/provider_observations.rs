@@ -1298,7 +1298,7 @@ mod tests {
     #[test]
     fn adr_0075_observation_redirect_retains_request_identity_and_final_resource() {
         use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
         let destination = format!("{base}/response");
         let final_uri = destination.clone();

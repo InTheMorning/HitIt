@@ -1849,7 +1849,7 @@ mod adr_0075_request_profile_tests {
     use super::*;
     use crate::application::request_profiles;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -1865,7 +1865,7 @@ mod adr_0075_request_profile_tests {
 
     impl Fixture {
         fn start() -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_ports::fresh_local_listener().unwrap();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap().to_string();
             let endpoint: crate::config::MusicIndexEndpoint = format!("http://{address}").into();
@@ -2130,7 +2130,7 @@ mod adr_0084_name_level_query_tests {
     use super::*;
     use crate::view_models::artist_identity::{name_feed_matches, NameFeedEntry};
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
@@ -2139,7 +2139,7 @@ mod adr_0084_name_level_query_tests {
     /// A local HTTP server that answers `expected` requests through
     /// `respond`, and records each request path.
     pub(super) fn serve(expected: usize, respond: Responder) -> (String, Arc<Mutex<Vec<String>>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_ports::fresh_local_listener().unwrap();
         let address = listener.local_addr().unwrap().to_string();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let received = Arc::clone(&requests);
